@@ -19,7 +19,7 @@ package com.amazon.opendistroforelasticsearch.knn.plugin;
 import com.amazon.opendistroforelasticsearch.knn.index.codec.KNN87Codec.KNN87Codec;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.PostingsFormat;
-import org.elasticsearch.index.codec.CodecService;
+import org.opensearch.index.codec.CodecService;
 
 import static com.amazon.opendistroforelasticsearch.knn.index.codec.KNN87Codec.KNN87Codec.KNN_87;
 

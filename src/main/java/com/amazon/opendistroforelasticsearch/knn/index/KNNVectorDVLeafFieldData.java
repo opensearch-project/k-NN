@@ -18,9 +18,9 @@ package com.amazon.opendistroforelasticsearch.knn.index;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.LeafReader;
-import org.elasticsearch.index.fielddata.LeafFieldData;
-import org.elasticsearch.index.fielddata.ScriptDocValues;
-import org.elasticsearch.index.fielddata.SortedBinaryDocValues;
+import org.opensearch.index.fielddata.LeafFieldData;
+import org.opensearch.index.fielddata.ScriptDocValues;
+import org.opensearch.index.fielddata.SortedBinaryDocValues;
 
 import java.io.IOException;
 

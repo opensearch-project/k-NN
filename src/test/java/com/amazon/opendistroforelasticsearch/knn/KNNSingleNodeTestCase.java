@@ -18,26 +18,26 @@ import com.amazon.opendistroforelasticsearch.knn.index.KNNIndexCache;
 import com.amazon.opendistroforelasticsearch.knn.index.KNNQueryBuilder;
 import com.amazon.opendistroforelasticsearch.knn.plugin.KNNPlugin;
 import com.amazon.opendistroforelasticsearch.knn.plugin.stats.KNNCounter;
-import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.index.IndexService;
-import org.elasticsearch.plugins.Plugin;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.test.ESSingleNodeTestCase;
-import org.elasticsearch.test.hamcrest.ElasticsearchAssertions;
+import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.support.WriteRequest;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.index.IndexService;
+import org.opensearch.plugins.Plugin;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.test.OpenSearchSingleNodeTestCase;
+import org.opensearch.test.hamcrest.OpenSearchAssertions;
 
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 
-public class KNNSingleNodeTestCase extends ESSingleNodeTestCase {
+public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
     @Override
     public void setUp() throws Exception {
         super.setUp();
@@ -77,7 +77,7 @@ public class KNNSingleNodeTestCase extends ESSingleNodeTestCase {
     protected void createKnnIndexMapping(String indexName, String fieldName, Integer dimensions) {
         PutMappingRequest request = new PutMappingRequest(indexName).type("_doc");
         request.source(fieldName, "type=knn_vector,dimension="+dimensions);
-        ElasticsearchAssertions.assertAcked(client().admin().indices().putMapping(request).actionGet());
+        OpenSearchAssertions.assertAcked(client().admin().indices().putMapping(request).actionGet());
     }
 
     /**

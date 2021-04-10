@@ -18,10 +18,10 @@ package com.amazon.opendistroforelasticsearch.knn.index;
 import com.amazon.opendistroforelasticsearch.knn.KNNRestTestCase;
 import com.amazon.opendistroforelasticsearch.knn.plugin.stats.StatNames;
 import org.apache.http.util.EntityUtils;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.ResponseException;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.rest.RestStatus;
+import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
 import java.util.Collections;

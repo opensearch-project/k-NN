@@ -16,9 +16,9 @@
 package com.amazon.opendistroforelasticsearch.knn.index;
 
 import com.amazon.opendistroforelasticsearch.knn.KNNSingleNodeTestCase;
-import org.elasticsearch.index.IndexService;
-import org.elasticsearch.index.engine.Engine;
-import org.elasticsearch.index.shard.IndexShard;
+import org.opensearch.index.IndexService;
+import org.opensearch.index.engine.Engine;
+import org.opensearch.index.shard.IndexShard;
 
 import java.io.IOException;
 import java.util.List;

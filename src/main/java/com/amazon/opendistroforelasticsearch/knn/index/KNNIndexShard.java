@@ -26,9 +26,9 @@ import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
-import org.elasticsearch.index.engine.Engine;
-import org.elasticsearch.index.shard.IndexShard;
-import org.elasticsearch.index.shard.ShardPath;
+import org.opensearch.index.engine.Engine;
+import org.opensearch.index.shard.IndexShard;
+import org.opensearch.index.shard.ShardPath;
 
 import java.io.IOException;
 import java.nio.file.Path;

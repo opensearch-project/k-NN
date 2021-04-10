@@ -18,7 +18,7 @@ package com.amazon.opendistroforelasticsearch.knn.plugin.script;
 
 import com.amazon.opendistroforelasticsearch.knn.common.KNNConstants;
 import com.amazon.opendistroforelasticsearch.knn.plugin.stats.KNNCounter;
-import org.elasticsearch.index.mapper.MappedFieldType;
+import org.opensearch.index.mapper.MappedFieldType;
 
 /**
  * Factory to create correct KNNScoringSpace based on the spaceType passed in.

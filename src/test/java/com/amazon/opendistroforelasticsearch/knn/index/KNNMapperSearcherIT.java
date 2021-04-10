@@ -20,7 +20,7 @@ import com.amazon.opendistroforelasticsearch.knn.KNNResult;
 import org.apache.http.util.EntityUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.client.Response;
+import org.opensearch.client.Response;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;

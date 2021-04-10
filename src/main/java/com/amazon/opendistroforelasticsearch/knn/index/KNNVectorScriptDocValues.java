@@ -17,8 +17,8 @@ package com.amazon.opendistroforelasticsearch.knn.index;
 
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.util.BytesRef;
-import org.elasticsearch.ExceptionsHelper;
-import org.elasticsearch.index.fielddata.ScriptDocValues;
+import org.opensearch.ExceptionsHelper;
+import org.opensearch.index.fielddata.ScriptDocValues;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

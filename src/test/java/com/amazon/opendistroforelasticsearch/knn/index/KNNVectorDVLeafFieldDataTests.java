@@ -25,7 +25,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.store.Directory;
-import org.elasticsearch.index.fielddata.ScriptDocValues;
+import org.opensearch.index.fielddata.ScriptDocValues;
 import org.junit.Before;
 
 import java.io.IOException;

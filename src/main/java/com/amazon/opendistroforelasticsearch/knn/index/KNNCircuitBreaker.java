@@ -23,10 +23,10 @@ import com.amazon.opendistroforelasticsearch.knn.plugin.transport.KNNStatsReques
 import com.amazon.opendistroforelasticsearch.knn.plugin.transport.KNNStatsResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.threadpool.ThreadPool;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.threadpool.ThreadPool;
 
 import java.util.ArrayList;
 import java.util.List;

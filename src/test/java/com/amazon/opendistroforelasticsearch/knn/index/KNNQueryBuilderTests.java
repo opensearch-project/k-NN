@@ -16,12 +16,12 @@
 package com.amazon.opendistroforelasticsearch.knn.index;
 
 import com.amazon.opendistroforelasticsearch.knn.KNNTestCase;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.common.xcontent.XContentParser;
-import org.elasticsearch.index.Index;
-import org.elasticsearch.index.mapper.NumberFieldMapper;
-import org.elasticsearch.index.query.QueryShardContext;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.index.Index;
+import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.index.query.QueryShardContext;
 
 import java.io.IOException;
 

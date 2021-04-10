@@ -24,12 +24,12 @@ import com.google.common.cache.RemovalCause;
 import com.google.common.cache.RemovalNotification;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.common.Strings;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.watcher.FileChangesListener;
-import org.elasticsearch.watcher.FileWatcher;
-import org.elasticsearch.watcher.ResourceWatcherService;
-import org.elasticsearch.watcher.WatcherHandle;
+import org.opensearch.common.Strings;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.watcher.FileChangesListener;
+import org.opensearch.watcher.FileWatcher;
+import org.opensearch.watcher.ResourceWatcherService;
+import org.opensearch.watcher.WatcherHandle;
 
 import java.io.Closeable;
 import java.nio.file.Path;

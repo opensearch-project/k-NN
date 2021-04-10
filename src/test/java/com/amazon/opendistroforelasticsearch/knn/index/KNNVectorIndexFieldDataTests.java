@@ -22,7 +22,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.store.Directory;
-import org.elasticsearch.search.aggregations.support.CoreValuesSourceType;
+import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.junit.Before;
 
 import java.io.IOException;

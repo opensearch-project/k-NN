@@ -19,9 +19,9 @@ import com.amazon.opendistroforelasticsearch.knn.common.KNNConstants;
 import com.amazon.opendistroforelasticsearch.knn.index.KNNVectorFieldMapper;
 import com.amazon.opendistroforelasticsearch.knn.index.KNNWeight;
 import org.apache.lucene.index.LeafReaderContext;
-import org.elasticsearch.index.mapper.MappedFieldType;
-import org.elasticsearch.script.ScoreScript;
-import org.elasticsearch.search.lookup.SearchLookup;
+import org.opensearch.index.mapper.MappedFieldType;
+import org.opensearch.script.ScoreScript;
+import org.opensearch.search.lookup.SearchLookup;
 
 import java.io.IOException;
 import java.math.BigInteger;

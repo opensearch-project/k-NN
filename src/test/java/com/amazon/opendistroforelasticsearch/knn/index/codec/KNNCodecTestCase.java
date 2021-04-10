@@ -36,9 +36,9 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.watcher.ResourceWatcherService;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.watcher.ResourceWatcherService;
 import org.mockito.Mockito;
 
 import java.util.Arrays;

@@ -15,8 +15,8 @@
 
 buildscript {
     ext {
-        es_version = System.getProperty("es.version", "7.10.2")
-        es_group = "org.elasticsearch"
+        es_version = System.getProperty("es.version", "7.10.3")
+        es_group = "org.opensearch"
         distribution = 'oss-zip'
     }
 
@@ -24,11 +24,29 @@ buildscript {
     repositories {
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
+        maven {
+            url = 's3://search-vemsarat/'
+            credentials(AwsCredentials) {
+                accessKey = System.env.AWS_ACCESS_KEY_ID ?: findProperty('aws_access_key_id')
+                secretKey = System.env.AWS_SECRET_ACCESS_KEY ?: findProperty('aws_secret_access_key')
+            }
+        }
         jcenter()
     }
 
+    repositories {
+        maven {
+            url = 's3://search-vemsarat/'
+            credentials(AwsCredentials) {
+                accessKey = System.env.AWS_ACCESS_KEY_ID ?: findProperty('aws_access_key_id')
+                secretKey = System.env.AWS_SECRET_ACCESS_KEY ?: findProperty('aws_secret_access_key')
+            }
+        }
+    }
+
+
     dependencies {
-        classpath "${es_group}.gradle:build-tools:${es_version}"
+        classpath "${es_group}.gradle:build-tools:${es_version}-SNAPSHOT"
     }
 }
 
@@ -41,11 +59,29 @@ plugins {
     id 'nebula.ospackage' version "8.3.0" apply false
     id 'idea'
     id 'jacoco'
+
+}
+
+repositories {
+    mavenCentral()
+    maven { url "https://plugins.gradle.org/m2/" }
+    maven {
+        url = 's3://search-vemsarat/'
+        credentials(AwsCredentials) {
+            accessKey = System.env.AWS_ACCESS_KEY_ID ?: findProperty('aws_access_key_id')
+            secretKey = System.env.AWS_SECRET_ACCESS_KEY ?: findProperty('aws_secret_access_key')
+        }
+    }
+    jcenter()
 }
 
 
-apply plugin: 'elasticsearch.esplugin'
-apply plugin: 'elasticsearch.rest-test'
+//apply plugin: 'elasticsearch.esplugin'
+//apply plugin: 'elasticsearch.rest-test'
+
+apply plugin: 'opensearch.opensearchplugin'
+apply plugin: 'opensearch.testclusters'
+apply plugin: 'opensearch.rest-test'
 
 
 checkstyle {
@@ -68,7 +104,7 @@ if (!usingRemoteCluster) {
 }
 
 ext {
-    opendistroVersion = '1.13.0'
+    opendistroVersion = '1.15.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
     projectSubstitutions = [:]
     licenseFile = rootProject.file('LICENSE.TXT')
@@ -92,7 +128,7 @@ jacoco {
 
 check.dependsOn jacocoTestReport
 
-esplugin {
+opensearchplugin {
     name 'opendistro-knn'
     // zip file name and plugin name in ${elasticsearch.plugin.name} read by ES when plugin loading
     description 'Open Distro for Elasticsearch KNN'
@@ -117,11 +153,11 @@ task release(type: Copy, group: 'build') {
 // Dependencies
 //****************************************************************************/
 dependencies {
-    compileOnly "org.elasticsearch:elasticsearch:${es_version}"
-    compileOnly "org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${es_version}"
+    compile "org.opensearch:opensearch:${es_version}-SNAPSHOT"
+    compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
     compile group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
     compile group: 'com.google.guava', name: 'guava', version:'29.0-jre'
-    testImplementation "org.elasticsearch.test:framework:${es_version}"
+    testImplementation "org.opensearch.test:framework:${es_version}-SNAPSHOT"
     configurations.all {
         resolutionStrategy {
             force "com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"
@@ -134,8 +170,8 @@ dependencyLicenses.enabled = false
 thirdPartyAudit.enabled = false
 loggerUsageCheck.enabled = false
 
-def es_tmp_dir = rootProject.file('build/private/es_tmp').absoluteFile
-es_tmp_dir.mkdirs()
+def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absoluteFile
+opensearch_tmp_dir.mkdirs()
 
 task cmakeJniLib(type:Exec) {
     workingDir 'jni'
@@ -160,7 +196,7 @@ integTest {
         dependsOn buildJniLib
     }
     systemProperty 'tests.security.manager', 'false'
-    systemProperty 'java.io.tmpdir', es_tmp_dir.absolutePath
+    systemProperty 'java.io.tmpdir', opensearch_tmp_dir.absolutePath
     systemProperty "java.library.path", "$rootDir/jni/release"
     // allows integration test classes to access test resource from project root path
     systemProperty('project.root', project.rootDir.absolutePath)
@@ -242,7 +278,7 @@ afterEvaluate {
 
         into '/usr/share/elasticsearch/plugins'
         from(zipTree(bundlePlugin.archivePath)) {
-            into esplugin.name
+            into opensearchplugin.name
         }
 
         user 'root'
