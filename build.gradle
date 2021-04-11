@@ -15,8 +15,8 @@
 
 buildscript {
     ext {
-        es_version = System.getProperty("es.version", "7.10.3")
-        es_group = "org.opensearch"
+        opensearch_version = System.getProperty("es.version", "7.10.3")
+        opensearch_group = "org.opensearch"
         distribution = 'oss-zip'
     }
 
@@ -46,7 +46,7 @@ buildscript {
 
 
     dependencies {
-        classpath "${es_group}.gradle:build-tools:${es_version}-SNAPSHOT"
+        classpath "${opensearch_group}.gradle:build-tools:${opensearch_version}-SNAPSHOT"
     }
 }
 
@@ -75,12 +75,7 @@ repositories {
     jcenter()
 }
 
-
-//apply plugin: 'elasticsearch.esplugin'
-//apply plugin: 'elasticsearch.rest-test'
-
 apply plugin: 'opensearch.opensearchplugin'
-apply plugin: 'opensearch.testclusters'
 apply plugin: 'opensearch.rest-test'
 
 
@@ -153,11 +148,11 @@ task release(type: Copy, group: 'build') {
 // Dependencies
 //****************************************************************************/
 dependencies {
-    compile "org.opensearch:opensearch:${es_version}-SNAPSHOT"
+    compile "org.opensearch:opensearch:${opensearch_version}-SNAPSHOT"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
     compile group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
     compile group: 'com.google.guava', name: 'guava', version:'29.0-jre'
-    testImplementation "org.opensearch.test:framework:${es_version}-SNAPSHOT"
+    testImplementation "org.opensearch.test:framework:${opensearch_version}-SNAPSHOT"
     configurations.all {
         resolutionStrategy {
             force "com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"
