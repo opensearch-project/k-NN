@@ -17,12 +17,12 @@ package com.amazon.opendistroforelasticsearch.knn;
 
 import com.amazon.opendistroforelasticsearch.knn.index.KNNIndexCache;
 import com.amazon.opendistroforelasticsearch.knn.plugin.stats.KNNCounter;
-import org.elasticsearch.test.ESTestCase;
+import org.opensearch.test.OpenSearchTestCase;
 
 /**
  * Base class for integration tests for KNN plugin. Contains several methods for testing KNN ES functionality.
  */
-public class KNNTestCase extends ESTestCase {
+public class KNNTestCase extends OpenSearchTestCase {
     @Override
     public void tearDown() throws Exception {
         super.tearDown();

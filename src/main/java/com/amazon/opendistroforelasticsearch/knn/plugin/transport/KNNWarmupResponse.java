@@ -15,10 +15,10 @@
 
 package com.amazon.opendistroforelasticsearch.knn.plugin.transport;
 
-import org.elasticsearch.action.support.DefaultShardOperationFailedException;
-import org.elasticsearch.action.support.broadcast.BroadcastResponse;
-import org.elasticsearch.common.io.stream.StreamInput;
-import org.elasticsearch.common.xcontent.ToXContentObject;
+import org.opensearch.action.support.DefaultShardOperationFailedException;
+import org.opensearch.action.support.broadcast.BroadcastResponse;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.xcontent.ToXContentObject;
 
 import java.io.IOException;
 import java.util.List;

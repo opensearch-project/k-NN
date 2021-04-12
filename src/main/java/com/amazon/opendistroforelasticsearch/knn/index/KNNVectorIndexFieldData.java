@@ -16,15 +16,15 @@ package com.amazon.opendistroforelasticsearch.knn.index;
 
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.SortField;
-import org.elasticsearch.common.util.BigArrays;
-import org.elasticsearch.index.fielddata.IndexFieldData;
-import org.elasticsearch.index.fielddata.IndexFieldDataCache;
-import org.elasticsearch.indices.breaker.CircuitBreakerService;
-import org.elasticsearch.search.DocValueFormat;
-import org.elasticsearch.search.MultiValueMode;
-import org.elasticsearch.search.aggregations.support.ValuesSourceType;
-import org.elasticsearch.search.sort.BucketedSort;
-import org.elasticsearch.search.sort.SortOrder;
+import org.opensearch.common.util.BigArrays;
+import org.opensearch.index.fielddata.IndexFieldData;
+import org.opensearch.index.fielddata.IndexFieldDataCache;
+import org.opensearch.indices.breaker.CircuitBreakerService;
+import org.opensearch.search.DocValueFormat;
+import org.opensearch.search.MultiValueMode;
+import org.opensearch.search.aggregations.support.ValuesSourceType;
+import org.opensearch.search.sort.BucketedSort;
+import org.opensearch.search.sort.SortOrder;
 
 public class KNNVectorIndexFieldData implements IndexFieldData<KNNVectorDVLeafFieldData> {
 

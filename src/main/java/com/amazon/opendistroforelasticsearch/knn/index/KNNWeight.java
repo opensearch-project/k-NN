@@ -31,7 +31,7 @@ import org.apache.lucene.search.Weight;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.util.DocIdSetBuilder;
-import org.elasticsearch.common.io.PathUtils;
+import org.opensearch.common.io.PathUtils;
 
 import java.io.IOException;
 import java.nio.file.Path;

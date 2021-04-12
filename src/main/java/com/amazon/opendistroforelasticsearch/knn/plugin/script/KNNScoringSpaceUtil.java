@@ -17,15 +17,15 @@ package com.amazon.opendistroforelasticsearch.knn.plugin.script;
 
 import com.amazon.opendistroforelasticsearch.knn.index.KNNVectorFieldMapper;
 import com.amazon.opendistroforelasticsearch.knn.plugin.stats.KNNCounter;
-import org.elasticsearch.index.mapper.BinaryFieldMapper;
-import org.elasticsearch.index.mapper.MappedFieldType;
-import org.elasticsearch.index.mapper.NumberFieldMapper;
+import org.opensearch.index.mapper.BinaryFieldMapper;
+import org.opensearch.index.mapper.MappedFieldType;
+import org.opensearch.index.mapper.NumberFieldMapper;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Base64;
 
-import static org.elasticsearch.index.mapper.NumberFieldMapper.NumberType.LONG;
+import static org.opensearch.index.mapper.NumberFieldMapper.NumberType.LONG;
 
 public class KNNScoringSpaceUtil {
 

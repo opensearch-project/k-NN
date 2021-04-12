@@ -16,10 +16,10 @@
 
 package com.amazon.opendistroforelasticsearch.knn.plugin;
 
-import org.elasticsearch.index.engine.Engine;
-import org.elasticsearch.index.engine.EngineConfig;
-import org.elasticsearch.index.engine.EngineFactory;
-import org.elasticsearch.index.engine.InternalEngine;
+import org.opensearch.index.engine.Engine;
+import org.opensearch.index.engine.EngineConfig;
+import org.opensearch.index.engine.EngineFactory;
+import org.opensearch.index.engine.InternalEngine;
 
 /**
  * EngineFactory to inject the KNNCodecService to help segments write using the KNNCodec.
