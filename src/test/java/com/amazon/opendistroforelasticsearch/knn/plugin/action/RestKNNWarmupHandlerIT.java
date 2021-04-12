@@ -17,8 +17,8 @@ package com.amazon.opendistroforelasticsearch.knn.plugin.action;
 
 import com.amazon.opendistroforelasticsearch.knn.KNNRestTestCase;
 
-import org.elasticsearch.client.ResponseException;
-import org.elasticsearch.common.settings.Settings;
+import org.opensearch.client.ResponseException;
+import org.opensearch.common.settings.Settings;
 import org.junit.Test;
 
 import java.io.IOException;

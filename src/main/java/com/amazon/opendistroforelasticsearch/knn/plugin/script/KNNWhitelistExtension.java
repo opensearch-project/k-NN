@@ -15,11 +15,11 @@
 
 package com.amazon.opendistroforelasticsearch.knn.plugin.script;
 
-import org.elasticsearch.painless.spi.PainlessExtension;
-import org.elasticsearch.painless.spi.Whitelist;
-import org.elasticsearch.painless.spi.WhitelistLoader;
-import org.elasticsearch.script.ScoreScript;
-import org.elasticsearch.script.ScriptContext;
+import org.opensearch.painless.spi.PainlessExtension;
+import org.opensearch.painless.spi.Whitelist;
+import org.opensearch.painless.spi.WhitelistLoader;
+import org.opensearch.script.ScoreScript;
+import org.opensearch.script.ScriptContext;
 
 import java.util.Collections;
 import java.util.List;

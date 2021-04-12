@@ -22,23 +22,23 @@ import com.amazon.opendistroforelasticsearch.knn.plugin.transport.KNNWarmupReque
 import com.google.common.collect.ImmutableList;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.client.node.NodeClient;
-import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.Strings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.index.Index;
-import org.elasticsearch.rest.BaseRestHandler;
-import org.elasticsearch.rest.RestController;
-import org.elasticsearch.rest.RestRequest;
-import org.elasticsearch.rest.action.RestToXContentListener;
+import org.opensearch.client.node.NodeClient;
+import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.Strings;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.index.Index;
+import org.opensearch.rest.BaseRestHandler;
+import org.opensearch.rest.RestController;
+import org.opensearch.rest.RestRequest;
+import org.opensearch.rest.action.RestToXContentListener;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 import static com.amazon.opendistroforelasticsearch.knn.index.KNNSettings.KNN_INDEX;
-import static org.elasticsearch.action.support.IndicesOptions.strictExpandOpen;
+import static org.opensearch.action.support.IndicesOptions.strictExpandOpen;
 
 /**
  * RestHandler for k-NN index warmup API. API provides the ability for a user to load specific indices' k-NN graphs

@@ -17,16 +17,16 @@ package com.amazon.opendistroforelasticsearch.knn.plugin.transport;
 
 import com.amazon.opendistroforelasticsearch.knn.KNNSingleNodeTestCase;
 import com.amazon.opendistroforelasticsearch.knn.index.KNNIndexCache;
-import org.elasticsearch.cluster.ClusterName;
-import org.elasticsearch.cluster.ClusterState;
-import org.elasticsearch.cluster.block.ClusterBlock;
-import org.elasticsearch.cluster.block.ClusterBlockLevel;
-import org.elasticsearch.cluster.block.ClusterBlocks;
-import org.elasticsearch.cluster.routing.ShardRouting;
-import org.elasticsearch.cluster.routing.ShardsIterator;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.index.IndexService;
-import org.elasticsearch.rest.RestStatus;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.block.ClusterBlock;
+import org.opensearch.cluster.block.ClusterBlockLevel;
+import org.opensearch.cluster.block.ClusterBlocks;
+import org.opensearch.cluster.routing.ShardRouting;
+import org.opensearch.cluster.routing.ShardsIterator;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.index.IndexService;
+import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
 import java.util.EnumSet;

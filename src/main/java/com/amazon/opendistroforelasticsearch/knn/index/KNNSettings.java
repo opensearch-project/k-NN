@@ -17,20 +17,20 @@ package com.amazon.opendistroforelasticsearch.knn.index;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.elasticsearch.ElasticsearchParseException;
-import org.elasticsearch.action.ActionListener;
-import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
-import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.settings.Setting;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.ByteSizeUnit;
-import org.elasticsearch.common.unit.ByteSizeValue;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.index.IndexModule;
-import org.elasticsearch.monitor.jvm.JvmInfo;
-import org.elasticsearch.monitor.os.OsProbe;
+import org.opensearch.OpenSearchParseException;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
+import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.ByteSizeUnit;
+import org.opensearch.common.unit.ByteSizeValue;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.index.IndexModule;
+import org.opensearch.monitor.jvm.JvmInfo;
+import org.opensearch.monitor.os.OsProbe;
 
 import java.security.InvalidParameterException;
 import java.util.Arrays;
@@ -43,10 +43,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.elasticsearch.common.settings.Setting.Property.Dynamic;
-import static org.elasticsearch.common.settings.Setting.Property.IndexScope;
-import static org.elasticsearch.common.settings.Setting.Property.NodeScope;
-import static org.elasticsearch.common.unit.ByteSizeValue.parseBytesSizeValue;
+import static org.opensearch.common.settings.Setting.Property.Dynamic;
+import static org.opensearch.common.settings.Setting.Property.IndexScope;
+import static org.opensearch.common.settings.Setting.Property.NodeScope;
+import static org.opensearch.common.unit.ByteSizeValue.parseBytesSizeValue;
 
 /**
  * This class defines
@@ -326,7 +326,7 @@ public class KNNSettings {
             try {
                 final double percent = Double.parseDouble(percentAsString);
                 if (percent < 0 || percent > 100) {
-                    throw new ElasticsearchParseException("percentage should be in [0-100], got [{}]", percentAsString);
+                    throw new OpenSearchParseException("percentage should be in [0-100], got [{}]", percentAsString);
                 }
                 long physicalMemoryInBytes = osProbe.getTotalPhysicalMemorySize();
                 if (physicalMemoryInBytes <= 0) {
@@ -336,7 +336,7 @@ public class KNNSettings {
                 long eligibleMemoryInBytes = physicalMemoryInBytes - esJvmSizeInBytes;
                 return new ByteSizeValue((long) ((percent / 100) * eligibleMemoryInBytes), ByteSizeUnit.BYTES);
             } catch (NumberFormatException e) {
-                throw new ElasticsearchParseException("failed to parse [{}] as a double", e, percentAsString);
+                throw new OpenSearchParseException("failed to parse [{}] as a double", e, percentAsString);
             }
         } else {
             return parseBytesSizeValue(sValue, settingName);

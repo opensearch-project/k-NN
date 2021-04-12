@@ -17,8 +17,8 @@ package com.amazon.opendistroforelasticsearch.knn.plugin.script;
 
 import com.amazon.opendistroforelasticsearch.knn.plugin.stats.KNNCounter;
 import org.apache.lucene.index.LeafReaderContext;
-import org.elasticsearch.script.ScoreScript;
-import org.elasticsearch.search.lookup.SearchLookup;
+import org.opensearch.script.ScoreScript;
+import org.opensearch.search.lookup.SearchLookup;
 
 import java.io.IOException;
 import java.util.Map;

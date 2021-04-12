@@ -16,9 +16,9 @@
 package com.amazon.opendistroforelasticsearch.knn.plugin.script;
 
 import com.amazon.opendistroforelasticsearch.knn.plugin.stats.KNNCounter;
-import org.elasticsearch.script.ScoreScript;
-import org.elasticsearch.script.ScriptContext;
-import org.elasticsearch.script.ScriptEngine;
+import org.opensearch.script.ScoreScript;
+import org.opensearch.script.ScriptContext;
+import org.opensearch.script.ScriptEngine;
 
 import java.util.Map;
 import java.util.Set;
