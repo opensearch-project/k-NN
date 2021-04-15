@@ -1,2 +1,5 @@
+OpenSearch k-NN
+Copyright 2021 OpenSearch k-NN Contributors
+
 OpenDistroForElasticsearch
-Copyright 2018-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Copyright 2018-2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
