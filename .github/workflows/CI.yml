@@ -2,8 +2,10 @@ name: Build and Test k-NN
 on:
   push:
     branches:
-      - main
-      - opendistro-*
+      - "*"
+  pull_request:
+    branches:
+      - "*"
 
 jobs:
   Build-k-NN:
@@ -22,6 +24,17 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: ${{ matrix.java }}
+
+      # dependencies: OpenSearch
+      - name: Checkout OpenSearch
+        uses: actions/checkout@v2
+        with:
+          repository: 'opensearch-project/OpenSearch'
+          path: OpenSearch
+
+      - name: Build OpenSearch
+        working-directory: ./OpenSearch
+        run: ./gradlew publishToMavenLocal
 
       - name: Run build
         run: |
