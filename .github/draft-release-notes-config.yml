@@ -1,6 +1,6 @@
 # The overall template of the release notes
 template: |
-  Compatible with Elasticsearch (**set version here**).
+  Compatible with OpenSearch (**set version here**).
   $CHANGES
 
 # Setting the formatting and sorting for the release notes body
