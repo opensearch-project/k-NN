@@ -26,33 +26,20 @@
 
 buildscript {
     ext {
-        opensearch_version = System.getProperty("es.version", "7.10.3")
+        opensearch_version = System.getProperty("opensearch.version", "1.0.0")
         opensearch_group = "org.opensearch"
-        distribution = 'oss-zip'
     }
 
     // This isn't applying from repositories.gradle so repeating git diff it here
     repositories {
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
-        maven {
-            url = 's3://search-vemsarat/'
-            credentials(AwsCredentials) {
-                accessKey = System.env.AWS_ACCESS_KEY_ID ?: findProperty('aws_access_key_id')
-                secretKey = System.env.AWS_SECRET_ACCESS_KEY ?: findProperty('aws_secret_access_key')
-            }
-        }
+        mavenLocal()
         jcenter()
     }
 
     repositories {
-        maven {
-            url = 's3://search-vemsarat/'
-            credentials(AwsCredentials) {
-                accessKey = System.env.AWS_ACCESS_KEY_ID ?: findProperty('aws_access_key_id')
-                secretKey = System.env.AWS_SECRET_ACCESS_KEY ?: findProperty('aws_secret_access_key')
-            }
-        }
+        mavenLocal()
     }
 
 
@@ -76,13 +63,7 @@ plugins {
 repositories {
     mavenCentral()
     maven { url "https://plugins.gradle.org/m2/" }
-    maven {
-        url = 's3://search-vemsarat/'
-        credentials(AwsCredentials) {
-            accessKey = System.env.AWS_ACCESS_KEY_ID ?: findProperty('aws_access_key_id')
-            secretKey = System.env.AWS_SECRET_ACCESS_KEY ?: findProperty('aws_secret_access_key')
-        }
-    }
+    mavenLocal()
     jcenter()
 }
 
@@ -110,7 +91,7 @@ if (!usingRemoteCluster) {
 }
 
 ext {
-    opendistroVersion = '1.15.0'
+    opendistroVersion = '1.0.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
     projectSubstitutions = [:]
     licenseFile = rootProject.file('LICENSE.TXT')
@@ -135,9 +116,9 @@ jacoco {
 check.dependsOn jacocoTestReport
 
 opensearchplugin {
-    name 'opendistro-knn'
+    name 'OpenSearch k-NN'
     // zip file name and plugin name in ${elasticsearch.plugin.name} read by ES when plugin loading
-    description 'Open Distro for Elasticsearch KNN'
+    description 'OpenSearch k-NN plugin'
     classname 'com.amazon.opendistroforelasticsearch.knn.plugin.KNNPlugin'
     extendedPlugins = ['lang-painless']
 }
@@ -151,7 +132,7 @@ task release(type: Copy, group: 'build') {
     from(zipTree(project.tasks.bundlePlugin.outputs.files.getSingleFile()))
     into "build/plugins/opendistro-knn"
     includeEmptyDirs = false
-    eachFile { it.path = it.path - "elasticsearch/" }
+    eachFile { it.path = it.path - "opensearch/" }
 }
 
 
@@ -237,7 +218,7 @@ testClusters.integTest {
         // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
         if (_numNodes > 1) numberOfNodes = _numNodes
         // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
-        // i.e. we have to use a custom property to flag when we want to debug elasticsearch JVM
+        // i.e. we have to use a custom property to flag when we want to debug opensearch JVM
         // since we also support multi node integration tests we increase debugPort per node
         if (System.getProperty("cluster.debug") != null) {
             def debugPort = 5005
