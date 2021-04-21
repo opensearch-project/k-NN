@@ -68,7 +68,7 @@ public final class KNNVectorScriptDocValues extends ScriptDocValues<float[]> {
             ObjectInputStream objectStream = new ObjectInputStream(byteStream);
             return (float[]) objectStream.readObject();
         } catch (IOException e) {
-            throw ExceptionsHelper.convertToElastic(e);
+            throw ExceptionsHelper.convertToOpenSearchException(e);
         } catch (ClassNotFoundException e) {
             throw new RuntimeException((e));
         }
