@@ -1,4 +1,4 @@
-[![Testing Workflow](https://github.com/opensearch-project/k-NN/workflows/Testing%20Workflow/badge.svg)](https://github.com/opensearch-project/k-NN/actions)
+[![Build and Test k-NN](https://github.com/opensearch-project/k-NN/actions/workflows/CI.yml/badge.svg)](https://github.com/opensearch-project/k-NN/actions/workflows/CI.yml)
 [![codecov](https://codecov.io/gh/opendistro-for-elasticsearch/k-NN/branch/master/graph/badge.svg)](https://codecov.io/gh/opendistro-for-elasticsearch/k-NN)
 [![Documentation](https://img.shields.io/badge/doc-reference-blue)](https://opendistro.github.io/for-elasticsearch-docs/docs/knn/)
 [![Chat](https://img.shields.io/badge/chat-on%20forums-blue)](https://discuss.opendistrocommunity.dev/c/k-NN/)
