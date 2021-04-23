@@ -91,7 +91,7 @@ if (!usingRemoteCluster) {
 }
 
 ext {
-    opensearchVersion = '1.0'
+    opensearchVersion = '1.0.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
     projectSubstitutions = [:]
     licenseFile = rootProject.file('LICENSE.TXT')
@@ -116,7 +116,7 @@ jacoco {
 check.dependsOn jacocoTestReport
 
 opensearchplugin {
-    name 'OpenSearch k-NN'
+    name 'opensearch-knn'
     // zip file name and plugin name in ${elasticsearch.plugin.name} read by ES when plugin loading
     description 'OpenSearch k-NN plugin'
     classname 'com.amazon.opendistroforelasticsearch.knn.plugin.KNNPlugin'
