@@ -26,7 +26,7 @@
 
 buildscript {
     ext {
-        opensearch_version = System.getProperty("opensearch.version", "1.0.0")
+        opensearch_version = System.getProperty("opensearch.version", "1.0.0-alpha1")
         opensearch_group = "org.opensearch"
     }
 
@@ -44,7 +44,7 @@ buildscript {
 
 
     dependencies {
-        classpath "${opensearch_group}.gradle:build-tools:${opensearch_version}-SNAPSHOT"
+        classpath "${opensearch_group}.gradle:build-tools:${opensearch_version}"
     }
 }
 
@@ -91,7 +91,7 @@ if (!usingRemoteCluster) {
 }
 
 ext {
-    opendistroVersion = '1.0.0'
+    opensearchVersion = '1.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
     projectSubstitutions = [:]
     licenseFile = rootProject.file('LICENSE.TXT')
@@ -100,7 +100,7 @@ ext {
 
 allprojects {
     group = 'com.amazon.opendistroforelasticsearch'
-    version = "${opendistroVersion}.0"
+    version = "${opensearchVersion}.0-beta1"
 
     apply from: 'build-tools/repositories.gradle'
     plugins.withId('java') {
@@ -130,7 +130,7 @@ tasks.named("integTest").configure {
 task release(type: Copy, group: 'build') {
     dependsOn allprojects*.tasks.build
     from(zipTree(project.tasks.bundlePlugin.outputs.files.getSingleFile()))
-    into "build/plugins/opendistro-knn"
+    into "build/plugins/opensearch-knn"
     includeEmptyDirs = false
     eachFile { it.path = it.path - "opensearch/" }
 }
@@ -140,11 +140,11 @@ task release(type: Copy, group: 'build') {
 // Dependencies
 //****************************************************************************/
 dependencies {
-    compile "org.opensearch:opensearch:${opensearch_version}-SNAPSHOT"
+    compile "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
     compile group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
     compile group: 'com.google.guava', name: 'guava', version:'29.0-jre'
-    testImplementation "org.opensearch.test:framework:${opensearch_version}-SNAPSHOT"
+    testImplementation "org.opensearch.test:framework:${opensearch_version}"
     configurations.all {
         resolutionStrategy {
             force "com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"
@@ -263,7 +263,7 @@ afterEvaluate {
         release = isSnapshot ? "0.1" : '1'
         version = "${project.version}" - "-SNAPSHOT"
 
-        into '/usr/share/elasticsearch/plugins'
+        into '/usr/share/opensearch/plugins'
         from(zipTree(bundlePlugin.archivePath)) {
             into opensearchplugin.name
         }
@@ -273,8 +273,8 @@ afterEvaluate {
         fileMode 0644
         dirMode 0755
 
-        requires('elasticsearch-oss', versions.elasticsearch, EQUAL)
-        requires("opendistro-knnlib",  "${opendistroVersion}.0",  EQUAL)
+        requires('opensearch', versions.elasticsearch, EQUAL)
+        requires("opensearch-knnlib",  "${opensearchVersion}.0",  EQUAL)
         packager = 'Amazon'
         vendor = 'Amazon'
         os = 'LINUX'
@@ -284,7 +284,7 @@ afterEvaluate {
         maintainer 'OpenDistro for Elasticsearch Team <opendistro@amazon.com>'
         url 'https://opendistro.github.io/for-elasticsearch/downloads.html'
         summary '''
-         KNN plugin for OpenDistro for Elasticsearch. 
+         KNN plugin for OpenSearch. 
          Reference documentation can be found at https://opendistro.github.io/for-elasticsearch-docs/.
     '''.stripIndent().replace('\n', ' ').trim()
     }
