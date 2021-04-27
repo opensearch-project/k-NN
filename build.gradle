@@ -26,7 +26,7 @@
 
 buildscript {
     ext {
-        opensearch_version = System.getProperty("opensearch.version", "1.0.0-alpha2")
+        opensearch_version = System.getProperty("opensearch.version", "1.0.0-beta1")
         opensearch_group = "org.opensearch"
     }
 
