@@ -26,7 +26,6 @@
 package com.amazon.opendistroforelasticsearch.knn.index;
 
 import com.amazon.opendistroforelasticsearch.knn.KNNTestCase;
-import com.amazon.opendistroforelasticsearch.knn.common.KNNConstants;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.settings.IndexScopedSettings;
@@ -87,7 +86,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         Settings settings = Settings.builder()
                 .put(settings(CURRENT).build())
-                .put(KNNSettings.KNN_SPACE_TYPE, KNNConstants.COSINESIMIL)
+                .put(KNNSettings.KNN_SPACE_TYPE, SpaceType.COSINESIMIL.getValue())
                 .put(KNNSettings.KNN_ALGO_PARAM_M, m)
                 .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, efConstruction)
                 .build();
@@ -116,7 +115,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
 
-        assertEquals(KNNConstants.COSINESIMIL, knnVectorFieldMapper.spaceType);
+        assertEquals(SpaceType.COSINESIMIL.getValue(), knnVectorFieldMapper.spaceType);
         assertEquals(String.valueOf(m), knnVectorFieldMapper.m);
         assertEquals(String.valueOf(efConstruction), knnVectorFieldMapper.efConstruction);
     }

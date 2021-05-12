@@ -48,7 +48,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -395,7 +394,7 @@ public class KNNSettings {
      */
     public static String getSpaceType(String index) {
         return KNNSettings.state().clusterService.state().getMetadata()
-            .index(index).getSettings().get(KNN_SPACE_TYPE, SpaceTypes.l2.getKey());
+            .index(index).getSettings().get(KNN_SPACE_TYPE, SpaceType.DEFAULT.getValue());
     }
 
     public static int getIndexSettingValue(String index, String settingName, int defaultValue) {
@@ -411,8 +410,10 @@ public class KNNSettings {
     static class SpaceTypeValidator implements Setting.Validator<String> {
 
         @Override public void validate(String value) {
-            if (value == null || !SpaceTypes.contains(value.toLowerCase())){
-                throw new InvalidParameterException(String.format("Unsupported space type: %s", value));
+            try {
+                SpaceType.getSpace(value);
+            } catch (IllegalArgumentException ex) {
+                throw new InvalidParameterException(ex.getMessage());
             }
         }
     }

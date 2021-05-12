@@ -24,6 +24,9 @@
 #include "spacefactory.h"
 #include "space.h"
 
+#include <stdexcept>
+#include <unordered_map>
+
 using std::vector;
 
 using similarity::initLibrary;
@@ -37,6 +40,16 @@ using similarity::ObjectVector;
 using similarity::Object;
 using similarity::KNNQuery;
 using similarity::KNNQueue;
+
+
+// mapMetric is used to map a string from the plugin to an nmslib space. All translation should be done via this map
+std::unordered_map<string, string> mapSpace = {
+        {"l2", "l2"},
+        {"l1", "l1"},
+        {"linf", "linf"},
+        {"cosinesimil", "cosinesimil"},
+        {"innerproduct", "negdotprod"}
+};
 
 extern "C"
 
@@ -97,6 +110,13 @@ JNIEXPORT void JNICALL Java_com_amazon_opendistroforelasticsearch_knn_index_v201
         string spaceTypeString(spaceTypeCStr);
         env->ReleaseStringUTFChars(spaceType, spaceTypeCStr);
         has_exception_in_stack(env);
+
+        if(mapSpace.find(spaceTypeString) == mapSpace.end()) {
+            throw std::runtime_error("Space not found");
+        }
+
+        spaceTypeString = mapSpace[spaceTypeString];
+
         space = SpaceFactoryRegistry<float>::Instance().CreateSpace(spaceTypeString, AnyParams());
         object_ids = env->GetIntArrayElements(ids, 0);
         for (int i = 0; i < env->GetArrayLength(vectors); i++) {
@@ -189,6 +209,13 @@ JNIEXPORT jlong JNICALL Java_com_amazon_opendistroforelasticsearch_knn_index_v20
         string spaceTypeString(spaceTypeCStr);
         env->ReleaseStringUTFChars(spaceType, spaceTypeCStr);
         has_exception_in_stack(env);
+
+        if(mapSpace.find(spaceTypeString) == mapSpace.end()) {
+            throw std::runtime_error("Space not found");
+        }
+
+        spaceTypeString = mapSpace[spaceTypeString];
+
         IndexWrapper *indexWrapper = new IndexWrapper(spaceTypeString);
         indexWrapper->index->LoadIndex(indexPathString);
 

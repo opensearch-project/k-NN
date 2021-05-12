@@ -359,7 +359,7 @@ public class KNNJNITests extends KNNTestCase {
         AccessController.doPrivileged(
                 new PrivilegedAction<Void>() {
                     public Void run() {
-                        KNNIndex.saveIndex(docs, vectors, indexPath, algoParams, SpaceTypes.inner_product.getValue());
+                        KNNIndex.saveIndex(docs, vectors, indexPath, algoParams, SpaceType.INNER_PRODUCT.getValue());
                         return null;
                     }
                 }
@@ -370,7 +370,7 @@ public class KNNJNITests extends KNNTestCase {
         float[] queryVector = {2.0f, -2.0f};
         String[] algoQueryParams = {"efSearch=20"};
 
-        final KNNIndex knnIndex = KNNIndex.loadIndex(indexPath, algoQueryParams, SpaceTypes.inner_product.getValue());
+        final KNNIndex knnIndex = KNNIndex.loadIndex(indexPath, algoQueryParams, SpaceType.INNER_PRODUCT.getValue());
         final KNNQueryResult[] results = knnIndex.queryIndex(queryVector, 30);
 
         Map<Integer, Float> scores = Arrays.stream(results).collect(

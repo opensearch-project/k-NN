@@ -23,22 +23,31 @@
  *   permissions and limitations under the License.
  */
 
-package com.amazon.opendistroforelasticsearch.knn.common;
+package com.amazon.opendistroforelasticsearch.knn.index.util;
 
-public class KNNConstants {
-    public static final String SPACE_TYPE = "spaceType";
-    public static final String HNSW_ALGO_M = "M";
-    public static final String HNSW_ALGO_EF_CONSTRUCTION = "efConstruction";
-    public static final String HNSW_ALGO_INDEX_THREAD_QTY = "indexThreadQty";
-    public static final String DIMENSION = "dimension";
-    public static final String KNN_ENGINE = "engine";
-    public static final String NAME = "name";
-    public static final String PARAMETERS = "parameters";
+import com.amazon.opendistroforelasticsearch.knn.KNNTestCase;
+import com.amazon.opendistroforelasticsearch.knn.common.KNNConstants;
 
-    public static final String NMSLIB_NAME = "NMSLIB";
+public class KNNEngineTests extends KNNTestCase {
+    /**
+     * Get latest build version from library
+     */
+    public void testDelegateLibraryFunctions() {
+        assertEquals(KNNLibrary.Nmslib.INSTANCE.getLatestLibVersion(), KNNEngine.NMSLIB.getLatestLibVersion());
+    }
 
-    public static final String METHOD_HNSW = "hnsw";
+    /**
+     * Test name getter
+     */
+    public void testGetName() {
+        assertEquals(KNNConstants.NMSLIB_NAME, KNNEngine.NMSLIB.getName());
+    }
 
-    public static final String METHOD_PARAMETER_EF_CONSTRUCTION = "ef_construction";
-    public static final String METHOD_PARAMETER_M = "m";
+    /**
+     * Test engine getter
+     */
+    public void testGetEngine() {
+        assertEquals(KNNEngine.NMSLIB, KNNEngine.getEngine(KNNConstants.NMSLIB_NAME));
+        expectThrows(IllegalArgumentException.class, () -> KNNEngine.getEngine("invalid"));
+    }
 }

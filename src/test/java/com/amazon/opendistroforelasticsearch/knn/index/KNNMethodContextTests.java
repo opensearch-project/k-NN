@@ -1,0 +1,234 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
+ */
+/*
+ *   Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ *   Licensed under the Apache License, Version 2.0 (the "License").
+ *   You may not use this file except in compliance with the License.
+ *   A copy of the License is located at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *   or in the "license" file accompanying this file. This file is distributed
+ *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ *   express or implied. See the License for the specific language governing
+ *   permissions and limitations under the License.
+ */
+
+package com.amazon.opendistroforelasticsearch.knn.index;
+
+import com.amazon.opendistroforelasticsearch.knn.KNNTestCase;
+import com.amazon.opendistroforelasticsearch.knn.index.util.KNNEngine;
+import com.google.common.collect.ImmutableMap;
+import org.opensearch.common.ValidationException;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.index.mapper.MapperParsingException;
+
+import java.io.IOException;
+import java.util.Collections;
+import java.util.Map;
+
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.KNN_ENGINE;
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.METHOD_HNSW;
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.NAME;
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.PARAMETERS;
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.SPACE_TYPE;
+
+public class KNNMethodContextTests extends KNNTestCase {
+    /**
+     * Test method component getter
+     */
+    public void testGetMethodComponent() {
+        MethodComponentContext methodComponent = new MethodComponentContext(
+                "test-method", Collections.emptyMap());
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponent);
+        assertEquals(methodComponent, knnMethodContext.getMethodComponent());
+    }
+
+    /**
+     * Test engine getter
+     */
+    public void testGetEngine() {
+        MethodComponentContext methodComponent = new MethodComponentContext(
+                "test-method", Collections.emptyMap());
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponent);
+        assertEquals(KNNEngine.DEFAULT, knnMethodContext.getEngine());
+    }
+
+    /**
+     * Test spaceType getter
+     */
+    public void testGetSpaceType() {
+        MethodComponentContext methodComponent = new MethodComponentContext(
+                "test-method", Collections.emptyMap());
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.L1, methodComponent);
+        assertEquals(SpaceType.L1, knnMethodContext.getSpaceType());
+    }
+
+    /**
+     * Test KNNMethodContext validation
+     */
+    public void testValidate() {
+        // Check valid default - this should not throw any exception
+        KNNMethodContext.DEFAULT.validate();
+
+        // Check a valid nmslib method
+        MethodComponentContext hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, hnswMethod);
+        knnMethodContext.validate();
+
+        // Check invalid parameter nmslib
+        hnswMethod = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of("invalid", 111));
+        KNNMethodContext knnMethodContext1 = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, hnswMethod);
+        expectThrows(ValidationException.class, knnMethodContext1::validate);
+
+        // Check invalid method nmslib
+        MethodComponentContext invalidMethod = new MethodComponentContext("invalid", Collections.emptyMap());
+        KNNMethodContext knnMethodContext2 = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, invalidMethod);
+        expectThrows(ValidationException.class, knnMethodContext2::validate);
+    }
+
+    /**
+     * Test context method parsing when input is invalid
+     */
+    public void testParse_invalid() throws IOException {
+        // Invalid input type
+        Integer invalidIn = 12;
+        expectThrows(MapperParsingException.class, () -> KNNMethodContext.parse(invalidIn));
+
+        // Invalid engine type
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(KNN_ENGINE,0)
+                .endObject();
+
+        final Map<String, Object> in0 = xContentBuilderToMap(xContentBuilder);
+        expectThrows(MapperParsingException.class, () -> KNNMethodContext.parse(in0));
+
+        // Invalid engine name
+        xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(KNN_ENGINE,"invalid")
+                .endObject();
+
+        final Map<String, Object> in1 = xContentBuilderToMap(xContentBuilder);
+        expectThrows(MapperParsingException.class, () -> KNNMethodContext.parse(in1));
+
+
+        // Invalid space type
+        xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(SPACE_TYPE, 0)
+                .endObject();
+
+        final Map<String, Object> in2 = xContentBuilderToMap(xContentBuilder);
+        expectThrows(MapperParsingException.class, () -> KNNMethodContext.parse(in2));
+
+        // Invalid space name
+        xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(SPACE_TYPE, "invalid")
+                .endObject();
+
+        final Map<String, Object> in3 = xContentBuilderToMap(xContentBuilder);
+        expectThrows(MapperParsingException.class, () -> KNNMethodContext.parse(in3));
+
+        // Invalid name not set
+        xContentBuilder = XContentFactory.jsonBuilder().startObject().endObject();
+        final Map<String, Object> in4 = xContentBuilderToMap(xContentBuilder);
+        expectThrows(MapperParsingException.class, () -> KNNMethodContext.parse(in4));
+
+        // Invalid name type
+        xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(NAME, 13)
+                .endObject();
+
+        final Map<String, Object> in5 = xContentBuilderToMap(xContentBuilder);
+        expectThrows(MapperParsingException.class, () -> KNNMethodContext.parse(in5));
+
+        // Invalid parameter type
+        xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(PARAMETERS, 13)
+                .endObject();
+
+        final Map<String, Object> in6 = xContentBuilderToMap(xContentBuilder);
+        expectThrows(MapperParsingException.class, () -> KNNMethodContext.parse(in6));
+
+        // Invalid key
+        xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field("invalid", 12)
+                .endObject();
+        Map<String, Object> in7 = xContentBuilderToMap(xContentBuilder);
+        expectThrows(MapperParsingException.class, () -> MethodComponentContext.parse(in7));
+    }
+
+    /**
+     * Test context method parsing when input is valid
+     */
+    public void testParse_valid() throws IOException {
+        // Simple method with only name set
+        String methodName = "test-method";
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(NAME, methodName)
+                .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        assertEquals(KNNEngine.DEFAULT, knnMethodContext.getEngine());
+        assertEquals(SpaceType.DEFAULT, knnMethodContext.getSpaceType());
+        assertEquals(methodName, knnMethodContext.getMethodComponent().getName());
+        assertNull(knnMethodContext.getMethodComponent().getParameters());
+
+        // Method with parameters
+        String methodParameterKey1 = "p-1";
+        String methodParameterValue1 = "v-1";
+        String methodParameterKey2 = "p-2";
+        Integer methodParameterValue2 = 27;
+
+        xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(NAME, methodName)
+                .startObject(PARAMETERS)
+                .field(methodParameterKey1, methodParameterValue1)
+                .field(methodParameterKey2, methodParameterValue2)
+                .endObject()
+                .endObject();
+        in = xContentBuilderToMap(xContentBuilder);
+        knnMethodContext = KNNMethodContext.parse(in);
+
+        assertEquals(methodParameterValue1,
+                knnMethodContext.getMethodComponent().getParameters().get(methodParameterKey1));
+        assertEquals(methodParameterValue2,
+                knnMethodContext.getMethodComponent().getParameters().get(methodParameterKey2));
+    }
+
+    /**
+     * Test toXContent method
+     */
+    public void testToXContent() throws IOException {
+        String methodName = "test-method";
+        String spaceType = SpaceType.L2.getValue();
+        String knnEngine = KNNEngine.DEFAULT.getName();
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(NAME, methodName)
+                .field(SPACE_TYPE, spaceType)
+                .field(KNN_ENGINE, knnEngine)
+                .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+        builder = knnMethodContext.toXContent(builder, ToXContent.EMPTY_PARAMS).endObject();
+
+        Map<String, Object> out = xContentBuilderToMap(builder);
+        assertEquals(methodName, out.get(NAME));
+        assertEquals(spaceType, out.get(SPACE_TYPE));
+        assertEquals(knnEngine, out.get(KNN_ENGINE));
+    }
+}

@@ -25,7 +25,7 @@
 
 package com.amazon.opendistroforelasticsearch.knn.index.codec.KNN80Codec;
 
-import com.amazon.opendistroforelasticsearch.knn.index.SpaceTypes;
+import com.amazon.opendistroforelasticsearch.knn.index.SpaceType;
 import com.amazon.opendistroforelasticsearch.knn.index.codec.KNNCodecUtil;
 import com.amazon.opendistroforelasticsearch.knn.plugin.stats.KNNCounter;
 import org.apache.logging.log4j.LogManager;
@@ -94,8 +94,8 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             }
 
             BinaryDocValues values = valuesProducer.getBinary(field);
-            String hnswFileName = String.format("%s_%s_%s%s", state.segmentInfo.name, NmsLibVersion.LATEST.buildVersion,
-                    field.name, KNNCodecUtil.HNSW_EXTENSION);
+            String hnswFileName = String.format("%s_%s_%s%s", state.segmentInfo.name,
+                    NmsLibVersion.LATEST.getBuildVersion(), field.name, KNNCodecUtil.HNSW_EXTENSION);
             String indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
                     hnswFileName).toString();
 
@@ -108,7 +108,8 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             // Pass the path for the nms library to save the file
             String tempIndexPath = indexPath + TEMP_SUFFIX;
             Map<String, String> fieldAttributes = field.attributes();
-            String spaceType = SpaceTypes.getValueByKey(fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE, SpaceTypes.l2.getKey()));
+            String spaceType = SpaceType.getSpace(fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE,
+                    SpaceType.L2.getValue())).getValue();
             String[] algoParams = getKNNIndexParams(fieldAttributes);
             AccessController.doPrivileged(
                     new PrivilegedAction<Void>() {

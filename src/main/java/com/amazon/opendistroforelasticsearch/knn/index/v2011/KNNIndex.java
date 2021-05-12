@@ -43,7 +43,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * See <a href="https://github.com/nmslib/nmslib/tree/v2.0.11">tag2.0.11</a>
  */
 public class KNNIndex implements AutoCloseable {
-    public static NmsLibVersion VERSION = NmsLibVersion.V2011;
+    public static NmsLibVersion VERSION = NmsLibVersion.LATEST;
 
     static {
         AccessController.doPrivileged(new PrivilegedAction<Void>() {
