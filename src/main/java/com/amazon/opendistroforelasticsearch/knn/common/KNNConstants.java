@@ -26,12 +26,13 @@
 package com.amazon.opendistroforelasticsearch.knn.common;
 
 public class KNNConstants {
-    public static final String SPACE_TYPE = "spaceType";
+    public static final String SPACE_TYPE = "space_type";
     public static final String HNSW_ALGO_M = "M";
     public static final String HNSW_ALGO_EF_CONSTRUCTION = "efConstruction";
     public static final String HNSW_ALGO_INDEX_THREAD_QTY = "indexThreadQty";
     public static final String DIMENSION = "dimension";
     public static final String KNN_ENGINE = "engine";
+    public static final String KNN_METHOD= "method";
     public static final String NAME = "name";
     public static final String PARAMETERS = "parameters";
 

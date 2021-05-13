@@ -48,6 +48,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -105,8 +106,9 @@ public class KNNSettings {
 
     public static final Setting<String> INDEX_KNN_SPACE_TYPE = Setting.simpleString(KNN_SPACE_TYPE,
             INDEX_KNN_DEFAULT_SPACE_TYPE,
-        new SpaceTypeValidator(),
-        IndexScope);
+            new SpaceTypeValidator(),
+            IndexScope,
+            Setting.Property.Deprecated);
 
     /**
      * M - the number of bi-directional links created for every new element during construction.
@@ -117,7 +119,8 @@ public class KNNSettings {
     public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_M_SETTING =  Setting.intSetting(KNN_ALGO_PARAM_M,
             INDEX_KNN_DEFAULT_ALGO_PARAM_M,
             2,
-            IndexScope);
+            IndexScope,
+            Setting.Property.Deprecated);
 
     /**
      *  ef or efSearch - the size of the dynamic list for the nearest neighbors (used during the search).
@@ -137,7 +140,8 @@ public class KNNSettings {
     public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING =  Setting.intSetting(KNN_ALGO_PARAM_EF_CONSTRUCTION,
             INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
             2,
-            IndexScope);
+            IndexScope,
+            Setting.Property.Deprecated);
 
     /**
      * This setting identifies KNN index.

@@ -27,6 +27,7 @@ package com.amazon.opendistroforelasticsearch.knn.index;
 
 import com.amazon.opendistroforelasticsearch.knn.common.KNNConstants;
 
+import com.amazon.opendistroforelasticsearch.knn.index.util.KNNEngine;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.document.FieldType;
@@ -37,6 +38,7 @@ import org.apache.lucene.search.DocValuesFieldExistsQuery;
 import org.apache.lucene.search.Query;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.support.XContentMapValues;
@@ -62,6 +64,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.KNN_ENGINE;
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.KNN_METHOD;
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.METHOD_HNSW;
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.SPACE_TYPE;
 import static com.amazon.opendistroforelasticsearch.knn.index.KNNSettings.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING;
 import static com.amazon.opendistroforelasticsearch.knn.index.KNNSettings.INDEX_KNN_ALGO_PARAM_M_SETTING;
 import static com.amazon.opendistroforelasticsearch.knn.index.KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
@@ -71,6 +79,8 @@ import static com.amazon.opendistroforelasticsearch.knn.index.KNNSettings.INDEX_
 
 /**
  * Field Mapper for KNN vector type.
+ *
+ * Extends ParametrizedFieldMapper in order to easily configure mapping parameters.
  */
 public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
@@ -79,41 +89,65 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     public static final String CONTENT_TYPE = "knn_vector";
     public static final String KNN_FIELD = "knn_field";
 
+    /**
+     * Define the max dimension a knn_vector mapping can have. This limit is somewhat arbitrary. In the future, we
+     * should make this configurable.
+     */
     static final int MAX_DIMENSION = 10000;
 
     private static KNNVectorFieldMapper toType(FieldMapper in) {
         return (KNNVectorFieldMapper) in;
     }
 
+    /**
+     * Builder for KNNVectorFieldMapper. This class defines the set of parameters that can be applied to the knn_vector
+     * field type
+     */
     public static class Builder extends ParametrizedFieldMapper.Builder {
         protected Boolean ignoreMalformed;
 
-        private final Parameter<Boolean> stored = Parameter.boolParam("store", false,
+        protected final Parameter<Boolean> stored = Parameter.boolParam("store", false,
                 m -> toType(m).stored, false);
-        private final Parameter<Boolean> hasDocValues = Parameter.boolParam("doc_values", false,
+        protected final Parameter<Boolean> hasDocValues = Parameter.boolParam("doc_values", false,
                 m -> toType(m).hasDocValues,  true);
-        private final Parameter<Integer> dimension = new Parameter<>(KNNConstants.DIMENSION, false, () -> -1,
+        protected final Parameter<Integer> dimension = new Parameter<>(KNNConstants.DIMENSION, false,
+                () -> -1,
                 (n, c, o) -> {
-                            if (o == null) {
-                                throw new IllegalArgumentException("Dimension cannot be null");
-                            }
-                            int value = XContentMapValues.nodeIntegerValue(o);
-                            if (value > MAX_DIMENSION) {
-                                throw new IllegalArgumentException("Dimension value cannot be greater than " +
-                                    MAX_DIMENSION + " for vector: " + name);
-                            }
+                    if (o == null) {
+                        throw new IllegalArgumentException("Dimension cannot be null");
+                    }
+                    int value = XContentMapValues.nodeIntegerValue(o);
+                    if (value > MAX_DIMENSION) {
+                        throw new IllegalArgumentException("Dimension value cannot be greater than " +
+                                MAX_DIMENSION + " for vector: " + name);
+                    }
 
-                            if (value <= 0) {
-                                throw new IllegalArgumentException("Dimension value must be greater than 0 " +
-                                        "for vector: " + name);
-                            }
-                            return value;
+                    if (value <= 0) {
+                        throw new IllegalArgumentException("Dimension value must be greater than 0 " +
+                                "for vector: " + name);
+                    }
+                    return value;
                 }, m -> toType(m).dimension);
-        private final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
-        private String spaceType;
-        private String m;
-        private String efConstruction;
+        /**
+         * knnMethodContext parameter allows a user to define their k-NN library index configuration. Defaults to an L2
+         * hnsw default engine index without any parameters set
+         */
+        protected final Parameter<KNNMethodContext> knnMethodContext = new Parameter<>(KNN_METHOD, false,
+                () -> KNNMethodContext.DEFAULT,
+                (n, c, o) -> KNNMethodContext.parse(o), m -> toType(m).knnMethod)
+                .setSerializer(((b, n, v) ->{
+                    b.startObject(n);
+                    v.toXContent(b, ToXContent.EMPTY_PARAMS);
+                    b.endObject();
+                }), m -> m.getMethodComponent().getName())
+                .setValidator(KNNMethodContext::validate);
+
+        protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
+
+        protected String spaceType;
+        protected String m;
+        protected String efConstruction;
 
         public Builder(String name) {
             super(name);
@@ -128,7 +162,7 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         @Override
         protected List<Parameter<?>> getParameters() {
-            return Arrays.asList(stored, hasDocValues, dimension, meta);
+            return Arrays.asList(stored, hasDocValues, dimension, meta, knnMethodContext);
         }
 
         protected Explicit<Boolean> ignoreMalformed(BuilderContext context) {
@@ -143,16 +177,53 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         @Override
         public KNNVectorFieldMapper build(BuilderContext context) {
-            if (this.spaceType == null) {
-                this.spaceType = getSpaceType(context.indexSettings());
-            }
+            if (knnMethodContext.getValue().getEngine() == KNNEngine.NMSLIB) {
 
-            if (this.m == null) {
-                this.m = getM(context.indexSettings());
-            }
+                // Originally, a user would use index settings to set the spaceType, efConstruction and m hnsw
+                // parameters. Upon further review, it makes sense to set these parameters in the mapping of a
+                // particular field. However, because users migrating from older versions will still use the index
+                // settings to set these parameters, we will need to provide backwards compatibilty. In order to
+                // handle this, we first check if the setting is set, and, if so use it. If not, we fall back to
+                // the parameters set in the mapping. This means that if a user sets the settings, setting the mapping
+                // parameter will have no impact.
+                if (this.spaceType == null && context.indexSettings().hasValue(INDEX_KNN_SPACE_TYPE.getKey())) {
+                    this.spaceType = getSpaceType(context.indexSettings());
+                }
 
-            if (this.efConstruction == null) {
-                this.efConstruction = getEfConstruction(context.indexSettings());
+                if (this.spaceType == null) {
+                    this.spaceType = knnMethodContext.get().getSpaceType().getValue();
+                }
+
+                if (this.m == null && context.indexSettings().hasValue(INDEX_KNN_ALGO_PARAM_M_SETTING.getKey())) {
+                    this.m = getM(context.indexSettings());
+                }
+
+                if (this.m == null) {
+                    Map<String, Object> parameters = knnMethodContext.getValue().getMethodComponent().getParameters();
+
+                    if (parameters != null && parameters.containsKey(METHOD_PARAMETER_M)) {
+                        this.m = parameters.get(METHOD_PARAMETER_M).toString();
+                    } else {
+                        this.m = KNNEngine.NMSLIB.getMethod(METHOD_HNSW).getMethodComponent().getParameters()
+                                .get(METHOD_PARAMETER_M).getDefaultValue().toString();
+                    }
+                }
+
+                if (this.efConstruction == null && context.indexSettings()
+                        .hasValue(INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING.getKey())) {
+                    this.efConstruction = getEfConstruction(context.indexSettings());
+                }
+
+                if (this.efConstruction == null) {
+                    Map<String, Object> parameters = knnMethodContext.getValue().getMethodComponent().getParameters();
+
+                    if (parameters != null && parameters.containsKey(METHOD_PARAMETER_EF_CONSTRUCTION)) {
+                        this.efConstruction = parameters.get(METHOD_PARAMETER_EF_CONSTRUCTION).toString();
+                    } else {
+                        this.efConstruction = KNNEngine.NMSLIB.getMethod(METHOD_HNSW).getMethodComponent()
+                                .getParameters().get(METHOD_PARAMETER_EF_CONSTRUCTION).getDefaultValue().toString();
+                    }
+                }
             }
 
             return new KNNVectorFieldMapper(name, new KNNVectorFieldType(buildFullName(context), meta.getValue(),
@@ -163,7 +234,7 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         private String getSpaceType(Settings indexSettings) {
             String spaceType =  indexSettings.get(INDEX_KNN_SPACE_TYPE.getKey());
             if (spaceType == null) {
-                logger.info("[KNN] The setting \"" + KNNConstants.SPACE_TYPE + "\" was not set for the index. " +
+                logger.info("[KNN] The setting \"" + SPACE_TYPE + "\" was not set for the index. " +
                         "Likely caused by recent version upgrade. Setting the setting to the default value="
                         + INDEX_KNN_DEFAULT_SPACE_TYPE);
                 return INDEX_KNN_DEFAULT_SPACE_TYPE;
@@ -257,22 +328,32 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected final String m;
     protected final String efConstruction;
     private final Integer dimension;
+    protected final String knnEngine;
+    protected final KNNMethodContext knnMethod;
 
     public KNNVectorFieldMapper(String simpleName, MappedFieldType mappedFieldType, MultiFields multiFields,
                                 Explicit<Boolean> ignoreMalformed, String spaceType, String m, String efConstruction,
                                 CopyTo copyTo, Builder builder) {
         super(simpleName, mappedFieldType,  multiFields, copyTo);
+
         this.stored = builder.stored.getValue();
         this.hasDocValues = builder.hasDocValues.getValue();
         this.dimension = builder.dimension.getValue();
+        this.knnMethod = builder.knnMethodContext.getValue();
+        this.knnEngine = knnMethod.getEngine().getName();
         this.ignoreMalformed = ignoreMalformed;
         this.spaceType = spaceType;
         this.m = m;
         this.efConstruction = efConstruction;
         this.fieldType = new FieldType(Defaults.FIELD_TYPE);
-        this.fieldType.putAttribute(KNNConstants.SPACE_TYPE, spaceType);
-        this.fieldType.putAttribute(KNNConstants.HNSW_ALGO_M, m);
-        this.fieldType.putAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, efConstruction);
+
+        if (KNNEngine.NMSLIB.getName().equals(knnEngine)) {
+            this.fieldType.putAttribute(KNNConstants.HNSW_ALGO_M, m);
+            this.fieldType.putAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, efConstruction);
+        }
+
+        this.fieldType.putAttribute(KNN_ENGINE, knnEngine);
+        this.fieldType.putAttribute(SPACE_TYPE, spaceType);
         this.fieldType.freeze();
     }
 

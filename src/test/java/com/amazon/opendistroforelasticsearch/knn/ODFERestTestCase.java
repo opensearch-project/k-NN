@@ -86,7 +86,6 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
             configureClient(builder, settings);
         }
 
-        builder.setStrictDeprecationMode(true);
         return builder.build();
     }
 
