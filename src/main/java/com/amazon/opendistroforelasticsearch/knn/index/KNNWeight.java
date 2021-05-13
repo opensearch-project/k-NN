@@ -25,7 +25,9 @@
 
 package com.amazon.opendistroforelasticsearch.knn.index;
 
+import com.amazon.opendistroforelasticsearch.knn.common.KNNConstants;
 import com.amazon.opendistroforelasticsearch.knn.index.codec.KNNCodecUtil;
+import com.amazon.opendistroforelasticsearch.knn.index.util.KNNEngine;
 import com.amazon.opendistroforelasticsearch.knn.index.v2011.KNNIndex;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -51,6 +53,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.KNN_ENGINE;
 
 /**
  * Calculate query weights and build query scorers.
@@ -98,7 +102,10 @@ public class KNNWeight extends Weight {
                 return null;
             }
 
-            FieldInfo queryFieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
+            FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
+            KNNEngine knnEngine = KNNEngine.getEngine(fieldInfo.getAttribute(KNN_ENGINE));
+            SpaceType spaceType = SpaceType.getSpace(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE));
+
 
             /**
              * TODO Add logic to pick up the right nmslib version based on the version
@@ -120,7 +127,7 @@ public class KNNWeight extends Weight {
              * neighbors we are inverting the scores.
              */
             Map<Integer, Float> scores = Arrays.stream(results).collect(
-                    Collectors.toMap(result -> result.getId(), result -> normalizeScore(result.getScore())));
+                    Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
             int maxDoc = Collections.max(scores.keySet()) + 1;
             DocIdSetBuilder docIdSetBuilder = new DocIdSetBuilder(maxDoc);
             DocIdSetBuilder.BulkAdder setAdder = docIdSetBuilder.grow(maxDoc);
