@@ -21,7 +21,7 @@ import java.util.Map;
 
 import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.NAME;
 import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.PARAMETERS;
-import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.SPACE_TYPE;
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 
 
 public class KNNMethodTests extends KNNTestCase {
@@ -60,7 +60,7 @@ public class KNNMethodTests extends KNNTestCase {
         // Invalid space
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
                 .field(NAME, methodName)
-                .field(SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
                 .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext1 = KNNMethodContext.parse(in);
@@ -70,7 +70,7 @@ public class KNNMethodTests extends KNNTestCase {
         // Invalid methodComponent
         xContentBuilder = XContentFactory.jsonBuilder().startObject()
                 .field(NAME, methodName)
-                .field(SPACE_TYPE, SpaceType.L2.getValue())
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
                 .startObject(PARAMETERS)
                 .field("invalid", "invalid")
                 .endObject()
@@ -83,7 +83,7 @@ public class KNNMethodTests extends KNNTestCase {
         // Valid everything
         xContentBuilder = XContentFactory.jsonBuilder().startObject()
                 .field(NAME, methodName)
-                .field(SPACE_TYPE, SpaceType.L2.getValue())
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
                 .endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext3 = KNNMethodContext.parse(in);

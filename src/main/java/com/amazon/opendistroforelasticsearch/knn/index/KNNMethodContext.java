@@ -22,9 +22,9 @@ import java.util.Map;
 
 import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.KNN_ENGINE;
 import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.METHOD_HNSW;
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.NAME;
 import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.PARAMETERS;
-import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.SPACE_TYPE;
 
 /**
  * KNNMethodContext will contain the information necessary to produce a library index from an Opensearch mapping.
@@ -123,15 +123,15 @@ public class KNNMethodContext implements ToXContentFragment {
                         throw new MapperParsingException("Invalid " + KNN_ENGINE + ": " + value);
                     }
                 }
-            } else if (SPACE_TYPE.equals(key)) {
+            } else if (METHOD_PARAMETER_SPACE_TYPE.equals(key)) {
                 if (value != null && !(value instanceof String)) {
-                    throw new MapperParsingException("\"" + SPACE_TYPE + "\" must be a string");
+                    throw new MapperParsingException("\"" + METHOD_PARAMETER_SPACE_TYPE + "\" must be a string");
                 }
 
                 try {
                     spaceType = SpaceType.getSpace((String) value);
                 } catch (IllegalArgumentException iae) {
-                    throw new MapperParsingException("Invalid " + SPACE_TYPE + ": " + value);
+                    throw new MapperParsingException("Invalid " + METHOD_PARAMETER_SPACE_TYPE + ": " + value);
                 }
             } else if (NAME.equals(key)) {
                 if (!(value instanceof String)) {
@@ -164,7 +164,7 @@ public class KNNMethodContext implements ToXContentFragment {
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.field(KNN_ENGINE, knnEngine.getName());
-        builder.field(SPACE_TYPE, spaceType.getValue());
+        builder.field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
         builder = methodComponent.toXContent(builder, params);
         return builder;
     }

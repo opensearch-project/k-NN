@@ -69,6 +69,7 @@ import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.KNN_
 import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.METHOD_HNSW;
 import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.SPACE_TYPE;
 import static com.amazon.opendistroforelasticsearch.knn.index.KNNSettings.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING;
 import static com.amazon.opendistroforelasticsearch.knn.index.KNNSettings.INDEX_KNN_ALGO_PARAM_M_SETTING;
@@ -234,7 +235,7 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         private String getSpaceType(Settings indexSettings) {
             String spaceType =  indexSettings.get(INDEX_KNN_SPACE_TYPE.getKey());
             if (spaceType == null) {
-                logger.info("[KNN] The setting \"" + SPACE_TYPE + "\" was not set for the index. " +
+                logger.info("[KNN] The setting \"" + METHOD_PARAMETER_SPACE_TYPE + "\" was not set for the index. " +
                         "Likely caused by recent version upgrade. Setting the setting to the default value="
                         + INDEX_KNN_DEFAULT_SPACE_TYPE);
                 return INDEX_KNN_DEFAULT_SPACE_TYPE;

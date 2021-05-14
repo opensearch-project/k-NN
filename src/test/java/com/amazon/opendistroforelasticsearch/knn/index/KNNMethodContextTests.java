@@ -28,7 +28,7 @@ import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.KNN_
 import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.METHOD_HNSW;
 import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.NAME;
 import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.PARAMETERS;
-import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.SPACE_TYPE;
+import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 
 public class KNNMethodContextTests extends KNNTestCase {
     /**
@@ -111,7 +111,7 @@ public class KNNMethodContextTests extends KNNTestCase {
 
         // Invalid space type
         xContentBuilder = XContentFactory.jsonBuilder().startObject()
-                .field(SPACE_TYPE, 0)
+                .field(METHOD_PARAMETER_SPACE_TYPE, 0)
                 .endObject();
 
         final Map<String, Object> in2 = xContentBuilderToMap(xContentBuilder);
@@ -119,7 +119,7 @@ public class KNNMethodContextTests extends KNNTestCase {
 
         // Invalid space name
         xContentBuilder = XContentFactory.jsonBuilder().startObject()
-                .field(SPACE_TYPE, "invalid")
+                .field(METHOD_PARAMETER_SPACE_TYPE, "invalid")
                 .endObject();
 
         final Map<String, Object> in3 = xContentBuilderToMap(xContentBuilder);
@@ -203,7 +203,7 @@ public class KNNMethodContextTests extends KNNTestCase {
         String knnEngine = KNNEngine.DEFAULT.getName();
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
                 .field(NAME, methodName)
-                .field(SPACE_TYPE, spaceType)
+                .field(METHOD_PARAMETER_SPACE_TYPE, spaceType)
                 .field(KNN_ENGINE, knnEngine)
                 .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
@@ -214,7 +214,7 @@ public class KNNMethodContextTests extends KNNTestCase {
 
         Map<String, Object> out = xContentBuilderToMap(builder);
         assertEquals(methodName, out.get(NAME));
-        assertEquals(spaceType, out.get(SPACE_TYPE));
+        assertEquals(spaceType, out.get(METHOD_PARAMETER_SPACE_TYPE));
         assertEquals(knnEngine, out.get(KNN_ENGINE));
     }
 }

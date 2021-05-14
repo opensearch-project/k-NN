@@ -160,7 +160,7 @@ public class KNNESIT extends KNNRestTestCase {
                     .field("type", "knn_vector")
                     .field("dimension", 2)
                     .startObject(KNNConstants.KNN_METHOD)
-                    .field(KNNConstants.SPACE_TYPE, spaceType)
+                    .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType)
                     .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
                     .startObject(KNNConstants.PARAMETERS)
                     .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
@@ -180,7 +180,7 @@ public class KNNESIT extends KNNRestTestCase {
             Map<String, Object>  fieldMapping = (Map<String, Object>) propertiesMapping.get(FIELD_NAME);
             Map<String, Object>  methodMapping = (Map<String, Object>) fieldMapping.get(KNNConstants.KNN_METHOD);
             Map<String, Object>  parametersMapping = (Map<String, Object>) methodMapping.get(KNNConstants.PARAMETERS);
-            String spaceTypeMapping = (String) methodMapping.get(KNNConstants.SPACE_TYPE);
+            String spaceTypeMapping = (String) methodMapping.get(KNNConstants.METHOD_PARAMETER_SPACE_TYPE);
             Integer mMapping = (Integer) parametersMapping.get(KNNConstants.METHOD_PARAMETER_M);
             Integer efConstructionMapping = (Integer) parametersMapping.get(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION);
 
@@ -216,7 +216,7 @@ public class KNNESIT extends KNNRestTestCase {
                     .field("type", "knn_vector")
                     .field("dimension", 2)
                     .startObject(KNNConstants.KNN_METHOD)
-                    .field(KNNConstants.SPACE_TYPE, spaceType)
+                    .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType)
                     .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
                     .startObject(KNNConstants.PARAMETERS)
                     .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)

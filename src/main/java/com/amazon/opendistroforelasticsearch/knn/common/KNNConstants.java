@@ -26,7 +26,7 @@
 package com.amazon.opendistroforelasticsearch.knn.common;
 
 public class KNNConstants {
-    public static final String SPACE_TYPE = "space_type";
+    public static final String SPACE_TYPE = "spaceType"; // used as field info key
     public static final String HNSW_ALGO_M = "M";
     public static final String HNSW_ALGO_EF_CONSTRUCTION = "efConstruction";
     public static final String HNSW_ALGO_INDEX_THREAD_QTY = "indexThreadQty";
@@ -42,4 +42,5 @@ public class KNNConstants {
 
     public static final String METHOD_PARAMETER_EF_CONSTRUCTION = "ef_construction";
     public static final String METHOD_PARAMETER_M = "m";
+    public static final String METHOD_PARAMETER_SPACE_TYPE = "space_type"; // used for mapping parameter
 }
