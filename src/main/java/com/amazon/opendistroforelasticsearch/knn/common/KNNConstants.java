@@ -36,7 +36,7 @@ public class KNNConstants {
     public static final String NAME = "name";
     public static final String PARAMETERS = "parameters";
 
-    public static final String NMSLIB_NAME = "NMSLIB";
+    public static final String NMSLIB_NAME = "nmslib";
 
     public static final String METHOD_HNSW = "hnsw";
 
