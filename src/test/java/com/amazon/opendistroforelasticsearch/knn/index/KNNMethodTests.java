@@ -43,9 +43,9 @@ public class KNNMethodTests extends KNNTestCase {
         KNNMethod knnMethod = KNNMethod.Builder.builder(MethodComponent.Builder.builder(name).build())
                 .addSpaces(SpaceType.L2, SpaceType.COSINESIMIL)
                 .build();
-        assertTrue(knnMethod.hasSpace(SpaceType.L2));
-        assertTrue(knnMethod.hasSpace(SpaceType.COSINESIMIL));
-        assertFalse(knnMethod.hasSpace(SpaceType.INNER_PRODUCT));
+        assertTrue(knnMethod.containsSpace(SpaceType.L2));
+        assertTrue(knnMethod.containsSpace(SpaceType.COSINESIMIL));
+        assertFalse(knnMethod.containsSpace(SpaceType.INNER_PRODUCT));
     }
 
     /**
@@ -100,6 +100,6 @@ public class KNNMethodTests extends KNNTestCase {
         builder.addSpaces(SpaceType.L2);
         knnMethod = builder.build();
 
-        assertTrue(knnMethod.hasSpace(SpaceType.L2));
+        assertTrue(knnMethod.containsSpace(SpaceType.L2));
     }
 }

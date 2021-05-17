@@ -48,7 +48,7 @@ public class MethodComponentContext implements ToXContentFragment {
      * @return MethodComponentContext
      */
     public static MethodComponentContext parse(Object in) {
-        if (!(in instanceof Map)) {
+        if (!(in instanceof Map<?, ?>)) {
             throw new MapperParsingException("Unable to parse MethodComponent");
         }
 

@@ -66,7 +66,7 @@ public class KNNMethodContextTests extends KNNTestCase {
      */
     public void testValidate() {
         // Check valid default - this should not throw any exception
-        KNNMethodContext.DEFAULT.validate();
+        KNNMethodContext.getDefault().validate();
 
         // Check a valid nmslib method
         MethodComponentContext hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
@@ -81,7 +81,7 @@ public class KNNMethodContextTests extends KNNTestCase {
         // Check invalid method nmslib
         MethodComponentContext invalidMethod = new MethodComponentContext("invalid", Collections.emptyMap());
         KNNMethodContext knnMethodContext2 = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, invalidMethod);
-        expectThrows(ValidationException.class, knnMethodContext2::validate);
+        expectThrows(IllegalArgumentException.class, knnMethodContext2::validate);
     }
 
     /**

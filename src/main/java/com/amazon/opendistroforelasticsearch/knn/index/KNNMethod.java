@@ -23,8 +23,8 @@ import java.util.Set;
  */
 public class KNNMethod {
 
-    private MethodComponent methodComponent;
-    private Set<SpaceType> spaces;
+    private final MethodComponent methodComponent;
+    private final Set<SpaceType> spaces;
 
     /**
      * KNNMethod Constructor
@@ -32,7 +32,7 @@ public class KNNMethod {
      * @param methodComponent top level method component that is compatible with the underlying library
      * @param spaces set of valid space types that the method supports
      */
-    protected KNNMethod(MethodComponent methodComponent, Set<SpaceType> spaces) {
+    public KNNMethod(MethodComponent methodComponent, Set<SpaceType> spaces) {
         this.methodComponent = methodComponent;
         this.spaces = spaces;
     }
@@ -52,7 +52,7 @@ public class KNNMethod {
      * @param space to be checked
      * @return true if the space is supported; false otherwise
      */
-    public boolean hasSpace(SpaceType space) {
+    public boolean containsSpace(SpaceType space) {
         return spaces.contains(space);
     }
 
@@ -62,7 +62,7 @@ public class KNNMethod {
      * @param knnMethodContext to be validated
      */
     public void validate(KNNMethodContext knnMethodContext) {
-        if (!hasSpace(knnMethodContext.getSpaceType())) {
+        if (!containsSpace(knnMethodContext.getSpaceType())) {
             throw new ValidationException();
         }
 

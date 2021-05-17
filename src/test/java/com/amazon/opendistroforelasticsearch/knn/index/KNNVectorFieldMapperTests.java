@@ -222,7 +222,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 .endObject()
                 .endObject();
 
-        expectThrows(ValidationException.class, () -> typeParser.parse(fieldName,
+        expectThrows(IllegalArgumentException.class, () -> typeParser.parse(fieldName,
                 xContentBuilderToMap(xContentBuilder3), buildParserContext(indexName, settings)));
 
         // Test missing required parameter: dimension

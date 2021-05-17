@@ -32,12 +32,19 @@ import static com.amazon.opendistroforelasticsearch.knn.common.KNNConstants.PARA
  */
 public class KNNMethodContext implements ToXContentFragment {
 
-    public static final KNNMethodContext DEFAULT = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT,
-            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap()));
+    private static KNNMethodContext defaultInstance = null;
 
-    private KNNEngine knnEngine;
-    private SpaceType spaceType;
-    private MethodComponentContext methodComponent;
+    public static synchronized KNNMethodContext getDefault() {
+        if (defaultInstance == null) {
+            defaultInstance = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT,
+                    new MethodComponentContext(METHOD_HNSW, Collections.emptyMap()));
+        }
+        return defaultInstance;
+    }
+
+    private final KNNEngine knnEngine;
+    private final SpaceType spaceType;
+    private final MethodComponentContext methodComponent;
 
     /**
      * Constructor
@@ -94,15 +101,15 @@ public class KNNMethodContext implements ToXContentFragment {
      * @return KNNMethodContext
      */
     public static KNNMethodContext parse(Object in) {
-        if (!(in instanceof Map)) {
+        if (!(in instanceof Map<?, ?>)) {
             throw new MapperParsingException("Unable to parse mapping into KNNMethodContext. Object not of type \"Map\"");
         }
 
         @SuppressWarnings("unchecked")
         Map<String, Object> methodMap = (Map<String, Object>) in;
 
-        KNNEngine engine = KNNEngine.DEFAULT;
-        SpaceType spaceType = SpaceType.DEFAULT;
+        KNNEngine engine = KNNEngine.DEFAULT; // Get or default
+        SpaceType spaceType = SpaceType.DEFAULT; // Get or default
         String name = "";
         Map<String, Object> parameters = null;
 

@@ -124,7 +124,7 @@ public class KNNLibraryTests extends KNNTestCase {
                 .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext1 = KNNMethodContext.parse(in);
-        expectThrows(ValidationException.class, ()-> testNativeLibrary1.validateMethod(knnMethodContext1));
+        expectThrows(IllegalArgumentException.class, ()-> testNativeLibrary1.validateMethod(knnMethodContext1));
 
         // Invalid - method validation
         String methodName2 = "test-method-2";

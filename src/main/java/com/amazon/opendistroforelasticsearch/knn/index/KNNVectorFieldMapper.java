@@ -135,7 +135,7 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
          * hnsw default engine index without any parameters set
          */
         protected final Parameter<KNNMethodContext> knnMethodContext = new Parameter<>(KNN_METHOD, false,
-                () -> KNNMethodContext.DEFAULT,
+                KNNMethodContext::getDefault,
                 (n, c, o) -> KNNMethodContext.parse(o), m -> toType(m).knnMethod)
                 .setSerializer(((b, n, v) ->{
                     b.startObject(n);

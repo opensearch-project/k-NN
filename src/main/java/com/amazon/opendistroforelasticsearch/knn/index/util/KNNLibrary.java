@@ -12,8 +12,10 @@
 
 package com.amazon.opendistroforelasticsearch.knn.index.util;
 
+import com.amazon.opendistroforelasticsearch.knn.common.KNNConstants;
 import com.amazon.opendistroforelasticsearch.knn.index.KNNMethod;
 import com.amazon.opendistroforelasticsearch.knn.index.KNNMethodContext;
+import com.amazon.opendistroforelasticsearch.knn.index.KNNSettings;
 import com.amazon.opendistroforelasticsearch.knn.index.MethodComponent;
 import com.amazon.opendistroforelasticsearch.knn.index.Parameter;
 import com.amazon.opendistroforelasticsearch.knn.index.SpaceType;
@@ -136,15 +138,16 @@ public interface KNNLibrary {
 
         @Override
         public String getCompoundExtension() {
-            return getExtension() + "c";
+            return getExtension() + KNNConstants.COMPOUND_EXTENSION;
         }
 
         @Override
         public KNNMethod getMethod(String methodName) {
-            if (!methods.containsKey(methodName)) {
-                throw new IllegalArgumentException("Invalid method name: " + methodName);
+            KNNMethod method = methods.get(methodName);
+            if (method != null) {
+                return method;
             }
-            return methods.get(methodName);
+            throw new IllegalArgumentException("Invalid method name: " + methodName);
         }
 
         @Override
@@ -159,12 +162,7 @@ public interface KNNLibrary {
         @Override
         public void validateMethod(KNNMethodContext knnMethodContext) {
             String methodName = knnMethodContext.getMethodComponent().getName();
-            if (!methods.containsKey(methodName)) {
-                throw new ValidationException();
-            }
-
-            KNNMethod knnMethod = methods.get(methodName);
-            knnMethod.validate(knnMethodContext);
+            getMethod(methodName).validate(knnMethodContext);
         }
     }
 
@@ -182,19 +180,18 @@ public interface KNNLibrary {
                 METHOD_HNSW,
                 KNNMethod.Builder.builder(
                         MethodComponent.Builder.builder(HNSW_LIB_NAME)
-                                .addParameter(METHOD_PARAMETER_M, new Parameter.IntegerParameter(16,
-                                        v -> v > 0))
-                                .addParameter(METHOD_PARAMETER_EF_CONSTRUCTION, new Parameter.IntegerParameter(512,
-                                        v -> v > 0))
+                                .addParameter(METHOD_PARAMETER_M, new Parameter.IntegerParameter(
+                                        KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0))
+                                .addParameter(METHOD_PARAMETER_EF_CONSTRUCTION, new Parameter.IntegerParameter(
+                                        KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION, v -> v > 0))
                                 .build())
                         .addSpaces(SpaceType.L2, SpaceType.L1, SpaceType.LINF, SpaceType.COSINESIMIL,
                                 SpaceType.INNER_PRODUCT)
                         .build()
         );
 
-        public final static Map<SpaceType, Function<Float, Float>> SCORE_TRANSLATIONS = Collections.emptyMap();
 
-        public final static Nmslib INSTANCE = new Nmslib(METHODS, SCORE_TRANSLATIONS,
+        public final static Nmslib INSTANCE = new Nmslib(METHODS, Collections.emptyMap(),
                 NmsLibVersion.LATEST.getBuildVersion(), NmsLibVersion.LATEST.indexLibraryVersion(), EXTENSION);
 
         /**
