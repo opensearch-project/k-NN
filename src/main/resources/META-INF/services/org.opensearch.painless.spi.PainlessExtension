@@ -21,4 +21,4 @@
  #   express or implied. See the License for the specific language governing
  #   permissions and limitations under the License.
 
-com.amazon.opendistroforelasticsearch.knn.plugin.script.KNNWhitelistExtension
+org.opensearch.knn.plugin.script.KNNWhitelistExtension
