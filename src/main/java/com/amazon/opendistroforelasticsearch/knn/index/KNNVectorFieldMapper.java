@@ -135,14 +135,16 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
          * hnsw default engine index without any parameters set
          */
         protected final Parameter<KNNMethodContext> knnMethodContext = new Parameter<>(KNN_METHOD, false,
-                KNNMethodContext::getDefault,
+                () -> null,
                 (n, c, o) -> KNNMethodContext.parse(o), m -> toType(m).knnMethod)
                 .setSerializer(((b, n, v) ->{
                     b.startObject(n);
                     v.toXContent(b, ToXContent.EMPTY_PARAMS);
                     b.endObject();
                 }), m -> m.getMethodComponent().getName())
-                .setValidator(KNNMethodContext::validate);
+                .setValidator(v -> {
+                    if(v != null) v.validate();
+                });
 
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
@@ -178,29 +180,38 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         @Override
         public KNNVectorFieldMapper build(BuilderContext context) {
-            if (knnMethodContext.getValue().getEngine() == KNNEngine.NMSLIB) {
 
-                // Originally, a user would use index settings to set the spaceType, efConstruction and m hnsw
-                // parameters. Upon further review, it makes sense to set these parameters in the mapping of a
-                // particular field. However, because users migrating from older versions will still use the index
-                // settings to set these parameters, we will need to provide backwards compatibilty. In order to
-                // handle this, we first check if the setting is set, and, if so use it. If not, we fall back to
-                // the parameters set in the mapping. This means that if a user sets the settings, setting the mapping
-                // parameter will have no impact.
-                if (this.spaceType == null && context.indexSettings().hasValue(INDEX_KNN_SPACE_TYPE.getKey())) {
+            // Originally, a user would use index settings to set the spaceType, efConstruction and m hnsw
+            // parameters. Upon further review, it makes sense to set these parameters in the mapping of a
+            // particular field. However, because users migrating from older versions will still use the index
+            // settings to set these parameters, we will need to provide backwards compatibilty. In order to
+            // handle this, we first check if the mapping is set, and, if so use it. If not, we fall back to
+            // the parameters set in the index settings. This means that if a user sets the mappings, setting the index
+            // settings will have no impact.
+            KNNMethodContext methodContext = knnMethodContext.getValue();
+
+            if (methodContext == null) {
+                knnMethodContext.setValue(KNNMethodContext.getDefault());
+                knnMethodContext.getValue().validate();
+
+                if (this.spaceType == null) {
                     this.spaceType = getSpaceType(context.indexSettings());
                 }
 
-                if (this.spaceType == null) {
-                    this.spaceType = knnMethodContext.get().getSpaceType().getValue();
-                }
-
-                if (this.m == null && context.indexSettings().hasValue(INDEX_KNN_ALGO_PARAM_M_SETTING.getKey())) {
+                if (this.m == null) {
                     this.m = getM(context.indexSettings());
                 }
 
+                if (this.efConstruction == null) {
+                    this.efConstruction = getEfConstruction(context.indexSettings());
+                }
+            } else {
+                if (this.spaceType == null) {
+                    this.spaceType = methodContext.getSpaceType().getValue();
+                }
+
                 if (this.m == null) {
-                    Map<String, Object> parameters = knnMethodContext.getValue().getMethodComponent().getParameters();
+                    Map<String, Object> parameters = methodContext.getMethodComponent().getParameters();
 
                     if (parameters != null && parameters.containsKey(METHOD_PARAMETER_M)) {
                         this.m = parameters.get(METHOD_PARAMETER_M).toString();
@@ -210,13 +221,8 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     }
                 }
 
-                if (this.efConstruction == null && context.indexSettings()
-                        .hasValue(INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING.getKey())) {
-                    this.efConstruction = getEfConstruction(context.indexSettings());
-                }
-
                 if (this.efConstruction == null) {
-                    Map<String, Object> parameters = knnMethodContext.getValue().getMethodComponent().getParameters();
+                    Map<String, Object> parameters = methodContext.getMethodComponent().getParameters();
 
                     if (parameters != null && parameters.containsKey(METHOD_PARAMETER_EF_CONSTRUCTION)) {
                         this.efConstruction = parameters.get(METHOD_PARAMETER_EF_CONSTRUCTION).toString();
@@ -329,7 +335,6 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected final String m;
     protected final String efConstruction;
     private final Integer dimension;
-    protected final String knnEngine;
     protected final KNNMethodContext knnMethod;
 
     public KNNVectorFieldMapper(String simpleName, MappedFieldType mappedFieldType, MultiFields multiFields,
@@ -341,13 +346,14 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         this.hasDocValues = builder.hasDocValues.getValue();
         this.dimension = builder.dimension.getValue();
         this.knnMethod = builder.knnMethodContext.getValue();
-        this.knnEngine = knnMethod.getEngine().getName();
         this.ignoreMalformed = ignoreMalformed;
         this.spaceType = spaceType;
         this.m = m;
         this.efConstruction = efConstruction;
-        this.fieldType = new FieldType(Defaults.FIELD_TYPE);
 
+        String knnEngine = knnMethod.getEngine().getName();
+
+        this.fieldType = new FieldType(Defaults.FIELD_TYPE);
         if (KNNEngine.NMSLIB.getName().equals(knnEngine)) {
             this.fieldType.putAttribute(KNNConstants.HNSW_ALGO_M, m);
             this.fieldType.putAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, efConstruction);

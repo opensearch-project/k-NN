@@ -68,7 +68,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
 
         assertNotNull(knnVectorFieldMapper);
-        assertEquals(KNNEngine.DEFAULT.getName(), knnVectorFieldMapper.knnEngine);
+        assertEquals(KNNEngine.DEFAULT.getName(), knnVectorFieldMapper.knnMethod.getEngine().getName());
         assertEquals(SpaceType.DEFAULT.getValue(), knnVectorFieldMapper.spaceType);
         assertEquals(KNNEngine.DEFAULT.getMethod(METHOD_HNSW).getMethodComponent().getParameters()
                 .get(METHOD_PARAMETER_M).getDefaultValue().toString(), knnVectorFieldMapper.m);
@@ -98,7 +98,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertEquals(Integer.toString(m), knnVectorFieldMapper.m);
         assertEquals(Integer.toString(efConstruction), knnVectorFieldMapper.efConstruction);
 
-        // Test that method settings get precedence over mapping parameters
+        // Test that mapping parameters get precedence over index settings
+        //TODO: flip
         int m1 = 1000;
         int efConstruction1 = 12;
         SpaceType spaceType1 = SpaceType.L1;
@@ -118,9 +119,9 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         knnVectorFieldMapper = builder.build(builderContext);
 
-        assertEquals(spaceType, knnVectorFieldMapper.spaceType);
-        assertEquals(Integer.toString(m), knnVectorFieldMapper.m);
-        assertEquals(Integer.toString(efConstruction), knnVectorFieldMapper.efConstruction);
+        assertEquals(spaceType1.getValue(), knnVectorFieldMapper.spaceType);
+        assertEquals(Integer.toString(m1), knnVectorFieldMapper.m);
+        assertEquals(Integer.toString(efConstruction1), knnVectorFieldMapper.efConstruction);
 
         // When settings are empty, mapping parameters are used
         builder = new KNNVectorFieldMapper.Builder("test-field-name-4");
@@ -173,10 +174,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings));
 
         assertEquals(dimension, builder.dimension.get().intValue());
-        assertEquals(KNNEngine.NMSLIB, builder.knnMethodContext.get().getEngine());
-        assertEquals(SpaceType.DEFAULT, builder.knnMethodContext.get().getSpaceType());
-        assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponent().getName());
-        assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponent().getName());
+        assertNull(builder.knnMethodContext.getValue()); // Defaults to null
 
         // Now, we need to test a custom parser
         int efConstruction = 321;

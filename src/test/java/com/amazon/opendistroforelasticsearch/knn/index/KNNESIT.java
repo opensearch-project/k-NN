@@ -200,14 +200,14 @@ public class KNNESIT extends KNNRestTestCase {
      */
     public void testCreateIndexWithValidAlgoParams_mappingAndSettings() {
         try {
-            String spaceType = SpaceType.L1.getValue();
-            int efConstruction = 14;
-            int m = 13;
+            String spaceType1 = SpaceType.L1.getValue();
+            int efConstruction1 = 14;
+            int m1 = 13;
 
             Settings settings = Settings.builder()
                     .put(getKNNDefaultIndexSettings())
-                    .put("index.knn.algo_param.m", m)
-                    .put("index.knn.algo_param.ef_construction", efConstruction)
+                    .put("index.knn.algo_param.m", m1)
+                    .put("index.knn.algo_param.ef_construction", efConstruction1)
                     .build();
 
             String mapping = Strings.toString(XContentFactory.jsonBuilder().startObject()
@@ -216,20 +216,56 @@ public class KNNESIT extends KNNRestTestCase {
                     .field("type", "knn_vector")
                     .field("dimension", 2)
                     .startObject(KNNConstants.KNN_METHOD)
-                    .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType)
+                    .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType1)
                     .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
                     .startObject(KNNConstants.PARAMETERS)
-                    .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
-                    .field(KNNConstants.METHOD_PARAMETER_M, m)
+                    .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction1)
+                    .field(KNNConstants.METHOD_PARAMETER_M, m1)
                     .endObject()
                     .endObject()
                     .endObject()
                     .endObject()
                     .endObject());
 
-            createKnnIndex(INDEX_NAME, settings, mapping);
+            createKnnIndex(INDEX_NAME + "1", settings, mapping);
             Float[] vector = {6.0f, 6.0f};
-            addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
+            addKnnDoc(INDEX_NAME + "1", "1", FIELD_NAME, vector);
+
+            String spaceType2 = SpaceType.COSINESIMIL.getValue();
+            int efConstruction2 = 114;
+            int m2 = 113;
+
+            mapping = Strings.toString(XContentFactory.jsonBuilder().startObject()
+                    .startObject("properties")
+                    .startObject(FIELD_NAME + "1")
+                    .field("type", "knn_vector")
+                    .field("dimension", 2)
+                    .startObject(KNNConstants.KNN_METHOD)
+                    .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType1)
+                    .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+                    .startObject(KNNConstants.PARAMETERS)
+                    .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction1)
+                    .field(KNNConstants.METHOD_PARAMETER_M, m1)
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .startObject(FIELD_NAME + "2")
+                    .field("type", "knn_vector")
+                    .field("dimension", 2)
+                    .startObject(KNNConstants.KNN_METHOD)
+                    .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType2)
+                    .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+                    .startObject(KNNConstants.PARAMETERS)
+                    .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction2)
+                    .field(KNNConstants.METHOD_PARAMETER_M, m2)
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject());
+
+            createKnnIndex(INDEX_NAME + "2", settings, mapping);
+            addKnnDoc(INDEX_NAME + "2", "1", FIELD_NAME, vector);
         } catch (Exception ex) {
             fail("Exception not expected as valid index arguments passed: " + ex);
         }
