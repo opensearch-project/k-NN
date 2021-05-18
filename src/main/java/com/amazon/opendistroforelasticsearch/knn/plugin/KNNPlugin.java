@@ -118,7 +118,8 @@ import static java.util.Collections.singletonList;
  */
 public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, ActionPlugin, EnginePlugin, ScriptPlugin {
 
-    public static final String KNN_BASE_URI = "/_opendistro/_knn";
+    public static final String LEGACY_KNN_BASE_URI = "/_opendistro/_knn";
+    public static final String KNN_BASE_URI = "/_plugins/_knn";
 
     private KNNStats knnStats;
     private ClusterService clusterService;

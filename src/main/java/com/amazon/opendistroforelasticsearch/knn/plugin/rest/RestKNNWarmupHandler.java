@@ -55,10 +55,9 @@ import static org.opensearch.action.support.IndicesOptions.strictExpandOpen;
  * into memory.
  */
 public class RestKNNWarmupHandler extends BaseRestHandler {
-    public static String NAME = "knn_warmup_action";
-
     private static final Logger logger = LogManager.getLogger(RestKNNWarmupHandler.class);
-
+    private static final String URL_PATH = "/warmup/{index}";
+    public static String NAME = "knn_warmup_action";
     private IndexNameExpressionResolver indexNameExpressionResolver;
     private ClusterService clusterService;
 
@@ -68,6 +67,7 @@ public class RestKNNWarmupHandler extends BaseRestHandler {
         this.indexNameExpressionResolver = indexNameExpressionResolver;
     }
 
+
     @Override
     public String getName() {
         return NAME;
@@ -75,8 +75,15 @@ public class RestKNNWarmupHandler extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
+        return ImmutableList.of();
+    }
+
+    @Override
+    public List<ReplacedRoute> replacedRoutes() {
         return ImmutableList.of(
-                new Route(RestRequest.Method.GET, KNNPlugin.KNN_BASE_URI + "/warmup/{index}")
+            new ReplacedRoute(
+                RestRequest.Method.GET, KNNPlugin.KNN_BASE_URI + URL_PATH,
+                RestRequest.Method.GET, KNNPlugin.LEGACY_KNN_BASE_URI + URL_PATH)
         );
     }
 
@@ -84,14 +91,14 @@ public class RestKNNWarmupHandler extends BaseRestHandler {
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) {
         KNNWarmupRequest knnWarmupRequest = createKNNWarmupRequest(request);
         logger.info("[KNN] Warmup started for the following indices: "
-                + String.join(",", knnWarmupRequest.indices()));
+            + String.join(",", knnWarmupRequest.indices()));
         return channel -> client.execute(KNNWarmupAction.INSTANCE, knnWarmupRequest, new RestToXContentListener<>(channel));
     }
 
     private KNNWarmupRequest createKNNWarmupRequest(RestRequest request) {
         String[] indexNames = Strings.splitStringByCommaToArray(request.param("index"));
-        Index[] indices =  indexNameExpressionResolver.concreteIndices(clusterService.state(), strictExpandOpen(),
-                indexNames);
+        Index[] indices = indexNameExpressionResolver.concreteIndices(clusterService.state(), strictExpandOpen(),
+            indexNames);
         List<String> invalidIndexNames = new ArrayList<>();
 
         Arrays.stream(indices).forEach(index -> {
@@ -102,7 +109,7 @@ public class RestKNNWarmupHandler extends BaseRestHandler {
 
         if (invalidIndexNames.size() != 0) {
             throw new KNNInvalidIndicesException(invalidIndexNames,
-                    "Warm up request rejected. One or more indices have 'index.knn' set to false.");
+                "Warm up request rejected. One or more indices have 'index.knn' set to false.");
         }
 
         return new KNNWarmupRequest(indexNames);

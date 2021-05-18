@@ -8,26 +8,13 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-/*
- *   Copyright 2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- *   Licensed under the Apache License, Version 2.0 (the "License").
- *   You may not use this file except in compliance with the License.
- *   A copy of the License is located at
- *
- *       http://www.apache.org/licenses/LICENSE-2.0
- *
- *   or in the "license" file accompanying this file. This file is distributed
- *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- *   express or implied. See the License for the specific language governing
- *   permissions and limitations under the License.
- */
 
 package com.amazon.opendistroforelasticsearch.knn.plugin.action;
 
 import com.amazon.opendistroforelasticsearch.knn.KNNRestTestCase;
+import com.amazon.opendistroforelasticsearch.knn.common.KNNConstants;
 import com.amazon.opendistroforelasticsearch.knn.index.KNNQueryBuilder;
-import com.amazon.opendistroforelasticsearch.knn.index.SpaceType;
+import com.amazon.opendistroforelasticsearch.knn.plugin.KNNPlugin;
 import com.amazon.opendistroforelasticsearch.knn.plugin.stats.KNNStats;
 import com.amazon.opendistroforelasticsearch.knn.plugin.stats.StatNames;
 import org.apache.http.util.EntityUtils;
@@ -54,11 +41,11 @@ import java.util.Map;
 import static com.amazon.opendistroforelasticsearch.knn.plugin.stats.KNNStatsConfig.KNN_STATS;
 
 /**
- * Integration tests to check the correctness of RestKNNStatsHandler
+ * Integration tests to check the correctness of Legacy stats api
  */
-public class RestKNNStatsHandlerIT extends KNNRestTestCase {
+public class RestLegacyKNNStatsHandlerIT extends KNNRestTestCase {
 
-    private static final Logger logger = LogManager.getLogger(RestKNNStatsHandlerIT.class);
+    private static final Logger logger = LogManager.getLogger(RestLegacyKNNStatsHandlerIT.class);
     private boolean isDebuggingTest = new DisableOnDebug(null).isDebugging();
     private boolean isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false").equals("true");
 
@@ -75,7 +62,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      * @throws IOException throws IOException
      */
     public void testCorrectStatsReturned() throws IOException {
-        Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
+        Response response = executeKnnStatRequest(Collections.emptyList(), Collections.emptyList(), KNNPlugin.LEGACY_KNN_BASE_URI);
         String responseBody = EntityUtils.toString(response.getEntity());
         Map<String, Object> clusterStats = parseClusterStatsResponse(responseBody);
         assertEquals(knnStats.getClusterStats().keySet(), clusterStats.keySet());
@@ -89,7 +76,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      * @throws IOException throws IOException
      */
     public void testStatsValueCheck() throws IOException {
-        Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
+        Response response = executeKnnStatRequest(Collections.emptyList(), Collections.emptyList(), KNNPlugin.LEGACY_KNN_BASE_URI);
         String responseBody = EntityUtils.toString(response.getEntity());
 
         Map<String, Object> nodeStats0 = parseNodeStatsResponse(responseBody).get(0);
@@ -107,7 +94,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         float[] qvector = {6.0f, 6.0f};
         searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1);
 
-        response = getKnnStats(Collections.emptyList(), Collections.emptyList());
+        response = executeKnnStatRequest(Collections.emptyList(), Collections.emptyList(), KNNPlugin.LEGACY_KNN_BASE_URI);
         responseBody = EntityUtils.toString(response.getEntity());
 
         Map<String, Object> nodeStats1 = parseNodeStatsResponse(responseBody).get(0);
@@ -120,7 +107,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         // Second search: Ensure that hits=1
         searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1);
 
-        response = getKnnStats(Collections.emptyList(), Collections.emptyList());
+        response = executeKnnStatRequest(Collections.emptyList(), Collections.emptyList(), KNNPlugin.LEGACY_KNN_BASE_URI);
         responseBody = EntityUtils.toString(response.getEntity());
 
         Map<String, Object> nodeStats2 = parseNodeStatsResponse(responseBody).get(0);
@@ -141,7 +128,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         String metric1 = StatNames.HIT_COUNT.getName();
         String metric2 = StatNames.MISS_COUNT.getName();
 
-        Response response = getKnnStats(Collections.emptyList(), Arrays.asList(metric1, metric2));
+        Response response = executeKnnStatRequest(Collections.emptyList(), Arrays.asList(metric1, metric2), KNNPlugin.LEGACY_KNN_BASE_URI);
         String responseBody = EntityUtils.toString(response.getEntity());
         Map<String, Object> nodeStats = parseNodeStatsResponse(responseBody).get(0);
 
@@ -155,8 +142,8 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      * Test checks that handler correctly returns failure on an invalid metric
      */
     public void testInvalidMetricsStats() {
-        expectThrows(ResponseException.class, () -> getKnnStats(Collections.emptyList(),
-            Collections.singletonList("invalid_metric")));
+        expectThrows(ResponseException.class, () -> executeKnnStatRequest(Collections.emptyList(),
+            Collections.singletonList("invalid_metric"), KNNPlugin.LEGACY_KNN_BASE_URI));
     }
 
     /**
@@ -165,7 +152,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      * @throws IOException throws IOException
      */
     public void testValidNodeIdStats() throws IOException {
-        Response response = getKnnStats(Collections.singletonList("_local"), Collections.emptyList());
+        Response response = executeKnnStatRequest(Collections.singletonList("_local"), Collections.emptyList(), KNNPlugin.LEGACY_KNN_BASE_URI);
         String responseBody = EntityUtils.toString(response.getEntity());
         List<Map<String, Object>> nodeStats = parseNodeStatsResponse(responseBody);
         assertEquals(1, nodeStats.size());
@@ -177,7 +164,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      * @throws Exception throws Exception
      */
     public void testInvalidNodeIdStats() throws Exception {
-        Response response = getKnnStats(Collections.singletonList("invalid_node"), Collections.emptyList());
+        Response response = executeKnnStatRequest(Collections.singletonList("invalid_node"), Collections.emptyList(), KNNPlugin.LEGACY_KNN_BASE_URI);
         String responseBody = EntityUtils.toString(response.getEntity());
         List<Map<String, Object>> nodeStats = parseNodeStatsResponse(responseBody);
         assertEquals(0, nodeStats.size());
@@ -190,11 +177,11 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         clearScriptCache();
 
         // Get initial stats
-        Response response = getKnnStats(Collections.emptyList(), Arrays.asList(
+        Response response = executeKnnStatRequest(Collections.emptyList(), Arrays.asList(
             StatNames.SCRIPT_COMPILATIONS.getName(),
             StatNames.SCRIPT_QUERY_REQUESTS.getName(),
             StatNames.SCRIPT_QUERY_ERRORS.getName())
-        );
+            , KNNPlugin.LEGACY_KNN_BASE_URI);
         List<Map<String, Object>> nodeStats = parseNodeStatsResponse(EntityUtils.toString(response.getEntity()));
         int initialScriptCompilations = (int) (nodeStats.get(0).get(StatNames.SCRIPT_COMPILATIONS.getName()));
         int initialScriptQueryRequests = (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_REQUESTS.getName()));
@@ -211,16 +198,15 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         float[] queryVector = {1.0f, 1.0f};
         params.put("field", FIELD_NAME);
         params.put("query_value", queryVector);
-        params.put("space_type", SpaceType.L2.getValue());
+        params.put("space_type", KNNConstants.L2);
         Request request = constructKNNScriptQueryRequest(INDEX_NAME, qb, params);
         response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
             RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
-        response = getKnnStats(Collections.emptyList(), Arrays.asList(
+        response = executeKnnStatRequest(Collections.emptyList(), Arrays.asList(
             StatNames.SCRIPT_COMPILATIONS.getName(),
-            StatNames.SCRIPT_QUERY_REQUESTS.getName())
-        );
+            StatNames.SCRIPT_QUERY_REQUESTS.getName()), KNNPlugin.LEGACY_KNN_BASE_URI);
         nodeStats = parseNodeStatsResponse(EntityUtils.toString(response.getEntity()));
         assertEquals((int) (nodeStats.get(0).get(StatNames.SCRIPT_COMPILATIONS.getName())), initialScriptCompilations + 1);
         assertEquals(initialScriptQueryRequests + 1,
@@ -235,9 +221,8 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         Request finalRequest = request;
         expectThrows(ResponseException.class, () -> client().performRequest(finalRequest));
 
-        response = getKnnStats(Collections.emptyList(), Collections.singletonList(
-            StatNames.SCRIPT_QUERY_ERRORS.getName())
-        );
+        response = executeKnnStatRequest(Collections.emptyList(), Collections.singletonList(
+            StatNames.SCRIPT_QUERY_ERRORS.getName()), KNNPlugin.LEGACY_KNN_BASE_URI);
         nodeStats = parseNodeStatsResponse(EntityUtils.toString(response.getEntity()));
         assertEquals(initialScriptQueryErrors + 1,
             (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_ERRORS.getName())));
@@ -250,11 +235,10 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         clearScriptCache();
 
         // Get initial stats
-        Response response = getKnnStats(Collections.emptyList(), Arrays.asList(
+        Response response = executeKnnStatRequest(Collections.emptyList(), Arrays.asList(
             StatNames.SCRIPT_COMPILATIONS.getName(),
             StatNames.SCRIPT_QUERY_REQUESTS.getName(),
-            StatNames.SCRIPT_QUERY_ERRORS.getName())
-        );
+            StatNames.SCRIPT_QUERY_ERRORS.getName()), KNNPlugin.LEGACY_KNN_BASE_URI);
         List<Map<String, Object>> nodeStats = parseNodeStatsResponse(EntityUtils.toString(response.getEntity()));
         int initialScriptCompilations = (int) (nodeStats.get(0).get(StatNames.SCRIPT_COMPILATIONS.getName()));
         int initialScriptQueryRequests = (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_REQUESTS.getName()));
@@ -280,16 +264,15 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         float[] queryVector = {1.0f, 1.0f};
         params.put("field", FIELD_NAME);
         params.put("query_value", queryVector);
-        params.put("space_type", SpaceType.L2.getValue());
+        params.put("space_type", KNNConstants.L2);
         Request request = constructKNNScriptQueryRequest(INDEX_NAME, qb, params);
         response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
             RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
-        response = getKnnStats(Collections.emptyList(), Arrays.asList(
+        response = executeKnnStatRequest(Collections.emptyList(), Arrays.asList(
             StatNames.SCRIPT_COMPILATIONS.getName(),
-            StatNames.SCRIPT_QUERY_REQUESTS.getName())
-        );
+            StatNames.SCRIPT_QUERY_REQUESTS.getName()), KNNPlugin.LEGACY_KNN_BASE_URI);
         nodeStats = parseNodeStatsResponse(EntityUtils.toString(response.getEntity()));
         assertEquals((int) (nodeStats.get(0).get(StatNames.SCRIPT_COMPILATIONS.getName())), initialScriptCompilations + 1);
         //TODO fix the test case. For some reason request count is treated as 4.
@@ -306,9 +289,8 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         Request finalRequest = request;
         expectThrows(ResponseException.class, () -> client().performRequest(finalRequest));
 
-        response = getKnnStats(Collections.emptyList(), Collections.singletonList(
-            StatNames.SCRIPT_QUERY_ERRORS.getName())
-        );
+        response = executeKnnStatRequest(Collections.emptyList(), Collections.singletonList(
+            StatNames.SCRIPT_QUERY_ERRORS.getName()), KNNPlugin.LEGACY_KNN_BASE_URI);
         nodeStats = parseNodeStatsResponse(EntityUtils.toString(response.getEntity()));
         assertEquals(initialScriptQueryErrors + 2,
             (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_ERRORS.getName())));

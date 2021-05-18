@@ -8,24 +8,11 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-/*
- *   Copyright 2020 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- *
- *   Licensed under the Apache License, Version 2.0 (the "License").
- *   You may not use this file except in compliance with the License.
- *   A copy of the License is located at
- *
- *       http://www.apache.org/licenses/LICENSE-2.0
- *
- *   or in the "license" file accompanying this file. This file is distributed
- *   on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
- *   express or implied. See the License for the specific language governing
- *   permissions and limitations under the License.
- */
 
 package com.amazon.opendistroforelasticsearch.knn.plugin.action;
 
 import com.amazon.opendistroforelasticsearch.knn.KNNRestTestCase;
+import com.amazon.opendistroforelasticsearch.knn.plugin.KNNPlugin;
 import org.junit.Test;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.settings.Settings;
@@ -35,10 +22,10 @@ import java.util.Arrays;
 import java.util.Collections;
 
 /**
- * Integration tests to check the correctness of KNN Warmup API
+ * Integration tests to check the correctness of Legacy KNN Warmup API
  */
 
-public class RestKNNWarmupHandlerIT extends KNNRestTestCase {
+public class RestLegacyKNNWarmupHandlerIT extends KNNRestTestCase {
 
     private final String testIndexName = "test-index";
     private final String testFieldName = "test-field";
@@ -46,21 +33,21 @@ public class RestKNNWarmupHandlerIT extends KNNRestTestCase {
 
     @Test(expected = ResponseException.class)
     public void testNonExistentIndex() throws IOException {
-        knnWarmup(Collections.singletonList("non-existent"));
+        executeWarmupRequest(Collections.singletonList("non-existent"), KNNPlugin.LEGACY_KNN_BASE_URI);
     }
 
     @Test(expected = ResponseException.class)
     public void testNonKnnIndex() throws IOException {
         createIndex("not-knn-index", Settings.EMPTY);
 
-        knnWarmup(Collections.singletonList("not-knn-index"));
+        executeWarmupRequest(Collections.singletonList("not-knn-index"), KNNPlugin.LEGACY_KNN_BASE_URI);
     }
 
     public void testEmptyIndex() throws IOException {
         int graphCountBefore = getTotalGraphsInCache();
         createKnnIndex(testIndexName, getKNNDefaultIndexSettings(), createKnnIndexMapping(testFieldName, dimensions));
 
-        knnWarmup(Collections.singletonList(testIndexName));
+        executeWarmupRequest(Collections.singletonList(testIndexName), KNNPlugin.LEGACY_KNN_BASE_URI);
 
         assertEquals(graphCountBefore, getTotalGraphsInCache());
     }
@@ -70,7 +57,7 @@ public class RestKNNWarmupHandlerIT extends KNNRestTestCase {
         createKnnIndex(testIndexName, getKNNDefaultIndexSettings(), createKnnIndexMapping(testFieldName, dimensions));
         addKnnDoc(testIndexName, "1", testFieldName, new Float[]{6.0f, 6.0f});
 
-        knnWarmup(Collections.singletonList(testIndexName));
+        executeWarmupRequest(Collections.singletonList(testIndexName), KNNPlugin.LEGACY_KNN_BASE_URI);
 
         assertEquals(graphCountBefore + 1, getTotalGraphsInCache());
     }
@@ -84,7 +71,7 @@ public class RestKNNWarmupHandlerIT extends KNNRestTestCase {
         createKnnIndex(testIndexName + "2", getKNNDefaultIndexSettings(), createKnnIndexMapping(testFieldName, dimensions));
         addKnnDoc(testIndexName + "2", "1", testFieldName, new Float[]{6.0f, 6.0f});
 
-        knnWarmup(Arrays.asList(testIndexName + "1", testIndexName + "2"));
+        executeWarmupRequest(Arrays.asList(testIndexName + "1", testIndexName + "2"), KNNPlugin.LEGACY_KNN_BASE_URI);
 
         assertEquals(graphCountBefore + 2, getTotalGraphsInCache());
     }
