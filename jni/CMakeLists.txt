@@ -38,7 +38,7 @@ endif()
 
 # Target Library to be built
 set(KNN_INDEX KNNIndexV2_0_11)
-set(KNN_PACKAGE_NAME opendistro-knnlib)
+set(KNN_PACKAGE_NAME opensearch-knnlib)
 
 # Check if similarity search exists
 find_path(NMS_REPO_DIR NAMES similarity_search PATHS ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib)
@@ -65,7 +65,7 @@ else()
 endif()
 
 # Compile the library
-add_library(${KNN_INDEX} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/com_amazon_opendistroforelasticsearch_knn_index_v2011_KNNIndex.cpp)
+add_library(${KNN_INDEX} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_index_v2011_KNNIndex.cpp)
 target_link_libraries(${KNN_INDEX} NonMetricSpaceLib)
 target_include_directories(${KNN_INDEX} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE} ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search/include)
 
@@ -85,15 +85,15 @@ elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL x86_64)
     set(MACH_ARCH x64)
 endif()
 
-set(KNN_MAINTAINER "OpenSearch Team <opendistro@amazon.com>")
-set(ODFE_DOWNLOAD_URL "https://opendistro.github.io/for-elasticsearch/downloads.html")
+set(KNN_MAINTAINER "OpenSearch Team <opensearch@amazon.com>")
+set(OPENSEARCH_DOWNLOAD_URL "https://opensearch.org/downloads.html")
 set(CPACK_PACKAGE_NAME ${KNN_PACKAGE_NAME})
 set(CPACK_PACKAGE_VERSION 1.13.0.0)
 set(CMAKE_INSTALL_PREFIX /usr)
 set(CPACK_GENERATOR "RPM;DEB")
 SET(CPACK_OUTPUT_FILE_PREFIX packages)
 set(CPACK_PACKAGE_RELEASE 1)
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "KNN JNI library built off of NMSLIB for OpenSearch. Reference documentation can be found at https://opendistro.github.io/for-elasticsearch-docs/.")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "KNN JNI library built off of NMSLIB for OpenSearch.")
 set(CPACK_PACKAGE_VENDOR "Amazon")
 set(CPACK_PACKAGE_CONTACT "Maintainer: ${KNN_MAINTAINER}")
 set(CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
@@ -101,12 +101,12 @@ set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${JV
 
 # RPM Specific variables
 set(CPACK_RPM_PACKAGE_RELEASE ${CPACK_PACKAGE_RELEASE})
-set(CPACK_RPM_PACKAGE_URL ${ODFE_DOWNLOAD_URL})
+set(CPACK_RPM_PACKAGE_URL ${OPENSEARCH_DOWNLOAD_URL})
 set(CPACK_RPM_PACKAGE_DESCRIPTION "OpenSearch KNN JNI Library")
 set(CPACK_RPM_PACKAGE_LICENSE "ASL-2.0")
 
 # DEB Specific variables
-set(CPACK_DEBIAN_PACKAGE_HOMEPAGE ${ODFE_DOWNLOAD_URL})
+set(CPACK_DEBIAN_PACKAGE_HOMEPAGE ${OPENSEARCH_DOWNLOAD_URL})
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER ${KNN_MAINTAINER})
 set(CPACK_DEBIAN_PACKAGE_SOURCE ${CPACK_PACKAGE_NAME})
 set(CPACK_DEBIAN_PACKAGE_VERSION ${CPACK_PACKAGE_VERSION})

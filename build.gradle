@@ -99,7 +99,7 @@ ext {
 }
 
 allprojects {
-    group = 'com.amazon.opendistroforelasticsearch'
+    group = 'org.opensearch'
     version = "${opensearchVersion}.0-beta1"
 
     apply from: 'build-tools/repositories.gradle'
@@ -117,9 +117,9 @@ check.dependsOn jacocoTestReport
 
 opensearchplugin {
     name 'opensearch-knn'
-    // zip file name and plugin name in ${elasticsearch.plugin.name} read by ES when plugin loading
+    // zip file name and plugin name in ${opensearch.plugin.name} read by OpenSearch when plugin loading
     description 'OpenSearch k-NN plugin'
-    classname 'com.amazon.opendistroforelasticsearch.knn.plugin.KNNPlugin'
+    classname 'org.opensearch.knn.plugin.KNNPlugin'
     extendedPlugins = ['lang-painless']
 }
 
@@ -202,7 +202,7 @@ integTest {
         // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
         // not being written, the waitForAllConditions ensures it's written
         getClusters().forEach { cluster ->
-                cluster.waitForAllConditions()
+            cluster.waitForAllConditions()
         }
     }
 
@@ -213,21 +213,21 @@ integTest {
 }
 
 testClusters.integTest {
-        testDistribution = "ARCHIVE"
-        plugin(project.tasks.bundlePlugin.archiveFile)
-        // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
-        if (_numNodes > 1) numberOfNodes = _numNodes
-        // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
-        // i.e. we have to use a custom property to flag when we want to debug opensearch JVM
-        // since we also support multi node integration tests we increase debugPort per node
-        if (System.getProperty("cluster.debug") != null) {
-            def debugPort = 5005
-            nodes.forEach { node ->
-                node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=${debugPort}")
-                debugPort += 1
-            }
+    testDistribution = "ARCHIVE"
+    plugin(project.tasks.bundlePlugin.archiveFile)
+    // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
+    if (_numNodes > 1) numberOfNodes = _numNodes
+    // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
+    // i.e. we have to use a custom property to flag when we want to debug opensearch JVM
+    // since we also support multi node integration tests we increase debugPort per node
+    if (System.getProperty("cluster.debug") != null) {
+        def debugPort = 5005
+        nodes.forEach { node ->
+            node.jvmArgs("-agentlib:jdwp=transport=dt_socket,server=n,suspend=y,address=${debugPort}")
+            debugPort += 1
         }
-        systemProperty("java.library.path", "$rootDir/jni/release")
+    }
+    systemProperty("java.library.path", "$rootDir/jni/release")
 }
 
 run {
@@ -249,8 +249,8 @@ forbiddenPatterns {
     setEnabled(false)
 }
 
-// We don't need to follow ES testing naming conventions.
-// see https://github.com/elastic/elasticsearch/blob/323f312bbc829a63056a79ebe45adced5099f6e6/buildSrc/src/main/java/org/elasticsearch/gradle/precommit/TestingConventionsTasks.java
+// We don't need to follow OpenSearch testing naming conventions.
+// see https://github.com/opensearch-project/OpenSearch/blob/main/buildSrc/src/main/java/org/opensearch/gradle/precommit/TestingConventionsTasks.java
 // enable testingConventions check will cause errors like:  "Classes ending with [Tests] must subclass [LuceneTestCase]"
 testingConventions.enabled = false
 validateNebulaPom.enabled = false
@@ -273,7 +273,7 @@ afterEvaluate {
         fileMode 0644
         dirMode 0755
 
-        requires('opensearch', versions.elasticsearch, EQUAL)
+        requires('opensearch', versions.opensearch, EQUAL)
         requires("opensearch-knnlib",  "${opensearchVersion}.0",  EQUAL)
         packager = 'Amazon'
         vendor = 'Amazon'
@@ -281,11 +281,10 @@ afterEvaluate {
         prefix '/usr'
 
         license 'ASL-2.0'
-        maintainer 'OpenDistro for Elasticsearch Team <opendistro@amazon.com>'
-        url 'https://opendistro.github.io/for-elasticsearch/downloads.html'
+        maintainer 'OpenSearch <opensearch@amazon.com>'
+        url 'https://opensearch.org/downloads.html'
         summary '''
-         KNN plugin for OpenSearch. 
-         Reference documentation can be found at https://opendistro.github.io/for-elasticsearch-docs/.
+         KNN plugin for OpenSearch.
     '''.stripIndent().replace('\n', ' ').trim()
     }
 
