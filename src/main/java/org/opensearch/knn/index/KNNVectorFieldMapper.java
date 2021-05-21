@@ -223,9 +223,7 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     }
                 }
             }
-
-            logger.info("-------------> Space type: " + spaceType);
-
+            
             return new KNNVectorFieldMapper(name, new KNNVectorFieldType(buildFullName(context), meta.getValue(),
                     dimension.getValue()), multiFieldsBuilder.build(this, context),
                     ignoreMalformed(context), this.spaceType, this.m, this.efConstruction, copyTo.build(), this);
