@@ -26,7 +26,7 @@
 
 buildscript {
     ext {
-        opensearch_version = System.getProperty("opensearch.version", "1.0.0-beta1")
+        opensearch_version = System.getProperty("opensearch.version", "1.0.0-rc1")
         opensearch_group = "org.opensearch"
     }
 
@@ -100,7 +100,7 @@ ext {
 
 allprojects {
     group = 'org.opensearch'
-    version = "${opensearchVersion}.0-beta1"
+    version = "${opensearchVersion}.0-rc1"
 
     apply from: 'build-tools/repositories.gradle'
     plugins.withId('java') {
