@@ -68,7 +68,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
 
         assertNotNull(knnVectorFieldMapper);
-        assertEquals(KNNEngine.DEFAULT.getName(), knnVectorFieldMapper.knnMethod.getEngine().getName());
         assertEquals(SpaceType.DEFAULT.getValue(), knnVectorFieldMapper.spaceType);
         assertEquals(KNNEngine.DEFAULT.getMethod(METHOD_HNSW).getMethodComponent().getParameters()
                 .get(METHOD_PARAMETER_M).getDefaultValue().toString(), knnVectorFieldMapper.m);
