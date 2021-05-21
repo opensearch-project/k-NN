@@ -185,9 +185,6 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             KNNMethodContext methodContext = knnMethodContext.getValue();
 
             if (methodContext == null) {
-                knnMethodContext.setValue(KNNMethodContext.getDefault());
-                knnMethodContext.getValue().validate();
-
                 if (this.spaceType == null) {
                     this.spaceType = getSpaceType(context.indexSettings());
                 }
@@ -226,6 +223,8 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     }
                 }
             }
+
+            logger.info("-------------> Space type: " + spaceType);
 
             return new KNNVectorFieldMapper(name, new KNNVectorFieldType(buildFullName(context), meta.getValue(),
                     dimension.getValue()), multiFieldsBuilder.build(this, context),
@@ -345,7 +344,12 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         this.m = m;
         this.efConstruction = efConstruction;
 
-        String knnEngine = knnMethod.getEngine().getName();
+        String knnEngine;
+        if (knnMethod == null) {
+            knnEngine = KNNEngine.DEFAULT.getName();
+        } else {
+            knnEngine = knnMethod.getEngine().getName();
+        }
 
         this.fieldType = new FieldType(Defaults.FIELD_TYPE);
         if (KNNEngine.NMSLIB.getName().equals(knnEngine)) {
