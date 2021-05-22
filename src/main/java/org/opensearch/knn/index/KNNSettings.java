@@ -105,8 +105,9 @@ public class KNNSettings {
 
     public static final Setting<String> INDEX_KNN_SPACE_TYPE = Setting.simpleString(KNN_SPACE_TYPE,
             INDEX_KNN_DEFAULT_SPACE_TYPE,
-        new SpaceTypeValidator(),
-        IndexScope);
+            new SpaceTypeValidator(),
+            IndexScope,
+            Setting.Property.Deprecated);
 
     /**
      * M - the number of bi-directional links created for every new element during construction.
@@ -117,7 +118,8 @@ public class KNNSettings {
     public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_M_SETTING =  Setting.intSetting(KNN_ALGO_PARAM_M,
             INDEX_KNN_DEFAULT_ALGO_PARAM_M,
             2,
-            IndexScope);
+            IndexScope,
+            Setting.Property.Deprecated);
 
     /**
      *  ef or efSearch - the size of the dynamic list for the nearest neighbors (used during the search).
@@ -137,7 +139,8 @@ public class KNNSettings {
     public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING =  Setting.intSetting(KNN_ALGO_PARAM_EF_CONSTRUCTION,
             INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
             2,
-            IndexScope);
+            IndexScope,
+            Setting.Property.Deprecated);
 
     /**
      * This setting identifies KNN index.
@@ -394,7 +397,7 @@ public class KNNSettings {
      */
     public static String getSpaceType(String index) {
         return KNNSettings.state().clusterService.state().getMetadata()
-            .index(index).getSettings().get(KNN_SPACE_TYPE, SpaceTypes.l2.getKey());
+            .index(index).getSettings().get(KNN_SPACE_TYPE, SpaceType.DEFAULT.getValue());
     }
 
     public static int getIndexSettingValue(String index, String settingName, int defaultValue) {
@@ -410,8 +413,10 @@ public class KNNSettings {
     static class SpaceTypeValidator implements Setting.Validator<String> {
 
         @Override public void validate(String value) {
-            if (value == null || !SpaceTypes.contains(value.toLowerCase())){
-                throw new InvalidParameterException(String.format("Unsupported space type: %s", value));
+            try {
+                SpaceType.getSpace(value);
+            } catch (IllegalArgumentException ex) {
+                throw new InvalidParameterException(ex.getMessage());
             }
         }
     }

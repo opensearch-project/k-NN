@@ -25,37 +25,210 @@
 
 package org.opensearch.knn.index;
 
+import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.cluster.metadata.IndexMetadata;
-import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.ValidationException;
 import org.opensearch.common.settings.IndexScopedSettings;
-import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.index.IndexSettings;
-import org.opensearch.index.fielddata.IndexFieldData;
 import org.opensearch.index.mapper.ContentPath;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.search.aggregations.support.CoreValuesSourceType;
+import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 
-import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_SPACE_TYPE;
-import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ALGO_PARAM_M_SETTING;
-import static org.opensearch.knn.index.KNNSettings.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING;
+import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.Version.CURRENT;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class KNNVectorFieldMapperTests extends KNNTestCase {
+    /**
+     * Test that we can successfully create builder and get the relevant values. Note that parse needs to be called
+     * in order to set the relevant parameters. Without calling parse, only the defaults will be set
+     */
+    public void testBuilder_build() {
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1");
+
+        // For default settings, everything in KNNVectorFieldMapper should be default after calling build
+        Settings settings = Settings.builder()
+                .put(settings(CURRENT).build())
+                .build();
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
+
+        assertNotNull(knnVectorFieldMapper);
+        assertEquals(SpaceType.DEFAULT.getValue(), knnVectorFieldMapper.spaceType);
+        assertEquals(KNNEngine.DEFAULT.getMethod(METHOD_HNSW).getMethodComponent().getParameters()
+                .get(METHOD_PARAMETER_M).getDefaultValue().toString(), knnVectorFieldMapper.m);
+        assertEquals(KNNEngine.DEFAULT.getMethod(METHOD_HNSW).getMethodComponent().getParameters()
+                        .get(METHOD_PARAMETER_EF_CONSTRUCTION).getDefaultValue().toString(),
+                knnVectorFieldMapper.efConstruction);
+
+
+        // When passing spaceType, efConstruction and m settings, these should be set. This only applies to nmslib.
+        // By default, the nmslib engine is used, so we do not have to configure it.
+        String spaceType = SpaceType.COSINESIMIL.getValue();
+        int m = 111;
+        int efConstruction = 192;
+
+        builder = new KNNVectorFieldMapper.Builder("test-field-name-2");
+
+        settings = Settings.builder()
+                .put(settings(CURRENT).build())
+                .put(KNNSettings.KNN_SPACE_TYPE, spaceType)
+                .put(KNNSettings.KNN_ALGO_PARAM_M, m)
+                .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, efConstruction)
+                .build();
+        builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        knnVectorFieldMapper = builder.build(builderContext);
+
+        assertEquals(spaceType, knnVectorFieldMapper.spaceType);
+        assertEquals(Integer.toString(m), knnVectorFieldMapper.m);
+        assertEquals(Integer.toString(efConstruction), knnVectorFieldMapper.efConstruction);
+
+        // Test that mapping parameters get precedence over index settings
+        //TODO: flip
+        int m1 = 1000;
+        int efConstruction1 = 12;
+        SpaceType spaceType1 = SpaceType.L1;
+        builder = new KNNVectorFieldMapper.Builder("test-field-name-3");
+        builder.knnMethodContext.setValue(new KNNMethodContext(KNNEngine.NMSLIB, spaceType1,
+                new MethodComponentContext(METHOD_HNSW,
+                        ImmutableMap.of(METHOD_PARAMETER_M, m1, METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction1)
+                )
+        ));
+
+        settings = Settings.builder()
+                .put(settings(CURRENT).build())
+                .put(KNNSettings.KNN_SPACE_TYPE, spaceType)
+                .put(KNNSettings.KNN_ALGO_PARAM_M, m)
+                .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, efConstruction)
+                .build();
+        builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        knnVectorFieldMapper = builder.build(builderContext);
+
+        assertEquals(spaceType1.getValue(), knnVectorFieldMapper.spaceType);
+        assertEquals(Integer.toString(m1), knnVectorFieldMapper.m);
+        assertEquals(Integer.toString(efConstruction1), knnVectorFieldMapper.efConstruction);
+
+        // When settings are empty, mapping parameters are used
+        builder = new KNNVectorFieldMapper.Builder("test-field-name-4");
+        builder.knnMethodContext.setValue(new KNNMethodContext(KNNEngine.NMSLIB, spaceType1,
+                new MethodComponentContext(METHOD_HNSW,
+                        ImmutableMap.of(METHOD_PARAMETER_M, m1, METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction1)
+                )
+        ));
+
+        settings = Settings.builder()
+                .put(settings(CURRENT).build())
+                .build();
+        builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        knnVectorFieldMapper = builder.build(builderContext);
+
+        assertEquals(spaceType1.getValue(), knnVectorFieldMapper.spaceType);
+        assertEquals(Integer.toString(m1), knnVectorFieldMapper.m);
+        assertEquals(Integer.toString(efConstruction1), knnVectorFieldMapper.efConstruction);
+    }
+
+    /**
+     * Test that the builder correctly returns the parameters on call to getParameters
+     */
+    public void testBuilder_getParameters() {
+        String fieldName = "test-field-name";
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(fieldName);
+        assertEquals(5, builder.getParameters().size());
+    }
+
+    /**
+     * Check that type parsing works for nmslib methods
+     */
+    public void testTypeParser_nmslib() throws IOException {
+        String fieldName = "test-field-name";
+        String indexName = "test-index-name";
+
+        Settings settings = Settings.builder()
+                .put(settings(CURRENT).build())
+                .build();
+
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser();
+
+        int dimension = 133;
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field("type", "knn_vector")
+                .field("dimension", dimension)
+                .endObject();
+
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(fieldName,
+                xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings));
+
+        assertEquals(dimension, builder.dimension.get().intValue());
+        assertNull(builder.knnMethodContext.getValue()); // Defaults to null
+
+        // Now, we need to test a custom parser
+        int efConstruction = 321;
+        xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field("type", "knn_vector")
+                .field("dimension", dimension)
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
+                .endObject()
+                .endObject()
+                .endObject();
+
+        builder = (KNNVectorFieldMapper.Builder) typeParser.parse(fieldName,
+                xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings));
+
+        assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponent().getName());
+        assertEquals(efConstruction, builder.knnMethodContext.get().getMethodComponent().getParameters()
+                .get(METHOD_PARAMETER_EF_CONSTRUCTION));
+
+        // Test invalid parameter
+        XContentBuilder xContentBuilder2 = XContentFactory.jsonBuilder().startObject()
+                .field("type", "knn_vector")
+                .field("dimension", dimension)
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .startObject(PARAMETERS)
+                .field("invalid", "invalid")
+                .endObject()
+                .endObject()
+                .endObject();
+
+        expectThrows(ValidationException.class, () -> typeParser.parse(fieldName,
+                xContentBuilderToMap(xContentBuilder2), buildParserContext(indexName, settings)));
+
+        // Test invalid method
+        XContentBuilder xContentBuilder3 = XContentFactory.jsonBuilder().startObject()
+                .field("type", "knn_vector")
+                .field("dimension", dimension)
+                .startObject(KNN_METHOD)
+                .field(NAME, "invalid")
+                .endObject()
+                .endObject();
+
+        expectThrows(IllegalArgumentException.class, () -> typeParser.parse(fieldName,
+                xContentBuilderToMap(xContentBuilder3), buildParserContext(indexName, settings)));
+
+        // Test missing required parameter: dimension
+        XContentBuilder xContentBuilder4 = XContentFactory.jsonBuilder().startObject()
+                .field("type", "knn_vector").endObject();
+
+        expectThrows(IllegalArgumentException.class, () -> typeParser.parse(fieldName,
+                xContentBuilderToMap(xContentBuilder4), buildParserContext(indexName, settings)));
+    }
 
     public IndexMetadata buildIndexMetaData(String indexName, Settings settings) {
         return IndexMetadata.builder(indexName).settings(settings)
@@ -69,102 +242,15 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 .build();
     }
 
-    public Map<String, Object> buildKnnNodeMap(int dimension) throws IOException {
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
-                .field("type", "knn_vector")
-                .field("dimension", dimension)
-                .endObject();
-        return XContentHelper.convertToMap(BytesReference.bytes(xContentBuilder), true,
-                xContentBuilder.contentType()).v2();
-    }
-
-    public void testBuildKNNIndexSettings_normal() throws IOException {
-        String indexName = "test-index";
-        String fieldName = "test-field-name";
-        int m = 73;
-        int efConstruction = 47;
-        int dimension = 100;
-
-        Settings settings = Settings.builder()
-                .put(settings(CURRENT).build())
-                .put(KNNSettings.KNN_SPACE_TYPE, KNNConstants.COSINESIMIL)
-                .put(KNNSettings.KNN_ALGO_PARAM_M, m)
-                .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, efConstruction)
-                .build();
-        IndexMetadata indexMetadata = buildIndexMetaData(indexName, settings);
-
-        Set<Setting<?>> settingSet = new HashSet<>(IndexScopedSettings.BUILT_IN_INDEX_SETTINGS);
-        settingSet.add(INDEX_KNN_SPACE_TYPE);
-        settingSet.add(INDEX_KNN_ALGO_PARAM_M_SETTING);
-        settingSet.add(INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING);
-
-        IndexSettings indexSettings = new IndexSettings(indexMetadata, Settings.EMPTY,
-                new IndexScopedSettings(Settings.EMPTY, settingSet));
-
+    public Mapper.TypeParser.ParserContext buildParserContext(String indexName, Settings settings) {
+        IndexSettings indexSettings = new IndexSettings(buildIndexMetaData(indexName, settings), Settings.EMPTY,
+                new IndexScopedSettings(Settings.EMPTY, new HashSet<>(IndexScopedSettings.BUILT_IN_INDEX_SETTINGS)));
         MapperService mapperService = mock(MapperService.class);
         when(mapperService.getIndexSettings()).thenReturn(indexSettings);
 
-        Mapper.TypeParser.ParserContext context = new Mapper.TypeParser.ParserContext(null,
-                mapperService, type -> new KNNVectorFieldMapper.TypeParser(), CURRENT, null,
-                null, null);
-        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser();
-
-        Map<String, Object> knnNodeMap = buildKnnNodeMap(dimension);
-        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(fieldName, knnNodeMap,
-                context);
-
-        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
-        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
-
-        assertEquals(KNNConstants.COSINESIMIL, knnVectorFieldMapper.spaceType);
-        assertEquals(String.valueOf(m), knnVectorFieldMapper.m);
-        assertEquals(String.valueOf(efConstruction), knnVectorFieldMapper.efConstruction);
-    }
-
-    public void testBuildKNNIndexSettings_emptySettings() throws IOException {
-        String indexName = "test-index";
-        String fieldName = "test-field-name";
-        int dimension = 100;
-
-        Settings settings = Settings.builder()
-                .put(settings(CURRENT).build())
-                .build();
-        IndexMetadata indexMetadata = buildIndexMetaData(indexName, settings);
-        IndexSettings indexSettings = new IndexSettings(indexMetadata, Settings.EMPTY,
-                new IndexScopedSettings(Settings.EMPTY, IndexScopedSettings.BUILT_IN_INDEX_SETTINGS));
-        MapperService mapperService = mock(MapperService.class);
-        when(mapperService.getIndexSettings()).thenReturn(indexSettings);
-
-        Mapper.TypeParser.ParserContext context = new Mapper.TypeParser.ParserContext(null,
-                mapperService, type -> new KNNVectorFieldMapper.TypeParser(), CURRENT, null,
-                null, null);
-        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser();
-
-        Map<String, Object> knnNodeMap = buildKnnNodeMap(dimension);
-        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(fieldName, knnNodeMap,
-                context);
-
-        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
-        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
-
-        assertEquals(KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE, knnVectorFieldMapper.spaceType);
-        assertEquals(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M.toString(), knnVectorFieldMapper.m);
-        assertEquals(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION.toString(),
-                knnVectorFieldMapper.efConstruction);
-    }
-
-    public void testVectorFieldMapperTypeFieldDataBuilder() {
-
-        String mockIndexFieldName = "test-field-name";
-        KNNVectorFieldMapper.KNNVectorFieldType vectorFieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
-                mockIndexFieldName, Collections.<String, String>emptyMap(), 10
-        );
-        IndexFieldData.Builder builder = vectorFieldType.fielddataBuilder(mockIndexFieldName, null);
-        IndexFieldData<?> knnVectorIndexField = builder.build(null, null);
-        assertNotNull(knnVectorIndexField);
-        assertTrue(knnVectorIndexField instanceof KNNVectorIndexFieldData);
-        assertEquals(mockIndexFieldName, knnVectorIndexField.getFieldName());
-        assertEquals(CoreValuesSourceType.BYTES, knnVectorIndexField.getValuesSourceType());
+        // Setup blank
+        return new Mapper.TypeParser.ParserContext(null, mapperService,
+                type -> new KNNVectorFieldMapper.TypeParser(), CURRENT, null, null, null);
 
     }
 }

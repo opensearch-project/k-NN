@@ -27,7 +27,12 @@ package org.opensearch.knn;
 
 import org.opensearch.knn.index.KNNIndexCache;
 import org.opensearch.knn.plugin.stats.KNNCounter;
+import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.test.OpenSearchTestCase;
+
+import java.util.Map;
 
 /**
  * Base class for integration tests for KNN plugin. Contains several methods for testing KNN ES functionality.
@@ -48,5 +53,10 @@ public class KNNTestCase extends OpenSearchTestCase {
         // Clean up the cache
         KNNIndexCache.getInstance().evictAllGraphsFromCache();
         KNNIndexCache.getInstance().close();
+    }
+
+    public Map<String, Object> xContentBuilderToMap(XContentBuilder xContentBuilder) {
+        return XContentHelper.convertToMap(BytesReference.bytes(xContentBuilder), true,
+                xContentBuilder.contentType()).v2();
     }
 }

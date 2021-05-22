@@ -26,15 +26,18 @@
 package org.opensearch.knn.index.codec;
 
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNIndexCache;
 import org.opensearch.knn.index.KNNQuery;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorFieldMapper;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.codec.KNN87Codec.KNN87Codec;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.FilterLeafReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -48,6 +51,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.watcher.ResourceWatcherService;
 import org.mockito.Mockito;
 
@@ -63,6 +67,17 @@ import static org.mockito.Mockito.when;
  * Test used for testing Codecs
  */
 public class  KNNCodecTestCase extends KNNTestCase {
+
+    private static FieldType sampleFieldType;
+    static {
+        sampleFieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
+        sampleFieldType.putAttribute(KNNConstants.KNN_METHOD, KNNConstants.METHOD_HNSW);
+        sampleFieldType.putAttribute(KNNConstants.KNN_ENGINE, KNNEngine.NMSLIB.getName());
+        sampleFieldType.putAttribute(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue());
+        sampleFieldType.putAttribute(KNNConstants.HNSW_ALGO_M, "32");
+        sampleFieldType.putAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, "512");
+        sampleFieldType.freeze();
+    }
 
     protected void setUpMockClusterService() {
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
@@ -89,7 +104,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         iwc.setCodec(codec);
 
         float[] array = {1.0f, 2.0f, 3.0f};
-        VectorField vectorField = new VectorField("test_vector", array, KNNVectorFieldMapper.Defaults.FIELD_TYPE);
+        VectorField vectorField = new VectorField("test_vector", array, sampleFieldType);
         RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
         Document doc = new Document();
         doc.add(vectorField);
@@ -100,7 +115,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         LeafReaderContext lrc = reader.getContext().leaves().iterator().next(); // leaf reader context
         SegmentReader segmentReader = (SegmentReader) FilterLeafReader.unwrap(lrc.reader());
         String hnswFileExtension = segmentReader.getSegmentInfo().info.getUseCompoundFile()
-                ? KNNCodecUtil.HNSW_COMPOUND_EXTENSION : KNNCodecUtil.HNSW_EXTENSION;
+                ? KNNEngine.NMSLIB.getCompoundExtension() : KNNEngine.NMSLIB.getExtension();
         String hnswSuffix = "test_vector" + hnswFileExtension;
         List<String> hnswFiles = segmentReader.getSegmentInfo().files().stream()
                 .filter(fileName -> fileName.endsWith(hnswSuffix))
@@ -130,7 +145,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
          * Add doc with field "test_vector"
          */
         float[] array = {1.0f, 3.0f, 4.0f};
-        VectorField vectorField = new VectorField("test_vector", array, KNNVectorFieldMapper.Defaults.FIELD_TYPE);
+        VectorField vectorField = new VectorField("test_vector", array, sampleFieldType);
         RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
         Document doc = new Document();
         doc.add(vectorField);
@@ -145,7 +160,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         iwc1.setCodec(new KNN87Codec());
         writer = new RandomIndexWriter(random(), dir, iwc1);
         float[] array1 = {6.0f, 14.0f};
-        VectorField vectorField1 = new VectorField("my_vector", array1, KNNVectorFieldMapper.Defaults.FIELD_TYPE);
+        VectorField vectorField1 = new VectorField("my_vector", array1, sampleFieldType);
         Document doc1 = new Document();
         doc1.add(vectorField1);
         writer.addDocument(doc1);

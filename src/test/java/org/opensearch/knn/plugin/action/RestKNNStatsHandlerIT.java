@@ -26,7 +26,7 @@
 package org.opensearch.knn.plugin.action;
 
 import org.opensearch.knn.KNNRestTestCase;
-import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.plugin.stats.KNNStats;
 import org.opensearch.knn.plugin.stats.StatNames;
@@ -251,7 +251,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         float[] queryVector = {1.0f, 1.0f};
         params.put("field", FIELD_NAME);
         params.put("query_value", queryVector);
-        params.put("space_type", KNNConstants.L2);
+        params.put("space_type", SpaceType.L2.getValue());
         Request request = constructKNNScriptQueryRequest(INDEX_NAME, qb, params);
         response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
@@ -320,7 +320,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         float[] queryVector = {1.0f, 1.0f};
         params.put("field", FIELD_NAME);
         params.put("query_value", queryVector);
-        params.put("space_type", KNNConstants.L2);
+        params.put("space_type", SpaceType.L2.getValue());
         Request request = constructKNNScriptQueryRequest(INDEX_NAME, qb, params);
         response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
