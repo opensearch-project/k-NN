@@ -42,6 +42,7 @@ import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.util.DocIdSetBuilder;
 import org.opensearch.common.io.PathUtils;
+import org.opensearch.knn.plugin.stats.KNNCounter;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -107,7 +108,15 @@ public class KNNWeight extends Weight {
              */
 
             Path indexPath = PathUtils.get(directory, hnswFiles.get(0));
-            final KNNIndex index = knnIndexCache.getIndex(indexPath.toString(), knnQuery.getIndexName());
+            final KNNIndex index;
+
+            try {
+                index = knnIndexCache.getIndex(indexPath.toString(), knnQuery.getIndexName());
+            } catch (RuntimeException ex) {
+                KNNCounter.GRAPH_QUERY_REQUESTS.increment();
+                throw ex;
+            }
+
             final KNNQueryResult[] results = index.queryIndex(
                     knnQuery.getQueryVector(),
                     knnQuery.getK()
