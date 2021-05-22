@@ -160,6 +160,46 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
     }
 
     /**
+     * Test graph query increment
+     */
+    public void testGraphQueryErrorsGetIncremented() throws Exception {
+        // Get initial query errors because it may not always be 0
+        String graphQueryErrors = StatNames.GRAPH_QUERY_ERRORS.getName();
+        Response response = getKnnStats(Collections.emptyList(), Collections.singletonList(graphQueryErrors));
+        String responseBody = EntityUtils.toString(response.getEntity());
+        Map<String, Object> nodeStats = parseNodeStatsResponse(responseBody).get(0);
+        int beforeErrors = (int) nodeStats.get(graphQueryErrors);
+
+        // Set the circuit breaker very low so that loading an index will definitely fail
+        updateClusterSettings("knn.memory.circuit_breaker.limit", "1kb");
+
+        Settings settings = Settings.builder()
+                .put("number_of_shards", 1)
+                .put("index.knn", true)
+                .build();
+        createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 2));
+
+        // Add enough docs to trip the circuit breaker
+        Float[] vector = {1.3f, 2.2f};
+        int docsInIndex = 25;
+        for (int i = 0; i < docsInIndex; i++) {
+            addKnnDoc(INDEX_NAME, Integer.toString(i), FIELD_NAME, vector);
+        }
+        forceMergeKnnIndex(INDEX_NAME);
+
+        // Execute a query that should fail
+        float[] qvector = {1.9f, 2.4f};
+        expectThrows(ResponseException.class, () ->
+                searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 10), 10));
+
+        // Check that the graphQuery errors gets incremented
+        response = getKnnStats(Collections.emptyList(), Collections.singletonList(graphQueryErrors));
+        responseBody = EntityUtils.toString(response.getEntity());
+        nodeStats = parseNodeStatsResponse(responseBody).get(0);
+        assertTrue((int) nodeStats.get(graphQueryErrors) > beforeErrors);
+    }
+
+    /**
      * Test checks that handler correctly returns stats for a single node
      *
      * @throws IOException throws IOException
