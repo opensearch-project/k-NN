@@ -85,6 +85,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         } else {
             configureClient(builder, settings);
         }
+
         return builder.build();
     }
 

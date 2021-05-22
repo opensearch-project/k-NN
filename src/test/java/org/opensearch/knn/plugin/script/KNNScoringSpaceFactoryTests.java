@@ -27,7 +27,7 @@ package org.opensearch.knn.plugin.script;
 
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNVectorFieldMapper;
-import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.index.mapper.NumberFieldMapper;
 
 import java.util.ArrayList;
@@ -45,18 +45,18 @@ public class KNNScoringSpaceFactoryTests extends KNNTestCase {
         List<Float> floatQueryObject = new ArrayList<>();
         Long longQueryObject = 0L;
 
-        assertTrue(KNNScoringSpaceFactory.create(KNNConstants.L2, floatQueryObject, knnVectorFieldType)
+        assertTrue(KNNScoringSpaceFactory.create(SpaceType.L2.getValue(), floatQueryObject, knnVectorFieldType)
                 instanceof KNNScoringSpace.L2);
-        assertTrue(KNNScoringSpaceFactory.create(KNNConstants.COSINESIMIL, floatQueryObject, knnVectorFieldType)
+        assertTrue(KNNScoringSpaceFactory.create(SpaceType.COSINESIMIL.getValue(), floatQueryObject, knnVectorFieldType)
                 instanceof KNNScoringSpace.CosineSimilarity);
-        assertTrue(KNNScoringSpaceFactory.create(KNNConstants.INNER_PROD, floatQueryObject, knnVectorFieldType)
+        assertTrue(KNNScoringSpaceFactory.create(SpaceType.INNER_PRODUCT.getValue(), floatQueryObject, knnVectorFieldType)
                 instanceof KNNScoringSpace.InnerProd);
-        assertTrue(KNNScoringSpaceFactory.create(KNNConstants.HAMMING_BIT, longQueryObject, numberFieldType)
+        assertTrue(KNNScoringSpaceFactory.create(SpaceType.HAMMING_BIT.getValue(), longQueryObject, numberFieldType)
                 instanceof KNNScoringSpace.HammingBit);
     }
 
     public void testInvalidSpace() {
-        expectThrows(IllegalArgumentException.class, () -> KNNScoringSpaceFactory.create(KNNConstants.L2,
+        expectThrows(IllegalArgumentException.class, () -> KNNScoringSpaceFactory.create(SpaceType.L2.getValue(),
                 null, null));
     }
 }

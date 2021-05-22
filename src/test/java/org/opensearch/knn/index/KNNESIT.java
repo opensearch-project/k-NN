@@ -36,11 +36,13 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.query.ExistsQueryBuilder;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static org.hamcrest.Matchers.containsString;
 
@@ -121,9 +123,9 @@ public class KNNESIT extends KNNRestTestCase {
     }
 
     /**
-     * Create knn index with valid index algo params
+     * Create knn index with valid index algo params set in the settings
      */
-    public void testCreateIndexWithValidAlgoParams() {
+    public void testCreateIndexWithValidAlgoParams_settings() {
         try {
             Settings settings = Settings.builder()
                                         .put(getKNNDefaultIndexSettings())
@@ -135,6 +137,137 @@ public class KNNESIT extends KNNRestTestCase {
             addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
         } catch (Exception ex) {
             fail("Exception not expected as valid index arguements passed: " + ex);
+        }
+    }
+
+    /**
+     * Create knn index with valid index algo params set in the mapping
+     */
+    @SuppressWarnings("unchecked")
+    public void testCreateIndexWithValidAlgoParams_mapping() {
+        try {
+            Settings settings = Settings.builder()
+                    .put(getKNNDefaultIndexSettings())
+                    .build();
+
+            String spaceType = SpaceType.L1.getValue();
+            int efConstruction = 14;
+            int m = 13;
+
+            String mapping = Strings.toString(XContentFactory.jsonBuilder().startObject()
+                    .startObject("properties")
+                    .startObject(FIELD_NAME)
+                    .field("type", "knn_vector")
+                    .field("dimension", 2)
+                    .startObject(KNNConstants.KNN_METHOD)
+                    .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType)
+                    .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+                    .startObject(KNNConstants.PARAMETERS)
+                    .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
+                    .field(KNNConstants.METHOD_PARAMETER_M, m)
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject());
+
+            createKnnIndex(INDEX_NAME, settings, mapping);
+
+            Map<String, Object> fullMapping = getAsMap(INDEX_NAME + "/_mapping");
+            Map<String, Object> indexMapping = (Map<String, Object>) fullMapping.get(INDEX_NAME);
+            Map<String, Object>  mappingsMapping = (Map<String, Object>) indexMapping.get("mappings");
+            Map<String, Object>  propertiesMapping = (Map<String, Object>) mappingsMapping.get("properties");
+            Map<String, Object>  fieldMapping = (Map<String, Object>) propertiesMapping.get(FIELD_NAME);
+            Map<String, Object>  methodMapping = (Map<String, Object>) fieldMapping.get(KNNConstants.KNN_METHOD);
+            Map<String, Object>  parametersMapping = (Map<String, Object>) methodMapping.get(KNNConstants.PARAMETERS);
+            String spaceTypeMapping = (String) methodMapping.get(KNNConstants.METHOD_PARAMETER_SPACE_TYPE);
+            Integer mMapping = (Integer) parametersMapping.get(KNNConstants.METHOD_PARAMETER_M);
+            Integer efConstructionMapping = (Integer) parametersMapping.get(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION);
+
+            assertEquals(spaceType, spaceTypeMapping);
+            assertEquals(m, mMapping.intValue());
+            assertEquals(efConstruction, efConstructionMapping.intValue());
+
+            Float[] vector = {6.0f, 6.0f};
+            addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
+        } catch (Exception ex) {
+            fail("Exception not expected as valid index arguments passed: " + ex);
+        }
+    }
+
+    /**
+     * Create knn index with valid index algo params set in the mapping
+     */
+    public void testCreateIndexWithValidAlgoParams_mappingAndSettings() {
+        try {
+            String spaceType1 = SpaceType.L1.getValue();
+            int efConstruction1 = 14;
+            int m1 = 13;
+
+            Settings settings = Settings.builder()
+                    .put(getKNNDefaultIndexSettings())
+                    .put("index.knn.algo_param.m", m1)
+                    .put("index.knn.algo_param.ef_construction", efConstruction1)
+                    .build();
+
+            String mapping = Strings.toString(XContentFactory.jsonBuilder().startObject()
+                    .startObject("properties")
+                    .startObject(FIELD_NAME)
+                    .field("type", "knn_vector")
+                    .field("dimension", 2)
+                    .startObject(KNNConstants.KNN_METHOD)
+                    .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType1)
+                    .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+                    .startObject(KNNConstants.PARAMETERS)
+                    .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction1)
+                    .field(KNNConstants.METHOD_PARAMETER_M, m1)
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject());
+
+            createKnnIndex(INDEX_NAME + "1", settings, mapping);
+            Float[] vector = {6.0f, 6.0f};
+            addKnnDoc(INDEX_NAME + "1", "1", FIELD_NAME, vector);
+
+            String spaceType2 = SpaceType.COSINESIMIL.getValue();
+            int efConstruction2 = 114;
+            int m2 = 113;
+
+            mapping = Strings.toString(XContentFactory.jsonBuilder().startObject()
+                    .startObject("properties")
+                    .startObject(FIELD_NAME + "1")
+                    .field("type", "knn_vector")
+                    .field("dimension", 2)
+                    .startObject(KNNConstants.KNN_METHOD)
+                    .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType1)
+                    .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+                    .startObject(KNNConstants.PARAMETERS)
+                    .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction1)
+                    .field(KNNConstants.METHOD_PARAMETER_M, m1)
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .startObject(FIELD_NAME + "2")
+                    .field("type", "knn_vector")
+                    .field("dimension", 2)
+                    .startObject(KNNConstants.KNN_METHOD)
+                    .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType2)
+                    .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+                    .startObject(KNNConstants.PARAMETERS)
+                    .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction2)
+                    .field(KNNConstants.METHOD_PARAMETER_M, m2)
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject()
+                    .endObject());
+
+            createKnnIndex(INDEX_NAME + "2", settings, mapping);
+            addKnnDoc(INDEX_NAME + "2", "1", FIELD_NAME, vector);
+        } catch (Exception ex) {
+            fail("Exception not expected as valid index arguments passed: " + ex);
         }
     }
 
@@ -321,14 +454,62 @@ public class KNNESIT extends KNNRestTestCase {
         updateKnnDoc(INDEX_NAME, "1", f5, vector1);
     }
 
-    public void testInvalidIndexHnswAlgoParams() {
+    public void testInvalidIndexHnswAlgoParams_settings() {
         Settings settings = Settings.builder()
                 .put(getKNNDefaultIndexSettings())
                 .put("index.knn.algo_param.m", "-1")
                 .build();
-        Exception ex = expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, settings,
+        expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, settings,
                 createKnnIndexMapping(FIELD_NAME, 2)));
-        assertThat(ex.getMessage(), containsString("Failed to parse value [-1] for setting [index.knn.algo_param.m]"));
+    }
+
+    public void testInvalidIndexHnswAlgoParams_mapping() throws IOException {
+        Settings settings = Settings.builder()
+                .put(getKNNDefaultIndexSettings())
+                .build();
+
+        String mapping = Strings.toString(XContentFactory.jsonBuilder().startObject()
+                .startObject("properties")
+                .startObject(FIELD_NAME)
+                .field("type", "knn_vector")
+                .field("dimension", 2)
+                .startObject(KNNConstants.KNN_METHOD)
+                .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+                .startObject(KNNConstants.PARAMETERS)
+                .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, "-1")
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject());
+
+        expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, settings,
+                mapping));
+    }
+
+    public void testInvalidIndexHnswAlgoParams_mappingAndSettings() throws IOException {
+        Settings settings = Settings.builder()
+                .put(getKNNDefaultIndexSettings())
+                .put("index.knn.algo_param.m", "-1")
+                .build();
+
+        String mapping = Strings.toString(XContentFactory.jsonBuilder().startObject()
+                .startObject("properties")
+                .startObject(FIELD_NAME)
+                .field("type", "knn_vector")
+                .field("dimension", 2)
+                .startObject(KNNConstants.KNN_METHOD)
+                .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+                .startObject(KNNConstants.PARAMETERS)
+                .field(KNNConstants.METHOD_PARAMETER_M, "-1")
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject());
+
+        expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, settings,
+                mapping));
     }
 
     public void testInvalidQueryHnswAlgoParams() {

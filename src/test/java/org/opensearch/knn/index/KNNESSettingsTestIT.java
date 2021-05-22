@@ -117,9 +117,8 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
             .put("index.knn", true)
             .put("index.knn.space_type", invalidSpaceType)
             .build();
-        Exception ex = expectThrows(ResponseException.class,
+        expectThrows(ResponseException.class,
             () -> createKnnIndex(INDEX_NAME, invalidSettings, createKnnIndexMapping(FIELD_NAME, 2)));
-        assertThat(ex.getMessage(), containsString(String.format("Unsupported space type: %s", invalidSpaceType)));
     }
 
     public void testUpdateIndexSetting() throws IOException {
