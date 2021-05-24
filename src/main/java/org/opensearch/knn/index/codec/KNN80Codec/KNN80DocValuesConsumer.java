@@ -25,8 +25,10 @@
 
 package org.opensearch.knn.index.codec.KNN80Codec;
 
+import org.opensearch.knn.index.JNIService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNNCodecUtil;
+import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -43,20 +45,18 @@ import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.util.IOUtils;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorFieldMapper;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.util.NmsLibVersion;
-import org.opensearch.knn.index.v2011.KNNIndex;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
+
+import static org.opensearch.knn.index.codec.KNNCodecUtil.buildEngineFileName;
 
 /**
  * This class writes the KNN docvalues to the segments
@@ -84,45 +84,57 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         KNNCounter.GRAPH_INDEX_REQUESTS.increment();
         if (field.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
 
-            /**
-             * We always write with latest NMS library version
-             */
-            if (!isNmsLibLatest()) {
-                KNNCounter.GRAPH_INDEX_ERRORS.increment();
-                throw new IllegalStateException("Nms library version mismatch. Correct version: "
-                                                        + NmsLibVersion.LATEST.indexLibraryVersion());
+            // Get all parameters from field attributes
+            Map<String, String> fieldAttributes = field.attributes();
+            Map<String, Object> parameters = new HashMap<>();
+
+            String engineName = fieldAttributes.getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
+            KNNEngine knnEngine = KNNEngine.getEngine(engineName);
+
+            parameters.put(KNNConstants.SPACE_TYPE, fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE,
+                    SpaceType.DEFAULT.getValue()));
+
+            String method = fieldAttributes.get(KNNConstants.KNN_METHOD);
+            if (method == null) {
+                throw new NullPointerException("Method cannot be null");
+            }
+            parameters.put(KNNConstants.KNN_METHOD, method);
+
+            String efConstruction = fieldAttributes.get(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION);
+            if (efConstruction != null) {
+                parameters.put(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, Integer.parseInt(efConstruction));
             }
 
+            String m = fieldAttributes.get(KNNConstants.HNSW_ALGO_M);
+            if (m != null) {
+                parameters.put(KNNConstants.METHOD_PARAMETER_M, Integer.parseInt(m));
+            }
+
+            // Make Engine Name Into FileName
             BinaryDocValues values = valuesProducer.getBinary(field);
-            String hnswFileName = String.format("%s_%s_%s%s", state.segmentInfo.name,
-                    NmsLibVersion.LATEST.getBuildVersion(), field.name, KNNCodecUtil.HNSW_EXTENSION);
+            String engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getLatestBuildVersion(),
+                    field.name, knnEngine.getExtension());
             String indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
-                    hnswFileName).toString();
+                    engineFileName).toString();
 
             KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
-            if (pair == null || pair.vectors.length == 0 || pair.docs.length == 0) {
-                logger.info("Skipping hnsw index creation as there are no vectors or docs in the documents");
+            if (pair.vectors.length == 0 || pair.docs.length == 0) {
+                logger.info("Skipping engine index creation as there are no vectors or docs in the documents");
                 return;
             }
 
             // Pass the path for the nms library to save the file
             String tempIndexPath = indexPath + TEMP_SUFFIX;
-            Map<String, String> fieldAttributes = field.attributes();
-            String spaceType = SpaceType.getSpace(fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE,
-                    SpaceType.L2.getValue())).getValue();
-            String[] algoParams = getKNNIndexParams(fieldAttributes);
             AccessController.doPrivileged(
-                    new PrivilegedAction<Void>() {
-                        public Void run() {
-                            KNNIndex.saveIndex(pair.docs, pair.vectors, tempIndexPath, algoParams, spaceType);
-                            return null;
-                        }
+                    (PrivilegedAction<Void>) () -> {
+                        JNIService.createIndex(pair.docs, pair.vectors, tempIndexPath, parameters, engineName);
+                        return null;
                     }
             );
 
-            String hsnwTempFileName = hnswFileName + TEMP_SUFFIX;
+            String engineTempFileName = engineFileName + TEMP_SUFFIX;
 
-            /**
+            /*
              * Adds Footer to the serialized graph
              * 1. Copies the serialized graph to new file.
              * 2. Adds Footer to the new file.
@@ -131,15 +143,15 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
              * existing file will miss calculating checksum for the serialized graph
              * bytes and result in index corruption issues.
              */
-            try (IndexInput is = state.directory.openInput(hsnwTempFileName, state.context);
-                 IndexOutput os = state.directory.createOutput(hnswFileName, state.context)) {
+            try (IndexInput is = state.directory.openInput(engineTempFileName, state.context);
+                 IndexOutput os = state.directory.createOutput(engineFileName, state.context)) {
                 os.copyBytes(is, is.length());
                 CodecUtil.writeFooter(os);
             } catch (Exception ex) {
                 KNNCounter.GRAPH_INDEX_ERRORS.increment();
                 throw new RuntimeException("[KNN] Adding footer to serialized graph failed: " + ex);
             } finally {
-                IOUtils.deleteFilesIgnoringExceptions(state.directory, hsnwTempFileName);
+                IOUtils.deleteFilesIgnoringExceptions(state.directory, engineTempFileName);
             }
         }
     }
@@ -189,37 +201,5 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     @Override
     public void close() throws IOException {
         delegatee.close();
-    }
-
-    private boolean isNmsLibLatest() {
-        return AccessController.doPrivileged(
-                new PrivilegedAction<Boolean>() {
-                    public Boolean run() {
-                        if (!NmsLibVersion.LATEST.indexLibraryVersion().equals(KNNIndex.VERSION.indexLibraryVersion())) {
-                            String errorMessage = String.format("KNN codec nms library version mis match. Latest version: %s" +
-                                                                        "Current version: %s",
-                                    NmsLibVersion.LATEST.indexLibraryVersion(), KNNIndex.VERSION);
-                            logger.error(errorMessage);
-                            return false;
-                        }
-                        return true;
-                    }
-                }
-        );
-    }
-
-    private String[] getKNNIndexParams(Map<String, String> fieldAttributes) {
-        List<String> algoParams = new ArrayList<>();
-        if (fieldAttributes.containsKey(KNNConstants.HNSW_ALGO_M)) {
-            algoParams.add(KNNConstants.HNSW_ALGO_M + "=" + fieldAttributes.get(KNNConstants.HNSW_ALGO_M));
-        }
-        if (fieldAttributes.containsKey(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION)) {
-            algoParams.add(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION + "=" + fieldAttributes.get(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION));
-        }
-        
-        // Cluster level setting so no need to specify for every index creation
-        algoParams.add(KNNConstants.HNSW_ALGO_INDEX_THREAD_QTY + "=" + KNNSettings.state().getSettingValue(
-                KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
-        return algoParams.toArray(new String[0]);
     }
 }

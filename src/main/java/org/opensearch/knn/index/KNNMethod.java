@@ -57,6 +57,15 @@ public class KNNMethod {
     }
 
     /**
+     * Get all valid spaces for this method
+     *
+     * @return spaces that can be used with this method
+     */
+    public Set<SpaceType> getSpaces() {
+        return spaces;
+    }
+
+    /**
      * Validate that the configured KNNMethodContext is valid for this method
      *
      * @param knnMethodContext to be validated
