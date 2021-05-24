@@ -50,5 +50,5 @@ public class KNNConstants {
 
     public static final String COMPOUND_EXTENSION = "c";
 
-    public static final String JNI_LIBRARY_NAME = "OpendistroKNN";
+    public static final String JNI_LIBRARY_NAME = "OpensearchKNN";
 }

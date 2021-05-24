@@ -94,9 +94,10 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             parameters.put(KNNConstants.SPACE_TYPE, fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE,
                     SpaceType.DEFAULT.getValue()));
 
+            //TODO: Clean this up
             String method = fieldAttributes.get(KNNConstants.KNN_METHOD);
             if (method == null) {
-                throw new NullPointerException("Method cannot be null");
+                method = KNNConstants.METHOD_HNSW;
             }
             parameters.put(KNNConstants.KNN_METHOD, method);
 
