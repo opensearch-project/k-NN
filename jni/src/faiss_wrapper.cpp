@@ -18,6 +18,7 @@
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIVFFlat.h"
 
+#include <algorithm>
 #include <jni.h>
 #include <vector>
 #include <string>
