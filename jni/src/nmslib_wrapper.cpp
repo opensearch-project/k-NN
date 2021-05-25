@@ -41,24 +41,20 @@ std::string TranslateSpaceType(const std::string& spaceType);
 void knn_jni::nmslib_wrapper::CreateIndex(JNIEnv * env, jintArray idsJ, jobjectArray vectorsJ, jstring indexPathJ,
                                           jobject parametersJ) {
 
-    try {
-        if (idsJ == nullptr) {
-            throw std::runtime_error("IDs cannot be null");
-        }
+    if (idsJ == nullptr) {
+        throw std::runtime_error("IDs cannot be null");
+    }
 
-        if (vectorsJ == nullptr) {
-            throw std::runtime_error("Vectors cannot be null");
-        }
+    if (vectorsJ == nullptr) {
+        throw std::runtime_error("Vectors cannot be null");
+    }
 
-        if (indexPathJ == nullptr) {
-            throw std::runtime_error("Index path cannot be null");
-        }
+    if (indexPathJ == nullptr) {
+        throw std::runtime_error("Index path cannot be null");
+    }
 
-        if (parametersJ == nullptr) {
-            throw std::runtime_error("Parameters cannot be null");
-        }
-    } catch (...) {
-        CatchCppExceptionAndThrowJava(env);
+    if (parametersJ == nullptr) {
+        throw std::runtime_error("Parameters cannot be null");
     }
 
     auto parametersCpp = knn_jni::ConvertJavaMapToCppMap(env, parametersJ);
@@ -145,6 +141,15 @@ void knn_jni::nmslib_wrapper::CreateIndex(JNIEnv * env, jintArray idsJ, jobjectA
 }
 
 jlong knn_jni::nmslib_wrapper::LoadIndex(JNIEnv * env, jstring indexPathJ, jobject parametersJ) {
+
+    if (indexPathJ == nullptr) {
+        throw std::runtime_error("Index path cannot be null");
+    }
+
+    if (parametersJ == nullptr) {
+        throw std::runtime_error("Parameters cannot be null");
+    }
+
     std::string indexPathCpp(ConvertJavaStringToCppString(env, indexPathJ));
 
     auto parametersCpp = knn_jni::ConvertJavaMapToCppMap(env, parametersJ);
@@ -173,6 +178,11 @@ jlong knn_jni::nmslib_wrapper::LoadIndex(JNIEnv * env, jstring indexPathJ, jobje
 }
 
 jobjectArray knn_jni::nmslib_wrapper::QueryIndex(JNIEnv * env, jlong indexPointerJ, jfloatArray queryVectorJ, jint kJ) {
+
+    if (queryVectorJ == nullptr) {
+        throw std::runtime_error("Query Vector cannot be null");
+    }
+
     auto *indexWrapper = reinterpret_cast<IndexWrapper*>(indexPointerJ);
 
     if (indexWrapper == nullptr) {

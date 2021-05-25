@@ -37,24 +37,20 @@ void InternalTrainIndex(faiss::Index * index, faiss::Index::idx_t n, const float
 void knn_jni::faiss_wrapper::CreateIndex(JNIEnv * env, jintArray idsJ, jobjectArray vectorsJ, jstring indexPathJ,
                                          jobject parametersJ) {
 
-    try {
-        if (idsJ == nullptr) {
-            throw std::runtime_error("IDs cannot be null");
-        }
+    if (idsJ == nullptr) {
+        throw std::runtime_error("IDs cannot be null");
+    }
 
-        if (vectorsJ == nullptr) {
-            throw std::runtime_error("Vectors cannot be null");
-        }
+    if (vectorsJ == nullptr) {
+        throw std::runtime_error("Vectors cannot be null");
+    }
 
-        if (indexPathJ == nullptr) {
-            throw std::runtime_error("Index path cannot be null");
-        }
+    if (indexPathJ == nullptr) {
+        throw std::runtime_error("Index path cannot be null");
+    }
 
-        if (parametersJ == nullptr) {
-            throw std::runtime_error("Parameters cannot be null");
-        }
-    } catch (...) {
-        CatchCppExceptionAndThrowJava(env);
+    if (parametersJ == nullptr) {
+        throw std::runtime_error("Parameters cannot be null");
     }
 
     // parametersJ is a Java Map<String, Object>. ConvertJavaMapToCppMap converts it to a c++ map<string, jobject>
@@ -115,24 +111,20 @@ void knn_jni::faiss_wrapper::CreateIndex(JNIEnv * env, jintArray idsJ, jobjectAr
 
 void knn_jni::faiss_wrapper::CreateIndexFromTemplate(JNIEnv * env, jintArray idsJ, jobjectArray vectorsJ,
                                                      jstring indexPathJ, jbyteArray templateIndexJ) {
-    try {
-        if (idsJ == nullptr) {
-            throw std::runtime_error("IDs cannot be null");
-        }
+    if (idsJ == nullptr) {
+        throw std::runtime_error("IDs cannot be null");
+    }
 
-        if (vectorsJ == nullptr) {
-            throw std::runtime_error("Vectors cannot be null");
-        }
+    if (vectorsJ == nullptr) {
+        throw std::runtime_error("Vectors cannot be null");
+    }
 
-        if (indexPathJ == nullptr) {
-            throw std::runtime_error("Index path cannot be null");
-        }
+    if (indexPathJ == nullptr) {
+        throw std::runtime_error("Index path cannot be null");
+    }
 
-        if (templateIndexJ == nullptr) {
-            throw std::runtime_error("Parameters cannot be null");
-        }
-    } catch (...) {
-        CatchCppExceptionAndThrowJava(env);
+    if (templateIndexJ == nullptr) {
+        throw std::runtime_error("Template index cannot be null");
     }
 
     // Read data set
@@ -168,12 +160,21 @@ void knn_jni::faiss_wrapper::CreateIndexFromTemplate(JNIEnv * env, jintArray ids
 }
 
 jlong knn_jni::faiss_wrapper::LoadIndex(JNIEnv * env, jstring indexPathJ) {
+    if (indexPathJ == nullptr) {
+        throw std::runtime_error("Index path cannot be null");
+    }
+
     std::string indexPathCpp(ConvertJavaStringToCppString(env, indexPathJ));
     faiss::Index* indexReader = faiss::read_index(indexPathCpp.c_str(), faiss::IO_FLAG_READ_ONLY);
     return (jlong) indexReader;
 }
 
 jobjectArray knn_jni::faiss_wrapper::QueryIndex(JNIEnv * env, jlong indexPointerJ, jfloatArray queryVectorJ, jint kJ) {
+
+    if (queryVectorJ == nullptr) {
+        throw std::runtime_error("Query Vector cannot be null");
+    }
+
     auto *indexReader = reinterpret_cast<faiss::Index*>(indexPointerJ);
 
     if (indexReader == nullptr) {
@@ -243,12 +244,8 @@ void knn_jni::faiss_wrapper::InitLibrary() {
 jbyteArray knn_jni::faiss_wrapper::TrainIndex(JNIEnv * env, jobject parametersJ, jint dimensionJ,
                                               jlong trainVectorsPointerJ) {
     // First, we need to build the index
-    try {
-        if (parametersJ == nullptr) {
-            throw std::runtime_error("Parameters cannot be null");
-        }
-    } catch (...) {
-        CatchCppExceptionAndThrowJava(env);
+    if (parametersJ == nullptr) {
+        throw std::runtime_error("Parameters cannot be null");
     }
 
     auto parametersCpp = knn_jni::ConvertJavaMapToCppMap(env, parametersJ);
