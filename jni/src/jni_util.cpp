@@ -266,6 +266,14 @@ int knn_jni::GetJavaFloatArrayLength(JNIEnv *env, jfloatArray arrayJ) {
     return length;
 }
 
+jobject knn_jni::GetJObjectFromMapOrThrow(std::unordered_map<std::string, jobject> map, std::string key) {
+    if(map.find(key) == map.end()) {
+        throw std::runtime_error(key + " not found");
+    }
+    return map[key];
+}
+
+
 std::vector<int64_t> knn_jni::ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ) {
 
     if (arrayJ == nullptr) {

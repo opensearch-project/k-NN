@@ -76,6 +76,8 @@ namespace knn_jni {
 
     int GetJavaFloatArrayLength(JNIEnv *env, jfloatArray arrayJ);
 
+    jobject GetJObjectFromMapOrThrow(std::unordered_map<std::string, jobject> map, std::string key);
+
     // --------------------------------------------------------------------------
 
     // ------------------------------- CONSTANTS --------------------------------

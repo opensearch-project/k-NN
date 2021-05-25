@@ -59,11 +59,9 @@ void knn_jni::nmslib_wrapper::CreateIndex(JNIEnv * env, jintArray idsJ, jobjectA
 
     auto parametersCpp = knn_jni::ConvertJavaMapToCppMap(env, parametersJ);
     std::string indexPathCpp(ConvertJavaStringToCppString(env, indexPathJ));
+
     // Get space type for this index
-    if(parametersCpp.find(knn_jni::SPACE_TYPE) == parametersCpp.end()) {
-        throw std::runtime_error("Space type not found");
-    }
-    jobject spaceTypeJ = parametersCpp[knn_jni::SPACE_TYPE];
+    jobject spaceTypeJ = knn_jni::GetJObjectFromMapOrThrow(parametersCpp, knn_jni::SPACE_TYPE);
     std::string spaceTypeCpp(knn_jni::ConvertJavaObjectToCppString(env, spaceTypeJ));
     spaceTypeCpp = TranslateSpaceType(spaceTypeCpp);
     similarity::Space<float>* space = similarity::SpaceFactoryRegistry<float>::Instance().CreateSpace(spaceTypeCpp,similarity::AnyParams());
@@ -155,10 +153,7 @@ jlong knn_jni::nmslib_wrapper::LoadIndex(JNIEnv * env, jstring indexPathJ, jobje
     auto parametersCpp = knn_jni::ConvertJavaMapToCppMap(env, parametersJ);
 
     // Get space type for this index
-    if(parametersCpp.find(knn_jni::SPACE_TYPE) == parametersCpp.end()) {
-        throw std::runtime_error("Space type not found");
-    }
-    jobject spaceTypeJ = parametersCpp[knn_jni::SPACE_TYPE];
+    jobject spaceTypeJ = knn_jni::GetJObjectFromMapOrThrow(parametersCpp, knn_jni::SPACE_TYPE);
     std::string spaceTypeCpp(knn_jni::ConvertJavaObjectToCppString(env, spaceTypeJ));
     spaceTypeCpp = TranslateSpaceType(spaceTypeCpp);
     auto *indexWrapper = new IndexWrapper(spaceTypeCpp);

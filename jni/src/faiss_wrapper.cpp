@@ -58,10 +58,7 @@ void knn_jni::faiss_wrapper::CreateIndex(JNIEnv * env, jintArray idsJ, jobjectAr
     auto parametersCpp = knn_jni::ConvertJavaMapToCppMap(env, parametersJ);
 
     // Get space type for this index
-    if(parametersCpp.find(knn_jni::SPACE_TYPE) == parametersCpp.end()) {
-        throw std::runtime_error("Space type not found");
-    }
-    jobject spaceTypeJ = parametersCpp[knn_jni::SPACE_TYPE];
+    jobject spaceTypeJ = knn_jni::GetJObjectFromMapOrThrow(parametersCpp, knn_jni::SPACE_TYPE);
     std::string spaceTypeCpp(knn_jni::ConvertJavaObjectToCppString(env, spaceTypeJ));
     faiss::MetricType metric = TranslateSpaceToMetric(spaceTypeCpp);
 
@@ -76,10 +73,7 @@ void knn_jni::faiss_wrapper::CreateIndex(JNIEnv * env, jintArray idsJ, jobjectAr
     auto dataset = knn_jni::Convert2dJavaObjectArrayToCppFloatVector(env, vectorsJ, dim);
 
     // Create faiss index
-    if(parametersCpp.find(knn_jni::METHOD) == parametersCpp.end()) {
-        throw std::runtime_error("No method passed");
-    }
-    jobject indexDescriptionJ = parametersCpp[knn_jni::METHOD];
+    jobject indexDescriptionJ = knn_jni::GetJObjectFromMapOrThrow(parametersCpp, knn_jni::METHOD);
     std::string indexDescriptionCpp(knn_jni::ConvertJavaObjectToCppString(env, indexDescriptionJ));
 
     std::unique_ptr<faiss::Index> indexWriter;
@@ -92,13 +86,13 @@ void knn_jni::faiss_wrapper::CreateIndex(JNIEnv * env, jintArray idsJ, jobjectAr
         SetExtraParameters(env, subParametersCpp, indexWriter.get());
         env->DeleteLocalRef(subParametersJ);
     }
+    env->DeleteLocalRef(parametersJ);
 
     // Train index if needed -- check if there is a case where index needs part trained but is trained
     if(!indexWriter->is_trained) {
         //TODO: What needs to be freed???
         throw std::runtime_error("Index is not trained");
     }
-    env->DeleteLocalRef(parametersJ);
 
     auto idVector = knn_jni::ConvertJavaIntArrayToCppIntVector(env, idsJ);
     faiss::IndexIDMap idMap =  faiss::IndexIDMap(indexWriter.get());
@@ -250,18 +244,12 @@ jbyteArray knn_jni::faiss_wrapper::TrainIndex(JNIEnv * env, jobject parametersJ,
 
     auto parametersCpp = knn_jni::ConvertJavaMapToCppMap(env, parametersJ);
 
-    if(parametersCpp.find(knn_jni::SPACE_TYPE) == parametersCpp.end()) {
-        throw std::runtime_error("Space type not found");
-    }
-    jobject spaceTypeJ = parametersCpp[knn_jni::SPACE_TYPE];
+    jobject spaceTypeJ = knn_jni::GetJObjectFromMapOrThrow(parametersCpp, knn_jni::SPACE_TYPE);
     std::string spaceTypeCpp(knn_jni::ConvertJavaObjectToCppString(env, spaceTypeJ));
     faiss::MetricType metric = TranslateSpaceToMetric(spaceTypeCpp);
 
     // Create faiss index
-    if(parametersCpp.find(knn_jni::METHOD) == parametersCpp.end()) {
-        throw std::runtime_error("No method passed");
-    }
-    jobject indexDescriptionJ = parametersCpp[knn_jni::METHOD];
+    jobject indexDescriptionJ = knn_jni::GetJObjectFromMapOrThrow(parametersCpp, knn_jni::METHOD);
     std::string indexDescriptionCpp(knn_jni::ConvertJavaObjectToCppString(env, indexDescriptionJ));
 
     std::unique_ptr<faiss::Index> indexWriter;
