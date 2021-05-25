@@ -38,7 +38,7 @@ struct IndexWrapper {
 
 std::string TranslateSpaceType(const std::string& spaceType);
 
-void knn_jni::nmslib_wrapper::createIndex(JNIEnv * env, jintArray idsJ, jobjectArray vectorsJ, jstring indexPathJ,
+void knn_jni::nmslib_wrapper::CreateIndex(JNIEnv * env, jintArray idsJ, jobjectArray vectorsJ, jstring indexPathJ,
                                           jobject parametersJ) {
 
     try {
@@ -144,7 +144,7 @@ void knn_jni::nmslib_wrapper::createIndex(JNIEnv * env, jintArray idsJ, jobjectA
     }
 }
 
-jlong knn_jni::nmslib_wrapper::loadIndex(JNIEnv * env, jstring indexPathJ, jobject parametersJ) {
+jlong knn_jni::nmslib_wrapper::LoadIndex(JNIEnv * env, jstring indexPathJ, jobject parametersJ) {
     std::string indexPathCpp(ConvertJavaStringToCppString(env, indexPathJ));
 
     auto parametersCpp = knn_jni::ConvertJavaMapToCppMap(env, parametersJ);
@@ -172,8 +172,7 @@ jlong knn_jni::nmslib_wrapper::loadIndex(JNIEnv * env, jstring indexPathJ, jobje
     return (jlong) indexWrapper;
 }
 
-jobjectArray knn_jni::nmslib_wrapper::queryIndex(JNIEnv * env, jlong indexPointerJ, jfloatArray queryVectorJ, jint kJ,
-                                                 jobject parametersJ) {
+jobjectArray knn_jni::nmslib_wrapper::QueryIndex(JNIEnv * env, jlong indexPointerJ, jfloatArray queryVectorJ, jint kJ) {
     auto *indexWrapper = reinterpret_cast<IndexWrapper*>(indexPointerJ);
 
     if (indexWrapper == nullptr) {
@@ -228,12 +227,12 @@ jobjectArray knn_jni::nmslib_wrapper::queryIndex(JNIEnv * env, jlong indexPointe
     return results;
 }
 
-void knn_jni::nmslib_wrapper::free(jlong indexPointerJ) {
+void knn_jni::nmslib_wrapper::Free(jlong indexPointerJ) {
     auto *indexWrapper = reinterpret_cast<IndexWrapper*>(indexPointerJ);
     delete indexWrapper;
 }
 
-void knn_jni::nmslib_wrapper::initLibrary() {
+void knn_jni::nmslib_wrapper::InitLibrary() {
     similarity::initLibrary();
 }
 

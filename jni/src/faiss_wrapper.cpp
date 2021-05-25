@@ -32,9 +32,9 @@ void SetExtraParameters(JNIEnv *env, const std::unordered_map<std::string, jobje
                         faiss::Index * index);
 
 // Train an index with data provided
-void TrainIndex(faiss::Index * index, faiss::Index::idx_t n, const float* x);
+void InternalTrainIndex(faiss::Index * index, faiss::Index::idx_t n, const float* x);
 
-void knn_jni::faiss_wrapper::createIndex(JNIEnv * env, jintArray idsJ, jobjectArray vectorsJ, jstring indexPathJ,
+void knn_jni::faiss_wrapper::CreateIndex(JNIEnv * env, jintArray idsJ, jobjectArray vectorsJ, jstring indexPathJ,
                                          jobject parametersJ) {
 
     try {
@@ -113,7 +113,7 @@ void knn_jni::faiss_wrapper::createIndex(JNIEnv * env, jintArray idsJ, jobjectAr
     faiss::write_index(&idMap, indexPathCpp.c_str());
 }
 
-void knn_jni::faiss_wrapper::createIndexFromTemplate(JNIEnv * env, jintArray idsJ, jobjectArray vectorsJ,
+void knn_jni::faiss_wrapper::CreateIndexFromTemplate(JNIEnv * env, jintArray idsJ, jobjectArray vectorsJ,
                                                      jstring indexPathJ, jbyteArray templateIndexJ) {
     try {
         if (idsJ == nullptr) {
@@ -167,14 +167,13 @@ void knn_jni::faiss_wrapper::createIndexFromTemplate(JNIEnv * env, jintArray ids
     faiss::write_index(&idMap, indexPathCpp.c_str());
 }
 
-jlong knn_jni::faiss_wrapper::loadIndex(JNIEnv * env, jstring indexPathJ, jobject parametersJ) {
+jlong knn_jni::faiss_wrapper::LoadIndex(JNIEnv * env, jstring indexPathJ) {
     std::string indexPathCpp(ConvertJavaStringToCppString(env, indexPathJ));
     faiss::Index* indexReader = faiss::read_index(indexPathCpp.c_str(), faiss::IO_FLAG_READ_ONLY);
     return (jlong) indexReader;
 }
 
-jobjectArray knn_jni::faiss_wrapper::queryIndex(JNIEnv * env, jlong indexPointerJ, jfloatArray queryVectorJ, jint kJ,
-                                                jobject parametersJ) {
+jobjectArray knn_jni::faiss_wrapper::QueryIndex(JNIEnv * env, jlong indexPointerJ, jfloatArray queryVectorJ, jint kJ) {
     auto *indexReader = reinterpret_cast<faiss::Index*>(indexPointerJ);
 
     if (indexReader == nullptr) {
@@ -230,18 +229,18 @@ jobjectArray knn_jni::faiss_wrapper::queryIndex(JNIEnv * env, jlong indexPointer
     return results;
 }
 
-void knn_jni::faiss_wrapper::free(jlong indexPointer) {
+void knn_jni::faiss_wrapper::Free(jlong indexPointer) {
     auto *indexWrapper = reinterpret_cast<faiss::Index*>(indexPointer);
     delete indexWrapper;
 }
 
-void knn_jni::faiss_wrapper::initLibrary() {
+void knn_jni::faiss_wrapper::InitLibrary() {
     //set thread 1 cause ES has Search thread
     //TODO make it different at search and write
     //	omp_set_num_threads(1);
 }
 
-jbyteArray knn_jni::faiss_wrapper::trainIndex(JNIEnv * env, jobject parametersJ, jint dimensionJ,
+jbyteArray knn_jni::faiss_wrapper::TrainIndex(JNIEnv * env, jobject parametersJ, jint dimensionJ,
                                               jlong trainVectorsPointerJ) {
     // First, we need to build the index
     try {
@@ -283,7 +282,7 @@ jbyteArray knn_jni::faiss_wrapper::trainIndex(JNIEnv * env, jobject parametersJ,
     auto *trainingVectorsPointerC = reinterpret_cast<std::vector<float>*>(trainVectorsPointerJ);
     int numVectors = trainingVectorsPointerC->size()/(int) dimensionJ;
     if(!indexWriter->is_trained) {
-        TrainIndex(indexWriter.get(), numVectors, trainingVectorsPointerC->data());
+        InternalTrainIndex(indexWriter.get(), numVectors, trainingVectorsPointerC->data());
     }
     env->DeleteLocalRef(parametersJ);
 
@@ -291,7 +290,7 @@ jbyteArray knn_jni::faiss_wrapper::trainIndex(JNIEnv * env, jobject parametersJ,
     faiss::VectorIOWriter vectorIoWriter;
     faiss::write_index(indexWriter.get(), &vectorIoWriter);
 
-    jbyte * jbytesBuffer = new jbyte[vectorIoWriter.data.size()];
+    auto * jbytesBuffer = new jbyte[vectorIoWriter.data.size()];
     int c = 0;
     for (auto b : vectorIoWriter.data) {
         jbytesBuffer[c++] = (jbyte) b;
@@ -343,10 +342,10 @@ void SetExtraParameters(JNIEnv *env, const std::unordered_map<std::string, jobje
     }
 }
 
-void TrainIndex(faiss::Index * index, faiss::Index::idx_t n, const float* x) {
+void InternalTrainIndex(faiss::Index * index, faiss::Index::idx_t n, const float* x) {
     if (auto * indexIvf = dynamic_cast<faiss::IndexIVF*>(index)) {
         if (indexIvf->quantizer_trains_alone == 2) {
-            TrainIndex(indexIvf->quantizer, n, x);
+            InternalTrainIndex(indexIvf->quantizer, n, x);
         }
         indexIvf->make_direct_map();
     }

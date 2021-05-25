@@ -16,15 +16,25 @@
 
 namespace knn_jni {
     namespace nmslib_wrapper {
-        void createIndex(JNIEnv *, jintArray, jobjectArray, jstring, jobject);
+        // Create an index with ids and vectors. The configuration is defined by values in the Java map, parametersJ.
+        // The index is serialized to indexPathJ.
+        void CreateIndex(JNIEnv * env, jintArray idsJ, jobjectArray vectorsJ, jstring indexPathJ, jobject parametersJ);
 
-        jlong loadIndex(JNIEnv *, jstring, jobject);
+        // Load an index from indexPathJ into memory. Use parametersJ to set any query time parameters
+        //
+        // Return a pointer to the loaded index
+        jlong LoadIndex(JNIEnv * env, jstring indexPathJ, jobject parametersJ);
 
-        jobjectArray queryIndex(JNIEnv *, jlong, jfloatArray, jint, jobject);
+        // Execute a query against the index located in memory at indexPointerJ.
+        //
+        // Return an array of KNNQueryResults
+        jobjectArray QueryIndex(JNIEnv * env, jlong indexPointerJ, jfloatArray queryVectorJ, jint kJ);
 
-        void free(jlong);
+        // Free the index located in memory at indexPointerJ
+        void Free(jlong indexPointer);
 
-        void initLibrary();
+        // Perform required initialization operations for the library
+        void InitLibrary();
     }
 }
 
