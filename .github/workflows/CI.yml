@@ -6,6 +6,8 @@ on:
   pull_request:
     branches:
       - "*"
+  schedule:
+    - cron:  '0 */12 * * *'
 
 jobs:
   Build-k-NN:
@@ -38,7 +40,7 @@ jobs:
 
       - name: Run build
         run: |
-          ./gradlew build
+          ./gradlew build -Dopensearch.version=1.0.0-rc1
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
