@@ -81,7 +81,8 @@ jmethodID knn_jni::FindMethod(JNIEnv * env, jclass jClass, const std::string& me
 // 2. Caching some of the method and class calls
 std::unordered_map<std::string, jobject> knn_jni::ConvertJavaMapToCppMap(JNIEnv *env, jobject parametersJ) {
     // Here, we parse parametersJ, which is a java Map<String, Object>. In order to implement this, I referred to
-    // https://stackoverflow.com/questions/4844022/jni-create-hashmap
+    // https://stackoverflow.com/questions/4844022/jni-create-hashmap. All java references are local, so they will be
+    // freed when the native method returns
 
     if (parametersJ == nullptr) {
         throw std::runtime_error("Parameters cannot be null");
@@ -151,6 +152,9 @@ std::string knn_jni::ConvertJavaStringToCppString(JNIEnv * env, jstring javaStri
     const char *cString = env->GetStringUTFChars(javaString, nullptr);
     if (cString == nullptr) {
         HasExceptionInStack(env);
+
+        // Will only reach here if there is no exception in the stack, but the call failed
+        throw std::runtime_error("Unable to convert java string to cpp string");
     }
     std::string cppString(cString);
     env->ReleaseStringUTFChars(javaString, cString);
@@ -181,10 +185,10 @@ std::vector<float> knn_jni::Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env
         throw std::runtime_error("Array cannot be null");
     }
 
-    std::vector<float> floatVectorCpp;
     int numVectors = env->GetArrayLength(array2dJ);
     knn_jni::HasExceptionInStack(env);
 
+    std::vector<float> floatVectorCpp;
     for (int i = 0; i < numVectors; ++i) {
         auto vectorArray = (jfloatArray)env->GetObjectArrayElement(array2dJ, i);
         knn_jni::HasExceptionInStack(env);
@@ -194,18 +198,46 @@ std::vector<float> knn_jni::Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env
         }
 
         float* vector = env->GetFloatArrayElements(vectorArray, nullptr);
-        knn_jni::HasExceptionInStack(env);
+        if (vector == nullptr) {
+            knn_jni::HasExceptionInStack(env);
+            throw std::runtime_error("Unable to get float array elements");
+        }
+
         for(int j = 0; j < dim; ++j) {
             floatVectorCpp.push_back(vector[j]);
         }
-        env->ReleaseFloatArrayElements(vectorArray, vector, 0);
+        env->ReleaseFloatArrayElements(vectorArray, vector, JNI_ABORT);
     }
     knn_jni::HasExceptionInStack(env);
     env->DeleteLocalRef(array2dJ);
     return floatVectorCpp;
 }
 
-int knn_jni::GetInnerDimensionOf2dJavaArray(JNIEnv *env, jobjectArray array2dJ) {
+std::vector<int64_t> knn_jni::ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ) {
+
+    if (arrayJ == nullptr) {
+        throw std::runtime_error("Array cannot be null");
+    }
+
+    int numElements = env->GetArrayLength(arrayJ);
+    knn_jni::HasExceptionInStack(env);
+
+    int* arrayCpp = env->GetIntArrayElements(arrayJ, nullptr);
+    if (arrayCpp == nullptr) {
+        knn_jni::HasExceptionInStack(env);
+        throw std::runtime_error("Unable to get integer array elements");
+    }
+
+    std::vector<int64_t> vectorCpp;
+    vectorCpp.reserve(numElements);
+    for(int i = 0; i < numElements; ++i) {
+        vectorCpp.push_back(arrayCpp[i]);
+    }
+    env->ReleaseIntArrayElements(arrayJ, arrayCpp, JNI_ABORT);
+    return vectorCpp;
+}
+
+int knn_jni::GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectArray array2dJ) {
 
     if (array2dJ == nullptr) {
         throw std::runtime_error("Array cannot be null");
@@ -271,23 +303,6 @@ jobject knn_jni::GetJObjectFromMapOrThrow(std::unordered_map<std::string, jobjec
         throw std::runtime_error(key + " not found");
     }
     return map[key];
-}
-
-
-std::vector<int64_t> knn_jni::ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ) {
-
-    if (arrayJ == nullptr) {
-        throw std::runtime_error("Array cannot be null");
-    }
-
-    std::vector<int64_t> vectorCpp;
-    int* arrayCpp = env->GetIntArrayElements(arrayJ, nullptr);
-    vectorCpp.reserve(env->GetArrayLength(arrayJ));
-    for(int i = 0; i < env->GetArrayLength(arrayJ); ++i) {
-        vectorCpp.push_back(arrayCpp[i]);
-    }
-    env->ReleaseIntArrayElements(arrayJ, arrayCpp, 0);
-    return vectorCpp;
 }
 
 //TODO: This potentially should use const char *

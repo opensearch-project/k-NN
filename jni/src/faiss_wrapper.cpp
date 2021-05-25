@@ -69,7 +69,7 @@ void knn_jni::faiss_wrapper::CreateIndex(JNIEnv * env, jintArray idsJ, jobjectAr
         throw std::runtime_error("Number of IDs does not match number of vectors");
     }
 
-    int dim = knn_jni::GetInnerDimensionOf2dJavaArray(env, vectorsJ);
+    int dim = knn_jni::GetInnerDimensionOf2dJavaFloatArray(env, vectorsJ);
     auto dataset = knn_jni::Convert2dJavaObjectArrayToCppFloatVector(env, vectorsJ, dim);
 
     // Create faiss index
@@ -88,14 +88,13 @@ void knn_jni::faiss_wrapper::CreateIndex(JNIEnv * env, jintArray idsJ, jobjectAr
     }
     env->DeleteLocalRef(parametersJ);
 
-    // Train index if needed -- check if there is a case where index needs part trained but is trained
+    // Check that the index does not need to be trained
     if(!indexWriter->is_trained) {
-        //TODO: What needs to be freed???
         throw std::runtime_error("Index is not trained");
     }
 
     auto idVector = knn_jni::ConvertJavaIntArrayToCppIntVector(env, idsJ);
-    faiss::IndexIDMap idMap =  faiss::IndexIDMap(indexWriter.get());
+    faiss::IndexIDMap idMap = faiss::IndexIDMap(indexWriter.get());
     idMap.add_with_ids(numVectors, dataset.data(), idVector.data());
 
     // Write the index to disk
@@ -128,17 +127,22 @@ void knn_jni::faiss_wrapper::CreateIndexFromTemplate(JNIEnv * env, jintArray ids
         throw std::runtime_error("Number of IDs does not match number of vectors");
     }
 
-    int dim = knn_jni::GetInnerDimensionOf2dJavaArray(env, vectorsJ);
+    int dim = knn_jni::GetInnerDimensionOf2dJavaFloatArray(env, vectorsJ);
     auto dataset = knn_jni::Convert2dJavaObjectArrayToCppFloatVector(env, vectorsJ, dim);
 
     // Get vector of bytes from jbytearray
     int indexBytesCount = knn_jni::GetJavaBytesArrayLength(env, templateIndexJ);
     jbyte * indexBytesJ = env->GetByteArrayElements(templateIndexJ, nullptr);
+    if (indexBytesJ == nullptr) {
+        knn_jni::HasExceptionInStack(env);
+        throw std::runtime_error("Unable able to get byte array for template index");
+    }
+
     faiss::VectorIOReader vectorIoReader;
     for (int i = 0; i < indexBytesCount; i++) {
         vectorIoReader.data.push_back((uint8_t) indexBytesJ[i]);
     }
-    env->ReleaseByteArrayElements(templateIndexJ, indexBytesJ, 0);
+    env->ReleaseByteArrayElements(templateIndexJ, indexBytesJ, JNI_ABORT);
 
     // Create faiss index
     std::unique_ptr<faiss::Index> indexWriter;
@@ -178,20 +182,21 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(JNIEnv * env, jlong indexPointer
     int dim	= knn_jni::GetJavaFloatArrayLength(env, queryVectorJ);
     std::vector<float> dis(kJ * dim);
     std::vector<faiss::Index::idx_t> ids(kJ * dim);
-    float* rawQueryvector;
+    float* rawQueryvector = env->GetFloatArrayElements(queryVectorJ, nullptr); // Have to call release on this
+    if (rawQueryvector == nullptr) {
+        knn_jni::HasExceptionInStack(env);
+        throw std::runtime_error("Unable to get float elements from query vector");
+    }
 
     try {
-        rawQueryvector = env->GetFloatArrayElements(queryVectorJ, nullptr); // Have to call release on this
-        knn_jni::HasExceptionInStack(env);
-
         indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data());
-        env->ReleaseFloatArrayElements(queryVectorJ, rawQueryvector, JNI_ABORT);
         knn_jni::HasExceptionInStack(env);
     } catch (...) {
         env->ReleaseFloatArrayElements(queryVectorJ, rawQueryvector, JNI_ABORT);
         knn_jni::HasExceptionInStack(env);
         throw;
     }
+    env->ReleaseFloatArrayElements(queryVectorJ, rawQueryvector, JNI_ABORT);
 
     // If there are not k results, the results will be padded with -1. Find the first -1, and set result size to that
     // index
@@ -213,8 +218,8 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(JNIEnv * env, jlong indexPointer
     jobject result;
     for(int i = 0; i < resultSize; ++i) {
         result = env->NewObject(resultClass, allArgs, ids[i], dis[i]);
-        knn_jni::HasExceptionInStack(env);
         if (result == nullptr) {
+            knn_jni::HasExceptionInStack(env);
             throw std::runtime_error("Unable to create result");
         }
         env->SetObjectArrayElement(results, i, result);
@@ -263,10 +268,10 @@ jbyteArray knn_jni::faiss_wrapper::TrainIndex(JNIEnv * env, jobject parametersJ,
     }
 
     // Train index if needed
-    auto *trainingVectorsPointerC = reinterpret_cast<std::vector<float>*>(trainVectorsPointerJ);
-    int numVectors = trainingVectorsPointerC->size()/(int) dimensionJ;
+    auto *trainingVectorsPointerCpp = reinterpret_cast<std::vector<float>*>(trainVectorsPointerJ);
+    int numVectors = trainingVectorsPointerCpp->size()/(int) dimensionJ;
     if(!indexWriter->is_trained) {
-        InternalTrainIndex(indexWriter.get(), numVectors, trainingVectorsPointerC->data());
+        InternalTrainIndex(indexWriter.get(), numVectors, trainingVectorsPointerCpp->data());
     }
     env->DeleteLocalRef(parametersJ);
 
@@ -274,15 +279,16 @@ jbyteArray knn_jni::faiss_wrapper::TrainIndex(JNIEnv * env, jobject parametersJ,
     faiss::VectorIOWriter vectorIoWriter;
     faiss::write_index(indexWriter.get(), &vectorIoWriter);
 
-    auto * jbytesBuffer = new jbyte[vectorIoWriter.data.size()];
+    // Wrap in smart pointer
+    std::unique_ptr<jbyte[]> jbytesBuffer;
+    jbytesBuffer.reset(new jbyte[vectorIoWriter.data.size()]);
     int c = 0;
     for (auto b : vectorIoWriter.data) {
         jbytesBuffer[c++] = (jbyte) b;
     }
 
     jbyteArray ret = env->NewByteArray(vectorIoWriter.data.size());
-    env->SetByteArrayRegion(ret, 0, vectorIoWriter.data.size(), jbytesBuffer);
-    delete [] jbytesBuffer;
+    env->SetByteArrayRegion(ret, 0, vectorIoWriter.data.size(), jbytesBuffer.get());
     return ret;
 }
 

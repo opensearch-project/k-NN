@@ -171,7 +171,7 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_index_JNIService_transferVectors
         vect = reinterpret_cast<std::vector<float>*>(vectorsPointerJ);
     }
 
-    int dim = knn_jni::GetInnerDimensionOf2dJavaArray(env, vectorsJ);
+    int dim = knn_jni::GetInnerDimensionOf2dJavaFloatArray(env, vectorsJ);
     auto dataset = knn_jni::Convert2dJavaObjectArrayToCppFloatVector(env, vectorsJ, dim);
     vect->insert(vect->begin(), dataset.begin(), dataset.end());
 

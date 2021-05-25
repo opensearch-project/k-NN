@@ -66,7 +66,7 @@ namespace knn_jni {
     // --------------------------------------------------------------------------
 
     // ------------------------------ MISC HELPERS ------------------------------
-    int GetInnerDimensionOf2dJavaArray(JNIEnv *env, jobjectArray array2dJ);
+    int GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectArray array2dJ);
 
     int GetJavaObjectArrayLength(JNIEnv *env, jobjectArray arrayJ);
 
