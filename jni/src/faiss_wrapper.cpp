@@ -193,13 +193,12 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(JNIEnv * env, jlong indexPointer
         throw;
     }
 
-    // if result is not enough, padded with -1s
+    // If there are not k results, the results will be padded with -1. Find the first -1, and set result size to that
+    // index
     int resultSize = kJ;
-    for(int i = 0; i < kJ; i++) {
-        if(ids[i] == -1) {
-            resultSize = i;
-            break;
-        }
+    auto it = std::find(ids.begin(), ids.end(), -1);
+    if (it != ids.end()) {
+        resultSize = it - ids.begin();
     }
 
     jclass resultClass = knn_jni::FindClass(env,"org/opensearch/knn/index/KNNQueryResult");
