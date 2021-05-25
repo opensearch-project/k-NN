@@ -117,6 +117,37 @@ set_target_properties(${TARGET_LIB} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(${TARGET_LIB} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
 # ---------------------------------------------------------------------------
 
+# --------------------------------- TESTS -----------------------------------
+enable_testing()
+configure_file(${CMAKE_SOURCE_DIR}/CTestCustom.cmake ${CMAKE_BINARY_DIR})
+
+include(FetchContent)
+FetchContent_Declare(
+        googletest
+        URL https://github.com/google/googletest/archive/609281088cfefc76f9d0ce82e1ff6c30cc3591e5.zip
+)
+FetchContent_MakeAvailable(googletest)
+
+add_executable(
+        jni_test
+        tests/jni_test.cpp
+)
+
+target_link_libraries(
+        jni_test
+        gtest_main
+        ${TARGET_LIB}
+)
+
+target_include_directories(jni_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE} ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search/include)
+
+include(GoogleTest)
+gtest_discover_tests(jni_test)
+
+set_target_properties(jni_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+
+# ---------------------------------------------------------------------------
+
 # -------------------------------- INSTALL ----------------------------------
 # Installation rules for shared library
 install(TARGETS ${TARGET_LIB}
