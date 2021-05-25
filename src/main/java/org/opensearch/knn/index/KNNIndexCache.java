@@ -358,8 +358,7 @@ public class KNNIndexCache implements Closeable {
             return AccessController.doPrivileged(
                     new PrivilegedAction<KNNQueryResult[]>() {
                         public KNNQueryResult[] run() {
-                            return JNIService.queryIndex(knnIndexCacheEntry.getIndexPointer(), query, k,
-                                    Collections.emptyMap(), engineName);
+                            return JNIService.queryIndex(knnIndexCacheEntry.getIndexPointer(), query, k, engineName);
                         }
                     }
             );

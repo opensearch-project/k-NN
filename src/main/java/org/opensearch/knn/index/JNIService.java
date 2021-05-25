@@ -78,12 +78,10 @@ public class JNIService {
      * @param indexPointer pointer to index in memory
      * @param queryVector vector to be used for query
      * @param k neighbors to be returned
-     * @param parameters parameters to be used for query
      * @param engineName name of engine to query index
      * @return KNNQueryResult array of k neighbors
      */
-    public static native KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k,
-                                                     Map<String, Object> parameters, String engineName);
+    public static native KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k, String engineName);
 
     /**
      * Free native memory pointer

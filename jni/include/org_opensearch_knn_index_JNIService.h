@@ -45,10 +45,10 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_index_JNIService_loadIndex
 /*
  * Class:     org_opensearch_knn_index_JNIService
  * Method:    queryIndex
- * Signature: (J[FILjava/util/Map;Ljava/lang/String;)[Lorg/opensearch/knn/index/KNNQueryResult;
+ * Signature: (J[FILjava/lang/String;)[Lorg/opensearch/knn/index/KNNQueryResult;
  */
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_index_JNIService_queryIndex
-  (JNIEnv *, jclass, jlong, jfloatArray, jint, jobject, jstring);
+  (JNIEnv *, jclass, jlong, jfloatArray, jint, jstring);
 
 /*
  * Class:     org_opensearch_knn_index_JNIService

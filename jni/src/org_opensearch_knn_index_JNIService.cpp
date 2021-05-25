@@ -84,8 +84,7 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_index_JNIService_loadIndex
 }
 
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_index_JNIService_queryIndex
-        (JNIEnv * env, jclass cls, jlong indexPointerJ, jfloatArray queryVectorJ, jint kJ, jobject parametersJ,
-         jstring engineNameJ) {
+        (JNIEnv * env, jclass cls, jlong indexPointerJ, jfloatArray queryVectorJ, jint kJ, jstring engineNameJ) {
     try {
         std::string engineNameCpp = knn_jni::ConvertJavaStringToCppString(env, engineNameJ);
 
