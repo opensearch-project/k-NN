@@ -127,6 +127,10 @@ void knn_jni::nmslib_wrapper::CreateIndex(JNIEnv * env, jintArray idsJ, jobjectA
         index.reset(similarity::MethodFactoryRegistry<float>::Instance().CreateMethod(false, "hnsw", spaceTypeCpp, *(space), dataset));
         index->CreateIndex(similarity::AnyParams(indexParameters));
         index->SaveIndex(indexPathCpp);
+
+        for (auto & it : dataset) {
+            delete it;
+        }
     } catch (...) {
         for (auto & it : dataset) {
             delete it;
