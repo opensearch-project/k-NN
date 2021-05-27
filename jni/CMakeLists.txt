@@ -131,6 +131,7 @@ FetchContent_MakeAvailable(googletest)
 add_executable(
         jni_test
         tests/jni_test.cpp
+        tests/mock_jni.cpp
 )
 
 target_link_libraries(
@@ -139,7 +140,7 @@ target_link_libraries(
         ${TARGET_LIB}
 )
 
-target_include_directories(jni_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE} ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search/include)
+target_include_directories(jni_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE} ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search/include)
 
 include(GoogleTest)
 gtest_discover_tests(jni_test)
