@@ -9,8 +9,6 @@
  * GitHub history for details.
  */
 
-#include <iostream>
-#include <utility>
 #include <jni.h>
 #include "mock_jni.h"
 
@@ -43,6 +41,14 @@ JNINativeInterface_ * mock_jni::GenerateMockJNINativeInterface() {
             *[](JNIEnv_ jniEnv, jstring str, const char *chars) {}
     );
 
+    jniNativeInterface->ReleaseIntArrayElements = reinterpret_cast<void (*)(JNIEnv *, jintArray , jint *, jint)>(
+            *[](JNIEnv_ jniEnv, jintArray array, jint * elems, jint mode) {}
+    );
+
+    jniNativeInterface->ReleaseFloatArrayElements = reinterpret_cast<void (*)(JNIEnv *, jfloatArray , jfloat *, jint)>(
+            *[](JNIEnv_ jniEnv, jfloatArray array, jfloat * elems, jint mode) {}
+    );
+
     jniNativeInterface->GetStringUTFChars = reinterpret_cast<const char *(*)(JNIEnv *, jstring, jboolean *)>(
             *[](JNIEnv_ jniEnv, jstring str, jboolean *isCopy) {
                 return (const char *) str;
@@ -56,23 +62,23 @@ JNINativeInterface_ * mock_jni::GenerateMockJNINativeInterface() {
             }
     );
 
+    jniNativeInterface->GetFloatArrayElements = reinterpret_cast<jfloat *(*)(JNIEnv *, jfloatArray, jboolean *)>(
+            *[](JNIEnv_ jniEnv, jfloatArray array, jboolean *isCopy) {
+                auto *cppVector = reinterpret_cast<std::vector<float> *>(array);
+                return (jfloat *) cppVector->data();
+            }
+    );
+
+    jniNativeInterface->GetIntArrayElements = reinterpret_cast<jint *(*)(JNIEnv *, jintArray, jboolean *)>(
+            *[](JNIEnv_ jniEnv, jintArray array, jboolean *isCopy) {
+                auto *cppVector = reinterpret_cast<std::vector<int> *>(array);
+                return (jint *) cppVector->data();
+            }
+    );
+
+    jniNativeInterface->DeleteLocalRef = reinterpret_cast<void (*)(JNIEnv *, jobject)>(
+            *[](JNIEnv_ jniEnv, jobject obj) {}
+    );
+
     return jniNativeInterface;
-}
-
-jsize mock_jni::MockGetArrayLength(jarray array) {
-    std::cout << "Value of javaIntArray after: " << array << std::endl;
-
-    auto * intArray = reinterpret_cast<std::vector<int> *>(array);
-
-    return (intArray)->size();
-}
-
-
-jint mock_jni::MockThrow(jthrowable jthrowable1) {
-    std::cout << "Jthrow address after: " << jthrowable1 << std::endl;
-    return 0;
-}
-
-jboolean mock_jni::MockExceptionCheck() {
-    return false;
 }

@@ -18,31 +18,11 @@
 #include <vector>
 #include <unordered_map>
 
+// TODO: Add utilities to directly create and load indices from library w/o our library
 namespace mock_jni {
-
-    enum TypeMockParameterValue {
-        TYPE_STRING,
-        TYPE_INT,
-        TYPE_MAP
-    };
-
-    struct MockParameterValue {
-        int typeId;
-        void * value;
-    };
-
-    struct MockParameter {
-        const char * key;
-        MockParameterValue value;
-    };
 
     JNINativeInterface_ * GenerateMockJNINativeInterface();
 
-    jsize MockGetArrayLength(jarray array);
-
-    jboolean MockExceptionCheck();
-
-    jint MockThrow(jthrowable jthrowable1);
 }
 
 #endif //OPENSEARCH_KNN_MOCK_JNI_H
