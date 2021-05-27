@@ -115,27 +115,29 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
     // Create a basic jnienv
     auto * jnini = mock_jni::GenerateMockJNINativeInterface();
 
-    // Mock Get array length
-    static const std::vector<int> mockArrayLengthCalls{
+    // Mock GetArrayLength
+    static std::vector<int> mockArrayLengthCalls{
         static_cast<int>(vectors.size()),
         static_cast<int>(ids.size()),
         static_cast<int>(vectors.size()),
         dim,
         static_cast<int>(vectors.size()),
-        dim,
-        dim,
-        dim,
-        dim,
-        static_cast<int>(ids.size()),
     };
+
+    for (auto i : vectors)
+        mockArrayLengthCalls.push_back(i.size());
+
+    mockArrayLengthCalls.push_back(static_cast<int>(ids.size()));
 
     static int getArrayLengthOrdinal = 0;
     auto MockGetArrayLength = [](JNIEnv_ jniEnv, jintArray array) {
         return mockArrayLengthCalls[getArrayLengthOrdinal++];
     };
 
+    // Mock GetObjectArrayElement
     static long getObjectArrayElementOrdinal = 0;
-    auto MockGetObjectArrayElement = [](JNIEnv_ jniEnv, jobjectArray array, int size) {
+    // can this be simplified to use array instead of static vector?
+    auto MockGetObjectArrayElement = [](JNIEnv_ jniEnv, jobjectArray array, int index) {
         if (getObjectArrayElementOrdinal == 0) {
             return (jobject) ++getObjectArrayElementOrdinal;
         }
@@ -143,30 +145,25 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
     };
 
     // Define values returned by CallObject
-    const char * key1 = knn_jni::SPACE_TYPE.c_str();
-    const char * value1 = knn_jni::L2.c_str();
-    const char * key2 = knn_jni::METHOD.c_str();
-    const char * value2 = "HNSW32,Flat"; // hardcode for now
     const char * dummyValue = "dummy";
-
     static const std::vector<void *> mockObjectCallValues{
             (void*) dummyValue,
             (void*) dummyValue,
             (void*) dummyValue,
-            (void*) key1,
-            (void*) value1,
+            (void*) knn_jni::SPACE_TYPE.c_str(),
+            (void*) knn_jni::L2.c_str(),
             (void*) dummyValue,
-            (void*) key2,
-            (void*) value2
+            (void*) knn_jni::METHOD.c_str(),
+            (void*) "HNSW32,Flat"
     };
 
-    // Define MockCallObject
+    // Mock CallObject
     static int callObjectMethodOrdinal = 0;
     auto MockCallObjectMethod = [](JNIEnv_ jniEnv, jobject obj, jmethodID methodID, va_list args) {
         return (jobject) mockObjectCallValues[callObjectMethodOrdinal++];
     };
 
-    // Define MockCallBooleanMethod
+    // Mock CallBooleanMethod
     static int callBooleanMethodOrdinal = 2;
     auto MockCallBooleanMethod = [](JNIEnv_ jniEnv, jobject obj, jmethodID methodID, va_list args) {
         // Loop through the vector until there is nothing left and then return false
