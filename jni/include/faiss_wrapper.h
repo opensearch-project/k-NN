@@ -18,22 +18,24 @@ namespace knn_jni {
     namespace faiss_wrapper {
         // Create an index with ids and vectors. The configuration is defined by values in the Java map, parametersJ.
         // The index is serialized to indexPathJ.
-        void CreateIndex(JNIEnv * env, jintArray idsJ, jobjectArray vectorsJ, jstring indexPathJ, jobject parametersJ);
+        void CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ, jobjectArray vectorsJ,
+                         jstring indexPathJ, jobject parametersJ);
 
         // Create an index with ids and vectors. Instead of creating a new index, this function creates the index
         // based off of the template index passed in. The index is serialized to indexPathJ.
-        void CreateIndexFromTemplate(JNIEnv * env, jintArray idsJ, jobjectArray vectorsJ, jstring indexPathJ,
-                                     jbyteArray templateIndexJ);
+        void CreateIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
+                                     jobjectArray vectorsJ, jstring indexPathJ, jbyteArray templateIndexJ);
 
         // Load an index from indexPathJ into memory.
         //
         // Return a pointer to the loaded index
-        jlong LoadIndex(JNIEnv * env, jstring indexPathJ);
+        jlong LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ);
 
         // Execute a query against the index located in memory at indexPointerJ.
         //
         // Return an array of KNNQueryResults
-        jobjectArray QueryIndex(JNIEnv * env, jlong indexPointerJ, jfloatArray queryVectorJ, jint kJ);
+        jobjectArray QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
+                                jfloatArray queryVectorJ, jint kJ);
 
         // Free the index located in memory at indexPointerJ
         void Free(jlong indexPointer);
@@ -45,7 +47,8 @@ namespace knn_jni {
         // the vector of floats located at trainVectorsPointerJ.
         //
         // Return the serialized representation
-        jbyteArray TrainIndex(JNIEnv * env, jobject parametersJ, jint dimension, jlong trainVectorsPointerJ);
+        jbyteArray TrainIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject parametersJ, jint dimension,
+                              jlong trainVectorsPointerJ);
     }
 }
 
