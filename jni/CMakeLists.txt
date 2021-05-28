@@ -40,6 +40,10 @@ endif()
 set(KNN_INDEX KNNIndexV2_0_11)
 set(KNN_PACKAGE_NAME opensearch-knnlib)
 
+if(NOT KNN_PLUGIN_VERSION)
+    set(KNN_PLUGIN_VERSION local)
+endif()
+
 # Check if similarity search exists
 find_path(NMS_REPO_DIR NAMES similarity_search PATHS ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib)
 
@@ -88,7 +92,7 @@ endif()
 set(KNN_MAINTAINER "OpenSearch Team <opensearch@amazon.com>")
 set(OPENSEARCH_DOWNLOAD_URL "https://opensearch.org/downloads.html")
 set(CPACK_PACKAGE_NAME ${KNN_PACKAGE_NAME})
-set(CPACK_PACKAGE_VERSION 1.13.0.0)
+set(CPACK_PACKAGE_VERSION ${KNN_PLUGIN_VERSION})
 set(CMAKE_INSTALL_PREFIX /usr)
 set(CPACK_GENERATOR "RPM;DEB")
 SET(CPACK_OUTPUT_FILE_PREFIX packages)
