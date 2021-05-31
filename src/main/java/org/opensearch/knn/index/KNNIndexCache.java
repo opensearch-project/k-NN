@@ -299,7 +299,7 @@ public class KNNIndexCache implements Closeable {
      */
     public KNNIndexCacheEntry loadIndex(String indexPathUrl, String indexName, SpaceType spaceType) throws Exception {
         if(Strings.isNullOrEmpty(indexPathUrl))
-            throw new IllegalStateException("indexPath is null while performing load index");
+            throw new IllegalStateException("indexPath for index \"" + indexName + "\" is null while performing load index");
         logger.debug("[KNN] Loading index: {}", indexPathUrl);
         Path indexPath = Paths.get(indexPathUrl);
         FileWatcher fileWatcher = new FileWatcher(indexPath);
@@ -310,28 +310,26 @@ public class KNNIndexCache implements Closeable {
         // the entry
         fileWatcher.init();
 
-        // loadIndex from different library
-        String engineName;
-        Map<String, Object> parameters;
-        if (indexPathUrl.endsWith(KNNEngine.NMSLIB.getExtension())
-                || indexPathUrl.endsWith(KNNEngine.NMSLIB.getCompoundExtension())) {
-            engineName = KNNEngine.NMSLIB.getName();
+        KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(indexPathUrl);
+
+        Map<String, Object> parameters = Collections.emptyMap();
+
+        // nmslib allows some parameters to be set during initialization
+        if (KNNEngine.NMSLIB.equals(knnEngine)) {
             parameters = ImmutableMap.of(
                     KNNConstants.SPACE_TYPE, spaceType.getValue(),
                     KNNConstants.HNSW_ALGO_EF_SEARCH, KNNSettings.getEfSearchParam(indexName)
             );
-        } else {
-            throw new IllegalArgumentException("[KNN] Invalid engine type for path: " + indexPathUrl);
         }
 
-        final long indexPointer = JNIService.loadIndex(indexPathUrl, parameters, engineName);
+        final long indexPointer = JNIService.loadIndex(indexPathUrl, parameters, knnEngine.getName());
 
         // TODO verify that this is safe - ideally we'd explicitly ensure that the FileWatcher is only checked
         // after the guava cache has finished loading the key to avoid a race condition where the watcher
         // causes us to invalidate an entry before the key has been fully loaded.
         final WatcherHandle<FileWatcher> watcherHandle = resourceWatcherService.add(fileWatcher);
 
-        return new KNNIndexCacheEntry(indexPointer, indexPathUrl, indexName, watcherHandle, engineName);
+        return new KNNIndexCacheEntry(indexPointer, indexPathUrl, indexName, watcherHandle, knnEngine.getName());
     }
 
     /**
@@ -363,7 +361,8 @@ public class KNNIndexCache implements Closeable {
                     }
             );
         } catch (Exception ex) {
-            throw new RuntimeException("Unable to query the index: " + ex);
+            throw new RuntimeException("Unable to query the index \"" + indexName + "\" with engine \"" + engineName
+                    + "\" and space \"" + spaceType.getValue() + "\": " + ex);
         } finally {
             readLock.unlock();
         }

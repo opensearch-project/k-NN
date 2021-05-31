@@ -17,6 +17,8 @@
 #include <jni.h>
 #include <string>
 
+static knn_jni::JNIUtil jniUtil;
+
 JNIEXPORT void JNICALL Java_org_opensearch_knn_index_JNIService_createIndex
         (JNIEnv * env, jclass cls, jintArray idsJ, jobjectArray vectorsJ, jstring indexPathJ, jobject parametersJ,
         jstring engineNameJ) {
@@ -25,20 +27,20 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_index_JNIService_createIndex
             throw std::runtime_error("Engine name cannot be null");
         }
 
-        std::string engineNameCpp = knn_jni::ConvertJavaStringToCppString(env, engineNameJ);
+        std::string engineNameCpp = jniUtil.ConvertJavaStringToCppString(env, engineNameJ);
         if (engineNameCpp == knn_jni::FAISS_NAME) {
-            knn_jni::faiss_wrapper::CreateIndex(env, idsJ, vectorsJ, indexPathJ, parametersJ);
+            knn_jni::faiss_wrapper::CreateIndex(&jniUtil, env, idsJ, vectorsJ, indexPathJ, parametersJ);
             return;
         }
 
         if (engineNameCpp == knn_jni::NMSLIB_NAME) {
-            knn_jni::nmslib_wrapper::CreateIndex(env, idsJ, vectorsJ, indexPathJ, parametersJ);
+            knn_jni::nmslib_wrapper::CreateIndex(&jniUtil, env, idsJ, vectorsJ, indexPathJ, parametersJ);
             return;
         }
 
-        knn_jni::ThrowJavaException(env, knn_jni::ILLEGAL_ARGUMENT_PATH.c_str(), "Invalid engine");
+        jniUtil.ThrowJavaException(env, knn_jni::ILLEGAL_ARGUMENT_PATH.c_str(), "Invalid engine");
     } catch (...) {
-        knn_jni::CatchCppExceptionAndThrowJava(env);
+        jniUtil.CatchCppExceptionAndThrowJava(env);
     }
 
 }
@@ -51,34 +53,34 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_index_JNIService_createIndexFromT
             throw std::runtime_error("Engine name cannot be null");
         }
 
-        std::string engineNameCpp = knn_jni::ConvertJavaStringToCppString(env, engineNameJ);
+        std::string engineNameCpp = jniUtil.ConvertJavaStringToCppString(env, engineNameJ);
         if (engineNameCpp == knn_jni::FAISS_NAME) {
-            knn_jni::faiss_wrapper::CreateIndexFromTemplate(env, idsJ, vectorsJ, indexPathJ, templateIndexJ);
+            knn_jni::faiss_wrapper::CreateIndexFromTemplate(&jniUtil, env, idsJ, vectorsJ, indexPathJ, templateIndexJ);
             return;
         }
 
-        knn_jni::ThrowJavaException(env, knn_jni::ILLEGAL_ARGUMENT_PATH.c_str(), "Invalid engine");
+        jniUtil.ThrowJavaException(env, knn_jni::ILLEGAL_ARGUMENT_PATH.c_str(), "Invalid engine");
     } catch (...) {
-        knn_jni::CatchCppExceptionAndThrowJava(env);
+        jniUtil.CatchCppExceptionAndThrowJava(env);
     }
 }
 
 JNIEXPORT jlong JNICALL Java_org_opensearch_knn_index_JNIService_loadIndex
         (JNIEnv * env, jclass cls, jstring indexPathJ, jobject parametersJ, jstring engineNameJ) {
     try {
-        std::string engineNameCpp = knn_jni::ConvertJavaStringToCppString(env, engineNameJ);
+        std::string engineNameCpp = jniUtil.ConvertJavaStringToCppString(env, engineNameJ);
 
         if (engineNameCpp == knn_jni::FAISS_NAME) {
-            return knn_jni::faiss_wrapper::LoadIndex(env, indexPathJ);
+            return knn_jni::faiss_wrapper::LoadIndex(&jniUtil, env, indexPathJ);
         }
 
         if (engineNameCpp == knn_jni::NMSLIB_NAME) {
-            return knn_jni::nmslib_wrapper::LoadIndex(env, indexPathJ, parametersJ);
+            return knn_jni::nmslib_wrapper::LoadIndex(&jniUtil, env, indexPathJ, parametersJ);
         }
 
-        knn_jni::ThrowJavaException(env, knn_jni::ILLEGAL_ARGUMENT_PATH.c_str(), "Invalid engine");
+        jniUtil.ThrowJavaException(env, knn_jni::ILLEGAL_ARGUMENT_PATH.c_str(), "Invalid engine");
     } catch (...) {
-        knn_jni::CatchCppExceptionAndThrowJava(env);
+        jniUtil.CatchCppExceptionAndThrowJava(env);
     }
     return NULL;
 }
@@ -86,19 +88,19 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_index_JNIService_loadIndex
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_index_JNIService_queryIndex
         (JNIEnv * env, jclass cls, jlong indexPointerJ, jfloatArray queryVectorJ, jint kJ, jstring engineNameJ) {
     try {
-        std::string engineNameCpp = knn_jni::ConvertJavaStringToCppString(env, engineNameJ);
+        std::string engineNameCpp = jniUtil.ConvertJavaStringToCppString(env, engineNameJ);
 
         if (engineNameCpp == knn_jni::FAISS_NAME) {
-            return knn_jni::faiss_wrapper::QueryIndex(env, indexPointerJ, queryVectorJ, kJ);
+            return knn_jni::faiss_wrapper::QueryIndex(&jniUtil, env, indexPointerJ, queryVectorJ, kJ);
         }
 
         if (engineNameCpp == knn_jni::NMSLIB_NAME) {
-            return knn_jni::nmslib_wrapper::QueryIndex(env, indexPointerJ, queryVectorJ, kJ);
+            return knn_jni::nmslib_wrapper::QueryIndex(&jniUtil, env, indexPointerJ, queryVectorJ, kJ);
         }
 
-        knn_jni::ThrowJavaException(env, knn_jni::ILLEGAL_ARGUMENT_PATH.c_str(), "Invalid engine");
+        jniUtil.ThrowJavaException(env, knn_jni::ILLEGAL_ARGUMENT_PATH.c_str(), "Invalid engine");
     } catch (...) {
-        knn_jni::CatchCppExceptionAndThrowJava(env);
+        jniUtil.CatchCppExceptionAndThrowJava(env);
     }
 
     return nullptr;
@@ -107,7 +109,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_index_JNIService_queryInd
 JNIEXPORT void JNICALL Java_org_opensearch_knn_index_JNIService_free
 (JNIEnv * env, jclass cls, jlong indexPointerJ, jstring engineNameJ) {
     try {
-        std::string engineNameCpp = knn_jni::ConvertJavaStringToCppString(env, engineNameJ);
+        std::string engineNameCpp = jniUtil.ConvertJavaStringToCppString(env, engineNameJ);
 
         if (engineNameCpp == knn_jni::FAISS_NAME) {
             return knn_jni::faiss_wrapper::Free(indexPointerJ);
@@ -117,16 +119,16 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_index_JNIService_free
             return knn_jni::nmslib_wrapper::Free(indexPointerJ);
         }
 
-        knn_jni::ThrowJavaException(env, knn_jni::ILLEGAL_ARGUMENT_PATH.c_str(), "Invalid engine");
+        jniUtil.ThrowJavaException(env, knn_jni::ILLEGAL_ARGUMENT_PATH.c_str(), "Invalid engine");
     } catch (...) {
-        knn_jni::CatchCppExceptionAndThrowJava(env);
+        jniUtil.CatchCppExceptionAndThrowJava(env);
     }
 }
 
 JNIEXPORT void JNICALL Java_org_opensearch_knn_index_JNIService_initLibrary
 (JNIEnv * env, jclass cls, jstring engineNameJ) {
     try {
-        std::string engineNameCpp = knn_jni::ConvertJavaStringToCppString(env, engineNameJ);
+        std::string engineNameCpp = jniUtil.ConvertJavaStringToCppString(env, engineNameJ);
 
         if (engineNameCpp == knn_jni::FAISS_NAME) {
             knn_jni::faiss_wrapper::InitLibrary();
@@ -138,9 +140,9 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_index_JNIService_initLibrary
             return;
         }
 
-        knn_jni::ThrowJavaException(env, knn_jni::ILLEGAL_ARGUMENT_PATH.c_str(), "Invalid engine");
+        jniUtil.ThrowJavaException(env, knn_jni::ILLEGAL_ARGUMENT_PATH.c_str(), "Invalid engine");
     } catch (...) {
-        knn_jni::CatchCppExceptionAndThrowJava(env);
+        jniUtil.CatchCppExceptionAndThrowJava(env);
     }
 }
 
@@ -148,15 +150,15 @@ JNIEXPORT jbyteArray JNICALL Java_org_opensearch_knn_index_JNIService_trainIndex
         (JNIEnv * env, jclass cls, jobject parametersJ, jint dimension, jlong trainVectorsPointerJ,
          jstring engineNameJ) {
     try {
-        std::string engineNameCpp = knn_jni::ConvertJavaStringToCppString(env, engineNameJ);
+        std::string engineNameCpp = jniUtil.ConvertJavaStringToCppString(env, engineNameJ);
 
         if (engineNameCpp == knn_jni::FAISS_NAME) {
-            return knn_jni::faiss_wrapper::TrainIndex(env, parametersJ, dimension, trainVectorsPointerJ);
+            return knn_jni::faiss_wrapper::TrainIndex(&jniUtil, env, parametersJ, dimension, trainVectorsPointerJ);
         }
 
-        knn_jni::ThrowJavaException(env, knn_jni::ILLEGAL_ARGUMENT_PATH.c_str(), "Invalid engine");
+        jniUtil.ThrowJavaException(env, knn_jni::ILLEGAL_ARGUMENT_PATH.c_str(), "Invalid engine");
     } catch (...) {
-        knn_jni::CatchCppExceptionAndThrowJava(env);
+        jniUtil.CatchCppExceptionAndThrowJava(env);
     }
     return nullptr;
 }
@@ -170,8 +172,8 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_index_JNIService_transferVectors
         vect = reinterpret_cast<std::vector<float>*>(vectorsPointerJ);
     }
 
-    int dim = knn_jni::GetInnerDimensionOf2dJavaFloatArray(env, vectorsJ);
-    auto dataset = knn_jni::Convert2dJavaObjectArrayToCppFloatVector(env, vectorsJ, dim);
+    int dim = jniUtil.GetInnerDimensionOf2dJavaFloatArray(env, vectorsJ);
+    auto dataset = jniUtil.Convert2dJavaObjectArrayToCppFloatVector(env, vectorsJ, dim);
     vect->insert(vect->begin(), dataset.begin(), dataset.end());
 
     return (jlong) vect;

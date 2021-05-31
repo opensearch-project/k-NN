@@ -38,8 +38,8 @@ struct IndexWrapper {
 
 std::string TranslateSpaceType(const std::string& spaceType);
 
-void knn_jni::nmslib_wrapper::CreateIndex(JNIEnv * env, jintArray idsJ, jobjectArray vectorsJ, jstring indexPathJ,
-                                          jobject parametersJ) {
+void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
+                                          jobjectArray vectorsJ, jstring indexPathJ, jobject parametersJ) {
 
     if (idsJ == nullptr) {
         throw std::runtime_error("IDs cannot be null");
@@ -58,87 +58,81 @@ void knn_jni::nmslib_wrapper::CreateIndex(JNIEnv * env, jintArray idsJ, jobjectA
     }
 
     // Handle parameters
-    auto parametersCpp = knn_jni::ConvertJavaMapToCppMap(env, parametersJ);
+    auto parametersCpp = jniUtil->ConvertJavaMapToCppMap(env, parametersJ);
     std::vector<std::string> indexParameters;
     if(parametersCpp.find("ef_construction") != parametersCpp.end()) {
-        auto efConstruction = knn_jni::ConvertJavaObjectToCppInteger(env, parametersCpp["ef_construction"]);
+        auto efConstruction = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp["ef_construction"]);
         indexParameters.push_back("efConstruction=" + std::to_string(efConstruction));
     }
 
     if(parametersCpp.find("m") != parametersCpp.end()) {
-        auto m = knn_jni::ConvertJavaObjectToCppInteger(env, parametersCpp["m"]);
+        auto m = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp["m"]);
         indexParameters.push_back("M=" + std::to_string(m));
     }
-    env->DeleteLocalRef(parametersJ);
+    jniUtil->DeleteLocalRef(env, parametersJ);
 
     // Get the path to save the index
-    std::string indexPathCpp(ConvertJavaStringToCppString(env, indexPathJ));
+    std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
 
     // Get space type for this index
     jobject spaceTypeJ = knn_jni::GetJObjectFromMapOrThrow(parametersCpp, knn_jni::SPACE_TYPE);
-    std::string spaceTypeCpp(knn_jni::ConvertJavaObjectToCppString(env, spaceTypeJ));
+    std::string spaceTypeCpp(jniUtil->ConvertJavaObjectToCppString(env, spaceTypeJ));
     spaceTypeCpp = TranslateSpaceType(spaceTypeCpp);
 
     std::unique_ptr<similarity::Space<float>> space;
     space.reset(similarity::SpaceFactoryRegistry<float>::Instance().CreateSpace(spaceTypeCpp,similarity::AnyParams()));
 
     // Get number of ids and vectors and dimension
-    int numVectors = knn_jni::GetJavaObjectArrayLength(env, vectorsJ);
-    int numIds = knn_jni::GetJavaIntArrayLength(env, idsJ);
+    int numVectors = jniUtil->GetJavaObjectArrayLength(env, vectorsJ);
+    int numIds = jniUtil->GetJavaIntArrayLength(env, idsJ);
     if (numIds != numVectors) {
         throw std::runtime_error("Number of IDs does not match number of vectors");
     }
-    int dim = knn_jni::GetInnerDimensionOf2dJavaFloatArray(env, vectorsJ);
+    int dim = jniUtil->GetInnerDimensionOf2dJavaFloatArray(env, vectorsJ);
 
     // Read dataset
     similarity::ObjectVector dataset;
     int* idsCpp;
     try {
         // Read in data set
-        idsCpp = env->GetIntArrayElements(idsJ, nullptr);
-        if (idsCpp == nullptr) {
-            HasExceptionInStack(env);
-            throw std::runtime_error("Unable to get ids array");
-        }
+        idsCpp = jniUtil->GetIntArrayElements(env, idsJ, nullptr);
 
         float* floatArrayCpp;
         jfloatArray floatArrayJ;
         for (int i = 0; i < numVectors; i++) {
-            floatArrayJ = (jfloatArray)env->GetObjectArrayElement(vectorsJ, i);
-            HasExceptionInStack(env);
+            floatArrayJ = (jfloatArray)jniUtil->GetObjectArrayElement(env, vectorsJ, i);
 
-            if (dim != env->GetArrayLength(floatArrayJ)) {
+            if (dim != jniUtil->GetJavaFloatArrayLength(env, floatArrayJ)) {
                 throw std::runtime_error("Dimension of vectors is inconsistent");
             }
 
-            floatArrayCpp = env->GetFloatArrayElements(floatArrayJ, nullptr);
-            if (floatArrayCpp == nullptr) {
-                throw std::runtime_error("Unable to read float array");
-            }
+            floatArrayCpp = jniUtil->GetFloatArrayElements(env, floatArrayJ, nullptr);
 
             dataset.push_back(new similarity::Object(idsCpp[i], -1, dim*sizeof(float), floatArrayCpp));
-            env->ReleaseFloatArrayElements(floatArrayJ, floatArrayCpp, JNI_ABORT);
-            HasExceptionInStack(env);
+            jniUtil->ReleaseFloatArrayElements(env, floatArrayJ, floatArrayCpp, JNI_ABORT);
         }
-        env->ReleaseIntArrayElements(idsJ, idsCpp, JNI_ABORT);
-        HasExceptionInStack(env);
+        jniUtil->ReleaseIntArrayElements(env, idsJ, idsCpp, JNI_ABORT);
 
         std::unique_ptr<similarity::Index<float>> index;
         index.reset(similarity::MethodFactoryRegistry<float>::Instance().CreateMethod(false, "hnsw", spaceTypeCpp, *(space), dataset));
         index->CreateIndex(similarity::AnyParams(indexParameters));
         index->SaveIndex(indexPathCpp);
+
+        for (auto & it : dataset) {
+            delete it;
+        }
     } catch (...) {
         for (auto & it : dataset) {
             delete it;
         }
 
-        env->ReleaseIntArrayElements(idsJ, idsCpp, JNI_ABORT);
-        HasExceptionInStack(env);
+        jniUtil->ReleaseIntArrayElements(env, idsJ, idsCpp, JNI_ABORT);
         throw;
     }
 }
 
-jlong knn_jni::nmslib_wrapper::LoadIndex(JNIEnv * env, jstring indexPathJ, jobject parametersJ) {
+jlong knn_jni::nmslib_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ,
+                                         jobject parametersJ) {
 
     if (indexPathJ == nullptr) {
         throw std::runtime_error("Index path cannot be null");
@@ -148,20 +142,20 @@ jlong knn_jni::nmslib_wrapper::LoadIndex(JNIEnv * env, jstring indexPathJ, jobje
         throw std::runtime_error("Parameters cannot be null");
     }
 
-    std::string indexPathCpp(ConvertJavaStringToCppString(env, indexPathJ));
+    std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
 
-    auto parametersCpp = knn_jni::ConvertJavaMapToCppMap(env, parametersJ);
+    auto parametersCpp = jniUtil->ConvertJavaMapToCppMap(env, parametersJ);
 
     // Get space type for this index
     jobject spaceTypeJ = knn_jni::GetJObjectFromMapOrThrow(parametersCpp, knn_jni::SPACE_TYPE);
-    std::string spaceTypeCpp(knn_jni::ConvertJavaObjectToCppString(env, spaceTypeJ));
+    std::string spaceTypeCpp(jniUtil->ConvertJavaObjectToCppString(env, spaceTypeJ));
     spaceTypeCpp = TranslateSpaceType(spaceTypeCpp);
 
     // Parse query params
     std::vector<std::string> queryParams;
 
     if(parametersCpp.find("efSearch") != parametersCpp.end()) {
-        auto efSearch = std::to_string(knn_jni::ConvertJavaObjectToCppInteger(env, parametersCpp["efSearch"]));
+        auto efSearch = std::to_string(jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp["efSearch"]));
         queryParams.push_back("efSearch=" + efSearch);
     }
 
@@ -179,35 +173,31 @@ jlong knn_jni::nmslib_wrapper::LoadIndex(JNIEnv * env, jstring indexPathJ, jobje
     return (jlong) indexWrapper;
 }
 
-jobjectArray knn_jni::nmslib_wrapper::QueryIndex(JNIEnv * env, jlong indexPointerJ, jfloatArray queryVectorJ, jint kJ) {
+jobjectArray knn_jni::nmslib_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
+                                                 jfloatArray queryVectorJ, jint kJ) {
 
     if (queryVectorJ == nullptr) {
         throw std::runtime_error("Query Vector cannot be null");
     }
 
-    auto *indexWrapper = reinterpret_cast<IndexWrapper*>(indexPointerJ);
-
-    if (indexWrapper == nullptr) {
+    if (indexPointerJ == 0) {
         throw std::runtime_error("Invalid pointer to index");
     }
 
-    int dim	= knn_jni::GetJavaFloatArrayLength(env, queryVectorJ);
+    auto *indexWrapper = reinterpret_cast<IndexWrapper*>(indexPointerJ);
 
-    float* rawQueryvector = env->GetFloatArrayElements(queryVectorJ, nullptr); // Have to call release on this
-    if (rawQueryvector == nullptr) {
-        knn_jni::HasExceptionInStack(env);
-        throw std::runtime_error("Unable to get float elements from query vector");
-    }
+    int dim	= jniUtil->GetJavaFloatArrayLength(env, queryVectorJ);
+
+    float* rawQueryvector = jniUtil->GetFloatArrayElements(env, queryVectorJ, nullptr); // Have to call release on this
 
     std::unique_ptr<const similarity::Object> queryObject;
     try {
         queryObject.reset(new similarity::Object(-1, -1, dim*sizeof(float), rawQueryvector));
     } catch (...) {
-        env->ReleaseFloatArrayElements(queryVectorJ, rawQueryvector, JNI_ABORT);
-        knn_jni::HasExceptionInStack(env);
+        jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
         throw;
     }
-    env->ReleaseFloatArrayElements(queryVectorJ, rawQueryvector, JNI_ABORT);
+    jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
 
     similarity::KNNQuery<float> knnQuery(*(indexWrapper->space), queryObject.get(), kJ);
     indexWrapper->index->Search(&knnQuery);
@@ -215,14 +205,10 @@ jobjectArray knn_jni::nmslib_wrapper::QueryIndex(JNIEnv * env, jlong indexPointe
     std::unique_ptr<similarity::KNNQueue<float>> neighbors(knnQuery.Result()->Clone());
     int resultSize = neighbors->Size();
 
-    jclass resultClass = knn_jni::FindClass(env,"org/opensearch/knn/index/KNNQueryResult");
-    jmethodID allArgs = knn_jni::FindMethod(env, resultClass, "<init>", "(IF)V");
+    jclass resultClass = jniUtil->FindClass(env,"org/opensearch/knn/index/KNNQueryResult");
+    jmethodID allArgs = jniUtil->FindMethod(env, resultClass, "<init>", "(IF)V");
 
-    jobjectArray results = env->NewObjectArray(resultSize, resultClass, nullptr);
-    if (results == nullptr) {
-        knn_jni::HasExceptionInStack(env);
-        throw std::runtime_error("Unable to allocate results array");
-    }
+    jobjectArray results = jniUtil->NewObjectArray(env, resultSize, resultClass, nullptr);
 
     jobject result;
     float distance;
@@ -230,13 +216,8 @@ jobjectArray knn_jni::nmslib_wrapper::QueryIndex(JNIEnv * env, jlong indexPointe
     for(int i = 0; i < resultSize; ++i) {
         distance = neighbors->TopDistance();
         id = neighbors->Pop()->id();
-        result = env->NewObject(resultClass, allArgs, id, distance);
-        knn_jni::HasExceptionInStack(env);
-        if (result == nullptr) {
-            throw std::runtime_error("Unable to create object");
-        }
-        env->SetObjectArrayElement(results, i, result);
-        knn_jni::HasExceptionInStack(env);
+        result = jniUtil->NewObject(env, resultClass, allArgs, id, distance);
+        jniUtil->SetObjectArrayElement(env, results, i, result);
     }
     return results;
 }
@@ -268,7 +249,7 @@ std::string TranslateSpaceType(const std::string& spaceType) {
     }
 
     if (spaceType == knn_jni::INNER_PRODUCT) {
-        return std::string("negdotprod");
+        return knn_jni::NEG_DOT_PRODUCT;
     }
 
     throw std::runtime_error("Invalid spaceType");

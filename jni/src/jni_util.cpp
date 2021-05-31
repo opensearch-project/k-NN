@@ -18,7 +18,7 @@
 #include <vector>
 
 
-void knn_jni::ThrowJavaException(JNIEnv* env, const char* type, const char* message) {
+void knn_jni::JNIUtil::ThrowJavaException(JNIEnv* env, const char* type, const char* message) {
     jclass newExcCls = env->FindClass(type);
     if (newExcCls != nullptr) {
         env->ThrowNew(newExcCls, message);
@@ -26,60 +26,55 @@ void knn_jni::ThrowJavaException(JNIEnv* env, const char* type, const char* mess
     // If newExcCls isn't found, NoClassDefFoundError will be thrown
 }
 
-void knn_jni::HasExceptionInStack(JNIEnv* env)
-{
-    knn_jni::HasExceptionInStack(env, "Exception in jni occurred");
+void knn_jni::JNIUtil::HasExceptionInStack(JNIEnv* env) {
+    this->HasExceptionInStack(env, "Exception in jni occurred");
 }
 
-void knn_jni::HasExceptionInStack(JNIEnv* env, const std::string& message)
-{
+void knn_jni::JNIUtil::HasExceptionInStack(JNIEnv* env, const std::string& message) {
     if (env->ExceptionCheck() == JNI_TRUE) {
         throw std::runtime_error(message);
     }
 }
 
-void knn_jni::CatchCppExceptionAndThrowJava(JNIEnv* env)
+void knn_jni::JNIUtil::CatchCppExceptionAndThrowJava(JNIEnv* env)
 {
     try {
         throw;
     }
     catch (const std::bad_alloc& rhs) {
-        ThrowJavaException(env, "java/io/IOException", rhs.what());
+        this->ThrowJavaException(env, "java/io/IOException", rhs.what());
     }
     catch (const std::runtime_error& re) {
-        ThrowJavaException(env, "java/lang/Exception", re.what());
+        this->ThrowJavaException(env, "java/lang/Exception", re.what());
     }
     catch (const std::exception& e) {
-        ThrowJavaException(env, "java/lang/Exception", e.what());
+        this->ThrowJavaException(env, "java/lang/Exception", e.what());
     }
     catch (...) {
-        ThrowJavaException(env, "java/lang/Exception", "Unknown exception occurred");
+        this->ThrowJavaException(env, "java/lang/Exception", "Unknown exception occurred");
     }
 }
 
-jclass knn_jni::FindClass(JNIEnv * env, const std::string& className) {
+jclass knn_jni::JNIUtil::FindClass(JNIEnv * env, const std::string& className) {
     jclass jClass = env->FindClass(className.c_str());
-    knn_jni::HasExceptionInStack(env, "Error looking up \"" + className + "\"");
+    this->HasExceptionInStack(env, "Error looking up \"" + className + "\"");
     if (jClass == nullptr) {
         throw std::runtime_error("Unable to load class \"" + className + "\"");
     }
     return jClass;
 }
 
-jmethodID knn_jni::FindMethod(JNIEnv * env, jclass jClass, const std::string& methodName, const std::string& methodSignature) {
+jmethodID knn_jni::JNIUtil::FindMethod(JNIEnv * env, jclass jClass, const std::string& methodName,
+                                       const std::string& methodSignature) {
     jmethodID methodId = env->GetMethodID(jClass, methodName.c_str(), methodSignature.c_str());
-    knn_jni::HasExceptionInStack(env, "Error looking up \"" + methodName + "\" method");
+    this->HasExceptionInStack(env, "Error looking up \"" + methodName + "\" method");
     if (jClass == nullptr) {
         throw std::runtime_error("Unable to find \"" + methodName + "\" method");
     }
     return methodId;
 }
 
-//TODO: My concern with this code is that it is making a lot of calls back and forth between the JVM. A few options
-// to explore are:
-// 1. Passing a json string and parsing it in CPP layer
-// 2. Caching some of the method and class calls
-std::unordered_map<std::string, jobject> knn_jni::ConvertJavaMapToCppMap(JNIEnv *env, jobject parametersJ) {
+std::unordered_map<std::string, jobject> knn_jni::JNIUtil::ConvertJavaMapToCppMap(JNIEnv *env, jobject parametersJ) {
     // Here, we parse parametersJ, which is a java Map<String, Object>. In order to implement this, I referred to
     // https://stackoverflow.com/questions/4844022/jni-create-hashmap. All java references are local, so they will be
     // freed when the native method returns
@@ -89,30 +84,30 @@ std::unordered_map<std::string, jobject> knn_jni::ConvertJavaMapToCppMap(JNIEnv 
     }
 
     // Load all of the class and methods to iterate over a map
-    jclass mapClassJ = knn_jni::FindClass(env, "java/util/Map");
+    jclass mapClassJ = this->FindClass(env, "java/util/Map");
 
-    jmethodID entrySetMethodJ = knn_jni::FindMethod(env, mapClassJ, "entrySet", "()Ljava/util/Set;");
+    jmethodID entrySetMethodJ = this->FindMethod(env, mapClassJ, "entrySet", "()Ljava/util/Set;");
 
     jobject parametersEntrySetJ = env->CallObjectMethod(parametersJ, entrySetMethodJ);
-    knn_jni::HasExceptionInStack(env, R"(Unable to call "entrySet" method on "java/util/Map")");
+    this->HasExceptionInStack(env, R"(Unable to call "entrySet" method on "java/util/Map")");
 
-    jclass setClassJ = knn_jni::FindClass(env, "java/util/Set");
+    jclass setClassJ = this->FindClass(env, "java/util/Set");
 
-    jmethodID iteratorJ = knn_jni::FindMethod(env, setClassJ, "iterator", "()Ljava/util/Iterator;");
+    jmethodID iteratorJ = this->FindMethod(env, setClassJ, "iterator", "()Ljava/util/Iterator;");
 
-    jclass iteratorClassJ = knn_jni::FindClass(env, "java/util/Iterator");
+    jclass iteratorClassJ = this->FindClass(env, "java/util/Iterator");
 
     jobject iterJ = env->CallObjectMethod(parametersEntrySetJ, iteratorJ);
-    knn_jni::HasExceptionInStack(env, R"(Call to "iterator" method failed")");
+    this->HasExceptionInStack(env, R"(Call to "iterator" method failed")");
 
-    jmethodID hasNextMethodJ = knn_jni::FindMethod(env, iteratorClassJ, "hasNext", "()Z");
-    jmethodID nextMethodJ = knn_jni::FindMethod(env, iteratorClassJ, "next", "()Ljava/lang/Object;");
+    jmethodID hasNextMethodJ = this->FindMethod(env, iteratorClassJ, "hasNext", "()Z");
+    jmethodID nextMethodJ = this->FindMethod(env, iteratorClassJ, "next", "()Ljava/lang/Object;");
 
-    jclass entryClassJ = knn_jni::FindClass(env, "java/util/Map$Entry");
+    jclass entryClassJ = this->FindClass(env, "java/util/Map$Entry");
 
-    jmethodID getKeyMethodJ = knn_jni::FindMethod(env, entryClassJ, "getKey", "()Ljava/lang/Object;");
+    jmethodID getKeyMethodJ = this->FindMethod(env, entryClassJ, "getKey", "()Ljava/lang/Object;");
 
-    jmethodID getValueMethodJ = knn_jni::FindMethod(env, entryClassJ, "getValue", "()Ljava/lang/Object;");
+    jmethodID getValueMethodJ = this->FindMethod(env, entryClassJ, "getValue", "()Ljava/lang/Object;");
 
     // Iterate over the java map and add entries to cpp unordered map
     jobject entryJ;
@@ -122,36 +117,36 @@ std::unordered_map<std::string, jobject> knn_jni::ConvertJavaMapToCppMap(JNIEnv 
     std::unordered_map<std::string, jobject> parametersCpp;
     while (env->CallBooleanMethod(iterJ, hasNextMethodJ)) {
         entryJ = env->CallObjectMethod(iterJ, nextMethodJ);
-        knn_jni::HasExceptionInStack(env, R"(Could not call "next" method")");
+        this->HasExceptionInStack(env, R"(Could not call "next" method")");
 
         keyJ = (jstring) env->CallObjectMethod(entryJ, getKeyMethodJ);
-        knn_jni::HasExceptionInStack(env, R"(Could not call "getKey" method")");
+        this->HasExceptionInStack(env, R"(Could not call "getKey" method")");
 
-        keyCpp = knn_jni::ConvertJavaStringToCppString(env, keyJ);
+        keyCpp = this->ConvertJavaStringToCppString(env, keyJ);
 
         valueJ = env->CallObjectMethod(entryJ, getValueMethodJ);
-        knn_jni::HasExceptionInStack(env, R"(Could not call "getValue" method")");
+        this->HasExceptionInStack(env, R"(Could not call "getValue" method")");
 
         parametersCpp[keyCpp] = valueJ;
     }
 
-    knn_jni::HasExceptionInStack(env, R"(Could not call "hasNext" method")");
+    this->HasExceptionInStack(env, R"(Could not call "hasNext" method")");
 
     return parametersCpp;
 }
 
-std::string knn_jni::ConvertJavaObjectToCppString(JNIEnv *env, jobject objectJ) {
-    return knn_jni::ConvertJavaStringToCppString(env, (jstring) objectJ);
+std::string knn_jni::JNIUtil::ConvertJavaObjectToCppString(JNIEnv *env, jobject objectJ) {
+    return this->ConvertJavaStringToCppString(env, (jstring) objectJ);
 }
 
-std::string knn_jni::ConvertJavaStringToCppString(JNIEnv * env, jstring javaString) {
+std::string knn_jni::JNIUtil::ConvertJavaStringToCppString(JNIEnv * env, jstring javaString) {
     if (javaString == nullptr) {
         throw std::runtime_error("String cannot be null");
     }
 
     const char *cString = env->GetStringUTFChars(javaString, nullptr);
     if (cString == nullptr) {
-        HasExceptionInStack(env);
+        this->HasExceptionInStack(env, "Unable to convert java string to cpp string");
 
         // Will only reach here if there is no exception in the stack, but the call failed
         throw std::runtime_error("Unable to convert java string to cpp string");
@@ -161,37 +156,38 @@ std::string knn_jni::ConvertJavaStringToCppString(JNIEnv * env, jstring javaStri
     return cppString;
 }
 
-int knn_jni::ConvertJavaObjectToCppInteger(JNIEnv *env, jobject objectJ) {
+int knn_jni::JNIUtil::ConvertJavaObjectToCppInteger(JNIEnv *env, jobject objectJ) {
 
     if (objectJ == nullptr) {
         throw std::runtime_error("Object cannot be null");
     }
 
-    jclass integerClass = knn_jni::FindClass(env, "java/lang/Integer");
-    jmethodID intValue = knn_jni::FindMethod(env, integerClass, "intValue", "()I");
+    jclass integerClass = this->FindClass(env, "java/lang/Integer");
+    jmethodID intValue = this->FindMethod(env, integerClass, "intValue", "()I");
 
     if (!env->IsInstanceOf(objectJ, integerClass)) {
         throw std::runtime_error("Cannot call IntMethod on non-integer class");
     }
 
     int intCpp = env->CallIntMethod(objectJ, intValue);
-    knn_jni::HasExceptionInStack(env, "Could not call \"intValue\" method on Integer");
+    this->HasExceptionInStack(env, "Could not call \"intValue\" method on Integer");
     return intCpp;
 }
 
-std::vector<float> knn_jni::Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env, jobjectArray array2dJ, int dim) {
+std::vector<float> knn_jni::JNIUtil::Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env, jobjectArray array2dJ,
+                                                                              int dim) {
 
     if (array2dJ == nullptr) {
         throw std::runtime_error("Array cannot be null");
     }
 
     int numVectors = env->GetArrayLength(array2dJ);
-    knn_jni::HasExceptionInStack(env);
+    this->HasExceptionInStack(env);
 
     std::vector<float> floatVectorCpp;
     for (int i = 0; i < numVectors; ++i) {
         auto vectorArray = (jfloatArray)env->GetObjectArrayElement(array2dJ, i);
-        knn_jni::HasExceptionInStack(env);
+        this->HasExceptionInStack(env, "Unable to get object array element");
 
         if (dim != env->GetArrayLength(vectorArray)) {
             throw std::runtime_error("Dimension of vectors is inconsistent");
@@ -199,7 +195,7 @@ std::vector<float> knn_jni::Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env
 
         float* vector = env->GetFloatArrayElements(vectorArray, nullptr);
         if (vector == nullptr) {
-            knn_jni::HasExceptionInStack(env);
+            this->HasExceptionInStack(env);
             throw std::runtime_error("Unable to get float array elements");
         }
 
@@ -208,23 +204,23 @@ std::vector<float> knn_jni::Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env
         }
         env->ReleaseFloatArrayElements(vectorArray, vector, JNI_ABORT);
     }
-    knn_jni::HasExceptionInStack(env);
+    this->HasExceptionInStack(env);
     env->DeleteLocalRef(array2dJ);
     return floatVectorCpp;
 }
 
-std::vector<int64_t> knn_jni::ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ) {
+std::vector<int64_t> knn_jni::JNIUtil::ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ) {
 
     if (arrayJ == nullptr) {
         throw std::runtime_error("Array cannot be null");
     }
 
     int numElements = env->GetArrayLength(arrayJ);
-    knn_jni::HasExceptionInStack(env);
+    this->HasExceptionInStack(env, "Unable to get array length");
 
     int* arrayCpp = env->GetIntArrayElements(arrayJ, nullptr);
     if (arrayCpp == nullptr) {
-        knn_jni::HasExceptionInStack(env);
+        this->HasExceptionInStack(env, "Unable to get integer array elements");
         throw std::runtime_error("Unable to get integer array elements");
     }
 
@@ -237,7 +233,7 @@ std::vector<int64_t> knn_jni::ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jin
     return vectorCpp;
 }
 
-int knn_jni::GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectArray array2dJ) {
+int knn_jni::JNIUtil::GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectArray array2dJ) {
 
     if (array2dJ == nullptr) {
         throw std::runtime_error("Array cannot be null");
@@ -248,54 +244,147 @@ int knn_jni::GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectArray array
     }
 
     auto vectorArray = (jfloatArray)env->GetObjectArrayElement(array2dJ, 0);
-    knn_jni::HasExceptionInStack(env);
+    this->HasExceptionInStack(env);
     int dim = env->GetArrayLength(vectorArray);
-    knn_jni::HasExceptionInStack(env);
+    this->HasExceptionInStack(env);
     return dim;
 }
 
-int knn_jni::GetJavaObjectArrayLength(JNIEnv *env, jobjectArray arrayJ) {
+int knn_jni::JNIUtil::GetJavaObjectArrayLength(JNIEnv *env, jobjectArray arrayJ) {
 
     if (arrayJ == nullptr) {
         throw std::runtime_error("Array cannot be null");
     }
 
     int length = env->GetArrayLength(arrayJ);
-    knn_jni::HasExceptionInStack(env, "Unable to get array length");
+    this->HasExceptionInStack(env, "Unable to get array length");
     return length;
 }
 
-int knn_jni::GetJavaIntArrayLength(JNIEnv *env, jintArray arrayJ) {
+int knn_jni::JNIUtil::GetJavaIntArrayLength(JNIEnv *env, jintArray arrayJ) {
 
     if (arrayJ == nullptr) {
         throw std::runtime_error("Array cannot be null");
     }
 
     int length = env->GetArrayLength(arrayJ);
-    knn_jni::HasExceptionInStack(env, "Unable to get array length");
+    this->HasExceptionInStack(env, "Unable to get array length");
     return length;
 }
 
-int knn_jni::GetJavaBytesArrayLength(JNIEnv *env, jbyteArray arrayJ) {
+int knn_jni::JNIUtil::GetJavaBytesArrayLength(JNIEnv *env, jbyteArray arrayJ) {
 
     if (arrayJ == nullptr) {
         throw std::runtime_error("Array cannot be null");
     }
 
     int length = env->GetArrayLength(arrayJ);
-    knn_jni::HasExceptionInStack(env, "Unable to get array length");
+    this->HasExceptionInStack(env, "Unable to get array length");
     return length;
 }
 
-int knn_jni::GetJavaFloatArrayLength(JNIEnv *env, jfloatArray arrayJ) {
+int knn_jni::JNIUtil::GetJavaFloatArrayLength(JNIEnv *env, jfloatArray arrayJ) {
 
     if (arrayJ == nullptr) {
         throw std::runtime_error("Array cannot be null");
     }
 
     int length = env->GetArrayLength(arrayJ);
-    knn_jni::HasExceptionInStack(env, "Unable to get array length");
+    this->HasExceptionInStack(env, "Unable to get array length");
     return length;
+}
+
+void knn_jni::JNIUtil::DeleteLocalRef(JNIEnv *env, jobject obj) {
+    env->DeleteLocalRef(obj);
+}
+
+jbyte * knn_jni::JNIUtil::GetByteArrayElements(JNIEnv *env, jbyteArray array, jboolean * isCopy) {
+    jbyte * byteArray = env->GetByteArrayElements(array, nullptr);
+    if (byteArray == nullptr) {
+        this->HasExceptionInStack(env, "Unable able to get byte array");
+        throw std::runtime_error("Unable able to get byte array");
+    }
+
+    return byteArray;
+}
+
+jfloat * knn_jni::JNIUtil::GetFloatArrayElements(JNIEnv *env, jfloatArray array, jboolean * isCopy) {
+    float* floatArray = env->GetFloatArrayElements(array, nullptr);
+    if (floatArray == nullptr) {
+        this->HasExceptionInStack(env, "Unable to get float elements");
+        throw std::runtime_error("Unable to get float elements");
+    }
+
+    return floatArray;
+}
+
+jint * knn_jni::JNIUtil::GetIntArrayElements(JNIEnv *env, jintArray array, jboolean * isCopy) {
+    // Lets check for error here
+    jint * intArray =  env->GetIntArrayElements(array, isCopy);
+    if (intArray == nullptr) {
+        this->HasExceptionInStack(env, "Unable to get int array");
+        throw std::runtime_error("Unable to get int array");
+    }
+
+    return intArray;
+}
+
+jobject knn_jni::JNIUtil::GetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index) {
+    jobject object = env->GetObjectArrayElement(array, index);
+    this->HasExceptionInStack(env, "Unable to get object");
+    return object;
+}
+
+jobject knn_jni::JNIUtil::NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, int id, float distance) {
+    jobject object = env->NewObject(clazz, methodId, id, distance);
+    if (object == nullptr) {
+        this->HasExceptionInStack(env, "Unable to create object");
+        throw std::runtime_error("Unable to create object");
+    }
+
+    return object;
+}
+
+jobjectArray knn_jni::JNIUtil::NewObjectArray(JNIEnv *env, jsize len, jclass clazz, jobject init) {
+    jobjectArray objectArray = env->NewObjectArray(len, clazz, init);
+    if (objectArray == nullptr) {
+        this->HasExceptionInStack(env, "Unable to allocate object array");
+        throw std::runtime_error("Unable to allocate object array");
+    }
+
+    return objectArray;
+}
+
+jbyteArray knn_jni::JNIUtil::NewByteArray(JNIEnv *env, jsize len) {
+    jbyteArray  byteArray = env->NewByteArray(len);
+    if (byteArray == nullptr) {
+        this->HasExceptionInStack(env, "Unable to allocate byte array");
+        throw std::runtime_error("Unable to allocate byte array");
+    }
+
+    return byteArray;
+}
+
+void knn_jni::JNIUtil::ReleaseByteArrayElements(JNIEnv *env, jbyteArray array, jbyte *elems, int mode) {
+    env->ReleaseByteArrayElements(array, elems, mode);
+}
+
+void knn_jni::JNIUtil::ReleaseFloatArrayElements(JNIEnv *env, jfloatArray array, jfloat *elems, int mode) {
+    env->ReleaseFloatArrayElements(array, elems, mode);
+}
+
+void knn_jni::JNIUtil::ReleaseIntArrayElements(JNIEnv *env, jintArray array, jint *elems, jint mode) {
+    env->ReleaseIntArrayElements(array, elems, mode);
+}
+
+void knn_jni::JNIUtil::SetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index, jobject val) {
+    env->SetObjectArrayElement(array, index, val);
+    this->HasExceptionInStack(env, "Unable to set object array element");
+}
+
+void knn_jni::JNIUtil::SetByteArrayRegion(JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte * buf) {
+    env->SetByteArrayRegion(array, start, len, buf);
+    this->HasExceptionInStack(env, "Unable to set byte array region");
 }
 
 jobject knn_jni::GetJObjectFromMapOrThrow(std::unordered_map<std::string, jobject> map, std::string key) {
@@ -320,6 +409,7 @@ const std::string knn_jni::L1 = "l1";
 const std::string knn_jni::LINF = "linf";
 const std::string knn_jni::COSINESIMIL = "cosinesimil";
 const std::string knn_jni::INNER_PRODUCT = "innerproduct";
+const std::string knn_jni::NEG_DOT_PRODUCT = "negdotprod";
 
 const std::string knn_jni::NPROBES = "nprobes";
 const std::string knn_jni::COARSE_QUANTIZER = "coarse_quantizer";
