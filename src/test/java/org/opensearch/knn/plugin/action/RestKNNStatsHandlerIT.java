@@ -181,7 +181,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
         // Add enough docs to trip the circuit breaker
         Float[] vector = {1.3f, 2.2f};
-        int docsInIndex = 25;
+        int docsInIndex = 200;
         for (int i = 0; i < docsInIndex; i++) {
             addKnnDoc(INDEX_NAME, Integer.toString(i), FIELD_NAME, vector);
         }

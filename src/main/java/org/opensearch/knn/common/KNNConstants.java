@@ -29,6 +29,7 @@ public class KNNConstants {
     public static final String SPACE_TYPE = "spaceType"; // used as field info key
     public static final String HNSW_ALGO_M = "M";
     public static final String HNSW_ALGO_EF_CONSTRUCTION = "efConstruction";
+    public static final String HNSW_ALGO_EF_SEARCH = "efSearch";
     public static final String HNSW_ALGO_INDEX_THREAD_QTY = "indexThreadQty";
     public static final String DIMENSION = "dimension";
     public static final String KNN_ENGINE = "engine";
@@ -37,6 +38,7 @@ public class KNNConstants {
     public static final String PARAMETERS = "parameters";
 
     public static final String NMSLIB_NAME = "nmslib";
+    public static final String FAISS_NAME = "faiss";
 
     public static final String METHOD_HNSW = "hnsw";
 
@@ -44,5 +46,9 @@ public class KNNConstants {
     public static final String METHOD_PARAMETER_M = "m";
     public static final String METHOD_PARAMETER_SPACE_TYPE = "space_type"; // used for mapping parameter
 
+    public static final String METHOD_PARAMETER_NPROBES = "nprobes";
+
     public static final String COMPOUND_EXTENSION = "c";
+
+    public static final String JNI_LIBRARY_NAME = "OpensearchKNN";
 }

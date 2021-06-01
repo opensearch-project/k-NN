@@ -25,7 +25,9 @@
 
 package org.opensearch.knn.index;
 
-import org.opensearch.knn.index.v2011.KNNIndex;
+import com.google.common.collect.ImmutableMap;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.plugin.stats.StatNames;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -42,10 +44,13 @@ import org.opensearch.watcher.ResourceWatcherService;
 import org.opensearch.watcher.WatcherHandle;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -53,6 +58,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 /**
@@ -99,9 +107,9 @@ public class KNNIndexCache implements Closeable {
         CacheBuilder<String, KNNIndexCacheEntry> cacheBuilder = CacheBuilder.newBuilder()
                 .recordStats()
                 .concurrencyLevel(1)
-                .removalListener(k -> onRemoval(k));
+                .removalListener(this::onRemoval);
         if(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED)) {
-            cacheBuilder.maximumWeight(KNNSettings.getCircuitBreakerLimit().getKb()).weigher((k, v) -> (int)v.getKnnIndex().getIndexSize());
+            cacheBuilder.maximumWeight(KNNSettings.getCircuitBreakerLimit().getKb()).weigher((k, v) -> (int)v.getIndexSize());
         }
 
         if(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED)) {
@@ -136,10 +144,7 @@ public class KNNIndexCache implements Closeable {
 
         knnIndexCacheEntry.getFileWatcherHandle().stop();
 
-        executor.execute(() -> knnIndexCacheEntry.getKnnIndex().close());
-
-        String esIndexName = removalNotification.getValue().getEsIndexName();
-        String indexPathUrl = removalNotification.getValue().getIndexPathUrl();
+        executor.execute(knnIndexCacheEntry::close);
 
         if (RemovalCause.SIZE == removalNotification.getCause()) {
             KNNSettings.state().updateCircuitBreakerSettings(true);
@@ -150,31 +155,23 @@ public class KNNIndexCache implements Closeable {
                 ,removalNotification.getCause());
     }
 
-    /**
-     * Loads corresponding index for the given key to memory and returns the index object.
-     *
-     * @param key indexPath where the serialized hnsw graph is stored
-     * @param indexName index name
-     * @return KNNIndex holding the heap pointer of the loaded graph
-     */
-    public KNNIndex getIndex(String key, final String indexName) {
-        try {
-            final KNNIndexCacheEntry knnIndexCacheEntry = cache.get(key, () -> loadIndex(key, indexName));
-            return knnIndexCacheEntry.getKnnIndex();
-        } catch (ExecutionException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     /**
      * Loads list of segments for the given index into the cache and returns list of KNNIndex's.
      *
      * @param segmentPaths List of segmentPaths
      * @param indexName Name of index
-     * @return List of KNNIndex's from the segment paths
      */
-    public List<KNNIndex> getIndices(List<String> segmentPaths, String indexName) {
-        return segmentPaths.stream().map(segmentPath -> getIndex(segmentPath, indexName)).collect(Collectors.toList());
+    public void loadIndices(Map<String, SpaceType> segmentPaths, String indexName) {
+        segmentPaths.forEach((key, value) -> getIndex(key, indexName, value));
+    }
+
+    private KNNIndexCacheEntry getIndex(String key, final String indexName, SpaceType spaceType) {
+        try {
+            return cache.get(key, () -> loadIndex(key, indexName, spaceType));
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
@@ -221,7 +218,7 @@ public class KNNIndexCache implements Closeable {
      * @return Weight of the cache in kilobytes
      */
     public Long getWeightInKilobytes() {
-        return cache.asMap().values().stream().map(KNNIndexCacheEntry::getKnnIndex).mapToLong(KNNIndex::getIndexSize).sum();
+        return cache.asMap().values().stream().mapToLong(KNNIndexCacheEntry::getIndexSize).sum();
     }
 
     /**
@@ -233,7 +230,7 @@ public class KNNIndexCache implements Closeable {
     public Long getWeightInKilobytes(final String indexName) {
         return cache.asMap().values().stream()
                 .filter(knnIndexCacheEntry -> indexName.equals(knnIndexCacheEntry.getEsIndexName()))
-                .map(KNNIndexCacheEntry::getKnnIndex).mapToLong(KNNIndex::getIndexSize).sum();
+                .mapToLong(KNNIndexCacheEntry::getIndexSize).sum();
     }
 
     /**
@@ -295,13 +292,14 @@ public class KNNIndexCache implements Closeable {
      *
      * @param indexPathUrl path for serialized k-NN segment
      * @param indexName index name
+     * @param spaceType space for index
      * @return KNNIndex holding the heap pointer of the loaded graph
      * @throws Exception Exception could occur when registering the index path
      * to Resource watcher or if the JNI call throws
      */
-    public KNNIndexCacheEntry loadIndex(String indexPathUrl, String indexName) throws Exception {
+    public KNNIndexCacheEntry loadIndex(String indexPathUrl, String indexName, SpaceType spaceType) throws Exception {
         if(Strings.isNullOrEmpty(indexPathUrl))
-            throw new IllegalStateException("indexPath is null while performing load index");
+            throw new IllegalStateException("indexPath for index \"" + indexName + "\" is null while performing load index");
         logger.debug("[KNN] Loading index: {}", indexPathUrl);
         Path indexPath = Paths.get(indexPathUrl);
         FileWatcher fileWatcher = new FileWatcher(indexPath);
@@ -312,38 +310,121 @@ public class KNNIndexCache implements Closeable {
         // the entry
         fileWatcher.init();
 
-        final KNNIndex knnIndex = KNNIndex.loadIndex(indexPathUrl, getQueryParams(indexName),
-                SpaceType.getSpace(KNNSettings.getSpaceType(indexName)).getValue());
+        KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(indexPathUrl);
+
+        Map<String, Object> parameters = Collections.emptyMap();
+
+        // nmslib allows some parameters to be set during initialization
+        if (KNNEngine.NMSLIB.equals(knnEngine)) {
+            parameters = ImmutableMap.of(
+                    KNNConstants.SPACE_TYPE, spaceType.getValue(),
+                    KNNConstants.HNSW_ALGO_EF_SEARCH, KNNSettings.getEfSearchParam(indexName)
+            );
+        }
+
+        final long indexPointer = JNIService.loadIndex(indexPathUrl, parameters, knnEngine.getName());
 
         // TODO verify that this is safe - ideally we'd explicitly ensure that the FileWatcher is only checked
         // after the guava cache has finished loading the key to avoid a race condition where the watcher
         // causes us to invalidate an entry before the key has been fully loaded.
         final WatcherHandle<FileWatcher> watcherHandle = resourceWatcherService.add(fileWatcher);
 
-        return new KNNIndexCacheEntry(knnIndex, indexPathUrl, indexName, watcherHandle);
+        return new KNNIndexCacheEntry(indexPointer, indexPathUrl, indexName, watcherHandle, knnEngine.getName());
+    }
+
+    /**
+     * Execute a query on a given path. If the graph is not already loaded into memory, it will first load the graph
+     * into memory
+     *
+     * @param indexPathUrl path to graph file
+     * @param indexName name of OpenSearch index
+     * @param spaceType space type used for the graph
+     * @param query float vector used for query
+     * @param k number of neighbors to return
+     * @param engineName name of engine to use
+     * @return array of KNNQueryResult's
+     */
+    public KNNQueryResult[] queryIndex(String indexPathUrl, String indexName, SpaceType spaceType, float[] query,
+                                       int k, String engineName) {
+        KNNIndexCacheEntry knnIndexCacheEntry = getIndex(indexPathUrl, indexName, spaceType);
+        Lock readLock = knnIndexCacheEntry.getReadWriteLock().readLock();
+        readLock.lock();
+        try {
+            if (knnIndexCacheEntry.isClosed()) {
+                throw new IOException("Index is already closed");
+            }
+            return AccessController.doPrivileged(
+                    new PrivilegedAction<KNNQueryResult[]>() {
+                        public KNNQueryResult[] run() {
+                            return JNIService.queryIndex(knnIndexCacheEntry.getIndexPointer(), query, k, engineName);
+                        }
+                    }
+            );
+        } catch (Exception ex) {
+            throw new RuntimeException("Unable to query the index \"" + indexName + "\" with engine \"" + engineName
+                    + "\" and space \"" + spaceType.getValue() + "\": " + ex);
+        } finally {
+            readLock.unlock();
+        }
     }
 
     /**
      * KNNIndexCacheEntry is the value type for entries in the cache held by {@link KNNIndexCache}.
-     * It holds a reference to both the KNNIndex and the WatcherHandle so that each can be cleaned up
-     * upon expiration of the cache.
+     * It contains all information needed to interact with jni indices and the WatcherHandle so that each can be
+     * cleaned up upon expiration of the cache.
      */
     private static class KNNIndexCacheEntry {
-        private final KNNIndex knnIndex;
+        private final long indexPointer;
+        private final long size;
         private final String indexPathUrl;
         private final String esIndexName;
+        private final String engineName;
         private final WatcherHandle<FileWatcher> fileWatcherHandle;
+        private final ReadWriteLock readWriteLock;
+        private volatile boolean isClosed;
 
-        private KNNIndexCacheEntry(final KNNIndex knnIndex, final String indexPathUrl, final String esIndexName,
-                                   final WatcherHandle<FileWatcher> fileWatcherHandle) {
-            this.knnIndex = knnIndex;
+        private KNNIndexCacheEntry(final long indexPointer, final String indexPathUrl, final String esIndexName,
+                                   final WatcherHandle<FileWatcher> fileWatcherHandle, String engineName) {
+            this.indexPointer = indexPointer;
             this.indexPathUrl = indexPathUrl;
             this.esIndexName = esIndexName;
             this.fileWatcherHandle = fileWatcherHandle;
+            this.size = IndexUtil.getFileSizeInKB(indexPathUrl);
+            this.engineName = engineName;
+            this.readWriteLock = new ReentrantReadWriteLock();
+            this.isClosed = false;
         }
 
-        private KNNIndex getKnnIndex() {
-            return knnIndex;
+        private void close() {
+            Lock writeLock = readWriteLock.writeLock();
+            writeLock.lock();
+            // Autocloseable documentation recommends making close idempotent. We don't expect to doubly close
+            // but this will help prevent a crash in that situation.
+            if (this.isClosed) {
+                return;
+            }
+            try {
+                JNIService.free(this.indexPointer, engineName);
+            } finally {
+                this.isClosed = true;
+                writeLock.unlock();
+            }
+        }
+
+        private long getIndexSize() {
+            return size;
+        }
+
+        private ReadWriteLock getReadWriteLock() {
+            return readWriteLock;
+        }
+
+        private boolean isClosed() {
+            return isClosed;
+        }
+
+        private long getIndexPointer() {
+            return indexPointer;
         }
 
         private String getIndexPathUrl() {
@@ -366,8 +447,4 @@ public class KNNIndexCache implements Closeable {
             getInstance().cache.invalidate(indexFilePath.toString());
         }
     };
-
-    private String[] getQueryParams(String indexName) {
-        return new String[] {"efSearch=" + KNNSettings.getEfSearchParam(indexName)};
-    }
 }
