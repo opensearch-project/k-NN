@@ -28,7 +28,6 @@ package org.opensearch.knn.index;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.codec.KNNCodecUtil;
 import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.index.v2011.KNNIndex;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.FieldInfo;
@@ -115,26 +114,28 @@ public class KNNWeight extends Weight {
              */
 
             Path indexPath = PathUtils.get(directory, hnswFiles.get(0));
-            final KNNIndex index;
+            final KNNQueryResult[] results;
+            KNNCounter.GRAPH_QUERY_REQUESTS.increment();
 
             try {
-                index = knnIndexCache.getIndex(indexPath.toString(), knnQuery.getIndexName());
-            } catch (RuntimeException ex) {
-                KNNCounter.GRAPH_QUERY_REQUESTS.increment();
+                results = knnIndexCache.queryIndex(indexPath.toString(), knnQuery.getIndexName(),
+                        spaceType, knnQuery.getQueryVector(), knnQuery.getK(), knnEngine.getName());
+            } catch (Exception ex) {
+                KNNCounter.GRAPH_QUERY_ERRORS.increment();
                 throw ex;
             }
 
-            final KNNQueryResult[] results = index.queryIndex(
-                    knnQuery.getQueryVector(),
-                    knnQuery.getK()
-            );
-
-            /**
+            /*
              * Scores represent the distance of the documents with respect to given query vector.
              * Lesser the score, the closer the document is to the query vector.
              * Since by default results are retrieved in the descending order of scores, to get the nearest
              * neighbors we are inverting the scores.
              */
+            if (results.length == 0) {
+                logger.debug("[KNN] Query yielded 0 results");
+                return null;
+            }
+
             Map<Integer, Float> scores = Arrays.stream(results).collect(
                     Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
             int maxDoc = Collections.max(scores.keySet()) + 1;

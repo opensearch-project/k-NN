@@ -11,8 +11,11 @@
 
 package org.opensearch.knn.index.util;
 
+import com.google.common.collect.ImmutableMap;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
@@ -51,7 +54,22 @@ public enum KNNEngine implements KNNLibrary {
         if (NMSLIB.getName().equalsIgnoreCase(name)){
             return NMSLIB;
         }
-        throw new IllegalArgumentException("[KNN] Invalid engine type: " + name);
+        throw new IllegalArgumentException("Invalid engine type: " + name);
+    }
+
+    /**
+     * Get the engine from the path.
+     *
+     * @param path to be checked
+     * @return KNNEngine corresponding to path
+     */
+    public static KNNEngine getEngineNameFromPath(String path) {
+        if (path.endsWith(KNNEngine.NMSLIB.getExtension())
+                || path.endsWith(KNNEngine.NMSLIB.getCompoundExtension())) {
+            return KNNEngine.NMSLIB;
+        }
+
+        throw new IllegalArgumentException("No engine matches the path's suffix");
     }
 
     /**
