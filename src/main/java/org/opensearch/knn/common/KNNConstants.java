@@ -51,4 +51,6 @@ public class KNNConstants {
     public static final String COMPOUND_EXTENSION = "c";
 
     public static final String JNI_LIBRARY_NAME = "OpensearchKNN";
+
+    public static final String MODEL_BLOB_PARAMETER = "model_blob";
 }
