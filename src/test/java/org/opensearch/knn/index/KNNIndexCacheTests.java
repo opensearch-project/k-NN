@@ -25,7 +25,8 @@
 
 package org.opensearch.knn.index;
 
-import org.opensearch.knn.index.v2011.KNNIndex;
+import org.opensearch.index.IndexService;
+import org.opensearch.index.engine.Engine;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
@@ -36,8 +37,6 @@ import org.opensearch.action.support.WriteRequest;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.index.IndexService;
-import org.opensearch.index.engine.Engine;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
@@ -46,7 +45,6 @@ import org.opensearch.test.hamcrest.OpenSearchAssertions;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -246,10 +244,8 @@ public class KNNIndexCacheTests extends OpenSearchSingleNodeTestCase {
 
         KNNIndexShard knnIndexShard = new KNNIndexShard(indexService.iterator().next());
         Engine.Searcher searcher = knnIndexShard.getIndexShard().acquireSearcher("test-cache");
-        List<String> segmentPaths = knnIndexShard.getHNSWPaths(searcher.getIndexReader());
-
-        List<KNNIndex> knnIndices = KNNIndexCache.getInstance().getIndices(segmentPaths, testIndexName);
-        assertEquals(2, knnIndices.size());
+        Map<String, SpaceType> segmentPaths = knnIndexShard.getAllEnginePaths(searcher.getIndexReader());
+        KNNIndexCache.getInstance().loadIndices(segmentPaths, testIndexName);
         assertEquals(2, KNNIndexCache.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
 
         searcher.close();
