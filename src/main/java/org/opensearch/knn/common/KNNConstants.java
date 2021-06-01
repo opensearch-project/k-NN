@@ -53,4 +53,7 @@ public class KNNConstants {
     public static final String JNI_LIBRARY_NAME = "OpensearchKNN";
 
     public static final String MODEL_BLOB_PARAMETER = "model_blob";
+
+    public static final String MODEL_INDEX_MAPPING_PATH = "mappings/model-index.json";
+    public static final String MODEL_INDEX_NAME = ".knn-model-index";
 }

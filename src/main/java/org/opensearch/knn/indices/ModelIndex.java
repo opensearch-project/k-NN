@@ -42,18 +42,16 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
+import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING;
 import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_SHARDS_SETTING;
 
 /**
  * ModelIndex is a singleton class that controls operations on the model system index
  */
-public class ModelIndex {
+public final class ModelIndex {
     public static Logger logger = LogManager.getLogger(ModelIndex.class);
-
-    //TODO: Should these be stored in constants or in the class? In PR get feedback
-    public static final String MODEL_INDEX_MAPPING = "mappings/model-index.json";
-    public static final String MODEL_INDEX_NAME = ".knn-model-index";
 
     private int numberOfShards;
     private int numberOfReplicas;
@@ -98,7 +96,11 @@ public class ModelIndex {
      * @param actionListener CreateIndexResponse listener
      * @throws IOException thrown when get mapping fails
      */
-    public void createModelIndex(ActionListener<CreateIndexResponse> actionListener) throws IOException {
+    public void create(ActionListener<CreateIndexResponse> actionListener) throws IOException {
+        if (isCreated()) {
+            return;
+        }
+
         CreateIndexRequest request = new CreateIndexRequest(MODEL_INDEX_NAME)
                 .mapping("_doc", getMapping(), XContentType.JSON)
                 .settings(Settings.builder()
@@ -114,7 +116,7 @@ public class ModelIndex {
      *
      * @return true if the model index exists; false otherwise
      */
-    public boolean modelIndexExists() {
+    public boolean isCreated() {
         return clusterService.state().getRoutingTable().hasIndex(MODEL_INDEX_NAME);
     }
 
@@ -125,7 +127,7 @@ public class ModelIndex {
      * @param modelBlob byte array of model
      * @param listener handles index response
      */
-    public void putModel(String modelId, KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener) {
+    public void put(String modelId, KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener) {
         String base64Model = Base64.getEncoder().encodeToString(modelBlob);
 
         Map<String, Object> parameters = ImmutableMap.of(
@@ -137,7 +139,7 @@ public class ModelIndex {
         indexRequestBuilder.setId(modelId);
         indexRequestBuilder.setSource(parameters);
 
-        putModel(indexRequestBuilder, listener);
+        put(indexRequestBuilder, listener);
     }
 
     /**
@@ -147,7 +149,7 @@ public class ModelIndex {
      * @param modelBlob byte array of model
      * @param listener handles index response
      */
-    public void putModel(KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener) {
+    public void put(KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener) {
         String base64Model = Base64.getEncoder().encodeToString(modelBlob);
 
         Map<String, Object> parameters = ImmutableMap.of(
@@ -158,11 +160,11 @@ public class ModelIndex {
         IndexRequestBuilder indexRequestBuilder = client.prepareIndex(MODEL_INDEX_NAME, "_doc");
         indexRequestBuilder.setSource(parameters);
 
-        putModel(indexRequestBuilder, listener);
+        put(indexRequestBuilder, listener);
     }
 
-    private void putModel(IndexRequestBuilder indexRequestBuilder, ActionListener<IndexResponse> listener) {
-        if (!modelIndexExists()) {
+    private void put(IndexRequestBuilder indexRequestBuilder, ActionListener<IndexResponse> listener) {
+        if (!isCreated()) {
             throw new IllegalStateException("Cannot put model in index before index has been initialized");
         }
 
@@ -180,9 +182,9 @@ public class ModelIndex {
      * @throws ExecutionException thrown on search
      * @throws InterruptedException thrown on search
      */
-    public byte[] getModel(String modelId) throws ExecutionException, InterruptedException {
-        if (!modelIndexExists()) {
-            throw new IllegalStateException("Cannot get model. Model index does not exist.");
+    public byte[] get(String modelId) throws ExecutionException, InterruptedException {
+        if (!isCreated()) {
+            throw new IllegalStateException("Cannot get model \"" + modelId + "\". Model index does not exist.");
         }
 
         /*
@@ -204,7 +206,7 @@ public class ModelIndex {
     }
 
     private String getMapping() throws IOException {
-        URL url = ModelIndex.class.getClassLoader().getResource(ModelIndex.MODEL_INDEX_MAPPING);
+        URL url = ModelIndex.class.getClassLoader().getResource(MODEL_INDEX_MAPPING_PATH);
         assert url != null;
         return Resources.toString(url, Charsets.UTF_8);
     }
@@ -215,9 +217,9 @@ public class ModelIndex {
      * @param modelId to delete
      * @param listener handles delete response
      */
-    public void deleteModel(String modelId, ActionListener<DeleteResponse> listener) {
-        if (!modelIndexExists()) {
-            throw new IllegalStateException("Cannot delete model. Model index does not exist.");
+    public void delete(String modelId, ActionListener<DeleteResponse> listener) {
+        if (!isCreated()) {
+            throw new IllegalStateException("Cannot delete model \"" + modelId + "\". Model index does not exist.");
         }
 
         DeleteRequestBuilder deleteRequestBuilder = new DeleteRequestBuilder(client, DeleteAction.INSTANCE,
