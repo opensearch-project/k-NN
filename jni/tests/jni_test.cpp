@@ -100,14 +100,13 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
     // Define the data
     JNIEnv * jniEnv = nullptr;
 
-    std::vector<int64_t> ids = {1, 2, 3, 4};
-
-    std::vector<std::vector<float>> vectors = {
-            {1.0, 2.0},
-            {3.0, 4.0},
-            {5.0, 6.0},
-            {7.0, 8.0}
-    };
+    int64_t idsnum = 100;
+    std::vector<int64_t> ids;
+    std::vector<std::vector<float>> vectors;
+    for (int64_t i = 0; i < idsnum; ++i) {
+        ids.push_back(i);
+        vectors.push_back({1.0, 2.0});
+    }
 
     std::string indexPath = "test-create.faiss";
     std::string spaceType = knn_jni::L2;
