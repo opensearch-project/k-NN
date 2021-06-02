@@ -12,8 +12,9 @@
 #ifndef OPENSEARCH_KNN_NMSLIB_WRAPPER_H
 #define OPENSEARCH_KNN_NMSLIB_WRAPPER_H
 
-#include <jni.h>
 #include "jni_util.h"
+
+#include <jni.h>
 
 namespace knn_jni {
     namespace nmslib_wrapper {

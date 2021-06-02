@@ -12,9 +12,6 @@
 #include "jni_util.h"
 #include "nmslib_wrapper.h"
 
-#include <jni.h>
-#include <string>
-
 #include "init.h"
 #include "index.h"
 #include "params.h"
@@ -23,6 +20,9 @@
 #include "methodfactory.h"
 #include "spacefactory.h"
 #include "space.h"
+
+#include <jni.h>
+#include <string>
 
 
 struct IndexWrapper {
