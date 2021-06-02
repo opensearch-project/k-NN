@@ -140,14 +140,19 @@ add_subdirectory("${CMAKE_BINARY_DIR}/googletest-src"
 )
 add_executable(
         jni_test
-        tests/jni_test.cpp
-        tests/mock_jni.cpp
-)
+        tests/faiss_wrapper_test.cpp
+        tests/nmslib_wrapper_test.cpp
+        tests/test_util.cpp tests/org_opensearch_knn_index_JNIService_test.cpp)
 
 target_link_libraries(
         jni_test
         gtest_main
         gmock_main
+        faiss
+        NonMetricSpaceLib
+        ${BLAS_LIBRARIES}
+        ${LAPACK_LIBRARIES}
+        OpenMP::OpenMP_CXX
         ${TARGET_LIB}
 )
 
