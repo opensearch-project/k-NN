@@ -36,6 +36,8 @@
 #include <vector>
 
 namespace test_util {
+    // Class used to mock JNIUtilInterface. The constructor defines default behavior. For different behavior, this can
+    // be overriden in the individual test
     class MockJNIUtil : public knn_jni::JNIUtilInterface {
     public:
         MockJNIUtil();
@@ -58,7 +60,7 @@ namespace test_util {
         MOCK_METHOD(int, GetJavaFloatArrayLength, (JNIEnv *env, jfloatArray arrayJ));
         MOCK_METHOD(int, GetJavaIntArrayLength, (JNIEnv *env, jintArray arrayJ));
         MOCK_METHOD(int, GetJavaObjectArrayLength, (JNIEnv *env, jobjectArray arrayJ));
-        MOCK_METHOD(jobject, GetObjectArrayElement, (JNIEnv *env, jobjectArray array, jsize index));
+        MOCK_METHOD(jobject, GetObjectArrayElement, (JNIEnv *env, jobjectArray arrayJ, jsize index));
         MOCK_METHOD(void, HasExceptionInStack, (JNIEnv* env));
         MOCK_METHOD(void, HasExceptionInStack, (JNIEnv* env, const std::string& message));
         MOCK_METHOD(jbyteArray, NewByteArray, (JNIEnv *env, jsize len));

@@ -34,100 +34,130 @@
 test_util::MockJNIUtil::MockJNIUtil() {
     // Set default for calls. If necessary, these can be overriden with EXPECT_CALL
 
+    // array2dJ is interpreted as a std::vector<std::vector<float>> *. Populate a std::vector<float> with the elements
+    // from the 2d vector
     ON_CALL(*this, Convert2dJavaObjectArrayToCppFloatVector).WillByDefault([this](JNIEnv *env, jobjectArray array2dJ, int dim) {
         std::vector<float> data;
-        for (auto v : (*reinterpret_cast<std::vector<std::vector<float>> *>(array2dJ)))
+        for (const auto& v : (*reinterpret_cast<std::vector<std::vector<float>> *>(array2dJ)))
             for (auto item : v)
                 data.push_back(item);
         return data;
     });
 
+    // arrayJ is re-interpreted as std::vector<int64_t> *
     ON_CALL(*this, ConvertJavaIntArrayToCppIntVector).WillByDefault([this](JNIEnv *env, jintArray arrayJ) {
         return *reinterpret_cast<std::vector<int64_t> *>(arrayJ);
     });
 
+    // parametersJ is re-interpreted as std::unordered_map<std::string, jobject> *
     ON_CALL(*this, ConvertJavaMapToCppMap).WillByDefault([this](JNIEnv * env, jobject parametersJ) {
         return *reinterpret_cast<std::unordered_map<std::string, jobject> *>(parametersJ);
     });
 
+    // objectJ is re-interpreted as int * and then dereferenced
     ON_CALL(*this, ConvertJavaObjectToCppInteger).WillByDefault([this](JNIEnv * env, jobject objectJ) {
         return *((int *) objectJ);
     });
 
+    // objectJ is re-interpreted as a std::string * and then dereferenced
     ON_CALL(*this, ConvertJavaObjectToCppString).WillByDefault([this](JNIEnv * env, jobject objectJ) {
         return *((std::string *) objectJ);
     });
 
+    // stringJ is re-interpreted as a std::string * and then dereferenced
     ON_CALL(*this, ConvertJavaStringToCppString).WillByDefault([this](JNIEnv * env, jstring stringJ) {
         return *((std::string *) stringJ);
     });
 
+    // This function should not do anything meaningful in the unit tests
     ON_CALL(*this, DeleteLocalRef).WillByDefault([this](JNIEnv *env, jobject obj) {});
 
+    // Return any value that isnt 0. This function should not return anything meaningful in the unit tests
     ON_CALL(*this, FindClass).WillByDefault([this](JNIEnv * env, const std::string& className) {
         return (jclass) 1;
     });
 
+    // Return any value that isnt 0. This function should not return anything meaningful in the unit tests
     ON_CALL(*this, FindMethod).WillByDefault([this](JNIEnv * env, jclass jClass, const std::string& methodName,
                                                          const std::string& methodSignature) {
         return (jmethodID) 1;
     });
 
+    // arrayJ is re-interpreted as a std::vector<uint8_t> *
     ON_CALL(*this, GetJavaBytesArrayLength).WillByDefault([this](JNIEnv *env, jbyteArray arrayJ) {
         return reinterpret_cast<std::vector<uint8_t> *>(arrayJ)->size();
     });
 
+    // arrayJ is re-interpreted as a reinterpret_cast<std::vector<uint8_t> * and then the data is re-interpreted as
+    // a jbyte *
     ON_CALL(*this, GetByteArrayElements).WillByDefault([this](JNIEnv *env, jbyteArray arrayJ, jboolean * isCopy) {
         return reinterpret_cast<jbyte *>(reinterpret_cast<std::vector<uint8_t> *>(arrayJ)->data());
     });
 
+    // arrayJ is re-interpreted as a std::vector<int> * and then the data is re-interpreted as
+    // a jint *
     ON_CALL(*this, GetIntArrayElements).WillByDefault([this](JNIEnv *env, jintArray arrayJ, jboolean * isCopy) {
         return reinterpret_cast<jint *>(reinterpret_cast<std::vector<int> *>(arrayJ)->data());
     });
 
+    // arrayJ is re-interpreted as a std::vector<float> * and then the data is re-interpreted as
+    // a jfloat *
     ON_CALL(*this, GetFloatArrayElements).WillByDefault([this](JNIEnv *env, jfloatArray arrayJ, jboolean * isCopy) {
         return reinterpret_cast<jfloat *>(reinterpret_cast<std::vector<float> *>(arrayJ)->data());
     });
 
+    // array2dJ is re-interpreted as a std::vector<std::vector<float>> * and then the size of the first element is
+    // returned
     ON_CALL(*this, GetInnerDimensionOf2dJavaFloatArray).WillByDefault([this](JNIEnv *env, jobjectArray array2dJ) {
         return (*reinterpret_cast<std::vector<std::vector<float>> *>(array2dJ))[0].size();
     });
 
+    // arrayJ is re-interpreted as a std::vector<float> * and the size is returned
     ON_CALL(*this, GetJavaFloatArrayLength).WillByDefault([this](JNIEnv *env, jfloatArray arrayJ) {
         return reinterpret_cast<std::vector<float> *>(arrayJ)->size();
     });
 
+    // arrayJ is re-interpreted as a std::vector<int64_t> * and then the size is returned
     ON_CALL(*this, GetJavaIntArrayLength).WillByDefault([this](JNIEnv *env, jintArray arrayJ) {
         return reinterpret_cast<std::vector<int64_t> *>(arrayJ)->size();
     });
 
-    ON_CALL(*this, GetObjectArrayElement).WillByDefault([this](JNIEnv *env, jobjectArray array, jsize index) {
-        auto vectors = reinterpret_cast<std::vector<std::vector<float>> *>(array);
+    // arrayJ is re-interpreted as a std::vector<std::vector<float>> * and then the 'index' element is re-interpreted
+    // as a jobject
+    ON_CALL(*this, GetObjectArrayElement).WillByDefault([this](JNIEnv *env, jobjectArray arrayJ, jsize index) {
+        auto vectors = reinterpret_cast<std::vector<std::vector<float>> *>(arrayJ);
         return reinterpret_cast<jobject>(&((*vectors)[index]));
     });
 
+    // create a new std::vector<uint8_t> and re-interpret it as a jbyteArray
     ON_CALL(*this, NewByteArray).WillByDefault([this](JNIEnv *env, jsize len) {
         return reinterpret_cast<jbyteArray>(new std::vector<uint8_t>());
     });
 
+    // Create a new std::pair<int, float> with the id and distance and then re-interpret it as a jobject
     ON_CALL(*this, NewObject).WillByDefault([this](JNIEnv *env, jclass clazz, jmethodID methodId, int id,
                                                         float distance) {
         return reinterpret_cast<jobject>(new std::pair<int, float>(id, distance));
     });
 
+    // Create a new std::vector<std::pair<int, float> and reinterpret it as a jobjectArray
     ON_CALL(*this, NewObjectArray).WillByDefault([this](JNIEnv *env, jsize len, jclass clazz, jobject init) {
         return reinterpret_cast<jobjectArray>(new std::vector<std::pair<int, float> *>());
     });
 
+    // This function should not do anything meaningful in the unit tests
     ON_CALL(*this, ReleaseByteArrayElements).WillByDefault([this](JNIEnv *env, jbyteArray array, jbyte *elems,
                                                                        int mode) {});
 
+    // This function should not do anything meaningful in the unit tests
     ON_CALL(*this, ReleaseFloatArrayElements).WillByDefault([this](JNIEnv *env, jfloatArray array, jfloat *elems,
                                                                        int mode) {});
 
+    // This function should not do anything meaningful in the unit tests
     ON_CALL(*this, ReleaseIntArrayElements).WillByDefault([this](JNIEnv *env, jintArray array, jint *elems,
                                                                    int mode) {});
 
+    // array is re-interpreted as a std::vector<uint8_t> * and then the bytes from buf are copied to it
     ON_CALL(*this, SetByteArrayRegion).WillByDefault([this](JNIEnv *env, jbyteArray array, jsize start, jsize len,
                                                                  const jbyte * buf) {
         auto byteBuffer = reinterpret_cast<std::vector<uint8_t> *>(array);
@@ -136,6 +166,8 @@ test_util::MockJNIUtil::MockJNIUtil() {
         }
     });
 
+    // array is re-interpreted as a std::vector<std::pair<int, float> *> * and then val is re-interpreted as a
+    // std::pair<int, float> * and added to the vector
     ON_CALL(*this, SetObjectArrayElement).WillByDefault([this](JNIEnv *env, jobjectArray array, jsize index,
             jobject val) {
         reinterpret_cast<std::vector<std::pair<int, float> *> *>(array)->push_back(
