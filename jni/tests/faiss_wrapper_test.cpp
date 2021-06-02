@@ -10,12 +10,13 @@
  */
 
 #include "faiss_wrapper.h"
+
+#include <vector>
+
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "jni_util.h"
 #include "test_util.h"
-
-#include <vector>
 
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -42,24 +43,23 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
     std::string method = "HNSW32,Flat";
 
     std::unordered_map<std::string, jobject> parametersMap;
-    parametersMap[knn_jni::SPACE_TYPE] = (jobject) &spaceType;
-    parametersMap[knn_jni::METHOD] = (jobject) &method;
+    parametersMap[knn_jni::SPACE_TYPE] = (jobject)&spaceType;
+    parametersMap[knn_jni::METHOD] = (jobject)&method;
 
     // Set up jni
-    JNIEnv * jniEnv = nullptr;
+    JNIEnv *jniEnv = nullptr;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
-    EXPECT_CALL(mockJNIUtil, GetJavaObjectArrayLength(jniEnv, reinterpret_cast<jobjectArray>(&vectors)))
+    EXPECT_CALL(mockJNIUtil,
+                GetJavaObjectArrayLength(
+                        jniEnv, reinterpret_cast<jobjectArray>(&vectors)))
             .WillRepeatedly(Return(vectors.size()));
 
     // Create the index
-    knn_jni::faiss_wrapper::CreateIndex(&mockJNIUtil,
-                                        jniEnv,
-                                        reinterpret_cast<jintArray>(&ids),
-                                        reinterpret_cast<jobjectArray>(&vectors),
-                                        (jstring) &indexPath,
-                                        (jobject) &parametersMap);
-
+    knn_jni::faiss_wrapper::CreateIndex(
+            &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
+            reinterpret_cast<jobjectArray>(&vectors), (jstring)&indexPath,
+            (jobject)&parametersMap);
 
     // Make sure index can be loaded
     std::unique_ptr<faiss::Index> index(test_util::FaissLoadIndex(indexPath));
@@ -93,18 +93,18 @@ TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
     auto vectorIoWriter = test_util::FaissGetSerializedIndex(createdIndex);
 
     // Setup jni
-    JNIEnv * jniEnv = nullptr;
+    JNIEnv *jniEnv = nullptr;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
-    EXPECT_CALL(mockJNIUtil, GetJavaObjectArrayLength(jniEnv, reinterpret_cast<jobjectArray>(&vectors)))
+    EXPECT_CALL(mockJNIUtil,
+                GetJavaObjectArrayLength(
+                        jniEnv, reinterpret_cast<jobjectArray>(&vectors)))
             .WillRepeatedly(Return(vectors.size()));
 
-    knn_jni::faiss_wrapper::CreateIndexFromTemplate(&mockJNIUtil,
-                                                    jniEnv,
-                                                    reinterpret_cast<jintArray>(&ids),
-                                                    reinterpret_cast<jobjectArray>(&vectors),
-                                                    (jstring) &indexPath,
-                                                    reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)));
+    knn_jni::faiss_wrapper::CreateIndexFromTemplate(
+            &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
+            reinterpret_cast<jobjectArray>(&vectors), (jstring)&indexPath,
+            reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)));
 
     // Make sure index can be loaded
     std::unique_ptr<faiss::Index> index(test_util::FaissLoadIndex(indexPath));
@@ -131,28 +131,34 @@ TEST(FaissLoadIndexTest, BasicAssertions) {
     std::string method = "HNSW32,Flat";
 
     // Create the index
-    std::unique_ptr<faiss::Index> createdIndex(test_util::FaissCreateIndex(dim, method, metricType));
-    auto createdIndexWithData = test_util::FaissAddData(createdIndex.get(), ids, vectors);
-
+    std::unique_ptr<faiss::Index> createdIndex(
+            test_util::FaissCreateIndex(dim, method, metricType));
+    auto createdIndexWithData =
+            test_util::FaissAddData(createdIndex.get(), ids, vectors);
 
     test_util::FaissWriteIndex(&createdIndexWithData, indexPath);
 
     // Setup jni
-    JNIEnv * jniEnv = nullptr;
+    JNIEnv *jniEnv = nullptr;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
-    std::unique_ptr<faiss::Index> loadedIndexPointer(reinterpret_cast<faiss::Index *>(
-            knn_jni::faiss_wrapper::LoadIndex(&mockJNIUtil, jniEnv, (jstring) &indexPath)));
+    std::unique_ptr<faiss::Index> loadedIndexPointer(
+            reinterpret_cast<faiss::Index *>(knn_jni::faiss_wrapper::LoadIndex(
+                    &mockJNIUtil, jniEnv, (jstring)&indexPath)));
 
     // Compare serialized versions
-    auto createIndexSerialization = test_util::FaissGetSerializedIndex(&createdIndexWithData);
-    auto loadedIndexSerialization = test_util::FaissGetSerializedIndex(reinterpret_cast<faiss::Index *>(loadedIndexPointer.get()));
+    auto createIndexSerialization =
+            test_util::FaissGetSerializedIndex(&createdIndexWithData);
+    auto loadedIndexSerialization = test_util::FaissGetSerializedIndex(
+            reinterpret_cast<faiss::Index *>(loadedIndexPointer.get()));
 
     ASSERT_NE(0, loadedIndexSerialization.data.size());
-    ASSERT_EQ(createIndexSerialization.data.size(), loadedIndexSerialization.data.size());
+    ASSERT_EQ(createIndexSerialization.data.size(),
+              loadedIndexSerialization.data.size());
 
     for (int i = 0; i < loadedIndexSerialization.data.size(); ++i) {
-        ASSERT_EQ(createIndexSerialization.data[i], loadedIndexSerialization.data[i]);
+        ASSERT_EQ(createIndexSerialization.data[i],
+                  loadedIndexSerialization.data[i]);
     }
 
     // Clean up
@@ -190,26 +196,27 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
     }
 
     // Create the index
-    std::unique_ptr<faiss::Index> createdIndex(test_util::FaissCreateIndex(2, method, metricType));
-    auto createdIndexWithData = test_util::FaissAddData(createdIndex.get(), ids, vectors);
+    std::unique_ptr<faiss::Index> createdIndex(
+            test_util::FaissCreateIndex(2, method, metricType));
+    auto createdIndexWithData =
+            test_util::FaissAddData(createdIndex.get(), ids, vectors);
 
     // Setup jni
-    JNIEnv * jniEnv = nullptr;
+    JNIEnv *jniEnv = nullptr;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
     for (auto query : queries) {
         std::unique_ptr<std::vector<std::pair<int, float> *>> results(
                 reinterpret_cast<std::vector<std::pair<int, float> *> *>(
-                        knn_jni::faiss_wrapper::QueryIndex(&mockJNIUtil,
-                                                           jniEnv,
-                                                           reinterpret_cast<jlong>(&createdIndexWithData),
-                                                           reinterpret_cast<jfloatArray>(&query),
-                                                           k)));
+                        knn_jni::faiss_wrapper::QueryIndex(
+                                &mockJNIUtil, jniEnv,
+                                reinterpret_cast<jlong>(&createdIndexWithData),
+                                reinterpret_cast<jfloatArray>(&query), k)));
 
         ASSERT_EQ(k, results->size());
 
         // Need to free up each result
-        for (auto & it : *results) {
+        for (auto &it : *results) {
             delete it;
         }
     }
@@ -222,7 +229,8 @@ TEST(FaissFreeTest, BasicAssertions) {
     std::string method = "HNSW32,Flat";
 
     // Create the index
-    faiss::Index *createdIndex(test_util::FaissCreateIndex(dim, method, metricType));
+    faiss::Index *createdIndex(
+            test_util::FaissCreateIndex(dim, method, metricType));
 
     // Free created index --> memory check should catch failure
     knn_jni::faiss_wrapper::Free(reinterpret_cast<jlong>(createdIndex));
@@ -253,16 +261,18 @@ TEST(FaissTrainIndexTest, BasicAssertions) {
     }
 
     // Setup jni
-    JNIEnv * jniEnv = nullptr;
+    JNIEnv *jniEnv = nullptr;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
     // Perform training
-    std::unique_ptr<std::vector<uint8_t>> trainedIndexSerialization(reinterpret_cast<std::vector<uint8_t> *>(
-            knn_jni::faiss_wrapper::TrainIndex(&mockJNIUtil, jniEnv, (jobject) &parametersMap, dim,
-                                               reinterpret_cast<jlong>(&trainingVectors))));
+    std::unique_ptr<std::vector<uint8_t>> trainedIndexSerialization(
+            reinterpret_cast<std::vector<uint8_t> *>(
+                    knn_jni::faiss_wrapper::TrainIndex(
+                            &mockJNIUtil, jniEnv, (jobject) &parametersMap, dim,
+                            reinterpret_cast<jlong>(&trainingVectors))));
 
-    std::unique_ptr<faiss::Index> trainedIndex(test_util::FaissLoadFromSerializedIndex(
-            trainedIndexSerialization.get()));
+    std::unique_ptr<faiss::Index> trainedIndex(
+            test_util::FaissLoadFromSerializedIndex(trainedIndexSerialization.get()));
 
     // Confirm that training succeeded
     ASSERT_TRUE(trainedIndex->is_trained);
