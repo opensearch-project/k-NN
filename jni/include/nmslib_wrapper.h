@@ -14,7 +14,12 @@
 
 #include "jni_util.h"
 
+#include "methodfactory.h"
+#include "space.h"
+#include "spacefactory.h"
+
 #include <jni.h>
+#include <string>
 
 namespace knn_jni {
     namespace nmslib_wrapper {
@@ -39,6 +44,17 @@ namespace knn_jni {
 
         // Perform required initialization operations for the library
         void InitLibrary();
+
+        struct IndexWrapper {
+            explicit IndexWrapper(const std::string& spaceType) {
+                // Index gets constructed with a reference to data (see above) but is otherwise unused
+                similarity::ObjectVector data;
+                space.reset(similarity::SpaceFactoryRegistry<float>::Instance().CreateSpace(spaceType, similarity::AnyParams()));
+                index.reset(similarity::MethodFactoryRegistry<float>::Instance().CreateMethod(false, "hnsw", spaceType, *space, data));
+            }
+            std::unique_ptr<similarity::Space<float>> space;
+            std::unique_ptr<similarity::Index<float>> index;
+        };
     }
 }
 
