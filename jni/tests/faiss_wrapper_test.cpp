@@ -189,6 +189,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
         queries.push_back(query);
     }
 
+    // Create the index
     std::unique_ptr<faiss::Index> createdIndex(test_util::FaissCreateIndex(2, method, metricType));
     auto createdIndexWithData = test_util::FaissAddData(createdIndex.get(), ids, vectors);
 
@@ -207,7 +208,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
 
         ASSERT_EQ(k, results->size());
 
-        // need to free up each result and then the vector
+        // Need to free up each result
         for (auto & it : *results) {
             delete it;
         }
