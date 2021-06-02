@@ -30,6 +30,7 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
         ids.push_back(i);
 
         std::vector<float> vect;
+        vect.reserve(dim);
         for (int j = 0; j < dim; ++j) {
             vect.push_back(test_util::RandomFloat(-500.0, 500.0));
         }
@@ -77,6 +78,7 @@ TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
         ids.push_back(i);
 
         std::vector<float> vect;
+        vect.reserve(dim);
         for (int j = 0; j < dim; ++j) {
             vect.push_back(test_util::RandomFloat(-500.0, 500.0));
         }
@@ -180,6 +182,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
 
     for (int i = 0; i < numQueries; i++) {
         std::vector<float> query;
+        query.reserve(dim);
         for (int j = 0; j < dim; j++) {
             query.push_back(test_util::RandomFloat(-500.0, 500.0));
         }
