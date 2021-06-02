@@ -26,3 +26,4 @@ jni/_deps/
 jni/bin/
 jni/lib/
 jni/jni_test*
+jni/googletest*
