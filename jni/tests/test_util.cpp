@@ -50,6 +50,10 @@ test_util::MockJNIUtil::MockJNIUtil() {
         return *reinterpret_cast<std::unordered_map<std::string, jobject> *>(parametersJ);
     });
 
+    ON_CALL(*this, ConvertJavaObjectToCppInteger).WillByDefault([this](JNIEnv * env, jobject objectJ) {
+        return *((int *) objectJ);
+    });
+
     ON_CALL(*this, ConvertJavaObjectToCppString).WillByDefault([this](JNIEnv * env, jobject objectJ) {
         return *((std::string *) objectJ);
     });
@@ -77,6 +81,10 @@ test_util::MockJNIUtil::MockJNIUtil() {
         return reinterpret_cast<jbyte *>(reinterpret_cast<std::vector<uint8_t> *>(arrayJ)->data());
     });
 
+    ON_CALL(*this, GetIntArrayElements).WillByDefault([this](JNIEnv *env, jintArray arrayJ, jboolean * isCopy) {
+        return reinterpret_cast<jint *>(reinterpret_cast<std::vector<int> *>(arrayJ)->data());
+    });
+
     ON_CALL(*this, GetFloatArrayElements).WillByDefault([this](JNIEnv *env, jfloatArray arrayJ, jboolean * isCopy) {
         return reinterpret_cast<jfloat *>(reinterpret_cast<std::vector<float> *>(arrayJ)->data());
     });
@@ -91,6 +99,11 @@ test_util::MockJNIUtil::MockJNIUtil() {
 
     ON_CALL(*this, GetJavaIntArrayLength).WillByDefault([this](JNIEnv *env, jintArray arrayJ) {
         return reinterpret_cast<std::vector<int64_t> *>(arrayJ)->size();
+    });
+
+    ON_CALL(*this, GetObjectArrayElement).WillByDefault([this](JNIEnv *env, jobjectArray array, jsize index) {
+        auto vectors = reinterpret_cast<std::vector<std::vector<float>> *>(array);
+        return reinterpret_cast<jobject>(&((*vectors)[index]));
     });
 
     ON_CALL(*this, NewByteArray).WillByDefault([this](JNIEnv *env, jsize len) {
@@ -111,6 +124,9 @@ test_util::MockJNIUtil::MockJNIUtil() {
 
     ON_CALL(*this, ReleaseFloatArrayElements).WillByDefault([this](JNIEnv *env, jfloatArray array, jfloat *elems,
                                                                        int mode) {});
+
+    ON_CALL(*this, ReleaseIntArrayElements).WillByDefault([this](JNIEnv *env, jintArray array, jint *elems,
+                                                                   int mode) {});
 
     ON_CALL(*this, SetByteArrayRegion).WillByDefault([this](JNIEnv *env, jbyteArray array, jsize start, jsize len,
                                                                  const jbyte * buf) {
@@ -202,7 +218,6 @@ similarity::Index<float> * test_util::NmslibLoadIndex(const std::string& indexPa
 
     index->LoadIndex(indexPath);
     index->SetQueryTimeParams(similarity::AnyParams(queryParameters));
-
     return index;
 }
 
