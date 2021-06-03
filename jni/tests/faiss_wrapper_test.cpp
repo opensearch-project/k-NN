@@ -166,7 +166,6 @@ TEST(FaissLoadIndexTest, BasicAssertions) {
     std::remove(indexPath.c_str());
 }
 
-// Not good
 TEST(FaissQueryIndexTest, BasicAssertions) {
     // Define the index data
     faiss::Index::idx_t numIds = 100;
