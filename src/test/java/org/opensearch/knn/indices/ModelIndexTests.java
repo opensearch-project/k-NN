@@ -38,7 +38,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 public class ModelIndexTests extends KNNSingleNodeTestCase {
 
     public void testCreate() throws IOException, InterruptedException {
-        int attempts = 50;
+        int attempts = 20;
         final CountDownLatch inProgressLatch = new CountDownLatch(attempts);
 
         ActionListener<CreateIndexResponse> indexCreationListener = ActionListener.wrap(response -> {
@@ -57,7 +57,7 @@ public class ModelIndexTests extends KNNSingleNodeTestCase {
             modelIndex.create(indexCreationListener);
         }
 
-        assertTrue(inProgressLatch.await(30, TimeUnit.SECONDS));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
     public void testExists() {
@@ -84,7 +84,7 @@ public class ModelIndexTests extends KNNSingleNodeTestCase {
 
         modelIndex.put(modelId, KNNEngine.DEFAULT, modelBlob, docCreationListener);
 
-        assertTrue(inProgressLatch1.await(30, TimeUnit.SECONDS));
+        assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 
         // User provided model id that already exists
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
@@ -98,7 +98,7 @@ public class ModelIndexTests extends KNNSingleNodeTestCase {
         });
 
         modelIndex.put(modelId, KNNEngine.DEFAULT, modelBlob, docCreationListenerDuplicateId);
-        assertTrue(inProgressLatch2.await(30, TimeUnit.SECONDS));
+        assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
     }
 
     public void testPut_withoutId() throws InterruptedException {
@@ -116,7 +116,7 @@ public class ModelIndexTests extends KNNSingleNodeTestCase {
                 exception -> fail("Unable to put the model: " + exception));
 
         modelIndex.put(KNNEngine.DEFAULT, modelBlob, docCreationListenerNoModelId);
-        assertTrue(inProgressLatch.await(30, TimeUnit.SECONDS));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
     public void testGet() throws IOException, InterruptedException, ExecutionException {
@@ -154,7 +154,7 @@ public class ModelIndexTests extends KNNSingleNodeTestCase {
         }, exception -> fail("Unable to delete the model: " + exception));
 
         modelIndex.delete(modelId, deleteModelDoesNotExistListener);
-        assertTrue(inProgressLatch1.await(30, TimeUnit.SECONDS));
+        assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 
         // model id exists
         addDoc(modelId, modelBlob);
@@ -166,7 +166,7 @@ public class ModelIndexTests extends KNNSingleNodeTestCase {
         }, exception -> fail("Unable to delete model: " + exception));
 
         modelIndex.delete(modelId, deleteModelExistsListener);
-        assertTrue(inProgressLatch2.await(30, TimeUnit.SECONDS));
+        assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
     }
 
     public void addDoc(String modelId, byte [] modelBlob) throws IOException, ExecutionException, InterruptedException {
