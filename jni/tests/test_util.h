@@ -100,8 +100,7 @@ namespace test_util {
 // For our unit tests, we want to ensure that each test tests one function in
 // isolation. So, we add a few utils to perform common library operations
 
-// -------------------------------- FAISS UTILS
-// ----------------------------------
+// -------------------------------- FAISS UTILS ----------------------------------
 
     faiss::Index* FaissCreateIndex(int dim, const std::string& method,
                                    faiss::MetricType metric);
@@ -126,8 +125,7 @@ namespace test_util {
 
 // -------------------------------------------------------------------------------
 
-// ------------------------------- NMSLIB UTILS
-// ----------------------------------
+// ------------------------------- NMSLIB UTILS ----------------------------------
 
     similarity::Index<float>* NmslibCreateIndex(
             int* ids, std::vector<std::vector<float>> dataset,
@@ -148,8 +146,7 @@ namespace test_util {
 
 // -------------------------------------------------------------------------------
 
-// ------------------------------- OTHER UTILS
-// ----------------------------------
+// ------------------------------- OTHER UTILS ----------------------------------
 
     std::string RandomString(size_t length, const std::string& prefix, const std::string& suffix);
 
