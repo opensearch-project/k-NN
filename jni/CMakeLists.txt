@@ -121,11 +121,7 @@ set_target_properties(${TARGET_LIB} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_
 # ---------------------------------------------------------------------------
 
 # --------------------------------- TESTS -----------------------------------
-enable_testing()
-
-configure_file(${CMAKE_SOURCE_DIR}/CTestCustom.cmake ${CMAKE_BINARY_DIR})
-
-# Reference - https://crascit.com/2015/07/25/cmake-gtest/ - adding gmock makes things a little more difficult
+# Reference - https://crascit.com/2015/07/25/cmake-gtest/
 configure_file(CMakeLists.txt.in googletest-download/CMakeLists.txt)
 execute_process(COMMAND "${CMAKE_COMMAND}" -G "${CMAKE_GENERATOR}" .
         WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/googletest-download"
