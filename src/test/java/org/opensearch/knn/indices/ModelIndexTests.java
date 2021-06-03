@@ -67,7 +67,7 @@ public class ModelIndexTests extends KNNSingleNodeTestCase {
         assertTrue(modelIndex.isCreated());
     }
 
-    public void testPut() throws InterruptedException {
+    public void testPut_withId() throws InterruptedException {
         ModelIndex modelIndex = ModelIndex.getInstance();
         String modelId = "efbsdhcvbsd";
         byte [] modelBlob = "hello".getBytes();
@@ -99,17 +99,24 @@ public class ModelIndexTests extends KNNSingleNodeTestCase {
 
         modelIndex.put(modelId, KNNEngine.DEFAULT, modelBlob, docCreationListenerDuplicateId);
         assertTrue(inProgressLatch2.await(30, TimeUnit.SECONDS));
+    }
+
+    public void testPut_withoutId() throws InterruptedException {
+        ModelIndex modelIndex = ModelIndex.getInstance();
+        byte [] modelBlob = "hello".getBytes();
+
+        createIndex(MODEL_INDEX_NAME);
 
         // User does not provide model id
-        final CountDownLatch inProgressLatch3 = new CountDownLatch(1);
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
         ActionListener<IndexResponse> docCreationListenerNoModelId = ActionListener.wrap(response -> {
                     assertEquals(RestStatus.CREATED, response.status());
-                    inProgressLatch3.countDown();
+                    inProgressLatch.countDown();
                 },
                 exception -> fail("Unable to put the model: " + exception));
 
         modelIndex.put(KNNEngine.DEFAULT, modelBlob, docCreationListenerNoModelId);
-        assertTrue(inProgressLatch3.await(30, TimeUnit.SECONDS));
+        assertTrue(inProgressLatch.await(30, TimeUnit.SECONDS));
     }
 
     public void testGet() throws IOException, InterruptedException, ExecutionException {
