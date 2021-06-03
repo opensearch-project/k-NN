@@ -151,7 +151,7 @@ namespace test_util {
 // ------------------------------- OTHER UTILS
 // ----------------------------------
 
-    std::string RandomString(size_t length, std::string prefix, std::string suffix);
+    std::string RandomString(size_t length, const std::string& prefix, const std::string& suffix);
 
     float RandomFloat(float min, float max);
 

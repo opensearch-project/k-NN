@@ -23,7 +23,7 @@ using ::testing::Return;
 
 TEST(FaissCreateIndexTest, BasicAssertions) {
     // Define the data
-    faiss::Index::idx_t numIds = 100;
+    faiss::Index::idx_t numIds = 200;
     std::vector<faiss::Index::idx_t> ids;
     std::vector<std::vector<float>> vectors;
     int dim = 2;
@@ -40,7 +40,7 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
     std::string spaceType = knn_jni::L2;
-    std::string method = "HNSW32,Flat";
+    std::string method = "Flat";  // TODO: Revert bach to HNSW32,Flat
 
     std::unordered_map<std::string, jobject> parametersMap;
     parametersMap[knn_jni::SPACE_TYPE] = (jobject)&spaceType;
@@ -87,10 +87,11 @@ TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
     faiss::MetricType metricType = faiss::METRIC_L2;
-    std::string method = "HNSW32,Flat";
+    std::string method = "Flat";  // TODO: Revert bach to HNSW32,Flat
 
-    auto createdIndex = test_util::FaissCreateIndex(dim, method, metricType);
-    auto vectorIoWriter = test_util::FaissGetSerializedIndex(createdIndex);
+    std::unique_ptr<faiss::Index> createdIndex(
+            test_util::FaissCreateIndex(dim, method, metricType));
+    auto vectorIoWriter = test_util::FaissGetSerializedIndex(createdIndex.get());
 
     // Setup jni
     JNIEnv *jniEnv = nullptr;
@@ -128,7 +129,7 @@ TEST(FaissLoadIndexTest, BasicAssertions) {
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
     faiss::MetricType metricType = faiss::METRIC_L2;
-    std::string method = "HNSW32,Flat";
+    std::string method = "Flat";  // TODO: Revert bach to HNSW32,Flat
 
     // Create the index
     std::unique_ptr<faiss::Index> createdIndex(
@@ -165,6 +166,7 @@ TEST(FaissLoadIndexTest, BasicAssertions) {
     std::remove(indexPath.c_str());
 }
 
+// Not good
 TEST(FaissQueryIndexTest, BasicAssertions) {
     // Define the index data
     faiss::Index::idx_t numIds = 100;
@@ -179,7 +181,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
     }
 
     faiss::MetricType metricType = faiss::METRIC_L2;
-    std::string method = "HNSW32,Flat";
+    std::string method = "Flat";  // TODO: Revert bach to HNSW32,Flat
 
     // Define query data
     int k = 10;
@@ -216,7 +218,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
         ASSERT_EQ(k, results->size());
 
         // Need to free up each result
-        for (auto &it : *results) {
+        for (auto it : *results.get()) {
             delete it;
         }
     }
@@ -226,7 +228,7 @@ TEST(FaissFreeTest, BasicAssertions) {
     // Define the data
     int dim = 2;
     faiss::MetricType metricType = faiss::METRIC_L2;
-    std::string method = "HNSW32,Flat";
+    std::string method = "Flat";  // TODO: Revert bach to HNSW32,Flat
 
     // Create the index
     faiss::Index *createdIndex(

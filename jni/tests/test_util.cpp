@@ -280,8 +280,11 @@ similarity::Index<float> *test_util::NmslibCreateIndex(
     similarity::Index<float> *index =
             similarity::MethodFactoryRegistry<float>::Instance().CreateMethod(
                     false, "hnsw", spaceName, *(space), objectDataset);
-
     index->CreateIndex(similarity::AnyParams(indexParameters));
+
+    for (auto it : objectDataset) {
+        delete it;
+    }
     return index;
 }
 
@@ -318,8 +321,8 @@ similarity::KNNQuery<float> *test_util::NmslibQueryIndex(
     return knnQuery;
 }
 
-std::string test_util::RandomString(size_t length, std::string prefix,
-                                    std::string suffix) {
+std::string test_util::RandomString(size_t length, const std::string &prefix,
+                                    const std::string &suffix) {
     // https://stackoverflow.com/questions/440133/how-do-i-create-a-random-alpha-numeric-string-in-c
     // https://en.cppreference.com/w/cpp/numeric/random
     static constexpr auto chars =

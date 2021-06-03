@@ -112,10 +112,11 @@ TEST(NmslibLoadIndexTest, BasicAssertions) {
     std::vector<std::string> indexParameters;
 
     // Create index and write to disk
-    similarity::Index<float> *createdIndex = test_util::NmslibCreateIndex(
-            ids.data(), vectors, space.get(), spaceType, indexParameters);
-    test_util::NmslibWriteIndex(createdIndex, indexPath);
+    std::unique_ptr<similarity::Index<float>> createdIndex(
+            test_util::NmslibCreateIndex(ids.data(), vectors, space.get(), spaceType,
+                                         indexParameters));
 
+    test_util::NmslibWriteIndex(createdIndex.get(), indexPath);
     // Setup jni
     JNIEnv *jniEnv = nullptr;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
