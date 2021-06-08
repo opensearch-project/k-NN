@@ -17,6 +17,7 @@ import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.MethodComponent;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.Parameter;
 import org.opensearch.knn.index.SpaceType;
 import com.google.common.collect.ImmutableMap;
@@ -25,6 +26,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.function.Function;
 
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
@@ -89,6 +91,14 @@ public interface KNNLibrary {
      * @param knnMethodContext to be validated
      */
     void validateMethod(KNNMethodContext knnMethodContext);
+
+    /**
+     * Generate method as map that can be used to configure the knn index
+     *
+     * @param knnMethodContext to generate parameter map from
+     * @return parameter map
+     */
+    Map<String, Object> getMethodAsMap(KNNMethodContext knnMethodContext);
 
     /**
      * Abstract implementation of KNNLibrary. It contains several default methods and fields that
@@ -163,6 +173,12 @@ public interface KNNLibrary {
             String methodName = knnMethodContext.getMethodComponent().getName();
             getMethod(methodName).validate(knnMethodContext);
         }
+
+        @Override
+        public Map<String, Object> getMethodAsMap(KNNMethodContext knnMethodContext) {
+            KNNMethod knnMethod = methods.get(knnMethodContext.getMethodComponent().getName());
+            return knnMethod.getAsMap(knnMethodContext);
+        }
     }
 
     /**
@@ -205,6 +221,149 @@ public interface KNNLibrary {
         private Nmslib(Map<String, KNNMethod> methods, Map<SpaceType, Function<Float, Float>> scoreTranslation,
                        String latestLibraryBuildVersion, String latestLibraryVersion, String extension) {
             super(methods, scoreTranslation, latestLibraryBuildVersion, latestLibraryVersion, extension);
+        }
+    }
+
+    /**
+     * Implements NativeLibrary for the faiss native library
+     */
+    class Faiss extends NativeLibrary {
+
+        // Map that overrides OpenSearch score translation by space type of scores returned by faiss
+        public final static Map<SpaceType, Function<Float, Float>> SCORE_TRANSLATIONS = ImmutableMap.of(
+                SpaceType.INNER_PRODUCT, rawScore -> SpaceType.INNER_PRODUCT.scoreTranslation(-1*rawScore)
+        );
+
+        // Define encoders supported by faiss
+        public final static MethodComponentContext ENCODER_DEFAULT = new MethodComponentContext(
+                KNNConstants.ENCODER_FLAT, Collections.emptyMap());
+
+        public final static Map<String, MethodComponent> encoderComponents = ImmutableMap.of(
+                        KNNConstants.ENCODER_FLAT, MethodComponent.Builder.builder(KNNConstants.ENCODER_FLAT)
+                        .setMapGenerator(((methodComponent, methodComponentContext) ->
+                                MethodAsMapBuilder.builder(KNNConstants.ENCODER_FLAT, methodComponent, methodComponentContext.getParameters())
+                                        .build()))
+                        .build());
+
+        // Define methods supported by faiss
+        public final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
+                METHOD_HNSW, KNNMethod.Builder.builder(MethodComponent.Builder.builder("HNSW")
+                        .addParameter(METHOD_PARAMETER_M,
+                                new Parameter.IntegerParameter(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0))
+                        .addParameter(METHOD_PARAMETER_EF_CONSTRUCTION,
+                                new Parameter.IntegerParameter(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
+                                        v -> v > 0))
+                        .addParameter(METHOD_ENCODER_PARAMETER,
+                                new Parameter.MethodComponentContextParameter(ENCODER_DEFAULT, encoderComponents))
+                        .setMapGenerator(((methodComponent, methodComponentContext) ->
+                                MethodAsMapBuilder.builder("HNSW", methodComponent, methodComponentContext.getParameters())
+                                        .addParameter(METHOD_PARAMETER_M, "", "")
+                                        .addParameter(METHOD_ENCODER_PARAMETER, ",", "")
+                                        .build()))
+                        .build())
+                        .addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build()
+        );
+
+        public final static Faiss INSTANCE = new Faiss(METHODS, SCORE_TRANSLATIONS,
+                FaissVersion.LATEST.getBuildVersion(), FaissVersion.LATEST.indexLibraryVersion(),
+                KNNConstants.FAISS_EXTENSION);
+
+        /**
+         * Constructor for Faiss
+         *
+         * @param methods                   map of methods the native library supports
+         * @param scoreTranslation          Map of translation of space type to scores returned by the library
+         * @param latestLibraryBuildVersion String representation of latest build version of the library
+         * @param latestLibraryVersion      String representation of latest version of the library
+         * @param extension                 String representing the extension that library files should use
+         */
+        private Faiss(Map<String, KNNMethod> methods, Map<SpaceType,
+                Function<Float, Float>> scoreTranslation, String latestLibraryBuildVersion, String latestLibraryVersion,
+                      String extension) {
+            super(methods, scoreTranslation, latestLibraryBuildVersion, latestLibraryVersion, extension);
+        }
+
+        //TODO: Clean a lot
+        private static class MethodAsMapBuilder {
+            String methodDescription;
+            Map<String, Object> parameterMap;
+            MethodComponent methodComponent;
+
+            MethodAsMapBuilder(String baseDescription, MethodComponent methodComponent, Map<String, Object> initialParameterMap) {
+                this.methodDescription = baseDescription;
+                this.methodComponent = methodComponent;
+                this.parameterMap = initialParameterMap;
+            }
+
+            MethodAsMapBuilder addParameter(String parameterName, String prefix, String suffix) {
+                methodDescription += prefix;
+
+                Object parameter = methodComponent.getParameters().get(parameterName);
+                Object value = parameterMap.get(parameterName);
+
+                if (parameter instanceof Parameter.MethodComponentContextParameter) {
+                    // Some ugly parsing here
+                    MethodComponentContext methodComponentContext = (MethodComponentContext) value;
+                    MethodComponent methodComponent = ((Parameter.MethodComponentContextParameter) parameter).getMethodComponent(methodComponentContext.getName());
+
+                    Map<String, Object> subMethodComponentAsMap = methodComponent.getAsMap(methodComponentContext);
+                    methodDescription += subMethodComponentAsMap.get(KNNConstants.KNN_METHOD);
+                    subMethodComponentAsMap.remove(KNNConstants.KNN_METHOD);
+
+                    // We replace parameterName with the map that contains only parameters that are not included in
+                    // the method description
+                    parameterMap.put(parameterName, subMethodComponentAsMap);
+                } else {
+                    // Just add the value to the method description and remove from map
+                    methodDescription += value;
+                    parameterMap.remove(parameterName);
+                }
+
+                methodDescription += suffix;
+                return this;
+            }
+
+            Map<String, Object> build() {
+                parameterMap.put(KNNConstants.KNN_METHOD, methodDescription);
+                return parameterMap;
+            }
+
+            static MethodAsMapBuilder builder(String baseDescription, MethodComponent methodComponent,
+                                              Map<String, Object> initialParameterMap) {
+                return new MethodAsMapBuilder(baseDescription, methodComponent, initialParameterMap);
+            }
+        }
+
+        /**
+         * Enum containing information about faiss versioning
+         */
+        private enum FaissVersion {
+
+            /**
+             * Latest available nmslib version
+             */
+            V165("165"){
+                @Override
+                public String indexLibraryVersion() {
+                    return KNNConstants.JNI_LIBRARY_NAME;
+                }
+            };
+
+            static final FaissVersion LATEST = V165;
+
+            String buildVersion;
+
+            FaissVersion(String buildVersion) {
+                this.buildVersion = buildVersion;
+            }
+
+            /**
+             * Faiss version used by the KNN codec
+             * @return library name
+             */
+            abstract String indexLibraryVersion();
+
+            String getBuildVersion() { return buildVersion; }
         }
     }
 }

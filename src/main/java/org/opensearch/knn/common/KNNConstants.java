@@ -40,6 +40,8 @@ public class KNNConstants {
     public static final String NMSLIB_NAME = "nmslib";
     public static final String FAISS_NAME = "faiss";
 
+    public final static String FAISS_EXTENSION = ".faiss";
+
     public static final String METHOD_HNSW = "hnsw";
 
     public static final String METHOD_PARAMETER_EF_CONSTRUCTION = "ef_construction";
@@ -51,4 +53,7 @@ public class KNNConstants {
     public static final String COMPOUND_EXTENSION = "c";
 
     public static final String JNI_LIBRARY_NAME = "OpensearchKNN";
+
+    public static final String METHOD_ENCODER_PARAMETER = "encoder";
+    public static final String ENCODER_FLAT = "Flat";
 }

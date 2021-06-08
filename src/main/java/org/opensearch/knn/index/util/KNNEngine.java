@@ -11,13 +11,13 @@
 
 package org.opensearch.knn.index.util;
 
-import com.google.common.collect.ImmutableMap;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 
+import java.util.Map;
+
+import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 
 
@@ -26,7 +26,8 @@ import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
  * passed to the respective k-NN library's JNI layer.
  */
 public enum KNNEngine implements KNNLibrary {
-    NMSLIB(NMSLIB_NAME, Nmslib.INSTANCE);
+    NMSLIB(NMSLIB_NAME, Nmslib.INSTANCE),
+    FAISS(FAISS_NAME, Faiss.INSTANCE);
 
     public static final KNNEngine DEFAULT = NMSLIB;
 
@@ -114,5 +115,10 @@ public enum KNNEngine implements KNNLibrary {
     @Override
     public void validateMethod(KNNMethodContext knnMethodContext) {
         knnLibrary.validateMethod(knnMethodContext);
+    }
+
+    @Override
+    public Map<String, Object> getMethodAsMap(KNNMethodContext knnMethodContext) {
+        return knnLibrary.getMethodAsMap(knnMethodContext);
     }
 }
