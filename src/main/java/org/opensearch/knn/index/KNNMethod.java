@@ -88,9 +88,8 @@ public class KNNMethod {
      * @return KNNMethod as a map
      */
     public Map<String, Object> getAsMap(KNNMethodContext knnMethodContext) {
-        Map<String, Object> parameterMap = new HashMap<>();
+        Map<String, Object> parameterMap = new HashMap<>(methodComponent.getAsMap(knnMethodContext.getMethodComponent()));
         parameterMap.put(KNNConstants.SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
-        parameterMap.putAll(methodComponent.getAsMap(knnMethodContext.getMethodComponent()));
         return parameterMap;
     }
 

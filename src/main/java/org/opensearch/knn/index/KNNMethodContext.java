@@ -11,6 +11,8 @@
 
 package org.opensearch.knn.index;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.common.xcontent.ToXContentFragment;
 import org.opensearch.common.xcontent.XContentBuilder;
@@ -18,7 +20,9 @@ import org.opensearch.index.mapper.MapperParsingException;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 
@@ -33,6 +37,8 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  * It will encompass all parameters necessary to build the index.
  */
 public class KNNMethodContext implements ToXContentFragment {
+
+    private static Logger logger = LogManager.getLogger(KNNMethodContext.class);
 
     private static KNNMethodContext defaultInstance = null;
 
@@ -113,7 +119,7 @@ public class KNNMethodContext implements ToXContentFragment {
         KNNEngine engine = KNNEngine.DEFAULT; // Get or default
         SpaceType spaceType = SpaceType.DEFAULT; // Get or default
         String name = "";
-        Map<String, Object> parameters = null;
+        Map<String, Object> parameters = new HashMap<>();
 
         String key;
         Object value;
@@ -149,12 +155,22 @@ public class KNNMethodContext implements ToXContentFragment {
 
                 name = (String) value;
             } else if (PARAMETERS.equals(key)) {
-                if (value != null && !(value instanceof Map)) {
+                if (!(value instanceof Map)) {
                     throw new MapperParsingException("Unable to parse parameters for main method component");
                 }
 
+                // Interpret all map parameters as sub-MethodComponentContexts
                 @SuppressWarnings("unchecked")
-                Map<String, Object> parameters1 = (Map<String, Object>) value;
+                Map<String, Object> parameters1 = ((Map<String, Object>) value).entrySet().stream().collect(Collectors.toMap(
+                        Map.Entry::getKey, e -> {
+                            Object v = e.getValue();
+                            if (v instanceof Map) {
+                                return MethodComponentContext.parse(v);
+                            }
+                            return v;
+                        }
+                ));
+
                 parameters = parameters1;
             } else {
                 throw new MapperParsingException("Invalid parameter: " + key);

@@ -65,8 +65,9 @@ public class MethodComponent {
      */
     public Map<String, Object> getAsMap(MethodComponentContext methodComponentContext) {
         if (mapGenerator == null) {
-            Map<String, Object> parameterMap = methodComponentContext.getParameters();
-            parameterMap.put(KNNConstants.KNN_METHOD, methodComponentContext.getName());
+            Map<String, Object> parameterMap = new HashMap<>();
+            parameterMap.put(KNNConstants.NAME, methodComponentContext.getName());
+            parameterMap.put(KNNConstants.PARAMETERS, methodComponentContext.getParameters());
             return parameterMap;
         }
         return mapGenerator.apply(this, methodComponentContext);

@@ -23,6 +23,7 @@ import org.opensearch.knn.index.SpaceType;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -93,7 +94,7 @@ public interface KNNLibrary {
     void validateMethod(KNNMethodContext knnMethodContext);
 
     /**
-     * Generate method as map that can be used to configure the knn index
+     * Generate method as map that can be used to configure the knn index from the jni
      *
      * @param knnMethodContext to generate parameter map from
      * @return parameter map
@@ -207,7 +208,7 @@ public interface KNNLibrary {
 
 
         public final static Nmslib INSTANCE = new Nmslib(METHODS, Collections.emptyMap(),
-                NmsLibVersion.LATEST.getBuildVersion(), NmsLibVersion.LATEST.indexLibraryVersion(), EXTENSION);
+                Version.LATEST.getBuildVersion(), Version.LATEST.indexLibraryVersion(), EXTENSION);
 
         /**
          * Constructor for Nmslib
@@ -221,6 +222,34 @@ public interface KNNLibrary {
         private Nmslib(Map<String, KNNMethod> methods, Map<SpaceType, Function<Float, Float>> scoreTranslation,
                        String latestLibraryBuildVersion, String latestLibraryVersion, String extension) {
             super(methods, scoreTranslation, latestLibraryBuildVersion, latestLibraryVersion, extension);
+        }
+
+        public enum Version {
+            /**
+             * Latest available nmslib version
+             */
+            V2011("2011"){
+                @Override
+                public String indexLibraryVersion() {
+                    return KNNConstants.JNI_LIBRARY_NAME;
+                }
+            };
+
+            public static final Version LATEST = V2011;
+
+            private String buildVersion;
+
+            Version(String buildVersion) {
+                this.buildVersion = buildVersion;
+            }
+
+            /**
+             * NMS library version used by the KNN codec
+             * @return nmslib name
+             */
+            public abstract String indexLibraryVersion();
+
+            public String getBuildVersion() { return buildVersion; }
         }
     }
 
@@ -241,8 +270,8 @@ public interface KNNLibrary {
         public final static Map<String, MethodComponent> encoderComponents = ImmutableMap.of(
                         KNNConstants.ENCODER_FLAT, MethodComponent.Builder.builder(KNNConstants.ENCODER_FLAT)
                         .setMapGenerator(((methodComponent, methodComponentContext) ->
-                                MethodAsMapBuilder.builder(KNNConstants.ENCODER_FLAT, methodComponent, methodComponentContext.getParameters())
-                                        .build()))
+                                MethodAsMapBuilder.builder(KNNConstants.ENCODER_FLAT, methodComponent,
+                                        methodComponentContext).build()))
                         .build());
 
         // Define methods supported by faiss
@@ -256,7 +285,7 @@ public interface KNNLibrary {
                         .addParameter(METHOD_ENCODER_PARAMETER,
                                 new Parameter.MethodComponentContextParameter(ENCODER_DEFAULT, encoderComponents))
                         .setMapGenerator(((methodComponent, methodComponentContext) ->
-                                MethodAsMapBuilder.builder("HNSW", methodComponent, methodComponentContext.getParameters())
+                                MethodAsMapBuilder.builder("HNSW", methodComponent, methodComponentContext)
                                         .addParameter(METHOD_PARAMETER_M, "", "")
                                         .addParameter(METHOD_ENCODER_PARAMETER, ",", "")
                                         .build()))
@@ -265,7 +294,7 @@ public interface KNNLibrary {
         );
 
         public final static Faiss INSTANCE = new Faiss(METHODS, SCORE_TRANSLATIONS,
-                FaissVersion.LATEST.getBuildVersion(), FaissVersion.LATEST.indexLibraryVersion(),
+                Version.LATEST.getBuildVersion(), Version.LATEST.indexLibraryVersion(),
                 KNNConstants.FAISS_EXTENSION);
 
         /**
@@ -283,61 +312,90 @@ public interface KNNLibrary {
             super(methods, scoreTranslation, latestLibraryBuildVersion, latestLibraryVersion, extension);
         }
 
-        //TODO: Clean a lot
+        /**
+         * MethodAsMap builder is used to create the map that will be passed to the jni to create the faiss index.
+         * Faiss's index factory takes an "index description" that it uses to build the index. In this description,
+         * some parameters of the index can be configured; others need to be manually set. MethodMap builder creates
+         * the index description from a set of parameters and removes them from the map. On build, it sets the index
+         * description in the map and returns the processed map
+         */
         private static class MethodAsMapBuilder {
             String methodDescription;
-            Map<String, Object> parameterMap;
             MethodComponent methodComponent;
+            Map<String, Object> methodAsMap;
 
-            MethodAsMapBuilder(String baseDescription, MethodComponent methodComponent, Map<String, Object> initialParameterMap) {
+            /**
+             * Constructor
+             *
+             * @param baseDescription the basic description this component should start with
+             * @param methodComponent the method component that maps to this builder
+             * @param initialMap the initial parameter map that will be modified
+             */
+            MethodAsMapBuilder(String baseDescription, MethodComponent methodComponent,
+                               Map<String, Object> initialMap) {
                 this.methodDescription = baseDescription;
                 this.methodComponent = methodComponent;
-                this.parameterMap = initialParameterMap;
+                this.methodAsMap = initialMap;
             }
 
+            /**
+             * Add a parameter that will be used in the index description for the given method component
+             *
+             * @param parameterName name of the parameter
+             * @param prefix to append to the index description before the parameter
+             * @param suffix to append to the index description after the parameter
+             * @return this builder
+             */
             MethodAsMapBuilder addParameter(String parameterName, String prefix, String suffix) {
                 methodDescription += prefix;
 
                 Object parameter = methodComponent.getParameters().get(parameterName);
-                Object value = parameterMap.get(parameterName);
+                Object value = methodAsMap.get(parameterName);
 
+                // Recursion is needed if the parameter is a method component context itself.
                 if (parameter instanceof Parameter.MethodComponentContextParameter) {
-                    // Some ugly parsing here
-                    MethodComponentContext methodComponentContext = (MethodComponentContext) value;
-                    MethodComponent methodComponent = ((Parameter.MethodComponentContextParameter) parameter).getMethodComponent(methodComponentContext.getName());
+                    MethodComponentContext subMethodComponentContext = (MethodComponentContext) value;
+                    MethodComponent subMethodComponent = ((Parameter.MethodComponentContextParameter) parameter)
+                            .getMethodComponent(subMethodComponentContext.getName());
 
-                    Map<String, Object> subMethodComponentAsMap = methodComponent.getAsMap(methodComponentContext);
-                    methodDescription += subMethodComponentAsMap.get(KNNConstants.KNN_METHOD);
-                    subMethodComponentAsMap.remove(KNNConstants.KNN_METHOD);
+                    Map<String, Object> subMethodAsMap = subMethodComponent.getAsMap(subMethodComponentContext);
+                    methodDescription += subMethodAsMap.get(KNNConstants.NAME);
+                    subMethodAsMap.remove(KNNConstants.NAME);
 
                     // We replace parameterName with the map that contains only parameters that are not included in
                     // the method description
-                    parameterMap.put(parameterName, subMethodComponentAsMap);
+                    methodAsMap.put(parameterName, subMethodAsMap);
                 } else {
                     // Just add the value to the method description and remove from map
                     methodDescription += value;
-                    parameterMap.remove(parameterName);
+                    methodAsMap.remove(parameterName);
                 }
 
                 methodDescription += suffix;
                 return this;
             }
 
+            /**
+             * Build
+             *
+             * @return Method as a map
+             */
             Map<String, Object> build() {
-                parameterMap.put(KNNConstants.KNN_METHOD, methodDescription);
-                return parameterMap;
+                methodAsMap.put(KNNConstants.NAME, methodDescription);
+                return methodAsMap;
             }
 
             static MethodAsMapBuilder builder(String baseDescription, MethodComponent methodComponent,
-                                              Map<String, Object> initialParameterMap) {
-                return new MethodAsMapBuilder(baseDescription, methodComponent, initialParameterMap);
+                                              MethodComponentContext methodComponentContext) {
+                return new MethodAsMapBuilder(baseDescription, methodComponent,
+                        new HashMap<>(methodComponentContext.getParameters()));
             }
         }
 
         /**
          * Enum containing information about faiss versioning
          */
-        private enum FaissVersion {
+        private enum Version {
 
             /**
              * Latest available nmslib version
@@ -349,11 +407,11 @@ public interface KNNLibrary {
                 }
             };
 
-            static final FaissVersion LATEST = V165;
+            static final Version LATEST = V165;
 
             String buildVersion;
 
-            FaissVersion(String buildVersion) {
+            Version(String buildVersion) {
                 this.buildVersion = buildVersion;
             }
 
