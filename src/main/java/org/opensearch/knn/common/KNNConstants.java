@@ -56,4 +56,6 @@ public class KNNConstants {
 
     public static final String METHOD_ENCODER_PARAMETER = "encoder";
     public static final String ENCODER_FLAT = "Flat";
+
+    public static final String INDEX_DESCRIPTION_PARAMETER = "index_description";
 }

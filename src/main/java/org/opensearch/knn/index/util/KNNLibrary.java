@@ -320,7 +320,7 @@ public interface KNNLibrary {
          * description in the map and returns the processed map
          */
         private static class MethodAsMapBuilder {
-            String methodDescription;
+            String indexDescription;
             MethodComponent methodComponent;
             Map<String, Object> methodAsMap;
 
@@ -333,7 +333,7 @@ public interface KNNLibrary {
              */
             MethodAsMapBuilder(String baseDescription, MethodComponent methodComponent,
                                Map<String, Object> initialMap) {
-                this.methodDescription = baseDescription;
+                this.indexDescription = baseDescription;
                 this.methodComponent = methodComponent;
                 this.methodAsMap = initialMap;
             }
@@ -347,7 +347,7 @@ public interface KNNLibrary {
              * @return this builder
              */
             MethodAsMapBuilder addParameter(String parameterName, String prefix, String suffix) {
-                methodDescription += prefix;
+                indexDescription += prefix;
 
                 Object parameter = methodComponent.getParameters().get(parameterName);
                 Object value = methodAsMap.get(parameterName);
@@ -359,19 +359,19 @@ public interface KNNLibrary {
                             .getMethodComponent(subMethodComponentContext.getName());
 
                     Map<String, Object> subMethodAsMap = subMethodComponent.getAsMap(subMethodComponentContext);
-                    methodDescription += subMethodAsMap.get(KNNConstants.NAME);
-                    subMethodAsMap.remove(KNNConstants.NAME);
+                    indexDescription += subMethodAsMap.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER);
+                    subMethodAsMap.remove(KNNConstants.INDEX_DESCRIPTION_PARAMETER);
 
                     // We replace parameterName with the map that contains only parameters that are not included in
                     // the method description
                     methodAsMap.put(parameterName, subMethodAsMap);
                 } else {
                     // Just add the value to the method description and remove from map
-                    methodDescription += value;
+                    indexDescription += value;
                     methodAsMap.remove(parameterName);
                 }
 
-                methodDescription += suffix;
+                indexDescription += suffix;
                 return this;
             }
 
@@ -381,7 +381,7 @@ public interface KNNLibrary {
              * @return Method as a map
              */
             Map<String, Object> build() {
-                methodAsMap.put(KNNConstants.NAME, methodDescription);
+                methodAsMap.put(KNNConstants.INDEX_DESCRIPTION_PARAMETER, indexDescription);
                 return methodAsMap;
             }
 
