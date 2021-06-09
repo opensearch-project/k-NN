@@ -19,6 +19,8 @@ import org.opensearch.index.mapper.MapperParsingException;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
+import org.apache.commons.lang.builder.EqualsBuilder;
+import org.apache.commons.lang.builder.HashCodeBuilder;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -174,5 +176,26 @@ public class KNNMethodContext implements ToXContentFragment {
         builder.field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
         builder = methodComponent.toXContent(builder, params);
         return builder;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null || getClass() != obj.getClass())
+            return false;
+        KNNMethodContext other = (KNNMethodContext) obj;
+
+        EqualsBuilder equalsBuilder = new EqualsBuilder();
+        equalsBuilder.append(knnEngine, other.knnEngine);
+        equalsBuilder.append(spaceType, other.spaceType);
+        equalsBuilder.append(methodComponent, other.methodComponent);
+
+        return equalsBuilder.isEquals();
+    }
+
+    @Override
+    public int hashCode() {
+        return new HashCodeBuilder().append(knnEngine).append(spaceType).append(methodComponent).toHashCode();
     }
 }
