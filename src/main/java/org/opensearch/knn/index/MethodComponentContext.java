@@ -17,6 +17,8 @@ import org.opensearch.index.mapper.MapperParsingException;
 
 import java.io.IOException;
 import java.util.Map;
+import org.apache.commons.lang.builder.EqualsBuilder;
+import org.apache.commons.lang.builder.HashCodeBuilder;
 
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -95,6 +97,25 @@ public class MethodComponentContext implements ToXContentFragment {
         builder.field(NAME, name);
         builder.field(PARAMETERS, parameters);
         return builder;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null || getClass() != obj.getClass())
+            return false;
+        MethodComponentContext other = (MethodComponentContext) obj;
+
+        EqualsBuilder equalsBuilder = new EqualsBuilder();
+        equalsBuilder.append(name, other.name);
+        equalsBuilder.append(parameters, other.parameters);
+        return equalsBuilder.isEquals();
+    }
+
+    @Override
+    public int hashCode() {
+        return new HashCodeBuilder().append(name).append(parameters).toHashCode();
     }
 
     /**
