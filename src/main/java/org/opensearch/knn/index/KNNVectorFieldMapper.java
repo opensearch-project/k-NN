@@ -357,12 +357,14 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
 
         if (KNNEngine.NMSLIB.equals(knnEngine)) {
+            this.fieldType.putAttribute(SPACE_TYPE, spaceType);
             this.fieldType.putAttribute(KNNConstants.HNSW_ALGO_M, m);
             this.fieldType.putAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, efConstruction);
-            this.fieldType.putAttribute(SPACE_TYPE, spaceType);
         } else {
             // Get the method as a map and serialize to json
             try {
+                assert knnMethod != null;
+                this.fieldType.putAttribute(SPACE_TYPE, knnMethod.getSpaceType().getValue());
                 this.fieldType.putAttribute(PARAMETERS, Strings.toString(XContentFactory.jsonBuilder()
                         .map(knnEngine.getMethodAsMap(knnMethod))));
             } catch (IOException ioe) {

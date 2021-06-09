@@ -75,6 +75,11 @@ public enum KNNEngine implements KNNLibrary {
             return KNNEngine.NMSLIB;
         }
 
+        if (path.endsWith(KNNEngine.FAISS.getExtension())
+                || path.endsWith(KNNEngine.FAISS.getCompoundExtension())) {
+            return KNNEngine.FAISS;
+        }
+
         throw new IllegalArgumentException("No engine matches the path's suffix");
     }
 
