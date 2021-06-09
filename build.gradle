@@ -144,6 +144,7 @@ dependencies {
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
     compile group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
     compile group: 'com.google.guava', name: 'guava', version:'29.0-jre'
+    compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
     testImplementation "org.opensearch.test:framework:${opensearch_version}"
     configurations.all {
         resolutionStrategy {
