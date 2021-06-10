@@ -87,6 +87,13 @@ public class KNNWeight extends Weight {
             String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
 
             FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
+
+            if (fieldInfo == null) {
+                logger.debug("[KNN] Field info not found for {}:{}", knnQuery.getField(),
+                        reader.getSegmentName());
+                return null;
+            }
+
             KNNEngine knnEngine = KNNEngine.getEngine(fieldInfo.getAttribute(KNN_ENGINE));
             SpaceType spaceType = SpaceType.getSpace(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE));
 

@@ -170,7 +170,7 @@ public class KNNMethodContextTests extends KNNTestCase {
         assertEquals(KNNEngine.DEFAULT, knnMethodContext.getEngine());
         assertEquals(SpaceType.DEFAULT, knnMethodContext.getSpaceType());
         assertEquals(methodName, knnMethodContext.getMethodComponent().getName());
-        assertNull(knnMethodContext.getMethodComponent().getParameters());
+        assertTrue(knnMethodContext.getMethodComponent().getParameters().isEmpty());
 
         // Method with parameters
         String methodParameterKey1 = "p-1";

@@ -102,7 +102,7 @@ public class MethodComponentContextTests extends KNNTestCase {
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         MethodComponentContext methodContext = MethodComponentContext.parse(in);
         assertEquals(name, methodContext.getName());
-        assertNull(methodContext.getParameters());
+        assertTrue(methodContext.getParameters().isEmpty());
 
         // Multiple parameters
         String paramKey1 = "p-1";
