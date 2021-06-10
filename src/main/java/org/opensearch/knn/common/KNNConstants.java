@@ -55,7 +55,12 @@ public class KNNConstants {
     public static final String JNI_LIBRARY_NAME = "OpensearchKNN";
 
     public static final String METHOD_ENCODER_PARAMETER = "encoder";
-    public static final String ENCODER_FLAT = "Flat";
+    public static final String ENCODER_FLAT = "flat";
 
     public static final String INDEX_DESCRIPTION_PARAMETER = "index_description";
+
+
+    // Faiss specific constants
+    public static final String FAISS_HNSW_DESCRIPTION = "HNSW";
+    public static final String FAISS_FLAT_DESCRIPTION = "Flat";
 }

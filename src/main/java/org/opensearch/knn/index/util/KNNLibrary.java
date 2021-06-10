@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
@@ -178,6 +179,12 @@ public interface KNNLibrary {
         @Override
         public Map<String, Object> getMethodAsMap(KNNMethodContext knnMethodContext) {
             KNNMethod knnMethod = methods.get(knnMethodContext.getMethodComponent().getName());
+
+            if (knnMethod == null) {
+                throw new IllegalArgumentException("Invalid method name: "
+                        + knnMethodContext.getMethodComponent().getName());
+            }
+
             return knnMethod.getAsMap(knnMethodContext);
         }
     }
@@ -270,13 +277,13 @@ public interface KNNLibrary {
         public final static Map<String, MethodComponent> encoderComponents = ImmutableMap.of(
                         KNNConstants.ENCODER_FLAT, MethodComponent.Builder.builder(KNNConstants.ENCODER_FLAT)
                         .setMapGenerator(((methodComponent, methodComponentContext) ->
-                                MethodAsMapBuilder.builder(KNNConstants.ENCODER_FLAT, methodComponent,
+                                MethodAsMapBuilder.builder(KNNConstants.FAISS_FLAT_DESCRIPTION, methodComponent,
                                         methodComponentContext).build()))
                         .build());
 
         // Define methods supported by faiss
         public final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
-                METHOD_HNSW, KNNMethod.Builder.builder(MethodComponent.Builder.builder("HNSW")
+                METHOD_HNSW, KNNMethod.Builder.builder(MethodComponent.Builder.builder(METHOD_HNSW)
                         .addParameter(METHOD_PARAMETER_M,
                                 new Parameter.IntegerParameter(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0))
                         .addParameter(METHOD_PARAMETER_EF_CONSTRUCTION,
@@ -285,7 +292,7 @@ public interface KNNLibrary {
                         .addParameter(METHOD_ENCODER_PARAMETER,
                                 new Parameter.MethodComponentContextParameter(ENCODER_DEFAULT, encoderComponents))
                         .setMapGenerator(((methodComponent, methodComponentContext) ->
-                                MethodAsMapBuilder.builder("HNSW", methodComponent, methodComponentContext)
+                                MethodAsMapBuilder.builder(FAISS_HNSW_DESCRIPTION, methodComponent, methodComponentContext)
                                         .addParameter(METHOD_PARAMETER_M, "", "")
                                         .addParameter(METHOD_ENCODER_PARAMETER, ",", "")
                                         .build()))
@@ -319,7 +326,7 @@ public interface KNNLibrary {
          * the index description from a set of parameters and removes them from the map. On build, it sets the index
          * description in the map and returns the processed map
          */
-        private static class MethodAsMapBuilder {
+        protected static class MethodAsMapBuilder {
             String indexDescription;
             MethodComponent methodComponent;
             Map<String, Object> methodAsMap;
