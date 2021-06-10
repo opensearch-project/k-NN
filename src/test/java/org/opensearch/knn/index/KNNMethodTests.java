@@ -11,12 +11,16 @@
 
 package org.opensearch.knn.index;
 
+import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.NAME;
@@ -88,6 +92,22 @@ public class KNNMethodTests extends KNNTestCase {
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext3 = KNNMethodContext.parse(in);
         knnMethod.validate(knnMethodContext3);
+    }
+
+    public void testGetAsMap() {
+        SpaceType spaceType = SpaceType.DEFAULT;
+        String methodName = "test-method";
+        Map<String, Object> generatedMap = ImmutableMap.of("test-key", "test-value");
+        MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
+                .setMapGenerator(((methodComponent1, methodComponentContext) -> generatedMap))
+                .build();
+
+        KNNMethod knnMethod = KNNMethod.Builder.builder(methodComponent).build();
+
+        Map<String, Object> expectedMap = new HashMap<>(generatedMap);
+        expectedMap.put(KNNConstants.SPACE_TYPE, spaceType.getValue());
+
+        assertEquals(expectedMap, knnMethod.getAsMap(new KNNMethodContext(KNNEngine.DEFAULT, spaceType, null)));
     }
 
     public void testBuilder() {

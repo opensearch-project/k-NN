@@ -192,6 +192,27 @@ public class KNNMethodContextTests extends KNNTestCase {
                 knnMethodContext.getMethodComponent().getParameters().get(methodParameterKey1));
         assertEquals(methodParameterValue2,
                 knnMethodContext.getMethodComponent().getParameters().get(methodParameterKey2));
+
+        // Method with parameter that is a method context paramet
+
+        // Parameter that is itself a MethodComponentContext
+        xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(NAME, methodName)
+                .startObject(PARAMETERS)
+                .startObject(methodParameterKey1)
+                .field(NAME, methodParameterValue1)
+                .endObject()
+                .field(methodParameterKey2, methodParameterValue2)
+                .endObject()
+                .endObject();
+        in = xContentBuilderToMap(xContentBuilder);
+        knnMethodContext = KNNMethodContext.parse(in);
+
+        assertTrue(knnMethodContext.getMethodComponent().getParameters().get(methodParameterKey1) instanceof MethodComponentContext);
+        assertEquals(methodParameterValue1, ((MethodComponentContext) knnMethodContext.getMethodComponent()
+                .getParameters().get(methodParameterKey1)).getName());
+        assertEquals(methodParameterValue2,
+                knnMethodContext.getMethodComponent().getParameters().get(methodParameterKey2));
     }
 
     /**

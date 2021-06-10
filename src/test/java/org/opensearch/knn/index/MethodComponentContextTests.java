@@ -122,6 +122,24 @@ public class MethodComponentContextTests extends KNNTestCase {
 
         assertEquals(paramVal1, methodContext.getParameters().get(paramKey1));
         assertEquals(paramVal2, methodContext.getParameters().get(paramKey2));
+
+        // Parameter that is itself a MethodComponentContext
+        xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(NAME, name)
+                .startObject(PARAMETERS)
+                .startObject(paramKey1)
+                .field(NAME, paramVal1)
+                .endObject()
+                .field(paramKey2, paramVal2)
+                .endObject()
+                .endObject();
+        in = xContentBuilderToMap(xContentBuilder);
+        methodContext = MethodComponentContext.parse(in);
+
+
+        assertTrue(methodContext.getParameters().get(paramKey1) instanceof MethodComponentContext);
+        assertEquals(paramVal1, ((MethodComponentContext) methodContext.getParameters().get(paramKey1)).getName());
+        assertEquals(paramVal2, methodContext.getParameters().get(paramKey2));
     }
 
     /**

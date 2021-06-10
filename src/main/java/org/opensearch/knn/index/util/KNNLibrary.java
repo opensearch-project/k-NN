@@ -356,8 +356,9 @@ public interface KNNLibrary {
             MethodAsMapBuilder addParameter(String parameterName, String prefix, String suffix) {
                 indexDescription += prefix;
 
-                Object parameter = methodComponent.getParameters().get(parameterName);
-                Object value = methodAsMap.get(parameterName);
+                Parameter<?> parameter = methodComponent.getParameters().get(parameterName);
+                Object value = methodAsMap.containsKey(parameterName) ? methodAsMap.get(parameterName)
+                        : parameter.getDefaultValue();
 
                 // Recursion is needed if the parameter is a method component context itself.
                 if (parameter instanceof Parameter.MethodComponentContextParameter) {

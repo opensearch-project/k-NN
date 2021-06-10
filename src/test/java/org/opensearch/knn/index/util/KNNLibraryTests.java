@@ -12,21 +12,29 @@
 package org.opensearch.knn.index.util;
 
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.MethodComponent;
+import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.Parameter;
 import org.opensearch.knn.index.SpaceType;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.knn.index.util.KNNLibrary.Faiss.MethodAsMapBuilder;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class KNNLibraryTests extends KNNTestCase {
     /**
@@ -145,6 +153,65 @@ public class KNNLibraryTests extends KNNTestCase {
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext2 = KNNMethodContext.parse(in);
         expectThrows(ValidationException.class, ()-> testNativeLibrary2.validateMethod(knnMethodContext2));
+    }
+
+    public void testNativeLibrary_getMethodAsMap() {
+        String methodName = "test-method-1";
+        SpaceType spaceType = SpaceType.DEFAULT;
+        Map<String, Object> generatedMap = ImmutableMap.of("test-key", "test-param");
+        MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
+                .setMapGenerator(((methodComponent1, methodComponentContext) -> generatedMap))
+                .build();
+        KNNMethod knnMethod = KNNMethod.Builder.builder(methodComponent).build();
+
+        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(ImmutableMap.of(methodName, knnMethod),
+                Collections.emptyMap(), "", "", "");
+
+        // Check that map is expected
+        Map<String, Object> expectedMap = new HashMap<>(generatedMap);
+        expectedMap.put(KNNConstants.SPACE_TYPE, spaceType.getValue());
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.DEFAULT, spaceType,
+                new MethodComponentContext(methodName, Collections.emptyMap()));
+        assertEquals(expectedMap, testNativeLibrary.getMethodAsMap(knnMethodContext));
+
+        // Check when invalid method is passed in
+        KNNMethodContext invalidKnnMethodContext = new KNNMethodContext(KNNEngine.DEFAULT, spaceType,
+                new MethodComponentContext("invalid", Collections.emptyMap()));
+        expectThrows(IllegalArgumentException.class, () -> testNativeLibrary.getMethodAsMap(invalidKnnMethodContext));
+    }
+
+    public void testFaiss_methodAsMapBuilder() throws IOException {
+        String methodName = "test-method";
+        String methodDescription = "test-description";
+        String parameter1 = "test-parameter-1";
+        Integer value1 = 10;
+        String parameter2 = "test-parameter-2";
+        Integer value2 = 15;
+        MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
+                .addParameter(parameter1, new Parameter.IntegerParameter(10, value -> value > 0))
+                .addParameter(parameter2, new Parameter.IntegerParameter(15, value -> value > 0))
+                .build();
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(NAME, methodName)
+                .startObject(PARAMETERS)
+                .field(parameter1, value1)
+                .field(parameter2, value2)
+                .endObject()
+                .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        MethodComponentContext methodComponentContext = MethodComponentContext.parse(in);
+
+        Map<String, Object> expectedMap = new HashMap<>(methodComponentContext.getParameters());
+        expectedMap.remove(parameter1);
+        expectedMap.put(INDEX_DESCRIPTION_PARAMETER, methodDescription + value1);
+
+        Map<String, Object> methodAsMap = MethodAsMapBuilder
+                .builder(methodDescription, methodComponent, methodComponentContext)
+                .addParameter(parameter1, "", "")
+                .build();
+
+        assertEquals(expectedMap, methodAsMap);
     }
 
     static class TestNativeLibrary extends KNNLibrary.NativeLibrary {
