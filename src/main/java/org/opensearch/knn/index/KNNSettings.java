@@ -153,7 +153,7 @@ public class KNNSettings {
 
     public static final Setting<Integer> MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING = Setting.intSetting(
             MODEL_INDEX_NUMBER_OF_REPLICAS,
-            0,
+            1,
             0,
             Setting.Property.NodeScope,
             Setting.Property.Dynamic);

@@ -199,7 +199,8 @@ public final class ModelIndex {
         Object blob = getResponse.getSourceAsMap().get(KNNConstants.MODEL_BLOB_PARAMETER);
 
         if (blob == null) {
-            throw new IllegalArgumentException("ModelID: \"" + modelId + "\" is not present in index");
+            throw new IllegalArgumentException("No model available in \"" + MODEL_INDEX_NAME + "\" index with id \""
+                    + modelId + "\".");
         }
 
         return Base64.getDecoder().decode((String) blob);
@@ -207,7 +208,10 @@ public final class ModelIndex {
 
     private String getMapping() throws IOException {
         URL url = ModelIndex.class.getClassLoader().getResource(MODEL_INDEX_MAPPING_PATH);
-        assert url != null;
+        if (url == null) {
+            throw new IllegalStateException("Unable to retrieve mapping for \"" + MODEL_INDEX_NAME + "\"");
+        }
+
         return Resources.toString(url, Charsets.UTF_8);
     }
 
