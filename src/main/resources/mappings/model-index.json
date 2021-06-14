@@ -1,0 +1,10 @@
+{
+  "properties": {
+    "engine": {
+      "type": "keyword"
+    },
+    "model_blob": {
+      "type": "binary"
+    }
+  }
+}
