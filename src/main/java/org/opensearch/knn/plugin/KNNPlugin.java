@@ -31,6 +31,7 @@ import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorFieldMapper;
 
+import org.opensearch.knn.indices.ModelIndex;
 import org.opensearch.knn.plugin.rest.RestKNNStatsHandler;
 import org.opensearch.knn.plugin.rest.RestKNNWarmupHandler;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
@@ -144,6 +145,7 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
         this.clusterService = clusterService;
         KNNIndexCache.setResourceWatcherService(resourceWatcherService);
         KNNSettings.state().initialize(client, clusterService);
+        ModelIndex.initialize(client, clusterService, environment.settings());
         KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService, client);
         knnStats = new KNNStats(KNNStatsConfig.KNN_STATS);
         return ImmutableList.of(knnStats);
