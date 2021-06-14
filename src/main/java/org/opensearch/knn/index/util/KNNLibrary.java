@@ -31,6 +31,7 @@ import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 
 /**
@@ -288,6 +289,9 @@ public interface KNNLibrary {
                                 new Parameter.IntegerParameter(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0))
                         .addParameter(METHOD_PARAMETER_EF_CONSTRUCTION,
                                 new Parameter.IntegerParameter(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
+                                        v -> v > 0))
+                        .addParameter(METHOD_PARAMETER_EF_SEARCH,
+                                new Parameter.IntegerParameter(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
                                         v -> v > 0))
                         .addParameter(METHOD_ENCODER_PARAMETER,
                                 new Parameter.MethodComponentContextParameter(ENCODER_DEFAULT, encoderComponents))
