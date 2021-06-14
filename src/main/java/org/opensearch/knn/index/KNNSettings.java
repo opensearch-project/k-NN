@@ -88,6 +88,8 @@ public class KNNSettings {
     public static final String KNN_PLUGIN_ENABLED = "knn.plugin.enabled";
     public static final String KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE = "knn.circuit_breaker.unset.percentage";
     public static final String KNN_INDEX = "index.knn";
+    public static final String MODEL_INDEX_NUMBER_OF_SHARDS = "knn.model_index_number_of_shards";
+    public static final String MODEL_INDEX_NUMBER_OF_REPLICAS = "knn.model_index_number_of_replicas";
 
     /**
      * Default setting values
@@ -141,6 +143,21 @@ public class KNNSettings {
             2,
             IndexScope,
             Setting.Property.Deprecated);
+
+    public static final Setting<Integer> MODEL_INDEX_NUMBER_OF_SHARDS_SETTING = Setting.intSetting(
+            MODEL_INDEX_NUMBER_OF_SHARDS,
+            1,
+            1,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic);
+
+    public static final Setting<Integer> MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING = Setting.intSetting(
+            MODEL_INDEX_NUMBER_OF_REPLICAS,
+            1,
+            0,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic);
+
 
     /**
      * This setting identifies KNN index.
@@ -291,7 +308,9 @@ public class KNNSettings {
                 KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING,
                 KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING,
                 KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING,
-                IS_KNN_INDEX_SETTING);
+                IS_KNN_INDEX_SETTING,
+                MODEL_INDEX_NUMBER_OF_SHARDS_SETTING,
+                MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING);
         return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream())
                      .collect(Collectors.toList());
     }
