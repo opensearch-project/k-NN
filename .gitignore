@@ -2,8 +2,9 @@ buildSrc/libs
 buildSrc/build/
 .gradle/
 build
-.idea/
+.idea/*
 !.idea/codeStyles/codeStyleConfig.xml
+!.idea/copyright
 .DS_Store
 *.log
 out/
