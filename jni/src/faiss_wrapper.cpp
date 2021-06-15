@@ -12,17 +12,17 @@
 #include "jni_util.h"
 #include "faiss_wrapper.h"
 
+#include "faiss/impl/io.h"
 #include "faiss/index_factory.h"
-#include "faiss/MetaIndexes.h"
 #include "faiss/index_io.h"
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIVFFlat.h"
+#include "faiss/MetaIndexes.h"
 
 #include <algorithm>
 #include <jni.h>
-#include <vector>
 #include <string>
-#include <faiss/impl/io.h>
+#include <vector>
 
 
 // Translate space type to faiss metric

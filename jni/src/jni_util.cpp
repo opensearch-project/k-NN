@@ -413,5 +413,9 @@ const std::string knn_jni::NEG_DOT_PRODUCT = "negdotprod";
 
 const std::string knn_jni::NPROBES = "nprobes";
 const std::string knn_jni::COARSE_QUANTIZER = "coarse_quantizer";
+const std::string knn_jni::M = "m";
+const std::string knn_jni::M_NMSLIB = "M";
 const std::string knn_jni::EF_CONSTRUCTION = "ef_construction";
+const std::string knn_jni::EF_CONSTRUCTION_NMSLIB = "efConstruction";
 const std::string knn_jni::EF_SEARCH = "ef_search";
+
