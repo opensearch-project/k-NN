@@ -174,7 +174,10 @@ namespace knn_jni {
 
     extern const std::string NPROBES;
     extern const std::string COARSE_QUANTIZER;
+    extern const std::string M;
+    extern const std::string M_NMSLIB;
     extern const std::string EF_CONSTRUCTION;
+    extern const std::string EF_CONSTRUCTION_NMSLIB;
     extern const std::string EF_SEARCH;
 
     // --------------------------------------------------------------------------
