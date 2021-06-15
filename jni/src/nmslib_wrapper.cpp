@@ -12,9 +12,6 @@
 #include "jni_util.h"
 #include "nmslib_wrapper.h"
 
-#include <jni.h>
-#include <string>
-
 #include "init.h"
 #include "index.h"
 #include "params.h"
@@ -24,17 +21,9 @@
 #include "spacefactory.h"
 #include "space.h"
 
+#include <jni.h>
+#include <string>
 
-struct IndexWrapper {
-    explicit IndexWrapper(const string& spaceType) {
-        // Index gets constructed with a reference to data (see above) but is otherwise unused
-        similarity::ObjectVector data;
-        space.reset(similarity::SpaceFactoryRegistry<float>::Instance().CreateSpace(spaceType, similarity::AnyParams()));
-        index.reset(similarity::MethodFactoryRegistry<float>::Instance().CreateMethod(false, "hnsw", spaceType, *space, data));
-    }
-    std::unique_ptr<similarity::Space<float>> space;
-    std::unique_ptr<similarity::Index<float>> index;
-};
 
 std::string TranslateSpaceType(const std::string& spaceType);
 
@@ -60,14 +49,14 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, J
     // Handle parameters
     auto parametersCpp = jniUtil->ConvertJavaMapToCppMap(env, parametersJ);
     std::vector<std::string> indexParameters;
-    if(parametersCpp.find("ef_construction") != parametersCpp.end()) {
-        auto efConstruction = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp["ef_construction"]);
-        indexParameters.push_back("efConstruction=" + std::to_string(efConstruction));
+    if(parametersCpp.find(knn_jni::EF_CONSTRUCTION) != parametersCpp.end()) {
+        auto efConstruction = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::EF_CONSTRUCTION]);
+        indexParameters.push_back(knn_jni::EF_CONSTRUCTION_NMSLIB + "=" + std::to_string(efConstruction));
     }
 
-    if(parametersCpp.find("m") != parametersCpp.end()) {
-        auto m = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp["m"]);
-        indexParameters.push_back("M=" + std::to_string(m));
+    if(parametersCpp.find(knn_jni::M) != parametersCpp.end()) {
+        auto m = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::M]);
+        indexParameters.push_back(knn_jni::M_NMSLIB + "=" + std::to_string(m));
     }
     jniUtil->DeleteLocalRef(env, parametersJ);
 
@@ -160,9 +149,9 @@ jlong knn_jni::nmslib_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JN
     }
 
     // Load index
-    IndexWrapper * indexWrapper;
+    knn_jni::nmslib_wrapper::IndexWrapper * indexWrapper;
     try {
-        indexWrapper = new IndexWrapper(spaceTypeCpp);
+        indexWrapper = new knn_jni::nmslib_wrapper::IndexWrapper(spaceTypeCpp);
         indexWrapper->index->LoadIndex(indexPathCpp);
         indexWrapper->index->SetQueryTimeParams(similarity::AnyParams(queryParams));
     } catch (...) {
@@ -184,7 +173,7 @@ jobjectArray knn_jni::nmslib_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jni
         throw std::runtime_error("Invalid pointer to index");
     }
 
-    auto *indexWrapper = reinterpret_cast<IndexWrapper*>(indexPointerJ);
+    auto *indexWrapper = reinterpret_cast<knn_jni::nmslib_wrapper::IndexWrapper*>(indexPointerJ);
 
     int dim	= jniUtil->GetJavaFloatArrayLength(env, queryVectorJ);
 
@@ -223,7 +212,7 @@ jobjectArray knn_jni::nmslib_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jni
 }
 
 void knn_jni::nmslib_wrapper::Free(jlong indexPointerJ) {
-    auto *indexWrapper = reinterpret_cast<IndexWrapper*>(indexPointerJ);
+    auto *indexWrapper = reinterpret_cast<knn_jni::nmslib_wrapper::IndexWrapper*>(indexPointerJ);
     delete indexWrapper;
 }
 
