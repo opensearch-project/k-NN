@@ -153,7 +153,7 @@ dependencies {
     }
 }
 
-licenseHeaders.enabled = false
+licenseHeaders.enabled = true
 dependencyLicenses.enabled = false
 thirdPartyAudit.enabled = false
 loggerUsageCheck.enabled = false
