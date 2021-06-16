@@ -101,7 +101,10 @@ public class KNNSettings {
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION = 512;
     public static final Integer KNN_DEFAULT_ALGO_PARAM_INDEX_THREAD_QTY = 1;
     public static final Integer KNN_DEFAULT_CIRCUIT_BREAKER_UNSET_PERCENTAGE = 75;
-    public static final Integer KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES = 10000;
+    public static final Integer KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES = 100000; // 100 Kb
+    public static final Integer KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES = 80000000; // 80 Mb
+    public static final Integer KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES = 0; // 80 Mb
+
 
     /**
      * Settings Definition
@@ -160,12 +163,24 @@ public class KNNSettings {
             Setting.Property.NodeScope,
             Setting.Property.Dynamic);
 
-    public static final Setting<Long> MODEL_CACHE_SIZE_IN_BYTES_SETTING = Setting.longSetting(
-            MODEL_CACHE_SIZE_IN_BYTES,
-            KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES,
-            0,
-            Setting.Property.NodeScope,
-            Setting.Property.Dynamic);
+    public static final Setting<Long> MODEL_CACHE_SIZE_IN_BYTES_SETTING = new Setting<>(MODEL_CACHE_SIZE_IN_BYTES,
+            (s) -> Long.toString(KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES),
+            (s) -> {
+                    long value = Long.parseLong(s);
+                    if (value < KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES) {
+                        String err = "Failed to parse value for setting [" + KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES
+                                + "] must be >= " + KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES;
+                        throw new IllegalArgumentException(err);
+                    }
+
+                    if (value > KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES) {
+                        String err = "Failed to parse value for setting [" + KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES
+                                + "] must be < " + KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES;
+                        throw new IllegalArgumentException(err);
+                    }
+
+                    return value;
+                }, Setting.Property.NodeScope,  Setting.Property.Dynamic);
 
     /**
      * This setting identifies KNN index.
