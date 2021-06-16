@@ -26,9 +26,9 @@ public final class ModelCache {
 
     private static Logger logger = LogManager.getLogger(ModelCache.class);
 
-    private static ModelCache INSTANCE;
-    private static ModelDao MODEL_DAO;
-    private static ClusterService CLUSTER_SERVICE;
+    private static ModelCache instance;
+    private static ModelDao modelDao;
+    private static ClusterService clusterService;
 
     private Cache<String, byte[]> cache;
     private long cacheSizeInBytes;
@@ -39,10 +39,10 @@ public final class ModelCache {
      * @return singleton instance of cache
      */
     public static synchronized ModelCache getInstance() {
-        if (INSTANCE == null) {
-            INSTANCE = new ModelCache();
+        if (instance == null) {
+            instance = new ModelCache();
         }
-        return INSTANCE;
+        return instance;
     }
 
     /**
@@ -52,8 +52,8 @@ public final class ModelCache {
      * @param clusterService used to update settings
      */
     public static void initialize(ModelDao modelDao, ClusterService clusterService) {
-        ModelCache.MODEL_DAO = modelDao;
-        ModelCache.CLUSTER_SERVICE = clusterService;
+        ModelCache.modelDao = modelDao;
+        ModelCache.clusterService = clusterService;
     }
 
     /**
@@ -65,8 +65,8 @@ public final class ModelCache {
     }
 
     protected ModelCache() {
-        cacheSizeInBytes = MODEL_CACHE_SIZE_IN_BYTES_SETTING.get(CLUSTER_SERVICE.getSettings());
-        CLUSTER_SERVICE.getClusterSettings().addSettingsUpdateConsumer(MODEL_CACHE_SIZE_IN_BYTES_SETTING, it -> {
+        cacheSizeInBytes = MODEL_CACHE_SIZE_IN_BYTES_SETTING.get(clusterService.getSettings());
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MODEL_CACHE_SIZE_IN_BYTES_SETTING, it -> {
             cacheSizeInBytes = it;
             rebuild();
         });
@@ -91,7 +91,7 @@ public final class ModelCache {
      */
     public byte[] get(String modelId) {
         try {
-            return cache.get(modelId, () -> MODEL_DAO.get(modelId));
+            return cache.get(modelId, () -> modelDao.get(modelId));
         } catch (ExecutionException ee) {
             throw new IllegalStateException("Unable to retrieve model blob for \"" + modelId + "\": " + ee);
         }

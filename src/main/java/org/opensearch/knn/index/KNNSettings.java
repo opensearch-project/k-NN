@@ -167,15 +167,10 @@ public class KNNSettings {
             (s) -> Long.toString(KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES),
             (s) -> {
                     long value = Long.parseLong(s);
-                    if (value < KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES) {
+                    if (value < KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES || value > KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES) {
                         String err = "Failed to parse value for setting [" + KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES
-                                + "] must be >= " + KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES;
-                        throw new IllegalArgumentException(err);
-                    }
-
-                    if (value > KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES) {
-                        String err = "Failed to parse value for setting [" + KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES
-                                + "] must be < " + KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES;
+                                + "] must be >= " + KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES + " and < "
+                                + KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES;
                         throw new IllegalArgumentException(err);
                     }
 
