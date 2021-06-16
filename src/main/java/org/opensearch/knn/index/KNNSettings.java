@@ -103,7 +103,7 @@ public class KNNSettings {
     public static final Integer KNN_DEFAULT_CIRCUIT_BREAKER_UNSET_PERCENTAGE = 75;
     public static final Integer KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES = 100000; // 100 Kb
     public static final Integer KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES = 80000000; // 80 Mb
-    public static final Integer KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES = 0; // 80 Mb
+    public static final Integer KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES = 0;
 
 
     /**
@@ -333,7 +333,8 @@ public class KNNSettings {
                 KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING,
                 IS_KNN_INDEX_SETTING,
                 MODEL_INDEX_NUMBER_OF_SHARDS_SETTING,
-                MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING);
+                MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
+                MODEL_CACHE_SIZE_IN_BYTES_SETTING);
         return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream())
                      .collect(Collectors.toList());
     }
