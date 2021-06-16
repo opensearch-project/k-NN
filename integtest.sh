@@ -35,7 +35,7 @@ while getopts ":hb:p:s:c:" arg; do
         s)
             SECURITY_ENABLED=$OPTARG
             ;;
-        p)
+        c)
             CREDENTIAL=$OPTARG
             ;;
         :)
