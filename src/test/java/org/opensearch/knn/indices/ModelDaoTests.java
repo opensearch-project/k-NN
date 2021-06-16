@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
 import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 
-public class ModelIndexTests extends KNNSingleNodeTestCase {
+public class ModelDaoTests extends KNNSingleNodeTestCase {
 
     public void testCreate() throws IOException, InterruptedException {
         int attempts = 20;
@@ -51,24 +51,24 @@ public class ModelIndexTests extends KNNSingleNodeTestCase {
             inProgressLatch.countDown();
         });
 
-        ModelIndex modelIndex = ModelIndex.getInstance();
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
 
         for (int i = 0; i < attempts; i++) {
-            modelIndex.create(indexCreationListener);
+            modelDao.create(indexCreationListener);
         }
 
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
     public void testExists() {
-        ModelIndex modelIndex = ModelIndex.getInstance();
-        assertFalse(modelIndex.isCreated());
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
+        assertFalse(modelDao.isCreated());
         createIndex(MODEL_INDEX_NAME);
-        assertTrue(modelIndex.isCreated());
+        assertTrue(modelDao.isCreated());
     }
 
     public void testPut_withId() throws InterruptedException {
-        ModelIndex modelIndex = ModelIndex.getInstance();
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
         String modelId = "efbsdhcvbsd";
         byte [] modelBlob = "hello".getBytes();
 
@@ -82,7 +82,7 @@ public class ModelIndexTests extends KNNSingleNodeTestCase {
             inProgressLatch1.countDown();
         }, exception -> fail("Unable to put the model: " + exception));
 
-        modelIndex.put(modelId, KNNEngine.DEFAULT, modelBlob, docCreationListener);
+        modelDao.put(modelId, KNNEngine.DEFAULT, modelBlob, docCreationListener);
 
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 
@@ -97,12 +97,12 @@ public class ModelIndexTests extends KNNSingleNodeTestCase {
                     inProgressLatch2.countDown();
         });
 
-        modelIndex.put(modelId, KNNEngine.DEFAULT, modelBlob, docCreationListenerDuplicateId);
+        modelDao.put(modelId, KNNEngine.DEFAULT, modelBlob, docCreationListenerDuplicateId);
         assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
     }
 
     public void testPut_withoutId() throws InterruptedException {
-        ModelIndex modelIndex = ModelIndex.getInstance();
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
         byte [] modelBlob = "hello".getBytes();
 
         createIndex(MODEL_INDEX_NAME);
@@ -115,34 +115,34 @@ public class ModelIndexTests extends KNNSingleNodeTestCase {
                 },
                 exception -> fail("Unable to put the model: " + exception));
 
-        modelIndex.put(KNNEngine.DEFAULT, modelBlob, docCreationListenerNoModelId);
+        modelDao.put(KNNEngine.DEFAULT, modelBlob, docCreationListenerNoModelId);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
     public void testGet() throws IOException, InterruptedException, ExecutionException {
-        ModelIndex modelIndex = ModelIndex.getInstance();
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
         String modelId = "efbsdhcvbsd";
         byte[] modelBlob = "hello".getBytes();
 
         // model index doesnt exist
-        expectThrows(IllegalStateException.class, () -> modelIndex.get(modelId));
+        expectThrows(IllegalStateException.class, () -> modelDao.get(modelId));
 
         // model id doesnt exist
         createIndex(MODEL_INDEX_NAME);
-        expectThrows(Exception.class, () -> modelIndex.get(modelId));
+        expectThrows(Exception.class, () -> modelDao.get(modelId));
 
         // model id exists
         addDoc(modelId, modelBlob);
-        assertArrayEquals(modelBlob, modelIndex.get(modelId));
+        assertArrayEquals(modelBlob, modelDao.get(modelId));
     }
 
     public void testDelete() throws IOException, InterruptedException, ExecutionException {
-        ModelIndex modelIndex = ModelIndex.getInstance();
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
         String modelId = "efbsdhcvbsd";
         byte[] modelBlob = "hello".getBytes();
 
         // model index doesnt exist
-        expectThrows(IllegalStateException.class, () -> modelIndex.delete(modelId, null));
+        expectThrows(IllegalStateException.class, () -> modelDao.delete(modelId, null));
 
         // model id doesnt exist
         createIndex(MODEL_INDEX_NAME);
@@ -153,7 +153,7 @@ public class ModelIndexTests extends KNNSingleNodeTestCase {
             inProgressLatch1.countDown();
         }, exception -> fail("Unable to delete the model: " + exception));
 
-        modelIndex.delete(modelId, deleteModelDoesNotExistListener);
+        modelDao.delete(modelId, deleteModelDoesNotExistListener);
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 
         // model id exists
@@ -165,7 +165,7 @@ public class ModelIndexTests extends KNNSingleNodeTestCase {
             inProgressLatch2.countDown();
         }, exception -> fail("Unable to delete model: " + exception));
 
-        modelIndex.delete(modelId, deleteModelExistsListener);
+        modelDao.delete(modelId, deleteModelExistsListener);
         assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
     }
 
