@@ -64,25 +64,36 @@ public class VectorReader {
     public void read(String indexName, String fieldName, int maxVectorCount, int searchSize,
                      Consumer<List<Float[]>> vectorConsumer, ActionListener<SearchResponse> listener) {
 
+        ValidationException validationException = null;
+
         // Validate arguments
         if (maxVectorCount <= 0) {
-            throw new ValidationException();
+            validationException = new ValidationException();
+            validationException.addValidationError("maxVectorCount must be >= 0");
         }
 
         if (searchSize > 10000 || searchSize <= 0) {
-            throw new ValidationException();
+            validationException = validationException == null ? new ValidationException() : validationException;
+            validationException.addValidationError("searchSize must be > 0 and <= 10000");
         }
 
         IndexMetadata indexMetadata = indicesService.clusterService().state().metadata().index(indexName);
         if (indexMetadata == null) {
-            throw new ValidationException();
+            validationException = validationException == null ? new ValidationException() : validationException;
+            validationException.addValidationError("index \"" + indexName + "\" does not exist");
+            throw validationException;
         }
 
         MappedFieldType fieldType = indicesService.indexServiceSafe(indexMetadata.getIndex()).mapperService()
                 .fieldType(fieldName);
 
         if (!(fieldType instanceof KNNVectorFieldMapper.KNNVectorFieldType)) {
-            throw new ValidationException();
+            validationException = validationException == null ? new ValidationException() : validationException;
+            validationException.addValidationError("field \"" + fieldName + "\" must be of type KNNVectorFieldType");
+        }
+
+        if (validationException != null) {
+            throw validationException;
         }
 
         // Start reading vectors from index
@@ -117,7 +128,7 @@ public class VectorReader {
             // Do something with the vectors
             vectorConsumer.accept(trainingData);
 
-            if (vectorsToAdd == 0 || updatedVectorCount >= maxVectorCount) {
+            if (vectorsToAdd <= 0 || updatedVectorCount >= maxVectorCount) {
                 listener.onResponse(searchResponse);
             } else {
                 ActionListener<SearchResponse> vectorReaderListener = getVectorReaderListener(fieldName, maxVectorCount,
