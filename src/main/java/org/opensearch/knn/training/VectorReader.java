@@ -97,11 +97,10 @@ public class VectorReader {
             throw validationException;
         }
 
-        // Start reading vectors from index. Initially, set scrollId to empty string because it will be updated with
-        // the relevant scroll id after the search response if returned
+        // Start reading vectors from index
         SearchScrollRequestBuilder searchScrollRequestBuilder = createSearchScrollRequestBuilder();
 
-        ActionListener<SearchResponse> vectorReaderListener = new VectorReaderListener(fieldName,
+        ActionListener<SearchResponse> vectorReaderListener = new VectorReaderListener(client, fieldName,
                 maxVectorCount, 0, listener, vectorConsumer, searchScrollRequestBuilder);
 
         createSearchRequestBuilder(indexName, fieldName, Integer.min(maxVectorCount, searchSize))
@@ -124,18 +123,19 @@ public class VectorReader {
     }
 
     private SearchScrollRequestBuilder createSearchScrollRequestBuilder() {
-        SearchScrollRequestBuilder searchScrollRequestBuilder = client.prepareSearchScroll("");
+        SearchScrollRequestBuilder searchScrollRequestBuilder = client.prepareSearchScroll(null);
         searchScrollRequestBuilder.setScroll(scrollTime);
         return searchScrollRequestBuilder;
     }
 
     private static class VectorReaderListener implements ActionListener<SearchResponse> {
 
-        String fieldName;
+        final Client client;
+        final String fieldName;
         final int maxVectorCount;
         int collectedVectorCount;
-        ActionListener<SearchResponse> listener;
-        Consumer<List<Float[]>> vectorConsumer;
+        final ActionListener<SearchResponse> listener;
+        final Consumer<List<Float[]>> vectorConsumer;
         SearchScrollRequestBuilder searchScrollRequestBuilder;
 
         /**
@@ -148,9 +148,10 @@ public class VectorReader {
          * @param vectorConsumer Consumer used to do something with the vectors
          * @param searchScrollRequestBuilder Search scroll request builder used to get next set of vectors
          */
-        public VectorReaderListener(String fieldName, int maxVectorCount, int collectedVectorCount,
+        public VectorReaderListener(Client client, String fieldName, int maxVectorCount, int collectedVectorCount,
                                     ActionListener<SearchResponse> listener, Consumer<List<Float[]>> vectorConsumer,
                                     SearchScrollRequestBuilder searchScrollRequestBuilder) {
+            this.client = client;
             this.fieldName = fieldName;
             this.maxVectorCount = maxVectorCount;
             this.collectedVectorCount = collectedVectorCount;
@@ -181,7 +182,18 @@ public class VectorReader {
             vectorConsumer.accept(trainingData);
 
             if (vectorsToAdd <= 0 || this.collectedVectorCount >= maxVectorCount) {
-                listener.onResponse(searchResponse);
+                // Clear scroll context
+                String scrollId = searchResponse.getScrollId();
+
+                if (scrollId != null) {
+                    client.prepareClearScroll().addScrollId(scrollId).execute(ActionListener.wrap(
+                            clearScrollResponse -> listener.onResponse(searchResponse),
+                            listener::onFailure)
+                    );
+                } else {
+                    listener.onResponse(searchResponse);
+                }
+
             } else {
                 // Create a new search that starts where the last search left off
                 searchScrollRequestBuilder.setScrollId(searchResponse.getScrollId());
@@ -191,7 +203,17 @@ public class VectorReader {
 
         @Override
         public void onFailure(Exception e) {
-            listener.onFailure(e);
+            // Clear scroll context
+            String scrollId = searchScrollRequestBuilder.request().scrollId();
+
+            if (scrollId != null) {
+                client.prepareClearScroll().addScrollId(scrollId).execute(ActionListener.wrap(
+                        clearScrollResponse -> listener.onFailure(e),
+                        listener::onFailure)
+                );
+            } else {
+                listener.onFailure(e);
+            }
         }
     }
 }
