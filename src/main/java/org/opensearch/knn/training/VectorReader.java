@@ -97,48 +97,15 @@ public class VectorReader {
             throw validationException;
         }
 
-        // Start reading vectors from index
-        ActionListener<SearchResponse> vectorReaderListener = getVectorReaderListener(fieldName,
-                maxVectorCount, 0, vectorConsumer, listener);
+        // Start reading vectors from index. Initially, set scrollId to empty string because it will be updated with
+        // the relevant scroll id after the search response if returned
+        SearchScrollRequestBuilder searchScrollRequestBuilder = createSearchScrollRequestBuilder();
+
+        ActionListener<SearchResponse> vectorReaderListener = new VectorReaderListener(fieldName,
+                maxVectorCount, 0, listener, vectorConsumer, searchScrollRequestBuilder);
 
         createSearchRequestBuilder(indexName, fieldName, Integer.min(maxVectorCount, searchSize))
                 .execute(vectorReaderListener);
-    }
-
-    @SuppressWarnings("unchecked")
-    private ActionListener<SearchResponse> getVectorReaderListener(String fieldName,
-                                                                   final int maxVectorCount,
-                                                                   final int collectedVectorCount,
-                                                                   Consumer<List<Float[]>> vectorConsumer,
-                                                                   ActionListener<SearchResponse> listener) {
-        return ActionListener.wrap(searchResponse -> {
-            // Get the vectors from the search response
-            // Either add the entire set of returned hits, or maxVectorCount - collectedVectorCount hits
-            SearchHit[] hits = searchResponse.getHits().getHits();
-            int vectorsToAdd = Integer.min(maxVectorCount - collectedVectorCount, hits.length);
-            List<Float[]> trainingData = new ArrayList<>();
-
-            for (int i = 0; i < vectorsToAdd; i++) {
-                trainingData.add(((List<Double>) hits[i].getSourceAsMap().get(fieldName)).stream()
-                        .map(Double::floatValue)
-                        .toArray(Float[]::new));
-            }
-
-            final int updatedVectorCount = collectedVectorCount + trainingData.size();
-
-            // Do something with the vectors
-            vectorConsumer.accept(trainingData);
-
-            if (vectorsToAdd <= 0 || updatedVectorCount >= maxVectorCount) {
-                listener.onResponse(searchResponse);
-            } else {
-                ActionListener<SearchResponse> vectorReaderListener = getVectorReaderListener(fieldName, maxVectorCount,
-                        updatedVectorCount, vectorConsumer, listener);
-
-                // Create a new search that starts where the last search left off
-                createSearchScrollRequestBuilder(searchResponse).execute(vectorReaderListener);
-            }
-        }, listener::onFailure);
     }
 
     private SearchRequestBuilder createSearchRequestBuilder(String indexName, String fieldName, int resultSize) {
@@ -156,9 +123,75 @@ public class VectorReader {
         return searchRequestBuilder;
     }
 
-    private SearchScrollRequestBuilder createSearchScrollRequestBuilder(SearchResponse searchResponse) {
-        SearchScrollRequestBuilder searchScrollRequestBuilder = client.prepareSearchScroll(searchResponse.getScrollId());
+    private SearchScrollRequestBuilder createSearchScrollRequestBuilder() {
+        SearchScrollRequestBuilder searchScrollRequestBuilder = client.prepareSearchScroll("");
         searchScrollRequestBuilder.setScroll(scrollTime);
         return searchScrollRequestBuilder;
+    }
+
+    private static class VectorReaderListener implements ActionListener<SearchResponse> {
+
+        String fieldName;
+        final int maxVectorCount;
+        int collectedVectorCount;
+        ActionListener<SearchResponse> listener;
+        Consumer<List<Float[]>> vectorConsumer;
+        SearchScrollRequestBuilder searchScrollRequestBuilder;
+
+        /**
+         * Constructor
+         *
+         * @param fieldName name of field to read vectors from
+         * @param maxVectorCount maximum total number of vectors that should be read from scroll queries
+         * @param collectedVectorCount number of vectors that have already been collected
+         * @param listener Search Response listener to be called when all queries complete
+         * @param vectorConsumer Consumer used to do something with the vectors
+         * @param searchScrollRequestBuilder Search scroll request builder used to get next set of vectors
+         */
+        public VectorReaderListener(String fieldName, int maxVectorCount, int collectedVectorCount,
+                                    ActionListener<SearchResponse> listener, Consumer<List<Float[]>> vectorConsumer,
+                                    SearchScrollRequestBuilder searchScrollRequestBuilder) {
+            this.fieldName = fieldName;
+            this.maxVectorCount = maxVectorCount;
+            this.collectedVectorCount = collectedVectorCount;
+            this.listener = listener;
+            this.vectorConsumer = vectorConsumer;
+            this.searchScrollRequestBuilder = searchScrollRequestBuilder;
+        }
+
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public void onResponse(SearchResponse searchResponse) {
+            // Get the vectors from the search response
+            // Either add the entire set of returned hits, or maxVectorCount - collectedVectorCount hits
+            SearchHit[] hits = searchResponse.getHits().getHits();
+            int vectorsToAdd = Integer.min(maxVectorCount - collectedVectorCount, hits.length);
+            List<Float[]> trainingData = new ArrayList<>();
+
+            for (int i = 0; i < vectorsToAdd; i++) {
+                trainingData.add(((List<Double>) hits[i].getSourceAsMap().get(fieldName)).stream()
+                        .map(Double::floatValue)
+                        .toArray(Float[]::new));
+            }
+
+            this.collectedVectorCount += trainingData.size();
+
+            // Do something with the vectors
+            vectorConsumer.accept(trainingData);
+
+            if (vectorsToAdd <= 0 || this.collectedVectorCount >= maxVectorCount) {
+                listener.onResponse(searchResponse);
+            } else {
+                // Create a new search that starts where the last search left off
+                searchScrollRequestBuilder.setScrollId(searchResponse.getScrollId());
+                searchScrollRequestBuilder.execute(this);
+            }
+        }
+
+        @Override
+        public void onFailure(Exception e) {
+            listener.onFailure(e);
+        }
     }
 }
