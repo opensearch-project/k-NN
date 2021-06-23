@@ -26,6 +26,7 @@ import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.indices.IndicesService;
 import org.opensearch.knn.index.KNNVectorFieldMapper;
 import org.opensearch.search.SearchHit;
+import org.opensearch.search.sort.SortOrder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -147,6 +148,7 @@ public class VectorReader {
         searchRequestBuilder.setScroll(scrollTime);
         searchRequestBuilder.setQuery(queryBuilder);
         searchRequestBuilder.setSize(resultSize);
+        searchRequestBuilder.addSort("_doc", SortOrder.ASC);
 
         // We are only interested in reading vectors from a particular field
         searchRequestBuilder.setFetchSource(fieldName, null);
