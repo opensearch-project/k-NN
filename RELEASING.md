@@ -33,4 +33,3 @@ Repositories create consistent release labels, such as `v1.0.0`, `v1.1.0` and `v
 
 The release process is standard across repositories in this org and is run by a release manager volunteering from amongst [MAINTAINERS](MAINTAINERS.md).
 
-TODO
