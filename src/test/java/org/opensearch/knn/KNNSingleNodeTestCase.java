@@ -120,6 +120,24 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
     }
 
     /**
+     * Add any document to index
+     */
+    protected void addDoc(String index, String docId, String fieldName, String dummyValue)
+            throws IOException, InterruptedException, ExecutionException {
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
+                .field(fieldName, dummyValue)
+                .endObject();
+        IndexRequest indexRequest = new IndexRequest()
+                .index(index)
+                .id(docId)
+                .source(builder)
+                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+
+        IndexResponse response = client().index(indexRequest).get();
+        assertEquals(response.status(), RestStatus.CREATED);
+    }
+
+    /**
      * Run a search against a k-NN index
      */
     protected void searchKNNIndex(String index, String fieldName, float[] vector, int k) {
