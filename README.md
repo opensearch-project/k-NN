@@ -1,4 +1,5 @@
 [![Build and Test k-NN](https://github.com/opensearch-project/k-NN/actions/workflows/CI.yml/badge.svg)](https://github.com/opensearch-project/k-NN/actions/workflows/CI.yml)
+[![codecov](https://codecov.io/gh/opensearch-project/k-NN/branch/main/graph/badge.svg?token=PYQO2GW39S)](https://codecov.io/gh/opensearch-project/k-NN)
 [![Documentation](https://img.shields.io/badge/doc-reference-blue)](https://docs-beta.opensearch.org/search-plugins/knn/index/)
 [![Chat](https://img.shields.io/badge/chat-on%20forums-blue)](https://discuss.opendistrocommunity.dev/c/k-NN/)
 ![PRs welcome!](https://img.shields.io/badge/PRs-welcome!-success)
