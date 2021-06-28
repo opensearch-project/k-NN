@@ -17,6 +17,8 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.concurrent.ExecutionException;
 
@@ -28,7 +30,7 @@ public class ModelCacheTests extends KNNTestCase {
 
     public void testGet_normal() throws ExecutionException, InterruptedException {
         String modelId = "test-model-id";
-        byte[] mockModel = "hello".getBytes();
+        Model mockModel = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, "hello".getBytes());
         long cacheSize = 100L;
 
         ModelDao modelDao = mock(ModelDao.class);
@@ -44,13 +46,14 @@ public class ModelCacheTests extends KNNTestCase {
         ModelCache.initialize(modelDao, clusterService);
         ModelCache modelCache = new ModelCache();
 
-        assertArrayEquals(mockModel, modelCache.get(modelId));
+        assertEquals(mockModel, modelCache.get(modelId));
     }
 
     public void testGet_modelDoesNotFitInCache() throws ExecutionException, InterruptedException {
         String modelId = "test-model-id";
         long cacheSize = 500;
-        byte[] mockModel = new byte[Long.valueOf(cacheSize).intValue() + 1];
+        Model mockModel = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT,
+                new byte[Long.valueOf(cacheSize).intValue() + 1]);
 
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId)).thenReturn(mockModel);
@@ -65,7 +68,7 @@ public class ModelCacheTests extends KNNTestCase {
         ModelCache.initialize(modelDao, clusterService);
         ModelCache modelCache = new ModelCache();
 
-        assertArrayEquals(mockModel, modelCache.get(modelId));
+        assertEquals(mockModel, modelCache.get(modelId));
         assertFalse(modelCache.contains(modelId));
     }
 
@@ -95,9 +98,9 @@ public class ModelCacheTests extends KNNTestCase {
         long cacheSize = 500L;
 
         int size1 = 100;
-        byte[] mockModel1 = new byte[size1];
+        Model mockModel1 = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT,  new byte[size1]);
         int size2 = 300;
-        byte[] mockModel2 = new byte[size2];
+        Model mockModel2 = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, new byte[size2]);
 
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId1)).thenReturn(mockModel1);
@@ -128,9 +131,9 @@ public class ModelCacheTests extends KNNTestCase {
         long cacheSize = 500L;
 
         int size1 = 100;
-        byte[] mockModel1 = new byte[size1];
+        Model mockModel1 = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT,  new byte[size1]);
         int size2 = 300;
-        byte[] mockModel2 = new byte[size2];
+        Model mockModel2 = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, new byte[size2]);
 
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId1)).thenReturn(mockModel1);
@@ -165,7 +168,7 @@ public class ModelCacheTests extends KNNTestCase {
     public void testRebuild_normal() throws ExecutionException, InterruptedException {
         String modelId = "test-model-id";
         long cacheSize = 100L;
-        byte[] mockModel = "hello".getBytes();
+        Model mockModel = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, "hello".getBytes());
 
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId)).thenReturn(mockModel);
@@ -182,7 +185,7 @@ public class ModelCacheTests extends KNNTestCase {
 
         // Add element to cache - nothing should be kept
         modelCache.get(modelId);
-        assertEquals(mockModel.length, modelCache.getTotalWeight());
+        assertEquals(mockModel.getModelBlob().length, modelCache.getTotalWeight());
 
         // Rebuild and make sure cache is empty
         modelCache.rebuild();
@@ -190,14 +193,14 @@ public class ModelCacheTests extends KNNTestCase {
 
         // Add element again
         modelCache.get(modelId);
-        assertEquals(mockModel.length, modelCache.getTotalWeight());
+        assertEquals(mockModel.getModelBlob().length, modelCache.getTotalWeight());
     }
 
     public void testRebuild_afterSettingUpdate() throws ExecutionException, InterruptedException {
         String modelId = "test-model-id";
 
         int modelSize = 101;
-        byte[] mockModel = new byte[modelSize];
+        Model mockModel = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, new byte[modelSize]);
 
         long cacheSize1 = 100L;
         long cacheSize2 = 200L;
@@ -253,7 +256,7 @@ public class ModelCacheTests extends KNNTestCase {
     public void testContains() throws ExecutionException, InterruptedException {
         String modelId1 = "test-model-id-1";
         int modelSize1 = 100;
-        byte[] mockModel1 = new byte[modelSize1];
+        Model mockModel1 = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, new byte[modelSize1]);
 
         String modelId2 = "test-model-id-2";
 
@@ -281,11 +284,11 @@ public class ModelCacheTests extends KNNTestCase {
     public void testRemoveAll() throws ExecutionException, InterruptedException {
         String modelId1 = "test-model-id-1";
         int modelSize1 = 100;
-        byte[] mockModel1 = new byte[modelSize1];
+        Model mockModel1 = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, new byte[modelSize1]);
 
         String modelId2 = "test-model-id-2";
         int modelSize2 = 100;
-        byte[] mockModel2 = new byte[modelSize2];
+        Model mockModel2 = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, new byte[modelSize2]);
 
         long cacheSize = 500L;
 

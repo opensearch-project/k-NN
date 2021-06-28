@@ -34,6 +34,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
@@ -72,29 +73,29 @@ public interface ModelDao {
      * Put a model into the system index. Non-blocking
      *
      * @param modelId   Id of model to create
-     * @param modelBlob byte array of model
+     * @param model Model to be indexed
      * @param listener  handles index response
      */
-    void put(String modelId, KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener) throws IOException;
+    void put(String modelId, Model model, ActionListener<IndexResponse> listener) throws IOException;
 
     /**
      * Put a model into the system index. Non-blocking. When no id is passed in, OpenSearch will generate the id
      * automatically. The id can be retrieved in the IndexResponse.
      *
-     * @param modelBlob byte array of model
+     * @param model Model to be indexed
      * @param listener  handles index response
      */
-    void put(KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener) throws IOException;
+    void put(Model model, ActionListener<IndexResponse> listener) throws IOException;
 
     /**
      * Get a model from the system index. Call blocks.
      *
      * @param modelId to retrieve
-     * @return byte array representing the model
+     * @return model
      * @throws ExecutionException   thrown on search
      * @throws InterruptedException thrown on search
      */
-    byte[] get(String modelId) throws ExecutionException, InterruptedException;
+    Model get(String modelId) throws ExecutionException, InterruptedException;
 
     /**
      * Delete model from index
@@ -169,12 +170,12 @@ public interface ModelDao {
         }
 
         @Override
-        public void put(String modelId, KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener)
-                throws IOException {
-            String base64Model = Base64.getEncoder().encodeToString(modelBlob);
+        public void put(String modelId, Model model, ActionListener<IndexResponse> listener) throws IOException {
+            String base64Model = Base64.getEncoder().encodeToString(model.getModelBlob());
 
             Map<String, Object> parameters = ImmutableMap.of(
-                    KNNConstants.KNN_ENGINE, knnEngine.getName(),
+                    KNNConstants.KNN_ENGINE, model.getKnnEngine().getName(),
+                    KNNConstants.METHOD_PARAMETER_SPACE_TYPE, model.getSpaceType().getValue(),
                     KNNConstants.MODEL_BLOB_PARAMETER, base64Model
             );
 
@@ -196,12 +197,12 @@ public interface ModelDao {
         }
 
         @Override
-        public void put(KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener)
-                throws IOException {
-            String base64Model = Base64.getEncoder().encodeToString(modelBlob);
+        public void put(Model model, ActionListener<IndexResponse> listener) throws IOException {
+            String base64Model = Base64.getEncoder().encodeToString(model.getModelBlob());
 
             Map<String, Object> parameters = ImmutableMap.of(
-                    KNNConstants.KNN_ENGINE, knnEngine.getName(),
+                    KNNConstants.KNN_ENGINE, model.getKnnEngine().getName(),
+                    KNNConstants.METHOD_PARAMETER_SPACE_TYPE, model.getSpaceType().getValue(),
                     KNNConstants.MODEL_BLOB_PARAMETER, base64Model
             );
 
@@ -222,24 +223,27 @@ public interface ModelDao {
         }
 
         @Override
-        public byte[] get(String modelId) throws ExecutionException, InterruptedException {
+        public Model get(String modelId) throws ExecutionException, InterruptedException {
             /*
                 GET /<model_index>/<modelId>?source_includes=<model_blob>&_local
             */
             GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE, MODEL_INDEX_NAME)
                     .setId(modelId)
-                    .setFetchSource(KNNConstants.MODEL_BLOB_PARAMETER, null)
                     .setPreference("_local");
             GetResponse getResponse = getRequestBuilder.execute().get();
 
-            Object blob = getResponse.getSourceAsMap().get(KNNConstants.MODEL_BLOB_PARAMETER);
+            Map<String, Object> responseMap = getResponse.getSourceAsMap();
+            Object engine = responseMap.get(KNNConstants.KNN_ENGINE);
+            Object space = responseMap.get(KNNConstants.METHOD_PARAMETER_SPACE_TYPE);
+            Object blob = responseMap.get(KNNConstants.MODEL_BLOB_PARAMETER);
 
             if (blob == null) {
                 throw new IllegalArgumentException("No model available in \"" + MODEL_INDEX_NAME + "\" index with id \""
                         + modelId + "\".");
             }
 
-            return Base64.getDecoder().decode((String) blob);
+            return new Model(KNNEngine.getEngine((String) engine), SpaceType.getSpace((String) space),
+                    Base64.getDecoder().decode((String) blob));
         }
 
         private String getMapping() throws IOException {

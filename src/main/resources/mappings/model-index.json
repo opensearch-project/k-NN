@@ -3,6 +3,9 @@
     "engine": {
       "type": "keyword"
     },
+    "space_type": {
+      "type": "keyword"
+    },
     "model_blob": {
       "type": "binary"
     }

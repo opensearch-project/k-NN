@@ -30,7 +30,7 @@ public final class ModelCache {
     private static ModelDao modelDao;
     private static ClusterService clusterService;
 
-    private Cache<String, byte[]> cache;
+    private Cache<String, Model> cache;
     private long cacheSizeInBytes;
 
     /**
@@ -74,11 +74,11 @@ public final class ModelCache {
     }
 
     private void initCache() {
-        CacheBuilder<String, byte[]> cacheBuilder = CacheBuilder.newBuilder()
+        CacheBuilder<String, Model> cacheBuilder = CacheBuilder.newBuilder()
                 .recordStats()
                 .concurrencyLevel(1)
                 .maximumWeight(cacheSizeInBytes)
-                .weigher((k, v) -> v.length);
+                .weigher((k, v) -> v.getModelBlob().length);
 
         cache = cacheBuilder.build();
     }
@@ -87,9 +87,9 @@ public final class ModelCache {
      * Get the model from modelId
      *
      * @param modelId model identifier
-     * @return byte array representing model
+     * @return Model Entry representing model
      */
-    public byte[] get(String modelId) {
+    public Model get(String modelId) {
         try {
             return cache.get(modelId, () -> modelDao.get(modelId));
         } catch (ExecutionException ee) {
@@ -103,7 +103,8 @@ public final class ModelCache {
      * @return total weight
      */
     public long getTotalWeight() {
-        return cache.asMap().values().stream().map(bytes -> (long) bytes.length).reduce(0L, Long::sum);
+        return cache.asMap().values().stream().map(model -> (long) model.getModelBlob().length)
+                .reduce(0L, Long::sum);
     }
 
     /**

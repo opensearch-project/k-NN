@@ -23,6 +23,7 @@ import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.knn.KNNSingleNodeTestCase;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.rest.RestStatus;
 
@@ -32,6 +33,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 
@@ -82,7 +85,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             inProgressLatch1.countDown();
         }, exception -> fail("Unable to put the model: " + exception));
 
-        modelDao.put(modelId, KNNEngine.DEFAULT, modelBlob, docCreationListener);
+        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, modelBlob);
+        modelDao.put(modelId, model, docCreationListener);
 
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 
@@ -97,7 +101,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                     inProgressLatch2.countDown();
         });
 
-        modelDao.put(modelId, KNNEngine.DEFAULT, modelBlob, docCreationListenerDuplicateId);
+        modelDao.put(modelId, model, docCreationListenerDuplicateId);
         assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
     }
 
@@ -115,7 +119,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 },
                 exception -> fail("Unable to put the model: " + exception));
 
-        modelDao.put(KNNEngine.DEFAULT, modelBlob, docCreationListenerNoModelId);
+        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, modelBlob);
+        modelDao.put(model, docCreationListenerNoModelId);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
@@ -132,8 +137,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         expectThrows(Exception.class, () -> modelDao.get(modelId));
 
         // model id exists
-        addDoc(modelId, modelBlob);
-        assertArrayEquals(modelBlob, modelDao.get(modelId));
+        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, modelBlob);
+        addDoc(modelId, model);
+        assertArrayEquals(modelBlob, modelDao.get(modelId).getModelBlob());
     }
 
     public void testDelete() throws IOException, InterruptedException, ExecutionException {
@@ -157,7 +163,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 
         // model id exists
-        addDoc(modelId, modelBlob);
+        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, modelBlob);
+        addDoc(modelId, model);
 
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
         ActionListener<DeleteResponse> deleteModelExistsListener = ActionListener.wrap(response -> {
@@ -169,9 +176,11 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
     }
 
-    public void addDoc(String modelId, byte [] modelBlob) throws IOException, ExecutionException, InterruptedException {
+    public void addDoc(String modelId, Model model) throws IOException, ExecutionException, InterruptedException {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
-                .field(MODEL_BLOB_PARAMETER, Base64.getEncoder().encodeToString(modelBlob))
+                .field(KNN_ENGINE, model.getKnnEngine().getName())
+                .field(METHOD_PARAMETER_SPACE_TYPE, model.getSpaceType().getValue())
+                .field(MODEL_BLOB_PARAMETER, Base64.getEncoder().encodeToString(model.getModelBlob()))
                 .endObject();
         IndexRequest indexRequest = new IndexRequest()
                 .index(MODEL_INDEX_NAME)
