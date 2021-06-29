@@ -25,6 +25,10 @@
 
 package org.opensearch.knn.index.codec.KNN80Codec;
 
+import org.opensearch.common.xcontent.DeprecationHandler;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.index.JNIService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNNCodecUtil;
@@ -91,25 +95,28 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             String engineName = fieldAttributes.getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
             KNNEngine knnEngine = KNNEngine.getEngine(engineName);
 
-            parameters.put(KNNConstants.SPACE_TYPE, fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE,
-                    SpaceType.DEFAULT.getValue()));
+            if (KNNEngine.NMSLIB.equals(knnEngine)) {
+                parameters.put(KNNConstants.SPACE_TYPE, fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE,
+                        SpaceType.DEFAULT.getValue()));
 
-            //TODO: Clean this up
-            String method = fieldAttributes.get(KNNConstants.KNN_METHOD);
-            if (method == null) {
-                method = KNNConstants.METHOD_HNSW;
-            }
-            parameters.put(KNNConstants.KNN_METHOD, method);
+                String efConstruction = fieldAttributes.get(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION);
+                if (efConstruction != null) {
+                    parameters.put(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, Integer.parseInt(efConstruction));
+                }
 
-            String efConstruction = fieldAttributes.get(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION);
-            if (efConstruction != null) {
-                parameters.put(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, Integer.parseInt(efConstruction));
+                String m = fieldAttributes.get(KNNConstants.HNSW_ALGO_M);
+                if (m != null) {
+                    parameters.put(KNNConstants.METHOD_PARAMETER_M, Integer.parseInt(m));
+                }
+
+            } else {
+                String parametersString = fieldAttributes.get(KNNConstants.PARAMETERS);
+                parameters.putAll(
+                        XContentFactory.xContent(XContentType.JSON).createParser(NamedXContentRegistry.EMPTY,
+                                DeprecationHandler.THROW_UNSUPPORTED_OPERATION, parametersString).map()
+                );
             }
 
-            String m = fieldAttributes.get(KNNConstants.HNSW_ALGO_M);
-            if (m != null) {
-                parameters.put(KNNConstants.METHOD_PARAMETER_M, Integer.parseInt(m));
-            }
 
             // Make Engine Name Into FileName
             BinaryDocValues values = valuesProducer.getBinary(field);

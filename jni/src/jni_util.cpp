@@ -401,6 +401,7 @@ const std::string knn_jni::ILLEGAL_ARGUMENT_PATH = "java/lang/IllegalArgumentExc
 
 const std::string knn_jni::SPACE_TYPE = "spaceType";
 const std::string knn_jni::METHOD = "method";
+const std::string knn_jni::INDEX_DESCRIPTION = "index_description";
 const std::string knn_jni::PARAMETERS = "parameters";
 const std::string knn_jni::TRAINING_DATASET_SIZE_LIMIT = "training_dataset_size_limit";
 
