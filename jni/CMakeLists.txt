@@ -74,6 +74,9 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search)
 # ---------------------------------------------------------------------------
 
 # ---------------------------------- FAISS ----------------------------------
+# Avoid building faiss tests
+set(BUILD_TESTING OFF)
+
 if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
     if(CMAKE_C_COMPILER_ID MATCHES "Clang\$")
         set(OpenMP_C_FLAGS "-Xpreprocessor -fopenmp")
@@ -115,6 +118,53 @@ target_include_directories(${TARGET_LIB} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc
 set_target_properties(${TARGET_LIB} PROPERTIES SUFFIX ${LIB_EXT})
 set_target_properties(${TARGET_LIB} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 set_target_properties(${TARGET_LIB} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
+# ---------------------------------------------------------------------------
+
+# --------------------------------- TESTS -----------------------------------
+# Reference - https://crascit.com/2015/07/25/cmake-gtest/
+configure_file(CMakeLists.txt.in googletest-download/CMakeLists.txt)
+execute_process(COMMAND "${CMAKE_COMMAND}" -G "${CMAKE_GENERATOR}" .
+        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/googletest-download"
+)
+execute_process(COMMAND "${CMAKE_COMMAND}" --build .
+        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/googletest-download"
+)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+add_subdirectory("${CMAKE_BINARY_DIR}/googletest-src"
+        "${CMAKE_BINARY_DIR}/googletest-build"
+)
+add_executable(
+        jni_test
+        tests/faiss_wrapper_test.cpp
+        tests/nmslib_wrapper_test.cpp
+        tests/test_util.cpp)
+
+target_link_libraries(
+        jni_test
+        gtest_main
+        gmock_main
+        faiss
+        NonMetricSpaceLib
+        ${BLAS_LIBRARIES}
+        ${LAPACK_LIBRARIES}
+        OpenMP::OpenMP_CXX
+        ${TARGET_LIB}
+)
+
+target_include_directories(jni_test PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        $ENV{JAVA_HOME}/include
+        $ENV{JAVA_HOME}/include/${JVM_OS_TYPE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search/include
+        ${gtest_SOURCE_DIR}/include
+        ${gmock_SOURCE_DIR}/include)
+
+
+set_target_properties(jni_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+
 # ---------------------------------------------------------------------------
 
 # -------------------------------- INSTALL ----------------------------------

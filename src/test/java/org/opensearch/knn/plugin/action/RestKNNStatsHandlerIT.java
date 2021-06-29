@@ -159,45 +159,55 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
             Collections.singletonList("invalid_metric")));
     }
 
-    /**
-     * Test graph query increment
-     */
-    public void testGraphQueryErrorsGetIncremented() throws Exception {
-        // Get initial query errors because it may not always be 0
-        String graphQueryErrors = StatNames.GRAPH_QUERY_ERRORS.getName();
-        Response response = getKnnStats(Collections.emptyList(), Collections.singletonList(graphQueryErrors));
-        String responseBody = EntityUtils.toString(response.getEntity());
-        Map<String, Object> nodeStats = parseNodeStatsResponse(responseBody).get(0);
-        int beforeErrors = (int) nodeStats.get(graphQueryErrors);
-
-        // Set the circuit breaker very low so that loading an index will definitely fail
-        updateClusterSettings("knn.memory.circuit_breaker.limit", "1kb");
-
-        Settings settings = Settings.builder()
-                .put("number_of_shards", 1)
-                .put("index.knn", true)
-                .build();
-        createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 2));
-
-        // Add enough docs to trip the circuit breaker
-        Float[] vector = {1.3f, 2.2f};
-        int docsInIndex = 200;
-        for (int i = 0; i < docsInIndex; i++) {
-            addKnnDoc(INDEX_NAME, Integer.toString(i), FIELD_NAME, vector);
-        }
-        forceMergeKnnIndex(INDEX_NAME);
-
-        // Execute a query that should fail
-        float[] qvector = {1.9f, 2.4f};
-        expectThrows(ResponseException.class, () ->
-                searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 10), 10));
-
-        // Check that the graphQuery errors gets incremented
-        response = getKnnStats(Collections.emptyList(), Collections.singletonList(graphQueryErrors));
-        responseBody = EntityUtils.toString(response.getEntity());
-        nodeStats = parseNodeStatsResponse(responseBody).get(0);
-        assertTrue((int) nodeStats.get(graphQueryErrors) > beforeErrors);
-    }
+    //TODO: Fix broken test case
+    // This test case intended to check whether the "graph_query_error" stat gets incremented when a query fails.
+    // It sets the circuit breaker limit to 1 kb and then indexes documents into the index and force merges so that
+    // the sole segment's graph will not fit in the cache. Then, it runs a query and expects an exception. Then it
+    // checks that the query errors get incremented. This test is flaky:
+    // https://github.com/opensearch-project/k-NN/issues/43. During query, when a segment to be
+    // searched is not present in the cache, it will first be loaded. Then it will be searched.
+    //
+    // The problem is that the cache built from CacheBuilder will not throw an exception if the entry exceeds the
+    // size of the cache - tested this via log statements. However, the entry gets marked as expired immediately.
+    // So, after loading the entry, sometimes the expired entry will get evicted before the search logic. This causes
+    // the search to fail. However, it appears sometimes that the entry doesnt get immediately evicted, causing the
+    // search to succeed.
+//    public void testGraphQueryErrorsGetIncremented() throws Exception {
+//        // Get initial query errors because it may not always be 0
+//        String graphQueryErrors = StatNames.GRAPH_QUERY_ERRORS.getName();
+//        Response response = getKnnStats(Collections.emptyList(), Collections.singletonList(graphQueryErrors));
+//        String responseBody = EntityUtils.toString(response.getEntity());
+//        Map<String, Object> nodeStats = parseNodeStatsResponse(responseBody).get(0);
+//        int beforeErrors = (int) nodeStats.get(graphQueryErrors);
+//
+//        // Set the circuit breaker very low so that loading an index will definitely fail
+//        updateClusterSettings("knn.memory.circuit_breaker.limit", "1kb");
+//
+//        Settings settings = Settings.builder()
+//                .put("number_of_shards", 1)
+//                .put("index.knn", true)
+//                .build();
+//        createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 2));
+//
+//        // Add enough docs to trip the circuit breaker
+//        Float[] vector = {1.3f, 2.2f};
+//        int docsInIndex = 25;
+//        for (int i = 0; i < docsInIndex; i++) {
+//            addKnnDoc(INDEX_NAME, Integer.toString(i), FIELD_NAME, vector);
+//        }
+//        forceMergeKnnIndex(INDEX_NAME);
+//
+//        // Execute a query that should fail
+//        float[] qvector = {1.9f, 2.4f};
+//        expectThrows(ResponseException.class, () ->
+//                searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 10), 10));
+//
+//        // Check that the graphQuery errors gets incremented
+//        response = getKnnStats(Collections.emptyList(), Collections.singletonList(graphQueryErrors));
+//        responseBody = EntityUtils.toString(response.getEntity());
+//        nodeStats = parseNodeStatsResponse(responseBody).get(0);
+//        assertTrue((int) nodeStats.get(graphQueryErrors) > beforeErrors);
+//    }
 
     /**
      * Test checks that handler correctly returns stats for a single node
