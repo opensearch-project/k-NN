@@ -25,6 +25,8 @@
 
 package org.opensearch.knn.index;
 
+import org.opensearch.common.Strings;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.common.KNNConstants;
 
 import org.apache.logging.log4j.LogManager;
@@ -70,6 +72,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 /**
@@ -184,6 +187,7 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             // settings will have no impact.
             KNNMethodContext methodContext = knnMethodContext.getValue();
 
+            // Special processing here is just for nmslib
             if (methodContext == null) {
                 if (this.spaceType == null) {
                     this.spaceType = getSpaceType(context.indexSettings());
@@ -196,7 +200,7 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 if (this.efConstruction == null) {
                     this.efConstruction = getEfConstruction(context.indexSettings());
                 }
-            } else {
+            } else if (KNNEngine.NMSLIB.equals(methodContext.getEngine())) {
                 if (this.spaceType == null) {
                     this.spaceType = methodContext.getSpaceType().getValue();
                 }
@@ -342,21 +346,32 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         this.m = m;
         this.efConstruction = efConstruction;
 
-        String knnEngine;
+        KNNEngine knnEngine;
         if (knnMethod == null) {
-            knnEngine = KNNEngine.DEFAULT.getName();
+            knnEngine = KNNEngine.DEFAULT;
         } else {
-            knnEngine = knnMethod.getEngine().getName();
+            knnEngine = knnMethod.getEngine();
         }
 
         this.fieldType = new FieldType(Defaults.FIELD_TYPE);
-        if (KNNEngine.NMSLIB.getName().equals(knnEngine)) {
+        this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
+
+        if (KNNEngine.NMSLIB.equals(knnEngine)) {
+            this.fieldType.putAttribute(SPACE_TYPE, spaceType);
             this.fieldType.putAttribute(KNNConstants.HNSW_ALGO_M, m);
             this.fieldType.putAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, efConstruction);
+        } else {
+            // Get the method as a map and serialize to json
+            try {
+                assert knnMethod != null;
+                this.fieldType.putAttribute(SPACE_TYPE, knnMethod.getSpaceType().getValue());
+                this.fieldType.putAttribute(PARAMETERS, Strings.toString(XContentFactory.jsonBuilder()
+                        .map(knnEngine.getMethodAsMap(knnMethod))));
+            } catch (IOException ioe) {
+                throw new RuntimeException("Unable to create KNNVectorFieldMapper: " + ioe);
+            }
         }
 
-        this.fieldType.putAttribute(KNN_ENGINE, knnEngine);
-        this.fieldType.putAttribute(SPACE_TYPE, spaceType);
         this.fieldType.freeze();
     }
 

@@ -86,34 +86,34 @@ public class KNNWeight extends Weight {
             SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(context.reader());
             String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
 
-            /**
-             * In case of compound file, extension would be .hnswc otherwise .hnsw
+            FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
+
+            if (fieldInfo == null) {
+                logger.debug("[KNN] Field info not found for {}:{}", knnQuery.getField(),
+                        reader.getSegmentName());
+                return null;
+            }
+
+            KNNEngine knnEngine = KNNEngine.getEngine(fieldInfo.getAttribute(KNN_ENGINE));
+            SpaceType spaceType = SpaceType.getSpace(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE));
+
+            /*
+             * In case of compound file, extension would be <engine-extension> + c otherwise <engine-extension>
              */
-            String hnswFileExtension = reader.getSegmentInfo().info.getUseCompoundFile()
-                                               ? KNNCodecUtil.HNSW_COMPOUND_EXTENSION : KNNCodecUtil.HNSW_EXTENSION;
-            String hnswSuffix = knnQuery.getField() + hnswFileExtension;
-            List<String> hnswFiles = reader.getSegmentInfo().files().stream()
-                    .filter(fileName -> fileName.endsWith(hnswSuffix))
+            String engineExtension = reader.getSegmentInfo().info.getUseCompoundFile()
+                    ? knnEngine.getExtension() + KNNConstants.COMPOUND_EXTENSION : knnEngine.getExtension();
+            String engineSuffix = knnQuery.getField() + engineExtension;
+            List<String> engineFiles = reader.getSegmentInfo().files().stream()
+                    .filter(fileName -> fileName.endsWith(engineSuffix))
                     .collect(Collectors.toList());
 
-            if(hnswFiles.isEmpty()) {
-                logger.debug("[KNN] No hnsw index found for field {} for segment {}",
+            if(engineFiles.isEmpty()) {
+                logger.debug("[KNN] No engine index found for field {} for segment {}",
                         knnQuery.getField(), reader.getSegmentName());
                 return null;
             }
 
-            FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
-            KNNEngine knnEngine = KNNEngine.getEngine(fieldInfo.getAttribute(KNN_ENGINE));
-            SpaceType spaceType = SpaceType.getSpace(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE));
-
-
-            /**
-             * TODO Add logic to pick up the right nmslib version based on the version
-             * in the name of the file. As of now we have one version 2.0.11
-             * So deferring this to future releases
-             */
-
-            Path indexPath = PathUtils.get(directory, hnswFiles.get(0));
+            Path indexPath = PathUtils.get(directory, engineFiles.get(0));
             final KNNQueryResult[] results;
             KNNCounter.GRAPH_QUERY_REQUESTS.increment();
 

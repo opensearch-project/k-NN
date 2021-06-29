@@ -26,34 +26,38 @@
 package org.opensearch.knn.common;
 
 public class KNNConstants {
-    public static final String SPACE_TYPE = "spaceType"; // used as field info key
-    public static final String HNSW_ALGO_M = "M";
-    public static final String HNSW_ALGO_EF_CONSTRUCTION = "efConstruction";
-    public static final String HNSW_ALGO_EF_SEARCH = "efSearch";
-    public static final String HNSW_ALGO_INDEX_THREAD_QTY = "indexThreadQty";
+    // shared across library constants
     public static final String DIMENSION = "dimension";
     public static final String KNN_ENGINE = "engine";
     public static final String KNN_METHOD= "method";
     public static final String NAME = "name";
     public static final String PARAMETERS = "parameters";
-
-    public static final String NMSLIB_NAME = "nmslib";
-    public static final String FAISS_NAME = "faiss";
-
     public static final String METHOD_HNSW = "hnsw";
-
+    public static final String METHOD_PARAMETER_EF_SEARCH = "ef_search";
     public static final String METHOD_PARAMETER_EF_CONSTRUCTION = "ef_construction";
     public static final String METHOD_PARAMETER_M = "m";
     public static final String METHOD_PARAMETER_SPACE_TYPE = "space_type"; // used for mapping parameter
-
-    public static final String METHOD_PARAMETER_NPROBES = "nprobes";
-
     public static final String COMPOUND_EXTENSION = "c";
-
     public static final String JNI_LIBRARY_NAME = "OpensearchKNN";
-
     public static final String MODEL_BLOB_PARAMETER = "model_blob";
-
     public static final String MODEL_INDEX_MAPPING_PATH = "mappings/model-index.json";
     public static final String MODEL_INDEX_NAME = ".opensearch-knn-models";
+
+    // nmslib specific constants
+    public static final String NMSLIB_NAME = "nmslib";
+    public static final String SPACE_TYPE = "spaceType"; // used as field info key
+    public static final String HNSW_ALGO_M = "M";
+    public static final String HNSW_ALGO_EF_CONSTRUCTION = "efConstruction";
+    public static final String HNSW_ALGO_EF_SEARCH = "efSearch";
+    public static final String HNSW_ALGO_INDEX_THREAD_QTY = "indexThreadQty";
+
+    // Faiss specific constants
+    public static final String FAISS_NAME = "faiss";
+    public final static String FAISS_EXTENSION = ".faiss";
+    public static final String INDEX_DESCRIPTION_PARAMETER = "index_description";
+    public static final String METHOD_ENCODER_PARAMETER = "encoder";
+    public static final String METHOD_PARAMETER_NPROBES = "nprobes";
+    public static final String ENCODER_FLAT = "flat";
+    public static final String FAISS_HNSW_DESCRIPTION = "HNSW";
+    public static final String FAISS_FLAT_DESCRIPTION = "Flat";
 }
