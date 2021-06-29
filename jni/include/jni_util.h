@@ -162,6 +162,7 @@ namespace knn_jni {
 
     extern const std::string SPACE_TYPE;
     extern const std::string METHOD;
+    extern const std::string INDEX_DESCRIPTION;
     extern const std::string PARAMETERS;
     extern const std::string TRAINING_DATASET_SIZE_LIMIT;
 

@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.index;
 
+import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentBuilder;
@@ -18,6 +19,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.mapper.MapperParsingException;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.NAME;
@@ -100,7 +102,7 @@ public class MethodComponentContextTests extends KNNTestCase {
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         MethodComponentContext methodContext = MethodComponentContext.parse(in);
         assertEquals(name, methodContext.getName());
-        assertNull(methodContext.getParameters());
+        assertTrue(methodContext.getParameters().isEmpty());
 
         // Multiple parameters
         String paramKey1 = "p-1";
@@ -119,6 +121,24 @@ public class MethodComponentContextTests extends KNNTestCase {
         methodContext = MethodComponentContext.parse(in);
 
         assertEquals(paramVal1, methodContext.getParameters().get(paramKey1));
+        assertEquals(paramVal2, methodContext.getParameters().get(paramKey2));
+
+        // Parameter that is itself a MethodComponentContext
+        xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(NAME, name)
+                .startObject(PARAMETERS)
+                .startObject(paramKey1)
+                .field(NAME, paramVal1)
+                .endObject()
+                .field(paramKey2, paramVal2)
+                .endObject()
+                .endObject();
+        in = xContentBuilderToMap(xContentBuilder);
+        methodContext = MethodComponentContext.parse(in);
+
+
+        assertTrue(methodContext.getParameters().get(paramKey1) instanceof MethodComponentContext);
+        assertEquals(paramVal1, ((MethodComponentContext) methodContext.getParameters().get(paramKey1)).getName());
         assertEquals(paramVal2, methodContext.getParameters().get(paramKey2));
     }
 
@@ -166,5 +186,53 @@ public class MethodComponentContextTests extends KNNTestCase {
 
         assertEquals(paramVal1, paramMap.get(paramKey1));
         assertEquals(paramVal2, paramMap.get(paramKey2));
+    }
+
+    public void testEquals() {
+        String name1 = "name1";
+        String name2 = "name2";
+        Map<String, Object> parameters1 = ImmutableMap.of(
+                "param1", "v1",
+                "param2", 18
+        );
+
+        Map<String, Object> parameters2 = new HashMap<>(parameters1);
+
+        Map<String, Object> parameters3 = ImmutableMap.of(
+                "param1", "v1"
+        );
+
+
+        MethodComponentContext methodContext1 = new MethodComponentContext(name1, parameters1);
+        MethodComponentContext methodContext2 = new MethodComponentContext(name1, parameters1);
+        MethodComponentContext methodContext3 = new MethodComponentContext(name2, parameters2);
+
+        assertEquals(methodContext1, methodContext1);
+        assertEquals(methodContext1, methodContext2);
+        assertNotEquals(methodContext1, methodContext3);
+        assertNotEquals(methodContext1, null);
+    }
+
+    public void testHashCode() {
+        String name1 = "name1";
+        String name2 = "name2";
+        Map<String, Object> parameters1 = ImmutableMap.of(
+                "param1", "v1",
+                "param2", 18
+        );
+
+        Map<String, Object> parameters2 = new HashMap<>(parameters1);
+
+        Map<String, Object> parameters3 = ImmutableMap.of(
+                "param1", "v1"
+        );
+
+        MethodComponentContext methodContext1 = new MethodComponentContext(name1, parameters1);
+        MethodComponentContext methodContext2 = new MethodComponentContext(name1, parameters1);
+        MethodComponentContext methodContext3 = new MethodComponentContext(name2, parameters2);
+
+        assertEquals(methodContext1.hashCode(), methodContext1.hashCode());
+        assertEquals(methodContext1.hashCode(), methodContext2.hashCode());
+        assertNotEquals(methodContext1.hashCode(), methodContext3.hashCode());
     }
 }

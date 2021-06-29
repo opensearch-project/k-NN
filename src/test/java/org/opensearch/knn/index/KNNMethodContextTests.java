@@ -170,7 +170,7 @@ public class KNNMethodContextTests extends KNNTestCase {
         assertEquals(KNNEngine.DEFAULT, knnMethodContext.getEngine());
         assertEquals(SpaceType.DEFAULT, knnMethodContext.getSpaceType());
         assertEquals(methodName, knnMethodContext.getMethodComponent().getName());
-        assertNull(knnMethodContext.getMethodComponent().getParameters());
+        assertTrue(knnMethodContext.getMethodComponent().getParameters().isEmpty());
 
         // Method with parameters
         String methodParameterKey1 = "p-1";
@@ -190,6 +190,27 @@ public class KNNMethodContextTests extends KNNTestCase {
 
         assertEquals(methodParameterValue1,
                 knnMethodContext.getMethodComponent().getParameters().get(methodParameterKey1));
+        assertEquals(methodParameterValue2,
+                knnMethodContext.getMethodComponent().getParameters().get(methodParameterKey2));
+
+        // Method with parameter that is a method context paramet
+
+        // Parameter that is itself a MethodComponentContext
+        xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(NAME, methodName)
+                .startObject(PARAMETERS)
+                .startObject(methodParameterKey1)
+                .field(NAME, methodParameterValue1)
+                .endObject()
+                .field(methodParameterKey2, methodParameterValue2)
+                .endObject()
+                .endObject();
+        in = xContentBuilderToMap(xContentBuilder);
+        knnMethodContext = KNNMethodContext.parse(in);
+
+        assertTrue(knnMethodContext.getMethodComponent().getParameters().get(methodParameterKey1) instanceof MethodComponentContext);
+        assertEquals(methodParameterValue1, ((MethodComponentContext) knnMethodContext.getMethodComponent()
+                .getParameters().get(methodParameterKey1)).getName());
         assertEquals(methodParameterValue2,
                 knnMethodContext.getMethodComponent().getParameters().get(methodParameterKey2));
     }
@@ -216,5 +237,58 @@ public class KNNMethodContextTests extends KNNTestCase {
         assertEquals(methodName, out.get(NAME));
         assertEquals(spaceType, out.get(METHOD_PARAMETER_SPACE_TYPE));
         assertEquals(knnEngine, out.get(KNN_ENGINE));
+    }
+
+    public void testEquals() {
+        SpaceType spaceType1 = SpaceType.L1;
+        SpaceType spaceType2 = SpaceType.L2;
+        String name1 = "name1";
+        String name2 = "name2";
+        Map<String, Object> parameters1 = ImmutableMap.of(
+                "param1", "v1",
+                "param2", 18
+        );
+
+        MethodComponentContext methodComponentContext1 = new MethodComponentContext(name1, parameters1);
+        MethodComponentContext methodComponentContext2 = new MethodComponentContext(name2, parameters1);
+
+        KNNMethodContext methodContext1 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType1, methodComponentContext1);
+        KNNMethodContext methodContext2 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType1, methodComponentContext1);
+        KNNMethodContext methodContext3 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType1, methodComponentContext2);
+        KNNMethodContext methodContext4 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType2, methodComponentContext1);
+        KNNMethodContext methodContext5 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType2, methodComponentContext2);
+
+        assertNotEquals(methodContext1, null);
+        assertEquals(methodContext1, methodContext1);
+        assertEquals(methodContext1, methodContext2);
+        assertNotEquals(methodContext1, methodContext3);
+        assertNotEquals(methodContext1, methodContext4);
+        assertNotEquals(methodContext1, methodContext5);
+    }
+
+    public void testHashCode() {
+        SpaceType spaceType1 = SpaceType.L1;
+        SpaceType spaceType2 = SpaceType.L2;
+        String name1 = "name1";
+        String name2 = "name2";
+        Map<String, Object> parameters1 = ImmutableMap.of(
+                "param1", "v1",
+                "param2", 18
+        );
+
+        MethodComponentContext methodComponentContext1 = new MethodComponentContext(name1, parameters1);
+        MethodComponentContext methodComponentContext2 = new MethodComponentContext(name2, parameters1);
+
+        KNNMethodContext methodContext1 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType1, methodComponentContext1);
+        KNNMethodContext methodContext2 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType1, methodComponentContext1);
+        KNNMethodContext methodContext3 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType1, methodComponentContext2);
+        KNNMethodContext methodContext4 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType2, methodComponentContext1);
+        KNNMethodContext methodContext5 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType2, methodComponentContext2);
+
+        assertEquals(methodContext1.hashCode(), methodContext1.hashCode());
+        assertEquals(methodContext1.hashCode(), methodContext2.hashCode());
+        assertNotEquals(methodContext1.hashCode(), methodContext3.hashCode());
+        assertNotEquals(methodContext1.hashCode(), methodContext4.hashCode());
+        assertNotEquals(methodContext1.hashCode(), methodContext5.hashCode());
     }
 }

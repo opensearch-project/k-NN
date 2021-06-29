@@ -139,6 +139,22 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertEquals(spaceType1.getValue(), knnVectorFieldMapper.spaceType);
         assertEquals(Integer.toString(m1), knnVectorFieldMapper.m);
         assertEquals(Integer.toString(efConstruction1), knnVectorFieldMapper.efConstruction);
+
+        // Test builder for faiss
+        builder = new KNNVectorFieldMapper.Builder("test-field-name-5");
+        builder.knnMethodContext.setValue(new KNNMethodContext(KNNEngine.FAISS, spaceType1,
+                new MethodComponentContext(METHOD_HNSW,
+                        ImmutableMap.of(METHOD_PARAMETER_M, m1, METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction1)
+                )
+        ));
+
+        settings = Settings.builder()
+                .put(settings(CURRENT).build())
+                .build();
+        builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        knnVectorFieldMapper = builder.build(builderContext);
+
+        assertEquals(builder.knnMethodContext.getValue(), knnVectorFieldMapper.knnMethod);
     }
 
     /**
@@ -228,6 +244,59 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         expectThrows(IllegalArgumentException.class, () -> typeParser.parse(fieldName,
                 xContentBuilderToMap(xContentBuilder4), buildParserContext(indexName, settings)));
+    }
+
+    public void testMerge() throws IOException {
+        String fieldName = "test-field-name";
+        String indexName = "test-index-name";
+
+        Settings settings = Settings.builder()
+                .put(settings(CURRENT).build())
+                .build();
+
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser();
+
+        int dimension = 133;
+        int efConstruction = 321;
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field("type", "knn_vector")
+                .field("dimension", dimension)
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
+                .endObject()
+                .endObject()
+                .endObject();
+
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(fieldName,
+                xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings));
+
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper1 = builder.build(builderContext);
+
+        // merge with itself - should be successful
+        KNNVectorFieldMapper knnVectorFieldMapperMerge1 = (KNNVectorFieldMapper) knnVectorFieldMapper1.merge(knnVectorFieldMapper1);
+        assertEquals(knnVectorFieldMapper1.knnMethod, knnVectorFieldMapperMerge1.knnMethod);
+
+        // merge with another mapper of the same field with same context
+        KNNVectorFieldMapper knnVectorFieldMapper2 = builder.build(builderContext);
+        KNNVectorFieldMapper knnVectorFieldMapperMerge2 = (KNNVectorFieldMapper) knnVectorFieldMapper1.merge(knnVectorFieldMapper2);
+        assertEquals(knnVectorFieldMapper1.knnMethod, knnVectorFieldMapperMerge2.knnMethod);
+
+        // merge with another mapper of the same field with different context
+        xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field("type", "knn_vector")
+                .field("dimension", dimension)
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .endObject()
+                .endObject();
+
+        builder = (KNNVectorFieldMapper.Builder) typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder),
+                buildParserContext(indexName, settings));
+        KNNVectorFieldMapper knnVectorFieldMapper3 = builder.build(builderContext);
+        expectThrows(IllegalArgumentException.class, () -> knnVectorFieldMapper1.merge(knnVectorFieldMapper3));
     }
 
     public IndexMetadata buildIndexMetaData(String indexName, Settings settings) {
