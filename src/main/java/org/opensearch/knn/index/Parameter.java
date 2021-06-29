@@ -13,6 +13,7 @@ package org.opensearch.knn.index;
 
 import org.opensearch.common.ValidationException;
 
+import java.util.Map;
 import java.util.function.Predicate;
 
 /**
@@ -66,6 +67,58 @@ public abstract class Parameter<T> {
             if (!(value instanceof Integer) || !validator.test((Integer) value)) {
                 throw new ValidationException();
             }
+        }
+    }
+
+
+    /**
+     * MethodContext parameter. Some methods require sub-methods in order to implement some kind of functionality. For
+     *  instance, faiss methods can contain an encoder along side the approximate nearest neighbor function to compress
+     *  the input. This parameter makes it possible to add sub-methods to methods to support this kind of functionality
+     */
+    public static class MethodComponentContextParameter extends Parameter<MethodComponentContext> {
+
+        private Map<String, MethodComponent> methodComponents;
+
+        /**
+         * Constructor
+         *
+         * @param defaultValue value to assign this parameter if it is not set
+         * @param methodComponents valid components that the MethodComponentContext can map to
+         */
+        public MethodComponentContextParameter(MethodComponentContext defaultValue,
+                                               Map<String, MethodComponent> methodComponents) {
+            super(defaultValue, methodComponentContext -> {
+                if (!methodComponents.containsKey(methodComponentContext.getName())) {
+                    return false;
+                }
+
+                try {
+                    methodComponents.get(methodComponentContext.getName()).validate(methodComponentContext);
+                } catch (ValidationException ex) {
+                    return false;
+                }
+
+                return true;
+            });
+            this.methodComponents = methodComponents;
+        }
+
+        @Override
+        public void validate(Object value) {
+            if (!(value instanceof MethodComponentContext) || !validator.test((MethodComponentContext) value)) {
+                throw new ValidationException();
+            }
+        }
+
+        /**
+         * Get method component by name
+         *
+         * @param name name of method component
+         * @return MethodComponent that name maps to
+         */
+        public MethodComponent getMethodComponent(String name) {
+            return methodComponents.get(name);
         }
     }
 }

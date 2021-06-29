@@ -12,9 +12,11 @@
 package org.opensearch.knn.index;
 
 import org.opensearch.common.ValidationException;
+import org.opensearch.knn.common.KNNConstants;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.BiFunction;
 
 /**
  * MethodComponent defines the structure of an individual component that can make up an index
@@ -23,6 +25,7 @@ public class MethodComponent {
 
     private String name;
     private Map<String, Parameter<?>> parameters;
+    private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
 
     /**
      * Constructor
@@ -32,6 +35,7 @@ public class MethodComponent {
     private MethodComponent(Builder builder) {
         this.name = builder.name;
         this.parameters = builder.parameters;
+        this.mapGenerator = builder.mapGenerator;
     }
 
     /**
@@ -50,6 +54,23 @@ public class MethodComponent {
      */
     public Map<String, Parameter<?>> getParameters() {
         return parameters;
+    }
+
+
+    /**
+     * Parse methodComponentContext into a map that the library can use to configure the method
+     *
+     * @param methodComponentContext from which to generate map
+     * @return Method component as a map
+     */
+    public Map<String, Object> getAsMap(MethodComponentContext methodComponentContext) {
+        if (mapGenerator == null) {
+            Map<String, Object> parameterMap = new HashMap<>();
+            parameterMap.put(KNNConstants.NAME, methodComponentContext.getName());
+            parameterMap.put(KNNConstants.PARAMETERS, methodComponentContext.getParameters());
+            return parameterMap;
+        }
+        return mapGenerator.apply(this, methodComponentContext);
     }
 
     /**
@@ -80,6 +101,7 @@ public class MethodComponent {
 
         private String name;
         private Map<String, Parameter<?>> parameters;
+        private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
 
         /**
          * Method to get a Builder instance
@@ -94,6 +116,7 @@ public class MethodComponent {
         private Builder(String name) {
             this.name = name;
             this.parameters = new HashMap<>();
+            this.mapGenerator = null;
         }
 
         /**
@@ -105,6 +128,17 @@ public class MethodComponent {
          */
         public Builder addParameter(String parameterName, Parameter<?> parameter) {
             this.parameters.put(parameterName, parameter);
+            return this;
+        }
+
+        /**
+         * Set the function used to parse a MethodComponentContext as a map
+         *
+         * @param mapGenerator function to parse a MethodComponentContext as a map
+         * @return this builder
+         */
+        public Builder setMapGenerator(BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator) {
+            this.mapGenerator = mapGenerator;
             return this;
         }
 

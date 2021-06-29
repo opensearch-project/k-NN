@@ -139,6 +139,22 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertEquals(spaceType1.getValue(), knnVectorFieldMapper.spaceType);
         assertEquals(Integer.toString(m1), knnVectorFieldMapper.m);
         assertEquals(Integer.toString(efConstruction1), knnVectorFieldMapper.efConstruction);
+
+        // Test builder for faiss
+        builder = new KNNVectorFieldMapper.Builder("test-field-name-5");
+        builder.knnMethodContext.setValue(new KNNMethodContext(KNNEngine.FAISS, spaceType1,
+                new MethodComponentContext(METHOD_HNSW,
+                        ImmutableMap.of(METHOD_PARAMETER_M, m1, METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction1)
+                )
+        ));
+
+        settings = Settings.builder()
+                .put(settings(CURRENT).build())
+                .build();
+        builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        knnVectorFieldMapper = builder.build(builderContext);
+
+        assertEquals(builder.knnMethodContext.getValue(), knnVectorFieldMapper.knnMethod);
     }
 
     /**

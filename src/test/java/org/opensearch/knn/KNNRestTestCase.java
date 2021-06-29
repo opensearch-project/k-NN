@@ -25,6 +25,8 @@
 
 package org.opensearch.knn;
 
+import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.plugin.KNNPlugin;
@@ -193,6 +195,21 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         return knnSearchResponses;
     }
+    protected List<Float> parseSearchResponseScore(String responseBody, String fieldName) throws IOException {
+        @SuppressWarnings("unchecked")
+        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(XContentType.JSON.xContent(),
+                responseBody).map().get("hits")).get("hits");
+
+        @SuppressWarnings("unchecked")
+        List<Float> knnSearchResponses = hits.stream().map(hit ->
+                ((Double) ((Map<String, Object>) hit).get("_score")).floatValue()).collect(Collectors.toList());
+
+        return knnSearchResponses;
+    }
+
+    /**
+     * Parse the score from the KNN search response
+     */
 
     /**
      * Delete KNN index
@@ -257,6 +274,50 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return Strings.toString(xContentBuilder);
     }
 
+
+    /**
+     * Get index mapping as map
+     *
+     * @param index name of index to fetch
+     * @return index mapping a map
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getIndexMappingAsMap(String index) throws IOException {
+        Request request = new Request(
+                "GET",
+                "/" + index + "/_mapping"
+        );
+
+        Response response = client().performRequest(request);
+
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
+                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+
+        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+
+
+        return (Map<String, Object>) ((Map<String, Object>) responseMap.get(index)).get("mappings");
+    }
+
+    public int getDocCount(String indexName) throws IOException {
+        Request request = new Request(
+          "GET",
+          "/" + indexName + "/_count"
+        );
+
+        Response response = client().performRequest(request);
+
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
+                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+
+        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        return (Integer) responseMap.get("count");
+    }
+
     /**
      * Force merge KNN index segments
      */
@@ -296,13 +357,13 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .field(fieldName, vector)
             .endObject();
         request.setJsonEntity(Strings.toString(builder));
-        Response response = client().performRequest(request);
+        client().performRequest(request);
 
         request = new Request(
             "POST",
             "/" + index + "/_refresh"
         );
-        response = client().performRequest(request);
+        Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
             RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
@@ -615,6 +676,11 @@ public class KNNRestTestCase extends ODFERestTestCase {
     protected Request constructKNNScriptQueryRequest(String indexName, QueryBuilder qb, Map<String, Object> params,
                                                      int size) throws Exception {
         return constructScriptQueryRequest(indexName, qb, params, KNNScoringScriptEngine.NAME, KNNScoringScriptEngine.SCRIPT_SOURCE, size);
+    }
+
+    public Map<String, Object> xContentBuilderToMap(XContentBuilder xContentBuilder) {
+        return XContentHelper.convertToMap(BytesReference.bytes(xContentBuilder), true,
+                xContentBuilder.contentType()).v2();
     }
 
     /**

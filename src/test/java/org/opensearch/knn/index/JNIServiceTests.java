@@ -164,7 +164,7 @@ public class JNIServiceTests extends KNNTestCase {
         float[][] vectors = new float[][]{};
 
         expectThrows(Exception.class, () -> JNIService.createIndex(docIds, vectors, "something",
-                ImmutableMap.of(KNNConstants.KNN_METHOD, faissMethod), FAISS_NAME));
+                ImmutableMap.of(KNNConstants.INDEX_DESCRIPTION_PARAMETER, faissMethod), FAISS_NAME));
     }
 
     public void testCreateIndex_faiss_invalid_vectorDocIDMismatch() throws IOException {
@@ -175,16 +175,16 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tmpFile1 = createTempFile();
         expectThrows(Exception.class, () -> JNIService.createIndex(docIds, vectors1,
-                tmpFile1.toAbsolutePath().toString(), ImmutableMap.of(KNNConstants.KNN_METHOD, faissMethod,
-                        KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                tmpFile1.toAbsolutePath().toString(), ImmutableMap.of(KNNConstants.INDEX_DESCRIPTION_PARAMETER,
+                        faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
                 FAISS_NAME));
 
         float[][] vectors2 = new float[][] {{1, 2}, {3, 4}, {4, 5}, {6, 7}, {8, 9}};
 
         Path tmpFile2 = createTempFile();
         expectThrows(Exception.class, () -> JNIService.createIndex(docIds, vectors2,
-                tmpFile2.toAbsolutePath().toString(), ImmutableMap.of(KNNConstants.KNN_METHOD, faissMethod,
-                        KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                tmpFile2.toAbsolutePath().toString(), ImmutableMap.of(KNNConstants.INDEX_DESCRIPTION_PARAMETER,
+                        faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
                 FAISS_NAME));
     }
 
@@ -196,22 +196,22 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tmpFile = createTempFile();
         expectThrows(Exception.class, () -> JNIService.createIndex(null, vectors, tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.KNN_METHOD, faissMethod,
+                ImmutableMap.of(KNNConstants.INDEX_DESCRIPTION_PARAMETER, faissMethod,
                         KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()), FAISS_NAME));
 
         expectThrows(Exception.class, () -> JNIService.createIndex(docIds, null, tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.KNN_METHOD, faissMethod,
+                ImmutableMap.of(KNNConstants.INDEX_DESCRIPTION_PARAMETER, faissMethod,
                         KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()), FAISS_NAME));
 
         expectThrows(Exception.class, () -> JNIService.createIndex(docIds, vectors, null,
-                ImmutableMap.of(KNNConstants.KNN_METHOD, faissMethod,
+                ImmutableMap.of(KNNConstants.INDEX_DESCRIPTION_PARAMETER, faissMethod,
                         KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()), FAISS_NAME));
 
         expectThrows(Exception.class, () -> JNIService.createIndex(docIds, vectors, tmpFile.toAbsolutePath().toString(),
                 null, FAISS_NAME));
 
         expectThrows(Exception.class, () -> JNIService.createIndex(docIds, vectors, tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.KNN_METHOD, faissMethod,
+                ImmutableMap.of(KNNConstants.INDEX_DESCRIPTION_PARAMETER, faissMethod,
                         KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()), null));
     }
 
@@ -223,7 +223,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tmpFile = createTempFile();
         expectThrows(Exception.class, () -> JNIService.createIndex(docIds, vectors, tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.KNN_METHOD, faissMethod,
+                ImmutableMap.of(KNNConstants.INDEX_DESCRIPTION_PARAMETER, faissMethod,
                         KNNConstants.SPACE_TYPE, "invalid"), FAISS_NAME));
     }
 
@@ -235,11 +235,11 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tmpFile = createTempFile();
         expectThrows(Exception.class, () -> JNIService.createIndex(docIds, vectors, tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.KNN_METHOD, faissMethod,
+                ImmutableMap.of(KNNConstants.INDEX_DESCRIPTION_PARAMETER, faissMethod,
                         KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()), FAISS_NAME));
     }
 
-    public void testCreateIndex_faiss_invalid_noMethod() throws IOException {
+    public void testCreateIndex_faiss_invalid_noIndexDescription() throws IOException {
         JNIService.initLibrary(FAISS_NAME);
 
         int[] docIds = new int[]{1, 2};
@@ -250,7 +250,7 @@ public class JNIServiceTests extends KNNTestCase {
                 ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()), FAISS_NAME));
     }
 
-    public void testCreateIndex_faiss_invalid_invalidMethod() throws IOException {
+    public void testCreateIndex_faiss_invalid_invalidIndexDescription() throws IOException {
         JNIService.initLibrary(FAISS_NAME);
 
         int[] docIds = new int[]{1, 2};
@@ -258,7 +258,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tmpFile = createTempFile();
         expectThrows(Exception.class, () -> JNIService.createIndex(docIds, vectors, tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.KNN_METHOD, "invalid",
+                ImmutableMap.of(KNNConstants.INDEX_DESCRIPTION_PARAMETER, "invalid",
                         KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()), FAISS_NAME));
     }
 
@@ -270,7 +270,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tmpFile = createTempFile();
         expectThrows(Exception.class, () -> JNIService.createIndex(docIds, vectors, tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.KNN_METHOD, "IVF13",
+                ImmutableMap.of(KNNConstants.INDEX_DESCRIPTION_PARAMETER, "IVF13",
                         KNNConstants.SPACE_TYPE, SpaceType.L2.getValue(), KNNConstants.PARAMETERS,
                         ImmutableMap.of(KNNConstants.METHOD_PARAMETER_NPROBES, "14")), FAISS_NAME));
 
@@ -287,7 +287,7 @@ public class JNIServiceTests extends KNNTestCase {
                 Path tmpFile1 = createTempFile();
                 JNIService.createIndex(testData.indexData.docs, testData.indexData.vectors, tmpFile1.toAbsolutePath().toString(),
                         ImmutableMap.of(
-                                KNNConstants.KNN_METHOD, method,
+                                KNNConstants.INDEX_DESCRIPTION_PARAMETER, method,
                                 KNNConstants.SPACE_TYPE, spaceType.getValue()
                         ),
                         FAISS_NAME);
@@ -365,7 +365,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         JNIService.createIndex(testData.indexData.docs, testData.indexData.vectors, tmpFile.toAbsolutePath().toString(),
                 ImmutableMap.of(
-                        KNNConstants.KNN_METHOD, faissMethod,
+                        KNNConstants.INDEX_DESCRIPTION_PARAMETER, faissMethod,
                         KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()
                 ),
                 FAISS_NAME);
@@ -441,8 +441,8 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile = createTempFile();
 
         JNIService.createIndex(testData.indexData.docs, testData.indexData.vectors,
-                tmpFile.toAbsolutePath().toString(), ImmutableMap.of(KNNConstants.KNN_METHOD, faissMethod,
-                        KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+                tmpFile.toAbsolutePath().toString(), ImmutableMap.of(KNNConstants.INDEX_DESCRIPTION_PARAMETER,
+                        faissMethod, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
                 FAISS_NAME);
         assertTrue(tmpFile.toFile().length() > 0);
 
@@ -466,7 +466,7 @@ public class JNIServiceTests extends KNNTestCase {
                 JNIService.createIndex(testData.indexData.docs, testData.indexData.vectors,
                         tmpFile.toAbsolutePath().toString(),
                         ImmutableMap.of(
-                                KNNConstants.KNN_METHOD, method,
+                                KNNConstants.INDEX_DESCRIPTION_PARAMETER, method,
                                 KNNConstants.SPACE_TYPE, spaceType.getValue()
                         ),
                         FAISS_NAME);
@@ -512,7 +512,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         JNIService.createIndex(testData.indexData.docs, testData.indexData.vectors, tmpFile.toAbsolutePath().toString(),
                 ImmutableMap.of(
-                        KNNConstants.KNN_METHOD, faissMethod,
+                        KNNConstants.INDEX_DESCRIPTION_PARAMETER, faissMethod,
                         KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()
                 ),
                 FAISS_NAME);
@@ -563,7 +563,7 @@ public class JNIServiceTests extends KNNTestCase {
         }
 
         Map<String, Object> parameters = ImmutableMap.of(
-                KNNConstants.KNN_METHOD, "IVF16,PQ4",
+                KNNConstants.INDEX_DESCRIPTION_PARAMETER, "IVF16,PQ4",
                 KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()
         );
 
@@ -587,7 +587,7 @@ public class JNIServiceTests extends KNNTestCase {
         }
 
         Map<String, Object> parameters = ImmutableMap.of(
-                KNNConstants.KNN_METHOD, "IVF16,Flat",
+                KNNConstants.INDEX_DESCRIPTION_PARAMETER, "IVF16,Flat",
                 KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()
         );
 

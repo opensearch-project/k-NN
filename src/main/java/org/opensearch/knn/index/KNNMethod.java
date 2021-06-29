@@ -12,9 +12,12 @@
 package org.opensearch.knn.index;
 
 import org.opensearch.common.ValidationException;
+import org.opensearch.knn.common.KNNConstants;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -76,6 +79,18 @@ public class KNNMethod {
         }
 
         methodComponent.validate(knnMethodContext.getMethodComponent());
+    }
+
+    /**
+     * Parse knnMethodContext into a map that the library can use to configure the index
+     *
+     * @param knnMethodContext from which to generate map
+     * @return KNNMethod as a map
+     */
+    public Map<String, Object> getAsMap(KNNMethodContext knnMethodContext) {
+        Map<String, Object> parameterMap = new HashMap<>(methodComponent.getAsMap(knnMethodContext.getMethodComponent()));
+        parameterMap.put(KNNConstants.SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
+        return parameterMap;
     }
 
 
