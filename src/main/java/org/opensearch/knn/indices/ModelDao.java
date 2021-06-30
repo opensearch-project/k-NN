@@ -250,7 +250,8 @@ public interface ModelDao {
         @Override
         public void delete(String modelId, ActionListener<DeleteResponse> listener) {
             if (!isCreated()) {
-                throw new IllegalStateException("Cannot delete model \"" + modelId + "\". Model index does not exist.");
+                logger.info("Cannot delete model \"" + modelId + "\". Model index does not exist.");
+                return;
             }
 
             DeleteRequestBuilder deleteRequestBuilder = new DeleteRequestBuilder(client, DeleteAction.INSTANCE,

@@ -38,7 +38,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 public class ModelDaoTests extends KNNSingleNodeTestCase {
 
     public void testCreate() throws IOException, InterruptedException {
-        int attempts = 20;
+        int attempts = 3;
         final CountDownLatch inProgressLatch = new CountDownLatch(attempts);
 
         ActionListener<CreateIndexResponse> indexCreationListener = ActionListener.wrap(response -> {
@@ -141,8 +141,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         String modelId = "efbsdhcvbsd";
         byte[] modelBlob = "hello".getBytes();
 
-        // model index doesnt exist
-        expectThrows(IllegalStateException.class, () -> modelDao.delete(modelId, null));
+        // model index doesnt exist --> nothing should happen
+        modelDao.delete(modelId, null);
 
         // model id doesnt exist
         createIndex(MODEL_INDEX_NAME);
