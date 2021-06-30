@@ -163,19 +163,13 @@ public class KNNSettings {
             Setting.Property.NodeScope,
             Setting.Property.Dynamic);
 
-    public static final Setting<Long> MODEL_CACHE_SIZE_IN_BYTES_SETTING = new Setting<>(MODEL_CACHE_SIZE_IN_BYTES,
-            (s) -> Long.toString(KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES),
-            (s) -> {
-                    long value = Long.parseLong(s);
-                    if (value < KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES || value > KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES) {
-                        String err = "Failed to parse value for setting [" + KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES
-                                + "] must be >= " + KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES + " and < "
-                                + KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES;
-                        throw new IllegalArgumentException(err);
-                    }
-
-                    return value;
-                }, Setting.Property.NodeScope,  Setting.Property.Dynamic);
+    public static final Setting<Long> MODEL_CACHE_SIZE_IN_BYTES_SETTING = Setting.longSetting(
+            MODEL_CACHE_SIZE_IN_BYTES,
+            KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES,
+            KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES,
+            KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic);
 
     /**
      * This setting identifies KNN index.
