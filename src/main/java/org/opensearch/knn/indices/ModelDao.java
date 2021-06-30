@@ -176,6 +176,7 @@ public interface ModelDao {
             Map<String, Object> parameters = ImmutableMap.of(
                     KNNConstants.KNN_ENGINE, model.getKnnEngine().getName(),
                     KNNConstants.METHOD_PARAMETER_SPACE_TYPE, model.getSpaceType().getValue(),
+                    KNNConstants.DIMENSION, model.getDimension(),
                     KNNConstants.MODEL_BLOB_PARAMETER, base64Model
             );
 
@@ -203,6 +204,7 @@ public interface ModelDao {
             Map<String, Object> parameters = ImmutableMap.of(
                     KNNConstants.KNN_ENGINE, model.getKnnEngine().getName(),
                     KNNConstants.METHOD_PARAMETER_SPACE_TYPE, model.getSpaceType().getValue(),
+                    KNNConstants.DIMENSION, model.getDimension(),
                     KNNConstants.MODEL_BLOB_PARAMETER, base64Model
             );
 
@@ -225,7 +227,7 @@ public interface ModelDao {
         @Override
         public Model get(String modelId) throws ExecutionException, InterruptedException {
             /*
-                GET /<model_index>/<modelId>?source_includes=<model_blob>&_local
+                GET /<model_index>/<modelId>?_local
             */
             GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE, MODEL_INDEX_NAME)
                     .setId(modelId)
@@ -235,6 +237,7 @@ public interface ModelDao {
             Map<String, Object> responseMap = getResponse.getSourceAsMap();
             Object engine = responseMap.get(KNNConstants.KNN_ENGINE);
             Object space = responseMap.get(KNNConstants.METHOD_PARAMETER_SPACE_TYPE);
+            Object dimension = responseMap.get(KNNConstants.DIMENSION);
             Object blob = responseMap.get(KNNConstants.MODEL_BLOB_PARAMETER);
 
             if (blob == null) {
@@ -243,7 +246,7 @@ public interface ModelDao {
             }
 
             return new Model(KNNEngine.getEngine((String) engine), SpaceType.getSpace((String) space),
-                    Base64.getDecoder().decode((String) blob));
+                    (Integer) dimension, Base64.getDecoder().decode((String) blob));
         }
 
         private String getMapping() throws IOException {

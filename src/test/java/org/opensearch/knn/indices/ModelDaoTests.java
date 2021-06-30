@@ -33,6 +33,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
@@ -74,6 +75,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
         String modelId = "efbsdhcvbsd";
         byte [] modelBlob = "hello".getBytes();
+        int dimension = 2;
 
         // User provided model id
         createIndex(MODEL_INDEX_NAME);
@@ -85,7 +87,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             inProgressLatch1.countDown();
         }, exception -> fail("Unable to put the model: " + exception));
 
-        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, modelBlob);
+        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, modelBlob);
         modelDao.put(modelId, model, docCreationListener);
 
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
@@ -108,6 +110,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
     public void testPut_withoutId() throws InterruptedException, IOException {
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
         byte [] modelBlob = "hello".getBytes();
+        int dimension = 2;
 
         createIndex(MODEL_INDEX_NAME);
 
@@ -119,7 +122,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 },
                 exception -> fail("Unable to put the model: " + exception));
 
-        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, modelBlob);
+        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, modelBlob);
         modelDao.put(model, docCreationListenerNoModelId);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
@@ -128,6 +131,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
         String modelId = "efbsdhcvbsd";
         byte[] modelBlob = "hello".getBytes();
+        int dimension = 2;
 
         // model index doesnt exist
         expectThrows(ExecutionException.class, () -> modelDao.get(modelId));
@@ -137,7 +141,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         expectThrows(Exception.class, () -> modelDao.get(modelId));
 
         // model id exists
-        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, modelBlob);
+        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, modelBlob);
         addDoc(modelId, model);
         assertArrayEquals(modelBlob, modelDao.get(modelId).getModelBlob());
     }
@@ -146,6 +150,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
         String modelId = "efbsdhcvbsd";
         byte[] modelBlob = "hello".getBytes();
+        int dimension = 2;
 
         // model index doesnt exist --> nothing should happen
         modelDao.delete(modelId, null);
@@ -163,7 +168,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 
         // model id exists
-        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, modelBlob);
+        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, modelBlob);
         addDoc(modelId, model);
 
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
@@ -180,6 +185,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
                 .field(KNN_ENGINE, model.getKnnEngine().getName())
                 .field(METHOD_PARAMETER_SPACE_TYPE, model.getSpaceType().getValue())
+                .field(DIMENSION, model.getDimension())
                 .field(MODEL_BLOB_PARAMETER, Base64.getEncoder().encodeToString(model.getModelBlob()))
                 .endObject();
         IndexRequest indexRequest = new IndexRequest()

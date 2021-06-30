@@ -18,10 +18,13 @@ import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Objects;
 
+import static org.opensearch.knn.index.KNNVectorFieldMapper.MAX_DIMENSION;
+
 public class Model {
 
     final private KNNEngine knnEngine;
     final private SpaceType spaceType;
+    final private int dimension;
     final private byte[] modelBlob;
 
     /**
@@ -31,9 +34,13 @@ public class Model {
      * @param spaceType space type model uses
      * @param modelBlob binary representation of model template index
      */
-    public Model(KNNEngine knnEngine, SpaceType spaceType, byte[] modelBlob) {
+    public Model(KNNEngine knnEngine, SpaceType spaceType, int dimension, byte[] modelBlob) {
         this.knnEngine = Objects.requireNonNull(knnEngine, "knnEngine must not be null");
         this.spaceType = Objects.requireNonNull(spaceType, "spaceType must not be null");
+        if (dimension <= 0 || dimension >= MAX_DIMENSION) {
+            throw new IllegalArgumentException("Dimension value must be greater than 0 and less than " + MAX_DIMENSION);
+        }
+        this.dimension = dimension;
         this.modelBlob = Objects.requireNonNull(modelBlob, "modelBlob must not be null");
     }
 
@@ -56,6 +63,15 @@ public class Model {
     }
 
     /**
+     * getter for model's dimension
+     *
+     * @return dimension
+     */
+    public int getDimension() {
+        return dimension;
+    }
+
+    /**
      * getter for model's binary blob
      *
      * @return modelBlob
@@ -75,6 +91,7 @@ public class Model {
         EqualsBuilder equalsBuilder = new EqualsBuilder();
         equalsBuilder.append(knnEngine, other.knnEngine);
         equalsBuilder.append(spaceType, other.spaceType);
+        equalsBuilder.append(dimension, other.dimension);
         equalsBuilder.append(modelBlob, other.modelBlob);
 
         return equalsBuilder.isEquals();
@@ -82,6 +99,6 @@ public class Model {
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(knnEngine).append(spaceType).append(modelBlob).toHashCode();
+        return new HashCodeBuilder().append(knnEngine).append(spaceType).append(dimension).append(modelBlob).toHashCode();
     }
 }

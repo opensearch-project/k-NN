@@ -6,6 +6,9 @@
     "space_type": {
       "type": "keyword"
     },
+    "dimension": {
+      "type": "integer"
+    },
     "model_blob": {
       "type": "binary"
     }
