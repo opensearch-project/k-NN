@@ -67,7 +67,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         assertTrue(modelDao.isCreated());
     }
 
-    public void testPut_withId() throws InterruptedException {
+    public void testPut_withId() throws InterruptedException, IOException {
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
         String modelId = "efbsdhcvbsd";
         byte [] modelBlob = "hello".getBytes();
@@ -101,7 +101,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
     }
 
-    public void testPut_withoutId() throws InterruptedException {
+    public void testPut_withoutId() throws InterruptedException, IOException {
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
         byte [] modelBlob = "hello".getBytes();
 

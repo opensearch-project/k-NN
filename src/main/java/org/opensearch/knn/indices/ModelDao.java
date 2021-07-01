@@ -75,7 +75,7 @@ public interface ModelDao {
      * @param modelBlob byte array of model
      * @param listener  handles index response
      */
-    void put(String modelId, KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener);
+    void put(String modelId, KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener) throws IOException;
 
     /**
      * Put a model into the system index. Non-blocking. When no id is passed in, OpenSearch will generate the id
@@ -84,7 +84,7 @@ public interface ModelDao {
      * @param modelBlob byte array of model
      * @param listener  handles index response
      */
-    void put(KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener);
+    void put(KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener) throws IOException;
 
     /**
      * Get a model from the system index. Call blocks.
@@ -169,11 +169,8 @@ public interface ModelDao {
         }
 
         @Override
-        public void put(String modelId, KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener) {
-            if (!isCreated()) {
-                throw new IllegalStateException("Cannot put model in index before index has been initialized");
-            }
-
+        public void put(String modelId, KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener)
+                throws IOException {
             String base64Model = Base64.getEncoder().encodeToString(modelBlob);
 
             Map<String, Object> parameters = ImmutableMap.of(
@@ -188,15 +185,19 @@ public interface ModelDao {
             // Fail if the id already exists. Models are not updateable
             indexRequestBuilder.setOpType(DocWriteRequest.OpType.CREATE);
             indexRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+
+            if (!isCreated()) {
+                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(listener),
+                        listener::onFailure));
+                return;
+            }
+
             indexRequestBuilder.execute(listener);
         }
 
         @Override
-        public void put(KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener) {
-            if (!isCreated()) {
-                throw new IllegalStateException("Cannot put model in index before index has been initialized");
-            }
-
+        public void put(KNNEngine knnEngine, byte[] modelBlob, ActionListener<IndexResponse> listener)
+                throws IOException {
             String base64Model = Base64.getEncoder().encodeToString(modelBlob);
 
             Map<String, Object> parameters = ImmutableMap.of(
@@ -210,6 +211,13 @@ public interface ModelDao {
             // Fail if the id already exists. Models are not updateable
             indexRequestBuilder.setOpType(DocWriteRequest.OpType.CREATE);
             indexRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+
+            if (!isCreated()) {
+                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(listener),
+                        listener::onFailure));
+                return;
+            }
+
             indexRequestBuilder.execute(listener);
         }
 
