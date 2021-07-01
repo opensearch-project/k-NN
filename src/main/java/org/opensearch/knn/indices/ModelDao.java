@@ -215,10 +215,6 @@ public interface ModelDao {
 
         @Override
         public byte[] get(String modelId) throws ExecutionException, InterruptedException {
-            if (!isCreated()) {
-                throw new IllegalStateException("Cannot get model \"" + modelId + "\". Model index does not exist.");
-            }
-
             /*
                 GET /<model_index>/<modelId>?source_includes=<model_blob>&_local
             */

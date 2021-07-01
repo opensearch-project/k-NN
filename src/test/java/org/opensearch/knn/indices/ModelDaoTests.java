@@ -125,7 +125,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         byte[] modelBlob = "hello".getBytes();
 
         // model index doesnt exist
-        expectThrows(IllegalStateException.class, () -> modelDao.get(modelId));
+        expectThrows(ExecutionException.class, () -> modelDao.get(modelId));
 
         // model id doesnt exist
         createIndex(MODEL_INDEX_NAME);
