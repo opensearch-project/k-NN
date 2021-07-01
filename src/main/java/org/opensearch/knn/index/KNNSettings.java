@@ -101,7 +101,7 @@ public class KNNSettings {
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION = 512;
     public static final Integer KNN_DEFAULT_ALGO_PARAM_INDEX_THREAD_QTY = 1;
     public static final Integer KNN_DEFAULT_CIRCUIT_BREAKER_UNSET_PERCENTAGE = 75;
-    public static final Integer KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES = 10000000; // 10 Mb
+    public static final Integer KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES = 50000000; // 50 Mb
     public static final Integer KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES = 80000000; // 80 Mb
     public static final Integer KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES = 0;
 
