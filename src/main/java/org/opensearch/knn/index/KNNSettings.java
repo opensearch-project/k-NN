@@ -90,6 +90,7 @@ public class KNNSettings {
     public static final String KNN_INDEX = "index.knn";
     public static final String MODEL_INDEX_NUMBER_OF_SHARDS = "knn.model_index_number_of_shards";
     public static final String MODEL_INDEX_NUMBER_OF_REPLICAS = "knn.model_index_number_of_replicas";
+    public static final String MODEL_CACHE_SIZE_IN_BYTES = "knn.model_cache.size_in_bytes";
 
     /**
      * Default setting values
@@ -100,6 +101,10 @@ public class KNNSettings {
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION = 512;
     public static final Integer KNN_DEFAULT_ALGO_PARAM_INDEX_THREAD_QTY = 1;
     public static final Integer KNN_DEFAULT_CIRCUIT_BREAKER_UNSET_PERCENTAGE = 75;
+    public static final Integer KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES = 50000000; // 50 Mb
+    public static final Integer KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES = 80000000; // 80 Mb
+    public static final Integer KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES = 0;
+
 
     /**
      * Settings Definition
@@ -158,6 +163,13 @@ public class KNNSettings {
             Setting.Property.NodeScope,
             Setting.Property.Dynamic);
 
+    public static final Setting<Long> MODEL_CACHE_SIZE_IN_BYTES_SETTING = Setting.longSetting(
+            MODEL_CACHE_SIZE_IN_BYTES,
+            KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES,
+            KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES,
+            KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic);
 
     /**
      * This setting identifies KNN index.
@@ -310,7 +322,8 @@ public class KNNSettings {
                 KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING,
                 IS_KNN_INDEX_SETTING,
                 MODEL_INDEX_NUMBER_OF_SHARDS_SETTING,
-                MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING);
+                MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
+                MODEL_CACHE_SIZE_IN_BYTES_SETTING);
         return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream())
                      .collect(Collectors.toList());
     }
