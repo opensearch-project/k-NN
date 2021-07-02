@@ -138,7 +138,6 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 (n, c, o) -> ModelContext.parse(o),
                 m -> toType(m).modelContext)
                 .setSerializer(((b, n, v) -> b.field(n, v.getModelId())), ModelContext::getModelId);
-        //TODO: Is there a way to separate validation from constructor?
 
         /**
          * knnMethodContext parameter allows a user to define their k-NN library index configuration. Defaults to an L2

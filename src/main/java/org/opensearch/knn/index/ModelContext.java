@@ -17,8 +17,7 @@ import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelCache;
 
 /**
- * Used to provide context for a given model identifier. Context includes the engine the model is used for as well as
- * the space type the model uses
+ * Used to capture context of a model
  */
 public class ModelContext {
 
@@ -27,35 +26,74 @@ public class ModelContext {
     private final SpaceType spaceType;
     private final int dimension;
 
-    public ModelContext(String modelId) {
+    /**
+     * Constructor
+     *
+     * @param modelId Identifier for model
+     * @param knnEngine KNNEngine of model
+     * @param spaceType SpaceType of model
+     * @param dimension Dimension of model
+     */
+    public ModelContext(String modelId, KNNEngine knnEngine, SpaceType spaceType, int dimension) {
         this.modelId = modelId;
-        Model model = ModelCache.getInstance().get(modelId);
-        this.knnEngine = model.getKnnEngine();
-        this.spaceType = model.getSpaceType();
-        this.dimension = model.getDimension();
+        this.knnEngine = knnEngine;
+        this.spaceType = spaceType;
+        this.dimension = dimension;
     }
 
+    /**
+     * Getter for model's id
+     *
+     * @return model's id
+     */
     public String getModelId() {
         return modelId;
     }
 
+    /**
+     * Getter for model's engine
+     *
+     * @return model's engine
+     */
     public KNNEngine getKNNEngine() {
         return knnEngine;
     }
 
+    /**
+     * Getter for model's space type
+     *
+     * @return model's space type
+     */
     public SpaceType getSpaceType() {
         return spaceType;
     }
 
+    /**
+     * Getter for model's dimension
+     *
+     * @return model's dimension
+     */
     public int getDimension() {
         return dimension;
     }
 
+    /**
+     * Parse an object to a ModelContext
+     *
+     * @param in String of model id
+     * @return ModelContext constructed from model identified by in
+     */
     public static ModelContext parse(Object in) {
         if (!(in instanceof String)) {
             throw new MapperParsingException("Unable to parse ModelContext: provided input is not of type \"String\"");
         }
 
-        return new ModelContext((String) in);
+        String modelId = (String) in;
+        Model model = ModelCache.getInstance().get(modelId);
+        KNNEngine knnEngine = model.getKnnEngine();
+        SpaceType spaceType = model.getSpaceType();
+        int dimension = model.getDimension();
+
+        return new ModelContext(modelId, knnEngine, spaceType, dimension);
     }
 }
