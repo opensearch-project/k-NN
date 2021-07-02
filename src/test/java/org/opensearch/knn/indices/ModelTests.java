@@ -56,6 +56,12 @@ public class ModelTests extends KNNTestCase {
         assertArrayEquals(modelBlob, model.getModelBlob());
     }
 
+    public void testGetLength() {
+        int size = 129;
+        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, 2, new byte[size]);
+        assertEquals(size, model.getLength());
+    }
+
     public void testEquals() {
         Model model1 = new Model(KNNEngine.DEFAULT, SpaceType.L1, 2, new byte[16]);
         Model model2 = new Model(KNNEngine.DEFAULT, SpaceType.L1, 2, new byte[16]);

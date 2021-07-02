@@ -80,6 +80,15 @@ public class Model {
         return modelBlob;
     }
 
+    /**
+     * getter for model's length
+     *
+     * @return length of model blob
+     */
+    public int getLength() {
+        return modelBlob.length;
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj)

@@ -78,7 +78,7 @@ public final class ModelCache {
                 .recordStats()
                 .concurrencyLevel(1)
                 .maximumWeight(cacheSizeInBytes)
-                .weigher((k, v) -> v.getModelBlob().length);
+                .weigher((k, v) -> v.getLength());
 
         cache = cacheBuilder.build();
     }
@@ -103,7 +103,7 @@ public final class ModelCache {
      * @return total weight
      */
     public long getTotalWeight() {
-        return cache.asMap().values().stream().map(model -> (long) model.getModelBlob().length)
+        return cache.asMap().values().stream().map(model -> (long) model.getLength())
                 .reduce(0L, Long::sum);
     }
 
