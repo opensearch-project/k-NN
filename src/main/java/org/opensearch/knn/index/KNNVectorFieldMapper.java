@@ -241,9 +241,13 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     }
                 }
             }
-            
+
+            // Take the dimension from modeContext if available, if not take it from dimension mapping
+            ModelContext modelContext = this.modelContext.getValue();
+            int dimension = modelContext == null ? this.dimension.getValue() : modelContext.getDimension();
+
             return new KNNVectorFieldMapper(name, new KNNVectorFieldType(buildFullName(context), meta.getValue(),
-                    dimension.getValue()), multiFieldsBuilder.build(this, context),
+                    dimension), multiFieldsBuilder.build(this, context),
                     ignoreMalformed(context), this.spaceType, this.m, this.efConstruction, copyTo.build(), this);
         }
 
@@ -288,7 +292,10 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             Builder builder = new KNNVectorFieldMapper.Builder(name);
             builder.parse(name, parserContext, node);
 
-            if (builder.dimension.getValue() == -1) {
+            ModelContext modelContext = builder.modelContext.getValue();
+            int dimension = modelContext == null ? builder.dimension.getValue() : modelContext.getDimension();
+
+            if (dimension == -1) {
                 throw new IllegalArgumentException("Dimension value missing for vector: " + name);
             }
 
@@ -354,7 +361,6 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         this.stored = builder.stored.getValue();
         this.hasDocValues = builder.hasDocValues.getValue();
-        this.dimension = builder.dimension.getValue();
         this.knnMethod = builder.knnMethodContext.getValue();
         this.ignoreMalformed = ignoreMalformed;
         this.spaceType = spaceType;
@@ -365,10 +371,14 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         this.fieldType = new FieldType(Defaults.FIELD_TYPE);
 
         if (modelContext != null) {
+            this.dimension = modelContext.getDimension();
+
             this.fieldType.putAttribute(KNN_ENGINE, modelContext.getSpaceType().getValue());
             this.fieldType.putAttribute(SPACE_TYPE, modelContext.getKNNEngine().getName());
             this.fieldType.putAttribute(MODEL_ID, modelContext.getModelId());
         } else {
+            this.dimension = builder.dimension.getValue();
+
             KNNEngine knnEngine;
             if (knnMethod == null) {
                 knnEngine = KNNEngine.DEFAULT;

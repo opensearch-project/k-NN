@@ -25,12 +25,14 @@ public class ModelContext {
     private final String modelId;
     private final KNNEngine knnEngine;
     private final SpaceType spaceType;
+    private final int dimension;
 
     public ModelContext(String modelId) {
         this.modelId = modelId;
         Model model = ModelCache.getInstance().get(modelId);
         this.knnEngine = model.getKnnEngine();
         this.spaceType = model.getSpaceType();
+        this.dimension = model.getDimension();
     }
 
     public String getModelId() {
@@ -43,6 +45,10 @@ public class ModelContext {
 
     public SpaceType getSpaceType() {
         return spaceType;
+    }
+
+    public int getDimension() {
+        return dimension;
     }
 
     public static ModelContext parse(Object in) {
