@@ -110,7 +110,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                 return;
             }
 
-            // Create library index either from model template or from scratch
+            // Create library index either from model or from scratch
             if (field.attributes().containsKey(MODEL_ID)) {
                 String modelId = field.attributes().get(MODEL_ID);
                 Model model = ModelCache.getInstance().get(modelId);

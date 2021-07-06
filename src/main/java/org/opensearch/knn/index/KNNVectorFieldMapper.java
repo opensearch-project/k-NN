@@ -349,7 +349,7 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected final String spaceType;
     protected final String m;
     protected final String efConstruction;
-    private final Integer dimension;
+    protected final Integer dimension;
     protected final KNNMethodContext knnMethod;
     protected final ModelContext modelContext;
 

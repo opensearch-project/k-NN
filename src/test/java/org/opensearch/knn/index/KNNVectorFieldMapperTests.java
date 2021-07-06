@@ -26,6 +26,9 @@
 package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.ValidationException;
@@ -38,26 +41,32 @@ import org.opensearch.index.mapper.ContentPath;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.indices.Model;
+import org.opensearch.knn.indices.ModelCache;
+import org.opensearch.knn.indices.ModelDao;
 
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.concurrent.ExecutionException;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.Version.CURRENT;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_IN_BYTES_SETTING;
 
 public class KNNVectorFieldMapperTests extends KNNTestCase {
     /**
      * Test that we can successfully create builder and get the relevant values. Note that parse needs to be called
      * in order to set the relevant parameters. Without calling parse, only the defaults will be set
      */
-    public void testBuilder_build() {
+    public void testBuilder_buildWithoutModel() {
         KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1");
 
         // For default settings, everything in KNNVectorFieldMapper should be default after calling build
@@ -157,13 +166,59 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertEquals(builder.knnMethodContext.getValue(), knnVectorFieldMapper.knnMethod);
     }
 
+    public void test_buildWithModel() throws IOException, ExecutionException, InterruptedException {
+        // Setup model cache
+        ModelDao modelDao = mock(ModelDao.class);
+        Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), 10).build();
+        ClusterSettings clusterSettings = new ClusterSettings(settings,
+                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+
+        ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.getSettings()).thenReturn(settings);
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
+        ModelCache.initialize(modelDao, clusterService);
+        ModelCache.getInstance().removeAll();
+
+        String modelId = "test-model";
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        SpaceType spaceType = SpaceType.INNER_PRODUCT;
+        int dimension = 64;
+
+        Model mockModel = new Model(knnEngine, spaceType, dimension, new byte[2]);
+        when(modelDao.get(modelId)).thenReturn(mockModel);
+
+        // Generate builder
+        String fieldName = "test-field-name-1";
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(fieldName);
+
+        Mapper.TypeParser.ParserContext parserContext = buildParserContext("test-index", settings);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field("type", "knn_vector")
+                .field(MODEL_ID, modelId)
+                .endObject();
+
+        // Test builder
+        builder.parse(fieldName, parserContext, xContentBuilderToMap(xContentBuilder));
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(Settings.EMPTY, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
+
+        assertEquals(knnVectorFieldMapper.modelContext.getModelId(), modelId);
+        assertEquals(knnVectorFieldMapper.modelContext.getKNNEngine(), knnEngine);
+        assertEquals(knnVectorFieldMapper.modelContext.getSpaceType(), spaceType);
+        assertEquals(knnVectorFieldMapper.fieldType().dimension, dimension);
+        assertEquals(knnVectorFieldMapper.modelContext.getDimension(), dimension);
+        assertEquals(knnVectorFieldMapper.dimension.intValue(), dimension);
+    }
+
     /**
      * Test that the builder correctly returns the parameters on call to getParameters
      */
     public void testBuilder_getParameters() {
         String fieldName = "test-field-name";
         KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(fieldName);
-        assertEquals(5, builder.getParameters().size());
+        assertEquals(6, builder.getParameters().size());
     }
 
     /**
@@ -244,6 +299,49 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         expectThrows(IllegalArgumentException.class, () -> typeParser.parse(fieldName,
                 xContentBuilderToMap(xContentBuilder4), buildParserContext(indexName, settings)));
+    }
+
+    public void testTypeParser_fromModel() throws ExecutionException, InterruptedException, IOException {
+        // Setup model cache
+        ModelDao modelDao = mock(ModelDao.class);
+        Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), 10).build();
+        ClusterSettings clusterSettings = new ClusterSettings(settings,
+                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+
+        ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.getSettings()).thenReturn(settings);
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
+        ModelCache.initialize(modelDao, clusterService);
+        ModelCache.getInstance().removeAll();
+
+        String modelId = "test-model";
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        SpaceType spaceType = SpaceType.INNER_PRODUCT;
+        int dimension = 64;
+
+        Model mockModel = new Model(knnEngine, spaceType, dimension, new byte[2]);
+        when(modelDao.get(modelId)).thenReturn(mockModel);
+
+        // Setup parser context
+        String indexName = "test-index";
+        String fieldName = "test-field";
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field("type", "knn_vector")
+                .field(MODEL_ID, modelId)
+                .endObject();
+
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser();
+
+        // Use parser to parse to builder
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(fieldName,
+                xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings));
+
+        assertEquals(modelId, builder.modelContext.getValue().getModelId());
+        assertEquals(knnEngine, builder.modelContext.getValue().getKNNEngine());
+        assertEquals(spaceType, builder.modelContext.getValue().getSpaceType());
+        assertEquals(dimension, builder.modelContext.getValue().getDimension());
     }
 
     public void testMerge() throws IOException {

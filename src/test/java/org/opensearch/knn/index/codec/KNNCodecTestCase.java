@@ -25,8 +25,13 @@
 
 package org.opensearch.knn.index.codec;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import org.apache.lucene.search.TopDocs;
+import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.JNIService;
 import org.opensearch.knn.index.KNNIndexCache;
 import org.opensearch.knn.index.KNNQuery;
 import org.opensearch.knn.index.KNNSettings;
@@ -52,16 +57,26 @@ import org.apache.lucene.store.IOContext;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.indices.Model;
+import org.opensearch.knn.indices.ModelCache;
+import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.watcher.ResourceWatcherService;
 import org.mockito.Mockito;
 
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.Version.CURRENT;
+import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_IN_BYTES_SETTING;
 
 /**
  * Test used for testing Codecs
@@ -184,6 +199,84 @@ public class  KNNCodecTestCase extends KNNTestCase {
         // query to determine the hits
         assertEquals(1, searcher.count(new KNNQuery("test_vector", new float[] {1.0f, 0.0f, 0.0f}, 1, "dummy")));
         assertEquals(1, searcher.count(new KNNQuery("my_vector", new float[] {1.0f, 1.0f}, 1, "dummy")));
+
+        reader.close();
+        dir.close();
+    }
+
+    public void testBuildFromModelTemplate(Codec codec) throws IOException, ExecutionException, InterruptedException {
+        // Setup model params
+        String modelId = "test-model";
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        SpaceType spaceType = SpaceType.L2;
+        int dimension = 3;
+
+        // "Train" a faiss flat index - this really just creates an empty index that does brute force k-NN
+        long vectorsPointer = JNIService.transferVectors(0, new float[0][0]);
+        byte [] modelBlob = JNIService.trainIndex(ImmutableMap.of(
+                INDEX_DESCRIPTION_PARAMETER, "Flat",
+                SPACE_TYPE, spaceType.getValue()), dimension, vectorsPointer,
+                KNNEngine.FAISS.getName());
+
+        // Setup model cache
+        ModelDao modelDao = mock(ModelDao.class);
+        Model mockModel = new Model(knnEngine, spaceType, dimension, modelBlob);
+        when(modelDao.get(modelId)).thenReturn(mockModel);
+
+        Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), 10).build();
+        ClusterSettings clusterSettings = new ClusterSettings(settings,
+                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+
+        ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.getSettings()).thenReturn(settings);
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+
+        ModelCache.initialize(modelDao, clusterService);
+        ModelCache.getInstance().removeAll();
+
+        // Setup Lucene
+        setUpMockClusterService();
+        Directory dir = newFSDirectory(createTempDir());
+        IndexWriterConfig iwc = newIndexWriterConfig();
+        iwc.setMergeScheduler(new SerialMergeScheduler());
+        iwc.setCodec(codec);
+
+        FieldType fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
+        fieldType.putAttribute(KNNConstants.MODEL_ID, modelId);
+        fieldType.putAttribute(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName());
+        fieldType.putAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue());
+        fieldType.freeze();
+
+        // Add the documents to the index
+        float[][] arrays = {
+                {1.0f, 3.0f, 4.0f},
+                {2.0f, 5.0f, 8.0f},
+                {3.0f, 6.0f, 9.0f},
+                {4.0f, 7.0f, 10.0f}
+        };
+
+        RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
+        String fieldName = "test_vector";
+        for (float[] array : arrays) {
+            VectorField vectorField = new VectorField(fieldName, array, fieldType);
+            Document doc = new Document();
+            doc.add(vectorField);
+            writer.addDocument(doc);
+        }
+
+        IndexReader reader = writer.getReader();
+        writer.close();
+
+        // Make sure that search returns the correct results
+        KNNIndexCache.setResourceWatcherService(createDisabledResourceWatcherService());
+        float [] query = {10.0f, 10.0f, 10.0f};
+        IndexSearcher searcher = new IndexSearcher(reader);
+        TopDocs topDocs = searcher.search(new KNNQuery(fieldName, query, 4, "dummy"), 10);
+
+        assertEquals(3, topDocs.scoreDocs[0].doc);
+        assertEquals(2, topDocs.scoreDocs[1].doc);
+        assertEquals(1, topDocs.scoreDocs[2].doc);
+        assertEquals(0, topDocs.scoreDocs[3].doc);
 
         reader.close();
         dir.close();
