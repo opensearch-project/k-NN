@@ -91,7 +91,7 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      * Define the max dimension a knn_vector mapping can have. This limit is somewhat arbitrary. In the future, we
      * should make this configurable.
      */
-    static final int MAX_DIMENSION = 10000;
+    public static final int MAX_DIMENSION = 10000;
 
     private static KNNVectorFieldMapper toType(FieldMapper in) {
         return (KNNVectorFieldMapper) in;
