@@ -115,7 +115,21 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                 String modelId = field.attributes().get(MODEL_ID);
                 Model model = ModelCache.getInstance().get(modelId);
 
-                //TODO: Add some validation here
+                if (model.getKnnEngine() != knnEngine) {
+                    throw new RuntimeException("Model Engine \"" + model.getKnnEngine().getName()
+                            + "\" cannot be different than index engine \"" + knnEngine.getName() + "\"");
+                }
+
+                String spaceName = field.getAttribute(KNNConstants.SPACE_TYPE);
+                if (spaceName == null) {
+                    throw new RuntimeException("Space Type cannot be null");
+                }
+
+                SpaceType spaceType = SpaceType.getSpace(spaceName);
+                if (model.getSpaceType() != spaceType) {
+                    throw new RuntimeException("Model Space Type \"" + model.getSpaceType().getValue()
+                            + "\" cannot be different than index Space Type \"" + spaceType.getValue() + "\"");
+                }
 
                 createKNNIndexFromTemplate(model.getModelBlob(), engineName, tempIndexPath, pair);
             } else {
