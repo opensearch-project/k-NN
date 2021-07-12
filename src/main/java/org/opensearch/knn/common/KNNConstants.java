@@ -39,6 +39,7 @@ public class KNNConstants {
     public static final String METHOD_PARAMETER_SPACE_TYPE = "space_type"; // used for mapping parameter
     public static final String COMPOUND_EXTENSION = "c";
     public static final String JNI_LIBRARY_NAME = "OpensearchKNN";
+    public static final String MODEL = "model";
     public static final String MODEL_ID = "model_id";
     public static final String MODEL_BLOB_PARAMETER = "model_blob";
     public static final String MODEL_INDEX_MAPPING_PATH = "mappings/model-index.json";

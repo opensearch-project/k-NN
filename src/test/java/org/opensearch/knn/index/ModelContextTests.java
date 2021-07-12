@@ -11,24 +11,21 @@
 
 package org.opensearch.knn.index;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.UncheckedExecutionException;
-import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Settings;
+import com.google.common.collect.ImmutableMap;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.mapper.MapperParsingException;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.indices.Model;
-import org.opensearch.knn.indices.ModelCache;
-import org.opensearch.knn.indices.ModelDao;
 
-import java.util.concurrent.ExecutionException;
+import java.io.IOException;
+import java.util.Map;
 
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_IN_BYTES_SETTING;
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 
 public class ModelContextTests extends KNNTestCase {
     public void testGetModelId() {
@@ -55,36 +52,129 @@ public class ModelContextTests extends KNNTestCase {
         assertEquals(dimension, modelContext.getDimension());
     }
 
-    public void testParse() throws ExecutionException, InterruptedException {
-        Object invalidModelId = 15;
-        expectThrows(MapperParsingException.class, () -> ModelContext.parse(invalidModelId));
+    public void textToXContent() throws IOException {
+        String modelId = "test-model";
+        String spaceType = SpaceType.L2.getValue();
+        String knnEngine = KNNEngine.DEFAULT.getName();
+        int dimension = 16;
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(MODEL_ID, modelId)
+                .field(KNN_ENGINE, knnEngine)
+                .field(METHOD_PARAMETER_SPACE_TYPE, spaceType)
+                .field(DIMENSION, dimension)
+                .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        ModelContext modelContext = ModelContext.parse(in);
 
-        ModelDao modelDao = mock(ModelDao.class);
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+        builder = modelContext.toXContent(builder, ToXContent.EMPTY_PARAMS).endObject();
 
-        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), 10).build();
-        ClusterSettings clusterSettings = new ClusterSettings(settings,
-                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+        Map<String, Object> out = xContentBuilderToMap(builder);
+        assertEquals(modelId, out.get(MODEL_ID));
+        assertEquals(knnEngine, out.get(KNN_ENGINE));
+        assertEquals(spaceType, out.get(METHOD_PARAMETER_SPACE_TYPE));
+        assertEquals(dimension, out.get(DIMENSION));
+    }
 
-        ClusterService clusterService = mock(ClusterService.class);
-        when(clusterService.getSettings()).thenReturn(settings);
-        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+    public void testEquals() {
+        String modelId1 = "test-model-1";
+        String modelId2 = "test-model-2";
+        SpaceType spaceType1 = SpaceType.L1;
+        SpaceType spaceType2 = SpaceType.L2;
+        KNNEngine knnEngine1= KNNEngine.FAISS;
+        KNNEngine knnEngine2= KNNEngine.NMSLIB;
+        int dimension1 = 16;
+        int dimension2 = 32;
 
-        ModelCache.getInstance().removeAll();
-        ModelCache.initialize(modelDao, clusterService);
+        ModelContext modelContext1 = new ModelContext(modelId1, knnEngine1, spaceType1, dimension1);
+        ModelContext modelContext2 = new ModelContext(modelId1, knnEngine1, spaceType1, dimension1);
+        ModelContext modelContext3 = new ModelContext(modelId2, knnEngine1, spaceType1, dimension1);
+        ModelContext modelContext4 = new ModelContext(modelId1, knnEngine2, spaceType1, dimension1);
+        ModelContext modelContext5 = new ModelContext(modelId1, knnEngine1, spaceType2, dimension1);
+        ModelContext modelContext6 = new ModelContext(modelId1, knnEngine1, spaceType1, dimension2);
 
-        String nonexistantModelId = "nonexistant-model";
+        assertNotEquals(modelContext1, null);
+        assertEquals(modelContext1, modelContext1);
+        assertEquals(modelContext1, modelContext2);
+        assertNotEquals(modelContext1, modelContext3);
+        assertNotEquals(modelContext1, modelContext4);
+        assertNotEquals(modelContext1, modelContext5);
+        assertNotEquals(modelContext1, modelContext6);
+    }
 
-        doThrow(IllegalArgumentException.class).when(modelDao).get(nonexistantModelId);
-        expectThrows(UncheckedExecutionException.class, () -> ModelContext.parse(nonexistantModelId));
+    public void testHashCode() {
+        String modelId1 = "test-model-1";
+        String modelId2 = "test-model-2";
+        SpaceType spaceType1 = SpaceType.L1;
+        SpaceType spaceType2 = SpaceType.L2;
+        KNNEngine knnEngine1= KNNEngine.FAISS;
+        KNNEngine knnEngine2= KNNEngine.NMSLIB;
+        int dimension1 = 16;
+        int dimension2 = 32;
+
+        ModelContext modelContext1 = new ModelContext(modelId1, knnEngine1, spaceType1, dimension1);
+        ModelContext modelContext2 = new ModelContext(modelId1, knnEngine1, spaceType1, dimension1);
+        ModelContext modelContext3 = new ModelContext(modelId2, knnEngine1, spaceType1, dimension1);
+        ModelContext modelContext4 = new ModelContext(modelId1, knnEngine2, spaceType1, dimension1);
+        ModelContext modelContext5 = new ModelContext(modelId1, knnEngine1, spaceType2, dimension1);
+        ModelContext modelContext6 = new ModelContext(modelId1, knnEngine1, spaceType1, dimension2);
+
+        assertEquals(modelContext1.hashCode(), modelContext1.hashCode());
+        assertEquals(modelContext1.hashCode(), modelContext2.hashCode());
+        assertNotEquals(modelContext1.hashCode(), modelContext3.hashCode());
+        assertNotEquals(modelContext1.hashCode(), modelContext4.hashCode());
+        assertNotEquals(modelContext1.hashCode(), modelContext5.hashCode());
+        assertNotEquals(modelContext1.hashCode(), modelContext6.hashCode());
+    }
+
+    public void testParse() {
+        // Invalid input value
+        Object invalidInput = 15;
+        expectThrows(MapperParsingException.class, () -> ModelContext.parse(invalidInput));
+
+        // Missing parameter
+        expectThrows(MapperParsingException.class, () -> ModelContext.parse(ImmutableMap.of(
+                KNN_ENGINE, KNNEngine.DEFAULT.getName(),
+                METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT.getValue(),
+                DIMENSION, 16)));
+
+        expectThrows(MapperParsingException.class, () -> ModelContext.parse(ImmutableMap.of(
+                MODEL_ID, "test",
+                METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT.getValue(),
+                DIMENSION, 16)));
+
+        expectThrows(MapperParsingException.class, () -> ModelContext.parse(ImmutableMap.of(
+                MODEL_ID, "test",
+                KNN_ENGINE, KNNEngine.DEFAULT.getName(),
+                DIMENSION, 16)));
+
+        expectThrows(MapperParsingException.class, () -> ModelContext.parse(ImmutableMap.of(
+                MODEL_ID, "test",
+                KNN_ENGINE, KNNEngine.DEFAULT.getName(),
+                METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT.getValue())));
+
+        // Extra parameter
+        expectThrows(MapperParsingException.class, () -> ModelContext.parse(ImmutableMap.of(
+                MODEL_ID, "test",
+                KNN_ENGINE, KNNEngine.DEFAULT.getName(),
+                METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT.getValue(),
+                DIMENSION, 16,
+                "invalid", "invalid")));
 
         String modelId = "test-model";
-        Model mockModel = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, 2, new byte[2]);
-        when(modelDao.get(modelId)).thenReturn(mockModel);
+        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        SpaceType spaceType = SpaceType.DEFAULT;
+        int dimension = 164;
 
-        ModelContext modelContext = ModelContext.parse(modelId);
+        ModelContext modelContext = ModelContext.parse(ImmutableMap.of(
+                MODEL_ID, modelId,
+                KNN_ENGINE, knnEngine.getName(),
+                METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue(),
+                DIMENSION, dimension));
+
         assertEquals(modelId, modelContext.getModelId());
-        assertEquals(mockModel.getKnnEngine(), modelContext.getKNNEngine());
-        assertEquals(mockModel.getSpaceType(), modelContext.getSpaceType());
-        assertEquals(mockModel.getDimension(), modelContext.getDimension());
+        assertEquals(knnEngine, modelContext.getKNNEngine());
+        assertEquals(spaceType, modelContext.getSpaceType());
+        assertEquals(dimension, modelContext.getDimension());
     }
 }

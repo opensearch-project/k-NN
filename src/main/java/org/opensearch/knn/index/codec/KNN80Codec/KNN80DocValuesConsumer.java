@@ -114,6 +114,9 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             if (field.attributes().containsKey(MODEL_ID)) {
                 String modelId = field.attributes().get(MODEL_ID);
                 Model model = ModelCache.getInstance().get(modelId);
+
+                //TODO: Add some validation here
+
                 createKNNIndexFromTemplate(model.getModelBlob(), engineName, tempIndexPath, pair);
             } else {
                 createKNNIndexFromScratch(field, pair, knnEngine, tempIndexPath);

@@ -133,11 +133,15 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
          * model template index. If this parameter is set, it will take precedence. This parameter is only relevant for
          * library indices that require training.
          */
-        protected final Parameter<ModelContext> modelContext = new Parameter<>(KNNConstants.MODEL_ID, false,
+        protected final Parameter<ModelContext> modelContext = new Parameter<>(KNNConstants.MODEL, false,
                 () -> null,
                 (n, c, o) -> ModelContext.parse(o),
                 m -> toType(m).modelContext)
-                .setSerializer(((b, n, v) -> b.field(n, v.getModelId())), ModelContext::getModelId);
+                .setSerializer(((b, n, v) -> {
+                    b.startObject(n);
+                    v.toXContent(b, ToXContent.EMPTY_PARAMS);
+                    b.endObject();
+                }), ModelContext::getModelId);
 
         /**
          * knnMethodContext parameter allows a user to define their k-NN library index configuration. Defaults to an L2
@@ -371,10 +375,9 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         if (modelContext != null) {
             this.dimension = modelContext.getDimension();
-
-            this.fieldType.putAttribute(KNN_ENGINE, modelContext.getSpaceType().getValue());
-            this.fieldType.putAttribute(SPACE_TYPE, modelContext.getKNNEngine().getName());
             this.fieldType.putAttribute(MODEL_ID, modelContext.getModelId());
+            this.fieldType.putAttribute(KNN_ENGINE, modelContext.getKNNEngine().getName());
+            this.fieldType.putAttribute(SPACE_TYPE, modelContext.getSpaceType().getValue());
         } else {
             this.dimension = builder.dimension.getValue();
 
