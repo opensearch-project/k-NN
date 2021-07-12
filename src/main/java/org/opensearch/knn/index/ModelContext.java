@@ -96,7 +96,7 @@ public class ModelContext implements ToXContentFragment {
      */
     public static ModelContext parse(Object in) {
         if (!(in instanceof Map)) {
-            throw new MapperParsingException("Unable to parse ModelContext: provided input is not of type \"String\"");
+            throw new MapperParsingException("Unable to parse ModelContext: provided input is not of type \"Map\"");
         }
 
         @SuppressWarnings("unchecked")
