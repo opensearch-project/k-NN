@@ -94,14 +94,6 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
             KNNEngine knnEngine = KNNEngine.getEngine(engineName);
 
-            // Create path where engine file will be stored
-            String engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getLatestBuildVersion(),
-                    field.name, knnEngine.getExtension());
-            String tmpEngineFileName = engineFileName + TEMP_SUFFIX;
-            String indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
-                    engineFileName).toString();
-            String tempIndexPath = indexPath + TEMP_SUFFIX;
-
             // Get values to be indexed
             BinaryDocValues values = valuesProducer.getBinary(field);
             KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
@@ -111,6 +103,12 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             }
 
             // Create library index either from model or from scratch
+            String engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getLatestBuildVersion(),
+                    field.name, knnEngine.getExtension());
+            String indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
+                    engineFileName).toString();
+            String tmpEngineFileName = engineFileName + TEMP_SUFFIX;
+            String tempIndexPath = indexPath + TEMP_SUFFIX;
             if (field.attributes().containsKey(MODEL_ID)) {
                 String modelId = field.attributes().get(MODEL_ID);
                 Model model = ModelCache.getInstance().get(modelId);
@@ -131,7 +129,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                             + "\" cannot be different than index Space Type \"" + spaceType.getValue() + "\"");
                 }
 
-                createKNNIndexFromTemplate(model.getModelBlob(), engineName, tempIndexPath, pair);
+                createKNNIndexFromTemplate(model.getModelBlob(), pair, knnEngine, tempIndexPath);
             } else {
                 createKNNIndexFromScratch(field, pair, knnEngine, tempIndexPath);
             }
@@ -160,11 +158,11 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         }
     }
 
-    private void createKNNIndexFromTemplate(byte[] model, String engineName, String indexPath,
-                                            KNNCodecUtil.Pair pair) {
+    private void createKNNIndexFromTemplate(byte[] model, KNNCodecUtil.Pair pair, KNNEngine knnEngine,
+                                            String indexPath) {
         AccessController.doPrivileged(
                 (PrivilegedAction<Void>) () -> {
-                    JNIService.createIndexFromTemplate(pair.docs, pair.vectors, indexPath, model, engineName);
+                    JNIService.createIndexFromTemplate(pair.docs, pair.vectors, indexPath, model, knnEngine.getName());
                     return null;
                 }
         );
