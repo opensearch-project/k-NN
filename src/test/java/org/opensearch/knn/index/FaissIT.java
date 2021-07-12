@@ -13,6 +13,7 @@
 package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Floats;
 import org.apache.http.util.EntityUtils;
 import org.junit.BeforeClass;
@@ -35,6 +36,15 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.FAISS_FLAT_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.MODEL;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+
 public class FaissIT extends KNNRestTestCase {
 
     static TestUtils.TestData testData;
@@ -48,7 +58,7 @@ public class FaissIT extends KNNRestTestCase {
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());
     }
 
-    public void testEndToEnd() throws IOException, InterruptedException {
+    public void testEndToEnd_fromMethod() throws IOException, InterruptedException {
         String indexName = "test-index-1";
         String fieldName = "test-field-1";
 
@@ -198,5 +208,61 @@ public class FaissIT extends KNNRestTestCase {
 
         // delete knn doc
         deleteKnnDoc(INDEX_NAME, "1");
+    }
+
+    public void testEndToEnd_fromModel() throws IOException {
+        ModelContext modelContext = new ModelContext("test-model", KNNEngine.FAISS, SpaceType.L2, 128);
+
+        // Create model -- just runs a brute force search
+        Map<String, Object> params = ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, FAISS_FLAT_DESCRIPTION,
+                SPACE_TYPE, modelContext.getSpaceType().getValue());
+        byte[] model = JNIService.trainIndex(params, modelContext.getDimension(), 0,
+                modelContext.getKNNEngine().getName());
+
+        // Create model system index
+        createModelSystemIndex();
+
+        // Add model to model system index
+        addModelToSystemIndex(modelContext, model);
+
+        // Create knn index from model
+        String fieldName = "test-field-name";
+        String indexName = "test-index-name";
+        String indexMapping = Strings.toString(XContentFactory.jsonBuilder().startObject()
+                .startObject("properties")
+                .startObject(fieldName)
+                .field("type", "knn_vector")
+                .startObject(MODEL)
+                .field(MODEL_ID, modelContext.getModelId())
+                .field(KNN_ENGINE, modelContext.getKNNEngine().getName())
+                .field(METHOD_PARAMETER_SPACE_TYPE, modelContext.getSpaceType().getValue())
+                .field(DIMENSION, modelContext.getDimension())
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject());
+
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), indexMapping);
+
+        // Index some documents
+        int numDocs = 100;
+        for (int i = 0; i < numDocs; i++) {
+            Float[] indexVector = new Float[modelContext.getDimension()];
+            Arrays.fill(indexVector, (float) i);
+
+            addKnnDoc(indexName, Integer.toString(i), fieldName, indexVector);
+        }
+
+        // Run search and ensure that the values returned are expected
+        float[] queryVector = new float[modelContext.getDimension()];
+        Arrays.fill(queryVector, (float) numDocs);
+        int k = 10;
+
+        Response searchResponse = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, queryVector, k), k);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
+
+        for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
+        }
     }
 }
