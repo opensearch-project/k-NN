@@ -178,11 +178,11 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
                 .field("type", "knn_vector")
+                .field(DIMENSION, dimension)
                 .startObject(MODEL)
                 .field(MODEL_ID, modelId)
                 .field(KNN_ENGINE, knnEngine.getName())
                 .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-                .field(DIMENSION, dimension)
                 .endObject()
                 .endObject();
 
@@ -195,7 +195,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertEquals(knnEngine, knnVectorFieldMapper.modelContext.getKNNEngine());
         assertEquals(spaceType, knnVectorFieldMapper.modelContext.getSpaceType());
         assertEquals(dimension, knnVectorFieldMapper.fieldType().dimension);
-        assertEquals(dimension, knnVectorFieldMapper.modelContext.getDimension());
         assertEquals(dimension, knnVectorFieldMapper.dimension.intValue());
     }
 
@@ -302,11 +301,11 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
                 .field("type", "knn_vector")
+                .field(DIMENSION, dimension)
                 .startObject(MODEL)
                 .field(MODEL_ID, modelId)
                 .field(KNN_ENGINE, knnEngine.getName())
                 .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-                .field(DIMENSION, dimension)
                 .endObject()
                 .endObject();
 
@@ -319,7 +318,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertEquals(modelId, builder.modelContext.getValue().getModelId());
         assertEquals(knnEngine, builder.modelContext.getValue().getKNNEngine());
         assertEquals(spaceType, builder.modelContext.getValue().getSpaceType());
-        assertEquals(dimension, builder.modelContext.getValue().getDimension());
+        assertEquals(dimension, builder.dimension.getValue().intValue());
     }
 
     public void testMerge() throws IOException {

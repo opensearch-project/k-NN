@@ -66,6 +66,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -245,12 +246,8 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 }
             }
 
-            // Take the dimension from modeContext if available, if not take it from dimension mapping
-            ModelContext modelContext = this.modelContext.getValue();
-            int dimension = modelContext == null ? this.dimension.getValue() : modelContext.getDimension();
-
             return new KNNVectorFieldMapper(name, new KNNVectorFieldType(buildFullName(context), meta.getValue(),
-                    dimension), multiFieldsBuilder.build(this, context),
+                    dimension.getValue()), multiFieldsBuilder.build(this, context),
                     ignoreMalformed(context), this.spaceType, this.m, this.efConstruction, copyTo.build(), this);
         }
 
@@ -295,10 +292,7 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             Builder builder = new KNNVectorFieldMapper.Builder(name);
             builder.parse(name, parserContext, node);
 
-            ModelContext modelContext = builder.modelContext.getValue();
-            int dimension = modelContext == null ? builder.dimension.getValue() : modelContext.getDimension();
-
-            if (dimension == -1) {
+            if (builder.dimension.getValue() == -1) {
                 throw new IllegalArgumentException("Dimension value missing for vector: " + name);
             }
 
@@ -364,6 +358,7 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         this.stored = builder.stored.getValue();
         this.hasDocValues = builder.hasDocValues.getValue();
+        this.dimension = builder.dimension.getValue();
         this.knnMethod = builder.knnMethodContext.getValue();
         this.ignoreMalformed = ignoreMalformed;
         this.spaceType = spaceType;
@@ -373,21 +368,14 @@ public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         this.fieldType = new FieldType(Defaults.FIELD_TYPE);
 
+        this.fieldType.putAttribute(DIMENSION, String.valueOf(dimension));
+
         if (modelContext != null) {
-            this.dimension = modelContext.getDimension();
             this.fieldType.putAttribute(MODEL_ID, modelContext.getModelId());
             this.fieldType.putAttribute(KNN_ENGINE, modelContext.getKNNEngine().getName());
             this.fieldType.putAttribute(SPACE_TYPE, modelContext.getSpaceType().getValue());
         } else {
-            this.dimension = builder.dimension.getValue();
-
-            KNNEngine knnEngine;
-            if (knnMethod == null) {
-                knnEngine = KNNEngine.DEFAULT;
-            } else {
-                knnEngine = knnMethod.getEngine();
-            }
-
+            KNNEngine knnEngine = knnMethod != null ? knnMethod.getEngine() : KNNEngine.DEFAULT;
             this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
 
             if (KNNEngine.NMSLIB.equals(knnEngine)) {

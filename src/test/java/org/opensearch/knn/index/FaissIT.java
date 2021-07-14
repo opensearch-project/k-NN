@@ -211,19 +211,20 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     public void testEndToEnd_fromModel() throws IOException {
-        ModelContext modelContext = new ModelContext("test-model", KNNEngine.FAISS, SpaceType.L2, 128);
+        int dimension = 128;
+        ModelContext modelContext = new ModelContext("test-model", KNNEngine.FAISS, SpaceType.L2);
 
         // Create model -- just runs a brute force search
         Map<String, Object> params = ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, FAISS_FLAT_DESCRIPTION,
                 SPACE_TYPE, modelContext.getSpaceType().getValue());
-        byte[] model = JNIService.trainIndex(params, modelContext.getDimension(), 0,
+        byte[] model = JNIService.trainIndex(params, dimension, 0,
                 modelContext.getKNNEngine().getName());
 
         // Create model system index
         createModelSystemIndex();
 
         // Add model to model system index
-        addModelToSystemIndex(modelContext, model);
+        addModelToSystemIndex(modelContext, model, dimension);
 
         // Create knn index from model
         String fieldName = "test-field-name";
@@ -232,11 +233,11 @@ public class FaissIT extends KNNRestTestCase {
                 .startObject("properties")
                 .startObject(fieldName)
                 .field("type", "knn_vector")
+                .field(DIMENSION, dimension)
                 .startObject(MODEL)
                 .field(MODEL_ID, modelContext.getModelId())
                 .field(KNN_ENGINE, modelContext.getKNNEngine().getName())
                 .field(METHOD_PARAMETER_SPACE_TYPE, modelContext.getSpaceType().getValue())
-                .field(DIMENSION, modelContext.getDimension())
                 .endObject()
                 .endObject()
                 .endObject()
@@ -247,14 +248,14 @@ public class FaissIT extends KNNRestTestCase {
         // Index some documents
         int numDocs = 100;
         for (int i = 0; i < numDocs; i++) {
-            Float[] indexVector = new Float[modelContext.getDimension()];
+            Float[] indexVector = new Float[dimension];
             Arrays.fill(indexVector, (float) i);
 
             addKnnDoc(indexName, Integer.toString(i), fieldName, indexVector);
         }
 
         // Run search and ensure that the values returned are expected
-        float[] queryVector = new float[modelContext.getDimension()];
+        float[] queryVector = new float[dimension];
         Arrays.fill(queryVector, (float) numDocs);
         int k = 10;
 

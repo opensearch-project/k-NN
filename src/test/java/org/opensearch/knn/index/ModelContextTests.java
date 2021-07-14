@@ -22,7 +22,6 @@ import org.opensearch.knn.index.util.KNNEngine;
 import java.io.IOException;
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
@@ -30,38 +29,30 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 public class ModelContextTests extends KNNTestCase {
     public void testGetModelId() {
         String modelId = "test-model-id";
-        ModelContext modelContext = new ModelContext(modelId, KNNEngine.DEFAULT, SpaceType.DEFAULT, 2);
+        ModelContext modelContext = new ModelContext(modelId, KNNEngine.DEFAULT, SpaceType.DEFAULT);
         assertEquals(modelId, modelContext.getModelId());
     }
 
     public void testGetKNNEngine() {
         KNNEngine knnEngine = KNNEngine.DEFAULT;
-        ModelContext modelContext = new ModelContext(null, knnEngine, SpaceType.DEFAULT, 2);
+        ModelContext modelContext = new ModelContext(null, knnEngine, SpaceType.DEFAULT);
         assertEquals(knnEngine, modelContext.getKNNEngine());
     }
 
     public void testGetSpaceType() {
         SpaceType spaceType = SpaceType.DEFAULT;
-        ModelContext modelContext = new ModelContext(null, KNNEngine.DEFAULT, spaceType, 2);
+        ModelContext modelContext = new ModelContext(null, KNNEngine.DEFAULT, spaceType);
         assertEquals(spaceType, modelContext.getSpaceType());
-    }
-
-    public void testGetDimension() {
-        int dimension = 17;
-        ModelContext modelContext = new ModelContext(null, KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension);
-        assertEquals(dimension, modelContext.getDimension());
     }
 
     public void textToXContent() throws IOException {
         String modelId = "test-model";
         String spaceType = SpaceType.L2.getValue();
         String knnEngine = KNNEngine.DEFAULT.getName();
-        int dimension = 16;
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
                 .field(MODEL_ID, modelId)
                 .field(KNN_ENGINE, knnEngine)
                 .field(METHOD_PARAMETER_SPACE_TYPE, spaceType)
-                .field(DIMENSION, dimension)
                 .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         ModelContext modelContext = ModelContext.parse(in);
@@ -73,7 +64,6 @@ public class ModelContextTests extends KNNTestCase {
         assertEquals(modelId, out.get(MODEL_ID));
         assertEquals(knnEngine, out.get(KNN_ENGINE));
         assertEquals(spaceType, out.get(METHOD_PARAMETER_SPACE_TYPE));
-        assertEquals(dimension, out.get(DIMENSION));
     }
 
     public void testEquals() {
@@ -83,15 +73,12 @@ public class ModelContextTests extends KNNTestCase {
         SpaceType spaceType2 = SpaceType.L2;
         KNNEngine knnEngine1= KNNEngine.FAISS;
         KNNEngine knnEngine2= KNNEngine.NMSLIB;
-        int dimension1 = 16;
-        int dimension2 = 32;
 
-        ModelContext modelContext1 = new ModelContext(modelId1, knnEngine1, spaceType1, dimension1);
-        ModelContext modelContext2 = new ModelContext(modelId1, knnEngine1, spaceType1, dimension1);
-        ModelContext modelContext3 = new ModelContext(modelId2, knnEngine1, spaceType1, dimension1);
-        ModelContext modelContext4 = new ModelContext(modelId1, knnEngine2, spaceType1, dimension1);
-        ModelContext modelContext5 = new ModelContext(modelId1, knnEngine1, spaceType2, dimension1);
-        ModelContext modelContext6 = new ModelContext(modelId1, knnEngine1, spaceType1, dimension2);
+        ModelContext modelContext1 = new ModelContext(modelId1, knnEngine1, spaceType1);
+        ModelContext modelContext2 = new ModelContext(modelId1, knnEngine1, spaceType1);
+        ModelContext modelContext3 = new ModelContext(modelId2, knnEngine1, spaceType1);
+        ModelContext modelContext4 = new ModelContext(modelId1, knnEngine2, spaceType1);
+        ModelContext modelContext5 = new ModelContext(modelId1, knnEngine1, spaceType2);
 
         assertNotEquals(modelContext1, null);
         assertEquals(modelContext1, modelContext1);
@@ -99,7 +86,6 @@ public class ModelContextTests extends KNNTestCase {
         assertNotEquals(modelContext1, modelContext3);
         assertNotEquals(modelContext1, modelContext4);
         assertNotEquals(modelContext1, modelContext5);
-        assertNotEquals(modelContext1, modelContext6);
     }
 
     public void testHashCode() {
@@ -109,22 +95,18 @@ public class ModelContextTests extends KNNTestCase {
         SpaceType spaceType2 = SpaceType.L2;
         KNNEngine knnEngine1= KNNEngine.FAISS;
         KNNEngine knnEngine2= KNNEngine.NMSLIB;
-        int dimension1 = 16;
-        int dimension2 = 32;
 
-        ModelContext modelContext1 = new ModelContext(modelId1, knnEngine1, spaceType1, dimension1);
-        ModelContext modelContext2 = new ModelContext(modelId1, knnEngine1, spaceType1, dimension1);
-        ModelContext modelContext3 = new ModelContext(modelId2, knnEngine1, spaceType1, dimension1);
-        ModelContext modelContext4 = new ModelContext(modelId1, knnEngine2, spaceType1, dimension1);
-        ModelContext modelContext5 = new ModelContext(modelId1, knnEngine1, spaceType2, dimension1);
-        ModelContext modelContext6 = new ModelContext(modelId1, knnEngine1, spaceType1, dimension2);
+        ModelContext modelContext1 = new ModelContext(modelId1, knnEngine1, spaceType1);
+        ModelContext modelContext2 = new ModelContext(modelId1, knnEngine1, spaceType1);
+        ModelContext modelContext3 = new ModelContext(modelId2, knnEngine1, spaceType1);
+        ModelContext modelContext4 = new ModelContext(modelId1, knnEngine2, spaceType1);
+        ModelContext modelContext5 = new ModelContext(modelId1, knnEngine1, spaceType2);
 
         assertEquals(modelContext1.hashCode(), modelContext1.hashCode());
         assertEquals(modelContext1.hashCode(), modelContext2.hashCode());
         assertNotEquals(modelContext1.hashCode(), modelContext3.hashCode());
         assertNotEquals(modelContext1.hashCode(), modelContext4.hashCode());
         assertNotEquals(modelContext1.hashCode(), modelContext5.hashCode());
-        assertNotEquals(modelContext1.hashCode(), modelContext6.hashCode());
     }
 
     public void testParse() {
@@ -135,46 +117,34 @@ public class ModelContextTests extends KNNTestCase {
         // Missing parameter
         expectThrows(MapperParsingException.class, () -> ModelContext.parse(ImmutableMap.of(
                 KNN_ENGINE, KNNEngine.DEFAULT.getName(),
-                METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT.getValue(),
-                DIMENSION, 16)));
-
-        expectThrows(MapperParsingException.class, () -> ModelContext.parse(ImmutableMap.of(
-                MODEL_ID, "test",
-                METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT.getValue(),
-                DIMENSION, 16)));
-
-        expectThrows(MapperParsingException.class, () -> ModelContext.parse(ImmutableMap.of(
-                MODEL_ID, "test",
-                KNN_ENGINE, KNNEngine.DEFAULT.getName(),
-                DIMENSION, 16)));
-
-        expectThrows(MapperParsingException.class, () -> ModelContext.parse(ImmutableMap.of(
-                MODEL_ID, "test",
-                KNN_ENGINE, KNNEngine.DEFAULT.getName(),
                 METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT.getValue())));
+
+        expectThrows(MapperParsingException.class, () -> ModelContext.parse(ImmutableMap.of(
+                MODEL_ID, "test",
+                METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT.getValue())));
+
+        expectThrows(MapperParsingException.class, () -> ModelContext.parse(ImmutableMap.of(
+                MODEL_ID, "test",
+                KNN_ENGINE, KNNEngine.DEFAULT.getName())));
 
         // Extra parameter
         expectThrows(MapperParsingException.class, () -> ModelContext.parse(ImmutableMap.of(
                 MODEL_ID, "test",
                 KNN_ENGINE, KNNEngine.DEFAULT.getName(),
                 METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT.getValue(),
-                DIMENSION, 16,
                 "invalid", "invalid")));
 
         String modelId = "test-model";
         KNNEngine knnEngine = KNNEngine.DEFAULT;
         SpaceType spaceType = SpaceType.DEFAULT;
-        int dimension = 164;
 
         ModelContext modelContext = ModelContext.parse(ImmutableMap.of(
                 MODEL_ID, modelId,
                 KNN_ENGINE, knnEngine.getName(),
-                METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue(),
-                DIMENSION, dimension));
+                METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue()));
 
         assertEquals(modelId, modelContext.getModelId());
         assertEquals(knnEngine, modelContext.getKNNEngine());
         assertEquals(spaceType, modelContext.getSpaceType());
-        assertEquals(dimension, modelContext.getDimension());
     }
 }

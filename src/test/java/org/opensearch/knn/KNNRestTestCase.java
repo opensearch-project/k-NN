@@ -641,7 +641,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
                 mapping);
     }
 
-    protected void addModelToSystemIndex(ModelContext modelContext, byte[] model) throws IOException {
+    protected void addModelToSystemIndex(ModelContext modelContext, byte[] model, int dimension) throws IOException {
         String modelBase64 = Base64.getEncoder().encodeToString(model);
 
         Request request = new Request(
@@ -652,7 +652,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
                 .field(KNN_ENGINE, modelContext.getKNNEngine().getName())
                 .field(METHOD_PARAMETER_SPACE_TYPE, modelContext.getSpaceType().getValue())
-                .field(DIMENSION, modelContext.getDimension())
+                .field(DIMENSION, dimension)
                 .field(MODEL_BLOB_PARAMETER, modelBase64)
                 .endObject();
 

@@ -62,6 +62,7 @@ import java.security.PrivilegedAction;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.index.codec.KNNCodecUtil.buildEngineFileName;
 
@@ -127,6 +128,12 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                 if (model.getSpaceType() != spaceType) {
                     throw new RuntimeException("Model Space Type \"" + model.getSpaceType().getValue()
                             + "\" cannot be different than index Space Type \"" + spaceType.getValue() + "\"");
+                }
+
+                int dimension = Integer.parseInt(field.attributes().getOrDefault(DIMENSION, "-1"));
+                if (model.getDimension() != dimension) {
+                    throw new RuntimeException("Model dimension \"" + model.getDimension()
+                            + "\" cannot be different than index dimension \"" + dimension + "\"");
                 }
 
                 createKNNIndexFromTemplate(model.getModelBlob(), pair, knnEngine, tempIndexPath);

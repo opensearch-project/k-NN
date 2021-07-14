@@ -22,7 +22,6 @@ import org.opensearch.knn.index.util.KNNEngine;
 import java.io.IOException;
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
@@ -35,7 +34,6 @@ public class ModelContext implements ToXContentFragment {
     private final String modelId;
     private final KNNEngine knnEngine;
     private final SpaceType spaceType;
-    private final int dimension;
 
     /**
      * Constructor
@@ -43,13 +41,11 @@ public class ModelContext implements ToXContentFragment {
      * @param modelId Identifier for model
      * @param knnEngine KNNEngine of model
      * @param spaceType SpaceType of model
-     * @param dimension Dimension of model
      */
-    public ModelContext(String modelId, KNNEngine knnEngine, SpaceType spaceType, int dimension) {
+    public ModelContext(String modelId, KNNEngine knnEngine, SpaceType spaceType) {
         this.modelId = modelId;
         this.knnEngine = knnEngine;
         this.spaceType = spaceType;
-        this.dimension = dimension;
     }
 
     /**
@@ -80,15 +76,6 @@ public class ModelContext implements ToXContentFragment {
     }
 
     /**
-     * Getter for model's dimension
-     *
-     * @return model's dimension
-     */
-    public int getDimension() {
-        return dimension;
-    }
-
-    /**
      * Parse an object to a ModelContext
      *
      * @param in String of model id
@@ -105,7 +92,6 @@ public class ModelContext implements ToXContentFragment {
         String modelId = null;
         KNNEngine knnEngine = null;
         SpaceType spaceType = null;
-        Integer dimension = null;
 
         String key;
         Object value;
@@ -131,12 +117,6 @@ public class ModelContext implements ToXContentFragment {
                 }
 
                 spaceType = SpaceType.getSpace((String) value);
-            } else if (DIMENSION.equals(key)) {
-                if (!(value instanceof Integer)) {
-                    throw new MapperParsingException("\"" + DIMENSION + "\" must be an integer");
-                }
-
-                dimension = (Integer) value;
             } else {
                 throw new MapperParsingException("Invalid parameter: " + key);
             }
@@ -154,11 +134,7 @@ public class ModelContext implements ToXContentFragment {
             throw new MapperParsingException("\"" + METHOD_PARAMETER_SPACE_TYPE + "\" must be set");
         }
 
-        if (dimension == null) {
-            throw new MapperParsingException("\"" + DIMENSION + "\" must be set");
-        }
-
-        return new ModelContext(modelId, knnEngine, spaceType, dimension);
+        return new ModelContext(modelId, knnEngine, spaceType);
     }
 
     @Override
@@ -166,7 +142,6 @@ public class ModelContext implements ToXContentFragment {
         builder.field(MODEL_ID, modelId);
         builder.field(KNN_ENGINE, knnEngine.getName());
         builder.field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
-        builder.field(DIMENSION, dimension);
         return builder;
     }
 
@@ -182,13 +157,12 @@ public class ModelContext implements ToXContentFragment {
         equalsBuilder.append(modelId, other.modelId);
         equalsBuilder.append(knnEngine, other.knnEngine);
         equalsBuilder.append(spaceType, other.spaceType);
-        equalsBuilder.append(dimension, other.dimension);
 
         return equalsBuilder.isEquals();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(modelId).append(knnEngine).append(spaceType).append(dimension).toHashCode();
+        return new HashCodeBuilder().append(modelId).append(knnEngine).append(spaceType).toHashCode();
     }
 }

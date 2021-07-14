@@ -244,6 +244,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         fieldType.putAttribute(KNNConstants.MODEL_ID, modelId);
         fieldType.putAttribute(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName());
         fieldType.putAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue());
+        fieldType.putAttribute(KNNConstants.DIMENSION, String.valueOf(dimension));
         fieldType.freeze();
 
         // Add the documents to the index
