@@ -82,6 +82,8 @@ import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
  *
  * Extends ParametrizedFieldMapper in order to easily configure mapping parameters.
  */
+
+//TODO: This class is becoming somewhat unwieldy. We should look into refactoring.
 public class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     private static Logger logger = LogManager.getLogger(KNNVectorFieldMapper.class);
