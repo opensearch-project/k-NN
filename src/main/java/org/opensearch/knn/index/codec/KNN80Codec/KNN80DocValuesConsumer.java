@@ -33,6 +33,8 @@ import org.opensearch.knn.index.JNIService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNNCodecUtil;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.indices.Model;
+import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -60,6 +62,8 @@ import java.security.PrivilegedAction;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.index.codec.KNNCodecUtil.buildEngineFileName;
 
 /**
@@ -87,60 +91,55 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer) throws IOException {
         KNNCounter.GRAPH_INDEX_REQUESTS.increment();
         if (field.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
-
-            // Get all parameters from field attributes
-            Map<String, String> fieldAttributes = field.attributes();
-            Map<String, Object> parameters = new HashMap<>();
-
-            String engineName = fieldAttributes.getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
+            // Get engine to be used for indexing
+            String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
             KNNEngine knnEngine = KNNEngine.getEngine(engineName);
 
-            if (KNNEngine.NMSLIB.equals(knnEngine)) {
-                parameters.put(KNNConstants.SPACE_TYPE, fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE,
-                        SpaceType.DEFAULT.getValue()));
-
-                String efConstruction = fieldAttributes.get(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION);
-                if (efConstruction != null) {
-                    parameters.put(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, Integer.parseInt(efConstruction));
-                }
-
-                String m = fieldAttributes.get(KNNConstants.HNSW_ALGO_M);
-                if (m != null) {
-                    parameters.put(KNNConstants.METHOD_PARAMETER_M, Integer.parseInt(m));
-                }
-
-            } else {
-                String parametersString = fieldAttributes.get(KNNConstants.PARAMETERS);
-                parameters.putAll(
-                        XContentFactory.xContent(XContentType.JSON).createParser(NamedXContentRegistry.EMPTY,
-                                DeprecationHandler.THROW_UNSUPPORTED_OPERATION, parametersString).map()
-                );
-            }
-
-
-            // Make Engine Name Into FileName
+            // Get values to be indexed
             BinaryDocValues values = valuesProducer.getBinary(field);
-            String engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getLatestBuildVersion(),
-                    field.name, knnEngine.getExtension());
-            String indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
-                    engineFileName).toString();
-
             KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
             if (pair.vectors.length == 0 || pair.docs.length == 0) {
                 logger.info("Skipping engine index creation as there are no vectors or docs in the documents");
                 return;
             }
 
-            // Pass the path for the nms library to save the file
+            // Create library index either from model or from scratch
+            String engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getLatestBuildVersion(),
+                    field.name, knnEngine.getExtension());
+            String indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
+                    engineFileName).toString();
+            String tmpEngineFileName = engineFileName + TEMP_SUFFIX;
             String tempIndexPath = indexPath + TEMP_SUFFIX;
-            AccessController.doPrivileged(
-                    (PrivilegedAction<Void>) () -> {
-                        JNIService.createIndex(pair.docs, pair.vectors, tempIndexPath, parameters, engineName);
-                        return null;
-                    }
-            );
+            if (field.attributes().containsKey(MODEL_ID)) {
+                String modelId = field.attributes().get(MODEL_ID);
+                Model model = ModelCache.getInstance().get(modelId);
 
-            String engineTempFileName = engineFileName + TEMP_SUFFIX;
+                if (model.getKnnEngine() != knnEngine) {
+                    throw new RuntimeException("Model Engine \"" + model.getKnnEngine().getName()
+                            + "\" cannot be different than index engine \"" + knnEngine.getName() + "\"");
+                }
+
+                String spaceName = field.getAttribute(KNNConstants.SPACE_TYPE);
+                if (spaceName == null) {
+                    throw new RuntimeException("Space Type cannot be null");
+                }
+
+                SpaceType spaceType = SpaceType.getSpace(spaceName);
+                if (model.getSpaceType() != spaceType) {
+                    throw new RuntimeException("Model Space Type \"" + model.getSpaceType().getValue()
+                            + "\" cannot be different than index Space Type \"" + spaceType.getValue() + "\"");
+                }
+
+                int dimension = Integer.parseInt(field.attributes().getOrDefault(DIMENSION, "-1"));
+                if (model.getDimension() != dimension) {
+                    throw new RuntimeException("Model dimension \"" + model.getDimension()
+                            + "\" cannot be different than index dimension \"" + dimension + "\"");
+                }
+
+                createKNNIndexFromTemplate(model.getModelBlob(), pair, knnEngine, tempIndexPath);
+            } else {
+                createKNNIndexFromScratch(field, pair, knnEngine, tempIndexPath);
+            }
 
             /*
              * Adds Footer to the serialized graph
@@ -151,7 +150,9 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
              * existing file will miss calculating checksum for the serialized graph
              * bytes and result in index corruption issues.
              */
-            try (IndexInput is = state.directory.openInput(engineTempFileName, state.context);
+            //TODO: I think this can be refactored to avoid this copy and then write
+            // https://github.com/opendistro-for-elasticsearch/k-NN/issues/330
+            try (IndexInput is = state.directory.openInput(tmpEngineFileName, state.context);
                  IndexOutput os = state.directory.createOutput(engineFileName, state.context)) {
                 os.copyBytes(is, is.length());
                 CodecUtil.writeFooter(os);
@@ -159,9 +160,55 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                 KNNCounter.GRAPH_INDEX_ERRORS.increment();
                 throw new RuntimeException("[KNN] Adding footer to serialized graph failed: " + ex);
             } finally {
-                IOUtils.deleteFilesIgnoringExceptions(state.directory, engineTempFileName);
+                IOUtils.deleteFilesIgnoringExceptions(state.directory, tmpEngineFileName);
             }
         }
+    }
+
+    private void createKNNIndexFromTemplate(byte[] model, KNNCodecUtil.Pair pair, KNNEngine knnEngine,
+                                            String indexPath) {
+        AccessController.doPrivileged(
+                (PrivilegedAction<Void>) () -> {
+                    JNIService.createIndexFromTemplate(pair.docs, pair.vectors, indexPath, model, knnEngine.getName());
+                    return null;
+                }
+        );
+    }
+
+    private void createKNNIndexFromScratch(FieldInfo fieldInfo, KNNCodecUtil.Pair pair, KNNEngine knnEngine,
+                                           String indexPath) throws IOException {
+        Map<String, Object> parameters = new HashMap<>();
+        Map<String, String> fieldAttributes = fieldInfo.attributes();
+
+        if (KNNEngine.NMSLIB.equals(knnEngine)) {
+            parameters.put(KNNConstants.SPACE_TYPE, fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE,
+                    SpaceType.DEFAULT.getValue()));
+
+            String efConstruction = fieldAttributes.get(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION);
+            if (efConstruction != null) {
+                parameters.put(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, Integer.parseInt(efConstruction));
+            }
+
+            String m = fieldAttributes.get(KNNConstants.HNSW_ALGO_M);
+            if (m != null) {
+                parameters.put(KNNConstants.METHOD_PARAMETER_M, Integer.parseInt(m));
+            }
+
+        } else {
+            String parametersString = fieldAttributes.get(KNNConstants.PARAMETERS);
+            parameters.putAll(
+                    XContentFactory.xContent(XContentType.JSON).createParser(NamedXContentRegistry.EMPTY,
+                            DeprecationHandler.THROW_UNSUPPORTED_OPERATION, parametersString).map()
+            );
+        }
+
+        // Pass the path for the nms library to save the file
+        AccessController.doPrivileged(
+                (PrivilegedAction<Void>) () -> {
+                    JNIService.createIndex(pair.docs, pair.vectors, indexPath, parameters, knnEngine.getName());
+                    return null;
+                }
+        );
     }
 
     /**
