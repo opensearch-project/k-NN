@@ -25,10 +25,20 @@
 
 package org.opensearch.knn;
 
+import com.google.common.base.Charsets;
+import com.google.common.io.Resources;
+import org.opensearch.common.bytes.BytesArray;
 import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.collect.MapBuilder;
+import org.opensearch.common.xcontent.XContent;
 import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.ModelContext;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.apache.http.util.EntityUtils;
@@ -56,17 +66,25 @@ import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
+import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.index.KNNIndexCache.GRAPH_COUNT;
 import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 
@@ -606,6 +624,44 @@ public class KNNRestTestCase extends ODFERestTestCase {
             (Map<String, Object>) ((Map<String, Object>) getIndexSettings(indexName).get(indexName))
                 .get("settings");
         return (String) settings.get(settingName);
+    }
+
+    protected void createModelSystemIndex() throws IOException {
+        URL url = ModelDao.class.getClassLoader().getResource(MODEL_INDEX_MAPPING_PATH);
+        if (url == null) {
+            throw new IllegalStateException("Unable to retrieve mapping for \"" + MODEL_INDEX_NAME + "\"");
+        }
+
+        String mapping = Resources.toString(url, Charsets.UTF_8);
+        mapping = mapping.substring(1, mapping.length() - 1);
+
+        createIndex(MODEL_INDEX_NAME, Settings.builder()
+                .put("number_of_shards", 1)
+                .put("number_of_replicas", 0).build(),
+                mapping);
+    }
+
+    protected void addModelToSystemIndex(ModelContext modelContext, byte[] model, int dimension) throws IOException {
+        String modelBase64 = Base64.getEncoder().encodeToString(model);
+
+        Request request = new Request(
+                "POST",
+                "/" + MODEL_INDEX_NAME + "/_doc/" + modelContext.getModelId() + "?refresh=true"
+        );
+
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
+                .field(KNN_ENGINE, modelContext.getKNNEngine().getName())
+                .field(METHOD_PARAMETER_SPACE_TYPE, modelContext.getSpaceType().getValue())
+                .field(DIMENSION, dimension)
+                .field(MODEL_BLOB_PARAMETER, modelBase64)
+                .endObject();
+
+        request.setJsonEntity(Strings.toString(builder));
+
+        Response response = client().performRequest(request);
+
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.CREATED,
+                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
     /**
