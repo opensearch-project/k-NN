@@ -39,6 +39,7 @@ import org.opensearch.common.unit.ByteSizeUnit;
 import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.IndexModule;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
 
@@ -254,6 +255,7 @@ public class KNNSettings {
                         latestSettings.put(setting.getKey(), newVal);
                         // spawn a thread
                         KNNWeight.knnIndexCache.rebuild();
+                        NativeMemoryCacheManager.getInstance().rebuildCache();
                     });
         }
 
