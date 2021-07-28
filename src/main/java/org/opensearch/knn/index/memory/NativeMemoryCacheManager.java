@@ -24,7 +24,6 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.plugin.stats.StatNames;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -186,7 +185,7 @@ public class NativeMemoryCacheManager implements Closeable {
                                       boolean isAbleToTriggerEviction) throws ExecutionException {
         if (!isAbleToTriggerEviction &&
                 !cache.asMap().containsKey(nativeMemoryEntryContext.getKey()) &&
-                maxWeight - getCacheWeightInKilobytes() - nativeMemoryEntryContext.getSize() <= 0
+                maxWeight - getCacheWeightInKilobytes() - nativeMemoryEntryContext.calculateSize() <= 0
         ) {
             throw new NativeMemoryThrottleException("Failed to load \"" + nativeMemoryEntryContext.getKey() +
                     "\" into memory.");

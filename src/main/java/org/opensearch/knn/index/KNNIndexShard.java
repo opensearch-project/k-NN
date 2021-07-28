@@ -103,7 +103,6 @@ public class KNNIndexShard {
             getAllEnginePaths(searcher.getIndexReader()).entrySet().stream().map(e ->
                     new NativeMemoryEntryContext.IndexEntryContext(
                             e.getKey(),
-                            IndexUtil.getFileSizeInKB(e.getKey()),
                             NativeMemoryLoadStrategy.IndexLoadStrategy.INSTANCE,
                             ImmutableMap.of(SPACE_TYPE, e.getValue().getValue()),
                             getIndexName(),

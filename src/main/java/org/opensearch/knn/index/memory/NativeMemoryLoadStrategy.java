@@ -64,19 +64,24 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
 
         @Override
         public NativeMemoryAllocation.IndexAllocation load(NativeMemoryEntryContext.IndexEntryContext
-                                                                           nativeMemoryEntryContext) throws IOException {
-            Path indexPath = Paths.get(nativeMemoryEntryContext.getKey());
+                                                                           indexEntryContext) throws IOException {
+            Path indexPath = Paths.get(indexEntryContext.getKey());
             FileWatcher fileWatcher = new FileWatcher(indexPath);
             fileWatcher.addListener(indexFileOnDeleteListener);
             fileWatcher.init();
 
             KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(indexPath.toString());
-            long pointer = JNIService.loadIndex(indexPath.toString(), nativeMemoryEntryContext.getParameters(),
+            long pointer = JNIService.loadIndex(indexPath.toString(), indexEntryContext.getParameters(),
                     knnEngine.getName());
             final WatcherHandle<FileWatcher> watcherHandle = resourceWatcherService.add(fileWatcher);
 
-            return new NativeMemoryAllocation.IndexAllocation(pointer, nativeMemoryEntryContext.getSize(), knnEngine,
-                    indexPath.toString(), nativeMemoryEntryContext.getOpenSearchIndexName(), watcherHandle);
+            return new NativeMemoryAllocation.IndexAllocation(
+                    pointer,
+                    indexEntryContext.calculateSize(),
+                    knnEngine,
+                    indexPath.toString(),
+                    indexEntryContext.getOpenSearchIndexName(),
+                    watcherHandle);
         }
     }
 
@@ -100,7 +105,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                                                                                   nativeMemoryEntryContext) {
             // Generate an empty training data allocation with the appropriate size
             NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation
-                    .TrainingDataAllocation(0, nativeMemoryEntryContext.getSize());
+                    .TrainingDataAllocation(0, nativeMemoryEntryContext.calculateSize());
 
             // Start loading all training data. Once the data has been loaded, release the lock
             TrainingDataConsumer trainingDataConsumer = new TrainingDataConsumer(trainingDataAllocation);

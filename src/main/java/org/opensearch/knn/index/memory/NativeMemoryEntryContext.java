@@ -12,10 +12,12 @@
 package org.opensearch.knn.index.memory;
 
 import org.opensearch.indices.IndicesService;
+import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.knn.index.SpaceType;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Encapsulates all information needed to load a component into native memory.
@@ -23,17 +25,13 @@ import java.util.Map;
 public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation> {
 
     protected final String key;
-    protected final long size;
-
     /**
      * Constructor
      *
      * @param key String used to identify entry in the cache
-     * @param size size this allocation will take up in the cache
      */
-    public NativeMemoryEntryContext(String key, long size) {
+    public NativeMemoryEntryContext(String key) {
         this.key = key;
-        this.size = size;
     }
 
     /**
@@ -46,13 +44,11 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
     }
 
     /**
-     * Getter for size.
+     * Calculate size for given context.
      *
-     * @return size
+     * @return size calculator
      */
-    public long getSize() {
-        return size;
-    }
+    public abstract Long calculateSize();
 
     /**
      * Loads entry into memory.
@@ -72,23 +68,26 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          * Constructor
          *
          * @param indexPath path to index file. Also used as key in cache.
-         * @param size amount of memory the index occupies
          * @param indexLoadStrategy strategy to load index into memory
          * @param parameters load time parameters
          * @param openSearchIndexName opensearch index associated with index
          * @param spaceType space this index uses
          */
         public IndexEntryContext(String indexPath,
-                                 long size,
                                  NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
                                  Map<String, Object> parameters,
                                  String openSearchIndexName,
                                  SpaceType spaceType) {
-            super(indexPath, size);
+            super(indexPath);
             this.indexLoadStrategy = indexLoadStrategy;
             this.openSearchIndexName = openSearchIndexName;
             this.spaceType = spaceType;
             this.parameters = parameters;
+        }
+
+        @Override
+        public Long calculateSize() {
+            return IndexSizeCalculator.INSTANCE.apply(this);
         }
 
         @Override
@@ -122,6 +121,18 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         public Map<String, Object> getParameters() {
             return parameters;
         }
+
+        private static class IndexSizeCalculator implements Function<IndexEntryContext, Long> {
+
+            static IndexSizeCalculator INSTANCE = new IndexSizeCalculator();
+
+            IndexSizeCalculator() {}
+
+            @Override
+            public Long apply(IndexEntryContext indexEntryContext) {
+                return IndexUtil.getFileSizeInKB(indexEntryContext.getKey());
+            }
+        }
     }
 
     public static class TrainingDataEntryContext extends NativeMemoryEntryContext<NativeMemoryAllocation.TrainingDataAllocation> {
@@ -129,6 +140,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         private static String KEY_PREFIX = "tdata#";
         private static String DELIMETER = ":";
 
+        private final long size;
         private final NativeMemoryLoadStrategy.TrainingLoadStrategy trainingLoadStrategy;
         private final IndicesService indicesService;
         private final String trainIndexName;
@@ -154,13 +166,19 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
                                         IndicesService indicesService,
                                         int maxVectorCount,
                                         int searchSize) {
-            super(generateKey(trainIndexName, trainFieldName), size);
+            super(generateKey(trainIndexName, trainFieldName));
+            this.size = size;
             this.trainingLoadStrategy = trainingLoadStrategy;
             this.trainIndexName = trainIndexName;
             this.trainFieldName = trainFieldName;
             this.indicesService = indicesService;
             this.maxVectorCount = maxVectorCount;
             this.searchSize = searchSize;
+        }
+
+        @Override
+        public Long calculateSize() {
+            return size;
         }
 
         @Override

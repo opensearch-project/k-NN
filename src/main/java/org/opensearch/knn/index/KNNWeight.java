@@ -131,9 +131,8 @@ public class KNNWeight extends Weight {
                 indexAllocation = nativeMemoryCacheManager.get(
                         new NativeMemoryEntryContext.IndexEntryContext(
                                 indexPath.toString(),
-                                IndexUtil.getFileSizeInKB(indexPath.toString()), //TODO This should not need to be done each time -- think supplier maybe as part of load strategy
                                 NativeMemoryLoadStrategy.IndexLoadStrategy.INSTANCE,
-                                ImmutableMap.of(SPACE_TYPE, spaceType.getValue()), //TODO
+                                ImmutableMap.of(SPACE_TYPE, spaceType.getValue()), //TODO why is this like this?
                                 knnQuery.getIndexName(),
                                 spaceType
                         ), true);

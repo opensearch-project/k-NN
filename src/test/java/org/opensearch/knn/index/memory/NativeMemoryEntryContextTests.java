@@ -14,12 +14,20 @@ package org.opensearch.knn.index.memory;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.indices.IndicesService;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Map;
 
+import static java.nio.file.StandardOpenOption.APPEND;
+import static java.nio.file.StandardOpenOption.CREATE;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -32,18 +40,10 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         assertEquals(key, testNativeMemoryEntryContext.getKey());
     }
 
-    public void testAbstract_getSize() {
-        long size = 10;
-        TestNativeMemoryEntryContext testNativeMemoryEntryContext = new TestNativeMemoryEntryContext("test-1", size);
-
-        assertEquals(size, testNativeMemoryEntryContext.getSize());
-    }
-
     public void testIndexEntryContext_load() throws IOException {
         NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy = mock(NativeMemoryLoadStrategy.IndexLoadStrategy.class);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
                 "test",
-                0,
                 indexLoadStrategy,
                 null,
                 "test",
@@ -64,11 +64,38 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         assertEquals(indexAllocation, indexEntryContext.load());
     }
 
+    public void testIndexEntryContext_calculateSize() throws IOException {
+        // Create a file and write random bytes to it
+        Path tmpFile = createTempFile();
+        byte[] data = new byte[1024*3];
+        Arrays.fill(data, (byte) 'c');
+
+        try (OutputStream out = new BufferedOutputStream(
+                Files.newOutputStream(tmpFile, CREATE, APPEND))) {
+            out.write(data, 0, data.length);
+        } catch (IOException x) {
+            fail("Failed to write to file");
+        }
+
+        // Get the expected size of this function
+        long expectedSize = IndexUtil.getFileSizeInKB(tmpFile.toAbsolutePath().toString());
+
+        // Check that the indexEntryContext will return the same thing
+        NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
+                tmpFile.toAbsolutePath().toString(),
+                null,
+                null,
+                "test",
+                null
+        );
+
+        assertEquals(expectedSize, indexEntryContext.calculateSize().longValue());
+    }
+
     public void testIndexEntryContext_getOpenSearchIndexName() {
         String openSearchIndexName = "test-index";
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
                 "test",
-                0,
                 null,
                 null,
                 openSearchIndexName,
@@ -82,7 +109,6 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         SpaceType spaceType = SpaceType.L1;
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
                 "test",
-                0,
                 null,
                 null,
                 "test",
@@ -96,7 +122,6 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         Map<String, Object> parameters = ImmutableMap.of("test-1", 10);
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
                 "test",
-                0,
                 null,
                 parameters,
                 "test",
@@ -248,6 +273,8 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
 
     private static class TestNativeMemoryEntryContext extends NativeMemoryEntryContext<TestNativeMemoryAllocation> {
 
+        long size;
+
         /**
          * Constructor
          *
@@ -255,7 +282,13 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
          * @param size size this allocation will take up in the cache
          */
         public TestNativeMemoryEntryContext(String key, long size) {
-            super(key, size);
+            super(key);
+            this.size = size;
+        }
+
+        @Override
+        public Long calculateSize() {
+            return size;
         }
 
         @Override

@@ -16,7 +16,6 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.knn.index.JNIService;
 import org.opensearch.knn.index.KNNQueryResult;
 import org.opensearch.knn.index.SpaceType;
@@ -63,7 +62,6 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
 
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
                 path,
-                IndexUtil.getFileSizeInKB(path),
                 NativeMemoryLoadStrategy.IndexLoadStrategy.INSTANCE,
                 parameters,
                 "test",

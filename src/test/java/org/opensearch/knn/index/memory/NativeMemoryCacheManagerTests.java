@@ -246,15 +246,23 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
     private static class TestNativeMemoryEntryContent extends NativeMemoryEntryContext<TestNativeMemoryAllocation> {
 
         long pointer;
+        long size;
 
         TestNativeMemoryEntryContent(String key, long size) {
-            super(key, size);
+            super(key);
+            this.size = size;
             this.pointer = 0;
         }
 
         TestNativeMemoryEntryContent(String key, long size, long pointer) {
-            super(key, size);
+            super(key);
+            this.size = size;
             this.pointer = pointer;
+        }
+
+        @Override
+        public Long calculateSize() {
+            return size;
         }
 
         @Override
