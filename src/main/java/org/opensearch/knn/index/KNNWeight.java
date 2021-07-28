@@ -132,9 +132,8 @@ public class KNNWeight extends Weight {
                         new NativeMemoryEntryContext.IndexEntryContext(
                                 indexPath.toString(),
                                 NativeMemoryLoadStrategy.IndexLoadStrategy.INSTANCE,
-                                ImmutableMap.of(SPACE_TYPE, spaceType.getValue()), //TODO why is this like this?
-                                knnQuery.getIndexName(),
-                                spaceType
+                                ImmutableMap.of(SPACE_TYPE, spaceType.getValue()),
+                                knnQuery.getIndexName()
                         ), true);
             } catch (ExecutionException e) {
                 throw new RuntimeException(e);

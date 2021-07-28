@@ -15,7 +15,6 @@ import com.google.common.collect.ImmutableMap;
 import org.opensearch.indices.IndicesService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.IndexUtil;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.BufferedOutputStream;
@@ -46,8 +45,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
                 "test",
                 indexLoadStrategy,
                 null,
-                "test",
-                null
+                "test"
         );
 
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
@@ -85,8 +83,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
                 tmpFile.toAbsolutePath().toString(),
                 null,
                 null,
-                "test",
-                null
+                "test"
         );
 
         assertEquals(expectedSize, indexEntryContext.calculateSize().longValue());
@@ -98,24 +95,10 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
                 "test",
                 null,
                 null,
-                openSearchIndexName,
-                null
+                openSearchIndexName
         );
 
         assertEquals(openSearchIndexName, indexEntryContext.getOpenSearchIndexName());
-    }
-
-    public void testIndexEntryContext_getSpaceType() {
-        SpaceType spaceType = SpaceType.L1;
-        NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
-                "test",
-                null,
-                null,
-                "test",
-                spaceType
-        );
-
-        assertEquals(spaceType, indexEntryContext.getSpaceType());
     }
 
     public void testIndexEntryContext_getParameters() {
@@ -124,8 +107,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
                 "test",
                 null,
                 parameters,
-                "test",
-                null
+                "test"
         );
 
         assertEquals(parameters, indexEntryContext.getParameters());

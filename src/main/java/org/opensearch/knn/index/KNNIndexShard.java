@@ -105,8 +105,7 @@ public class KNNIndexShard {
                             e.getKey(),
                             NativeMemoryLoadStrategy.IndexLoadStrategy.INSTANCE,
                             ImmutableMap.of(SPACE_TYPE, e.getValue().getValue()),
-                            getIndexName(),
-                            e.getValue()
+                            getIndexName()
                     )
             ).forEach(e -> {
                 try {

@@ -64,8 +64,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
                 path,
                 NativeMemoryLoadStrategy.IndexLoadStrategy.INSTANCE,
                 parameters,
-                "test",
-                SpaceType.DEFAULT
+                "test"
         );
 
         // Load

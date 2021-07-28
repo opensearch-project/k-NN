@@ -13,7 +13,6 @@ package org.opensearch.knn.index.memory;
 
 import org.opensearch.indices.IndicesService;
 import org.opensearch.knn.index.IndexUtil;
-import org.opensearch.knn.index.SpaceType;
 
 import java.io.IOException;
 import java.util.Map;
@@ -61,7 +60,6 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
 
         private final NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy;
         private final String openSearchIndexName;
-        private final SpaceType spaceType;
         private final Map<String, Object> parameters;
 
         /**
@@ -71,17 +69,14 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          * @param indexLoadStrategy strategy to load index into memory
          * @param parameters load time parameters
          * @param openSearchIndexName opensearch index associated with index
-         * @param spaceType space this index uses
          */
         public IndexEntryContext(String indexPath,
                                  NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
                                  Map<String, Object> parameters,
-                                 String openSearchIndexName,
-                                 SpaceType spaceType) {
+                                 String openSearchIndexName) {
             super(indexPath);
             this.indexLoadStrategy = indexLoadStrategy;
             this.openSearchIndexName = openSearchIndexName;
-            this.spaceType = spaceType;
             this.parameters = parameters;
         }
 
@@ -102,15 +97,6 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          */
         public String getOpenSearchIndexName() {
             return openSearchIndexName;
-        }
-
-        /**
-         * Getter for space type.
-         *
-         * @return spaceType
-         */
-        public SpaceType getSpaceType() {
-            return spaceType;
         }
 
         /**
