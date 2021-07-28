@@ -168,7 +168,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
                 null
         );
 
-        assertEquals(size, indexAllocation.getSize());
+        assertEquals(size, indexAllocation.getSizeInKb());
     }
 
     public void testIndexAllocation_getKnnEngine() {
@@ -322,7 +322,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
                 size
         );
 
-        assertEquals(size, trainingDataAllocation.getSize());
+        assertEquals(size, trainingDataAllocation.getSizeInKb());
     }
 
     public void testTrainingDataAllocation_setPointer() {

@@ -69,11 +69,11 @@ public interface NativeMemoryAllocation {
     void writeUnlock();
 
     /**
-     * Get the size of the native memory allocation.
+     * Get the size of the native memory allocation in kilobytes.
      *
      * @return size of native memory allocation
      */
-    long getSize();
+    long getSizeInKb();
 
     /**
      * Represents native indices loaded into memory. Because these indices are backed by files, they should be
@@ -94,7 +94,7 @@ public interface NativeMemoryAllocation {
          * Constructor
          *
          * @param pointer Pointer in memory to the index
-         * @param size Size this index consumes
+         * @param size Size this index consumes in kilobytes
          * @param knnEngine KNNEngine associated with the index allocation
          * @param indexPath File path to index
          * @param osIndexName Name of OpenSearch index this index is associated with
@@ -160,7 +160,7 @@ public interface NativeMemoryAllocation {
         }
 
         @Override
-        public long getSize() {
+        public long getSizeInKb() {
             return size;
         }
 
@@ -210,7 +210,7 @@ public interface NativeMemoryAllocation {
          * Constructor
          *
          * @param pointer pointer in memory to the training data allocation
-         * @param size amount memory needed for allocation
+         * @param size amount memory needed for allocation in kilobytes
          */
         public TrainingDataAllocation(long pointer, long size) {
             this.closed = false;
@@ -302,7 +302,7 @@ public interface NativeMemoryAllocation {
         }
 
         @Override
-        public long getSize() {
+        public long getSizeInKb() {
             return size;
         }
 

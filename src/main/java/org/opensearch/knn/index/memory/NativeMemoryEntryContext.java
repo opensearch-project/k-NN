@@ -43,11 +43,11 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
     }
 
     /**
-     * Calculate size for given context.
+     * Calculate size for given context in kilobytes.
      *
      * @return size calculator
      */
-    public abstract Long calculateSize();
+    public abstract Long calculateSizeInKb();
 
     /**
      * Loads entry into memory.
@@ -81,7 +81,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         }
 
         @Override
-        public Long calculateSize() {
+        public Long calculateSizeInKb() {
             return IndexSizeCalculator.INSTANCE.apply(this);
         }
 
@@ -137,7 +137,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         /**
          * Constructor
          *
-         * @param size amount of memory training data will occupy
+         * @param size amount of memory training data will occupy in kilobytes
          * @param trainIndexName name of index used to pull training data from
          * @param trainFieldName name of field used to pull training data from
          * @param trainingLoadStrategy strategy to load training data into memory
@@ -163,7 +163,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         }
 
         @Override
-        public Long calculateSize() {
+        public Long calculateSizeInKb() {
             return size;
         }
 

@@ -71,7 +71,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
     public void testGetCacheMaxWeight() throws IOException {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
-        assertEquals(KNNSettings.getCircuitBreakerLimit().getKb(), nativeMemoryCacheManager.getCacheMaxWeight());
+        assertEquals(KNNSettings.getCircuitBreakerLimit().getKb(), nativeMemoryCacheManager.getCacheMaxWeightInKb());
         nativeMemoryCacheManager.close();
     }
 
@@ -112,8 +112,8 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         assertTrue(cacheAsMap.containsKey(key1));
         assertTrue(cacheAsMap.containsKey(key2));
 
-        assertEquals(size1, cacheAsMap.get(key1).getSize());
-        assertEquals(size2, cacheAsMap.get(key2).getSize());
+        assertEquals(size1, cacheAsMap.get(key1).getSizeInKb());
+        assertEquals(size2, cacheAsMap.get(key2).getSizeInKb());
 
         nativeMemoryCacheManager.close();
     }
@@ -129,7 +129,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         NativeMemoryAllocation testNativeMemoryAllocation = nativeMemoryCacheManager.get(testNativeMemoryEntryContent1,
                 true);
         assertEquals(size, nativeMemoryCacheManager.getCacheWeightInKilobytes());
-        assertEquals(size, testNativeMemoryAllocation.getSize());
+        assertEquals(size, testNativeMemoryAllocation.getSizeInKb());
         assertEquals(pointer, testNativeMemoryAllocation.getPointer());
 
         nativeMemoryCacheManager.close();
@@ -138,7 +138,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
     public void testGet_unevictable() throws ExecutionException, IOException {
         // So, I think we will need to first load an entry that has a large size
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
-        long maxWeight = nativeMemoryCacheManager.getCacheMaxWeight();
+        long maxWeight = nativeMemoryCacheManager.getCacheMaxWeightInKb();
 
         TestNativeMemoryEntryContent testNativeMemoryEntryContent1 = new TestNativeMemoryEntryContent("test-1", maxWeight/2);
         nativeMemoryCacheManager.get(testNativeMemoryEntryContent1, true);
@@ -238,7 +238,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         }
 
         @Override
-        public long getSize() {
+        public long getSizeInKb() {
             return size;
         }
     }
@@ -261,7 +261,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         }
 
         @Override
-        public Long calculateSize() {
+        public Long calculateSizeInKb() {
             return size;
         }
 

@@ -74,7 +74,7 @@ public class NativeMemoryCacheManager implements Closeable {
 
         if(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED)) {
             maxWeight = KNNSettings.getCircuitBreakerLimit().getKb();
-            cacheBuilder.maximumWeight(maxWeight).weigher((k, v) -> (int)v.getSize());
+            cacheBuilder.maximumWeight(maxWeight).weigher((k, v) -> (int)v.getSizeInKb());
         }
 
         if(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED)) {
@@ -105,16 +105,16 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     /**
-     * Getter for current cache weight.
+     * Getter for current cache weight in Kilobytes.
      *
      * @return current weight of the cache
      */
     public long getCacheWeightInKilobytes() {
-        return cache.asMap().values().stream().mapToLong(NativeMemoryAllocation::getSize).sum();
+        return cache.asMap().values().stream().mapToLong(NativeMemoryAllocation::getSizeInKb).sum();
     }
 
     /**
-     * Returns the current weight of an index in the cache in KiloBytes
+     * Returns the current weight of an index in the cache in KiloBytes.
      *
      * @param indexName Name if index to get the weight for
      * @return Weight of the index in the cache in kilobytes
@@ -123,7 +123,7 @@ public class NativeMemoryCacheManager implements Closeable {
         return cache.asMap().values().stream()
                 .filter(nativeMemoryAllocation -> nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
                 .filter(indexAllocation -> indexName.equals(((NativeMemoryAllocation.IndexAllocation) indexAllocation).getOsIndexName()))
-                .mapToLong(NativeMemoryAllocation::getSize)
+                .mapToLong(NativeMemoryAllocation::getSizeInKb)
                 .sum();
     }
 
@@ -151,7 +151,7 @@ public class NativeMemoryCacheManager implements Closeable {
      *
      * @return maximum cache weight
      */
-    public long getCacheMaxWeight() {
+    public long getCacheMaxWeightInKb() {
         return maxWeight;
     }
 
@@ -185,7 +185,7 @@ public class NativeMemoryCacheManager implements Closeable {
                                       boolean isAbleToTriggerEviction) throws ExecutionException {
         if (!isAbleToTriggerEviction &&
                 !cache.asMap().containsKey(nativeMemoryEntryContext.getKey()) &&
-                maxWeight - getCacheWeightInKilobytes() - nativeMemoryEntryContext.calculateSize() <= 0
+                maxWeight - getCacheWeightInKilobytes() - nativeMemoryEntryContext.calculateSizeInKb() <= 0
         ) {
             throw new NativeMemoryThrottleException("Failed to load \"" + nativeMemoryEntryContext.getKey() +
                     "\" into memory.");

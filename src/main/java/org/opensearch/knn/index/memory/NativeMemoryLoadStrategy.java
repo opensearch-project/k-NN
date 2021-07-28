@@ -77,7 +77,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
 
             return new NativeMemoryAllocation.IndexAllocation(
                     pointer,
-                    indexEntryContext.calculateSize(),
+                    indexEntryContext.calculateSizeInKb(),
                     knnEngine,
                     indexPath.toString(),
                     indexEntryContext.getOpenSearchIndexName(),
@@ -105,7 +105,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                                                                                   nativeMemoryEntryContext) {
             // Generate an empty training data allocation with the appropriate size
             NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation
-                    .TrainingDataAllocation(0, nativeMemoryEntryContext.calculateSize());
+                    .TrainingDataAllocation(0, nativeMemoryEntryContext.calculateSizeInKb());
 
             // Start loading all training data. Once the data has been loaded, release the lock
             TrainingDataConsumer trainingDataConsumer = new TrainingDataConsumer(trainingDataAllocation);
