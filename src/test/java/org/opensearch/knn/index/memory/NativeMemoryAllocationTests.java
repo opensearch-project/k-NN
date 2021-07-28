@@ -213,7 +213,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         assertEquals(osIndexName, indexAllocation.getOsIndexName());
     }
 
-    public void testTrainingDataAllocation_close() throws InterruptedException {
+    public void testTrainingDataAllocation_close() {
         // Create basic nmslib HNSW index
         int numVectors = 10;
         int dimension = 10;

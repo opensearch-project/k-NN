@@ -78,7 +78,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
     }
 
     @SuppressWarnings("unchecked")
-    public void testTrainingLoadStrategy_load() throws InterruptedException {
+    public void testTrainingLoadStrategy_load() {
         // Mock the vector reader so that on read, it waits 2 seconds, transfers vectors to the consumer, and then calls
         // listener onResponse to release the write lock
         VectorReader vectorReader = mock(VectorReader.class);

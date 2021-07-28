@@ -29,10 +29,8 @@ public interface NativeMemoryAllocation {
 
     /**
      * Closes the native memory allocation. It should deallocate all native memory associated with this allocation.
-     *
-     * @throws InterruptedException if thread is interrupted when lock acquisition is going on
      */
-    void close() throws InterruptedException;
+    void close();
 
     /**
      * Check if the allocation has been closed.
@@ -116,11 +114,11 @@ public interface NativeMemoryAllocation {
         public void close() {
             writeLock();
 
-            if (this.closed) {
-                return;
-            }
-
             try {
+                if (this.closed) {
+                    return;
+                }
+
                 watcherHandle.stop();
                 JNIService.free(pointer, knnEngine.getName());
             } finally {
@@ -223,14 +221,14 @@ public interface NativeMemoryAllocation {
         }
 
         @Override
-        public void close() throws InterruptedException {
+        public void close() {
             writeLock();
 
-            if (closed) {
-                return;
-            }
-
             try {
+                if (closed) {
+                    return;
+                }
+
                 JNIService.freeVectors(this.pointer);
             } finally {
                 closed = true;
