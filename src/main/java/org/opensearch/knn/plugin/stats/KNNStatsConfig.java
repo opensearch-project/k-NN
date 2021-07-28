@@ -25,13 +25,13 @@
 
 package org.opensearch.knn.plugin.stats;
 
-import org.opensearch.knn.index.KNNIndexCache;
-import org.opensearch.knn.plugin.stats.suppliers.KNNCacheSupplier;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.plugin.stats.suppliers.KNNCircuitBreakerSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNCounterSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNInnerCacheStatsSupplier;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.knn.plugin.stats.suppliers.NativeMemoryCacheManagerSupplier;
 
 import java.util.Map;
 
@@ -50,11 +50,13 @@ public class KNNStatsConfig {
             .put(StatNames.EVICTION_COUNT.getName(), new KNNStat<>(false,
                     new KNNInnerCacheStatsSupplier(CacheStats::evictionCount)))
             .put(StatNames.GRAPH_MEMORY_USAGE.getName(), new KNNStat<>(false,
-                    new KNNCacheSupplier<>(KNNIndexCache::getWeightInKilobytes)))
+                    new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getCacheWeightInKilobytes)))
             .put(StatNames.GRAPH_MEMORY_USAGE_PERCENTAGE.getName(), new KNNStat<>(false,
-                    new KNNCacheSupplier<>(KNNIndexCache::getWeightAsPercentage)))
+                    new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getWeightAsPercentage)))
+            .put(StatNames.INDICES_IN_CACHE.getName(), new KNNStat<>(false,
+                    new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getIndicesCacheStats)))
             .put(StatNames.CACHE_CAPACITY_REACHED.getName(), new KNNStat<>(false,
-                    new KNNCacheSupplier<>(KNNIndexCache::isCacheCapacityReached)))
+                    new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::isCacheCapacityReached)))
             .put(StatNames.GRAPH_QUERY_ERRORS.getName(), new KNNStat<>(false,
                     new KNNCounterSupplier(KNNCounter.GRAPH_QUERY_ERRORS)))
             .put(StatNames.GRAPH_QUERY_REQUESTS.getName(), new KNNStat<>(false,
@@ -67,8 +69,6 @@ public class KNNStatsConfig {
                     new KNNCircuitBreakerSupplier()))
             .put(StatNames.KNN_QUERY_REQUESTS.getName(), new KNNStat<>(false,
                     new KNNCounterSupplier(KNNCounter.KNN_QUERY_REQUESTS)))
-            .put(StatNames.INDICES_IN_CACHE.getName(), new KNNStat<>(false,
-                    new KNNCacheSupplier<>(KNNIndexCache::getIndicesCacheStats)))
             .put(StatNames.SCRIPT_COMPILATIONS.getName(), new KNNStat<>(false,
                     new KNNCounterSupplier(KNNCounter.SCRIPT_COMPILATIONS)))
             .put(StatNames.SCRIPT_COMPILATION_ERRORS.getName(), new KNNStat<>(false,

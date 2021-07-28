@@ -263,11 +263,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         trainingDataAllocation.readLock();
 
         Thread thread = new Thread(() -> {
-            try {
-                trainingDataAllocation.writeLock();
-            } catch (InterruptedException e) {
-                fail();
-            }
+            trainingDataAllocation.writeLock();
             testLockValue3 = finalValue;
             trainingDataAllocation.writeUnlock();
         });
@@ -304,17 +300,9 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         });
 
         Thread thread2 = new Thread(() -> {
-            try {
-                trainingDataAllocation.readLock();
-            } catch (InterruptedException e) {
-                fail();
-            }
+            trainingDataAllocation.readLock();
             assertEquals(finalValue, testLockValue4);
-            try {
-                trainingDataAllocation.readUnlock();
-            } catch (InterruptedException e) {
-                fail();
-            }
+            trainingDataAllocation.readUnlock();
         });
 
         thread2.start();

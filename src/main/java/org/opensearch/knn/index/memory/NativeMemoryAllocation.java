@@ -50,24 +50,18 @@ public interface NativeMemoryAllocation {
 
     /**
      * Locks allocation for read.
-     *
-     * @throws InterruptedException if thread is interrupted when lock acquisition is going on
      */
-    void readLock() throws InterruptedException;
+    void readLock();
 
     /**
      * Locks allocation for write.
-     *
-     * @throws InterruptedException if thread is interrupted when lock acquisition is going on
      */
-    void writeLock() throws InterruptedException;
+    void writeLock();
 
     /**
      * Unlocks allocation for read.
-     *
-     * @throws InterruptedException if thread is interrupted when lock acquisition is going on
      */
-    void readUnlock() throws InterruptedException;
+    void readUnlock();
 
     /**
      * Unlocks allocation for write.
@@ -255,11 +249,21 @@ public interface NativeMemoryAllocation {
         }
 
         @Override
-        public void readLock() throws InterruptedException {
-            readSemaphore.acquire();
+        public void readLock() {
+            try {
+                readSemaphore.acquire();
+            } catch (InterruptedException ex) {
+                throw new RuntimeException(ex);
+            }
+
 
             if (readCount == 0) {
-                wrtieSemaphore.acquire();
+                try {
+                    wrtieSemaphore.acquire();
+                } catch (InterruptedException e) {
+                    readSemaphore.release();
+                    throw new RuntimeException(e);
+                }
             }
 
             readCount++;
@@ -267,13 +271,22 @@ public interface NativeMemoryAllocation {
         }
 
         @Override
-        public void writeLock() throws InterruptedException {
-            wrtieSemaphore.acquire();
+        public void writeLock() {
+            try {
+                wrtieSemaphore.acquire();
+            } catch (InterruptedException ex) {
+                throw new RuntimeException(ex);
+            }
         }
 
         @Override
-        public void readUnlock() throws InterruptedException {
-            readSemaphore.acquire();
+        public void readUnlock() {
+            try {
+                readSemaphore.acquire();
+            } catch (InterruptedException ex) {
+                throw new RuntimeException(ex);
+            }
+
             readCount--;
 
             if (readCount == 0) {

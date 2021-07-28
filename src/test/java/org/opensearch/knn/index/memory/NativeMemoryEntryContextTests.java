@@ -206,7 +206,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
     private static class TestNativeMemoryAllocation implements NativeMemoryAllocation {
 
         @Override
-        public void close() throws InterruptedException {
+        public void close() {
 
         }
 
@@ -221,17 +221,17 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         }
 
         @Override
-        public void readLock() throws InterruptedException {
+        public void readLock() {
 
         }
 
         @Override
-        public void writeLock() throws InterruptedException {
+        public void writeLock() {
 
         }
 
         @Override
-        public void readUnlock() throws InterruptedException {
+        public void readUnlock() {
 
         }
 

@@ -39,7 +39,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         TestNativeMemoryEntryContent testNativeMemoryEntryContent = new TestNativeMemoryEntryContent("test", size);
         nativeMemoryCacheManager.get(testNativeMemoryEntryContent, true);
 
-        assertEquals(size, nativeMemoryCacheManager.getCacheWeight());
+        assertEquals(size, nativeMemoryCacheManager.getCacheWeightInKilobytes());
 
         // Call rebuild and check total weight is at 0
         nativeMemoryCacheManager.rebuildCache();
@@ -47,14 +47,14 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         // Sleep for a second or two so that the executor can invalidate all entries
         Thread.sleep(2000);
 
-        assertEquals(0, nativeMemoryCacheManager.getCacheWeight());
+        assertEquals(0, nativeMemoryCacheManager.getCacheWeightInKilobytes());
         nativeMemoryCacheManager.close();
     }
 
     public void testGetCacheWeight() throws ExecutionException, IOException {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
 
-        assertEquals(0, nativeMemoryCacheManager.getCacheWeight());
+        assertEquals(0, nativeMemoryCacheManager.getCacheWeightInKilobytes());
 
         // Put 2 entries in cache and check that the weight matches
         long size1 = 10;
@@ -64,7 +64,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         TestNativeMemoryEntryContent testNativeMemoryEntryContent2 = new TestNativeMemoryEntryContent("test-2", size2);
         nativeMemoryCacheManager.get(testNativeMemoryEntryContent2, true);
 
-        assertEquals(size1 + size2, nativeMemoryCacheManager.getCacheWeight());
+        assertEquals(size1 + size2, nativeMemoryCacheManager.getCacheWeightInKilobytes());
         nativeMemoryCacheManager.close();
     }
 
@@ -128,7 +128,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         NativeMemoryAllocation testNativeMemoryAllocation = nativeMemoryCacheManager.get(testNativeMemoryEntryContent1,
                 true);
-        assertEquals(size, nativeMemoryCacheManager.getCacheWeight());
+        assertEquals(size, nativeMemoryCacheManager.getCacheWeightInKilobytes());
         assertEquals(size, testNativeMemoryAllocation.getSize());
         assertEquals(pointer, testNativeMemoryAllocation.getPointer());
 
@@ -203,7 +203,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         }
 
         @Override
-        public void close() throws InterruptedException {
+        public void close() {
 
         }
 
@@ -218,17 +218,17 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         }
 
         @Override
-        public void readLock() throws InterruptedException {
+        public void readLock() {
 
         }
 
         @Override
-        public void writeLock() throws InterruptedException {
+        public void writeLock() {
 
         }
 
         @Override
-        public void readUnlock() throws InterruptedException {
+        public void readUnlock() {
 
         }
 

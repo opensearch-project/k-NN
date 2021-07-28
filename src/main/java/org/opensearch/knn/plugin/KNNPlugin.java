@@ -26,7 +26,6 @@
 package org.opensearch.knn.plugin;
 
 import org.opensearch.knn.index.KNNCircuitBreaker;
-import org.opensearch.knn.index.KNNIndexCache;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorFieldMapper;
@@ -146,7 +145,6 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
                                                IndexNameExpressionResolver indexNameExpressionResolver,
                                                Supplier<RepositoriesService> repositoriesServiceSupplier) {
         this.clusterService = clusterService;
-        KNNIndexCache.setResourceWatcherService(resourceWatcherService);
 
         // Initialize Native Memory loading strategies
         NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
