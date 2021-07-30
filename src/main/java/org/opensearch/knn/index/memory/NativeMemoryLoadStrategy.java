@@ -122,6 +122,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                     ActionListener.wrap(
                             response -> trainingDataAllocation.writeUnlock(),
                             ex -> {
+                                trainingDataAllocation.close();
                                 trainingDataAllocation.writeUnlock();
                                 throw new RuntimeException(ex);
                             }

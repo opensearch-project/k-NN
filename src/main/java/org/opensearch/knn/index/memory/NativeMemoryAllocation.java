@@ -112,18 +112,20 @@ public interface NativeMemoryAllocation {
 
         @Override
         public void close() {
-            writeLock();
+            // Lock acquisition should be done by caller
+            if (this.closed) {
+                return;
+            }
 
             try {
-                if (this.closed) {
-                    return;
-                }
-
                 watcherHandle.stop();
-                JNIService.free(pointer, knnEngine.getName());
+
+                // Pointer is sometimes initialized to 0. If this is ever the case, freeing will surely fail.
+                if (pointer != 0) {
+                    JNIService.free(pointer, knnEngine.getName());
+                }
             } finally {
                 this.closed = true;
-                writeUnlock();
             }
         }
 
@@ -222,17 +224,16 @@ public interface NativeMemoryAllocation {
 
         @Override
         public void close() {
-            writeLock();
+            if (closed) {
+                return;
+            }
 
             try {
-                if (closed) {
-                    return;
+                if (this.pointer != 0) {
+                    JNIService.freeVectors(this.pointer);
                 }
-
-                JNIService.freeVectors(this.pointer);
             } finally {
                 closed = true;
-                writeUnlock();
             }
         }
 

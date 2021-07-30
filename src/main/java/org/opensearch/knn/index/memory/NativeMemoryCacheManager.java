@@ -260,7 +260,15 @@ public class NativeMemoryCacheManager implements Closeable {
 
     private void onRemoval(RemovalNotification<String, NativeMemoryAllocation> removalNotification) {
         NativeMemoryAllocation nativeMemoryAllocation = removalNotification.getValue();
-        executor.execute(nativeMemoryAllocation::close);
+        executor.execute(() -> {
+            nativeMemoryAllocation.writeLock();
+
+            try {
+                nativeMemoryAllocation.close();
+            } finally {
+                nativeMemoryAllocation.writeUnlock();
+            }
+        });
 
         if (RemovalCause.SIZE == removalNotification.getCause()) {
             KNNSettings.state().updateCircuitBreakerSettings(true);
