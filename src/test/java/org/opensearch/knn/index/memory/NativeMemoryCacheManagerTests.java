@@ -12,7 +12,7 @@
 package org.opensearch.knn.index.memory;
 
 import com.google.common.cache.CacheStats;
-import org.opensearch.knn.common.exception.NativeMemoryThrottleException;
+import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.plugins.Plugin;
@@ -233,7 +233,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         // Then, add another entry that would overflow the cache
         TestNativeMemoryEntryContent testNativeMemoryEntryContent2 = new TestNativeMemoryEntryContent("test-2", maxWeight);
-        expectThrows(NativeMemoryThrottleException.class, () ->nativeMemoryCacheManager.get(testNativeMemoryEntryContent2, false));
+        expectThrows(OutOfNativeMemoryException.class, () ->nativeMemoryCacheManager.get(testNativeMemoryEntryContent2, false));
         nativeMemoryCacheManager.close();
     }
 

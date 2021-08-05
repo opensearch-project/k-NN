@@ -19,7 +19,7 @@ import com.google.common.cache.RemovalNotification;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.knn.common.exception.NativeMemoryThrottleException;
+import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.plugin.stats.StatNames;
 
@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Manages native memory allocations made by JNI.
  */
-public class NativeMemoryCacheManager implements Closeable {
+public final class NativeMemoryCacheManager implements Closeable {
 
     public static String GRAPH_COUNT = "graph_count";
 
@@ -122,7 +122,7 @@ public class NativeMemoryCacheManager implements Closeable {
     public Long getWeightForIndexInKilobytes(final String indexName) {
         return cache.asMap().values().stream()
                 .filter(nativeMemoryAllocation -> nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
-                .filter(indexAllocation -> indexName.equals(((NativeMemoryAllocation.IndexAllocation) indexAllocation).getOsIndexName()))
+                .filter(indexAllocation -> indexName.equals(((NativeMemoryAllocation.IndexAllocation) indexAllocation).getOpenSearchIndexName()))
                 .mapToLong(NativeMemoryAllocation::getSizeInKb)
                 .sum();
     }
@@ -187,7 +187,7 @@ public class NativeMemoryCacheManager implements Closeable {
                 !cache.asMap().containsKey(nativeMemoryEntryContext.getKey()) &&
                 maxWeight - getCacheWeightInKilobytes() - nativeMemoryEntryContext.calculateSizeInKb() <= 0
         ) {
-            throw new NativeMemoryThrottleException("Failed to load \"" + nativeMemoryEntryContext.getKey() +
+            throw new OutOfNativeMemoryException("Failed to load \"" + nativeMemoryEntryContext.getKey() +
                     "\" into memory.");
         }
 
@@ -242,7 +242,7 @@ public class NativeMemoryCacheManager implements Closeable {
 
             if (entry.getValue() instanceof NativeMemoryAllocation.IndexAllocation) {
                 indexAllocation = (NativeMemoryAllocation.IndexAllocation) entry.getValue();
-                indexName = indexAllocation.getOsIndexName();
+                indexName = indexAllocation.getOpenSearchIndexName();
                 statValues.putIfAbsent(indexName, new HashMap<>());
 
                 statValues.get(indexName).put(GRAPH_COUNT, ((Integer) statValues.get(indexName)

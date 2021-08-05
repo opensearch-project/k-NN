@@ -100,16 +100,15 @@ public class KNNIndexShard {
     public void warmup() throws IOException {
         logger.info("[KNN] Warming up index: " + getIndexName());
         try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-warmup")) {
-            getAllEnginePaths(searcher.getIndexReader()).entrySet().stream().map(e ->
-                    new NativeMemoryEntryContext.IndexEntryContext(
-                            e.getKey(),
-                            NativeMemoryLoadStrategy.IndexLoadStrategy.INSTANCE,
-                            ImmutableMap.of(SPACE_TYPE, e.getValue().getValue()),
-                            getIndexName()
-                    )
-            ).forEach(e -> {
+            getAllEnginePaths(searcher.getIndexReader()).forEach((key, value) -> {
                 try {
-                    nativeMemoryCacheManager.get(e, true);
+                    nativeMemoryCacheManager.get(
+                            new NativeMemoryEntryContext.IndexEntryContext(
+                                    key,
+                                    NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                                    ImmutableMap.of(SPACE_TYPE, value.getValue()),
+                                    getIndexName()
+                            ), true);
                 } catch (ExecutionException ex) {
                     throw new RuntimeException(ex);
                 }

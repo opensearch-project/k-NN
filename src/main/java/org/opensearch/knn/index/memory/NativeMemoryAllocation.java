@@ -84,7 +84,7 @@ public interface NativeMemoryAllocation {
         private volatile boolean closed;
         private final KNNEngine knnEngine;
         private final String indexPath;
-        private final String osIndexName;
+        private final String openSearchIndexName;
         private final ReadWriteLock readWriteLock;
         private final WatcherHandle<FileWatcher> watcherHandle;
 
@@ -95,15 +95,15 @@ public interface NativeMemoryAllocation {
          * @param size Size this index consumes in kilobytes
          * @param knnEngine KNNEngine associated with the index allocation
          * @param indexPath File path to index
-         * @param osIndexName Name of OpenSearch index this index is associated with
+         * @param openSearchIndexName Name of OpenSearch index this index is associated with
          * @param watcherHandle Handle for watching index file
          */
-        public IndexAllocation(long pointer, long size, KNNEngine knnEngine, String indexPath, String osIndexName,
-                               WatcherHandle<FileWatcher> watcherHandle) {
+        public IndexAllocation(long pointer, long size, KNNEngine knnEngine, String indexPath,
+                               String openSearchIndexName, WatcherHandle<FileWatcher> watcherHandle) {
             this.closed = false;
             this.knnEngine = knnEngine;
             this.indexPath = indexPath;
-            this.osIndexName = osIndexName;
+            this.openSearchIndexName = openSearchIndexName;
             this.pointer = pointer;
             this.readWriteLock = new ReentrantReadWriteLock();
             this.size = size;
@@ -117,15 +117,13 @@ public interface NativeMemoryAllocation {
                 return;
             }
 
-            try {
-                watcherHandle.stop();
+            this.closed = true;
 
-                // Pointer is sometimes initialized to 0. If this is ever the case, freeing will surely fail.
-                if (pointer != 0) {
-                    JNIService.free(pointer, knnEngine.getName());
-                }
-            } finally {
-                this.closed = true;
+            watcherHandle.stop();
+
+            // Pointer is sometimes initialized to 0. If this is ever the case, freeing will surely fail.
+            if (pointer != 0) {
+                JNIService.free(pointer, knnEngine.getName());
             }
         }
 
@@ -187,8 +185,8 @@ public interface NativeMemoryAllocation {
          *
          * @return OpenSearch index name
          */
-        public String getOsIndexName() {
-            return osIndexName;
+        public String getOpenSearchIndexName() {
+            return openSearchIndexName;
         }
     }
 
@@ -228,12 +226,9 @@ public interface NativeMemoryAllocation {
                 return;
             }
 
-            try {
-                if (this.pointer != 0) {
-                    JNIService.freeVectors(this.pointer);
-                }
-            } finally {
-                closed = true;
+            closed = true;
+            if (this.pointer != 0) {
+                JNIService.freeVectors(this.pointer);
             }
         }
 

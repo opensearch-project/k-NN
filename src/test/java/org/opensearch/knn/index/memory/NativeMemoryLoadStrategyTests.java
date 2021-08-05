@@ -62,13 +62,13 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
 
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
                 path,
-                NativeMemoryLoadStrategy.IndexLoadStrategy.INSTANCE,
+                NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                 parameters,
                 "test"
         );
 
         // Load
-        NativeMemoryAllocation.IndexAllocation indexAllocation = NativeMemoryLoadStrategy.IndexLoadStrategy.INSTANCE.load(indexEntryContext);
+        NativeMemoryAllocation.IndexAllocation indexAllocation = NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().load(indexEntryContext);
 
         // Confirm that the file was loaded by querying
         float[] query = new float[dimension];
@@ -110,14 +110,14 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
                 0,
                 "test",
                 "test",
-                NativeMemoryLoadStrategy.TrainingLoadStrategy.INSTANCE,
+                NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance(),
                 null,
                 0,
                 0);
 
         // Load the allocation. Initially, the pointer should be 0. However, after the readlock is obtained, the pointer
         // should not be 0.
-        NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = NativeMemoryLoadStrategy.TrainingLoadStrategy.INSTANCE.load(trainingDataEntryContext);
+        NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance().load(trainingDataEntryContext);
         assertEquals(0, trainingDataAllocation.getPointer());
         trainingDataAllocation.readLock();
         assertNotEquals(0, trainingDataAllocation.getPointer());

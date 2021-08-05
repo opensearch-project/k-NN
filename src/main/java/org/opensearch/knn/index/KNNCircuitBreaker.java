@@ -77,9 +77,10 @@ public class KNNCircuitBreaker {
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.client = client;
+        NativeMemoryCacheManager nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         Runnable runnable = () -> {
-            if (NativeMemoryCacheManager.getInstance().isCacheCapacityReached() && clusterService.localNode().isDataNode()) {
-                long currentSizeKiloBytes =  NativeMemoryCacheManager.getInstance().getCacheWeightInKilobytes();
+            if (nativeMemoryCacheManager.isCacheCapacityReached() && clusterService.localNode().isDataNode()) {
+                long currentSizeKiloBytes =  nativeMemoryCacheManager.getCacheWeightInKilobytes();
                 long circuitBreakerLimitSizeKiloBytes = KNNSettings.getCircuitBreakerLimit().getKb();
                 long circuitBreakerUnsetSizeKiloBytes = (long) ((KNNSettings.getCircuitBreakerUnsetPercentage()/100)
                         * circuitBreakerLimitSizeKiloBytes);
@@ -87,7 +88,7 @@ public class KNNCircuitBreaker {
                  * Unset capacityReached flag if currentSizeBytes is less than circuitBreakerUnsetSizeBytes
                  */
                 if (currentSizeKiloBytes <= circuitBreakerUnsetSizeKiloBytes) {
-                    NativeMemoryCacheManager.getInstance().setCacheCapacityReached(false);
+                    nativeMemoryCacheManager.setCacheCapacityReached(false);
                 }
             }
 

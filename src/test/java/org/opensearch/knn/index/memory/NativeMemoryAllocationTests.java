@@ -210,7 +210,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
                 null
         );
 
-        assertEquals(osIndexName, indexAllocation.getOsIndexName());
+        assertEquals(osIndexName, indexAllocation.getOpenSearchIndexName());
     }
 
     public void testTrainingDataAllocation_close() {

@@ -131,7 +131,7 @@ public class KNNWeight extends Weight {
                 indexAllocation = nativeMemoryCacheManager.get(
                         new NativeMemoryEntryContext.IndexEntryContext(
                                 indexPath.toString(),
-                                NativeMemoryLoadStrategy.IndexLoadStrategy.INSTANCE,
+                                NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                                 ImmutableMap.of(SPACE_TYPE, spaceType.getValue()),
                                 knnQuery.getIndexName()
                         ), true);

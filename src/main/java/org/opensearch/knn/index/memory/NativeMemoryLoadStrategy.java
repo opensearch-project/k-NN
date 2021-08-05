@@ -41,19 +41,33 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
     class IndexLoadStrategy implements NativeMemoryLoadStrategy<NativeMemoryAllocation.IndexAllocation,
             NativeMemoryEntryContext.IndexEntryContext> {
 
-        public static IndexLoadStrategy INSTANCE = new IndexLoadStrategy();
+        private static IndexLoadStrategy INSTANCE;
 
         private final FileChangesListener indexFileOnDeleteListener;
         private ResourceWatcherService resourceWatcherService;
 
-        public static void initialize(final ResourceWatcherService resourceWatcherService) {
-            INSTANCE.resourceWatcherService = resourceWatcherService;
+        /**
+         * Get Singleton of this load strategy.
+         *
+         * @return singleton IndexLoadStrategy
+         */
+        public static synchronized IndexLoadStrategy getInstance() {
+            if (INSTANCE == null) {
+                INSTANCE = new IndexLoadStrategy();
+            }
+            return INSTANCE;
         }
 
         /**
-         * Empty Constructor
+         * Initialize singleton.
+         *
+         * @param resourceWatcherService service used to monitor index files for deletion
          */
-        public IndexLoadStrategy() {
+        public static void initialize(final ResourceWatcherService resourceWatcherService) {
+            getInstance().resourceWatcherService = resourceWatcherService;
+        }
+
+        private IndexLoadStrategy() {
             indexFileOnDeleteListener = new FileChangesListener() {
                 @Override
                 public void onFileDeleted(Path indexFilePath) {
@@ -88,17 +102,31 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
     class TrainingLoadStrategy implements NativeMemoryLoadStrategy<NativeMemoryAllocation.TrainingDataAllocation,
             NativeMemoryEntryContext.TrainingDataEntryContext> {
 
-        public static TrainingLoadStrategy INSTANCE = new TrainingLoadStrategy();
+        private static TrainingLoadStrategy INSTANCE;
         private VectorReader vectorReader;
 
-        public static void initialize(final VectorReader vectorReader) {
-            INSTANCE.vectorReader = vectorReader;
+        /**
+         * Get singleton TrainingLoadStrategy
+         *
+         * @return instance of TrainingLoadStrategy
+         */
+        public static synchronized TrainingLoadStrategy getInstance() {
+            if (INSTANCE == null) {
+                INSTANCE = new TrainingLoadStrategy();
+            }
+            return INSTANCE;
         }
 
         /**
-         * Empty Constructor
+         * Initialize singleton.
+         *
+         * @param vectorReader VectorReader used to read training data
          */
-        public TrainingLoadStrategy() {}
+        public static void initialize(final VectorReader vectorReader) {
+            getInstance().vectorReader = vectorReader;
+        }
+
+        private TrainingLoadStrategy() {}
 
         @Override
         public NativeMemoryAllocation.TrainingDataAllocation load(NativeMemoryEntryContext.TrainingDataEntryContext

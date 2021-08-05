@@ -13,10 +13,10 @@ package org.opensearch.knn.common.exception;
 
 import org.opensearch.knn.KNNTestCase;
 
-public class NativeMemoryThrottleExceptionTests extends KNNTestCase {
+public class OutOfNativeMemoryExceptionTests extends KNNTestCase {
     public void testException() {
         String message = "test message";
-        NativeMemoryThrottleException nativeMemoryThrottleException = new NativeMemoryThrottleException(message);
-        assertEquals(message, nativeMemoryThrottleException.getMessage());
+        OutOfNativeMemoryException outOfNativeMemoryException = new OutOfNativeMemoryException(message);
+        assertEquals(message, outOfNativeMemoryException.getMessage());
     }
 }

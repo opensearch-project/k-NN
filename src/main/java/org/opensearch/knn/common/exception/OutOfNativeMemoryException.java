@@ -11,14 +11,14 @@
 
 package org.opensearch.knn.common.exception;
 
-public class NativeMemoryThrottleException extends RuntimeException {
+public class OutOfNativeMemoryException extends RuntimeException {
 
     /**
      * Constructor
      *
      * @param message Exception message to be appended.
      */
-    public NativeMemoryThrottleException(String message) {
+    public OutOfNativeMemoryException(String message) {
         super(message);
     }
 
