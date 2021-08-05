@@ -60,6 +60,7 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.watcher.ResourceWatcherService;
 import org.mockito.Mockito;
 
@@ -219,7 +220,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
 
         // Setup model cache
         ModelDao modelDao = mock(ModelDao.class);
-        Model mockModel = new Model(knnEngine, spaceType, dimension, modelBlob);
+        Model mockModel = new Model(new ModelMetadata(knnEngine, spaceType, dimension), modelBlob);
         when(modelDao.get(modelId)).thenReturn(mockModel);
 
         Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), 10).build();

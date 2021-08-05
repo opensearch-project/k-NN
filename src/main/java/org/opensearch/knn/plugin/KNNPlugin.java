@@ -64,6 +64,8 @@ import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.knn.plugin.stats.KNNStatsConfig;
 import org.opensearch.knn.training.VectorReader;
+import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
+import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.EnginePlugin;
 import org.opensearch.plugins.MapperPlugin;
@@ -186,7 +188,8 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
         return Arrays.asList(
                 new ActionHandler<>(KNNStatsAction.INSTANCE, KNNStatsTransportAction.class),
-                new ActionHandler<>(KNNWarmupAction.INSTANCE, KNNWarmupTransportAction.class)
+                new ActionHandler<>(KNNWarmupAction.INSTANCE, KNNWarmupTransportAction.class),
+                new ActionHandler<>(UpdateModelMetadataAction.INSTANCE, UpdateModelMetadataTransportAction.class)
         );
     }
 
