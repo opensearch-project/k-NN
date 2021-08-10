@@ -1,6 +1,6 @@
 [![Build and Test k-NN](https://github.com/opensearch-project/k-NN/actions/workflows/CI.yml/badge.svg)](https://github.com/opensearch-project/k-NN/actions/workflows/CI.yml)
 [![codecov](https://codecov.io/gh/opensearch-project/k-NN/branch/main/graph/badge.svg?token=PYQO2GW39S)](https://codecov.io/gh/opensearch-project/k-NN)
-[![Documentation](https://img.shields.io/badge/doc-reference-blue)](https://docs-beta.opensearch.org/search-plugins/knn/index/)
+[![Documentation](https://img.shields.io/badge/doc-reference-blue)](https://opensearch.org/docs/search-plugins/knn/index/)
 [![Chat](https://img.shields.io/badge/chat-on%20forums-blue)](https://discuss.opendistrocommunity.dev/c/k-NN/)
 ![PRs welcome!](https://img.shields.io/badge/PRs-welcome!-success)
 
@@ -20,7 +20,7 @@
 
 * [Project Website](https://opensearch.org/)
 * [Downloads](https://opensearch.org/downloads.html).
-* [Documentation](https://docs-beta.opensearch.org/search-plugins/knn/index/)
+* [Documentation](https://opensearch.org/docs/search-plugins/knn/index/)
 * Need help? Try [Forums](https://discuss.opendistrocommunity.dev/c/k-nn/)
 * [Project Principles](https://opensearch.org/#principles)
 * [Contributing to OpenSearch k-NN](CONTRIBUTING.md)
@@ -43,4 +43,4 @@ This project is licensed under the [Apache v2.0 License](LICENSE.txt).
 
 ## Copyright
 
-Copyright 2020-2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+Copyright OpenSearch Contributors. See [NOTICE](NOTICE.txt) for details.
