@@ -98,7 +98,7 @@ public interface NativeMemoryAllocation {
          * @param openSearchIndexName Name of OpenSearch index this index is associated with
          * @param watcherHandle Handle for watching index file
          */
-        public IndexAllocation(long pointer, long size, KNNEngine knnEngine, String indexPath,
+        IndexAllocation(long pointer, long size, KNNEngine knnEngine, String indexPath,
                                String openSearchIndexName, WatcherHandle<FileWatcher> watcherHandle) {
             this.closed = false;
             this.knnEngine = knnEngine;
@@ -210,7 +210,7 @@ public interface NativeMemoryAllocation {
          * @param pointer pointer in memory to the training data allocation
          * @param size amount memory needed for allocation in kilobytes
          */
-        public TrainingDataAllocation(long pointer, long size) {
+        TrainingDataAllocation(long pointer, long size) {
             this.closed = false;
             this.pointer = pointer;
             this.size = size;

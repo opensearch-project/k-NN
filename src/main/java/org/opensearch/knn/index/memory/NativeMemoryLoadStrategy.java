@@ -158,8 +158,9 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             );
 
 
-            // Return the allocation immediately. The calling thread wont be able to do anything until the
-            // vectors have all been loaded into native memory and the write lock has been released
+            // The write lock is acquired before the trainingDataAllocation is returned and not released until the
+            // loading has completed. The calling thread will need to obtain a read lock in order to proceed, which
+            // will not be possible until the write lock is released.
             return trainingDataAllocation;
         }
     }
