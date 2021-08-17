@@ -250,19 +250,19 @@ public final class NativeMemoryCacheManager implements Closeable {
      */
     public Map<String, Map<String, Object>> getIndicesCacheStats() {
         Map<String, Map<String, Object>> statValues = new HashMap<>();
-        String indexName;
         NativeMemoryAllocation.IndexAllocation indexAllocation;
 
         for (Map.Entry<String, NativeMemoryAllocation> entry : cache.asMap().entrySet()) {
 
             if (entry.getValue() instanceof NativeMemoryAllocation.IndexAllocation) {
                 indexAllocation = (NativeMemoryAllocation.IndexAllocation) entry.getValue();
-                indexName = indexAllocation.getOpenSearchIndexName();
-                statValues.putIfAbsent(indexName, new HashMap<>());
-                statValues.get(indexName).putIfAbsent(GRAPH_COUNT, getIndexGraphCount(indexName));
-                statValues.get(indexName).putIfAbsent(StatNames.GRAPH_MEMORY_USAGE.getName(),
+                String indexName = indexAllocation.getOpenSearchIndexName();
+
+                Map<String, Object> indexMap = statValues.computeIfAbsent(indexName, name -> new HashMap<>());
+                indexMap.computeIfAbsent(GRAPH_COUNT, key -> getIndexGraphCount(indexName));
+                indexMap.computeIfAbsent(StatNames.GRAPH_MEMORY_USAGE.getName(), key ->
                         getIndexSizeInKilobytes(indexName));
-                statValues.get(indexName).putIfAbsent(StatNames.GRAPH_MEMORY_USAGE_PERCENTAGE.getName(),
+                indexMap.computeIfAbsent(StatNames.GRAPH_MEMORY_USAGE_PERCENTAGE.getName(), key ->
                         getIndexSizeAsPercentage(indexName));
             }
         }

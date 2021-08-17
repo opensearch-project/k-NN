@@ -202,7 +202,7 @@ public interface NativeMemoryAllocation {
         // Implement reader/writer with semaphores to deal with passing lock conditions between threads
         private int readCount;
         private Semaphore readSemaphore;
-        private Semaphore wrtieSemaphore;
+        private Semaphore writeSemaphore;
 
         /**
          * Constructor
@@ -217,7 +217,7 @@ public interface NativeMemoryAllocation {
 
             this.readCount = 0;
             this.readSemaphore = new Semaphore(1);
-            this.wrtieSemaphore = new Semaphore(1);
+            this.writeSemaphore = new Semaphore(1);
         }
 
         @Override
@@ -253,7 +253,7 @@ public interface NativeMemoryAllocation {
 
             if (readCount == 0) {
                 try {
-                    wrtieSemaphore.acquire();
+                    writeSemaphore.acquire();
                 } catch (InterruptedException e) {
                     readSemaphore.release();
                     throw new RuntimeException(e);
@@ -267,7 +267,7 @@ public interface NativeMemoryAllocation {
         @Override
         public void writeLock() {
             try {
-                wrtieSemaphore.acquire();
+                writeSemaphore.acquire();
             } catch (InterruptedException ex) {
                 throw new RuntimeException(ex);
             }
@@ -284,7 +284,7 @@ public interface NativeMemoryAllocation {
             readCount--;
 
             if (readCount == 0) {
-                wrtieSemaphore.release();
+                writeSemaphore.release();
             }
 
             readSemaphore.release();
@@ -292,7 +292,7 @@ public interface NativeMemoryAllocation {
 
         @Override
         public void writeUnlock() {
-            wrtieSemaphore.release();
+            writeSemaphore.release();
         }
 
         @Override

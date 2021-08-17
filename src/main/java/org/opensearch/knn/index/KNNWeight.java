@@ -61,6 +61,7 @@ import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
 /**
  * Calculate query weights and build query scorers.
@@ -136,6 +137,7 @@ public class KNNWeight extends Weight {
                                 knnQuery.getIndexName()
                         ), true);
             } catch (ExecutionException e) {
+                GRAPH_QUERY_ERRORS.increment();
                 throw new RuntimeException(e);
             }
 
@@ -149,6 +151,7 @@ public class KNNWeight extends Weight {
 
                 results = JNIService.queryIndex(indexAllocation.getPointer(), knnQuery.getQueryVector(), knnQuery.getK(), knnEngine.getName());
             } catch (Exception e) {
+                GRAPH_QUERY_ERRORS.increment();
                 throw new RuntimeException(e);
             } finally {
                 indexAllocation.readUnlock();

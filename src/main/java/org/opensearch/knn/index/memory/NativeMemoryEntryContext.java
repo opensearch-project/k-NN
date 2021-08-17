@@ -123,8 +123,8 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
 
     public static class TrainingDataEntryContext extends NativeMemoryEntryContext<NativeMemoryAllocation.TrainingDataAllocation> {
 
-        private static String KEY_PREFIX = "tdata#";
-        private static String DELIMETER = ":";
+        private static final String KEY_PREFIX = "tdata#";
+        private static final String DELIMETER = ":";
 
         private final long size;
         private final NativeMemoryLoadStrategy.TrainingLoadStrategy trainingLoadStrategy;
