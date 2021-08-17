@@ -44,7 +44,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         TestNativeMemoryEntryContent testNativeMemoryEntryContent = new TestNativeMemoryEntryContent("test", size);
         nativeMemoryCacheManager.get(testNativeMemoryEntryContent, true);
 
-        assertEquals(size, nativeMemoryCacheManager.getCacheWeightInKilobytes());
+        assertEquals(size, nativeMemoryCacheManager.getCacheSizeInKilobytes());
 
         // Call rebuild and check total weight is at 0
         nativeMemoryCacheManager.rebuildCache();
@@ -52,14 +52,14 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         // Sleep for a second or two so that the executor can invalidate all entries
         Thread.sleep(2000);
 
-        assertEquals(0, nativeMemoryCacheManager.getCacheWeightInKilobytes());
+        assertEquals(0, nativeMemoryCacheManager.getCacheSizeInKilobytes());
         nativeMemoryCacheManager.close();
     }
 
-    public void testGetCacheWeightInKilobytes() throws ExecutionException {
+    public void testGetCacheSizeInKilobytes() throws ExecutionException {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
 
-        assertEquals(0, nativeMemoryCacheManager.getCacheWeightInKilobytes());
+        assertEquals(0, nativeMemoryCacheManager.getCacheSizeInKilobytes());
 
         // Put 2 entries in cache and check that the weight matches
         long size1 = 10;
@@ -69,13 +69,13 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         TestNativeMemoryEntryContent testNativeMemoryEntryContent2 = new TestNativeMemoryEntryContent("test-2", size2);
         nativeMemoryCacheManager.get(testNativeMemoryEntryContent2, true);
 
-        assertEquals(size1 + size2, nativeMemoryCacheManager.getCacheWeightInKilobytes());
+        assertEquals(size1 + size2, nativeMemoryCacheManager.getCacheSizeInKilobytes());
         nativeMemoryCacheManager.close();
     }
 
-    public void testGetWeightAsPercentage() throws ExecutionException {
+    public void testGetCacheSizeAsPercentage() throws ExecutionException {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
-        long maxWeight = nativeMemoryCacheManager.getCacheMaxWeightInKb();
+        long maxWeight = nativeMemoryCacheManager.getMaxCacheSizeInKilobytes();
         long entryWeight = maxWeight / 3;
 
         TestNativeMemoryEntryContent testNativeMemoryEntryContent = new TestNativeMemoryEntryContent(
@@ -83,13 +83,13 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         nativeMemoryCacheManager.get(testNativeMemoryEntryContent, true);
 
-        assertEquals(100 * (float) entryWeight / (float) maxWeight, nativeMemoryCacheManager.getWeightAsPercentage(),
+        assertEquals(100 * (float) entryWeight / (float) maxWeight, nativeMemoryCacheManager.getCacheSizeAsPercentage(),
                 0.001);
 
         nativeMemoryCacheManager.close();
     }
 
-    public void testGetWeightForIndexInKilobytes() throws ExecutionException, IOException {
+    public void testGetIndexSizeInKilobytes() throws ExecutionException, IOException {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
         long genericEntryWeight = 100L;
         long indexEntryWeight = 20L;
@@ -117,14 +117,14 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         nativeMemoryCacheManager.get(indexEntryContext, true);
 
-        assertEquals(indexEntryWeight, nativeMemoryCacheManager.getWeightForIndexInKilobytes(indexName), 0.001);
+        assertEquals(indexEntryWeight, nativeMemoryCacheManager.getIndexSizeInKilobytes(indexName), 0.001);
 
         nativeMemoryCacheManager.close();
     }
 
-    public void testGetWeightForIndexAsPercentage() throws ExecutionException, IOException {
+    public void testGetIndexSizeAsPercentage() throws ExecutionException, IOException {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
-        long maxWeight = nativeMemoryCacheManager.getCacheMaxWeightInKb();
+        long maxWeight = nativeMemoryCacheManager.getMaxCacheSizeInKilobytes();
         long genericEntryWeight = maxWeight / 3;
         long indexEntryWeight = maxWeight / 3;
 
@@ -152,14 +152,82 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         nativeMemoryCacheManager.get(indexEntryContext, true);
 
         assertEquals(100 * (float) indexEntryWeight / (float) maxWeight,
-                nativeMemoryCacheManager.getWeightForIndexAsPercentage(indexName), 0.001);
+                nativeMemoryCacheManager.getIndexSizeAsPercentage(indexName), 0.001);
 
         nativeMemoryCacheManager.close();
     }
 
-    public void testGetCacheMaxWeightInKb() {
+    public void testGetIndexGraphCount() throws ExecutionException, IOException {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
-        assertEquals(KNNSettings.getCircuitBreakerLimit().getKb(), nativeMemoryCacheManager.getCacheMaxWeightInKb());
+        long maxWeight = nativeMemoryCacheManager.getMaxCacheSizeInKilobytes();
+        long genericEntryWeight = maxWeight / 3;
+        long indexEntryWeight = maxWeight / 3;
+
+        TestNativeMemoryEntryContent testNativeMemoryEntryContent = new TestNativeMemoryEntryContent(
+                "test-1", genericEntryWeight, 0);
+
+        nativeMemoryCacheManager.get(testNativeMemoryEntryContent, true);
+
+        String indexName1 = "test-index";
+        String indexName2 = "test-index";
+        String key1 = "test-key-1";
+        String key2 = "test-key-2";
+        String key3 = "test-key-3";
+
+        NativeMemoryAllocation.IndexAllocation indexAllocation1 = new NativeMemoryAllocation.IndexAllocation(
+                0,
+                indexEntryWeight,
+                null,
+                key1,
+                indexName1,
+                null
+        );
+
+        NativeMemoryEntryContext.IndexEntryContext indexEntryContext = mock(NativeMemoryEntryContext.IndexEntryContext.class);
+        when(indexEntryContext.load()).thenReturn(indexAllocation1);
+        when(indexEntryContext.getKey()).thenReturn(key1);
+
+        nativeMemoryCacheManager.get(indexEntryContext, true);
+
+        NativeMemoryAllocation.IndexAllocation indexAllocation2 = new NativeMemoryAllocation.IndexAllocation(
+                0,
+                indexEntryWeight,
+                null,
+                key2,
+                indexName1,
+                null
+        );
+
+        indexEntryContext = mock(NativeMemoryEntryContext.IndexEntryContext.class);
+        when(indexEntryContext.load()).thenReturn(indexAllocation2);
+        when(indexEntryContext.getKey()).thenReturn(key2);
+
+        nativeMemoryCacheManager.get(indexEntryContext, true);
+
+        NativeMemoryAllocation.IndexAllocation indexAllocation3 = new NativeMemoryAllocation.IndexAllocation(
+                0,
+                indexEntryWeight,
+                null,
+                key3,
+                indexName2,
+                null
+        );
+
+        indexEntryContext = mock(NativeMemoryEntryContext.IndexEntryContext.class);
+        when(indexEntryContext.load()).thenReturn(indexAllocation3);
+        when(indexEntryContext.getKey()).thenReturn(key3);
+
+        nativeMemoryCacheManager.get(indexEntryContext, true);
+
+        assertEquals(2, nativeMemoryCacheManager.getIndexGraphCount(indexName1));
+        assertEquals(1, nativeMemoryCacheManager.getIndexGraphCount(indexName2));
+
+        nativeMemoryCacheManager.close();
+    }
+
+    public void testGetMaxCacheSizeInKb() {
+        NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
+        assertEquals(KNNSettings.getCircuitBreakerLimit().getKb(), nativeMemoryCacheManager.getMaxCacheSizeInKilobytes());
         nativeMemoryCacheManager.close();
     }
 
@@ -216,7 +284,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         NativeMemoryAllocation testNativeMemoryAllocation = nativeMemoryCacheManager.get(testNativeMemoryEntryContent1,
                 true);
-        assertEquals(size, nativeMemoryCacheManager.getCacheWeightInKilobytes());
+        assertEquals(size, nativeMemoryCacheManager.getCacheSizeInKilobytes());
         assertEquals(size, testNativeMemoryAllocation.getSizeInKb());
         assertEquals(pointer, testNativeMemoryAllocation.getPointer());
 
@@ -226,7 +294,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
     public void testGet_unevictable() throws ExecutionException {
         // So, I think we will need to first load an entry that has a large size
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
-        long maxWeight = nativeMemoryCacheManager.getCacheMaxWeightInKb();
+        long maxWeight = nativeMemoryCacheManager.getMaxCacheSizeInKilobytes();
 
         TestNativeMemoryEntryContent testNativeMemoryEntryContent1 = new TestNativeMemoryEntryContent("test-1", maxWeight/2);
         nativeMemoryCacheManager.get(testNativeMemoryEntryContent1, true);

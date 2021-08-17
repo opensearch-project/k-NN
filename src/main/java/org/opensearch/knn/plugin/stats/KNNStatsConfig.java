@@ -50,9 +50,9 @@ public class KNNStatsConfig {
             .put(StatNames.EVICTION_COUNT.getName(), new KNNStat<>(false,
                     new KNNInnerCacheStatsSupplier(CacheStats::evictionCount)))
             .put(StatNames.GRAPH_MEMORY_USAGE.getName(), new KNNStat<>(false,
-                    new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getCacheWeightInKilobytes)))
+                    new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getCacheSizeInKilobytes)))
             .put(StatNames.GRAPH_MEMORY_USAGE_PERCENTAGE.getName(), new KNNStat<>(false,
-                    new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getWeightAsPercentage)))
+                    new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getCacheSizeAsPercentage)))
             .put(StatNames.INDICES_IN_CACHE.getName(), new KNNStat<>(false,
                     new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getIndicesCacheStats)))
             .put(StatNames.CACHE_CAPACITY_REACHED.getName(), new KNNStat<>(false,

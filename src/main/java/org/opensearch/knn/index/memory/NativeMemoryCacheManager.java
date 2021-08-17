@@ -105,21 +105,21 @@ public final class NativeMemoryCacheManager implements Closeable {
     }
 
     /**
-     * Getter for current cache weight in Kilobytes.
+     * Getter for current cache size in Kilobytes.
      *
-     * @return current weight of the cache
+     * @return current size of the cache
      */
-    public long getCacheWeightInKilobytes() {
+    public long getCacheSizeInKilobytes() {
         return cache.asMap().values().stream().mapToLong(NativeMemoryAllocation::getSizeInKb).sum();
     }
 
     /**
-     * Returns the current weight of an index in the cache in KiloBytes.
+     * Returns the current size of an index in the cache in KiloBytes.
      *
      * @param indexName Name if index to get the weight for
-     * @return Weight of the index in the cache in kilobytes
+     * @return Size of the index in the cache in kilobytes
      */
-    public Long getWeightForIndexInKilobytes(final String indexName) {
+    public Long getIndexSizeInKilobytes(final String indexName) {
         return cache.asMap().values().stream()
                 .filter(nativeMemoryAllocation -> nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
                 .filter(indexAllocation -> indexName.equals(((NativeMemoryAllocation.IndexAllocation) indexAllocation).getOpenSearchIndexName()))
@@ -132,8 +132,8 @@ public final class NativeMemoryCacheManager implements Closeable {
      *
      * @return Percentage of the cache full
      */
-    public Float getWeightAsPercentage() {
-        return 100 * getCacheWeightInKilobytes() / (float) KNNSettings.getCircuitBreakerLimit().getKb();
+    public Float getCacheSizeAsPercentage() {
+        return 100 * getCacheSizeInKilobytes() / (float) KNNSettings.getCircuitBreakerLimit().getKb();
     }
 
     /**
@@ -142,8 +142,8 @@ public final class NativeMemoryCacheManager implements Closeable {
      * @param indexName name of the index
      * @return Percentage of the cache full
      */
-    public Float getWeightForIndexAsPercentage(final String indexName) {
-        return 100 * getWeightForIndexInKilobytes(indexName) / (float) KNNSettings.getCircuitBreakerLimit().getKb();
+    public Float getIndexSizeAsPercentage(final String indexName) {
+        return 100 * getIndexSizeInKilobytes(indexName) / (float) KNNSettings.getCircuitBreakerLimit().getKb();
     }
 
     /**
@@ -151,8 +151,23 @@ public final class NativeMemoryCacheManager implements Closeable {
      *
      * @return maximum cache weight
      */
-    public long getCacheMaxWeightInKb() {
+    public long getMaxCacheSizeInKilobytes() {
         return maxWeight;
+    }
+
+    /**
+     * Get graph count for a particular index
+     *
+     * @param indexName name of OpenSearch index
+     * @return number of graphs for a particular OpenSearch index
+     */
+    public long getIndexGraphCount(String indexName) {
+        return cache.asMap().values().stream()
+                .filter(nativeMemoryAllocation ->
+                        nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
+                .filter(indexAllocation -> indexName.equals(((NativeMemoryAllocation.IndexAllocation) indexAllocation)
+                        .getOpenSearchIndexName()))
+                .count();
     }
 
     /**
@@ -185,7 +200,7 @@ public final class NativeMemoryCacheManager implements Closeable {
                                       boolean isAbleToTriggerEviction) throws ExecutionException {
         if (!isAbleToTriggerEviction &&
                 !cache.asMap().containsKey(nativeMemoryEntryContext.getKey()) &&
-                maxWeight - getCacheWeightInKilobytes() - nativeMemoryEntryContext.calculateSizeInKb() <= 0
+                maxWeight - getCacheSizeInKilobytes() - nativeMemoryEntryContext.calculateSizeInKb() <= 0
         ) {
             throw new OutOfNativeMemoryException("Failed to load \"" + nativeMemoryEntryContext.getKey() +
                     "\" into memory.");
@@ -244,13 +259,11 @@ public final class NativeMemoryCacheManager implements Closeable {
                 indexAllocation = (NativeMemoryAllocation.IndexAllocation) entry.getValue();
                 indexName = indexAllocation.getOpenSearchIndexName();
                 statValues.putIfAbsent(indexName, new HashMap<>());
-
-                statValues.get(indexName).put(GRAPH_COUNT, ((Integer) statValues.get(indexName)
-                        .getOrDefault(GRAPH_COUNT, 0)) + 1);
+                statValues.get(indexName).putIfAbsent(GRAPH_COUNT, getIndexGraphCount(indexName));
                 statValues.get(indexName).putIfAbsent(StatNames.GRAPH_MEMORY_USAGE.getName(),
-                        getWeightForIndexInKilobytes(indexName));
+                        getIndexSizeInKilobytes(indexName));
                 statValues.get(indexName).putIfAbsent(StatNames.GRAPH_MEMORY_USAGE_PERCENTAGE.getName(),
-                        getWeightForIndexAsPercentage(indexName));
+                        getIndexSizeAsPercentage(indexName));
             }
         }
 
