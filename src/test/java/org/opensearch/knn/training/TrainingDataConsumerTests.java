@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.training;
 
+import org.mockito.ArgumentCaptor;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 
@@ -18,15 +19,23 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 public class TrainingDataConsumerTests extends KNNTestCase {
 
     public void testAccept() {
-        int numVectors = 10;
-        int dimension = 128;
 
-        NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(0, numVectors*dimension* Float.BYTES);
+        // Mock the training data allocation
+        int dimension = 128;
+        NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = mock(NativeMemoryAllocation.TrainingDataAllocation.class); // new NativeMemoryAllocation.TrainingDataAllocation(0, numVectors*dimension* Float.BYTES);
+        when(trainingDataAllocation.getPointer()).thenReturn(0L);
+
+        // Capture argument passed to set pointer
+        ArgumentCaptor<Long> valueCapture = ArgumentCaptor.forClass(Long.class);
+
         TrainingDataConsumer trainingDataConsumer = new TrainingDataConsumer(trainingDataAllocation);
-        assertEquals(0, trainingDataAllocation.getPointer());
 
         List<Float[]> vectorSet1 = new ArrayList<>(3);
         for (int i = 0; i < 3; i++) {
@@ -35,18 +44,15 @@ public class TrainingDataConsumerTests extends KNNTestCase {
             vectorSet1.add(vector);
         }
 
+        when(trainingDataAllocation.getPointer()).thenReturn(0L);
+
+        // Transfer vectors
         trainingDataConsumer.accept(vectorSet1);
-        long pointer = trainingDataAllocation.getPointer();
-        assertNotEquals(0, pointer);
 
-        List<Float[]> vectorSet2 = new ArrayList<>(3);
-        for (int i = 0; i < 7; i++) {
-            Float[] vector = new Float[dimension];
-            Arrays.fill(vector, (float) i);
-            vectorSet2.add(vector);
-        }
+        // Ensure that the pointer captured has been updated
+        verify(trainingDataAllocation).setPointer(valueCapture.capture());
+        when(trainingDataAllocation.getPointer()).thenReturn(valueCapture.getValue());
 
-        trainingDataConsumer.accept(vectorSet2);
-        assertEquals(pointer, pointer);
+        assertNotEquals(0, trainingDataAllocation.getPointer());
     }
 }

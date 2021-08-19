@@ -12,6 +12,8 @@
 package org.opensearch.knn.index.memory;
 
 import com.google.common.cache.CacheStats;
+import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.plugin.KNNPlugin;
@@ -30,6 +32,21 @@ import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COU
 import static org.opensearch.knn.plugin.stats.StatNames.GRAPH_MEMORY_USAGE;
 
 public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase {
+
+    @Override
+    public void tearDown() throws Exception {
+        // Clear out persistent metadata
+//        ClusterUpdateSettingsRequestBuilder builder = new ClusterUpdateSettingsRequestBuilder(client(), ClusterUpdateSettingsAction.INSTANCE);
+//        builder.setPersistentSettings(Settings.builder().put("knn.circuit_breaker.triggered", (Enum<?>) null).build());
+//        builder.execute();
+        ClusterUpdateSettingsRequest clusterUpdateSettingsRequest = new ClusterUpdateSettingsRequest();
+        Settings circuitBreakerSettings = Settings.builder()
+                .putNull(KNNSettings.KNN_CIRCUIT_BREAKER_TRIGGERED)
+                .build();
+        clusterUpdateSettingsRequest.persistentSettings(circuitBreakerSettings);
+        client().admin().cluster().updateSettings(clusterUpdateSettingsRequest).get();
+        super.tearDown();
+    }
 
     @Override
     protected Collection<Class<? extends Plugin>> getPlugins() {
@@ -168,8 +185,8 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         nativeMemoryCacheManager.get(testNativeMemoryEntryContent, true);
 
-        String indexName1 = "test-index";
-        String indexName2 = "test-index";
+        String indexName1 = "test-index-1";
+        String indexName2 = "test-index-2";
         String key1 = "test-key-1";
         String key2 = "test-key-2";
         String key3 = "test-key-3";

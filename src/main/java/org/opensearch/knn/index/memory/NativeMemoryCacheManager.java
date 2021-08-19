@@ -161,13 +161,13 @@ public final class NativeMemoryCacheManager implements Closeable {
      * @param indexName name of OpenSearch index
      * @return number of graphs for a particular OpenSearch index
      */
-    public long getIndexGraphCount(String indexName) {
-        return cache.asMap().values().stream()
+    public int getIndexGraphCount(String indexName) {
+        return Long.valueOf(cache.asMap().values().stream()
                 .filter(nativeMemoryAllocation ->
                         nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
                 .filter(indexAllocation -> indexName.equals(((NativeMemoryAllocation.IndexAllocation) indexAllocation)
                         .getOpenSearchIndexName()))
-                .count();
+                .count()).intValue();
     }
 
     /**
