@@ -16,6 +16,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheStats;
 import com.google.common.cache.RemovalCause;
 import com.google.common.cache.RemovalNotification;
+import org.apache.commons.lang.Validate;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.common.unit.TimeValue;
@@ -120,6 +121,7 @@ public final class NativeMemoryCacheManager implements Closeable {
      * @return Size of the index in the cache in kilobytes
      */
     public Long getIndexSizeInKilobytes(final String indexName) {
+        Validate.notNull(indexName, "Index name cannot be null");
         return cache.asMap().values().stream()
                 .filter(nativeMemoryAllocation -> nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
                 .filter(indexAllocation -> indexName.equals(((NativeMemoryAllocation.IndexAllocation) indexAllocation).getOpenSearchIndexName()))
@@ -143,6 +145,7 @@ public final class NativeMemoryCacheManager implements Closeable {
      * @return Percentage of the cache full
      */
     public Float getIndexSizeAsPercentage(final String indexName) {
+        Validate.notNull(indexName, "Index name cannot be null");
         return 100 * getIndexSizeInKilobytes(indexName) / (float) KNNSettings.getCircuitBreakerLimit().getKb();
     }
 
@@ -162,6 +165,7 @@ public final class NativeMemoryCacheManager implements Closeable {
      * @return number of graphs for a particular OpenSearch index
      */
     public int getIndexGraphCount(String indexName) {
+        Validate.notNull(indexName, "Index name cannot be null");
         return Long.valueOf(cache.asMap().values().stream()
                 .filter(nativeMemoryAllocation ->
                         nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
