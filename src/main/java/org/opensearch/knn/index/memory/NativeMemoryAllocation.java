@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.index.memory;
 
+import org.apache.lucene.index.LeafReaderContext;
 import org.opensearch.knn.index.JNIService;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.watcher.FileWatcher;
@@ -47,12 +48,12 @@ public interface NativeMemoryAllocation {
     long getPointer();
 
     /**
-     * Locks allocation for read.
+     * Locks allocation for read. Multiple threads can obtain this lock assuming that no threads have the write lock.
      */
     void readLock();
 
     /**
-     * Locks allocation for write.
+     * Locks allocation for write. Only one thread can obtain this lock and no threads can have a read lock.
      */
     void writeLock();
 
@@ -137,11 +138,21 @@ public interface NativeMemoryAllocation {
             return pointer;
         }
 
+        /**
+         * The read lock will be obtained in the
+         * {@link org.opensearch.knn.index.KNNWeight#scorer(LeafReaderContext context) scorer} when a native index needs
+         * to be queried.
+         */
         @Override
         public void readLock() {
             readWriteLock.readLock().lock();
         }
 
+        /**
+         * The write lock will be obtained in the
+         * {@link NativeMemoryCacheManager NativeMemoryManager's} onRemoval function when the Index Allocation is
+         * evicted from the cache. This prevents memory from being deallocated when it is being actively searched.
+         */
         @Override
         public void writeLock() {
             readWriteLock.writeLock().lock();
@@ -242,6 +253,10 @@ public interface NativeMemoryAllocation {
             return pointer;
         }
 
+        /**
+         * A read lock will be obtained when a training job needs access to the TrainingDataAllocation.
+         * In the future, we may want to switch to tryAcquire functionality.
+         */
         @Override
         public void readLock() {
             try {
@@ -264,6 +279,12 @@ public interface NativeMemoryAllocation {
             readSemaphore.release();
         }
 
+        /**
+         * A write lock will be obtained either on eviction from {@link NativeMemoryCacheManager NativeMemoryManager's}
+         * or when training data is actually being loaded. A semaphore is used because collecting training data
+         * happens asynchrously, so the thread that obtains the lock will not be the same thread that releases the
+         * lock.
+         */
         @Override
         public void writeLock() {
             try {
