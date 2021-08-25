@@ -177,19 +177,10 @@ public final class NativeMemoryCacheManager implements Closeable {
     /**
      * Getter for cache stats.
      *
-     * @return cache status
+     * @return cache stats
      */
     public CacheStats getCacheStats() {
         return cache.stats();
-    }
-
-    /**
-     * Getter for cache as a map.
-     *
-     * @return cache as a map
-     */
-    public Map<String, NativeMemoryAllocation> getCacheAsMap() {
-        return cache.asMap();
     }
 
     /**

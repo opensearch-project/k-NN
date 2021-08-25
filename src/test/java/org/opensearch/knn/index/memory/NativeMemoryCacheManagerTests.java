@@ -267,30 +267,6 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         nativeMemoryCacheManager.close();
     }
 
-    public void testGetCacheAsMap() throws ExecutionException {
-        NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
-
-        String key1 = "test-1";
-        String key2 = "test-2";
-        long size1 = 12;
-        long size2 = 13;
-
-        TestNativeMemoryEntryContent testNativeMemoryEntryContent1 = new TestNativeMemoryEntryContent(key1, size1);
-        TestNativeMemoryEntryContent testNativeMemoryEntryContent2 = new TestNativeMemoryEntryContent(key2, size2);
-        nativeMemoryCacheManager.get(testNativeMemoryEntryContent1, true);
-        nativeMemoryCacheManager.get(testNativeMemoryEntryContent2, true);
-
-        Map<String, NativeMemoryAllocation> cacheAsMap = nativeMemoryCacheManager.getCacheAsMap();
-
-        assertTrue(cacheAsMap.containsKey(key1));
-        assertTrue(cacheAsMap.containsKey(key2));
-
-        assertEquals(size1, cacheAsMap.get(key1).getSizeInKb());
-        assertEquals(size2, cacheAsMap.get(key2).getSizeInKb());
-
-        nativeMemoryCacheManager.close();
-    }
-
     public void testGet_evictable() throws ExecutionException {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
 
@@ -330,10 +306,11 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         TestNativeMemoryEntryContent testNativeMemoryEntryContent1 = new TestNativeMemoryEntryContent(key, 1);
         nativeMemoryCacheManager.get(testNativeMemoryEntryContent1, true);
 
-        Map<String, NativeMemoryAllocation> cacheAsMap = nativeMemoryCacheManager.getCacheAsMap();
-        assertEquals(1, cacheAsMap.size());
+        long cacheSize = nativeMemoryCacheManager.getCacheSizeInKilobytes();
+        assertTrue(cacheSize > 0);
         nativeMemoryCacheManager.invalidate(key);
-        assertEquals(0, cacheAsMap.size());
+        cacheSize = nativeMemoryCacheManager.getCacheSizeInKilobytes();
+        assertEquals(0, cacheSize);
 
         nativeMemoryCacheManager.close();
     }
@@ -352,10 +329,11 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         TestNativeMemoryEntryContent testNativeMemoryEntryContent3 = new TestNativeMemoryEntryContent(key3, 1);
         nativeMemoryCacheManager.get(testNativeMemoryEntryContent3, true);
 
-        Map<String, NativeMemoryAllocation> cacheAsMap = nativeMemoryCacheManager.getCacheAsMap();
-        assertEquals(3, cacheAsMap.size());
+        long cacheSize = nativeMemoryCacheManager.getCacheSizeInKilobytes();
+        assertTrue(cacheSize > 0);
         nativeMemoryCacheManager.invalidateAll();
-        assertEquals(0, cacheAsMap.size());
+        cacheSize = nativeMemoryCacheManager.getCacheSizeInKilobytes();
+        assertEquals(0, cacheSize);
 
         nativeMemoryCacheManager.close();
     }
