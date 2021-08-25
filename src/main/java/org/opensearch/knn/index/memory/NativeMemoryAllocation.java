@@ -265,13 +265,15 @@ public interface NativeMemoryAllocation {
                 throw new RuntimeException(ex);
             }
 
-
+            // If the read count is 0, we need to grab the permit for the write lock. This is so that the write permit
+            // cannot be grabbed when there are read locks in use. In readUnlock, if the readCount goes to 0, we
+            // release the writeLock
             if (readCount == 0) {
                 try {
-                    writeSemaphore.acquire();
-                } catch (InterruptedException e) {
+                    writeLock();
+                } catch (RuntimeException e) {
                     readSemaphore.release();
-                    throw new RuntimeException(e);
+                    throw e;
                 }
             }
 
@@ -304,8 +306,9 @@ public interface NativeMemoryAllocation {
 
             readCount--;
 
-            if (readCount == 0) {
-                writeSemaphore.release();
+            // The read count should never be less than 0, but add <= here just to be on the safe side.
+            if (readCount <= 0) {
+                writeUnlock();
             }
 
             readSemaphore.release();
