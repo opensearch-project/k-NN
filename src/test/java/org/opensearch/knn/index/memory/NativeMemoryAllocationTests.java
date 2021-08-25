@@ -24,6 +24,8 @@ import org.opensearch.watcher.WatcherHandle;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
@@ -35,7 +37,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
     private int testLockValue3;
     private int testLockValue4;
 
-    public void testIndexAllocation_close() {
+    public void testIndexAllocation_close() throws InterruptedException {
         // Create basic nmslib HNSW index
         Path dir = createTempDir();
         KNNEngine knnEngine = KNNEngine.NMSLIB;
@@ -53,14 +55,16 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         JNIService.createIndex(ids, vectors, path, parameters, knnEngine.getName());
 
         // Load index into memory
-        long pointer = JNIService.loadIndex(path, parameters, knnEngine.getName());
+        long memoryAddress = JNIService.loadIndex(path, parameters, knnEngine.getName());
 
         @SuppressWarnings("unchecked")
         WatcherHandle<FileWatcher> watcherHandle = (WatcherHandle<FileWatcher>) mock(WatcherHandle.class);
         doNothing().when(watcherHandle).stop();
 
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
-                pointer,
+                executorService,
+                memoryAddress,
                 IndexUtil.getFileSizeInKB(path),
                 knnEngine,
                 path,
@@ -69,16 +73,27 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         );
 
         indexAllocation.close();
+
+        Thread.sleep(1000*2);
+        indexAllocation.writeLock();
         assertTrue(indexAllocation.isClosed());
+        indexAllocation.writeUnlock();
 
         indexAllocation.close();
+
+        Thread.sleep(1000*2);
+        indexAllocation.writeLock();
         assertTrue(indexAllocation.isClosed());
+        indexAllocation.writeUnlock();
+
+        executorService.shutdown();
     }
 
     public void testIndexAllocation_getMemoryAddress() {
-        long pointer = 12;
+        long memoryAddress = 12;
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
-                pointer,
+                null,
+                memoryAddress,
                 0,
                 null,
                 "test",
@@ -86,13 +101,14 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
                 null
         );
 
-        assertEquals(pointer, indexAllocation.getMemoryAddress());
+        assertEquals(memoryAddress, indexAllocation.getMemoryAddress());
     }
 
     public void testIndexAllocation_readLock() throws InterruptedException {
         // To test the readLock, we grab the readLock in the main thread and then start a thread that grabs the write
         // lock and updates testLockValue1. We ensure that the value is not updated until after we release the readLock
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 0,
                 null,
@@ -128,6 +144,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         // grabs the readLock and asserts testLockValue2 has been updated. Next in the main thread, we update the value
         // and release the writeLock.
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 0,
                 null,
@@ -160,6 +177,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
     public void testIndexAllocation_getSize() {
         long size = 12;
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 size,
                 null,
@@ -174,6 +192,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
     public void testIndexAllocation_getKnnEngine() {
         KNNEngine knnEngine = KNNEngine.DEFAULT;
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 0,
                 knnEngine,
@@ -188,6 +207,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
     public void testIndexAllocation_getIndexPath() {
         String indexPath = "test-path";
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 0,
                 null,
@@ -202,6 +222,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
     public void testIndexAllocation_getOsIndexName() {
         String osIndexName = "test-index";
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 0,
                 null,
@@ -213,7 +234,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         assertEquals(osIndexName, indexAllocation.getOpenSearchIndexName());
     }
 
-    public void testTrainingDataAllocation_close() {
+    public void testTrainingDataAllocation_close() throws InterruptedException {
         // Create basic nmslib HNSW index
         int numVectors = 10;
         int dimension = 10;
@@ -221,30 +242,43 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         for (int i = 0; i < numVectors; i++) {
             Arrays.fill(vectors[i], 1f);
         }
-        long pointer = JNIService.transferVectors(0, vectors);
+        long memoryAddress = JNIService.transferVectors(0, vectors);
 
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
-                pointer,
+                executorService,
+                memoryAddress,
                 0
         );
 
 
         trainingDataAllocation.close();
+
+        Thread.sleep(1000*2);
+        trainingDataAllocation.writeLock();
         assertTrue(trainingDataAllocation.isClosed());
+        trainingDataAllocation.writeUnlock();
 
         trainingDataAllocation.close();
+
+        Thread.sleep(1000*2);
+        trainingDataAllocation.writeLock();
         assertTrue(trainingDataAllocation.isClosed());
+        trainingDataAllocation.writeUnlock();
+
+        executorService.shutdown();
     }
 
-    public void testTrainingDataAllocation_getPointer() {
-        long pointer = 12;
+    public void testTrainingDataAllocation_getMemoryAddress() {
+        long memoryAddress = 12;
 
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
-                pointer,
+                null,
+                memoryAddress,
                 0
         );
 
-        assertEquals(pointer, trainingDataAllocation.getMemoryAddress());
+        assertEquals(memoryAddress, trainingDataAllocation.getMemoryAddress());
     }
 
     public void testTrainingDataAllocation_readLock() throws InterruptedException {
@@ -252,6 +286,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         // updates testLockValue3. We then assert that while we hold the readLock, the value is not updated. After we
         // release the readLock, the value should be updated.
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
+                null,
                 0,
                 0
         );
@@ -284,6 +319,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         // asserts that testLockValue4 is set to finalValue and then start another thread that updates testLockValue4
         // and releases the writeLock.
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
+                null,
                 0,
                 0
         );
@@ -318,6 +354,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         long size = 12;
 
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
+                null,
                 0,
                 size
         );
@@ -329,6 +366,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         long pointer = 12;
 
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
+                null,
                 pointer,
                 0
         );

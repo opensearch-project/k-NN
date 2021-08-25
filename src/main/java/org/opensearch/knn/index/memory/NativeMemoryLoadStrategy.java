@@ -21,9 +21,12 @@ import org.opensearch.watcher.FileWatcher;
 import org.opensearch.watcher.ResourceWatcherService;
 import org.opensearch.watcher.WatcherHandle;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Responsible for loading entries from native memory.
@@ -39,10 +42,11 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
     T load(U nativeMemoryEntryContext) throws IOException;
 
     class IndexLoadStrategy implements NativeMemoryLoadStrategy<NativeMemoryAllocation.IndexAllocation,
-            NativeMemoryEntryContext.IndexEntryContext> {
+            NativeMemoryEntryContext.IndexEntryContext>, Closeable {
 
         private static IndexLoadStrategy INSTANCE;
 
+        private final ExecutorService executor;
         private final FileChangesListener indexFileOnDeleteListener;
         private ResourceWatcherService resourceWatcherService;
 
@@ -68,6 +72,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
         }
 
         private IndexLoadStrategy() {
+            executor = Executors.newSingleThreadExecutor();
             indexFileOnDeleteListener = new FileChangesListener() {
                 @Override
                 public void onFileDeleted(Path indexFilePath) {
@@ -85,24 +90,32 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             fileWatcher.init();
 
             KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(indexPath.toString());
-            long pointer = JNIService.loadIndex(indexPath.toString(), indexEntryContext.getParameters(),
+            long memoryAddress = JNIService.loadIndex(indexPath.toString(), indexEntryContext.getParameters(),
                     knnEngine.getName());
             final WatcherHandle<FileWatcher> watcherHandle = resourceWatcherService.add(fileWatcher);
 
             return new NativeMemoryAllocation.IndexAllocation(
-                    pointer,
+                    executor,
+                    memoryAddress,
                     indexEntryContext.calculateSizeInKb(),
                     knnEngine,
                     indexPath.toString(),
                     indexEntryContext.getOpenSearchIndexName(),
                     watcherHandle);
         }
+
+        @Override
+        public void close() {
+            executor.shutdown();
+        }
     }
 
     class TrainingLoadStrategy implements NativeMemoryLoadStrategy<NativeMemoryAllocation.TrainingDataAllocation,
-            NativeMemoryEntryContext.TrainingDataEntryContext> {
+            NativeMemoryEntryContext.TrainingDataEntryContext>, Closeable {
 
         private static TrainingLoadStrategy INSTANCE;
+
+        private final ExecutorService executor;
         private VectorReader vectorReader;
 
         /**
@@ -126,14 +139,16 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             getInstance().vectorReader = vectorReader;
         }
 
-        private TrainingLoadStrategy() {}
+        private TrainingLoadStrategy() {
+            executor = Executors.newSingleThreadExecutor();
+        }
 
         @Override
         public NativeMemoryAllocation.TrainingDataAllocation load(NativeMemoryEntryContext.TrainingDataEntryContext
                                                                                   nativeMemoryEntryContext) {
             // Generate an empty training data allocation with the appropriate size
             NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation
-                    .TrainingDataAllocation(0, nativeMemoryEntryContext.calculateSizeInKb());
+                    .TrainingDataAllocation(executor, 0, nativeMemoryEntryContext.calculateSizeInKb());
 
             // Start loading all training data. Once the data has been loaded, release the lock
             TrainingDataConsumer trainingDataConsumer = new TrainingDataConsumer(trainingDataAllocation);
@@ -150,8 +165,9 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                     ActionListener.wrap(
                             response -> trainingDataAllocation.writeUnlock(),
                             ex -> {
-                                trainingDataAllocation.close();
-                                trainingDataAllocation.writeUnlock();
+                                // Close unsafe will assume that the caller passes control of the writelock to it. It
+                                // will then handle releasing the write lock once the close operations finish.
+                                trainingDataAllocation.closeUnsafe();
                                 throw new RuntimeException(ex);
                             }
                     )
@@ -162,6 +178,11 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             // loading has completed. The calling thread will need to obtain a read lock in order to proceed, which
             // will not be possible until the write lock is released.
             return trainingDataAllocation;
+        }
+
+        @Override
+        public void close() throws IOException {
+            executor.shutdown();
         }
     }
 }

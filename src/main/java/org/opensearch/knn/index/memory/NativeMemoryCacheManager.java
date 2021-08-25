@@ -94,6 +94,9 @@ public final class NativeMemoryCacheManager implements Closeable {
      */
     public synchronized void rebuildCache() {
         logger.info("KNN Cache rebuilding.");
+
+        //TODO: Does this really need to be executed with an executor? Also, does invalidateAll really need to be
+        // called?
         executor.execute(() -> {
             cache.invalidateAll();
             initialize(); }
@@ -271,15 +274,7 @@ public final class NativeMemoryCacheManager implements Closeable {
 
     private void onRemoval(RemovalNotification<String, NativeMemoryAllocation> removalNotification) {
         NativeMemoryAllocation nativeMemoryAllocation = removalNotification.getValue();
-        executor.execute(() -> {
-            nativeMemoryAllocation.writeLock();
-
-            try {
-                nativeMemoryAllocation.close();
-            } finally {
-                nativeMemoryAllocation.writeUnlock();
-            }
-        });
+        nativeMemoryAllocation.close();
 
         if (RemovalCause.SIZE == removalNotification.getCause()) {
             KNNSettings.state().updateCircuitBreakerSettings(true);

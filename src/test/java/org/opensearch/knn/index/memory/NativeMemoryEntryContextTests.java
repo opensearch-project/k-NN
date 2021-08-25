@@ -49,6 +49,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         );
 
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 10,
                 KNNEngine.DEFAULT,
@@ -126,6 +127,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         );
 
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
+                null,
                 0,
                 0
         );
@@ -223,7 +225,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         }
 
         @Override
-        public long getPointer() {
+        public long getMemoryAddress() {
             return 0;
         }
 

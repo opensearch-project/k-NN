@@ -17,6 +17,7 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.watcher.FileWatcher;
 import org.opensearch.watcher.WatcherHandle;
 
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -80,6 +81,7 @@ public interface NativeMemoryAllocation {
      */
     class IndexAllocation implements NativeMemoryAllocation {
 
+        private final ExecutorService executor;
         private final long memoryAddress;
         private final long size;
         private volatile boolean closed;
@@ -92,6 +94,7 @@ public interface NativeMemoryAllocation {
         /**
          * Constructor
          *
+         * @param executorService Executor service used to close the allocation
          * @param memoryAddress Pointer in memory to the index
          * @param size Size this index consumes in kilobytes
          * @param knnEngine KNNEngine associated with the index allocation
@@ -99,8 +102,9 @@ public interface NativeMemoryAllocation {
          * @param openSearchIndexName Name of OpenSearch index this index is associated with
          * @param watcherHandle Handle for watching index file
          */
-        IndexAllocation(long memoryAddress, long size, KNNEngine knnEngine, String indexPath,
-                               String openSearchIndexName, WatcherHandle<FileWatcher> watcherHandle) {
+        IndexAllocation(ExecutorService executorService, long memoryAddress, long size, KNNEngine knnEngine,
+                        String indexPath, String openSearchIndexName, WatcherHandle<FileWatcher> watcherHandle) {
+            this.executor = executorService;
             this.closed = false;
             this.knnEngine = knnEngine;
             this.indexPath = indexPath;
@@ -113,7 +117,14 @@ public interface NativeMemoryAllocation {
 
         @Override
         public void close() {
-            // Lock acquisition should be done by caller
+            executor.execute(() -> {
+                writeLock();
+                cleanup();
+                writeUnlock();
+            });
+        }
+
+        private void cleanup() {
             if (this.closed) {
                 return;
             }
@@ -206,6 +217,8 @@ public interface NativeMemoryAllocation {
      */
     class TrainingDataAllocation implements NativeMemoryAllocation {
 
+        private final ExecutorService executor;
+
         private volatile boolean closed;
         private long memoryAddress;
         private final long size;
@@ -218,10 +231,12 @@ public interface NativeMemoryAllocation {
         /**
          * Constructor
          *
+         * @param executor Executor used for allocation close
          * @param memoryAddress pointer in memory to the training data allocation
          * @param size amount memory needed for allocation in kilobytes
          */
-        TrainingDataAllocation(long memoryAddress, long size) {
+        TrainingDataAllocation(ExecutorService executor, long memoryAddress, long size) {
+            this.executor = executor;
             this.closed = false;
             this.memoryAddress = memoryAddress;
             this.size = size;
@@ -233,11 +248,31 @@ public interface NativeMemoryAllocation {
 
         @Override
         public void close() {
+            executor.execute(() -> {
+                writeLock();
+                cleanup();
+                writeUnlock();
+            });
+        }
+
+        /**
+         * Unsafe close operation. This method assumes that the calling thread already has the writeLock. Thus,
+         * the executor can go ahead and cleanup the allocation and then release the write lock. Use with caution.
+         */
+        public void closeUnsafe() {
+            executor.execute(() -> {
+                cleanup();
+                writeUnlock();
+            });
+        }
+
+        private void cleanup() {
             if (closed) {
                 return;
             }
 
             closed = true;
+
             if (this.memoryAddress != 0) {
                 JNIService.freeVectors(this.memoryAddress);
             }

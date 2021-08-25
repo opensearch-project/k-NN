@@ -36,9 +36,6 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
     @Override
     public void tearDown() throws Exception {
         // Clear out persistent metadata
-//        ClusterUpdateSettingsRequestBuilder builder = new ClusterUpdateSettingsRequestBuilder(client(), ClusterUpdateSettingsAction.INSTANCE);
-//        builder.setPersistentSettings(Settings.builder().put("knn.circuit_breaker.triggered", (Enum<?>) null).build());
-//        builder.execute();
         ClusterUpdateSettingsRequest clusterUpdateSettingsRequest = new ClusterUpdateSettingsRequest();
         Settings circuitBreakerSettings = Settings.builder()
                 .putNull(KNNSettings.KNN_CIRCUIT_BREAKER_TRIGGERED)
@@ -120,6 +117,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         String key = "test-key";
 
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 indexEntryWeight,
                 null,
@@ -154,6 +152,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         String key = "test-key";
 
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 indexEntryWeight,
                 null,
@@ -192,6 +191,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         String key3 = "test-key-3";
 
         NativeMemoryAllocation.IndexAllocation indexAllocation1 = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 indexEntryWeight,
                 null,
@@ -207,6 +207,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         nativeMemoryCacheManager.get(indexEntryContext, true);
 
         NativeMemoryAllocation.IndexAllocation indexAllocation2 = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 indexEntryWeight,
                 null,
@@ -222,6 +223,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         nativeMemoryCacheManager.get(indexEntryContext, true);
 
         NativeMemoryAllocation.IndexAllocation indexAllocation3 = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 indexEntryWeight,
                 null,
@@ -367,6 +369,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         long size2 = 5;
 
         NativeMemoryAllocation.IndexAllocation indexAllocation1 = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 size1,
                 null,
@@ -376,6 +379,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         );
 
         NativeMemoryAllocation.IndexAllocation indexAllocation2 = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 size2,
                 null,
@@ -385,6 +389,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         );
 
         NativeMemoryAllocation.IndexAllocation indexAllocation3 = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 size1,
                 null,
@@ -394,6 +399,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         );
 
         NativeMemoryAllocation.IndexAllocation indexAllocation4 = new NativeMemoryAllocation.IndexAllocation(
+                null,
                 0,
                 size2,
                 null,
