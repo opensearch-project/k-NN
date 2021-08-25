@@ -41,11 +41,11 @@ public interface NativeMemoryAllocation {
     boolean isClosed();
 
     /**
-     * Get the native memory pointer associated with the native memory allocation.
+     * Get the native memory address associated with the native memory allocation.
      *
-     * @return pointer to native memory allocation
+     * @return memory address of native memory allocation
      */
-    long getPointer();
+    long getMemoryAddress();
 
     /**
      * Locks allocation for read. Multiple threads can obtain this lock assuming that no threads have the write lock.
@@ -80,7 +80,7 @@ public interface NativeMemoryAllocation {
      */
     class IndexAllocation implements NativeMemoryAllocation {
 
-        private final long pointer;
+        private final long memoryAddress;
         private final long size;
         private volatile boolean closed;
         private final KNNEngine knnEngine;
@@ -92,20 +92,20 @@ public interface NativeMemoryAllocation {
         /**
          * Constructor
          *
-         * @param pointer Pointer in memory to the index
+         * @param memoryAddress Pointer in memory to the index
          * @param size Size this index consumes in kilobytes
          * @param knnEngine KNNEngine associated with the index allocation
          * @param indexPath File path to index
          * @param openSearchIndexName Name of OpenSearch index this index is associated with
          * @param watcherHandle Handle for watching index file
          */
-        IndexAllocation(long pointer, long size, KNNEngine knnEngine, String indexPath,
+        IndexAllocation(long memoryAddress, long size, KNNEngine knnEngine, String indexPath,
                                String openSearchIndexName, WatcherHandle<FileWatcher> watcherHandle) {
             this.closed = false;
             this.knnEngine = knnEngine;
             this.indexPath = indexPath;
             this.openSearchIndexName = openSearchIndexName;
-            this.pointer = pointer;
+            this.memoryAddress = memoryAddress;
             this.readWriteLock = new ReentrantReadWriteLock();
             this.size = size;
             this.watcherHandle = watcherHandle;
@@ -122,9 +122,9 @@ public interface NativeMemoryAllocation {
 
             watcherHandle.stop();
 
-            // Pointer is sometimes initialized to 0. If this is ever the case, freeing will surely fail.
-            if (pointer != 0) {
-                JNIService.free(pointer, knnEngine.getName());
+            // memoryAddress is sometimes initialized to 0. If this is ever the case, freeing will surely fail.
+            if (memoryAddress != 0) {
+                JNIService.free(memoryAddress, knnEngine.getName());
             }
         }
 
@@ -134,8 +134,8 @@ public interface NativeMemoryAllocation {
         }
 
         @Override
-        public long getPointer() {
-            return pointer;
+        public long getMemoryAddress() {
+            return memoryAddress;
         }
 
         /**
@@ -207,7 +207,7 @@ public interface NativeMemoryAllocation {
     class TrainingDataAllocation implements NativeMemoryAllocation {
 
         private volatile boolean closed;
-        private long pointer;
+        private long memoryAddress;
         private final long size;
 
         // Implement reader/writer with semaphores to deal with passing lock conditions between threads
@@ -218,12 +218,12 @@ public interface NativeMemoryAllocation {
         /**
          * Constructor
          *
-         * @param pointer pointer in memory to the training data allocation
+         * @param memoryAddress pointer in memory to the training data allocation
          * @param size amount memory needed for allocation in kilobytes
          */
-        TrainingDataAllocation(long pointer, long size) {
+        TrainingDataAllocation(long memoryAddress, long size) {
             this.closed = false;
-            this.pointer = pointer;
+            this.memoryAddress = memoryAddress;
             this.size = size;
 
             this.readCount = 0;
@@ -238,8 +238,8 @@ public interface NativeMemoryAllocation {
             }
 
             closed = true;
-            if (this.pointer != 0) {
-                JNIService.freeVectors(this.pointer);
+            if (this.memoryAddress != 0) {
+                JNIService.freeVectors(this.memoryAddress);
             }
         }
 
@@ -249,8 +249,8 @@ public interface NativeMemoryAllocation {
         }
 
         @Override
-        public long getPointer() {
-            return pointer;
+        public long getMemoryAddress() {
+            return memoryAddress;
         }
 
         /**
@@ -322,12 +322,12 @@ public interface NativeMemoryAllocation {
         }
 
         /**
-         * Setter for pointer to training data
+         * Setter for memory address to training data
          *
-         * @param pointer Pointer to training data
+         * @param memoryAddress Pointer to training data
          */
-        public void setPointer(long pointer) {
-            this.pointer = pointer;
+        public void setMemoryAddress(long memoryAddress) {
+            this.memoryAddress = memoryAddress;
         }
     }
 }

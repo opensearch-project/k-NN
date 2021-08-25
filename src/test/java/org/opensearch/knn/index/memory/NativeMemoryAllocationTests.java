@@ -75,7 +75,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         assertTrue(indexAllocation.isClosed());
     }
 
-    public void testIndexAllocation_getPointer() {
+    public void testIndexAllocation_getMemoryAddress() {
         long pointer = 12;
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
                 pointer,
@@ -86,7 +86,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
                 null
         );
 
-        assertEquals(pointer, indexAllocation.getPointer());
+        assertEquals(pointer, indexAllocation.getMemoryAddress());
     }
 
     public void testIndexAllocation_readLock() throws InterruptedException {
@@ -244,7 +244,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
                 0
         );
 
-        assertEquals(pointer, trainingDataAllocation.getPointer());
+        assertEquals(pointer, trainingDataAllocation.getMemoryAddress());
     }
 
     public void testTrainingDataAllocation_readLock() throws InterruptedException {
@@ -325,7 +325,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         assertEquals(size, trainingDataAllocation.getSizeInKb());
     }
 
-    public void testTrainingDataAllocation_setPointer() {
+    public void testTrainingDataAllocation_setMemoryAddress() {
         long pointer = 12;
 
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
@@ -333,10 +333,10 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
                 0
         );
 
-        assertEquals(pointer, trainingDataAllocation.getPointer());
+        assertEquals(pointer, trainingDataAllocation.getMemoryAddress());
 
         long newPointer = 18;
-        trainingDataAllocation.setPointer(newPointer);
-        assertEquals(newPointer, trainingDataAllocation.getPointer());
+        trainingDataAllocation.setMemoryAddress(newPointer);
+        assertEquals(newPointer, trainingDataAllocation.getMemoryAddress());
     }
 }

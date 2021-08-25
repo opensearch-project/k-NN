@@ -73,7 +73,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         // Confirm that the file was loaded by querying
         float[] query = new float[dimension];
         Arrays.fill(query, numVectors + 1);
-        KNNQueryResult[] results = JNIService.queryIndex(indexAllocation.getPointer(), query, 2, knnEngine.getName());
+        KNNQueryResult[] results = JNIService.queryIndex(indexAllocation.getMemoryAddress(), query, 2, knnEngine.getName());
         assertTrue(results.length > 0);
     }
 
@@ -115,12 +115,12 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
                 0,
                 0);
 
-        // Load the allocation. Initially, the pointer should be 0. However, after the readlock is obtained, the pointer
-        // should not be 0.
+        // Load the allocation. Initially, the memory address should be 0. However, after the readlock is obtained,
+        // the memory address should not be 0.
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance().load(trainingDataEntryContext);
-        assertEquals(0, trainingDataAllocation.getPointer());
+        assertEquals(0, trainingDataAllocation.getMemoryAddress());
         trainingDataAllocation.readLock();
-        assertNotEquals(0, trainingDataAllocation.getPointer());
+        assertNotEquals(0, trainingDataAllocation.getMemoryAddress());
         trainingDataAllocation.readUnlock();
     }
 }

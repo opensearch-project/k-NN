@@ -303,7 +303,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
                 true);
         assertEquals(size, nativeMemoryCacheManager.getCacheSizeInKilobytes());
         assertEquals(size, testNativeMemoryAllocation.getSizeInKb());
-        assertEquals(pointer, testNativeMemoryAllocation.getPointer());
+        assertEquals(pointer, testNativeMemoryAllocation.getMemoryAddress());
 
         nativeMemoryCacheManager.close();
     }
@@ -458,16 +458,16 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
     private static class TestNativeMemoryAllocation implements NativeMemoryAllocation {
 
         long size;
-        long pointer;
+        long memoryAddress;
 
         TestNativeMemoryAllocation(long size) {
             this.size = size;
-            this.pointer = 0;
+            this.memoryAddress = 0;
         }
 
-        TestNativeMemoryAllocation(long size, long pointer) {
+        TestNativeMemoryAllocation(long size, long memoryAddress) {
             this.size = size;
-            this.pointer = pointer;
+            this.memoryAddress = memoryAddress;
         }
 
         @Override
@@ -481,8 +481,8 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         }
 
         @Override
-        public long getPointer() {
-            return pointer;
+        public long getMemoryAddress() {
+            return memoryAddress;
         }
 
         @Override
@@ -513,19 +513,19 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
     private static class TestNativeMemoryEntryContent extends NativeMemoryEntryContext<TestNativeMemoryAllocation> {
 
-        long pointer;
+        long memoryAddress;
         long size;
 
         TestNativeMemoryEntryContent(String key, long size) {
             super(key);
             this.size = size;
-            this.pointer = 0;
+            this.memoryAddress = 0;
         }
 
-        TestNativeMemoryEntryContent(String key, long size, long pointer) {
+        TestNativeMemoryEntryContent(String key, long size, long memoryAddress) {
             super(key);
             this.size = size;
-            this.pointer = pointer;
+            this.memoryAddress = memoryAddress;
         }
 
         @Override
@@ -535,7 +535,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
         @Override
         public TestNativeMemoryAllocation load() throws IOException {
-            return new TestNativeMemoryAllocation(size, pointer);
+            return new TestNativeMemoryAllocation(size, memoryAddress);
         }
     }
 }

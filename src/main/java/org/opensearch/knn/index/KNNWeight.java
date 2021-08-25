@@ -149,7 +149,7 @@ public class KNNWeight extends Weight {
                     throw new RuntimeException("Index has already been closed");
                 }
 
-                results = JNIService.queryIndex(indexAllocation.getPointer(), knnQuery.getQueryVector(), knnQuery.getK(), knnEngine.getName());
+                results = JNIService.queryIndex(indexAllocation.getMemoryAddress(), knnQuery.getQueryVector(), knnQuery.getK(), knnEngine.getName());
             } catch (Exception e) {
                 GRAPH_QUERY_ERRORS.increment();
                 throw new RuntimeException(e);

@@ -30,7 +30,7 @@ public class TrainingDataConsumerTests extends KNNTestCase {
         // Mock the training data allocation
         int dimension = 128;
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = mock(NativeMemoryAllocation.TrainingDataAllocation.class); // new NativeMemoryAllocation.TrainingDataAllocation(0, numVectors*dimension* Float.BYTES);
-        when(trainingDataAllocation.getPointer()).thenReturn(0L);
+        when(trainingDataAllocation.getMemoryAddress()).thenReturn(0L);
 
         // Capture argument passed to set pointer
         ArgumentCaptor<Long> valueCapture = ArgumentCaptor.forClass(Long.class);
@@ -44,15 +44,15 @@ public class TrainingDataConsumerTests extends KNNTestCase {
             vectorSet1.add(vector);
         }
 
-        when(trainingDataAllocation.getPointer()).thenReturn(0L);
+        when(trainingDataAllocation.getMemoryAddress()).thenReturn(0L);
 
         // Transfer vectors
         trainingDataConsumer.accept(vectorSet1);
 
         // Ensure that the pointer captured has been updated
-        verify(trainingDataAllocation).setPointer(valueCapture.capture());
-        when(trainingDataAllocation.getPointer()).thenReturn(valueCapture.getValue());
+        verify(trainingDataAllocation).setMemoryAddress(valueCapture.capture());
+        when(trainingDataAllocation.getMemoryAddress()).thenReturn(valueCapture.getValue());
 
-        assertNotEquals(0, trainingDataAllocation.getPointer());
+        assertNotEquals(0, trainingDataAllocation.getMemoryAddress());
     }
 }
