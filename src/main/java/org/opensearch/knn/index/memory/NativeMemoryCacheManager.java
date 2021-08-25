@@ -197,8 +197,11 @@ public final class NativeMemoryCacheManager implements Closeable {
                 !cache.asMap().containsKey(nativeMemoryEntryContext.getKey()) &&
                 maxWeight - getCacheSizeInKilobytes() - nativeMemoryEntryContext.calculateSizeInKb() <= 0
         ) {
-            throw new OutOfNativeMemoryException("Failed to load \"" + nativeMemoryEntryContext.getKey() +
-                    "\" into memory.");
+            throw new OutOfNativeMemoryException(
+                    "Entry cannot be loaded into cache because it would not fit. " +
+                            "Entry size: " + nativeMemoryEntryContext.calculateSizeInKb() + " KB " +
+                            "Current Cache Size: " + getCacheSizeInKilobytes() + " KB " +
+                            "Max Cache Size: " + maxWeight);
         }
 
         return cache.get(nativeMemoryEntryContext.getKey(), nativeMemoryEntryContext::load);
