@@ -25,6 +25,7 @@
 
 package org.opensearch.knn.index;
 
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.plugin.stats.KNNStatsConfig;
 import org.opensearch.knn.plugin.stats.StatNames;
 import org.opensearch.knn.plugin.transport.KNNStatsAction;
@@ -76,9 +77,10 @@ public class KNNCircuitBreaker {
         this.threadPool = threadPool;
         this.clusterService = clusterService;
         this.client = client;
+        NativeMemoryCacheManager nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         Runnable runnable = () -> {
-            if (KNNWeight.knnIndexCache.isCacheCapacityReached() && clusterService.localNode().isDataNode()) {
-                long currentSizeKiloBytes =  KNNWeight.knnIndexCache.getWeightInKilobytes();
+            if (nativeMemoryCacheManager.isCacheCapacityReached() && clusterService.localNode().isDataNode()) {
+                long currentSizeKiloBytes =  nativeMemoryCacheManager.getCacheSizeInKilobytes();
                 long circuitBreakerLimitSizeKiloBytes = KNNSettings.getCircuitBreakerLimit().getKb();
                 long circuitBreakerUnsetSizeKiloBytes = (long) ((KNNSettings.getCircuitBreakerUnsetPercentage()/100)
                         * circuitBreakerLimitSizeKiloBytes);
@@ -86,7 +88,7 @@ public class KNNCircuitBreaker {
                  * Unset capacityReached flag if currentSizeBytes is less than circuitBreakerUnsetSizeBytes
                  */
                 if (currentSizeKiloBytes <= circuitBreakerUnsetSizeKiloBytes) {
-                    KNNWeight.knnIndexCache.setCacheCapacityReached(false);
+                    nativeMemoryCacheManager.setCacheCapacityReached(false);
                 }
             }
 

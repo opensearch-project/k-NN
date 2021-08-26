@@ -34,21 +34,17 @@ import java.util.function.Consumer;
 
 public class VectorReader {
 
-
     public static Logger logger = LogManager.getLogger(VectorReader.class);
 
-    private final IndicesService indicesService;
     private final Client client;
     private final TimeValue scrollTime = new TimeValue(60000);
 
     /**
      * Constructor
      *
-     * @param indicesService service used to get field metadata to validate parameters
      * @param client used to make search requests against the cluster
      */
-    public VectorReader(IndicesService indicesService, Client client) {
-        this.indicesService = indicesService;
+    public VectorReader(Client client) {
         this.client = client;
     }
 
@@ -62,8 +58,8 @@ public class VectorReader {
      * @param vectorConsumer consumer used to do something with the collected vectors after each search
      * @param listener ActionListener that should be called once all search operations complete
      */
-    public void read(String indexName, String fieldName, int maxVectorCount, int searchSize,
-                     Consumer<List<Float[]>> vectorConsumer, ActionListener<SearchResponse> listener) {
+    public void read(IndicesService indicesService, String indexName, String fieldName, int maxVectorCount,
+                     int searchSize, Consumer<List<Float[]>> vectorConsumer, ActionListener<SearchResponse> listener) {
 
         ValidationException validationException = null;
 

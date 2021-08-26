@@ -24,8 +24,9 @@
  */
 
 package org.opensearch.knn.plugin.stats.suppliers;
+
 import com.google.common.cache.CacheStats;
-import org.opensearch.knn.index.KNNIndexCache;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -47,6 +48,6 @@ public class KNNInnerCacheStatsSupplier implements Supplier<Long> {
 
     @Override
     public Long get() {
-        return getter.apply(KNNIndexCache.getInstance().getStats());
+        return getter.apply(NativeMemoryCacheManager.getInstance().getCacheStats());
     }
 }

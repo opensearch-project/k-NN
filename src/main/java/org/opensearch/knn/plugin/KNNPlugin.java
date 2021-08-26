@@ -26,11 +26,11 @@
 package org.opensearch.knn.plugin;
 
 import org.opensearch.knn.index.KNNCircuitBreaker;
-import org.opensearch.knn.index.KNNIndexCache;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorFieldMapper;
 
+import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.plugin.rest.RestKNNStatsHandler;
@@ -63,6 +63,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.knn.plugin.stats.KNNStatsConfig;
+import org.opensearch.knn.training.VectorReader;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.EnginePlugin;
 import org.opensearch.plugins.MapperPlugin;
@@ -144,7 +145,12 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
                                                IndexNameExpressionResolver indexNameExpressionResolver,
                                                Supplier<RepositoriesService> repositoriesServiceSupplier) {
         this.clusterService = clusterService;
-        KNNIndexCache.setResourceWatcherService(resourceWatcherService);
+
+        // Initialize Native Memory loading strategies
+        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
+        VectorReader vectorReader = new VectorReader(client);
+        NativeMemoryLoadStrategy.TrainingLoadStrategy.initialize(vectorReader);
+
         KNNSettings.state().initialize(client, clusterService);
         ModelDao.OpenSearchKNNModelDao.initialize(client, clusterService, environment.settings());
         ModelCache.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
