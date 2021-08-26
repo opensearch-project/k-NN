@@ -25,8 +25,12 @@
 
 package org.opensearch.knn.index;
 
+import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.codec.KNNCodecUtil;
+import org.opensearch.knn.index.memory.NativeMemoryAllocation;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
+import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -52,9 +56,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
 /**
  * Calculate query weights and build query scorers.
@@ -64,12 +71,13 @@ public class KNNWeight extends Weight {
     private final KNNQuery knnQuery;
     private final float boost;
 
-    public static KNNIndexCache knnIndexCache = KNNIndexCache.getInstance();
+    private NativeMemoryCacheManager nativeMemoryCacheManager;
 
     public KNNWeight(KNNQuery query, float boost) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
+        this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
     }
 
     @Override
@@ -95,7 +103,7 @@ public class KNNWeight extends Weight {
             }
 
             KNNEngine knnEngine = KNNEngine.getEngine(fieldInfo.getAttribute(KNN_ENGINE));
-            SpaceType spaceType = SpaceType.getSpace(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE));
+            SpaceType spaceType = SpaceType.getSpace(fieldInfo.getAttribute(SPACE_TYPE));
 
             /*
              * In case of compound file, extension would be <engine-extension> + c otherwise <engine-extension>
@@ -117,12 +125,36 @@ public class KNNWeight extends Weight {
             final KNNQueryResult[] results;
             KNNCounter.GRAPH_QUERY_REQUESTS.increment();
 
+            // We need to first get index allocation
+            NativeMemoryAllocation indexAllocation = null;
+
             try {
-                results = knnIndexCache.queryIndex(indexPath.toString(), knnQuery.getIndexName(),
-                        spaceType, knnQuery.getQueryVector(), knnQuery.getK(), knnEngine.getName());
-            } catch (Exception ex) {
-                KNNCounter.GRAPH_QUERY_ERRORS.increment();
-                throw ex;
+                indexAllocation = nativeMemoryCacheManager.get(
+                        new NativeMemoryEntryContext.IndexEntryContext(
+                                indexPath.toString(),
+                                NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                                ImmutableMap.of(SPACE_TYPE, spaceType.getValue()),
+                                knnQuery.getIndexName()
+                        ), true);
+            } catch (ExecutionException e) {
+                GRAPH_QUERY_ERRORS.increment();
+                throw new RuntimeException(e);
+            }
+
+            // Now that we have the allocation, we need to readLock it
+            indexAllocation.readLock();
+
+            try {
+                if (indexAllocation.isClosed()) {
+                    throw new RuntimeException("Index has already been closed");
+                }
+
+                results = JNIService.queryIndex(indexAllocation.getMemoryAddress(), knnQuery.getQueryVector(), knnQuery.getK(), knnEngine.getName());
+            } catch (Exception e) {
+                GRAPH_QUERY_ERRORS.increment();
+                throw new RuntimeException(e);
+            } finally {
+                indexAllocation.readUnlock();
             }
 
             /*

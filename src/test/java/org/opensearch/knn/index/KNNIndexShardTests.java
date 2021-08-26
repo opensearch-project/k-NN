@@ -29,6 +29,7 @@ import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.shard.IndexShard;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,7 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-import static org.opensearch.knn.index.KNNIndexCache.GRAPH_COUNT;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 
 
 public class KNNIndexShardTests extends KNNSingleNodeTestCase {
@@ -72,7 +73,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         IndexShard indexShard = indexService.iterator().next();
         KNNIndexShard knnIndexShard = new KNNIndexShard(indexShard);
         knnIndexShard.warmup();
-        assertNull(KNNIndexCache.getInstance().getIndicesCacheStats().get(testIndexName));
+        assertNull(NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName));
     }
 
     public void testWarmup_shardPresentInCache() throws InterruptedException, ExecutionException, IOException {
@@ -81,12 +82,12 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         addKnnDoc(testIndexName, "1", testFieldName, new Float[] {2.5F, 3.5F});
 
         searchKNNIndex(testIndexName, testFieldName, new float[] {1.0f, 2.0f}, 1);
-        assertEquals(1, KNNIndexCache.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
+        assertEquals(1, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
 
         IndexShard indexShard = indexService.iterator().next();
         KNNIndexShard knnIndexShard = new KNNIndexShard(indexShard);
         knnIndexShard.warmup();
-        assertEquals(1, KNNIndexCache.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
+        assertEquals(1, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
     }
 
     public void testWarmup_shardNotPresentInCache() throws InterruptedException, ExecutionException, IOException {
@@ -101,13 +102,13 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         indexShard = indexService.iterator().next();
         knnIndexShard = new KNNIndexShard(indexShard);
         knnIndexShard.warmup();
-        assertEquals(1, KNNIndexCache.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
+        assertEquals(1, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
 
         addKnnDoc(testIndexName, "2", testFieldName, new Float[] {2.5F, 3.5F});
         indexShard = indexService.iterator().next();
         knnIndexShard = new KNNIndexShard(indexShard);
         knnIndexShard.warmup();
-        assertEquals(2, KNNIndexCache.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
+        assertEquals(2, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
     }
 
     public void testGetHNSWPaths() throws IOException, ExecutionException, InterruptedException {

@@ -85,7 +85,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
-import static org.opensearch.knn.index.KNNIndexCache.GRAPH_COUNT;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 
 /**
