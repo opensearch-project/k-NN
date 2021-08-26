@@ -25,8 +25,8 @@
 
 package org.opensearch.knn.index;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.index.FieldInfo;
-import org.opensearch.knn.common.KNNConstants;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.FilterLeafReader;
@@ -37,6 +37,9 @@ import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.shard.IndexShard;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
+import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
@@ -44,8 +47,10 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.index.codec.KNNCodecUtil.buildEngineFileName;
 
 /**
@@ -53,7 +58,7 @@ import static org.opensearch.knn.index.codec.KNNCodecUtil.buildEngineFileName;
  */
 public class KNNIndexShard {
     private IndexShard indexShard;
-    private KNNIndexCache knnIndexCache;
+    private NativeMemoryCacheManager nativeMemoryCacheManager;
 
     private static Logger logger = LogManager.getLogger(KNNIndexShard.class);
 
@@ -66,7 +71,7 @@ public class KNNIndexShard {
      */
     public KNNIndexShard(IndexShard indexShard) {
         this.indexShard = indexShard;
-        this.knnIndexCache = KNNIndexCache.getInstance();
+        this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
     }
 
     /**
@@ -88,16 +93,26 @@ public class KNNIndexShard {
     }
 
     /**
-     * Load all of the HNSW graphs for this shard into the cache. Note that getIndices is called to prevent loading
-     * in duplicates.
+     * Load all of the k-NN segments for this shard into the cache.
      *
      * @throws IOException Thrown when getting the HNSW Paths to be loaded in
      */
     public void warmup() throws IOException {
         logger.info("[KNN] Warming up index: " + getIndexName());
         try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-warmup")) {
-            Map<String, SpaceType> allEnginePaths = getAllEnginePaths(searcher.getIndexReader());
-            knnIndexCache.loadIndices(allEnginePaths, getIndexName());
+            getAllEnginePaths(searcher.getIndexReader()).forEach((key, value) -> {
+                try {
+                    nativeMemoryCacheManager.get(
+                            new NativeMemoryEntryContext.IndexEntryContext(
+                                    key,
+                                    NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                                    ImmutableMap.of(SPACE_TYPE, value.getValue()),
+                                    getIndexName()
+                            ), true);
+                } catch (ExecutionException ex) {
+                    throw new RuntimeException(ex);
+                }
+            });
         }
     }
 
@@ -127,7 +142,7 @@ public class KNNIndexShard {
 
             for (FieldInfo fieldInfo : reader.getFieldInfos()) {
                 if (fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
-                    SpaceType spaceType = SpaceType.getSpace(fieldInfo.attributes().get(KNNConstants.SPACE_TYPE));
+                    SpaceType spaceType = SpaceType.getSpace(fieldInfo.attributes().get(SPACE_TYPE));
                     String engineFileName = buildEngineFileName(reader.getSegmentInfo().info.name,
                             knnEngine.getLatestBuildVersion(), fieldInfo.name, fileExtension);
 

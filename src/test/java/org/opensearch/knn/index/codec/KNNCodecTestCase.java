@@ -32,7 +32,6 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.JNIService;
-import org.opensearch.knn.index.KNNIndexCache;
 import org.opensearch.knn.index.KNNQuery;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorFieldMapper;
@@ -56,6 +55,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelCache;
@@ -124,7 +124,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         doc.add(vectorField);
         writer.addDocument(doc);
 
-        KNNIndexCache.setResourceWatcherService(createDisabledResourceWatcherService());
+        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(createDisabledResourceWatcherService());
         IndexReader reader = writer.getReader();
         LeafReaderContext lrc = reader.getContext().leaves().iterator().next(); // leaf reader context
         SegmentReader segmentReader = (SegmentReader) FilterLeafReader.unwrap(lrc.reader());
@@ -180,7 +180,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         writer.addDocument(doc1);
         IndexReader reader = writer.getReader();
         writer.close();
-        KNNIndexCache.setResourceWatcherService(createDisabledResourceWatcherService());
+        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(createDisabledResourceWatcherService());
         List<String> hnswfiles = Arrays.stream(dir.listAll()).filter(x -> x.contains("hnsw")).collect(Collectors.toList());
 
         // there should be 2 hnsw index files created. one for test_vector and one for my_vector
@@ -268,7 +268,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         writer.close();
 
         // Make sure that search returns the correct results
-        KNNIndexCache.setResourceWatcherService(createDisabledResourceWatcherService());
+        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(createDisabledResourceWatcherService());
         float [] query = {10.0f, 10.0f, 10.0f};
         IndexSearcher searcher = new IndexSearcher(reader);
         TopDocs topDocs = searcher.search(new KNNQuery(fieldName, query, 4, "dummy"), 10);

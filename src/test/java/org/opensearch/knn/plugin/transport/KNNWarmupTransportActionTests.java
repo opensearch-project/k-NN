@@ -26,7 +26,6 @@
 package org.opensearch.knn.plugin.transport;
 
 import org.opensearch.knn.KNNSingleNodeTestCase;
-import org.opensearch.knn.index.KNNIndexCache;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlock;
@@ -36,6 +35,7 @@ import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.cluster.routing.ShardsIterator;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.index.IndexService;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
@@ -55,19 +55,19 @@ public class KNNWarmupTransportActionTests extends KNNSingleNodeTestCase {
         IndexService indexService;
         ShardRouting shardRouting;
         KNNWarmupTransportAction knnWarmupTransportAction = node().injector().getInstance(KNNWarmupTransportAction.class);
-        assertEquals(0, KNNIndexCache.getInstance().getIndicesCacheStats().size());
+        assertEquals(0, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().size());
 
         indexService = createKNNIndex(testIndexName);
         createKnnIndexMapping(testIndexName, testFieldName, dimensions);
         shardRouting = indexService.iterator().next().routingEntry();
 
         knnWarmupTransportAction.shardOperation(knnWarmupRequest, shardRouting);
-        assertEquals(0, KNNIndexCache.getInstance().getIndicesCacheStats().size());
+        assertEquals(0, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().size());
 
         addKnnDoc(testIndexName, "1", testFieldName, new Long[] {0L, 1L});
 
         knnWarmupTransportAction.shardOperation(knnWarmupRequest, shardRouting);
-        assertEquals(1, KNNIndexCache.getInstance().getIndicesCacheStats().size());
+        assertEquals(1, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().size());
     }
 
     public void testShards() throws InterruptedException, ExecutionException, IOException {

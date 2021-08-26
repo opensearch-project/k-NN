@@ -1,0 +1,371 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
+ */
+
+package org.opensearch.knn.index.memory;
+
+import org.apache.lucene.index.LeafReaderContext;
+import org.opensearch.knn.index.JNIService;
+import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.watcher.FileWatcher;
+import org.opensearch.watcher.WatcherHandle;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+/**
+ * Represents a persistent allocation made in native memory. In this case, persistent means that the allocation is made
+ * and not freed in the same call to the JNI. Therefore, in order to prevent memory leaks, we need to ensure that each
+ * allocation is properly freed
+ */
+public interface NativeMemoryAllocation {
+
+    /**
+     * Closes the native memory allocation. It should deallocate all native memory associated with this allocation.
+     */
+    void close();
+
+    /**
+     * Check if the allocation has been closed.
+     *
+     * @return true if allocation has been closed; false otherwise
+     */
+    boolean isClosed();
+
+    /**
+     * Get the native memory address associated with the native memory allocation.
+     *
+     * @return memory address of native memory allocation
+     */
+    long getMemoryAddress();
+
+    /**
+     * Locks allocation for read. Multiple threads can obtain this lock assuming that no threads have the write lock.
+     */
+    void readLock();
+
+    /**
+     * Locks allocation for write. Only one thread can obtain this lock and no threads can have a read lock.
+     */
+    void writeLock();
+
+    /**
+     * Unlocks allocation for read.
+     */
+    void readUnlock();
+
+    /**
+     * Unlocks allocation for write.
+     */
+    void writeUnlock();
+
+    /**
+     * Get the size of the native memory allocation in kilobytes.
+     *
+     * @return size of native memory allocation
+     */
+    long getSizeInKb();
+
+    /**
+     * Represents native indices loaded into memory. Because these indices are backed by files, they should be
+     * freed when file is deleted.
+     */
+    class IndexAllocation implements NativeMemoryAllocation {
+
+        private final ExecutorService executor;
+        private final long memoryAddress;
+        private final long size;
+        private volatile boolean closed;
+        private final KNNEngine knnEngine;
+        private final String indexPath;
+        private final String openSearchIndexName;
+        private final ReadWriteLock readWriteLock;
+        private final WatcherHandle<FileWatcher> watcherHandle;
+
+        /**
+         * Constructor
+         *
+         * @param executorService Executor service used to close the allocation
+         * @param memoryAddress Pointer in memory to the index
+         * @param size Size this index consumes in kilobytes
+         * @param knnEngine KNNEngine associated with the index allocation
+         * @param indexPath File path to index
+         * @param openSearchIndexName Name of OpenSearch index this index is associated with
+         * @param watcherHandle Handle for watching index file
+         */
+        IndexAllocation(ExecutorService executorService, long memoryAddress, long size, KNNEngine knnEngine,
+                        String indexPath, String openSearchIndexName, WatcherHandle<FileWatcher> watcherHandle) {
+            this.executor = executorService;
+            this.closed = false;
+            this.knnEngine = knnEngine;
+            this.indexPath = indexPath;
+            this.openSearchIndexName = openSearchIndexName;
+            this.memoryAddress = memoryAddress;
+            this.readWriteLock = new ReentrantReadWriteLock();
+            this.size = size;
+            this.watcherHandle = watcherHandle;
+        }
+
+        @Override
+        public void close() {
+            executor.execute(() -> {
+                writeLock();
+                cleanup();
+                writeUnlock();
+            });
+        }
+
+        private void cleanup() {
+            if (this.closed) {
+                return;
+            }
+
+            this.closed = true;
+
+            watcherHandle.stop();
+
+            // memoryAddress is sometimes initialized to 0. If this is ever the case, freeing will surely fail.
+            if (memoryAddress != 0) {
+                JNIService.free(memoryAddress, knnEngine.getName());
+            }
+        }
+
+        @Override
+        public boolean isClosed() {
+            return closed;
+        }
+
+        @Override
+        public long getMemoryAddress() {
+            return memoryAddress;
+        }
+
+        /**
+         * The read lock will be obtained in the
+         * {@link org.opensearch.knn.index.KNNWeight#scorer(LeafReaderContext context) scorer} when a native index needs
+         * to be queried.
+         */
+        @Override
+        public void readLock() {
+            readWriteLock.readLock().lock();
+        }
+
+        /**
+         * The write lock will be obtained in the
+         * {@link NativeMemoryCacheManager NativeMemoryManager's} onRemoval function when the Index Allocation is
+         * evicted from the cache. This prevents memory from being deallocated when it is being actively searched.
+         */
+        @Override
+        public void writeLock() {
+            readWriteLock.writeLock().lock();
+        }
+
+        @Override
+        public void readUnlock() {
+            readWriteLock.readLock().unlock();
+        }
+
+        @Override
+        public void writeUnlock() {
+            readWriteLock.writeLock().unlock();
+        }
+
+        @Override
+        public long getSizeInKb() {
+            return size;
+        }
+
+        /**
+         * Getter for k-NN Engine associated with this index allocation.
+         *
+         * @return KNNEngine associated with index allocation
+         */
+        public KNNEngine getKnnEngine() {
+            return knnEngine;
+        }
+
+        /**
+         * Getter for the path to the file from which the index was loaded.
+         *
+         * @return indexPath to index
+         */
+        public String getIndexPath() {
+            return indexPath;
+        }
+
+        /**
+         * Getter for the OpenSearch index associated with the native index.
+         *
+         * @return OpenSearch index name
+         */
+        public String getOpenSearchIndexName() {
+            return openSearchIndexName;
+        }
+    }
+
+    /**
+     * Represents training data that has been allocated in native memory.
+     */
+    class TrainingDataAllocation implements NativeMemoryAllocation {
+
+        private final ExecutorService executor;
+
+        private volatile boolean closed;
+        private long memoryAddress;
+        private final long size;
+
+        // Implement reader/writer with semaphores to deal with passing lock conditions between threads
+        private int readCount;
+        private Semaphore readSemaphore;
+        private Semaphore writeSemaphore;
+
+        /**
+         * Constructor
+         *
+         * @param executor Executor used for allocation close
+         * @param memoryAddress pointer in memory to the training data allocation
+         * @param size amount memory needed for allocation in kilobytes
+         */
+        TrainingDataAllocation(ExecutorService executor, long memoryAddress, long size) {
+            this.executor = executor;
+            this.closed = false;
+            this.memoryAddress = memoryAddress;
+            this.size = size;
+
+            this.readCount = 0;
+            this.readSemaphore = new Semaphore(1);
+            this.writeSemaphore = new Semaphore(1);
+        }
+
+        @Override
+        public void close() {
+            executor.execute(() -> {
+                writeLock();
+                cleanup();
+                writeUnlock();
+            });
+        }
+
+        /**
+         * Unsafe close operation. This method assumes that the calling thread already has the writeLock. Thus,
+         * the executor can go ahead and cleanup the allocation and then release the write lock. Use with caution.
+         */
+        public void closeUnsafe() {
+            executor.execute(() -> {
+                cleanup();
+                writeUnlock();
+            });
+        }
+
+        private void cleanup() {
+            if (closed) {
+                return;
+            }
+
+            closed = true;
+
+            if (this.memoryAddress != 0) {
+                JNIService.freeVectors(this.memoryAddress);
+            }
+        }
+
+        @Override
+        public boolean isClosed() {
+            return closed;
+        }
+
+        @Override
+        public long getMemoryAddress() {
+            return memoryAddress;
+        }
+
+        /**
+         * A read lock will be obtained when a training job needs access to the TrainingDataAllocation.
+         * In the future, we may want to switch to tryAcquire functionality.
+         */
+        @Override
+        public void readLock() {
+            try {
+                readSemaphore.acquire();
+            } catch (InterruptedException ex) {
+                throw new RuntimeException(ex);
+            }
+
+            // If the read count is 0, we need to grab the permit for the write lock. This is so that the write permit
+            // cannot be grabbed when there are read locks in use. In readUnlock, if the readCount goes to 0, we
+            // release the writeLock
+            if (readCount == 0) {
+                try {
+                    writeLock();
+                } catch (RuntimeException e) {
+                    readSemaphore.release();
+                    throw e;
+                }
+            }
+
+            readCount++;
+            readSemaphore.release();
+        }
+
+        /**
+         * A write lock will be obtained either on eviction from {@link NativeMemoryCacheManager NativeMemoryManager's}
+         * or when training data is actually being loaded. A semaphore is used because collecting training data
+         * happens asynchrously, so the thread that obtains the lock will not be the same thread that releases the
+         * lock.
+         */
+        @Override
+        public void writeLock() {
+            try {
+                writeSemaphore.acquire();
+            } catch (InterruptedException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+
+        @Override
+        public void readUnlock() {
+            try {
+                readSemaphore.acquire();
+            } catch (InterruptedException ex) {
+                throw new RuntimeException(ex);
+            }
+
+            readCount--;
+
+            // The read count should never be less than 0, but add <= here just to be on the safe side.
+            if (readCount <= 0) {
+                writeUnlock();
+            }
+
+            readSemaphore.release();
+        }
+
+        @Override
+        public void writeUnlock() {
+            writeSemaphore.release();
+        }
+
+        @Override
+        public long getSizeInKb() {
+            return size;
+        }
+
+        /**
+         * Setter for memory address to training data
+         *
+         * @param memoryAddress Pointer to training data
+         */
+        public void setMemoryAddress(long memoryAddress) {
+            this.memoryAddress = memoryAddress;
+        }
+    }
+}
