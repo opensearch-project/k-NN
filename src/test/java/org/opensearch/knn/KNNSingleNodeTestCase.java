@@ -24,8 +24,9 @@
  */
 package org.opensearch.knn;
 
-import org.opensearch.knn.index.KNNIndexCache;
 import org.opensearch.knn.index.KNNQueryBuilder;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
@@ -69,8 +70,10 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
 
     @Override
     public void tearDown() throws Exception {
-        KNNIndexCache.getInstance().evictAllGraphsFromCache();
-        KNNIndexCache.getInstance().close();
+        NativeMemoryCacheManager.getInstance().invalidateAll();
+        NativeMemoryCacheManager.getInstance().close();
+        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
+        NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance().close();
         super.tearDown();
     }
 

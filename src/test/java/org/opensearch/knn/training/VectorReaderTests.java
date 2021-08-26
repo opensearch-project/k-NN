@@ -62,12 +62,12 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
 
         // Configure VectorReader
         IndicesService indicesService = node().injector().getInstance(IndicesService.class);
-        VectorReader vectorReader = new VectorReader(indicesService, client());
+        VectorReader vectorReader = new VectorReader(client());
 
         // Read all vectors and confirm they match vectors
         TestVectorConsumer testVectorConsumer = new TestVectorConsumer();
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
-        vectorReader.read(indexName, fieldName, 10000, 10, testVectorConsumer,
+        vectorReader.read(indicesService, indexName, fieldName, 10000, 10, testVectorConsumer,
                 ActionListener.wrap(response -> inProgressLatch1.countDown(), e -> fail(e.toString())));
 
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
@@ -116,12 +116,12 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
 
         // Configure VectorReader
         IndicesService indicesService = node().injector().getInstance(IndicesService.class);
-        VectorReader vectorReader = new VectorReader(indicesService, client());
+        VectorReader vectorReader = new VectorReader(client());
 
         // Read all vectors and confirm they match vectors
         TestVectorConsumer testVectorConsumer = new TestVectorConsumer();
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
-        vectorReader.read(indexName, fieldName, 10000, 10, testVectorConsumer,
+        vectorReader.read(indicesService, indexName, fieldName, 10000, 10, testVectorConsumer,
                 ActionListener.wrap(response -> inProgressLatch1.countDown(), e -> fail(e.toString())));
 
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
@@ -161,12 +161,12 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
 
         // Configure VectorReader
         IndicesService indicesService = node().injector().getInstance(IndicesService.class);
-        VectorReader vectorReader = new VectorReader(indicesService, client());
+        VectorReader vectorReader = new VectorReader(client());
 
         // Read maxNumVectorsRead vectors
         TestVectorConsumer testVectorConsumer = new TestVectorConsumer();
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
-        vectorReader.read(indexName, fieldName, maxNumVectorsRead, 10, testVectorConsumer,
+        vectorReader.read(indicesService, indexName, fieldName, maxNumVectorsRead, 10, testVectorConsumer,
                 ActionListener.wrap(response -> inProgressLatch1.countDown(), e -> fail(e.toString())));
 
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
@@ -187,9 +187,9 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
 
         // Configure VectorReader
         IndicesService indicesService = node().injector().getInstance(IndicesService.class);
-        VectorReader vectorReader = new VectorReader(indicesService, client());
+        VectorReader vectorReader = new VectorReader(client());
 
-        expectThrows(ValidationException.class, () -> vectorReader.read(indexName, fieldName, -10, 10, null, null));
+        expectThrows(ValidationException.class, () -> vectorReader.read(indicesService, indexName, fieldName, -10, 10, null, null));
     }
 
     public void testRead_invalid_searchSize() {
@@ -204,13 +204,13 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
 
         // Configure VectorReader
         IndicesService indicesService = node().injector().getInstance(IndicesService.class);
-        VectorReader vectorReader = new VectorReader(indicesService, client());
+        VectorReader vectorReader = new VectorReader(client());
 
         // Search size is negative
-        expectThrows(ValidationException.class, () -> vectorReader.read(indexName, fieldName, 100, -10, null, null));
+        expectThrows(ValidationException.class, () -> vectorReader.read(indicesService, indexName, fieldName, 100, -10, null, null));
 
         // Search size is greater than 10000
-        expectThrows(ValidationException.class, () -> vectorReader.read(indexName, fieldName, 100, 20000, null, null));
+        expectThrows(ValidationException.class, () -> vectorReader.read(indicesService, indexName, fieldName, 100, 20000, null, null));
     }
 
     public void testRead_invalid_indexDoesNotExist() {
@@ -220,10 +220,10 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
 
         // Configure VectorReader
         IndicesService indicesService = node().injector().getInstance(IndicesService.class);
-        VectorReader vectorReader = new VectorReader(indicesService, client());
+        VectorReader vectorReader = new VectorReader(client());
 
         // Should throw a validation exception because index does not exist
-        expectThrows(ValidationException.class, () -> vectorReader.read(indexName, fieldName, 10000, 10, null, null));
+        expectThrows(ValidationException.class, () -> vectorReader.read(indicesService, indexName, fieldName, 10000, 10, null, null));
     }
 
     public void testRead_invalid_fieldDoesNotExist() {
@@ -234,10 +234,10 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
 
         // Configure VectorReader
         IndicesService indicesService = node().injector().getInstance(IndicesService.class);
-        VectorReader vectorReader = new VectorReader(indicesService, client());
+        VectorReader vectorReader = new VectorReader(client());
 
         // Should throw a validation exception because field is not k-NN
-        expectThrows(ValidationException.class, () -> vectorReader.read(indexName, fieldName, 10000, 10, null, null));
+        expectThrows(ValidationException.class, () -> vectorReader.read(indicesService, indexName, fieldName, 10000, 10, null, null));
     }
 
     public void testRead_invalid_fieldIsNotKnn() throws InterruptedException, ExecutionException, IOException {
@@ -249,10 +249,10 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
 
         // Configure VectorReader
         IndicesService indicesService = node().injector().getInstance(IndicesService.class);
-        VectorReader vectorReader = new VectorReader(indicesService, client());
+        VectorReader vectorReader = new VectorReader(client());
 
         // Should throw a validation exception because field does not exist
-        expectThrows(ValidationException.class, () -> vectorReader.read(indexName, fieldName, 10000, 10, null, null));
+        expectThrows(ValidationException.class, () -> vectorReader.read(indicesService, indexName, fieldName, 10000, 10, null, null));
     }
 
     private static class TestVectorConsumer implements Consumer<List<Float[]>> {

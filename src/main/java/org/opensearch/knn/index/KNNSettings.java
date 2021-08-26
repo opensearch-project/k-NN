@@ -39,6 +39,7 @@ import org.opensearch.common.unit.ByteSizeUnit;
 import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.IndexModule;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
 
@@ -252,8 +253,9 @@ public class KNNSettings {
                     newVal -> {
                         logger.debug("The value of setting [{}] changed to [{}]", setting.getKey(), newVal);
                         latestSettings.put(setting.getKey(), newVal);
-                        // spawn a thread
-                        KNNWeight.knnIndexCache.rebuild();
+
+                        // Rebuild the cache with updated limit
+                        NativeMemoryCacheManager.getInstance().rebuildCache();
                     });
         }
 
@@ -460,7 +462,7 @@ public class KNNSettings {
                     logger.debug("The value of [KNN] setting [{}] changed to [{}]", KNN_ALGO_PARAM_EF_SEARCH, newVal);
                     latestSettings.put(KNN_ALGO_PARAM_EF_SEARCH, newVal);
                     // TODO: replace cache-rebuild with index reload into the cache
-                    KNNWeight.knnIndexCache.rebuild();
+                    NativeMemoryCacheManager.getInstance().rebuildCache();
                 });
     }
 }

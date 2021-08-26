@@ -25,7 +25,7 @@
 
 package org.opensearch.knn;
 
-import org.opensearch.knn.index.KNNIndexCache;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentBuilder;
@@ -51,8 +51,8 @@ public class KNNTestCase extends OpenSearchTestCase {
         }
 
         // Clean up the cache
-        KNNIndexCache.getInstance().evictAllGraphsFromCache();
-        KNNIndexCache.getInstance().close();
+        NativeMemoryCacheManager.getInstance().invalidateAll();
+        NativeMemoryCacheManager.getInstance().close();
     }
 
     public Map<String, Object> xContentBuilderToMap(XContentBuilder xContentBuilder) {
