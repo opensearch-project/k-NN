@@ -36,11 +36,11 @@ jobs:
           path: OpenSearch
       - name: Build OpenSearch
         working-directory: ./OpenSearch
-        run: ./gradlew publishToMavenLocal
+        run: ./gradlew publishToMavenLocal -Dversion=1.1.0
 
       - name: Run build
         run: |
-          ./gradlew build -Dopensearch.version=1.1.0-SNAPSHOT
+          ./gradlew build -Dopensearch.version=1.1.0
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
