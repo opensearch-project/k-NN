@@ -179,8 +179,10 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                                            String indexPath) throws IOException {
         Map<String, Object> parameters = new HashMap<>();
         Map<String, String> fieldAttributes = fieldInfo.attributes();
+        String parametersString = fieldAttributes.get(KNNConstants.PARAMETERS);
 
-        if (KNNEngine.NMSLIB.equals(knnEngine)) {
+        // parametersString will be null when legacy mapper is used
+        if (parametersString == null) {
             parameters.put(KNNConstants.SPACE_TYPE, fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE,
                     SpaceType.DEFAULT.getValue()));
 
@@ -195,7 +197,6 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             }
 
         } else {
-            String parametersString = fieldAttributes.get(KNNConstants.PARAMETERS);
             parameters.putAll(
                     XContentFactory.xContent(XContentType.JSON).createParser(NamedXContentRegistry.EMPTY,
                             DeprecationHandler.THROW_UNSUPPORTED_OPERATION, parametersString).map()
