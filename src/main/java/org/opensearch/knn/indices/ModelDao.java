@@ -31,6 +31,7 @@ import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.client.Client;
+import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
@@ -50,6 +51,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING;
 import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_SHARDS_SETTING;
+import static org.opensearch.knn.indices.ModelMetadata.MODEL_METADATA_FIELD;
 
 /**
  * ModelDao is used to interface with the model persistence layer
@@ -99,6 +101,14 @@ public interface ModelDao {
      * @throws InterruptedException thrown on search
      */
     Model get(String modelId) throws ExecutionException, InterruptedException;
+
+    /**
+     * Get metadata for a model. Non-blocking.
+     *
+     * @param modelId to retrieve
+     * @return modelMetadata
+     */
+    ModelMetadata getMetadata(String modelId);
 
     /**
      * Delete model from index
@@ -192,16 +202,16 @@ public interface ModelDao {
             indexRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
             // After the model is indexed, update metadata
-            ActionListener<IndexResponse> putMetaDataListener = getModelIndexListener(model.getModelMetadata(),
+            ActionListener<IndexResponse> putMetadataListener = getModelIndexListener(model.getModelMetadata(),
                     listener);
 
             if (!isCreated()) {
-                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(putMetaDataListener),
+                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(putMetadataListener),
                         listener::onFailure));
                 return;
             }
 
-            indexRequestBuilder.execute(putMetaDataListener);
+            indexRequestBuilder.execute(putMetadataListener);
         }
 
         @Override
@@ -223,17 +233,17 @@ public interface ModelDao {
             indexRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
             // After the model is indexed, update metadata
-            ActionListener<IndexResponse> putMetaDataListener = getModelIndexListener(model.getModelMetadata(),
+            ActionListener<IndexResponse> putMetadataListener = getModelIndexListener(model.getModelMetadata(),
                     listener);
 
             // If the index has not been created yet, create it and then add the document
             if (!isCreated()) {
-                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(putMetaDataListener),
+                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(putMetadataListener),
                         listener::onFailure));
                 return;
             }
 
-            indexRequestBuilder.execute(putMetaDataListener);
+            indexRequestBuilder.execute(putMetadataListener);
         }
 
         private ActionListener<IndexResponse> getModelIndexListener(ModelMetadata modelMetadata,
@@ -268,6 +278,28 @@ public interface ModelDao {
             ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.getEngine((String) engine),
                     SpaceType.getSpace((String) space), (Integer) dimension);
             return new Model(modelMetadata, Base64.getDecoder().decode((String) blob));
+        }
+
+        @Override
+        public ModelMetadata getMetadata(String modelId) {
+            IndexMetadata indexMetadata = clusterService.state().metadata().index(MODEL_INDEX_NAME);
+
+            if (indexMetadata == null) {
+                throw new RuntimeException("Model index's metadata does not exist");
+            }
+
+            Map<String, String> models = indexMetadata.getCustomData(MODEL_METADATA_FIELD);
+            if (models == null) {
+                throw new RuntimeException("Model metadata does not exist");
+            }
+
+            String modelMetadata = models.get(modelId);
+
+            if (modelMetadata == null) {
+                throw new RuntimeException("Model \"" + modelId + "\" does not exist");
+            }
+
+            return ModelMetadata.fromString(modelMetadata);
         }
 
         private String getMapping() throws IOException {

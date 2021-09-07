@@ -135,11 +135,14 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
                 throw new RuntimeException("Model index's metadata does not exist");
             }
 
-            Map<String, String> models = indexMetadata.getCustomData(MODEL_METADATA_FIELD);
+            Map<String, String> immutableModels = indexMetadata.getCustomData(MODEL_METADATA_FIELD);
+            Map<String, String> models;
 
             // If the field doesnt exist, we need to create a new map
-            if (models == null) {
+            if (immutableModels == null) {
                 models = new HashMap<>();
+            } else {
+                models = new HashMap<>(immutableModels);
             }
 
             // Update the map

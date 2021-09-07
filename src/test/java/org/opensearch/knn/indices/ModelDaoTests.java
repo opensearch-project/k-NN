@@ -146,9 +146,49 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         assertArrayEquals(modelBlob, modelDao.get(modelId).getModelBlob());
     }
 
-    public void testDelete() throws IOException, InterruptedException, ExecutionException {
+    public void testGetMetadata() throws IOException, InterruptedException {
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
-        String modelId = "efbsdhcvbsd";
+
+        String modelId = "test-model";
+
+        // Model Index does not exist
+        expectThrows(RuntimeException.class, () -> modelDao.getMetadata(modelId));
+
+        createIndex(MODEL_INDEX_NAME);
+
+        // Model id does not exist
+        expectThrows(RuntimeException.class, () -> modelDao.getMetadata(modelId));
+
+        // Model exists
+        byte [] modelBlob = "hello".getBytes();
+
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        SpaceType spaceType = SpaceType.INNER_PRODUCT;
+        int dimension = 2;
+        ModelMetadata modelMetadata = new ModelMetadata(knnEngine, spaceType, dimension);
+
+        Model model = new Model(modelMetadata, modelBlob);
+
+        // Listener to confirm that everything was updated as expected
+        final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
+        ActionListener<AcknowledgedResponse> docCreationListener = ActionListener.wrap(response -> {
+            assertTrue(response.isAcknowledged());
+
+            ModelMetadata modelMetadata1 = modelDao.getMetadata(modelId);
+            assertEquals(modelMetadata, modelMetadata1);
+
+            inProgressLatch1.countDown();
+        }, exception -> fail("Unable to put the model: " + exception));
+
+        // We use put so that we can confirm cluster metadata gets added
+        modelDao.put(modelId, model, docCreationListener);
+
+        assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
+    }
+
+    public void testDelete() throws IOException, InterruptedException {
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
+        String modelId = "efbsdhcvbsd-2";
         byte[] modelBlob = "hello".getBytes();
         int dimension = 2;
 
@@ -167,17 +207,23 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         modelDao.delete(modelId, deleteModelDoesNotExistListener);
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 
-        // model id exists
-        Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension), modelBlob);
-        addDoc(modelId, model);
-
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
         ActionListener<DeleteResponse> deleteModelExistsListener = ActionListener.wrap(response -> {
             assertEquals(modelId, response.getId());
             inProgressLatch2.countDown();
         }, exception -> fail("Unable to delete model: " + exception));
 
-        modelDao.delete(modelId, deleteModelExistsListener);
+        // model id exists
+        Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension), modelBlob);
+
+        ActionListener<AcknowledgedResponse> docCreationListener = ActionListener.wrap(response -> {
+            assertTrue(response.isAcknowledged());
+            modelDao.delete(modelId, deleteModelExistsListener);
+        }, exception -> fail("Unable to put the model: " + exception));
+
+        // We use put so that we can confirm cluster metadata gets added
+        modelDao.put(modelId, model, docCreationListener);
+
         assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
     }
 
