@@ -131,7 +131,8 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
 
     @Override
     public Map<String, Mapper.TypeParser> getMappers() {
-        return Collections.singletonMap(KNNVectorFieldMapper.CONTENT_TYPE, new KNNVectorFieldMapper.TypeParser());
+        return Collections.singletonMap(KNNVectorFieldMapper.CONTENT_TYPE, new KNNVectorFieldMapper.TypeParser(
+                ModelDao.OpenSearchKNNModelDao::getInstance));
     }
 
     @Override

@@ -27,18 +27,12 @@ package org.opensearch.knn;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
-import org.opensearch.common.bytes.BytesArray;
 import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.collect.MapBuilder;
-import org.opensearch.common.xcontent.XContent;
 import org.opensearch.common.xcontent.XContentHelper;
-import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.ModelContext;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.apache.http.util.EntityUtils;
@@ -641,18 +635,19 @@ public class KNNRestTestCase extends ODFERestTestCase {
                 mapping);
     }
 
-    protected void addModelToSystemIndex(ModelContext modelContext, byte[] model, int dimension) throws IOException {
+    protected void addModelToSystemIndex(String modelId, ModelMetadata modelMetadata, byte[] model) throws IOException {
+        //TODO: This doesnt work. It does not add cluster metadata.
         String modelBase64 = Base64.getEncoder().encodeToString(model);
 
         Request request = new Request(
                 "POST",
-                "/" + MODEL_INDEX_NAME + "/_doc/" + modelContext.getModelId() + "?refresh=true"
+                "/" + MODEL_INDEX_NAME + "/_doc/" + modelId + "?refresh=true"
         );
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
-                .field(KNN_ENGINE, modelContext.getKNNEngine().getName())
-                .field(METHOD_PARAMETER_SPACE_TYPE, modelContext.getSpaceType().getValue())
-                .field(DIMENSION, dimension)
+                .field(KNN_ENGINE, modelMetadata.getKnnEngine().getName())
+                .field(METHOD_PARAMETER_SPACE_TYPE, modelMetadata.getSpaceType().getValue())
+                .field(DIMENSION, modelMetadata.getDimension())
                 .field(MODEL_BLOB_PARAMETER, modelBase64)
                 .endObject();
 

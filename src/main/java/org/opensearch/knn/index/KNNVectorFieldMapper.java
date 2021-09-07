@@ -56,6 +56,8 @@ import org.opensearch.index.mapper.ValueFetcher;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.opensearch.search.lookup.SearchLookup;
 
@@ -132,19 +134,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 }, m -> toType(m).dimension);
 
         /**
-         * modelContext provides a way for a user to generate the underlying library indices from an already serialized
+         * modelId provides a way for a user to generate the underlying library indices from an already serialized
          * model template index. If this parameter is set, it will take precedence. This parameter is only relevant for
          * library indices that require training.
          */
-        protected final Parameter<ModelContext> modelContext = new Parameter<>(KNNConstants.MODEL, false,
-                () -> null,
-                (n, c, o) -> ModelContext.parse(o),
-                m -> toType(m).modelContext)
-                .setSerializer(((b, n, v) -> {
-                    b.startObject(n);
-                    v.toXContent(b, ToXContent.EMPTY_PARAMS);
-                    b.endObject();
-                }), ModelContext::getModelId);
+        protected final Parameter<String> modelId = Parameter.stringParam(KNNConstants.MODEL_ID, false,
+                m -> toType(m).modelId, null);
 
         /**
          * knnMethodContext parameter allows a user to define their k-NN library index configuration. Defaults to an L2
@@ -169,8 +164,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         protected String m;
         protected String efConstruction;
 
-        public Builder(String name) {
+        protected ModelDao modelDao;
+
+        public Builder(String name, ModelDao modelDao) {
             super(name);
+            this.modelDao = modelDao;
         }
 
         /**
@@ -191,7 +189,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         @Override
         protected List<Parameter<?>> getParameters() {
-            return Arrays.asList(stored, hasDocValues, dimension, meta, knnMethodContext, modelContext);
+            return Arrays.asList(stored, hasDocValues, dimension, meta, knnMethodContext, modelId);
         }
 
         protected Explicit<Boolean> ignoreMalformed(BuilderContext context) {
@@ -226,17 +224,21 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                         knnMethodContext);
             }
 
-            ModelContext modelContext = this.modelContext.get();
-            if (modelContext != null) {
+            String modelId = this.modelId.get();
+            if (modelId != null) {
+                ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+
                 return new ModelFieldMapper(
                         name,
-                        new KNNVectorFieldType(buildFullName(context), meta.getValue(), dimension.getValue()),
+                        new KNNVectorFieldType(buildFullName(context), meta.getValue(), modelMetadata.getDimension()),
                         multiFieldsBuilder.build(this, context),
                         copyTo.build(),
                         ignoreMalformed(context),
                         stored.get(),
                         hasDocValues.get(),
-                        modelContext);
+                        modelDao,
+                        modelId,
+                        modelMetadata);
             }
 
             // Build legacy
@@ -266,21 +268,32 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     }
 
     public static class TypeParser implements Mapper.TypeParser {
+
+        // Use a supplier here because in {@link org.opensearch.knn.KNNPlugin#getMappers()} the ModelDao has not yet
+        // been initialized
+        private Supplier<ModelDao> modelDaoSupplier;
+
+        public TypeParser(Supplier<ModelDao> modelDaoSupplier) {
+            super();
+            this.modelDaoSupplier = modelDaoSupplier;
+        }
+
         @Override
         public Mapper.Builder<?> parse(String name, Map<String, Object> node, ParserContext parserContext)
                 throws MapperParsingException {
-            Builder builder = new KNNVectorFieldMapper.Builder(name);
+            Builder builder = new KNNVectorFieldMapper.Builder(name, modelDaoSupplier.get());
             builder.parse(name, parserContext, node);
 
             // All <a href="https://github.com/opensearch-project/OpenSearch/blob/1.0.0/server/src/main/java/org/opensearch/index/mapper/DocumentMapperParser.java#L115-L161">parsing</a>
             // is done before any mappers are built. Therefore, validation should be done during parsing
             // so that it can fail early.
-            if (builder.knnMethodContext.get() != null && builder.modelContext.get() != null) {
+            if (builder.knnMethodContext.get() != null && builder.modelId.get() != null) {
                 throw new IllegalArgumentException("Method and model can not be both specified in the mapping: "
                         + name);
             }
 
-            if (builder.dimension.getValue() == -1) {
+            // Dimension should not be null unless modelId is used
+            if (builder.dimension.getValue() == -1 && builder.modelId.get() == null) {
                 throw new IllegalArgumentException("Dimension value missing for vector: " + name);
             }
 
@@ -333,12 +346,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected boolean stored;
     protected boolean hasDocValues;
     protected Integer dimension;
+    protected ModelDao modelDao;
 
     // These members map to parameters in the builder. They need to be declared in the abstract class due to the
     // "toType" function used in the builder. So, when adding a parameter, it needs to be added here, but set in a
     // subclass (if it is unique).
     protected KNNMethodContext knnMethod;
-    protected ModelContext modelContext;
+    protected String modelId;
 
     public KNNVectorFieldMapper(String simpleName, KNNVectorFieldType mappedFieldType, MultiFields multiFields,
                                 CopyTo copyTo, Explicit<Boolean> ignoreMalformed, boolean stored,
@@ -435,7 +449,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     @Override
     public ParametrizedFieldMapper.Builder getMergeBuilder() {
-        return new KNNVectorFieldMapper.Builder(simpleName()).init(this);
+        return new KNNVectorFieldMapper.Builder(simpleName(), modelDao).init(this);
     }
 
     @Override
@@ -582,17 +596,19 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         private ModelFieldMapper(String simpleName, KNNVectorFieldType mappedFieldType, MultiFields multiFields,
                                 CopyTo copyTo, Explicit<Boolean> ignoreMalformed, boolean stored,
-                                boolean hasDocValues, ModelContext modelContext) {
+                                boolean hasDocValues, ModelDao modelDao, String modelId, ModelMetadata modelMetadata) {
             super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues);
 
-            this.modelContext = modelContext;
+            this.modelId = modelId;
+            this.modelDao = modelDao;
 
             this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
 
-            this.fieldType.putAttribute(MODEL_ID, modelContext.getModelId());
-            this.fieldType.putAttribute(DIMENSION, String.valueOf(dimension));
-            this.fieldType.putAttribute(SPACE_TYPE, modelContext.getSpaceType().getValue());
-            this.fieldType.putAttribute(KNN_ENGINE, modelContext.getKNNEngine().getName());
+            this.fieldType.putAttribute(MODEL_ID, modelId);
+
+            this.fieldType.putAttribute(DIMENSION, String.valueOf(modelMetadata.getDimension()));
+            this.fieldType.putAttribute(SPACE_TYPE, modelMetadata.getSpaceType().getValue());
+            this.fieldType.putAttribute(KNN_ENGINE, modelMetadata.getKnnEngine().getName());
 
             this.fieldType.freeze();
         }
