@@ -49,7 +49,7 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
 
     public static Logger logger = LogManager.getLogger(UpdateModelMetadataTransportAction.class);
 
-    private UpdateModelMetaDataExecutor updateModelMetaDataExecutor;
+    private UpdateModelMetadataExecutor updateModelMetadataExecutor;
 
     @Inject
     public UpdateModelMetadataTransportAction(String actionName,
@@ -60,7 +60,7 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
                                               IndexNameExpressionResolver indexNameExpressionResolver) {
         super(actionName, transportService, clusterService, threadPool, actionFilters, UpdateModelMetadataRequest::new,
                 indexNameExpressionResolver);
-        this.updateModelMetaDataExecutor = new UpdateModelMetaDataExecutor();
+        this.updateModelMetadataExecutor = new UpdateModelMetadataExecutor();
     }
 
     @Override
@@ -81,7 +81,7 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
                 PLUGIN_NAME,
                 new UpdateModelMetaDataTask(request.getModelId(), request.getModelMetadata(), request.isRemoveRequest()),
                 ClusterStateTaskConfig.build(Priority.NORMAL),
-                updateModelMetaDataExecutor,
+                updateModelMetadataExecutor,
                 new ClusterStateTaskListener() {
                     @Override
                     public void onFailure(String s, Exception e) {
@@ -123,7 +123,7 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
         }
     }
 
-    private static class UpdateModelMetaDataExecutor implements ClusterStateTaskExecutor<UpdateModelMetaDataTask> {
+    private static class UpdateModelMetadataExecutor implements ClusterStateTaskExecutor<UpdateModelMetaDataTask> {
 
         @Override
         public ClusterTasksResult<UpdateModelMetaDataTask> execute(ClusterState clusterState,
@@ -132,7 +132,7 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
             IndexMetadata indexMetadata = clusterState.metadata().index(MODEL_INDEX_NAME);
 
             if (indexMetadata == null) {
-                throw new RuntimeException();
+                throw new RuntimeException("Model index's metadata does not exist");
             }
 
             Map<String, String> models = indexMetadata.getCustomData(MODEL_METADATA_FIELD);

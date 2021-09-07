@@ -15,7 +15,9 @@ import org.opensearch.action.ActionType;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.common.io.stream.Writeable;
 
-
+/**
+ * Action to update model metadata.
+ */
 public class UpdateModelMetadataAction extends ActionType<AcknowledgedResponse> {
 
     public static final String NAME = "cluster:admin/knn_update_model_metadata_action";
