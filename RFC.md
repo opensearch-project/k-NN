@@ -195,4 +195,4 @@ POST my_index/_search
 
 ## Providing Feedback
 
-If you have any comments or feedback on the proposed design for the K-NN plugin, please comment on [the RFC Github issue](../../issues/1) on this project to discuss.
+If you have any comments or feedback on the proposed design for the K-NN plugin, please create [GitHub issue](https://github.com/opensearch-project/k-NN/issues) on this project to discuss.
