@@ -16,12 +16,12 @@ import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.common.io.stream.Writeable;
 
 /**
- * Action to update model metadata.
+ * Action to update model info.
  */
-public class UpdateModelMetadataAction extends ActionType<AcknowledgedResponse> {
+public class UpdateModelInfoAction extends ActionType<AcknowledgedResponse> {
 
-    public static final String NAME = "cluster:admin/knn_update_model_metadata_action";
-    public static final UpdateModelMetadataAction INSTANCE = new UpdateModelMetadataAction(NAME, AcknowledgedResponse::new);
+    public static final String NAME = "cluster:admin/knn_update_model_info_action";
+    public static final UpdateModelInfoAction INSTANCE = new UpdateModelInfoAction(NAME, AcknowledgedResponse::new);
 
     /**
      * Constructor.
@@ -29,7 +29,7 @@ public class UpdateModelMetadataAction extends ActionType<AcknowledgedResponse> 
      * @param name name of action
      * @param acknowledgedResponseReader reader for acknowledged response
      */
-    public UpdateModelMetadataAction(String name, Writeable.Reader<AcknowledgedResponse> acknowledgedResponseReader) {
+    public UpdateModelInfoAction(String name, Writeable.Reader<AcknowledgedResponse> acknowledgedResponseReader) {
         super(name, acknowledgedResponseReader);
     }
 }

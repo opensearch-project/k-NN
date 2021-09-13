@@ -38,8 +38,8 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
-import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
+import org.opensearch.knn.plugin.transport.UpdateModelInfoAction;
+import org.opensearch.knn.plugin.transport.UpdateModelInfoRequest;
 
 import java.io.IOException;
 import java.net.URL;
@@ -249,8 +249,8 @@ public interface ModelDao {
         private ActionListener<IndexResponse> getModelIndexListener(ModelInfo modelInfo,
                                                                     ActionListener<AcknowledgedResponse> listener) {
             return ActionListener.wrap(indexResponse -> client.execute(
-                    UpdateModelMetadataAction.INSTANCE,
-                    new UpdateModelMetadataRequest(indexResponse.getId(), false, modelInfo),
+                    UpdateModelInfoAction.INSTANCE,
+                    new UpdateModelInfoRequest(indexResponse.getId(), false, modelInfo),
                     listener
             ), listener::onFailure);
         }
@@ -290,16 +290,16 @@ public interface ModelDao {
 
             Map<String, String> models = indexMetadata.getCustomData(MODEL_INFO_FIELD);
             if (models == null) {
-                throw new RuntimeException("Model metadata does not exist");
+                throw new RuntimeException("Model info does not exist");
             }
 
-            String modelMetadata = models.get(modelId);
+            String modelInfo = models.get(modelId);
 
-            if (modelMetadata == null) {
+            if (modelInfo == null) {
                 throw new RuntimeException("Model \"" + modelId + "\" does not exist");
             }
 
-            return ModelInfo.fromString(modelMetadata);
+            return ModelInfo.fromString(modelInfo);
         }
 
         private String getMapping() throws IOException {
@@ -331,14 +331,14 @@ public interface ModelDao {
                 listener.onResponse(deleteResponse);
             }, listener::onFailure);
 
-            // On model metadata removal, delete the model from the index
+            // On model info removal, delete the model from the index
             ActionListener<AcknowledgedResponse> onMetadataUpdateListener = ActionListener.wrap(acknowledgedResponse ->
                             deleteRequestBuilder.execute(onModelDeleteListener), listener::onFailure);
 
             // Remove the metadata asynchronously
             client.execute(
-                    UpdateModelMetadataAction.INSTANCE,
-                    new UpdateModelMetadataRequest(modelId,  true, null),
+                    UpdateModelInfoAction.INSTANCE,
+                    new UpdateModelInfoRequest(modelId,  true, null),
                     onMetadataUpdateListener
             );
         }
