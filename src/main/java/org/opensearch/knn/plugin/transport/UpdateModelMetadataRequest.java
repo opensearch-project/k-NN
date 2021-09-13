@@ -22,9 +22,9 @@ import java.io.IOException;
 import static org.opensearch.action.ValidateActions.addValidationError;
 
 /**
- * Request for updating model info on model system index
+ * Request for updating model metadata on model system index
  */
-public class UpdateModelInfoRequest extends AcknowledgedRequest<UpdateModelInfoRequest> {
+public class UpdateModelMetadataRequest extends AcknowledgedRequest<UpdateModelMetadataRequest> {
 
     private String modelId;
     private boolean isRemoveRequest;
@@ -36,12 +36,12 @@ public class UpdateModelInfoRequest extends AcknowledgedRequest<UpdateModelInfoR
      * @param in input stream
      * @throws IOException if read from stream fails
      */
-    public UpdateModelInfoRequest(StreamInput in) throws IOException {
+    public UpdateModelMetadataRequest(StreamInput in) throws IOException {
         super(in);
         this.modelId = in.readString();
         this.isRemoveRequest = in.readBoolean();
 
-        // modelInfo cant be null if it is an add request
+        // modelMetadata cant be null if it is an add request
         if (!this.isRemoveRequest) {
             this.modelInfo = new ModelInfo(in);
         }
@@ -52,9 +52,9 @@ public class UpdateModelInfoRequest extends AcknowledgedRequest<UpdateModelInfoR
      *
      * @param modelId Id of model
      * @param isRemoveRequest should this model id be removed
-     * @param modelInfo Info for model
+     * @param modelInfo Metadata for model
      */
-    public UpdateModelInfoRequest(String modelId, boolean isRemoveRequest, ModelInfo modelInfo) {
+    public UpdateModelMetadataRequest(String modelId, boolean isRemoveRequest, ModelInfo modelInfo) {
         this.modelId = modelId;
         this.isRemoveRequest = isRemoveRequest;
         this.modelInfo = modelInfo;
@@ -70,7 +70,7 @@ public class UpdateModelInfoRequest extends AcknowledgedRequest<UpdateModelInfoR
         }
 
         if (!isRemoveRequest && modelInfo == null) {
-            validationException = addValidationError("Model info must be passed on add", validationException);
+            validationException = addValidationError("Model metadata must be passed on add", validationException);
         }
 
         return validationException;
@@ -95,9 +95,9 @@ public class UpdateModelInfoRequest extends AcknowledgedRequest<UpdateModelInfoR
     }
 
     /**
-     * Getter for model model info
+     * Getter for model metadata
      *
-     * @return modelInfo
+     * @return modelMetadata
      */
     public ModelInfo getModelInfo() {
         return modelInfo;

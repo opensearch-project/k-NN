@@ -33,18 +33,18 @@ import static org.opensearch.knn.indices.ModelInfo.MODEL_INFO_FIELD;
 public class UpdateModelInfoTransportActionTests extends KNNSingleNodeTestCase {
 
     public void testExecutor() {
-        UpdateModelInfoTransportAction updateModelInfoTransportAction = node().injector()
-                .getInstance(UpdateModelInfoTransportAction.class);
-        assertEquals(ThreadPool.Names.SAME, updateModelInfoTransportAction.executor());
+        UpdateModelMetadataTransportAction updateModelMetadataTransportAction = node().injector()
+                .getInstance(UpdateModelMetadataTransportAction.class);
+        assertEquals(ThreadPool.Names.SAME, updateModelMetadataTransportAction.executor());
     }
 
     public void testRead() throws IOException {
-        UpdateModelInfoTransportAction updateModelInfoTransportAction = node().injector()
-                .getInstance(UpdateModelInfoTransportAction.class);
+        UpdateModelMetadataTransportAction updateModelMetadataTransportAction = node().injector()
+                .getInstance(UpdateModelMetadataTransportAction.class);
         AcknowledgedResponse acknowledgedResponse = new AcknowledgedResponse(true);
         BytesStreamOutput streamOutput = new BytesStreamOutput();
         acknowledgedResponse.writeTo(streamOutput);
-        AcknowledgedResponse acknowledgedResponse1 = updateModelInfoTransportAction.read(streamOutput.bytes()
+        AcknowledgedResponse acknowledgedResponse1 = updateModelMetadataTransportAction.read(streamOutput.bytes()
                 .streamInput());
 
         assertEquals(acknowledgedResponse, acknowledgedResponse1);
@@ -59,19 +59,19 @@ public class UpdateModelInfoTransportActionTests extends KNNSingleNodeTestCase {
         ModelInfo modelInfo = new ModelInfo(KNNEngine.DEFAULT, SpaceType.L2, 128);
 
         // Get update  transport action
-        UpdateModelInfoTransportAction updateModelInfoTransportAction = node().injector()
-                .getInstance(UpdateModelInfoTransportAction.class);
+        UpdateModelMetadataTransportAction updateModelMetadataTransportAction = node().injector()
+                .getInstance(UpdateModelMetadataTransportAction.class);
 
         // Generate update request
-        UpdateModelInfoRequest updateModelInfoRequest = new UpdateModelInfoRequest(modelId, false,
+        UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, false,
                 modelInfo);
 
         // Get cluster state, update metadata, check cluster state - all asynchronously
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
         client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
             ClusterState clusterState1 = stateResponse1.getState();
-            updateModelInfoTransportAction.masterOperation(
-                    updateModelInfoRequest,
+            updateModelMetadataTransportAction.masterOperation(
+                    updateModelMetadataRequest,
                     clusterState1,
                     ActionListener.wrap(acknowledgedResponse -> {
                         assertTrue(acknowledgedResponse.isAcknowledged());
@@ -100,13 +100,13 @@ public class UpdateModelInfoTransportActionTests extends KNNSingleNodeTestCase {
         assertTrue(inProgressLatch1.await(60, TimeUnit.SECONDS));
 
         // Generate remove request
-        UpdateModelInfoRequest removeModelMetadataRequest = new UpdateModelInfoRequest(modelId, true,
+        UpdateModelMetadataRequest removeModelMetadataRequest = new UpdateModelMetadataRequest(modelId, true,
                 modelInfo);
 
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
         client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
             ClusterState clusterState1 = stateResponse1.getState();
-            updateModelInfoTransportAction.masterOperation(
+            updateModelMetadataTransportAction.masterOperation(
                     removeModelMetadataRequest,
                     clusterState1,
                     ActionListener.wrap(acknowledgedResponse -> {
@@ -133,8 +133,8 @@ public class UpdateModelInfoTransportActionTests extends KNNSingleNodeTestCase {
     }
 
     public void testCheckBlock() {
-        UpdateModelInfoTransportAction updateModelInfoTransportAction = node().injector()
-                .getInstance(UpdateModelInfoTransportAction.class);
-        assertNull(updateModelInfoTransportAction.checkBlock(null, null));
+        UpdateModelMetadataTransportAction updateModelMetadataTransportAction = node().injector()
+                .getInstance(UpdateModelMetadataTransportAction.class);
+        assertNull(updateModelMetadataTransportAction.checkBlock(null, null));
     }
 }

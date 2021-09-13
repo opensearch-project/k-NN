@@ -30,52 +30,52 @@ public class UpdateModelInfoRequestTests extends KNNTestCase {
         boolean isRemoveRequest = false;
 
         ModelInfo modelInfo = new ModelInfo(knnEngine, spaceType, dimension);
-        UpdateModelInfoRequest updateModelInfoRequest = new UpdateModelInfoRequest(modelId, isRemoveRequest, modelInfo);
+        UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, isRemoveRequest, modelInfo);
 
         BytesStreamOutput streamOutput = new BytesStreamOutput();
-        updateModelInfoRequest.writeTo(streamOutput);
+        updateModelMetadataRequest.writeTo(streamOutput);
 
-        UpdateModelInfoRequest updateModelInfoRequestCopy = new UpdateModelInfoRequest(streamOutput.bytes().streamInput());
+        UpdateModelMetadataRequest updateModelMetadataRequestCopy = new UpdateModelMetadataRequest(streamOutput.bytes().streamInput());
 
-        assertEquals(updateModelInfoRequest.getModelId(), updateModelInfoRequestCopy.getModelId());
-        assertEquals(updateModelInfoRequest.isRemoveRequest(), updateModelInfoRequestCopy.isRemoveRequest());
-        assertEquals(updateModelInfoRequest.getModelInfo(), updateModelInfoRequestCopy.getModelInfo());
+        assertEquals(updateModelMetadataRequest.getModelId(), updateModelMetadataRequestCopy.getModelId());
+        assertEquals(updateModelMetadataRequest.isRemoveRequest(), updateModelMetadataRequestCopy.isRemoveRequest());
+        assertEquals(updateModelMetadataRequest.getModelInfo(), updateModelMetadataRequestCopy.getModelInfo());
     }
 
     public void testValidate() {
         ModelInfo modelInfo = new ModelInfo(KNNEngine.DEFAULT, SpaceType.L2, 128);
 
-        UpdateModelInfoRequest updateModelInfoRequest1 = new UpdateModelInfoRequest("test", true, null);
-        assertNull(updateModelInfoRequest1.validate());
+        UpdateModelMetadataRequest updateModelMetadataRequest1 = new UpdateModelMetadataRequest("test", true, null);
+        assertNull(updateModelMetadataRequest1.validate());
 
-        UpdateModelInfoRequest updateModelInfoRequest2 = new UpdateModelInfoRequest("test", false, null);
-        assertNotNull(updateModelInfoRequest2.validate());
+        UpdateModelMetadataRequest updateModelMetadataRequest2 = new UpdateModelMetadataRequest("test", false, null);
+        assertNotNull(updateModelMetadataRequest2.validate());
 
-        UpdateModelInfoRequest updateModelInfoRequest3 = new UpdateModelInfoRequest("test", false, modelInfo);
-        assertNull(updateModelInfoRequest3.validate());
+        UpdateModelMetadataRequest updateModelMetadataRequest3 = new UpdateModelMetadataRequest("test", false, modelInfo);
+        assertNull(updateModelMetadataRequest3.validate());
 
-        UpdateModelInfoRequest updateModelInfoRequest4 = new UpdateModelInfoRequest("", true, null);
-        assertNotNull(updateModelInfoRequest4.validate());
+        UpdateModelMetadataRequest updateModelMetadataRequest4 = new UpdateModelMetadataRequest("", true, null);
+        assertNotNull(updateModelMetadataRequest4.validate());
     }
 
     public void testGetModelId() {
         String modelId = "test-model";
-        UpdateModelInfoRequest updateModelInfoRequest = new UpdateModelInfoRequest(modelId, true, null);
+        UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, true, null);
 
-        assertEquals(modelId, updateModelInfoRequest.getModelId());
+        assertEquals(modelId, updateModelMetadataRequest.getModelId());
     }
 
     public void testIsRemoveRequest() {
         boolean isRemoveRequest = false;
-        UpdateModelInfoRequest updateModelInfoRequest = new UpdateModelInfoRequest("test", isRemoveRequest, null);
+        UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest("test", isRemoveRequest, null);
 
-        assertEquals(isRemoveRequest, updateModelInfoRequest.isRemoveRequest());
+        assertEquals(isRemoveRequest, updateModelMetadataRequest.isRemoveRequest());
     }
 
     public void testGetModelMetadata() {
         ModelInfo modelInfo = new ModelInfo(KNNEngine.DEFAULT, SpaceType.L2, 128);
-        UpdateModelInfoRequest updateModelInfoRequest = new UpdateModelInfoRequest("test", true, modelInfo);
+        UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest("test", true, modelInfo);
 
-        assertEquals(modelInfo, updateModelInfoRequest.getModelInfo());
+        assertEquals(modelInfo, updateModelMetadataRequest.getModelInfo());
     }
 }

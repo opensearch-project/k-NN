@@ -45,20 +45,20 @@ import static org.opensearch.knn.indices.ModelInfo.MODEL_INFO_FIELD;
 /**
  * Transport action used to update metadata of model's on the master node.
  */
-public class UpdateModelInfoTransportAction extends TransportMasterNodeAction<UpdateModelInfoRequest, AcknowledgedResponse> {
+public class UpdateModelMetadataTransportAction extends TransportMasterNodeAction<UpdateModelMetadataRequest, AcknowledgedResponse> {
 
-    public static Logger logger = LogManager.getLogger(UpdateModelInfoTransportAction.class);
+    public static Logger logger = LogManager.getLogger(UpdateModelMetadataTransportAction.class);
 
     private UpdateModelMetadataExecutor updateModelMetadataExecutor;
 
     @Inject
-    public UpdateModelInfoTransportAction(String actionName,
-                                          TransportService transportService,
-                                          ClusterService clusterService,
-                                          ThreadPool threadPool,
-                                          ActionFilters actionFilters,
-                                          IndexNameExpressionResolver indexNameExpressionResolver) {
-        super(actionName, transportService, clusterService, threadPool, actionFilters, UpdateModelInfoRequest::new,
+    public UpdateModelMetadataTransportAction(String actionName,
+                                              TransportService transportService,
+                                              ClusterService clusterService,
+                                              ThreadPool threadPool,
+                                              ActionFilters actionFilters,
+                                              IndexNameExpressionResolver indexNameExpressionResolver) {
+        super(actionName, transportService, clusterService, threadPool, actionFilters, UpdateModelMetadataRequest::new,
                 indexNameExpressionResolver);
         this.updateModelMetadataExecutor = new UpdateModelMetadataExecutor();
     }
@@ -74,9 +74,9 @@ public class UpdateModelInfoTransportAction extends TransportMasterNodeAction<Up
     }
 
     @Override
-    protected void masterOperation(UpdateModelInfoRequest request, ClusterState clusterState,
+    protected void masterOperation(UpdateModelMetadataRequest request, ClusterState clusterState,
                                    ActionListener<AcknowledgedResponse> actionListener) {
-        // Master updates model info based on request parameters
+        // Master updates model metadata based on request parameters
         clusterService.submitStateUpdateTask(
                 PLUGIN_NAME,
                 new UpdateModelMetaDataTask(request.getModelId(), request.getModelInfo(), request.isRemoveRequest()),
@@ -96,7 +96,7 @@ public class UpdateModelInfoTransportAction extends TransportMasterNodeAction<Up
     }
 
     @Override
-    protected ClusterBlockException checkBlock(UpdateModelInfoRequest request, ClusterState clusterState) {
+    protected ClusterBlockException checkBlock(UpdateModelMetadataRequest request, ClusterState clusterState) {
         return null;
     }
 
@@ -113,7 +113,7 @@ public class UpdateModelInfoTransportAction extends TransportMasterNodeAction<Up
          * Constructor
          *
          * @param modelId id of model
-         * @param modelInfo info for the model
+         * @param modelInfo metadata for the model
          * @param isRemoveRequest should this model be removed
          */
         UpdateModelMetaDataTask(String modelId, ModelInfo modelInfo, boolean isRemoveRequest) {
@@ -128,7 +128,7 @@ public class UpdateModelInfoTransportAction extends TransportMasterNodeAction<Up
         @Override
         public ClusterTasksResult<UpdateModelMetaDataTask> execute(ClusterState clusterState,
                                                                    List<UpdateModelMetaDataTask> list) {
-            // Get the map of the models info
+            // Get the map of the models metadata
             IndexMetadata indexMetadata = clusterState.metadata().index(MODEL_INDEX_NAME);
 
             if (indexMetadata == null) {
