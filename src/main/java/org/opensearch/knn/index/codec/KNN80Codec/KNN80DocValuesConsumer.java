@@ -114,8 +114,8 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                 String modelId = field.attributes().get(MODEL_ID);
                 Model model = ModelCache.getInstance().get(modelId);
 
-                if (model.getModelInfo().getKnnEngine() != knnEngine) {
-                    throw new RuntimeException("Model Engine \"" + model.getModelInfo().getKnnEngine().getName()
+                if (model.getModelMetadata().getKnnEngine() != knnEngine) {
+                    throw new RuntimeException("Model Engine \"" + model.getModelMetadata().getKnnEngine().getName()
                             + "\" cannot be different than index engine \"" + knnEngine.getName() + "\"");
                 }
 
@@ -125,14 +125,14 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                 }
 
                 SpaceType spaceType = SpaceType.getSpace(spaceName);
-                if (model.getModelInfo().getSpaceType() != spaceType) {
-                    throw new RuntimeException("Model Space Type \"" + model.getModelInfo().getSpaceType().getValue()
+                if (model.getModelMetadata().getSpaceType() != spaceType) {
+                    throw new RuntimeException("Model Space Type \"" + model.getModelMetadata().getSpaceType().getValue()
                             + "\" cannot be different than index Space Type \"" + spaceType.getValue() + "\"");
                 }
 
                 int dimension = Integer.parseInt(field.attributes().getOrDefault(DIMENSION, "-1"));
-                if (model.getModelInfo().getDimension() != dimension) {
-                    throw new RuntimeException("Model dimension \"" + model.getModelInfo().getDimension()
+                if (model.getModelMetadata().getDimension() != dimension) {
+                    throw new RuntimeException("Model dimension \"" + model.getModelMetadata().getDimension()
                             + "\" cannot be different than index dimension \"" + dimension + "\"");
                 }
 

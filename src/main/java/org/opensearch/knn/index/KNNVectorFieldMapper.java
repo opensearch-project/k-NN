@@ -57,7 +57,7 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelInfo;
+import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.opensearch.search.lookup.SearchLookup;
 
@@ -226,11 +226,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             String modelId = this.modelId.get();
             if (modelId != null) {
-                ModelInfo modelInfo = modelDao.getModelInfo(modelId);
+                ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
 
                 return new ModelFieldMapper(
                         name,
-                        new KNNVectorFieldType(buildFullName(context), meta.getValue(), modelInfo.getDimension()),
+                        new KNNVectorFieldType(buildFullName(context), meta.getValue(), modelMetadata.getDimension()),
                         multiFieldsBuilder.build(this, context),
                         copyTo.build(),
                         ignoreMalformed(context),
@@ -238,7 +238,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                         hasDocValues.get(),
                         modelDao,
                         modelId,
-                        modelInfo);
+                        modelMetadata);
             }
 
             // Build legacy
@@ -596,7 +596,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         private ModelFieldMapper(String simpleName, KNNVectorFieldType mappedFieldType, MultiFields multiFields,
                                 CopyTo copyTo, Explicit<Boolean> ignoreMalformed, boolean stored,
-                                boolean hasDocValues, ModelDao modelDao, String modelId, ModelInfo modelInfo) {
+                                boolean hasDocValues, ModelDao modelDao, String modelId, ModelMetadata modelMetadata) {
             super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues);
 
             this.modelId = modelId;
@@ -606,9 +606,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             this.fieldType.putAttribute(MODEL_ID, modelId);
 
-            this.fieldType.putAttribute(DIMENSION, String.valueOf(modelInfo.getDimension()));
-            this.fieldType.putAttribute(SPACE_TYPE, modelInfo.getSpaceType().getValue());
-            this.fieldType.putAttribute(KNN_ENGINE, modelInfo.getKnnEngine().getName());
+            this.fieldType.putAttribute(DIMENSION, String.valueOf(modelMetadata.getDimension()));
+            this.fieldType.putAttribute(SPACE_TYPE, modelMetadata.getSpaceType().getValue());
+            this.fieldType.putAttribute(KNN_ENGINE, modelMetadata.getKnnEngine().getName());
 
             this.fieldType.freeze();
         }

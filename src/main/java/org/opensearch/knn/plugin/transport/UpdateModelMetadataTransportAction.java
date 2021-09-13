@@ -29,7 +29,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Priority;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.knn.indices.ModelInfo;
+import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
@@ -40,7 +40,7 @@ import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.PLUGIN_NAME;
-import static org.opensearch.knn.indices.ModelInfo.MODEL_INFO_FIELD;
+import static org.opensearch.knn.indices.ModelMetadata.MODEL_METADATA_FIELD;
 
 /**
  * Transport action used to update metadata of model's on the master node.
@@ -79,7 +79,7 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
         // Master updates model metadata based on request parameters
         clusterService.submitStateUpdateTask(
                 PLUGIN_NAME,
-                new UpdateModelMetaDataTask(request.getModelId(), request.getModelInfo(), request.isRemoveRequest()),
+                new UpdateModelMetaDataTask(request.getModelId(), request.getModelMetadata(), request.isRemoveRequest()),
                 ClusterStateTaskConfig.build(Priority.NORMAL),
                 updateModelMetadataExecutor,
                 new ClusterStateTaskListener() {
@@ -106,19 +106,19 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
     private static class UpdateModelMetaDataTask {
 
         private String modelId;
-        private ModelInfo modelInfo;
+        private ModelMetadata modelMetadata;
         private boolean isRemoveRequest;
 
         /**
          * Constructor
          *
          * @param modelId id of model
-         * @param modelInfo metadata for the model
+         * @param modelMetadata metadata for the model
          * @param isRemoveRequest should this model be removed
          */
-        UpdateModelMetaDataTask(String modelId, ModelInfo modelInfo, boolean isRemoveRequest) {
+        UpdateModelMetaDataTask(String modelId, ModelMetadata modelMetadata, boolean isRemoveRequest) {
             this.modelId = modelId;
-            this.modelInfo = modelInfo;
+            this.modelMetadata = modelMetadata;
             this.isRemoveRequest = isRemoveRequest;
         }
     }
@@ -135,7 +135,7 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
                 throw new RuntimeException("Model index's metadata does not exist");
             }
 
-            Map<String, String> immutableModels = indexMetadata.getCustomData(MODEL_INFO_FIELD);
+            Map<String, String> immutableModels = indexMetadata.getCustomData(MODEL_METADATA_FIELD);
             Map<String, String> models;
 
             // If the field doesnt exist, we need to create a new map
@@ -150,14 +150,14 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
                 if (task.isRemoveRequest) {
                     models.remove(task.modelId);
                 } else {
-                    models.put(task.modelId, task.modelInfo.toString());
+                    models.put(task.modelId, task.modelMetadata.toString());
                 }
             }
 
             // Write the map back to the cluster metadata
             Metadata.Builder metaDataBuilder = Metadata.builder(clusterState.metadata());
 
-            metaDataBuilder.put(IndexMetadata.builder(indexMetadata).putCustom(MODEL_INFO_FIELD, models));
+            metaDataBuilder.put(IndexMetadata.builder(indexMetadata).putCustom(MODEL_METADATA_FIELD, models));
 
             ClusterState updatedClusterState = ClusterState.builder(clusterState).metadata(metaDataBuilder).build();
             return new ClusterTasksResult.Builder<UpdateModelMetaDataTask>().successes(list).build(updatedClusterState);

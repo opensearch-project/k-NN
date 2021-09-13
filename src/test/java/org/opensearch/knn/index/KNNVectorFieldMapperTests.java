@@ -39,7 +39,7 @@ import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelInfo;
+import org.opensearch.knn.indices.ModelMetadata;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -112,11 +112,11 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 .build();
 
         String modelId = "Random modelId";
-        ModelInfo mockedModelInfo = new ModelInfo(KNNEngine.FAISS, SpaceType.L2, 129);
+        ModelMetadata mockedModelMetadata = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 129);
         builder.modelId.setValue(modelId);
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
 
-        when(modelDao.getModelInfo(modelId)).thenReturn(mockedModelInfo);
+        when(modelDao.getMetadata(modelId)).thenReturn(mockedModelMetadata);
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
         assertTrue(knnVectorFieldMapper instanceof KNNVectorFieldMapper.ModelFieldMapper);
         assertNotNull(knnVectorFieldMapper.modelId);
@@ -353,8 +353,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         int dimension = 133;
 
         ModelDao mockModelDao = mock(ModelDao.class);
-        ModelInfo mockModelInfo = new ModelInfo(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension);
-        when(mockModelDao.getModelInfo(modelId)).thenReturn(mockModelInfo);
+        ModelMetadata mockModelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension);
+        when(mockModelDao.getMetadata(modelId)).thenReturn(mockModelMetadata);
 
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> mockModelDao);
 

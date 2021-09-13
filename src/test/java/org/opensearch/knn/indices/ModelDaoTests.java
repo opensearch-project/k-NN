@@ -87,7 +87,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             inProgressLatch1.countDown();
         }, exception -> fail("Unable to put the model: " + exception));
 
-        Model model = new Model(new ModelInfo(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension), modelBlob);
+        Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension), modelBlob);
         modelDao.put(modelId, model, docCreationListener);
 
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
@@ -122,7 +122,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 },
                 exception -> fail("Unable to put the model: " + exception));
 
-        Model model = new Model(new ModelInfo(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension), modelBlob);
+        Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension), modelBlob);
         modelDao.put(model, docCreationListenerNoModelId);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
@@ -141,23 +141,23 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         expectThrows(Exception.class, () -> modelDao.get(modelId));
 
         // model id exists
-        Model model = new Model(new ModelInfo(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension), modelBlob);
+        Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension), modelBlob);
         addDoc(modelId, model);
         assertArrayEquals(modelBlob, modelDao.get(modelId).getModelBlob());
     }
 
-    public void testGetModelInfo() throws IOException, InterruptedException {
+    public void testGetMetadata() throws IOException, InterruptedException {
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
 
         String modelId = "test-model";
 
         // Model Index does not exist
-        expectThrows(RuntimeException.class, () -> modelDao.getModelInfo(modelId));
+        expectThrows(RuntimeException.class, () -> modelDao.getMetadata(modelId));
 
         createIndex(MODEL_INDEX_NAME);
 
         // Model id does not exist
-        expectThrows(RuntimeException.class, () -> modelDao.getModelInfo(modelId));
+        expectThrows(RuntimeException.class, () -> modelDao.getMetadata(modelId));
 
         // Model exists
         byte [] modelBlob = "hello".getBytes();
@@ -165,17 +165,17 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         KNNEngine knnEngine = KNNEngine.FAISS;
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
         int dimension = 2;
-        ModelInfo modelInfo = new ModelInfo(knnEngine, spaceType, dimension);
+        ModelMetadata modelMetadata = new ModelMetadata(knnEngine, spaceType, dimension);
 
-        Model model = new Model(modelInfo, modelBlob);
+        Model model = new Model(modelMetadata, modelBlob);
 
         // Listener to confirm that everything was updated as expected
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
         ActionListener<AcknowledgedResponse> docCreationListener = ActionListener.wrap(response -> {
             assertTrue(response.isAcknowledged());
 
-            ModelInfo modelInfo1 = modelDao.getModelInfo(modelId);
-            assertEquals(modelInfo, modelInfo1);
+            ModelMetadata modelMetadata1 = modelDao.getMetadata(modelId);
+            assertEquals(modelMetadata, modelMetadata1);
 
             inProgressLatch1.countDown();
         }, exception -> fail("Unable to put the model: " + exception));
@@ -214,7 +214,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         }, exception -> fail("Unable to delete model: " + exception));
 
         // model id exists
-        Model model = new Model(new ModelInfo(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension), modelBlob);
+        Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension), modelBlob);
 
         ActionListener<AcknowledgedResponse> docCreationListener = ActionListener.wrap(response -> {
             assertTrue(response.isAcknowledged());
@@ -229,9 +229,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
     public void addDoc(String modelId, Model model) throws IOException, ExecutionException, InterruptedException {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
-                .field(KNN_ENGINE, model.getModelInfo().getKnnEngine().getName())
-                .field(METHOD_PARAMETER_SPACE_TYPE, model.getModelInfo().getSpaceType().getValue())
-                .field(DIMENSION, model.getModelInfo().getDimension())
+                .field(KNN_ENGINE, model.getModelMetadata().getKnnEngine().getName())
+                .field(METHOD_PARAMETER_SPACE_TYPE, model.getModelMetadata().getSpaceType().getValue())
+                .field(DIMENSION, model.getModelMetadata().getDimension())
                 .field(MODEL_BLOB_PARAMETER, Base64.getEncoder().encodeToString(model.getModelBlob()))
                 .endObject();
         IndexRequest indexRequest = new IndexRequest()
