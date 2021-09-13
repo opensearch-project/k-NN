@@ -18,27 +18,27 @@ import java.util.Objects;
 
 public class Model {
 
-    final private ModelMetadata modelMetadata;
+    final private ModelInfo modelInfo;
     final private byte[] modelBlob;
 
     /**
      * Constructor
      *
-     * @param modelMetadata metadata about the model
+     * @param modelInfo information about the model
      * @param modelBlob binary representation of model template index
      */
-    public Model(ModelMetadata modelMetadata, byte[] modelBlob) {
-        this.modelMetadata = Objects.requireNonNull(modelMetadata, "modelMetadata must not be null");
+    public Model(ModelInfo modelInfo, byte[] modelBlob) {
+        this.modelInfo = Objects.requireNonNull(modelInfo, "modelInfo must not be null");
         this.modelBlob = Objects.requireNonNull(modelBlob, "modelBlob must not be null");
     }
 
     /**
-     * getter for model's metadata
+     * getter for model's info
      *
      * @return knnEngine
      */
-    public ModelMetadata getModelMetadata() {
-        return modelMetadata;
+    public ModelInfo getModelInfo() {
+        return modelInfo;
     }
 
     /**
@@ -68,7 +68,7 @@ public class Model {
         Model other = (Model) obj;
 
         EqualsBuilder equalsBuilder = new EqualsBuilder();
-        equalsBuilder.append(modelMetadata, other.modelMetadata);
+        equalsBuilder.append(modelInfo, other.modelInfo);
         equalsBuilder.append(modelBlob, other.modelBlob);
 
         return equalsBuilder.isEquals();
@@ -76,6 +76,6 @@ public class Model {
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(modelMetadata).append(modelBlob).toHashCode();
+        return new HashCodeBuilder().append(modelInfo).append(modelBlob).toHashCode();
     }
 }

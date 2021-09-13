@@ -32,7 +32,7 @@ import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelInfo;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.apache.http.util.EntityUtils;
@@ -635,7 +635,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
                 mapping);
     }
 
-    protected void addModelToSystemIndex(String modelId, ModelMetadata modelMetadata, byte[] model) throws IOException {
+    protected void addModelToSystemIndex(String modelId, ModelInfo modelInfo, byte[] model) throws IOException {
         //TODO: This doesnt work. It does not add cluster metadata.
         String modelBase64 = Base64.getEncoder().encodeToString(model);
 
@@ -645,9 +645,9 @@ public class KNNRestTestCase extends ODFERestTestCase {
         );
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
-                .field(KNN_ENGINE, modelMetadata.getKnnEngine().getName())
-                .field(METHOD_PARAMETER_SPACE_TYPE, modelMetadata.getSpaceType().getValue())
-                .field(DIMENSION, modelMetadata.getDimension())
+                .field(KNN_ENGINE, modelInfo.getKnnEngine().getName())
+                .field(METHOD_PARAMETER_SPACE_TYPE, modelInfo.getSpaceType().getValue())
+                .field(DIMENSION, modelInfo.getDimension())
                 .field(MODEL_BLOB_PARAMETER, modelBase64)
                 .endObject();
 

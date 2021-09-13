@@ -24,10 +24,10 @@ import java.util.Objects;
 
 import static org.opensearch.knn.index.KNNVectorFieldMapper.MAX_DIMENSION;
 
-public class ModelMetadata implements Writeable {
+public class ModelInfo implements Writeable {
 
-    public static final String MODEL_METADATA_FIELD = "knn-models"; //TODO: Move this to constants
-    private static final String DELIMITER = ","; // TODO: This doesnt seem to belong there
+    public static final String MODEL_INFO_FIELD = "knn-models";
+    private static final String DELIMITER = ",";
 
     final private KNNEngine knnEngine;
     final private SpaceType spaceType;
@@ -38,7 +38,7 @@ public class ModelMetadata implements Writeable {
      *
      * @param in Stream input
      */
-    public ModelMetadata(StreamInput in) throws IOException {
+    public ModelInfo(StreamInput in) throws IOException {
         this.knnEngine = KNNEngine.getEngine(in.readString());
         this.spaceType = SpaceType.getSpace(in.readString());
         this.dimension = in.readInt();
@@ -51,7 +51,7 @@ public class ModelMetadata implements Writeable {
      * @param spaceType space type model uses
      * @param dimension dimension of the model
      */
-    public ModelMetadata(KNNEngine knnEngine, SpaceType spaceType, int dimension) {
+    public ModelInfo(KNNEngine knnEngine, SpaceType spaceType, int dimension) {
         this.knnEngine = Objects.requireNonNull(knnEngine, "knnEngine must not be null");
         this.spaceType = Objects.requireNonNull(spaceType, "spaceType must not be null");
         if (dimension <= 0 || dimension >= MAX_DIMENSION) {
@@ -99,7 +99,7 @@ public class ModelMetadata implements Writeable {
             return true;
         if (obj == null || getClass() != obj.getClass())
             return false;
-        ModelMetadata other = (ModelMetadata) obj;
+        ModelInfo other = (ModelInfo) obj;
 
         EqualsBuilder equalsBuilder = new EqualsBuilder();
         equalsBuilder.append(knnEngine, other.knnEngine);
@@ -115,24 +115,24 @@ public class ModelMetadata implements Writeable {
     }
 
     /**
-     * Returns ModelMetadata from string representation
+     * Returns ModelInfo from string representation
      *
-     * @param modelMetadataString String to be parsed
-     * @return modelMetadata from string
+     * @param modelInfoString String to be parsed
+     * @return ModelInfo from string
      */
-    public static ModelMetadata fromString(String modelMetadataString) {
-        String[] modelMetadataArray = modelMetadataString.split(DELIMITER);
+    public static ModelInfo fromString(String modelInfoString) {
+        String[] modelInfoArray = modelInfoString.split(DELIMITER);
 
-        if (modelMetadataArray.length != 3) {
-            throw new IllegalArgumentException("Illegal format for model metadata. Must be of the form " +
+        if (modelInfoArray.length != 3) {
+            throw new IllegalArgumentException("Illegal format for model info. Must be of the form " +
                     "\"<KNNEngine>,<SpaceType>,<Dimension>\"");
         }
 
-        KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
-        SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
-        int dimension = Integer.parseInt(modelMetadataArray[2]);
+        KNNEngine knnEngine = KNNEngine.getEngine(modelInfoArray[0]);
+        SpaceType spaceType = SpaceType.getSpace(modelInfoArray[1]);
+        int dimension = Integer.parseInt(modelInfoArray[2]);
 
-        return new ModelMetadata(knnEngine, spaceType, dimension);
+        return new ModelInfo(knnEngine, spaceType, dimension);
     }
 
     @Override

@@ -19,7 +19,7 @@ import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelInfo;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
@@ -28,9 +28,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
-import static org.opensearch.knn.indices.ModelMetadata.MODEL_METADATA_FIELD;
+import static org.opensearch.knn.indices.ModelInfo.MODEL_INFO_FIELD;
 
-public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCase {
+public class UpdateModelInfoTransportActionTests extends KNNSingleNodeTestCase {
 
     public void testExecutor() {
         UpdateModelMetadataTransportAction updateModelMetadataTransportAction = node().injector()
@@ -56,7 +56,7 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
 
         // Setup the model
         String modelId = "test-model";
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 128);
+        ModelInfo modelInfo = new ModelInfo(KNNEngine.DEFAULT, SpaceType.L2, 128);
 
         // Get update  transport action
         UpdateModelMetadataTransportAction updateModelMetadataTransportAction = node().injector()
@@ -64,7 +64,7 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
 
         // Generate update request
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, false,
-                modelMetadata);
+                modelInfo);
 
         // Get cluster state, update metadata, check cluster state - all asynchronously
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
@@ -81,14 +81,14 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
                             IndexMetadata indexMetadata = updatedClusterState.metadata().index(MODEL_INDEX_NAME);
                             assertNotNull(indexMetadata);
 
-                            Map<String, String> modelMetadataMap = indexMetadata.getCustomData(MODEL_METADATA_FIELD);
+                            Map<String, String> modelMetadataMap = indexMetadata.getCustomData(MODEL_INFO_FIELD);
                             assertNotNull(modelMetadataMap);
 
                             String modelAsString = modelMetadataMap.get(modelId);
                             assertNotNull(modelAsString);
 
-                            ModelMetadata modelMetadataCopy = ModelMetadata.fromString(modelAsString);
-                            assertEquals(modelMetadata, modelMetadataCopy);
+                            ModelInfo modelInfoCopy = ModelInfo.fromString(modelAsString);
+                            assertEquals(modelInfo, modelInfoCopy);
 
                             inProgressLatch1.countDown();
 
@@ -101,7 +101,7 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
 
         // Generate remove request
         UpdateModelMetadataRequest removeModelMetadataRequest = new UpdateModelMetadataRequest(modelId, true,
-                modelMetadata);
+                modelInfo);
 
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
         client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
@@ -117,7 +117,7 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
                             IndexMetadata indexMetadata = updatedClusterState.metadata().index(MODEL_INDEX_NAME);
                             assertNotNull(indexMetadata);
 
-                            Map<String, String> modelMetadataMap = indexMetadata.getCustomData(MODEL_METADATA_FIELD);
+                            Map<String, String> modelMetadataMap = indexMetadata.getCustomData(MODEL_INFO_FIELD);
                             assertNotNull(modelMetadataMap);
 
                             String modelAsString = modelMetadataMap.get(modelId);

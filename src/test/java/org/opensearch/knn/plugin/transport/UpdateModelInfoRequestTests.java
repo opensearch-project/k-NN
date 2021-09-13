@@ -15,11 +15,11 @@ import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelInfo;
 
 import java.io.IOException;
 
-public class UpdateModelMetadataRequestTests extends KNNTestCase {
+public class UpdateModelInfoRequestTests extends KNNTestCase {
 
     public void testStreams() throws IOException {
         KNNEngine knnEngine = KNNEngine.DEFAULT;
@@ -29,8 +29,8 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
         String modelId = "test-model";
         boolean isRemoveRequest = false;
 
-        ModelMetadata modelMetadata = new ModelMetadata(knnEngine, spaceType, dimension);
-        UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, isRemoveRequest, modelMetadata);
+        ModelInfo modelInfo = new ModelInfo(knnEngine, spaceType, dimension);
+        UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, isRemoveRequest, modelInfo);
 
         BytesStreamOutput streamOutput = new BytesStreamOutput();
         updateModelMetadataRequest.writeTo(streamOutput);
@@ -39,11 +39,11 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
 
         assertEquals(updateModelMetadataRequest.getModelId(), updateModelMetadataRequestCopy.getModelId());
         assertEquals(updateModelMetadataRequest.isRemoveRequest(), updateModelMetadataRequestCopy.isRemoveRequest());
-        assertEquals(updateModelMetadataRequest.getModelMetadata(), updateModelMetadataRequestCopy.getModelMetadata());
+        assertEquals(updateModelMetadataRequest.getModelInfo(), updateModelMetadataRequestCopy.getModelInfo());
     }
 
     public void testValidate() {
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 128);
+        ModelInfo modelInfo = new ModelInfo(KNNEngine.DEFAULT, SpaceType.L2, 128);
 
         UpdateModelMetadataRequest updateModelMetadataRequest1 = new UpdateModelMetadataRequest("test", true, null);
         assertNull(updateModelMetadataRequest1.validate());
@@ -51,7 +51,7 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
         UpdateModelMetadataRequest updateModelMetadataRequest2 = new UpdateModelMetadataRequest("test", false, null);
         assertNotNull(updateModelMetadataRequest2.validate());
 
-        UpdateModelMetadataRequest updateModelMetadataRequest3 = new UpdateModelMetadataRequest("test", false, modelMetadata);
+        UpdateModelMetadataRequest updateModelMetadataRequest3 = new UpdateModelMetadataRequest("test", false, modelInfo);
         assertNull(updateModelMetadataRequest3.validate());
 
         UpdateModelMetadataRequest updateModelMetadataRequest4 = new UpdateModelMetadataRequest("", true, null);
@@ -73,9 +73,9 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
     }
 
     public void testGetModelMetadata() {
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 128);
-        UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest("test", true, modelMetadata);
+        ModelInfo modelInfo = new ModelInfo(KNNEngine.DEFAULT, SpaceType.L2, 128);
+        UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest("test", true, modelInfo);
 
-        assertEquals(modelMetadata, updateModelMetadataRequest.getModelMetadata());
+        assertEquals(modelInfo, updateModelMetadataRequest.getModelInfo());
     }
 }

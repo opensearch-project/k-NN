@@ -24,39 +24,39 @@ public class ModelTests extends KNNTestCase {
     }
 
     public void testInvalidDimension() {
-        expectThrows(IllegalArgumentException.class, () -> new Model(new ModelMetadata(KNNEngine.DEFAULT,
+        expectThrows(IllegalArgumentException.class, () -> new Model(new ModelInfo(KNNEngine.DEFAULT,
                 SpaceType.DEFAULT, -1), new byte[16]));
-        expectThrows(IllegalArgumentException.class, () -> new Model(new ModelMetadata(KNNEngine.DEFAULT,
+        expectThrows(IllegalArgumentException.class, () -> new Model(new ModelInfo(KNNEngine.DEFAULT,
                 SpaceType.DEFAULT, 0), new byte[16]));
-        expectThrows(IllegalArgumentException.class, () -> new Model(new ModelMetadata(KNNEngine.DEFAULT,
+        expectThrows(IllegalArgumentException.class, () -> new Model(new ModelInfo(KNNEngine.DEFAULT,
                 SpaceType.DEFAULT, MAX_DIMENSION + 1), new byte[16]));
     }
 
-    public void testGetModelMetadata() {
+    public void testGetModelInfo() {
         KNNEngine knnEngine = KNNEngine.DEFAULT;
-        ModelMetadata modelMetadata = new ModelMetadata(knnEngine, SpaceType.DEFAULT, 2);
-        Model model = new Model(modelMetadata, new byte[16]);
-        assertEquals(modelMetadata, model.getModelMetadata());
+        ModelInfo modelInfo = new ModelInfo(knnEngine, SpaceType.DEFAULT, 2);
+        Model model = new Model(modelInfo, new byte[16]);
+        assertEquals(modelInfo, model.getModelInfo());
     }
 
     public void testGetModelBlob() {
         byte[] modelBlob = "hello".getBytes();
-        Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 2), modelBlob);
+        Model model = new Model(new ModelInfo(KNNEngine.DEFAULT, SpaceType.DEFAULT, 2), modelBlob);
         assertArrayEquals(modelBlob, model.getModelBlob());
     }
 
     public void testGetLength() {
         int size = 129;
-        Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 2), new byte[size]);
+        Model model = new Model(new ModelInfo(KNNEngine.DEFAULT, SpaceType.DEFAULT, 2), new byte[size]);
         assertEquals(size, model.getLength());
     }
 
     public void testEquals() {
-        Model model1 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2), new byte[16]);
-        Model model2 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2), new byte[16]);
-        Model model3 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 2), new byte[16]);
-        Model model4 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2), new byte[32]);
-        Model model5 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 4), new byte[16]);
+        Model model1 = new Model(new ModelInfo(KNNEngine.DEFAULT, SpaceType.L1, 2), new byte[16]);
+        Model model2 = new Model(new ModelInfo(KNNEngine.DEFAULT, SpaceType.L1, 2), new byte[16]);
+        Model model3 = new Model(new ModelInfo(KNNEngine.DEFAULT, SpaceType.L2, 2), new byte[16]);
+        Model model4 = new Model(new ModelInfo(KNNEngine.DEFAULT, SpaceType.L1, 2), new byte[32]);
+        Model model5 = new Model(new ModelInfo(KNNEngine.DEFAULT, SpaceType.L1, 4), new byte[16]);
 
         assertEquals(model1, model1);
         assertEquals(model1, model2);
@@ -66,10 +66,10 @@ public class ModelTests extends KNNTestCase {
     }
 
     public void testHashCode() {
-        Model model1 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2), new byte[16]);
-        Model model2 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2), new byte[16]);
-        Model model3 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2), new byte[32]);
-        Model model4 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 4), new byte[16]);
+        Model model1 = new Model(new ModelInfo(KNNEngine.DEFAULT, SpaceType.L1, 2), new byte[16]);
+        Model model2 = new Model(new ModelInfo(KNNEngine.DEFAULT, SpaceType.L1, 2), new byte[16]);
+        Model model3 = new Model(new ModelInfo(KNNEngine.DEFAULT, SpaceType.L1, 2), new byte[32]);
+        Model model4 = new Model(new ModelInfo(KNNEngine.DEFAULT, SpaceType.L2, 4), new byte[16]);
 
         assertEquals(model1.hashCode(), model1.hashCode());
         assertEquals(model1.hashCode(), model2.hashCode());
