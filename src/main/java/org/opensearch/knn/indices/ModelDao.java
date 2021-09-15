@@ -29,13 +29,17 @@ import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequestBuilder;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.client.Client;
+import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
+import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
 
 import java.io.IOException;
 import java.net.URL;
@@ -47,6 +51,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING;
 import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_SHARDS_SETTING;
+import static org.opensearch.knn.common.KNNConstants.MODEL_METADATA_FIELD;
 
 /**
  * ModelDao is used to interface with the model persistence layer
@@ -74,18 +79,18 @@ public interface ModelDao {
      *
      * @param modelId   Id of model to create
      * @param model Model to be indexed
-     * @param listener  handles index response
+     * @param listener  handles acknowledged response
      */
-    void put(String modelId, Model model, ActionListener<IndexResponse> listener) throws IOException;
+    void put(String modelId, Model model, ActionListener<AcknowledgedResponse> listener) throws IOException;
 
     /**
      * Put a model into the system index. Non-blocking. When no id is passed in, OpenSearch will generate the id
      * automatically. The id can be retrieved in the IndexResponse.
      *
      * @param model Model to be indexed
-     * @param listener  handles index response
+     * @param listener  handles acknowledged response
      */
-    void put(Model model, ActionListener<IndexResponse> listener) throws IOException;
+    void put(Model model, ActionListener<AcknowledgedResponse> listener) throws IOException;
 
     /**
      * Get a model from the system index. Call blocks.
@@ -96,6 +101,14 @@ public interface ModelDao {
      * @throws InterruptedException thrown on search
      */
     Model get(String modelId) throws ExecutionException, InterruptedException;
+
+    /**
+     * Get metadata for a model. Non-blocking.
+     *
+     * @param modelId to retrieve
+     * @return modelMetadata
+     */
+    ModelMetadata getMetadata(String modelId);
 
     /**
      * Delete model from index
@@ -170,13 +183,13 @@ public interface ModelDao {
         }
 
         @Override
-        public void put(String modelId, Model model, ActionListener<IndexResponse> listener) throws IOException {
+        public void put(String modelId, Model model, ActionListener<AcknowledgedResponse> listener) throws IOException {
             String base64Model = Base64.getEncoder().encodeToString(model.getModelBlob());
 
             Map<String, Object> parameters = ImmutableMap.of(
-                    KNNConstants.KNN_ENGINE, model.getKnnEngine().getName(),
-                    KNNConstants.METHOD_PARAMETER_SPACE_TYPE, model.getSpaceType().getValue(),
-                    KNNConstants.DIMENSION, model.getDimension(),
+                    KNNConstants.KNN_ENGINE, model.getModelMetadata().getKnnEngine().getName(),
+                    KNNConstants.METHOD_PARAMETER_SPACE_TYPE, model.getModelMetadata().getSpaceType().getValue(),
+                    KNNConstants.DIMENSION, model.getModelMetadata().getDimension(),
                     KNNConstants.MODEL_BLOB_PARAMETER, base64Model
             );
 
@@ -188,23 +201,27 @@ public interface ModelDao {
             indexRequestBuilder.setOpType(DocWriteRequest.OpType.CREATE);
             indexRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
+            // After the model is indexed, update metadata
+            ActionListener<IndexResponse> putMetadataListener = getUpdateModelMetadataListener(model.getModelMetadata(),
+                    listener);
+
             if (!isCreated()) {
-                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(listener),
+                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(putMetadataListener),
                         listener::onFailure));
                 return;
             }
 
-            indexRequestBuilder.execute(listener);
+            indexRequestBuilder.execute(putMetadataListener);
         }
 
         @Override
-        public void put(Model model, ActionListener<IndexResponse> listener) throws IOException {
+        public void put(Model model, ActionListener<AcknowledgedResponse> listener) throws IOException {
             String base64Model = Base64.getEncoder().encodeToString(model.getModelBlob());
 
             Map<String, Object> parameters = ImmutableMap.of(
-                    KNNConstants.KNN_ENGINE, model.getKnnEngine().getName(),
-                    KNNConstants.METHOD_PARAMETER_SPACE_TYPE, model.getSpaceType().getValue(),
-                    KNNConstants.DIMENSION, model.getDimension(),
+                    KNNConstants.KNN_ENGINE, model.getModelMetadata().getKnnEngine().getName(),
+                    KNNConstants.METHOD_PARAMETER_SPACE_TYPE, model.getModelMetadata().getSpaceType().getValue(),
+                    KNNConstants.DIMENSION, model.getModelMetadata().getDimension(),
                     KNNConstants.MODEL_BLOB_PARAMETER, base64Model
             );
 
@@ -215,13 +232,27 @@ public interface ModelDao {
             indexRequestBuilder.setOpType(DocWriteRequest.OpType.CREATE);
             indexRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
+            // After the model is indexed, update metadata
+            ActionListener<IndexResponse> putMetadataListener = getUpdateModelMetadataListener(model.getModelMetadata(),
+                    listener);
+
+            // If the index has not been created yet, create it and then add the document
             if (!isCreated()) {
-                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(listener),
+                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(putMetadataListener),
                         listener::onFailure));
                 return;
             }
 
-            indexRequestBuilder.execute(listener);
+            indexRequestBuilder.execute(putMetadataListener);
+        }
+
+        private ActionListener<IndexResponse> getUpdateModelMetadataListener(ModelMetadata modelMetadata,
+                ActionListener<AcknowledgedResponse> listener) {
+            return ActionListener.wrap(indexResponse -> client.execute(
+                    UpdateModelMetadataAction.INSTANCE,
+                    new UpdateModelMetadataRequest(indexResponse.getId(), false, modelMetadata),
+                    listener
+            ), listener::onFailure);
         }
 
         @Override
@@ -244,9 +275,31 @@ public interface ModelDao {
                 throw new IllegalArgumentException("No model available in \"" + MODEL_INDEX_NAME + "\" index with id \""
                         + modelId + "\".");
             }
+            ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.getEngine((String) engine),
+                    SpaceType.getSpace((String) space), (Integer) dimension);
+            return new Model(modelMetadata, Base64.getDecoder().decode((String) blob));
+        }
 
-            return new Model(KNNEngine.getEngine((String) engine), SpaceType.getSpace((String) space),
-                    (Integer) dimension, Base64.getDecoder().decode((String) blob));
+        @Override
+        public ModelMetadata getMetadata(String modelId) {
+            IndexMetadata indexMetadata = clusterService.state().metadata().index(MODEL_INDEX_NAME);
+
+            if (indexMetadata == null) {
+                throw new RuntimeException("Model index's metadata does not exist");
+            }
+
+            Map<String, String> models = indexMetadata.getCustomData(MODEL_METADATA_FIELD);
+            if (models == null) {
+                throw new RuntimeException("Model metadata does not exist");
+            }
+
+            String modelMetadata = models.get(modelId);
+
+            if (modelMetadata == null) {
+                throw new RuntimeException("Model \"" + modelId + "\" does not exist");
+            }
+
+            return ModelMetadata.fromString(modelMetadata);
         }
 
         private String getMapping() throws IOException {
@@ -260,19 +313,34 @@ public interface ModelDao {
 
         @Override
         public void delete(String modelId, ActionListener<DeleteResponse> listener) {
+            // If the index is not created, there is no need to delete the model
             if (!isCreated()) {
                 logger.info("Cannot delete model \"" + modelId + "\". Model index does not exist.");
                 return;
             }
 
+            // Setup delete model request
             DeleteRequestBuilder deleteRequestBuilder = new DeleteRequestBuilder(client, DeleteAction.INSTANCE,
                     MODEL_INDEX_NAME);
             deleteRequestBuilder.setId(modelId);
             deleteRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
-            deleteRequestBuilder.execute(ActionListener.wrap(deleteResponse -> {
+
+            // On model deletion from the index, remove the model from the model cache
+            ActionListener<DeleteResponse> onModelDeleteListener = ActionListener.wrap(deleteResponse -> {
                 ModelCache.getInstance().remove(modelId);
                 listener.onResponse(deleteResponse);
-            }, listener::onFailure));
+            }, listener::onFailure);
+
+            // On model metadata removal, delete the model from the index
+            ActionListener<AcknowledgedResponse> onMetadataUpdateListener = ActionListener.wrap(acknowledgedResponse ->
+                            deleteRequestBuilder.execute(onModelDeleteListener), listener::onFailure);
+
+            // Remove the metadata asynchronously
+            client.execute(
+                    UpdateModelMetadataAction.INSTANCE,
+                    new UpdateModelMetadataRequest(modelId,  true, null),
+                    onMetadataUpdateListener
+            );
         }
     }
 }

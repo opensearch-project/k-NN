@@ -19,6 +19,7 @@ import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.engine.VersionConflictEngineException;
@@ -72,29 +73,28 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
     }
 
     public void testPut_withId() throws InterruptedException, IOException {
+        createIndex(MODEL_INDEX_NAME);
+
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
-        String modelId = "efbsdhcvbsd";
+        String modelId = "efbsdhcvbsd"; // User provided model id
         byte [] modelBlob = "hello".getBytes();
         int dimension = 2;
 
-        // User provided model id
-        createIndex(MODEL_INDEX_NAME);
-
+        // Listener to confirm that everything was updated as expected
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
-        ActionListener<IndexResponse> docCreationListener = ActionListener.wrap(response -> {
-            assertEquals(RestStatus.CREATED, response.status());
-            assertEquals(modelId, response.getId());
+        ActionListener<AcknowledgedResponse> docCreationListener = ActionListener.wrap(response -> {
+            assertTrue(response.isAcknowledged());
             inProgressLatch1.countDown();
         }, exception -> fail("Unable to put the model: " + exception));
 
-        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, modelBlob);
+        Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension), modelBlob);
         modelDao.put(modelId, model, docCreationListener);
 
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 
         // User provided model id that already exists
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
-        ActionListener<IndexResponse> docCreationListenerDuplicateId = ActionListener.wrap(
+        ActionListener<AcknowledgedResponse> docCreationListenerDuplicateId = ActionListener.wrap(
                 response -> fail("Model already exists, but creation was successful"),
                 exception -> {
                     if (!(ExceptionsHelper.unwrapCause(exception) instanceof VersionConflictEngineException)) {
@@ -116,13 +116,13 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         // User does not provide model id
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
-        ActionListener<IndexResponse> docCreationListenerNoModelId = ActionListener.wrap(response -> {
-                    assertEquals(RestStatus.CREATED, response.status());
+        ActionListener<AcknowledgedResponse> docCreationListenerNoModelId = ActionListener.wrap(response -> {
+                    assertTrue(response.isAcknowledged());
                     inProgressLatch.countDown();
                 },
                 exception -> fail("Unable to put the model: " + exception));
 
-        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, modelBlob);
+        Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension), modelBlob);
         modelDao.put(model, docCreationListenerNoModelId);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
@@ -141,14 +141,54 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         expectThrows(Exception.class, () -> modelDao.get(modelId));
 
         // model id exists
-        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, modelBlob);
+        Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension), modelBlob);
         addDoc(modelId, model);
         assertArrayEquals(modelBlob, modelDao.get(modelId).getModelBlob());
     }
 
-    public void testDelete() throws IOException, InterruptedException, ExecutionException {
+    public void testGetMetadata() throws IOException, InterruptedException {
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
-        String modelId = "efbsdhcvbsd";
+
+        String modelId = "test-model";
+
+        // Model Index does not exist
+        expectThrows(RuntimeException.class, () -> modelDao.getMetadata(modelId));
+
+        createIndex(MODEL_INDEX_NAME);
+
+        // Model id does not exist
+        expectThrows(RuntimeException.class, () -> modelDao.getMetadata(modelId));
+
+        // Model exists
+        byte [] modelBlob = "hello".getBytes();
+
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        SpaceType spaceType = SpaceType.INNER_PRODUCT;
+        int dimension = 2;
+        ModelMetadata modelMetadata = new ModelMetadata(knnEngine, spaceType, dimension);
+
+        Model model = new Model(modelMetadata, modelBlob);
+
+        // Listener to confirm that everything was updated as expected
+        final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
+        ActionListener<AcknowledgedResponse> docCreationListener = ActionListener.wrap(response -> {
+            assertTrue(response.isAcknowledged());
+
+            ModelMetadata modelMetadata1 = modelDao.getMetadata(modelId);
+            assertEquals(modelMetadata, modelMetadata1);
+
+            inProgressLatch1.countDown();
+        }, exception -> fail("Unable to put the model: " + exception));
+
+        // We use put so that we can confirm cluster metadata gets added
+        modelDao.put(modelId, model, docCreationListener);
+
+        assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
+    }
+
+    public void testDelete() throws IOException, InterruptedException {
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
+        String modelId = "efbsdhcvbsd-2";
         byte[] modelBlob = "hello".getBytes();
         int dimension = 2;
 
@@ -167,25 +207,31 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         modelDao.delete(modelId, deleteModelDoesNotExistListener);
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 
-        // model id exists
-        Model model = new Model(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, modelBlob);
-        addDoc(modelId, model);
-
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
         ActionListener<DeleteResponse> deleteModelExistsListener = ActionListener.wrap(response -> {
             assertEquals(modelId, response.getId());
             inProgressLatch2.countDown();
         }, exception -> fail("Unable to delete model: " + exception));
 
-        modelDao.delete(modelId, deleteModelExistsListener);
+        // model id exists
+        Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension), modelBlob);
+
+        ActionListener<AcknowledgedResponse> docCreationListener = ActionListener.wrap(response -> {
+            assertTrue(response.isAcknowledged());
+            modelDao.delete(modelId, deleteModelExistsListener);
+        }, exception -> fail("Unable to put the model: " + exception));
+
+        // We use put so that we can confirm cluster metadata gets added
+        modelDao.put(modelId, model, docCreationListener);
+
         assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
     }
 
     public void addDoc(String modelId, Model model) throws IOException, ExecutionException, InterruptedException {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
-                .field(KNN_ENGINE, model.getKnnEngine().getName())
-                .field(METHOD_PARAMETER_SPACE_TYPE, model.getSpaceType().getValue())
-                .field(DIMENSION, model.getDimension())
+                .field(KNN_ENGINE, model.getModelMetadata().getKnnEngine().getName())
+                .field(METHOD_PARAMETER_SPACE_TYPE, model.getModelMetadata().getSpaceType().getValue())
+                .field(DIMENSION, model.getModelMetadata().getDimension())
                 .field(MODEL_BLOB_PARAMETER, Base64.getEncoder().encodeToString(model.getModelBlob()))
                 .endObject();
         IndexRequest indexRequest = new IndexRequest()
