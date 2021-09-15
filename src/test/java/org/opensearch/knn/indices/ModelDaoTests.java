@@ -261,7 +261,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 
         // User provided model id that already exists - should be able to update
-        Model model2 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
+        Model updatedModel = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
                 TimeValue.timeValueDays(10), "", ""), modelBlob);
 
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
@@ -271,7 +271,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             // We need to use executor service here so master thread does not block
             modelGetterExecutor.submit(() -> {
                 try {
-                    assertEquals(model2, modelDao.get(modelId));
+                    assertEquals(updatedModel, modelDao.get(modelId));
                 } catch (ExecutionException | InterruptedException e) {
                     fail(e.getMessage());
                 }
@@ -281,7 +281,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             inProgressLatch2.countDown();
         }, exception -> fail("Unable to put the model: " + exception));
 
-        modelDao.update(modelId, model2, updateListener);
+        modelDao.update(modelId, updatedModel, updateListener);
         assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
     }
 

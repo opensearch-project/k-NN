@@ -168,13 +168,8 @@ public class ModelMetadata implements Writeable {
 
     @Override
     public String toString() {
-        return knnEngine.getName() + DELIMITER +
-                spaceType.getValue() + DELIMITER +
-                dimension + DELIMITER +
-                state.get() + DELIMITER +
-                timestamp + DELIMITER +
-                description + DELIMITER +
-                error;
+        return String.join(DELIMITER, knnEngine.getName(), spaceType.getValue(), Integer.toString(dimension),
+                getState().toString(), timestamp.toString(), description, error);
     }
 
     @Override
@@ -189,7 +184,7 @@ public class ModelMetadata implements Writeable {
         equalsBuilder.append(knnEngine, other.knnEngine);
         equalsBuilder.append(spaceType, other.spaceType);
         equalsBuilder.append(dimension, other.dimension);
-        equalsBuilder.append(state.get(), other.state.get());
+        equalsBuilder.append(getState(), other.getState());
         equalsBuilder.append(timestamp, other.timestamp);
         equalsBuilder.append(description, other.description);
         equalsBuilder.append(error, other.error);
@@ -199,7 +194,7 @@ public class ModelMetadata implements Writeable {
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(knnEngine).append(spaceType).append(dimension).append(state.get())
+        return new HashCodeBuilder().append(knnEngine).append(spaceType).append(dimension).append(getState())
                 .append(timestamp).append(description).append(error).toHashCode();
     }
 
@@ -233,7 +228,7 @@ public class ModelMetadata implements Writeable {
         out.writeString(knnEngine.getName());
         out.writeString(spaceType.getValue());
         out.writeInt(dimension);
-        state.get().writeTo(out);
+        getState().writeTo(out);
         out.writeTimeValue(timestamp);
         out.writeString(description);
         out.writeString(error);

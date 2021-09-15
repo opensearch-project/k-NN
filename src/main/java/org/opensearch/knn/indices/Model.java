@@ -63,10 +63,10 @@ public class Model {
      * @return length of model blob
      */
     public int getLength() {
-        if (modelBlob.get() == null) {
+        if (getModelBlob() == null) {
             return 0;
         }
-        return modelBlob.get().length;
+        return getModelBlob().length;
     }
 
     /**
@@ -88,13 +88,13 @@ public class Model {
 
         EqualsBuilder equalsBuilder = new EqualsBuilder();
         equalsBuilder.append(modelMetadata, other.modelMetadata);
-        equalsBuilder.append(modelBlob.get(), other.modelBlob.get());
+        equalsBuilder.append(getModelBlob(), other.getModelBlob());
 
         return equalsBuilder.isEquals();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(modelMetadata).append(modelBlob.get()).toHashCode();
+        return new HashCodeBuilder().append(modelMetadata).append(getModelBlob()).toHashCode();
     }
 }
