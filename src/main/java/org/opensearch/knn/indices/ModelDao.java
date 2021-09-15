@@ -51,7 +51,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING;
 import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_SHARDS_SETTING;
-import static org.opensearch.knn.indices.ModelMetadata.MODEL_METADATA_FIELD;
+import static org.opensearch.knn.common.KNNConstants.MODEL_METADATA_FIELD;
 
 /**
  * ModelDao is used to interface with the model persistence layer

@@ -40,7 +40,7 @@ import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.PLUGIN_NAME;
-import static org.opensearch.knn.indices.ModelMetadata.MODEL_METADATA_FIELD;
+import static org.opensearch.knn.common.KNNConstants.MODEL_METADATA_FIELD;
 
 /**
  * Transport action used to update metadata of model's on the master node.

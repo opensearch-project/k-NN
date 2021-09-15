@@ -45,6 +45,7 @@ public class KNNConstants {
     public static final String MODEL_INDEX_MAPPING_PATH = "mappings/model-index.json";
     public static final String MODEL_INDEX_NAME = ".opensearch-knn-models";
     public static final String PLUGIN_NAME = "knn";
+    public static final String MODEL_METADATA_FIELD = "knn-models";
 
     // nmslib specific constants
     public static final String NMSLIB_NAME = "nmslib";

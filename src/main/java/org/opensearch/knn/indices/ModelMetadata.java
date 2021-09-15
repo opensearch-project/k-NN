@@ -26,8 +26,7 @@ import static org.opensearch.knn.index.KNNVectorFieldMapper.MAX_DIMENSION;
 
 public class ModelMetadata implements Writeable {
 
-    public static final String MODEL_METADATA_FIELD = "knn-models"; //TODO: Move this to constants
-    private static final String DELIMITER = ","; // TODO: This doesnt seem to belong there
+    private static final String DELIMITER = ",";
 
     final private KNNEngine knnEngine;
     final private SpaceType spaceType;

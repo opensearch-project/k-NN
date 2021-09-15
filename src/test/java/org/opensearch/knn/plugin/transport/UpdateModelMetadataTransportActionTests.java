@@ -28,7 +28,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
-import static org.opensearch.knn.indices.ModelMetadata.MODEL_METADATA_FIELD;
+import static org.opensearch.knn.common.KNNConstants.MODEL_METADATA_FIELD;
 
 public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCase {
 
