@@ -79,7 +79,7 @@ public interface ModelDao {
      *
      * @param modelId   Id of model to create
      * @param model Model to be indexed
-     * @param listener  handles index response
+     * @param listener  handles acknowledged response
      */
     void put(String modelId, Model model, ActionListener<AcknowledgedResponse> listener) throws IOException;
 
@@ -88,7 +88,7 @@ public interface ModelDao {
      * automatically. The id can be retrieved in the IndexResponse.
      *
      * @param model Model to be indexed
-     * @param listener  handles index response
+     * @param listener  handles acknowledged response
      */
     void put(Model model, ActionListener<AcknowledgedResponse> listener) throws IOException;
 

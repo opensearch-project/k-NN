@@ -224,9 +224,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                         knnMethodContext);
             }
 
-            String modelId = this.modelId.get();
-            if (modelId != null) {
-                ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+            String modelIdAsString = this.modelId.get();
+            if (modelIdAsString != null) {
+                ModelMetadata modelMetadata = modelDao.getMetadata(modelIdAsString);
 
                 return new ModelFieldMapper(
                         name,
@@ -237,7 +237,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                         stored.get(),
                         hasDocValues.get(),
                         modelDao,
-                        modelId,
+                        modelIdAsString,
                         modelMetadata);
             }
 
@@ -274,7 +274,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         private Supplier<ModelDao> modelDaoSupplier;
 
         public TypeParser(Supplier<ModelDao> modelDaoSupplier) {
-            super();
             this.modelDaoSupplier = modelDaoSupplier;
         }
 
