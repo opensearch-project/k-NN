@@ -202,7 +202,7 @@ public interface ModelDao {
             indexRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
             // After the model is indexed, update metadata
-            ActionListener<IndexResponse> putMetadataListener = getModelIndexListener(model.getModelMetadata(),
+            ActionListener<IndexResponse> putMetadataListener = getUpdateModelMetadataListener(model.getModelMetadata(),
                     listener);
 
             if (!isCreated()) {
@@ -233,7 +233,7 @@ public interface ModelDao {
             indexRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
             // After the model is indexed, update metadata
-            ActionListener<IndexResponse> putMetadataListener = getModelIndexListener(model.getModelMetadata(),
+            ActionListener<IndexResponse> putMetadataListener = getUpdateModelMetadataListener(model.getModelMetadata(),
                     listener);
 
             // If the index has not been created yet, create it and then add the document
@@ -246,7 +246,7 @@ public interface ModelDao {
             indexRequestBuilder.execute(putMetadataListener);
         }
 
-        private ActionListener<IndexResponse> getModelIndexListener(ModelMetadata modelMetadata,
+        private ActionListener<IndexResponse> getUpdateModelMetadataListener(ModelMetadata modelMetadata,
                 ActionListener<AcknowledgedResponse> listener) {
             return ActionListener.wrap(indexResponse -> client.execute(
                     UpdateModelMetadataAction.INSTANCE,
