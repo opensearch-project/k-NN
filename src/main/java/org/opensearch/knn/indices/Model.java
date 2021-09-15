@@ -13,23 +13,30 @@ package org.opensearch.knn.indices;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.opensearch.common.Nullable;
 
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class Model {
 
-    final private ModelMetadata modelMetadata;
-    final private byte[] modelBlob;
+    private ModelMetadata modelMetadata;
+    private AtomicReference<byte[]> modelBlob;
 
     /**
      * Constructor
      *
      * @param modelMetadata metadata about the model
-     * @param modelBlob binary representation of model template index
+     * @param modelBlob binary representation of model template index. Can be null if model is not yet in CREATED state.
      */
-    public Model(ModelMetadata modelMetadata, byte[] modelBlob) {
+    public Model(ModelMetadata modelMetadata, @Nullable byte[] modelBlob) {
         this.modelMetadata = Objects.requireNonNull(modelMetadata, "modelMetadata must not be null");
-        this.modelBlob = Objects.requireNonNull(modelBlob, "modelBlob must not be null");
+
+        if (ModelState.CREATED.equals(this.modelMetadata.getState()) && modelBlob == null) {
+            throw new IllegalArgumentException("Model blob cannot be null when model metadata says model is created");
+        }
+
+        this.modelBlob = new AtomicReference<>(modelBlob);
     }
 
     /**
@@ -47,7 +54,7 @@ public class Model {
      * @return modelBlob
      */
     public byte[] getModelBlob() {
-        return modelBlob;
+        return modelBlob.get();
     }
 
     /**
@@ -56,7 +63,19 @@ public class Model {
      * @return length of model blob
      */
     public int getLength() {
-        return modelBlob.length;
+        if (modelBlob.get() == null) {
+            return 0;
+        }
+        return modelBlob.get().length;
+    }
+
+    /**
+     * Sets model blob to new value
+     *
+     * @param modelBlob updated model blob
+     */
+    public synchronized void setModelBlob(byte[] modelBlob) {
+        this.modelBlob = new AtomicReference<>(Objects.requireNonNull(modelBlob, "model blob cannot be updated to null"));
     }
 
     @Override
@@ -69,13 +88,13 @@ public class Model {
 
         EqualsBuilder equalsBuilder = new EqualsBuilder();
         equalsBuilder.append(modelMetadata, other.modelMetadata);
-        equalsBuilder.append(modelBlob, other.modelBlob);
+        equalsBuilder.append(modelBlob.get(), other.modelBlob.get());
 
         return equalsBuilder.isEquals();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(modelMetadata).append(modelBlob).toHashCode();
+        return new HashCodeBuilder().append(modelMetadata).append(modelBlob.get()).toHashCode();
     }
 }
