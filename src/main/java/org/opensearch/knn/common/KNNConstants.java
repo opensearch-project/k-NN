@@ -52,6 +52,9 @@ public class KNNConstants {
     public static final String MODEL_DESCRIPTION = "description";
     public static final String MODEL_ERROR = "error";
 
+    public static final String KNN_THREAD_POOL_PREFIX = "knn";
+    public static final String TRAIN_THREAD_POOL = "training";
+
     // nmslib specific constants
     public static final String NMSLIB_NAME = "nmslib";
     public static final String SPACE_TYPE = "spaceType"; // used as field info key
