@@ -81,18 +81,18 @@ public interface ModelDao {
      *
      * @param modelId   Id of model to create
      * @param model Model to be indexed
-     * @param listener  handles acknowledged response
+     * @param listener  handles index response
      */
-    void put(String modelId, Model model, ActionListener<AcknowledgedResponse> listener) throws IOException;
+    void put(String modelId, Model model, ActionListener<IndexResponse> listener) throws IOException;
 
     /**
      * Put a model into the system index. Non-blocking. When no id is passed in, OpenSearch will generate the id
      * automatically. The id can be retrieved in the IndexResponse.
      *
      * @param model Model to be indexed
-     * @param listener  handles acknowledged response
+     * @param listener  handles index response
      */
-    void put(Model model, ActionListener<AcknowledgedResponse> listener) throws IOException;
+    void put(Model model, ActionListener<IndexResponse> listener) throws IOException;
 
     /**
      * Update model of model id with new model.
@@ -101,7 +101,7 @@ public interface ModelDao {
      * @param model new model
      * @param listener handles index response
      */
-    void update(String modelId, Model model, ActionListener<AcknowledgedResponse> listener) throws IOException;
+    void update(String modelId, Model model, ActionListener<IndexResponse> listener) throws IOException;
 
     /**
      * Get a model from the system index. Call blocks.
@@ -194,22 +194,22 @@ public interface ModelDao {
         }
 
         @Override
-        public void put(String modelId, Model model, ActionListener<AcknowledgedResponse> listener) throws IOException {
+        public void put(String modelId, Model model, ActionListener<IndexResponse> listener) throws IOException {
             putInternal(modelId, model, listener, DocWriteRequest.OpType.CREATE);
         }
 
         @Override
-        public void put(Model model, ActionListener<AcknowledgedResponse> listener) throws IOException {
+        public void put(Model model, ActionListener<IndexResponse> listener) throws IOException {
             putInternal(null, model, listener, DocWriteRequest.OpType.CREATE);
         }
 
         @Override
-        public void update(String modelId, Model model, ActionListener<AcknowledgedResponse> listener)
+        public void update(String modelId, Model model, ActionListener<IndexResponse> listener)
                 throws IOException {
             putInternal(modelId, model, listener, DocWriteRequest.OpType.INDEX);
         }
 
-        private void putInternal(@Nullable String modelId, Model model, ActionListener<AcknowledgedResponse> listener,
+        private void putInternal(@Nullable String modelId, Model model, ActionListener<IndexResponse> listener,
                                  DocWriteRequest.OpType requestOpType) throws IOException {
 
             if (model == null) {
@@ -255,7 +255,7 @@ public interface ModelDao {
             // After metadata update finishes, remove item from cache if necessary. If no model id is
             // passed then nothing needs to be removed from the cache
             //TODO: Bug. Model needs to be removed from all nodes caches, not just local.
-            ActionListener<AcknowledgedResponse> onMetaListener;
+            ActionListener<IndexResponse> onMetaListener;
             if (modelId != null) {
                 onMetaListener = ActionListener.wrap(response -> {
                     ModelCache.getInstance().remove(modelId);
@@ -270,10 +270,7 @@ public interface ModelDao {
             if (ModelState.CREATED.equals(model.getModelMetadata().getState())) {
                 onIndexListener = getUpdateModelMetadataListener(model.getModelMetadata(), onMetaListener);
             } else {
-                onIndexListener = ActionListener.wrap(
-                        indexResponse -> onMetaListener.onResponse(new AcknowledgedResponse(true)),
-                        onMetaListener::onFailure
-                );
+                onIndexListener = onMetaListener;
             }
 
             // Create the model index if it does not already exist
@@ -287,11 +284,14 @@ public interface ModelDao {
         }
 
         private ActionListener<IndexResponse> getUpdateModelMetadataListener(ModelMetadata modelMetadata,
-                ActionListener<AcknowledgedResponse> listener) {
+                ActionListener<IndexResponse> listener) {
             return ActionListener.wrap(indexResponse -> client.execute(
                     UpdateModelMetadataAction.INSTANCE,
                     new UpdateModelMetadataRequest(indexResponse.getId(), false, modelMetadata),
-                    listener
+                    // Here we wrap the IndexResponse listener around an AcknowledgedListener. This allows us
+                    // to pass the indexResponse back up.
+                    ActionListener.wrap(acknowledgedResponse -> listener.onResponse(indexResponse),
+                            listener::onFailure)
             ), listener::onFailure);
         }
 

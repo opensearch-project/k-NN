@@ -21,7 +21,6 @@ import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -107,8 +106,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         // Listener to confirm that everything was updated as expected
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
-        ActionListener<AcknowledgedResponse> docCreationListener = ActionListener.wrap(response -> {
-            assertTrue(response.isAcknowledged());
+        ActionListener<IndexResponse> docCreationListener = ActionListener.wrap(response -> {
+            assertEquals(modelId, response.getId());
 
             // We need to use executor service here so master thread does not block
             modelGetterExecutor.submit(() -> {
@@ -128,7 +127,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         // User provided model id that already exists
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
-        ActionListener<AcknowledgedResponse> docCreationListenerDuplicateId = ActionListener.wrap(
+        ActionListener<IndexResponse> docCreationListenerDuplicateId = ActionListener.wrap(
                 response -> fail("Model already exists, but creation was successful"),
                 exception -> {
                     if (!(ExceptionsHelper.unwrapCause(exception) instanceof VersionConflictEngineException)) {
@@ -154,8 +153,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         // Listener to confirm that everything was updated as expected
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
-        ActionListener<AcknowledgedResponse> docCreationListener = ActionListener.wrap(response -> {
-            assertTrue(response.isAcknowledged());
+        ActionListener<IndexResponse> docCreationListener = ActionListener.wrap(response -> {
+            assertEquals(modelId, response.getId());
 
             // We need to use executor service here so master thread does not block
             modelGetterExecutor.submit(() -> {
@@ -176,7 +175,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         // User provided model id that already exists
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
-        ActionListener<AcknowledgedResponse> docCreationListenerDuplicateId = ActionListener.wrap(
+        ActionListener<IndexResponse> docCreationListenerDuplicateId = ActionListener.wrap(
                 response -> fail("Model already exists, but creation was successful"),
                 exception -> {
                     if (!(ExceptionsHelper.unwrapCause(exception) instanceof VersionConflictEngineException)) {
@@ -198,8 +197,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         // User does not provide model id
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
-        ActionListener<AcknowledgedResponse> docCreationListenerNoModelId = ActionListener.wrap(response -> {
-                    assertTrue(response.isAcknowledged());
+        ActionListener<IndexResponse> docCreationListenerNoModelId = ActionListener.wrap(response -> {
                     inProgressLatch.countDown();
                 },
                 exception -> fail("Unable to put the model: " + exception));
@@ -240,8 +238,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         // Listener to confirm that everything was updated as expected
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
-        ActionListener<AcknowledgedResponse> docCreationListener = ActionListener.wrap(response -> {
-            assertTrue(response.isAcknowledged());
+        ActionListener<IndexResponse> docCreationListener = ActionListener.wrap(response -> {
+            assertEquals(modelId, response.getId());
 
             // We need to use executor service here so master thread does not block
             modelGetterExecutor.submit(() -> {
@@ -265,8 +263,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 TimeValue.timeValueDays(10), "", ""), modelBlob);
 
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
-        ActionListener<AcknowledgedResponse> updateListener = ActionListener.wrap(response -> {
-            assertTrue(response.isAcknowledged());
+        ActionListener<IndexResponse> updateListener = ActionListener.wrap(response -> {
+            assertEquals(modelId, response.getId());
 
             // We need to use executor service here so master thread does not block
             modelGetterExecutor.submit(() -> {
@@ -337,8 +335,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         // Listener to confirm that everything was updated as expected
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
-        ActionListener<AcknowledgedResponse> docCreationListener = ActionListener.wrap(response -> {
-            assertTrue(response.isAcknowledged());
+        ActionListener<IndexResponse> docCreationListener = ActionListener.wrap(response -> {
+            assertEquals(modelId, response.getId());
 
             ModelMetadata modelMetadata1 = modelDao.getMetadata(modelId);
             assertEquals(modelMetadata, modelMetadata1);
@@ -383,8 +381,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
                 TimeValue.timeValueDays(10), "", ""), modelBlob);
 
-        ActionListener<AcknowledgedResponse> docCreationListener = ActionListener.wrap(response -> {
-            assertTrue(response.isAcknowledged());
+        ActionListener<IndexResponse> docCreationListener = ActionListener.wrap(response -> {
+            assertEquals(modelId, response.getId());
             modelDao.delete(modelId, deleteModelExistsListener);
         }, exception -> fail("Unable to put the model: " + exception));
 
