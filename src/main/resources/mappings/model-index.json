@@ -9,6 +9,18 @@
     "dimension": {
       "type": "integer"
     },
+    "state": {
+      "type": "keyword"
+    },
+    "timestamp": {
+      "type": "date"
+    },
+    "description": {
+      "type": "keyword"
+    },
+    "error": {
+      "type": "keyword"
+    },
     "model_blob": {
       "type": "binary"
     }
