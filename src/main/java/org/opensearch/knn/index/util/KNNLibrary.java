@@ -96,6 +96,14 @@ public interface KNNLibrary {
     void validateMethod(KNNMethodContext knnMethodContext);
 
     /**
+     * Returns whether training is required or not from knnMethodContext for the given library.
+     *
+     * @param knnMethodContext methodContext
+     * @return true if training is required; false otherwise
+     */
+    boolean isTrainingRequired(KNNMethodContext knnMethodContext);
+
+    /**
      * Generate method as map that can be used to configure the knn index from the jni
      *
      * @param knnMethodContext to generate parameter map from
@@ -175,6 +183,12 @@ public interface KNNLibrary {
         public void validateMethod(KNNMethodContext knnMethodContext) {
             String methodName = knnMethodContext.getMethodComponent().getName();
             getMethod(methodName).validate(knnMethodContext);
+        }
+
+        @Override
+        public boolean isTrainingRequired(KNNMethodContext knnMethodContext) {
+            String methodName = knnMethodContext.getMethodComponent().getName();
+            return getMethod(methodName).isTrainingRequired();
         }
 
         @Override
