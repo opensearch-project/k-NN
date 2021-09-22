@@ -29,6 +29,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.search.TopDocs;
 import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.JNIService;
@@ -61,6 +62,7 @@ import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 import org.opensearch.watcher.ResourceWatcherService;
 import org.mockito.Mockito;
 
@@ -220,7 +222,12 @@ public class  KNNCodecTestCase extends KNNTestCase {
 
         // Setup model cache
         ModelDao modelDao = mock(ModelDao.class);
-        Model mockModel = new Model(new ModelMetadata(knnEngine, spaceType, dimension), modelBlob);
+
+        // Set model state to created
+        ModelMetadata modelMetadata1 = new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED,
+                TimeValue.timeValueDays(3), "", "");
+
+        Model mockModel = new Model(modelMetadata1, modelBlob);
         when(modelDao.get(modelId)).thenReturn(mockModel);
 
         Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), 10).build();

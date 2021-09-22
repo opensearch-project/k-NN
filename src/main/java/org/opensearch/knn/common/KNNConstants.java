@@ -47,6 +47,11 @@ public class KNNConstants {
     public static final String PLUGIN_NAME = "knn";
     public static final String MODEL_METADATA_FIELD = "knn-models";
 
+    public static final String MODEL_STATE = "state";
+    public static final String MODEL_TIMESTAMP = "timestamp";
+    public static final String MODEL_DESCRIPTION = "description";
+    public static final String MODEL_ERROR = "error";
+
     // nmslib specific constants
     public static final String NMSLIB_NAME = "nmslib";
     public static final String SPACE_TYPE = "spaceType"; // used as field info key

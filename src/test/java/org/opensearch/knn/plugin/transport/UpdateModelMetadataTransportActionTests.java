@@ -16,10 +16,12 @@ import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
@@ -56,7 +58,8 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
 
         // Setup the model
         String modelId = "test-model";
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 128);
+        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 128, ModelState.CREATED,
+                TimeValue.timeValueDays(10), "", "");
 
         // Get update  transport action
         UpdateModelMetadataTransportAction updateModelMetadataTransportAction = node().injector()
@@ -92,10 +95,10 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
 
                             inProgressLatch1.countDown();
 
-                        }, e -> fail("Update failed")));
-                    }, e -> fail("Update failed"))
+                        }, e -> fail("Update failed:" + e)));
+                    }, e -> fail("Update failed: " + e))
             );
-        }, e -> fail("Update failed")));
+        }, e -> fail("Update failed: "  + e)));
 
         assertTrue(inProgressLatch1.await(60, TimeUnit.SECONDS));
 

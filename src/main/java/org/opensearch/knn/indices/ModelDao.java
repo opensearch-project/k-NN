@@ -12,7 +12,6 @@
 package org.opensearch.knn.indices;
 
 import com.google.common.base.Charsets;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -33,7 +32,9 @@ import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.Nullable;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
@@ -44,6 +45,7 @@ import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -79,18 +81,27 @@ public interface ModelDao {
      *
      * @param modelId   Id of model to create
      * @param model Model to be indexed
-     * @param listener  handles acknowledged response
+     * @param listener  handles index response
      */
-    void put(String modelId, Model model, ActionListener<AcknowledgedResponse> listener) throws IOException;
+    void put(String modelId, Model model, ActionListener<IndexResponse> listener) throws IOException;
 
     /**
      * Put a model into the system index. Non-blocking. When no id is passed in, OpenSearch will generate the id
      * automatically. The id can be retrieved in the IndexResponse.
      *
      * @param model Model to be indexed
-     * @param listener  handles acknowledged response
+     * @param listener  handles index response
      */
-    void put(Model model, ActionListener<AcknowledgedResponse> listener) throws IOException;
+    void put(Model model, ActionListener<IndexResponse> listener) throws IOException;
+
+    /**
+     * Update model of model id with new model.
+     *
+     * @param modelId model id to update
+     * @param model new model
+     * @param listener handles index response
+     */
+    void update(String modelId, Model model, ActionListener<IndexResponse> listener) throws IOException;
 
     /**
      * Get a model from the system index. Call blocks.
@@ -183,75 +194,105 @@ public interface ModelDao {
         }
 
         @Override
-        public void put(String modelId, Model model, ActionListener<AcknowledgedResponse> listener) throws IOException {
-            String base64Model = Base64.getEncoder().encodeToString(model.getModelBlob());
-
-            Map<String, Object> parameters = ImmutableMap.of(
-                    KNNConstants.KNN_ENGINE, model.getModelMetadata().getKnnEngine().getName(),
-                    KNNConstants.METHOD_PARAMETER_SPACE_TYPE, model.getModelMetadata().getSpaceType().getValue(),
-                    KNNConstants.DIMENSION, model.getModelMetadata().getDimension(),
-                    KNNConstants.MODEL_BLOB_PARAMETER, base64Model
-            );
-
-            IndexRequestBuilder indexRequestBuilder = client.prepareIndex(MODEL_INDEX_NAME, "_doc");
-            indexRequestBuilder.setId(modelId);
-            indexRequestBuilder.setSource(parameters);
-
-            // Fail if the id already exists. Models are not updateable
-            indexRequestBuilder.setOpType(DocWriteRequest.OpType.CREATE);
-            indexRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
-
-            // After the model is indexed, update metadata
-            ActionListener<IndexResponse> putMetadataListener = getUpdateModelMetadataListener(model.getModelMetadata(),
-                    listener);
-
-            if (!isCreated()) {
-                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(putMetadataListener),
-                        listener::onFailure));
-                return;
-            }
-
-            indexRequestBuilder.execute(putMetadataListener);
+        public void put(String modelId, Model model, ActionListener<IndexResponse> listener) throws IOException {
+            putInternal(modelId, model, listener, DocWriteRequest.OpType.CREATE);
         }
 
         @Override
-        public void put(Model model, ActionListener<AcknowledgedResponse> listener) throws IOException {
-            String base64Model = Base64.getEncoder().encodeToString(model.getModelBlob());
+        public void put(Model model, ActionListener<IndexResponse> listener) throws IOException {
+            putInternal(null, model, listener, DocWriteRequest.OpType.CREATE);
+        }
 
-            Map<String, Object> parameters = ImmutableMap.of(
-                    KNNConstants.KNN_ENGINE, model.getModelMetadata().getKnnEngine().getName(),
-                    KNNConstants.METHOD_PARAMETER_SPACE_TYPE, model.getModelMetadata().getSpaceType().getValue(),
-                    KNNConstants.DIMENSION, model.getModelMetadata().getDimension(),
-                    KNNConstants.MODEL_BLOB_PARAMETER, base64Model
-            );
+        @Override
+        public void update(String modelId, Model model, ActionListener<IndexResponse> listener)
+                throws IOException {
+            putInternal(modelId, model, listener, DocWriteRequest.OpType.INDEX);
+        }
+
+        private void putInternal(@Nullable String modelId, Model model, ActionListener<IndexResponse> listener,
+                                 DocWriteRequest.OpType requestOpType) throws IOException {
+
+            if (model == null) {
+                throw new IllegalArgumentException("Model cannot be null");
+            }
+
+            ModelMetadata modelMetadata = model.getModelMetadata();
+
+            Map<String, Object> parameters = new HashMap<String, Object>() {{
+                put(KNNConstants.KNN_ENGINE, modelMetadata.getKnnEngine().getName());
+                put(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, modelMetadata.getSpaceType().getValue());
+                put(KNNConstants.DIMENSION, modelMetadata.getDimension());
+                put(KNNConstants.MODEL_STATE, modelMetadata.getState().getName());
+                put(KNNConstants.MODEL_TIMESTAMP, modelMetadata.getTimestamp().toString());
+                put(KNNConstants.MODEL_DESCRIPTION, modelMetadata.getDescription());
+                put(KNNConstants.MODEL_ERROR, modelMetadata.getError());
+            }};
+
+            byte[] modelBlob = model.getModelBlob();
+
+            if (modelBlob == null && ModelState.CREATED.equals(modelMetadata.getState())) {
+                throw new IllegalArgumentException("Model binary cannot be null when model state is CREATED");
+            }
+
+            // Only add model if it is not null
+            if (modelBlob != null) {
+                String base64Model = Base64.getEncoder().encodeToString(modelBlob);
+                parameters.put(KNNConstants.MODEL_BLOB_PARAMETER, base64Model);
+            }
 
             IndexRequestBuilder indexRequestBuilder = client.prepareIndex(MODEL_INDEX_NAME, "_doc");
+
+            // Set id for request only if modelId is present
+            if (modelId != null) {
+                indexRequestBuilder.setId(modelId);
+            }
+
             indexRequestBuilder.setSource(parameters);
 
-            // Fail if the id already exists. Models are not updateable
-            indexRequestBuilder.setOpType(DocWriteRequest.OpType.CREATE);
+            indexRequestBuilder.setOpType(requestOpType); // Delegate whether this request can update based on opType
             indexRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
-            // After the model is indexed, update metadata
-            ActionListener<IndexResponse> putMetadataListener = getUpdateModelMetadataListener(model.getModelMetadata(),
-                    listener);
+            // After metadata update finishes, remove item from cache if necessary. If no model id is
+            // passed then nothing needs to be removed from the cache
+            //TODO: Bug. Model needs to be removed from all nodes caches, not just local.
+            // https://github.com/opensearch-project/k-NN/issues/93
+            ActionListener<IndexResponse> onMetaListener;
+            if (modelId != null) {
+                onMetaListener = ActionListener.wrap(response -> {
+                    ModelCache.getInstance().remove(modelId);
+                    listener.onResponse(response);
+                }, listener::onFailure);
+            } else {
+                onMetaListener = listener;
+            }
 
-            // If the index has not been created yet, create it and then add the document
+            // After the model is indexed, update metadata only if the model is in CREATED state
+            ActionListener<IndexResponse> onIndexListener;
+            if (ModelState.CREATED.equals(model.getModelMetadata().getState())) {
+                onIndexListener = getUpdateModelMetadataListener(model.getModelMetadata(), onMetaListener);
+            } else {
+                onIndexListener = onMetaListener;
+            }
+
+            // Create the model index if it does not already exist
             if (!isCreated()) {
-                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(putMetadataListener),
-                        listener::onFailure));
+                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(onIndexListener),
+                        onIndexListener::onFailure));
                 return;
             }
 
-            indexRequestBuilder.execute(putMetadataListener);
+            indexRequestBuilder.execute(onIndexListener);
         }
 
         private ActionListener<IndexResponse> getUpdateModelMetadataListener(ModelMetadata modelMetadata,
-                ActionListener<AcknowledgedResponse> listener) {
+                ActionListener<IndexResponse> listener) {
             return ActionListener.wrap(indexResponse -> client.execute(
                     UpdateModelMetadataAction.INSTANCE,
                     new UpdateModelMetadataRequest(indexResponse.getId(), false, modelMetadata),
-                    listener
+                    // Here we wrap the IndexResponse listener around an AcknowledgedListener. This allows us
+                    // to pass the indexResponse back up.
+                    ActionListener.wrap(acknowledgedResponse -> listener.onResponse(indexResponse),
+                            listener::onFailure)
             ), listener::onFailure);
         }
 
@@ -269,15 +310,23 @@ public interface ModelDao {
             Object engine = responseMap.get(KNNConstants.KNN_ENGINE);
             Object space = responseMap.get(KNNConstants.METHOD_PARAMETER_SPACE_TYPE);
             Object dimension = responseMap.get(KNNConstants.DIMENSION);
+            Object state = responseMap.get(KNNConstants.MODEL_STATE);
+            Object timestamp  = responseMap.get(KNNConstants.MODEL_TIMESTAMP);
+            Object description = responseMap.get(KNNConstants.MODEL_DESCRIPTION);
+            Object error = responseMap.get(KNNConstants.MODEL_ERROR);
             Object blob = responseMap.get(KNNConstants.MODEL_BLOB_PARAMETER);
 
-            if (blob == null) {
-                throw new IllegalArgumentException("No model available in \"" + MODEL_INDEX_NAME + "\" index with id \""
-                        + modelId + "\".");
+            // If byte blob is not there, it means that the state has not yet been updated to CREATED.
+            byte[] byteBlob = null;
+            if (blob != null) {
+                byteBlob = Base64.getDecoder().decode((String) blob);
             }
+
             ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.getEngine((String) engine),
-                    SpaceType.getSpace((String) space), (Integer) dimension);
-            return new Model(modelMetadata, Base64.getDecoder().decode((String) blob));
+                    SpaceType.getSpace((String) space), (Integer) dimension, ModelState.getModelState((String) state),
+                    TimeValue.parseTimeValue((String) timestamp, KNNConstants.MODEL_TIMESTAMP), (String) description,
+                    (String) error);
+            return new Model(modelMetadata, byteBlob);
         }
 
         @Override
@@ -326,6 +375,8 @@ public interface ModelDao {
             deleteRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
             // On model deletion from the index, remove the model from the model cache
+            //TODO: Bug. Model needs to be removed from all nodes caches, not just local.
+            // https://github.com/opensearch-project/k-NN/issues/93
             ActionListener<DeleteResponse> onModelDeleteListener = ActionListener.wrap(deleteResponse -> {
                 ModelCache.getInstance().remove(modelId);
                 listener.onResponse(deleteResponse);
