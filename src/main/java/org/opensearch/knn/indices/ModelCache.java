@@ -93,7 +93,7 @@ public final class ModelCache {
         try {
             return cache.get(modelId, () -> modelDao.get(modelId));
         } catch (ExecutionException ee) {
-            throw new IllegalStateException("Unable to retrieve model blob for \"" + modelId + "\": " + ee);
+            throw new IllegalStateException("Unable to retrieve model binary for \"" + modelId + "\": " + ee);
         }
     }
 
