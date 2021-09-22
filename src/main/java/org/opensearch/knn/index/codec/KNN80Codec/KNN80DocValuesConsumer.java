@@ -115,7 +115,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                 Model model = ModelCache.getInstance().get(modelId);
 
                 if (model.getModelBlob() == null) {
-                    throw new RuntimeException("Model blob cannot be null");
+                    throw new RuntimeException("There is no model with id \"" + modelId + "\"");
                 }
 
                 if (model.getModelMetadata().getKnnEngine() != knnEngine) {

@@ -33,7 +33,8 @@ public class Model {
         this.modelMetadata = Objects.requireNonNull(modelMetadata, "modelMetadata must not be null");
 
         if (ModelState.CREATED.equals(this.modelMetadata.getState()) && modelBlob == null) {
-            throw new IllegalArgumentException("Model blob cannot be null when model metadata says model is created");
+            throw new IllegalArgumentException("Cannot construct model in state CREATED when model binary is null. " +
+                    "State must be either TRAINING or FAILED");
         }
 
         this.modelBlob = new AtomicReference<>(modelBlob);
