@@ -26,7 +26,7 @@
 
 buildscript {
     ext {
-        opensearch_version = System.getProperty("opensearch.version", "1.0.0-rc1")
+        opensearch_version = System.getProperty("opensearch.version", "1.1.0-SNAPSHOT")
         opensearch_group = "org.opensearch"
     }
 
@@ -91,7 +91,6 @@ if (!usingRemoteCluster) {
 }
 
 ext {
-    opensearchVersion = '1.0.0'
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
     projectSubstitutions = [:]
     licenseFile = rootProject.file('LICENSE.TXT')
@@ -100,8 +99,10 @@ ext {
 
 allprojects {
     group = 'org.opensearch'
-    version = "${opensearchVersion}.0-rc1"
-
+    version = "${opensearch_version}" - "-SNAPSHOT" + ".0"
+    if (isSnapshot) {
+        version += "-SNAPSHOT"
+    }
     apply from: 'build-tools/repositories.gradle'
     plugins.withId('java') {
         sourceCompatibility = targetCompatibility = "1.8"
@@ -153,7 +154,7 @@ dependencies {
     }
 }
 
-licenseHeaders.enabled = false
+licenseHeaders.enabled = true
 dependencyLicenses.enabled = false
 thirdPartyAudit.enabled = false
 loggerUsageCheck.enabled = false
@@ -275,7 +276,8 @@ afterEvaluate {
         dirMode 0755
 
         requires('opensearch', versions.opensearch, EQUAL)
-        requires("opensearch-knnlib",  "${opensearchVersion}.0",  EQUAL)
+        //TODO: Use default knn lib version for now, fix will be compare with version that is used in build step.
+        requires("opensearch-knnlib",  "1.1.0.0",  EQUAL)
         packager = 'Amazon'
         vendor = 'Amazon'
         os = 'LINUX'
