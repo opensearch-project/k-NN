@@ -87,7 +87,7 @@ public class Model {
         Model other = (Model) obj;
 
         EqualsBuilder equalsBuilder = new EqualsBuilder();
-        equalsBuilder.append(modelMetadata, other.modelMetadata);
+        equalsBuilder.append(getModelMetadata(), other.getModelMetadata());
         equalsBuilder.append(getModelBlob(), other.getModelBlob());
 
         return equalsBuilder.isEquals();
@@ -95,6 +95,6 @@ public class Model {
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(modelMetadata).append(getModelBlob()).toHashCode();
+        return new HashCodeBuilder().append(getModelMetadata()).append(getModelBlob()).toHashCode();
     }
 }

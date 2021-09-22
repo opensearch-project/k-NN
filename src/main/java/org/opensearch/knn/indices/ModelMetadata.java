@@ -181,21 +181,21 @@ public class ModelMetadata implements Writeable {
         ModelMetadata other = (ModelMetadata) obj;
 
         EqualsBuilder equalsBuilder = new EqualsBuilder();
-        equalsBuilder.append(knnEngine, other.knnEngine);
-        equalsBuilder.append(spaceType, other.spaceType);
-        equalsBuilder.append(dimension, other.dimension);
+        equalsBuilder.append(getKnnEngine(), other.getKnnEngine());
+        equalsBuilder.append(getSpaceType(), other.getSpaceType());
+        equalsBuilder.append(getDimension(), other.getDimension());
         equalsBuilder.append(getState(), other.getState());
-        equalsBuilder.append(timestamp, other.timestamp);
-        equalsBuilder.append(description, other.description);
-        equalsBuilder.append(error, other.error);
+        equalsBuilder.append(getTimestamp(), other.getTimestamp());
+        equalsBuilder.append(getDescription(), other.getDescription());
+        equalsBuilder.append(getError(), other.getError());
 
         return equalsBuilder.isEquals();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(knnEngine).append(spaceType).append(dimension).append(getState())
-                .append(timestamp).append(description).append(error).toHashCode();
+        return new HashCodeBuilder().append(getKnnEngine()).append(getSpaceType()).append(getDimension())
+                .append(getState()).append(getTimestamp()).append(getDescription()).append(getError()).toHashCode();
     }
 
     /**
@@ -225,12 +225,12 @@ public class ModelMetadata implements Writeable {
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        out.writeString(knnEngine.getName());
-        out.writeString(spaceType.getValue());
-        out.writeInt(dimension);
+        out.writeString(getKnnEngine().getName());
+        out.writeString(getSpaceType().getValue());
+        out.writeInt(getDimension());
         getState().writeTo(out);
-        out.writeTimeValue(timestamp);
-        out.writeString(description);
-        out.writeString(error);
+        out.writeTimeValue(getTimestamp());
+        out.writeString(getDescription());
+        out.writeString(getError());
     }
 }
