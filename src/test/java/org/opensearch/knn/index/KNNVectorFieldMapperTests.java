@@ -26,6 +26,7 @@
 package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.ValidationException;
@@ -40,6 +41,7 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -112,7 +114,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 .build();
 
         String modelId = "Random modelId";
-        ModelMetadata mockedModelMetadata = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 129);
+        ModelMetadata mockedModelMetadata = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 129,
+                ModelState.CREATED, TimeValue.timeValueHours(10), "", "");
         builder.modelId.setValue(modelId);
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
 
@@ -353,7 +356,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         int dimension = 133;
 
         ModelDao mockModelDao = mock(ModelDao.class);
-        ModelMetadata mockModelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension);
+        ModelMetadata mockModelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension,
+                ModelState.CREATED, TimeValue.timeValueDays(10), "", "");
         when(mockModelDao.getMetadata(modelId)).thenReturn(mockModelMetadata);
 
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> mockModelDao);
