@@ -231,7 +231,7 @@ public interface ModelDao {
             byte[] modelBlob = model.getModelBlob();
 
             if (modelBlob == null && ModelState.CREATED.equals(modelMetadata.getState())) {
-                throw new IllegalArgumentException("Model blob cannot be null when model state is CREATED");
+                throw new IllegalArgumentException("Model binary cannot be null when model state is CREATED");
             }
 
             // Only add model if it is not null
