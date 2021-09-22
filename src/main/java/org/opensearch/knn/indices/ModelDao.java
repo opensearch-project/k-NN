@@ -255,6 +255,7 @@ public interface ModelDao {
             // After metadata update finishes, remove item from cache if necessary. If no model id is
             // passed then nothing needs to be removed from the cache
             //TODO: Bug. Model needs to be removed from all nodes caches, not just local.
+            // https://github.com/opensearch-project/k-NN/issues/93
             ActionListener<IndexResponse> onMetaListener;
             if (modelId != null) {
                 onMetaListener = ActionListener.wrap(response -> {
@@ -375,6 +376,7 @@ public interface ModelDao {
 
             // On model deletion from the index, remove the model from the model cache
             //TODO: Bug. Model needs to be removed from all nodes caches, not just local.
+            // https://github.com/opensearch-project/k-NN/issues/93
             ActionListener<DeleteResponse> onModelDeleteListener = ActionListener.wrap(deleteResponse -> {
                 ModelCache.getInstance().remove(modelId);
                 listener.onResponse(deleteResponse);
