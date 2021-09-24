@@ -85,6 +85,23 @@ public class KNNMethodContextTests extends KNNTestCase {
     }
 
     /**
+     * Test KNNMethodContext requires training method
+     */
+    public void testRequiresTraining() {
+
+        // Check for NMSLIB
+        MethodComponentContext hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, hnswMethod);
+        assertFalse(knnMethodContext.isTrainingRequired());
+
+        // Check for FAISS
+        hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
+        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, hnswMethod);
+        assertFalse(knnMethodContext.isTrainingRequired());
+
+    }
+
+    /**
      * Test context method parsing when input is invalid
      */
     public void testParse_invalid() throws IOException {

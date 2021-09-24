@@ -128,6 +128,12 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
+    public boolean isTrainingRequired(KNNMethodContext knnMethodContext) {
+        return knnLibrary.isTrainingRequired(knnMethodContext);
+    }
+
+
+    @Override
     public Map<String, Object> getMethodAsMap(KNNMethodContext knnMethodContext) {
         return knnLibrary.getMethodAsMap(knnMethodContext);
     }
