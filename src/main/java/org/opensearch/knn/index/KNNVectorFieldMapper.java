@@ -26,6 +26,7 @@
 package org.opensearch.knn.index;
 
 import org.opensearch.common.Strings;
+import org.opensearch.common.ValidationException;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.common.KNNConstants;
 
@@ -154,8 +155,14 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     b.endObject();
                 }), m -> m.getMethodComponent().getName())
                 .setValidator(v -> {
-                    //TODO: This should also check if v requires training. If so, it should fail
-                    if(v != null) v.validate();
+                    if (v == null)
+                        return;
+                    if (v.isTrainingRequired()){
+                        ValidationException validationException = new ValidationException();
+                        validationException.addValidationError(KNN_METHOD + " requires training");
+                        throw validationException;
+                    }
+                    v.validate();
                 });
 
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();

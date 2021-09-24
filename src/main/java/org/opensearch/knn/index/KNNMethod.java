@@ -82,6 +82,15 @@ public class KNNMethod {
     }
 
     /**
+     * returns whether training is required or not
+     *
+     * @return true if training is required; false otherwise
+     */
+    public boolean isTrainingRequired() {
+        return methodComponent.IsTrainingRequired();
+    }
+
+    /**
      * Parse knnMethodContext into a map that the library can use to configure the index
      *
      * @param knnMethodContext from which to generate map
