@@ -103,6 +103,15 @@ public class KNNMethodContext implements ToXContentFragment {
     }
 
     /**
+     * This method returns whether training is requires or not from knnEngine
+     *
+     * @return true if training is required by knnEngine; false otherwise
+     */
+    public boolean isTrainingRequired() {
+        return knnEngine.isTrainingRequired(this);
+    }
+
+    /**
      * Parses an Object into a KNNMethodContext.
      *
      * @param in Object containing mapping to be parsed
