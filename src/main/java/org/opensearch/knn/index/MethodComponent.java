@@ -16,6 +16,7 @@ import org.opensearch.knn.common.KNNConstants;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiFunction;
 
 /**
@@ -26,6 +27,7 @@ public class MethodComponent {
     private String name;
     private Map<String, Parameter<?>> parameters;
     private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
+    final private boolean requiresTraining;
 
     /**
      * Constructor
@@ -36,6 +38,7 @@ public class MethodComponent {
         this.name = builder.name;
         this.parameters = builder.parameters;
         this.mapGenerator = builder.mapGenerator;
+        this.requiresTraining = builder.requiresTraining;
     }
 
     /**
@@ -93,6 +96,14 @@ public class MethodComponent {
             parameters.get(parameter.getKey()).validate(parameter.getValue());
         }
     }
+    /**
+     * gets requiresTraining value
+     *
+     * @return requiresTraining
+     */
+    public boolean IsTrainingRequired() {
+            return requiresTraining;
+    }
 
     /**
      * Builder class for MethodComponent
@@ -102,6 +113,7 @@ public class MethodComponent {
         private String name;
         private Map<String, Parameter<?>> parameters;
         private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
+        private boolean requiresTraining;
 
         /**
          * Method to get a Builder instance
@@ -139,6 +151,16 @@ public class MethodComponent {
          */
         public Builder setMapGenerator(BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator) {
             this.mapGenerator = mapGenerator;
+            return this;
+        }
+
+        /**
+         * set requiresTraining
+         * @param requiresTraining parameter to be set
+         * @return Builder instance
+         */
+        public Builder setRequiresTraining(boolean requiresTraining){
+            this.requiresTraining = requiresTraining;
             return this;
         }
 
