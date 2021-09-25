@@ -72,7 +72,19 @@ public class KNNConstants {
     public static final String METHOD_ENCODER_PARAMETER = "encoder";
     public static final String METHOD_PARAMETER_NPROBES = "nprobes";
     public static final String ENCODER_FLAT = "flat";
+    public static final String ENCODER_PQ = "pq";
+    public static final String ENCODER_PARAMETER_PQ_CODE_COUNT = "code_count";
+    public static final String ENCODER_PARAMETER_PQ_CODE_SIZE = "code_size";
     public static final String FAISS_HNSW_DESCRIPTION = "HNSW";
     public static final String FAISS_IVF_DESCRIPTION = "IVF";
     public static final String FAISS_FLAT_DESCRIPTION = "Flat";
+    public static final String FAISS_PQ_DESCRIPTION = "PQ";
+
+    // Parameter defaults/limits
+    public static final Integer ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT = 1;
+    public static final Integer ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT = 1024;
+    public static final Integer ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT = 8;
+    public static final Integer ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT = 128;
+    public static final Integer METHOD_PARAMETER_NLIST_DEFAULT = 4;
+    public static final Integer METHOD_PARAMETER_NLIST_LIMIT = 20000;
 }
