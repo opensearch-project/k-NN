@@ -65,6 +65,7 @@ import org.opensearch.index.mapper.Mapper;
 import org.opensearch.knn.plugin.stats.KNNStatsConfig;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
+import org.opensearch.knn.training.TrainingJobRunner;
 import org.opensearch.knn.training.VectorReader;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.EnginePlugin;
@@ -161,6 +162,7 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
         KNNSettings.state().initialize(client, clusterService);
         ModelDao.OpenSearchKNNModelDao.initialize(client, clusterService, environment.settings());
         ModelCache.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
+        TrainingJobRunner.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService, client);
         knnStats = new KNNStats(KNNStatsConfig.KNN_STATS);
         return ImmutableList.of(knnStats);

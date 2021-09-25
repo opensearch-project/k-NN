@@ -163,7 +163,7 @@ public class ModelMetadata implements Writeable {
      * @param error set on failure
      */
     public synchronized void setError(String error) {
-        this.error = Objects.requireNonNull(error, "error must not be null");
+        this.error = error;
     }
 
     @Override

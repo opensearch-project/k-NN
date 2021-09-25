@@ -28,11 +28,14 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.FAISS_IVF_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 
 /**
  * KNNLibrary is an interface that helps the plugin communicate with k-NN libraries
@@ -312,6 +315,18 @@ public interface KNNLibrary {
                         .setMapGenerator(((methodComponent, methodComponentContext) ->
                                 MethodAsMapBuilder.builder(FAISS_HNSW_DESCRIPTION, methodComponent, methodComponentContext)
                                         .addParameter(METHOD_PARAMETER_M, "", "")
+                                        .addParameter(METHOD_ENCODER_PARAMETER, ",", "")
+                                        .build()))
+                        .build())
+                        .addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build(),
+                METHOD_IVF, KNNMethod.Builder.builder(MethodComponent.Builder.builder(METHOD_IVF)
+                        .addParameter(METHOD_PARAMETER_NLIST,
+                                new Parameter.IntegerParameter(1000, v -> v > 0 && v < 20_000))
+                        .addParameter(METHOD_ENCODER_PARAMETER,
+                                new Parameter.MethodComponentContextParameter(ENCODER_DEFAULT, encoderComponents))
+                        .setMapGenerator(((methodComponent, methodComponentContext) ->
+                                MethodAsMapBuilder.builder(FAISS_IVF_DESCRIPTION, methodComponent, methodComponentContext)
+                                        .addParameter(METHOD_PARAMETER_NLIST, "", "")
                                         .addParameter(METHOD_ENCODER_PARAMETER, ",", "")
                                         .build()))
                         .build())
