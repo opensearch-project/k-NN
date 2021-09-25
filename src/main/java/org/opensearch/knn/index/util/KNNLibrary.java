@@ -324,6 +324,7 @@ public interface KNNLibrary {
                                 new Parameter.IntegerParameter(1000, v -> v > 0 && v < 20_000))
                         .addParameter(METHOD_ENCODER_PARAMETER,
                                 new Parameter.MethodComponentContextParameter(ENCODER_DEFAULT, encoderComponents))
+                        .setRequiresTraining(true)
                         .setMapGenerator(((methodComponent, methodComponentContext) ->
                                 MethodAsMapBuilder.builder(FAISS_IVF_DESCRIPTION, methodComponent, methodComponentContext)
                                         .addParameter(METHOD_PARAMETER_NLIST, "", "")
