@@ -13,6 +13,9 @@ package org.opensearch.knn.index;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.xcontent.ToXContentFragment;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.index.mapper.MapperParsingException;
@@ -33,7 +36,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  *
  * Each component is composed of a name and a map of parameters.
  */
-public class MethodComponentContext implements ToXContentFragment {
+public class MethodComponentContext implements ToXContentFragment, Writeable {
 
     private static Logger logger = LogManager.getLogger(MethodComponentContext.class);
 
@@ -49,6 +52,17 @@ public class MethodComponentContext implements ToXContentFragment {
     public MethodComponentContext(String name, Map<String, Object> parameters) {
         this.name = name;
         this.parameters = parameters;
+    }
+
+    /**
+     * Constructor from stream.
+     *
+     * @param in StreamInput
+     * @throws IOException on stream failure
+     */
+    public MethodComponentContext(StreamInput in) throws IOException {
+        this.name = in.readString();
+        this.parameters = in.readMap();
     }
 
     /**
@@ -166,5 +180,11 @@ public class MethodComponentContext implements ToXContentFragment {
      */
     public Map<String, Object> getParameters() {
         return parameters;
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        out.writeString(this.name);
+        out.writeMap(this.parameters);
     }
 }

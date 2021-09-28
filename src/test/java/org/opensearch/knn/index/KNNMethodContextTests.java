@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.index;
 
+import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.util.KNNEngine;
 import com.google.common.collect.ImmutableMap;
@@ -31,6 +32,31 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 
 public class KNNMethodContextTests extends KNNTestCase {
+
+    /**
+     * Test reading from and writing to streams
+     */
+    public void testStreams() throws IOException {
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        SpaceType spaceType = SpaceType.INNER_PRODUCT;
+        String name = "test-name";
+        Map<String, Object> parameters = ImmutableMap.of(
+                "test-p-1", 10,
+                "test-p-2", "string-p"
+        );
+
+        MethodComponentContext originalMethodComponent = new MethodComponentContext(name, parameters);
+
+        KNNMethodContext original = new KNNMethodContext(knnEngine, spaceType, originalMethodComponent);
+
+        BytesStreamOutput streamOutput = new BytesStreamOutput();
+        original.writeTo(streamOutput);
+
+        KNNMethodContext copy = new KNNMethodContext(streamOutput.bytes().streamInput());
+
+        assertEquals(original, copy);
+    }
+
     /**
      * Test method component getter
      */
