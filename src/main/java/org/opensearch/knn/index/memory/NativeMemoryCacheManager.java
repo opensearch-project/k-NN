@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Manages native memory allocations made by JNI.
  */
-public final class NativeMemoryCacheManager implements Closeable {
+public class NativeMemoryCacheManager implements Closeable {
 
     public static String GRAPH_COUNT = "graph_count";
 

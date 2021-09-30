@@ -27,12 +27,24 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_COUNT;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT;
 import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.FAISS_IVF_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.FAISS_PQ_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST_DEFAULT;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST_LIMIT;
 
 /**
  * KNNLibrary is an interface that helps the plugin communicate with k-NN libraries
@@ -289,12 +301,28 @@ public interface KNNLibrary {
         public final static MethodComponentContext ENCODER_DEFAULT = new MethodComponentContext(
                 KNNConstants.ENCODER_FLAT, Collections.emptyMap());
 
+        //TODO: To think about in future: for PQ, if dimension is not divisible by code count, PQ will fail. Right now,
+        // we do not have a way to base validation off of dimension. Failure will happen during training in JNI.
         public final static Map<String, MethodComponent> encoderComponents = ImmutableMap.of(
-                        KNNConstants.ENCODER_FLAT, MethodComponent.Builder.builder(KNNConstants.ENCODER_FLAT)
+                KNNConstants.ENCODER_FLAT, MethodComponent.Builder.builder(KNNConstants.ENCODER_FLAT)
                         .setMapGenerator(((methodComponent, methodComponentContext) ->
                                 MethodAsMapBuilder.builder(KNNConstants.FAISS_FLAT_DESCRIPTION, methodComponent,
-                                        methodComponentContext).build()))
-                        .build());
+                                        methodComponentContext).build())).build(),
+                KNNConstants.ENCODER_PQ, MethodComponent.Builder.builder(KNNConstants.ENCODER_PQ)
+                        .addParameter(ENCODER_PARAMETER_PQ_CODE_COUNT,
+                                new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT, v -> v > 0
+                                        && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT))
+                        .addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE,
+                                new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT, v -> v > 0
+                                        && v < ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT))
+                        .setRequiresTraining(true)
+                        .setMapGenerator(((methodComponent, methodComponentContext) ->
+                                MethodAsMapBuilder.builder(FAISS_PQ_DESCRIPTION, methodComponent, methodComponentContext)
+                                        .addParameter(ENCODER_PARAMETER_PQ_CODE_COUNT, "", "")
+                                        .addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, "x", "")
+                                        .build()))
+                        .build()
+        );
 
         // Define methods supported by faiss
         public final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
@@ -312,6 +340,19 @@ public interface KNNLibrary {
                         .setMapGenerator(((methodComponent, methodComponentContext) ->
                                 MethodAsMapBuilder.builder(FAISS_HNSW_DESCRIPTION, methodComponent, methodComponentContext)
                                         .addParameter(METHOD_PARAMETER_M, "", "")
+                                        .addParameter(METHOD_ENCODER_PARAMETER, ",", "")
+                                        .build()))
+                        .build())
+                        .addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build(),
+                METHOD_IVF, KNNMethod.Builder.builder(MethodComponent.Builder.builder(METHOD_IVF)
+                        .addParameter(METHOD_PARAMETER_NLIST,
+                                new Parameter.IntegerParameter(METHOD_PARAMETER_NLIST_DEFAULT, v -> v > 0 && v < METHOD_PARAMETER_NLIST_LIMIT))
+                        .addParameter(METHOD_ENCODER_PARAMETER,
+                                new Parameter.MethodComponentContextParameter(ENCODER_DEFAULT, encoderComponents))
+                        .setRequiresTraining(true)
+                        .setMapGenerator(((methodComponent, methodComponentContext) ->
+                                MethodAsMapBuilder.builder(FAISS_IVF_DESCRIPTION, methodComponent, methodComponentContext)
+                                        .addParameter(METHOD_PARAMETER_NLIST, "", "")
                                         .addParameter(METHOD_ENCODER_PARAMETER, ",", "")
                                         .build()))
                         .build())
