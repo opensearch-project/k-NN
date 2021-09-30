@@ -36,6 +36,8 @@ public class KNNConstants {
     public static final String METHOD_PARAMETER_EF_SEARCH = "ef_search";
     public static final String METHOD_PARAMETER_EF_CONSTRUCTION = "ef_construction";
     public static final String METHOD_PARAMETER_M = "m";
+    public static final String METHOD_IVF = "ivf";
+    public static final String METHOD_PARAMETER_NLIST = "nlist";
     public static final String METHOD_PARAMETER_SPACE_TYPE = "space_type"; // used for mapping parameter
     public static final String COMPOUND_EXTENSION = "c";
     public static final String JNI_LIBRARY_NAME = "OpensearchKNN";
@@ -52,6 +54,9 @@ public class KNNConstants {
     public static final String MODEL_DESCRIPTION = "description";
     public static final String MODEL_ERROR = "error";
 
+    public static final String KNN_THREAD_POOL_PREFIX = "knn";
+    public static final String TRAIN_THREAD_POOL = "training";
+
     // nmslib specific constants
     public static final String NMSLIB_NAME = "nmslib";
     public static final String SPACE_TYPE = "spaceType"; // used as field info key
@@ -67,6 +72,19 @@ public class KNNConstants {
     public static final String METHOD_ENCODER_PARAMETER = "encoder";
     public static final String METHOD_PARAMETER_NPROBES = "nprobes";
     public static final String ENCODER_FLAT = "flat";
+    public static final String ENCODER_PQ = "pq";
+    public static final String ENCODER_PARAMETER_PQ_CODE_COUNT = "code_count";
+    public static final String ENCODER_PARAMETER_PQ_CODE_SIZE = "code_size";
     public static final String FAISS_HNSW_DESCRIPTION = "HNSW";
+    public static final String FAISS_IVF_DESCRIPTION = "IVF";
     public static final String FAISS_FLAT_DESCRIPTION = "Flat";
+    public static final String FAISS_PQ_DESCRIPTION = "PQ";
+
+    // Parameter defaults/limits
+    public static final Integer ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT = 1;
+    public static final Integer ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT = 1024;
+    public static final Integer ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT = 8;
+    public static final Integer ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT = 128;
+    public static final Integer METHOD_PARAMETER_NLIST_DEFAULT = 4;
+    public static final Integer METHOD_PARAMETER_NLIST_LIMIT = 20000;
 }
