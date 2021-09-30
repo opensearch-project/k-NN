@@ -65,6 +65,7 @@ import org.opensearch.index.mapper.Mapper;
 import org.opensearch.knn.plugin.stats.KNNStatsConfig;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
+import org.opensearch.knn.training.TrainingJobRunner;
 import org.opensearch.knn.training.VectorReader;
 import org.opensearch.plugins.ActionPlugin;
 import org.opensearch.plugins.EnginePlugin;
@@ -78,6 +79,8 @@ import org.opensearch.rest.RestHandler;
 import org.opensearch.script.ScriptContext;
 import org.opensearch.script.ScriptEngine;
 import org.opensearch.script.ScriptService;
+import org.opensearch.threadpool.ExecutorBuilder;
+import org.opensearch.threadpool.FixedExecutorBuilder;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.watcher.ResourceWatcherService;
 
@@ -90,6 +93,8 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static java.util.Collections.singletonList;
+import static org.opensearch.knn.common.KNNConstants.KNN_THREAD_POOL_PREFIX;
+import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
 
 /**
  * Entry point for the KNN plugin where we define mapper for knn_vector type
@@ -157,6 +162,7 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
         KNNSettings.state().initialize(client, clusterService);
         ModelDao.OpenSearchKNNModelDao.initialize(client, clusterService, environment.settings());
         ModelCache.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
+        TrainingJobRunner.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService, client);
         knnStats = new KNNStats(KNNStatsConfig.KNN_STATS);
         return ImmutableList.of(knnStats);
@@ -237,5 +243,19 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
     @Override
     public ScriptEngine getScriptEngine(Settings settings, Collection<ScriptContext<?>> contexts) {
         return new KNNScoringScriptEngine();
+    }
+
+    @Override
+    public List<ExecutorBuilder<?>> getExecutorBuilders(Settings settings) {
+        return ImmutableList.of(
+                new FixedExecutorBuilder(
+                        settings,
+                        TRAIN_THREAD_POOL,
+                        1,
+                        1,
+                        KNN_THREAD_POOL_PREFIX,
+                        false
+                )
+        );
     }
 }
