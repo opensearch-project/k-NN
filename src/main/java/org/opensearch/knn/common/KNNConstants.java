@@ -91,4 +91,5 @@ public class KNNConstants {
     public static final Integer ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT = 128;
     public static final Integer METHOD_PARAMETER_NLIST_DEFAULT = 4;
     public static final Integer METHOD_PARAMETER_NLIST_LIMIT = 20000;
+    public static final Integer MAX_MODEL_DESCRIPTION_LENGTH = 1000;
 }

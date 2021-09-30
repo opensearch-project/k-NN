@@ -35,6 +35,7 @@ import org.opensearch.knn.indices.ModelState;
 import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +53,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String trainingIndex = "test-training-index";
         String trainingField = "test-training-field";
         String preferredNode = "test-preferred-node";
+        String description = "some test description";
 
         TrainingModelRequest original1 = new TrainingModelRequest(
                 modelId,
@@ -59,7 +61,8 @@ public class TrainingModelRequestTests extends KNNTestCase {
                 dimension,
                 trainingIndex,
                 trainingField,
-                preferredNode
+                preferredNode,
+                description
         );
 
         BytesStreamOutput streamOutput = new BytesStreamOutput();
@@ -73,13 +76,14 @@ public class TrainingModelRequestTests extends KNNTestCase {
         assertEquals(original1.getTrainingField(), copy1.getTrainingField());
         assertEquals(original1.getPreferredNodeId(), copy1.getPreferredNodeId());
 
-        // Also, check when preferred node and model id are null
+        // Also, check when preferred node and model id and description are null
         TrainingModelRequest original2 = new TrainingModelRequest(
                 null,
                 knnMethodContext,
                 dimension,
                 trainingIndex,
                 trainingField,
+                null,
                 null
         );
 
@@ -102,6 +106,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String trainingIndex = "test-training-index";
         String trainingField = "test-training-field";
         String preferredNode = "test-preferred-node";
+        String description = "some test description";
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
                 modelId,
@@ -109,7 +114,8 @@ public class TrainingModelRequestTests extends KNNTestCase {
                 dimension,
                 trainingIndex,
                 trainingField,
-                preferredNode
+                preferredNode,
+                description
         );
 
         assertEquals(modelId, trainingModelRequest.getModelId());
@@ -118,6 +124,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
         assertEquals(trainingIndex, trainingModelRequest.getTrainingIndex());
         assertEquals(trainingField, trainingModelRequest.getTrainingField());
         assertEquals(preferredNode, trainingModelRequest.getPreferredNodeId());
+        assertEquals(description, trainingModelRequest.getDescription());
     }
 
     public void testValidation_invalid_modelIdAlreadyExists() {
@@ -139,6 +146,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
                 dimension,
                 trainingIndex,
                 trainingField,
+                null,
                 null
         );
 
@@ -188,6 +196,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
                 dimension,
                 trainingIndex,
                 trainingField,
+                null,
                 null
         );
 
@@ -230,6 +239,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
                 dimension,
                 trainingIndex,
                 trainingField,
+                null,
                 null
         );
 
@@ -275,6 +285,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
                 dimension,
                 trainingIndex,
                 trainingField,
+                null,
                 null
         );
 
@@ -325,6 +336,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
                 dimension,
                 trainingIndex,
                 trainingField,
+                null,
                 null
         );
 
@@ -381,6 +393,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
                 dimension,
                 trainingIndex,
                 trainingField,
+                null,
                 null
         );
 
@@ -436,7 +449,8 @@ public class TrainingModelRequestTests extends KNNTestCase {
                 dimension,
                 trainingIndex,
                 trainingField,
-                preferredNode
+                preferredNode,
+                null
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
@@ -479,6 +493,54 @@ public class TrainingModelRequestTests extends KNNTestCase {
         assertTrue(validationErrors.get(0).contains("Preferred node"));
     }
 
+    public void testValidation_invalid_descriptionToLong() {
+
+        // Setup the training request
+        String modelId = "test-model-id";
+        KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
+        doAnswer(invocationOnMock -> null).when(knnMethodContext).validate();
+        when(knnMethodContext.isTrainingRequired()).thenReturn(true);
+        int dimension = 10;
+        String trainingIndex = "test-training-index";
+        String trainingField = "test-training-field";
+        String trainingFieldModeId = "training-field-model-id";
+
+        char[] chars = new char[KNNConstants.MAX_MODEL_DESCRIPTION_LENGTH + 1];
+        Arrays.fill(chars, 'a');
+        String description = new String(chars);
+
+        TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
+                modelId,
+                knnMethodContext,
+                dimension,
+                trainingIndex,
+                trainingField,
+                null,
+                description
+        );
+
+        // Mock the model dao to return metadata for modelId to recognize it is a duplicate
+        ModelMetadata trainingFieldModelMetadata = mock(ModelMetadata.class);
+        when(trainingFieldModelMetadata.getDimension()).thenReturn(dimension);
+
+        ModelDao modelDao = mock(ModelDao.class);
+        when(modelDao.getMetadata(modelId)).thenReturn(null);
+        when(modelDao.getMetadata(trainingFieldModeId)).thenReturn(trainingFieldModelMetadata);
+
+        // Cluster service that wont produce validation exception
+        ClusterService clusterService = getClusterServiceForValidReturns(trainingIndex, trainingField, dimension);
+
+        // Initialize static components with the mocks
+        TrainingModelRequest.initialize(modelDao, clusterService);
+
+        // Test that validation produces model already exists error message
+        ActionRequestValidationException exception = trainingModelRequest.validate();
+        assertNotNull(exception);
+        List<String> validationErrors = exception.validationErrors();
+        assertEquals(1, validationErrors.size());
+        assertTrue(validationErrors.get(0).contains("Description exceeds limit"));
+    }
+
     public void testValidation_valid_trainingIndexBuiltFromMethod() {
         // This cluster service will result in no validation exceptions
 
@@ -497,6 +559,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
                 dimension,
                 trainingIndex,
                 trainingField,
+                null,
                 null
         );
 
@@ -533,6 +596,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
                 dimension,
                 trainingIndex,
                 trainingField,
+                null,
                 null
         );
 
@@ -574,6 +638,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
         ActionRequestValidationException exception = trainingModelRequest.validate();
         assertNull(exception);
     }
+
 
     /**
      * This method produces a cluster service that will mock so that there are no validation exceptions.

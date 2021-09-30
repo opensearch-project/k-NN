@@ -29,6 +29,7 @@ import java.util.Map;
 
 //TODO:
 // 1. Double check source map when full API is ready
+// 2. Add description option
 
 /**
  * Request to train and serialize a model
@@ -44,6 +45,7 @@ public class TrainingModelRequest extends ActionRequest {
     private final String trainingIndex;
     private final String trainingField;
     private final String preferredNodeId;
+    private final String description;
 
     /**
      * Constructor.
@@ -54,16 +56,18 @@ public class TrainingModelRequest extends ActionRequest {
      * @param trainingIndex OpenSearch index storing the training data
      * @param trainingField OpenSearch field storing the trianing data
      * @param preferredNodeId Preferred node to execute training on. If null, the plugin will select the node.
+     * @param description User provided description of their model
      */
     public TrainingModelRequest(String modelId, KNNMethodContext knnMethodContext, int dimension, String trainingIndex,
-                                String trainingField, String preferredNodeId) {
+                                String trainingField, String preferredNodeId, String description) {
         super();
         this.modelId = modelId;
         this.knnMethodContext = knnMethodContext;
+        this.dimension = dimension;
         this.trainingIndex = trainingIndex;
         this.trainingField = trainingField;
         this.preferredNodeId = preferredNodeId;
-        this.dimension = dimension;
+        this.description = description;
     }
 
     /**
@@ -80,6 +84,7 @@ public class TrainingModelRequest extends ActionRequest {
         this.trainingField = in.readString();
         this.preferredNodeId = in.readOptionalString();
         this.dimension = in.readInt();
+        this.description = in.readOptionalString();
     }
 
     /**
@@ -147,6 +152,15 @@ public class TrainingModelRequest extends ActionRequest {
         return preferredNodeId;
     }
 
+    /**
+     * Get description of the model
+     *
+     * @return description
+     */
+    public String getDescription() {
+        return description;
+    }
+
     @Override
     public ActionRequestValidationException validate() {
         ActionRequestValidationException exception = null;
@@ -186,6 +200,13 @@ public class TrainingModelRequest extends ActionRequest {
             exception.addValidationError("Preferred node \"" + preferredNodeId + "\" does not exist");
         }
 
+        // Check if description is too long
+        if (description != null && description.length() > KNNConstants.MAX_MODEL_DESCRIPTION_LENGTH) {
+            exception = exception == null ? new ActionRequestValidationException() : exception;
+            exception.addValidationError("Description exceeds limit of " + KNNConstants.MAX_MODEL_DESCRIPTION_LENGTH +
+                    " characters");
+        }
+
         return exception;
     }
 
@@ -198,6 +219,7 @@ public class TrainingModelRequest extends ActionRequest {
         out.writeString(this.trainingField);
         out.writeOptionalString(this.preferredNodeId);
         out.writeInt(dimension);
+        out.writeOptionalString(description);
     }
 
     @SuppressWarnings("unchecked")
