@@ -16,21 +16,54 @@ import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.knn.common.KNNConstants;
 
 import java.io.IOException;
 
+/**
+ * Response for training model request
+ */
 public class TrainingModelResponse extends ActionResponse implements ToXContentObject {
 
-    public TrainingModelResponse(StreamInput streamInput) {
+    private String modelId;
+
+    /**
+     * Constructor.
+     *
+     * @param modelId of model to be trained
+     */
+    public TrainingModelResponse(String modelId) {
+        this.modelId = modelId;
+    }
+
+    /**
+     * Constructor from stream.
+     *
+     * @param in StreamInput to read from
+     * @throws IOException on failure to read from stream
+     */
+    public TrainingModelResponse(StreamInput in) throws IOException {
+        this.modelId = in.readOptionalString();
     }
 
     @Override
-    public void writeTo(StreamOutput streamOutput) throws IOException {
+    public void writeTo(StreamOutput out) throws IOException {
+        out.writeOptionalString(this.modelId);
+    }
 
+    /**
+     * Getter for modelId
+     *
+     * @return modelId that was created via train request
+     */
+    public String getModelId() {
+        return modelId;
     }
 
     @Override
-    public XContentBuilder toXContent(XContentBuilder xContentBuilder, Params params) throws IOException {
-        return null;
+    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+        //TODO: This will be null on post. We need to fix this after we build the api.
+        builder.field(KNNConstants.MODEL_ID, this.modelId);
+        return builder;
     }
 }
