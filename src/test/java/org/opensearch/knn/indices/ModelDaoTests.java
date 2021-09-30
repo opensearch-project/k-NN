@@ -315,12 +315,12 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         String modelId = "test-model";
 
         // Model Index does not exist
-        expectThrows(RuntimeException.class, () -> modelDao.getMetadata(modelId));
+        assertNull(modelDao.getMetadata(modelId));
 
         createIndex(MODEL_INDEX_NAME);
 
         // Model id does not exist
-        expectThrows(RuntimeException.class, () -> modelDao.getMetadata(modelId));
+        assertNull(modelDao.getMetadata(modelId));
 
         // Model exists
         byte [] modelBlob = "hello".getBytes();
