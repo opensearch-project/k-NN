@@ -63,6 +63,8 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.knn.plugin.stats.KNNStatsConfig;
+import org.opensearch.knn.plugin.transport.TrainingJobRouteDecisionInfoAction;
+import org.opensearch.knn.plugin.transport.TrainingJobRouteDecisionInfoTransportAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
 import org.opensearch.knn.training.TrainingJobRunner;
@@ -196,7 +198,9 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
         return Arrays.asList(
                 new ActionHandler<>(KNNStatsAction.INSTANCE, KNNStatsTransportAction.class),
                 new ActionHandler<>(KNNWarmupAction.INSTANCE, KNNWarmupTransportAction.class),
-                new ActionHandler<>(UpdateModelMetadataAction.INSTANCE, UpdateModelMetadataTransportAction.class)
+                new ActionHandler<>(UpdateModelMetadataAction.INSTANCE, UpdateModelMetadataTransportAction.class),
+                new ActionHandler<>(TrainingJobRouteDecisionInfoAction.INSTANCE,
+                        TrainingJobRouteDecisionInfoTransportAction.class)
         );
     }
 
