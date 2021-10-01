@@ -29,7 +29,6 @@ import java.util.Map;
 
 //TODO:
 // 1. Double check source map when full API is ready
-// 2. Add description option
 
 /**
  * Request to train and serialize a model
@@ -46,6 +45,9 @@ public class TrainingModelRequest extends ActionRequest {
     private final String trainingField;
     private final String preferredNodeId;
     private final String description;
+
+    private int maximumVectorCount;
+    private int searchSize;
 
     /**
      * Constructor.
@@ -68,6 +70,10 @@ public class TrainingModelRequest extends ActionRequest {
         this.trainingField = trainingField;
         this.preferredNodeId = preferredNodeId;
         this.description = description;
+
+        // Set these as defaults initially. If call wants to override them, they can use the setters.
+        this.maximumVectorCount = Integer.MAX_VALUE; // By default, get all vectors in the index
+        this.searchSize = 10_000; // By default, use the maximum search size
     }
 
     /**
@@ -85,6 +91,8 @@ public class TrainingModelRequest extends ActionRequest {
         this.preferredNodeId = in.readOptionalString();
         this.dimension = in.readInt();
         this.description = in.readOptionalString();
+        this.maximumVectorCount = in.readInt();
+        this.searchSize = in.readInt();
     }
 
     /**
@@ -153,12 +161,58 @@ public class TrainingModelRequest extends ActionRequest {
     }
 
     /**
-     * Get description of the model
+     * Getter description of the model
      *
      * @return description
      */
     public String getDescription() {
         return description;
+    }
+
+    /**
+     * Getter for maximum vector count. This corresponds to the maximum number of vectors from the training index
+     * a user wants to use for training.
+     *
+     * @return maximumVectorCount
+     */
+    public int getMaximumVectorCount() {
+        return maximumVectorCount;
+    }
+
+    /**
+     * Setter for maximum vector count
+     *
+     * @param maximumVectorCount to be set. It must be greater than 0
+     */
+    public void setMaximumVectorCount(int maximumVectorCount) {
+        if (maximumVectorCount <= 0) {
+            throw new IllegalArgumentException("Maximum vector count " + maximumVectorCount + " is invalid. " +
+                    "Maximum vector count must be greater than 0");
+        }
+        this.maximumVectorCount = maximumVectorCount;
+    }
+
+    /**
+     * Getter for search size. This value corresponds to how many vectors are pulled from the training index per
+     * search request
+     *
+     * @return searchSize
+     */
+    public int getSearchSize() {
+        return searchSize;
+    }
+
+    /**
+     * Setter for search size.
+     *
+     * @param searchSize to be set. Must be greater than 0 and less than 10,000
+     */
+    public void setSearchSize(int searchSize) {
+        if (searchSize <= 0 || searchSize > 10000) {
+            throw new IllegalArgumentException("Search size " + searchSize + " is invalid. Search size must be " +
+                    "between 0 and 10,000");
+        }
+        this.searchSize = searchSize;
     }
 
     @Override
@@ -218,8 +272,10 @@ public class TrainingModelRequest extends ActionRequest {
         out.writeString(this.trainingIndex);
         out.writeString(this.trainingField);
         out.writeOptionalString(this.preferredNodeId);
-        out.writeInt(dimension);
-        out.writeOptionalString(description);
+        out.writeInt(this.dimension);
+        out.writeOptionalString(this.description);
+        out.writeInt(this.maximumVectorCount);
+        out.writeInt(this.searchSize);
     }
 
     @SuppressWarnings("unchecked")

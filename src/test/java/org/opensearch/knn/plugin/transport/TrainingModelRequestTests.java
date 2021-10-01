@@ -107,6 +107,8 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String trainingField = "test-training-field";
         String preferredNode = "test-preferred-node";
         String description = "some test description";
+        int maxVectorCount = 100;
+        int searchSize = 101;
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
                 modelId,
@@ -118,6 +120,9 @@ public class TrainingModelRequestTests extends KNNTestCase {
                 description
         );
 
+        trainingModelRequest.setMaximumVectorCount(maxVectorCount);
+        trainingModelRequest.setSearchSize(searchSize);
+
         assertEquals(modelId, trainingModelRequest.getModelId());
         assertEquals(knnMethodContext, trainingModelRequest.getKnnMethodContext());
         assertEquals(dimension, trainingModelRequest.getDimension());
@@ -125,6 +130,8 @@ public class TrainingModelRequestTests extends KNNTestCase {
         assertEquals(trainingField, trainingModelRequest.getTrainingField());
         assertEquals(preferredNode, trainingModelRequest.getPreferredNodeId());
         assertEquals(description, trainingModelRequest.getDescription());
+        assertEquals(maxVectorCount, trainingModelRequest.getMaximumVectorCount());
+        assertEquals(searchSize, trainingModelRequest.getSearchSize());
     }
 
     public void testValidation_invalid_modelIdAlreadyExists() {
