@@ -15,6 +15,7 @@ import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.ResourceNotFoundException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
@@ -38,6 +39,7 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.plugin.transport.GetModelResponse;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
 
@@ -111,6 +113,15 @@ public interface ModelDao {
      * @throws InterruptedException thrown on search
      */
     Model get(String modelId) throws ExecutionException, InterruptedException;
+
+    /**
+     * Get a model from the system index.  Non-blocking.
+     *
+     * @param modelId to retrieve
+     * @param listener  handles get model response
+     * @throws IOException   thrown on search
+     */
+    void get(String modelId, ActionListener<GetModelResponse> listener) throws IOException;
 
     /**
      * Get metadata for a model. Non-blocking.
@@ -304,8 +315,11 @@ public interface ModelDao {
                     .setId(modelId)
                     .setPreference("_local");
             GetResponse getResponse = getRequestBuilder.execute().get();
-
             Map<String, Object> responseMap = getResponse.getSourceAsMap();
+            return new Model(getMetadataFromResponse(responseMap), getModelBlobFromResponse(responseMap));
+        }
+
+        private ModelMetadata getMetadataFromResponse(final Map<String, Object> responseMap){
             Object engine = responseMap.get(KNNConstants.KNN_ENGINE);
             Object space = responseMap.get(KNNConstants.METHOD_PARAMETER_SPACE_TYPE);
             Object dimension = responseMap.get(KNNConstants.DIMENSION);
@@ -313,19 +327,52 @@ public interface ModelDao {
             Object timestamp  = responseMap.get(KNNConstants.MODEL_TIMESTAMP);
             Object description = responseMap.get(KNNConstants.MODEL_DESCRIPTION);
             Object error = responseMap.get(KNNConstants.MODEL_ERROR);
+
+            ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.getEngine((String) engine),
+                SpaceType.getSpace((String) space), (Integer) dimension, ModelState.getModelState((String) state),
+                (String) timestamp, (String) description,
+                (String) error);
+            return modelMetadata;
+        }
+
+        private byte[] getModelBlobFromResponse(Map<String, Object> responseMap){
             Object blob = responseMap.get(KNNConstants.MODEL_BLOB_PARAMETER);
 
             // If byte blob is not there, it means that the state has not yet been updated to CREATED.
-            byte[] byteBlob = null;
-            if (blob != null) {
-                byteBlob = Base64.getDecoder().decode((String) blob);
+            if(blob == null){
+                return null;
             }
+            return Base64.getDecoder().decode((String) blob);
+        }
 
-            ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.getEngine((String) engine),
-                    SpaceType.getSpace((String) space), (Integer) dimension, ModelState.getModelState((String) state),
-                    (String) timestamp, (String) description,
-                    (String) error);
-            return new Model(modelMetadata, byteBlob);
+
+        /**
+         * Get a model from the system index.  Non-blocking.
+         *
+         * @param modelId  to retrieve
+         * @param actionListener handles get model response
+         * @throws IOException thrown on search
+         */
+        @Override
+        public void get(String modelId, ActionListener<GetModelResponse> actionListener) throws IOException {
+            /*
+                GET /<model_index>/<modelId>?_local
+            */
+            GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE, MODEL_INDEX_NAME)
+                .setId(modelId)
+                .setPreference("_local");
+
+            getRequestBuilder.execute(ActionListener.wrap(response -> {
+                if(response.isSourceEmpty()){
+                    String errorMessage = String.format("Model \" %s \" does not exist", modelId);
+                    actionListener.onFailure(new ResourceNotFoundException(modelId,errorMessage));
+                    return;
+                }
+                final Map<String, Object> responseMap = response.getSourceAsMap();
+                Model model = new Model(getMetadataFromResponse(responseMap), getModelBlobFromResponse(responseMap));
+                actionListener.onResponse(new GetModelResponse(modelId, model));
+
+            }, actionListener::onFailure));
         }
 
         @Override
