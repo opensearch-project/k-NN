@@ -35,6 +35,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.plugin.transport.TrainingJobRouterTransportAction.estimateVectorSetSizeInKb;
 
 public class TrainingModelTransportActionTests extends KNNSingleNodeTestCase {
 
@@ -53,6 +54,8 @@ public class TrainingModelTransportActionTests extends KNNSingleNodeTestCase {
             Arrays.fill(vector, Float.intBitsToFloat(i));
             addKnnDoc(trainingIndexName, Integer.toString(i+1), trainingFieldName, vector);
         }
+
+
 
         // Create train model request
         String modelId = "test-model-id";
@@ -76,6 +79,7 @@ public class TrainingModelTransportActionTests extends KNNSingleNodeTestCase {
                 null,
                 "test-detector"
         );
+        trainingModelRequest.setTrainingDataSizeInKB(estimateVectorSetSizeInKb(trainingDataCount, dimension));
 
         // Create listener that ensures that the test succeeds
         final CountDownLatch inProgressLatch = new CountDownLatch(1);

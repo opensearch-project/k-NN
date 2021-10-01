@@ -49,6 +49,8 @@ public class TrainingModelRequest extends ActionRequest {
     private int maximumVectorCount;
     private int searchSize;
 
+    private long trainingDataSizeInKB;
+
     /**
      * Constructor.
      *
@@ -74,10 +76,14 @@ public class TrainingModelRequest extends ActionRequest {
         // Set these as defaults initially. If call wants to override them, they can use the setters.
         this.maximumVectorCount = Integer.MAX_VALUE; // By default, get all vectors in the index
         this.searchSize = 10_000; // By default, use the maximum search size
+
+        // Training data size in kilobytes. By default, this is invalid (it cant have negative kb). It eventually gets
+        // calculated in transit. A user cannot set this value directly.
+        this.trainingDataSizeInKB = -1;
     }
 
     /**
-     *  Constructor from stream.
+     * Constructor from stream.
      *
      * @param in StreamInput to construct request from.
      * @throws IOException thrown when reading from stream fails
@@ -93,6 +99,7 @@ public class TrainingModelRequest extends ActionRequest {
         this.description = in.readOptionalString();
         this.maximumVectorCount = in.readInt();
         this.searchSize = in.readInt();
+        this.trainingDataSizeInKB = in.readLong();
     }
 
     /**
@@ -215,6 +222,28 @@ public class TrainingModelRequest extends ActionRequest {
         this.searchSize = searchSize;
     }
 
+    /**
+     * Getter for training data size in kilobytes.
+     *
+     * @return trainingDataSizeInKB
+     */
+    public long getTrainingDataSizeInKB() {
+        return trainingDataSizeInKB;
+    }
+
+    /**
+     * Setter for trainingDataSizeInKB. Package private to prevent users from changing this value directly.
+     *
+     * @param trainingDataSizeInKB to be set.
+     */
+    void setTrainingDataSizeInKB(long trainingDataSizeInKB) {
+        if (trainingDataSizeInKB <= 0) {
+            throw new IllegalArgumentException("Training data size " + trainingDataSizeInKB + " is invalid. " +
+                    "Training data size must be greater than 0");
+        }
+        this.trainingDataSizeInKB = trainingDataSizeInKB;
+    }
+
     @Override
     public ActionRequestValidationException validate() {
         ActionRequestValidationException exception = null;
@@ -276,6 +305,7 @@ public class TrainingModelRequest extends ActionRequest {
         out.writeOptionalString(this.description);
         out.writeInt(this.maximumVectorCount);
         out.writeInt(this.searchSize);
+        out.writeLong(this.trainingDataSizeInKB);
     }
 
     @SuppressWarnings("unchecked")

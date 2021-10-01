@@ -12,6 +12,9 @@
 package org.opensearch.knn.plugin.transport;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.lucene.search.TotalHits;
+import org.opensearch.action.ActionListener;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.ClusterName;
@@ -21,14 +24,20 @@ import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.SearchHits;
 import org.opensearch.transport.TransportService;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 
 public class TrainingJobRouterTransportActionTests extends KNNTestCase {
 
@@ -267,6 +276,50 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         // Select the node
         DiscoveryNode selectedNode = transportAction.selectNode(null, infoResponse);
         assertNull(selectedNode);
+    }
+
+    @SuppressWarnings("unchecked")
+    public void testTrainingIndexSize() {
+
+        String trainingIndexName = "training-index";
+        int dimension = 133;
+        long vectorCount = 1000000;
+        long expectedSize =  dimension * vectorCount * Float.BYTES / BYTES_PER_KILOBYTES; // 519,531.25 KB ~= 520 MB
+
+        // Setup the request
+        TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
+                null,
+                KNNMethodContext.getDefault(),
+                dimension,
+                trainingIndexName,
+                "training-field",
+                null,
+                "description"
+        );
+
+        // Mock client to return the right number of docs
+        TotalHits totalHits = new TotalHits(vectorCount, TotalHits.Relation.EQUAL_TO);
+        SearchHits searchHits = new SearchHits(new SearchHit[2], totalHits, 1.0f);
+        SearchResponse searchResponse = mock(SearchResponse.class);
+        when(searchResponse.getHits()).thenReturn(searchHits);
+        Client client = mock(Client.class);
+        doAnswer(invocationOnMock -> {
+            ((ActionListener<SearchResponse>) invocationOnMock.getArguments()[1]).onResponse(searchResponse);
+            return null;
+        }).when(client).search(any(), any());
+
+        // Setup the action
+        ClusterService clusterService = mock(ClusterService.class);
+        TransportService transportService = mock(TransportService.class);
+        TrainingJobRouterTransportAction transportAction = new TrainingJobRouterTransportAction(
+                transportService, new ActionFilters(Collections.emptySet()), clusterService, client);
+
+        ActionListener<Long> listener = ActionListener.wrap(
+                size -> assertEquals(expectedSize, size.longValue()),
+                e -> fail(e.getMessage())
+        );
+
+        transportAction.getTrainingIndexSizeInKB(trainingModelRequest, listener);
     }
 
     private ImmutableOpenMap<String, DiscoveryNode> generateDiscoveryNodes(List<String> dataNodeIds) {
