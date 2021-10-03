@@ -62,7 +62,7 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
      */
     public MethodComponentContext(StreamInput in) throws IOException {
         this.name = in.readString();
-        this.parameters = in.readMap();
+        this.parameters = in.readMap(StreamInput::readString, new ParameterMapValueReader());
     }
 
     /**
@@ -185,6 +185,44 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(this.name);
-        out.writeMap(this.parameters);
+        out.writeMap(this.parameters, StreamOutput::writeString, new ParameterMapValueWriter());
+    }
+
+    // Because the generic StreamOutput writeMap method can only write generic values, we need to create a custom one
+    // that handles the case when a parameter value is another method component context.
+    private static class ParameterMapValueWriter implements Writer<Object> {
+
+        private ParameterMapValueWriter() {}
+
+        @Override
+        public void write(StreamOutput out, Object o) throws IOException {
+            if (o instanceof MethodComponentContext) {
+                out.writeBoolean(true);
+                ((MethodComponentContext) o).writeTo(out);
+            } else {
+                out.writeBoolean(false);
+                out.writeGenericValue(o);
+            }
+        }
+    }
+
+    // Because the generic StreamInput writeMap method can only read generic values, we need to create a custom one
+    // that handles the case when a parameter value is another method component context.
+    private static class ParameterMapValueReader implements Reader<Object> {
+
+        private ParameterMapValueReader() {}
+
+        @Override
+        public Object read(StreamInput in) throws IOException {
+            boolean isValueMethodComponentContext = in.readBoolean();
+            Object value;
+            if (isValueMethodComponentContext) {
+                value = new MethodComponentContext(in);
+            } else {
+                value = in.readGenericValue();
+            }
+
+            return value;
+        }
     }
 }

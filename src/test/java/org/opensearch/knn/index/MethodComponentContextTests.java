@@ -20,6 +20,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.mapper.MapperParsingException;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -33,9 +34,13 @@ public class MethodComponentContextTests extends KNNTestCase {
      */
     public void testStreams() throws IOException {
         String name = "test-name";
+        String nestedName = "nested-name";
+        MethodComponentContext nestedParam = new MethodComponentContext(nestedName, Collections.emptyMap());
+
         Map<String, Object> parameters = ImmutableMap.of(
                 "test-p-1", 10,
-                "test-p-2", "string-p"
+                "test-p-2", "string-p",
+                "test-p-3", nestedParam
         );
 
         MethodComponentContext original = new MethodComponentContext(name, parameters);
