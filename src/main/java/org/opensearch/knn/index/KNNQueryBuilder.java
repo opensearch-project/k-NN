@@ -25,6 +25,8 @@
 
 package org.opensearch.knn.index;
 
+import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -211,6 +213,22 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         int dimension = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getDimension();
+
+        //TODO: Fix this logic
+        if (dimension == -1) {
+            String modelId = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getModelId();
+
+            if (modelId == null) {
+                throw new IllegalArgumentException("Field does not have dimension set.");
+            }
+
+            ModelMetadata modelMetadata = ModelDao.OpenSearchKNNModelDao.getInstance().getMetadata(modelId);
+
+            if (modelMetadata == null) {
+                throw new IllegalArgumentException("Model ID \"" + modelId + "\" does not exist.");
+            }
+            dimension = modelMetadata.getDimension();
+        }
 
         if (dimension != vector.length) {
             throw new IllegalArgumentException("Query vector has invalid dimension: " + vector.length +

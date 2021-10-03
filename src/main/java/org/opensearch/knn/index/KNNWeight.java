@@ -47,6 +47,8 @@ import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.util.DocIdSetBuilder;
 import org.opensearch.common.io.PathUtils;
+import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 
 import java.io.IOException;
@@ -60,6 +62,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
@@ -91,6 +94,7 @@ public class KNNWeight extends Weight {
 
     @Override
     public Scorer scorer(LeafReaderContext context) throws IOException {
+        //TODO: WE NEED TO FIX THIS I GUESS
             SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(context.reader());
             String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
 
@@ -102,8 +106,23 @@ public class KNNWeight extends Weight {
                 return null;
             }
 
-            KNNEngine knnEngine = KNNEngine.getEngine(fieldInfo.getAttribute(KNN_ENGINE));
-            SpaceType spaceType = SpaceType.getSpace(fieldInfo.getAttribute(SPACE_TYPE));
+            KNNEngine knnEngine;
+            SpaceType spaceType;
+
+            // Here is where things will diverge
+            String modelId = fieldInfo.getAttribute(MODEL_ID);
+            if (modelId != null) {
+                ModelMetadata modelMetadata = ModelDao.OpenSearchKNNModelDao.getInstance().getMetadata(modelId);
+                if (modelMetadata == null) {
+                    throw new RuntimeException("ModelMetadata is null");
+                }
+
+                knnEngine = modelMetadata.getKnnEngine();
+                spaceType = modelMetadata.getSpaceType();
+            } else {
+                knnEngine = KNNEngine.getEngine(fieldInfo.getAttribute(KNN_ENGINE));
+                spaceType = SpaceType.getSpace(fieldInfo.getAttribute(SPACE_TYPE));
+            }
 
             /*
              * In case of compound file, extension would be <engine-extension> + c otherwise <engine-extension>
