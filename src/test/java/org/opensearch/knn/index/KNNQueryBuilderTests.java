@@ -32,6 +32,8 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.index.Index;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
 
 import java.io.IOException;
 
@@ -110,6 +112,32 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
     }
 
+    public void testDoToQuery_FromModel() throws Exception {
+        float[] queryVector = {1.0f, 2.0f, 3.0f, 4.0f};
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder("myvector", queryVector, 1);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+
+        // Dimension is -1. In this case, model metadata will need to provide dimension
+        when(mockKNNVectorField.getDimension()).thenReturn(-1);
+        String modelId = "test-model-id";
+        when(mockKNNVectorField.getModelId()).thenReturn(modelId);
+
+        // Mock the modelDao to return mocked modelMetadata
+        ModelMetadata modelMetadata = mock(ModelMetadata.class);
+        when(modelMetadata.getDimension()).thenReturn(4);
+        ModelDao modelDao = mock(ModelDao.class);
+        when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
+        KNNQueryBuilder.initialize(modelDao);
+
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        KNNQuery query = (KNNQuery)knnQueryBuilder.doToQuery(mockQueryShardContext);
+        assertEquals(knnQueryBuilder.getK(), query.getK());
+        assertEquals(knnQueryBuilder.fieldName(), query.getField());
+        assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
+    }
 
     public void testDoToQuery_InvalidDimensions() {
         float[] queryVector = {1.0f, 2.0f, 3.0f, 4.0f};

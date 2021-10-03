@@ -236,7 +236,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 // Because model information is stored in cluster metadata, we are unable to get it here. This is
                 // because to get the cluster metadata, you need access to the cluster state. Because this code is
                 // sometimes used to initialize the cluster state/update cluster state, we cannot get the state here
-                // safely. So, we are unable to validate the model :(. The model gets validated during ingestion.
+                // safely. So, we are unable to validate the model. The model gets validated during ingestion.
 
                 if (modelMetadata == null) {
                     throw new IllegalArgumentException("Model \"" + modelId + "\" does not exist");
@@ -244,7 +244,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
                 return new ModelFieldMapper(
                         name,
-                        //TODO: We shall see if this works
                         new KNNVectorFieldType(buildFullName(context), meta.getValue(), -1, modelIdAsString),
                         multiFieldsBuilder.build(this, context),
                         copyTo.build(),
@@ -400,6 +399,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     @Override
     protected void parseCreateField(ParseContext context) throws IOException {
+        parseCreateField(context, fieldType().getDimension());
+    }
+
+    protected void parseCreateField(ParseContext context, int dimension) throws IOException {
+
         if (!KNNSettings.isKNNPluginEnabled()) {
             throw new IllegalStateException("KNN plugin is disabled. To enable " +
                     "update knn.plugin.enabled setting to true");
@@ -446,9 +450,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             context.parser().nextToken();
         }
 
-        if (fieldType().dimension != vector.size()) {
-            String errorMessage = String.format("Vector dimension mismatch. Expected: %d, Given: %d",
-                    fieldType().dimension, vector.size());
+        if (dimension != vector.size()) {
+            String errorMessage = String.format("Vector dimension mismatch. Expected: %d, Given: %d", dimension,
+                    vector.size());
             throw new IllegalArgumentException(errorMessage);
         }
 
@@ -619,7 +623,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      */
     protected static class ModelFieldMapper extends KNNVectorFieldMapper {
 
-        //TODO: We need to make sure dimension doesnt show up in mapping as -1.
         private ModelFieldMapper(String simpleName, KNNVectorFieldType mappedFieldType, MultiFields multiFields,
                                 CopyTo copyTo, Explicit<Boolean> ignoreMalformed, boolean stored,
                                 boolean hasDocValues, ModelDao modelDao, String modelId) {
@@ -635,74 +638,17 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         @Override
         protected void parseCreateField(ParseContext context) throws IOException {
-            if (!KNNSettings.isKNNPluginEnabled()) {
-                throw new IllegalStateException("KNN plugin is disabled. To enable " +
-                        "update knn.plugin.enabled setting to true");
-            }
-
-            if (KNNSettings.isCircuitBreakerTriggered()) {
-                throw new IllegalStateException("Indexing knn vector fields is rejected as circuit breaker triggered." +
-                        " Check _opendistro/_knn/stats for detailed state");
-            }
-
-            //TODO: Because we cannot do validation above, we need to do it here
+            // For the model field mapper, we cannot validate the model during index creation due to
+            // an issue with reading cluster state during mapper creation. So, we need to validate the
+            // model when ingestion starts.
             ModelMetadata modelMetadata = this.modelDao.getMetadata(modelId);
 
-            context.path().add(simpleName());
-
-            ArrayList<Float> vector = new ArrayList<>();
-            XContentParser.Token token = context.parser().currentToken();
-            float value;
-            if (token == XContentParser.Token.START_ARRAY) {
-                token = context.parser().nextToken();
-                while (token != XContentParser.Token.END_ARRAY) {
-                    value = context.parser().floatValue();
-
-                    if (Float.isNaN(value)) {
-                        throw new IllegalArgumentException("KNN vector values cannot be NaN");
-                    }
-
-                    if (Float.isInfinite(value)) {
-                        throw new IllegalArgumentException("KNN vector values cannot be infinity");
-                    }
-
-                    vector.add(value);
-                    token = context.parser().nextToken();
-                }
-            } else if (token == XContentParser.Token.VALUE_NUMBER) {
-                value = context.parser().floatValue();
-
-                if (Float.isNaN(value)) {
-                    throw new IllegalArgumentException("KNN vector values cannot be NaN");
-                }
-
-                if (Float.isInfinite(value)) {
-                    throw new IllegalArgumentException("KNN vector values cannot be infinity");
-                }
-
-                vector.add(value);
-                context.parser().nextToken();
+            if (modelMetadata == null) {
+                throw new IllegalStateException("Model \"" + modelId + "\" does not exist. A new index will need to " +
+                        "be created.");
             }
 
-            if (modelMetadata.getDimension() != vector.size()) {
-                String errorMessage = String.format("Vector dimension mismatch. Expected: %d, Given: %d",
-                        modelMetadata.getDimension(), vector.size());
-                throw new IllegalArgumentException(errorMessage);
-            }
-
-            float[] array = new float[vector.size()];
-            int i = 0;
-            for (Float f : vector) {
-                array[i++] = f;
-            }
-
-            VectorField point = new VectorField(name(), array, fieldType);
-
-            context.doc().add(point);
-            if (fieldType.stored()) {
-                context.doc().add(new StoredField(name(), point.toString()));
-            }
-            context.path().remove();
+            parseCreateField(context, modelMetadata.getDimension());
         }
     }
 }

@@ -71,6 +71,8 @@ import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
  */
 public class KNNWeight extends Weight {
     private static Logger logger = LogManager.getLogger(KNNWeight.class);
+    private static ModelDao modelDao;
+
     private final KNNQuery knnQuery;
     private final float boost;
 
@@ -81,6 +83,10 @@ public class KNNWeight extends Weight {
         this.knnQuery = query;
         this.boost = boost;
         this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
+    }
+
+    public static void initialize(ModelDao modelDao) {
+        KNNWeight.modelDao = modelDao;
     }
 
     @Override
@@ -94,7 +100,6 @@ public class KNNWeight extends Weight {
 
     @Override
     public Scorer scorer(LeafReaderContext context) throws IOException {
-        //TODO: WE NEED TO FIX THIS I GUESS
             SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(context.reader());
             String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
 
@@ -109,12 +114,13 @@ public class KNNWeight extends Weight {
             KNNEngine knnEngine;
             SpaceType spaceType;
 
-            // Here is where things will diverge
+            // Check if a modelId exists. If so, the space type and engine will need to be picked up from the model's
+            // metadata.
             String modelId = fieldInfo.getAttribute(MODEL_ID);
             if (modelId != null) {
-                ModelMetadata modelMetadata = ModelDao.OpenSearchKNNModelDao.getInstance().getMetadata(modelId);
+                ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
                 if (modelMetadata == null) {
-                    throw new RuntimeException("ModelMetadata is null");
+                    throw new RuntimeException("Model \"" + modelId + "\" does not exist.");
                 }
 
                 knnEngine = modelMetadata.getKnnEngine();

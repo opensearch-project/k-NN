@@ -51,6 +51,8 @@ import java.util.Objects;
  */
 public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private static Logger logger = LogManager.getLogger(KNNQueryBuilder.class);
+    private static ModelDao modelDao;
+
     public static final ParseField VECTOR_FIELD = new ParseField("vector");
     public static final ParseField K_FIELD = new ParseField("k");
     public static int K_MAX = 10000;
@@ -92,6 +94,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         this.fieldName = fieldName;
         this.vector = vector;
         this.k = k;
+    }
+
+    public static void initialize(ModelDao modelDao) {
+        KNNQueryBuilder.modelDao = modelDao;
     }
 
     private static float[] ObjectsToFloats(List<Object> objs) {
@@ -214,15 +220,15 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
         int dimension = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getDimension();
 
-        //TODO: Fix this logic
+        // If the dimension is not set, then the only valid route forward is if the field uses a model
         if (dimension == -1) {
             String modelId = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getModelId();
 
             if (modelId == null) {
-                throw new IllegalArgumentException("Field does not have dimension set.");
+                throw new IllegalArgumentException("Field '" + this.fieldName + "' does not have dimension set.");
             }
 
-            ModelMetadata modelMetadata = ModelDao.OpenSearchKNNModelDao.getInstance().getMetadata(modelId);
+            ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
 
             if (modelMetadata == null) {
                 throw new IllegalArgumentException("Model ID \"" + modelId + "\" does not exist.");
