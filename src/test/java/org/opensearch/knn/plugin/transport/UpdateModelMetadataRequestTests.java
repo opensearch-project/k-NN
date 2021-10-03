@@ -12,7 +12,6 @@
 package org.opensearch.knn.plugin.transport;
 
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -20,6 +19,8 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 
 import java.io.IOException;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 
 public class UpdateModelMetadataRequestTests extends KNNTestCase {
 
@@ -32,7 +33,7 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
         boolean isRemoveRequest = false;
 
         ModelMetadata modelMetadata = new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", "");
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, isRemoveRequest, modelMetadata);
 
         BytesStreamOutput streamOutput = new BytesStreamOutput();
@@ -46,8 +47,9 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
     }
 
     public void testValidate() {
+
         ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 128, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", "");
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
 
         UpdateModelMetadataRequest updateModelMetadataRequest1 = new UpdateModelMetadataRequest("test", true, null);
         assertNull(updateModelMetadataRequest1.validate());
@@ -78,7 +80,7 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
 
     public void testGetModelMetadata() {
         ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 128, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", "");
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest("test", true, modelMetadata);
 
         assertEquals(modelMetadata, updateModelMetadataRequest.getModelMetadata());
