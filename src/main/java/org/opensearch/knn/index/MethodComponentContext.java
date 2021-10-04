@@ -215,14 +215,10 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
         @Override
         public Object read(StreamInput in) throws IOException {
             boolean isValueMethodComponentContext = in.readBoolean();
-            Object value;
             if (isValueMethodComponentContext) {
-                value = new MethodComponentContext(in);
-            } else {
-                value = in.readGenericValue();
+                return new MethodComponentContext(in);
             }
-
-            return value;
+            return in.readGenericValue();
         }
     }
 }
