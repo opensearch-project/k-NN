@@ -52,14 +52,13 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
     private UpdateModelMetadataExecutor updateModelMetadataExecutor;
 
     @Inject
-    public UpdateModelMetadataTransportAction(String actionName,
-                                              TransportService transportService,
+    public UpdateModelMetadataTransportAction(TransportService transportService,
                                               ClusterService clusterService,
                                               ThreadPool threadPool,
                                               ActionFilters actionFilters,
                                               IndexNameExpressionResolver indexNameExpressionResolver) {
-        super(actionName, transportService, clusterService, threadPool, actionFilters, UpdateModelMetadataRequest::new,
-                indexNameExpressionResolver);
+        super(UpdateModelMetadataAction.NAME, transportService, clusterService, threadPool, actionFilters,
+                UpdateModelMetadataRequest::new, indexNameExpressionResolver);
         this.updateModelMetadataExecutor = new UpdateModelMetadataExecutor();
     }
 
