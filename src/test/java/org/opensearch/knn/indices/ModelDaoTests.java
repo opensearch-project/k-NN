@@ -21,7 +21,6 @@ import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.engine.VersionConflictEngineException;
@@ -31,6 +30,8 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Base64;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -102,7 +103,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         int dimension = 2;
 
         Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""), modelBlob);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), modelBlob);
 
         // Listener to confirm that everything was updated as expected
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
@@ -149,7 +150,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         int dimension = 2;
 
         Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.TRAINING,
-                TimeValue.timeValueDays(10), "", ""), modelBlob);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), modelBlob);
 
         // Listener to confirm that everything was updated as expected
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
@@ -203,7 +204,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 exception -> fail("Unable to put the model: " + exception));
 
         Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""), modelBlob);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), modelBlob);
         modelDao.put(model, docCreationListenerNoModelId);
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
@@ -217,7 +218,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         // Model is in invalid state
         Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.TRAINING,
-                TimeValue.timeValueDays(10), "", ""), modelBlob);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), modelBlob);
         model.getModelMetadata().setState(ModelState.CREATED);
 
         expectThrows(IllegalArgumentException.class, () -> modelDao.put(model, ActionListener.wrap(
@@ -234,7 +235,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         int dimension = 2;
 
         Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.TRAINING,
-                TimeValue.timeValueDays(10), "", ""), null);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), null);
 
         // Listener to confirm that everything was updated as expected
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
@@ -260,7 +261,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         // User provided model id that already exists - should be able to update
         Model updatedModel = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""), modelBlob);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), modelBlob);
 
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
         ActionListener<IndexResponse> updateListener = ActionListener.wrap(response -> {
@@ -298,13 +299,13 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         // model id exists
         Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""), modelBlob);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), modelBlob);
         addDoc(modelId, model);
         assertEquals(model, modelDao.get(modelId));
 
         // Get model during training
         model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.TRAINING,
-                TimeValue.timeValueDays(10), "", ""), null);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), null);
         addDoc(modelId, model);
         assertEquals(model, modelDao.get(modelId));
     }
@@ -329,7 +330,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
         int dimension = 2;
         ModelMetadata modelMetadata = new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", "");
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
 
         Model model = new Model(modelMetadata, modelBlob);
 
@@ -379,7 +380,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         // model id exists
         Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""), modelBlob);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), modelBlob);
 
         ActionListener<IndexResponse> docCreationListener = ActionListener.wrap(response -> {
             assertEquals(modelId, response.getId());

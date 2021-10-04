@@ -34,7 +34,6 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
@@ -223,7 +222,7 @@ public interface ModelDao {
                 put(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, modelMetadata.getSpaceType().getValue());
                 put(KNNConstants.DIMENSION, modelMetadata.getDimension());
                 put(KNNConstants.MODEL_STATE, modelMetadata.getState().getName());
-                put(KNNConstants.MODEL_TIMESTAMP, modelMetadata.getTimestamp().toString());
+                put(KNNConstants.MODEL_TIMESTAMP, modelMetadata.getTimestamp());
                 put(KNNConstants.MODEL_DESCRIPTION, modelMetadata.getDescription());
                 put(KNNConstants.MODEL_ERROR, modelMetadata.getError());
             }};
@@ -324,7 +323,7 @@ public interface ModelDao {
 
             ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.getEngine((String) engine),
                     SpaceType.getSpace((String) space), (Integer) dimension, ModelState.getModelState((String) state),
-                    TimeValue.parseTimeValue((String) timestamp, KNNConstants.MODEL_TIMESTAMP), (String) description,
+                    (String) timestamp, (String) description,
                     (String) error);
             return new Model(modelMetadata, byteBlob);
         }
