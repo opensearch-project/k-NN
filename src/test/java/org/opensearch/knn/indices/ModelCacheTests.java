@@ -16,11 +16,12 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.mock;
@@ -33,7 +34,7 @@ public class ModelCacheTests extends KNNTestCase {
         String modelId = "test-model-id";
         int dimension = 2;
         Model mockModel = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""), "hello".getBytes());
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), "hello".getBytes());
         long cacheSize = 100L;
 
         ModelDao modelDao = mock(ModelDao.class);
@@ -58,7 +59,7 @@ public class ModelCacheTests extends KNNTestCase {
         long cacheSize = 500;
 
         Model mockModel = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""),
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""),
                 new byte[Long.valueOf(cacheSize).intValue() + 1]);
 
         ModelDao modelDao = mock(ModelDao.class);
@@ -106,10 +107,10 @@ public class ModelCacheTests extends KNNTestCase {
 
         int size1 = 100;
         Model mockModel1 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""), new byte[size1]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[size1]);
         int size2 = 300;
         Model mockModel2 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""), new byte[size2]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[size2]);
 
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId1)).thenReturn(mockModel1);
@@ -142,10 +143,10 @@ public class ModelCacheTests extends KNNTestCase {
 
         int size1 = 100;
         Model mockModel1 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""), new byte[size1]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[size1]);
         int size2 = 300;
         Model mockModel2 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""), new byte[size2]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[size2]);
 
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId1)).thenReturn(mockModel1);
@@ -182,7 +183,7 @@ public class ModelCacheTests extends KNNTestCase {
         int dimension = 2;
         long cacheSize = 100L;
         Model mockModel = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""), "hello".getBytes());
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), "hello".getBytes());
 
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId)).thenReturn(mockModel);
@@ -216,7 +217,7 @@ public class ModelCacheTests extends KNNTestCase {
 
         int modelSize = 101;
         Model mockModel = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""), new byte[modelSize]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[modelSize]);
 
         long cacheSize1 = 100L;
         long cacheSize2 = 200L;
@@ -274,7 +275,7 @@ public class ModelCacheTests extends KNNTestCase {
         int dimension = 2;
         int modelSize1 = 100;
         Model mockModel1 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""), new byte[modelSize1]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[modelSize1]);
 
         String modelId2 = "test-model-id-2";
 
@@ -304,12 +305,12 @@ public class ModelCacheTests extends KNNTestCase {
         String modelId1 = "test-model-id-1";
         int modelSize1 = 100;
         Model mockModel1 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""), new byte[modelSize1]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[modelSize1]);
 
         String modelId2 = "test-model-id-2";
         int modelSize2 = 100;
         Model mockModel2 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(10), "", ""), new byte[modelSize2]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[modelSize2]);
 
         long cacheSize = 500L;
 
