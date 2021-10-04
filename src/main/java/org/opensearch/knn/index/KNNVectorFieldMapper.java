@@ -238,10 +238,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 // sometimes used to initialize the cluster state/update cluster state, we cannot get the state here
                 // safely. So, we are unable to validate the model. The model gets validated during ingestion.
 
-                if (modelMetadata == null) {
-                    throw new IllegalArgumentException("Model \"" + modelId + "\" does not exist");
-                }
-
                 return new ModelFieldMapper(
                         name,
                         new KNNVectorFieldType(buildFullName(context), meta.getValue(), -1, modelIdAsString),
@@ -319,9 +315,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         String modelId;
 
         public KNNVectorFieldType(String name, Map<String, String> meta, int dimension) {
-            super(name, false, false, true, TextSearchInfo.NONE, meta);
-            this.dimension = dimension;
-            this.modelId = null; // By default, this is null. It will only be set for a mapping with a modelId set.
+            this(name, meta, dimension, null);
         }
 
         public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, String modelId) {

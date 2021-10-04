@@ -13,9 +13,8 @@ package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
-import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.common.unit.TimeValue;
+import org.opensearch.action.admin.indices.create.CreateIndexRequestBuilder;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
@@ -24,6 +23,8 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 
 import java.io.IOException;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -50,7 +51,7 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
 
         // Setup model
         ModelMetadata modelMetadata = new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(3), "", "");
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
 
         Model model = new Model(modelMetadata, modelBlob);
 
@@ -59,19 +60,36 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        ActionListener<AcknowledgedResponse> mappingListener = ActionListener.wrap(response -> {
-            assertTrue(response.isAcknowledged());
-            inProgressLatch.countDown();
-        }, e -> fail("Unable to put mapping: " + e.getMessage()));
-
         String indexName = "test-index";
         String fieldName = "test-field";
 
         modelDao.put(modelId, model, ActionListener.wrap(indexResponse -> {
-            createKNNIndex("test-index");
-            PutMappingRequest request = new PutMappingRequest(indexName).type("_doc");
-            request.source(fieldName, "type=knn_vector,model_id=" + modelId);
-            client().admin().indices().putMapping(request, mappingListener);
+            CreateIndexRequestBuilder createIndexRequestBuilder = client().admin().indices().prepareCreate(indexName)
+                    .setSettings(Settings.builder()
+                            .put("number_of_shards", 1)
+                            .put("number_of_replicas", 0)
+                            .put("index.knn", true)
+                            .build()
+                    ).addMapping(
+                            "_doc", ImmutableMap.of(
+                                    "properties", ImmutableMap.of(
+                                            fieldName, ImmutableMap.of(
+                                                    "type", "knn_vector",
+                                                    "model_id", modelId
+                                            )
+                                    )
+                            )
+                    );
+
+            client().admin().indices().create(createIndexRequestBuilder.request(),
+                    ActionListener.wrap(
+                            createIndexResponse -> {
+                                assertTrue(createIndexResponse.isAcknowledged());
+                                inProgressLatch.countDown();
+                            }, e -> fail("Unable to create index: " + e.getMessage())
+                    )
+            );
+
         }, e ->fail("Unable to put model: " + e.getMessage())));
 
         assertTrue(inProgressLatch.await(20, TimeUnit.SECONDS));
