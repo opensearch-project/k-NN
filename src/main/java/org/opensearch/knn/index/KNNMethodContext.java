@@ -13,6 +13,9 @@ package org.opensearch.knn.index;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.common.xcontent.ToXContentFragment;
 import org.opensearch.common.xcontent.XContentBuilder;
@@ -36,7 +39,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  * KNNMethodContext will contain the information necessary to produce a library index from an Opensearch mapping.
  * It will encompass all parameters necessary to build the index.
  */
-public class KNNMethodContext implements ToXContentFragment {
+public class KNNMethodContext implements ToXContentFragment, Writeable {
 
     private static Logger logger = LogManager.getLogger(KNNMethodContext.class);
 
@@ -65,6 +68,18 @@ public class KNNMethodContext implements ToXContentFragment {
         this.knnEngine = knnEngine;
         this.spaceType = spaceType;
         this.methodComponent = methodComponent;
+    }
+
+    /**
+     * Constructor from stream.
+     *
+     * @param in StreamInput
+     * @throws IOException on stream failure
+     */
+    public KNNMethodContext(StreamInput in) throws IOException {
+        this.knnEngine = KNNEngine.getEngine(in.readString());
+        this.spaceType = SpaceType.getSpace(in.readString());
+        this.methodComponent = new MethodComponentContext(in);
     }
 
     /**
@@ -222,5 +237,12 @@ public class KNNMethodContext implements ToXContentFragment {
     @Override
     public int hashCode() {
         return new HashCodeBuilder().append(knnEngine).append(spaceType).append(methodComponent).toHashCode();
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        out.writeString(knnEngine.getName());
+        out.writeString(spaceType.getValue());
+        this.methodComponent.writeTo(out);
     }
 }

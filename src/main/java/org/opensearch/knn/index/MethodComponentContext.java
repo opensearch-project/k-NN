@@ -13,6 +13,9 @@ package org.opensearch.knn.index;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.xcontent.ToXContentFragment;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.index.mapper.MapperParsingException;
@@ -33,7 +36,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  *
  * Each component is composed of a name and a map of parameters.
  */
-public class MethodComponentContext implements ToXContentFragment {
+public class MethodComponentContext implements ToXContentFragment, Writeable {
 
     private static Logger logger = LogManager.getLogger(MethodComponentContext.class);
 
@@ -49,6 +52,17 @@ public class MethodComponentContext implements ToXContentFragment {
     public MethodComponentContext(String name, Map<String, Object> parameters) {
         this.name = name;
         this.parameters = parameters;
+    }
+
+    /**
+     * Constructor from stream.
+     *
+     * @param in StreamInput
+     * @throws IOException on stream failure
+     */
+    public MethodComponentContext(StreamInput in) throws IOException {
+        this.name = in.readString();
+        this.parameters = in.readMap(StreamInput::readString, new ParameterMapValueReader());
     }
 
     /**
@@ -166,5 +180,45 @@ public class MethodComponentContext implements ToXContentFragment {
      */
     public Map<String, Object> getParameters() {
         return parameters;
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        out.writeString(this.name);
+        out.writeMap(this.parameters, StreamOutput::writeString, new ParameterMapValueWriter());
+    }
+
+    // Because the generic StreamOutput writeMap method can only write generic values, we need to create a custom one
+    // that handles the case when a parameter value is another method component context.
+    private static class ParameterMapValueWriter implements Writer<Object> {
+
+        private ParameterMapValueWriter() {}
+
+        @Override
+        public void write(StreamOutput out, Object o) throws IOException {
+            if (o instanceof MethodComponentContext) {
+                out.writeBoolean(true);
+                ((MethodComponentContext) o).writeTo(out);
+            } else {
+                out.writeBoolean(false);
+                out.writeGenericValue(o);
+            }
+        }
+    }
+
+    // Because the generic StreamInput writeMap method can only read generic values, we need to create a custom one
+    // that handles the case when a parameter value is another method component context.
+    private static class ParameterMapValueReader implements Reader<Object> {
+
+        private ParameterMapValueReader() {}
+
+        @Override
+        public Object read(StreamInput in) throws IOException {
+            boolean isValueMethodComponentContext = in.readBoolean();
+            if (isValueMethodComponentContext) {
+                return new MethodComponentContext(in);
+            }
+            return in.readGenericValue();
+        }
     }
 }
