@@ -334,17 +334,23 @@ public interface ModelDao {
             IndexMetadata indexMetadata = clusterService.state().metadata().index(MODEL_INDEX_NAME);
 
             if (indexMetadata == null) {
+                logger.debug("ModelMetadata for model \"" + modelId + "\" is null. " + MODEL_INDEX_NAME +
+                        " index does not exist.");
                 return null;
             }
 
             Map<String, String> models = indexMetadata.getCustomData(MODEL_METADATA_FIELD);
             if (models == null) {
+                logger.debug("ModelMetadata for model \"" + modelId + "\" is null. " + MODEL_INDEX_NAME +
+                        "'s custom metadata does not exist.");
                 return null;
             }
 
             String modelMetadata = models.get(modelId);
 
             if (modelMetadata == null) {
+                logger.debug("ModelMetadata for model \"" + modelId + "\" is null. Model \"" + modelId + "\" does " +
+                        "not exist.");
                 return null;
             }
 
