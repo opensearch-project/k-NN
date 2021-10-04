@@ -12,6 +12,7 @@
 package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentBuilder;
@@ -19,6 +20,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.mapper.MapperParsingException;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -26,6 +28,31 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class MethodComponentContextTests extends KNNTestCase {
+
+    /**
+     * Test reading from and writing to streams
+     */
+    public void testStreams() throws IOException {
+        String name = "test-name";
+        String nestedName = "nested-name";
+        MethodComponentContext nestedParam = new MethodComponentContext(nestedName, Collections.emptyMap());
+
+        Map<String, Object> parameters = ImmutableMap.of(
+                "test-p-1", 10,
+                "test-p-2", "string-p",
+                "test-p-3", nestedParam
+        );
+
+        MethodComponentContext original = new MethodComponentContext(name, parameters);
+
+        BytesStreamOutput streamOutput = new BytesStreamOutput();
+        original.writeTo(streamOutput);
+
+        MethodComponentContext copy = new MethodComponentContext(streamOutput.bytes().streamInput());
+
+        assertEquals(original, copy);
+    }
+
     /**
      * Test parse where input is invalid
      */
