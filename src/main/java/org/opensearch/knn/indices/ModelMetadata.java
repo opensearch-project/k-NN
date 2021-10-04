@@ -16,7 +16,6 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -24,7 +23,6 @@ import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 import static org.opensearch.knn.index.KNNVectorFieldMapper.MAX_DIMENSION;
 
 public class ModelMetadata implements Writeable {
@@ -36,7 +34,7 @@ public class ModelMetadata implements Writeable {
     final private int dimension;
 
     private AtomicReference<ModelState> state;
-    final private TimeValue timestamp;
+    final private String timestamp;
     final private String description;
     private String error;
 
@@ -50,7 +48,7 @@ public class ModelMetadata implements Writeable {
         this.spaceType = SpaceType.getSpace(in.readString());
         this.dimension = in.readInt();
         this.state = new AtomicReference<>(ModelState.readFrom(in));
-        this.timestamp = in.readTimeValue();
+        this.timestamp = in.readString();
 
         // Description and error may be empty. However, reading the string will work as long as they are not null
         // which is checked in constructor and setters
@@ -70,7 +68,7 @@ public class ModelMetadata implements Writeable {
      * @param error error message associated with model
      */
     public ModelMetadata(KNNEngine knnEngine, SpaceType spaceType, int dimension, ModelState modelState,
-                         TimeValue timestamp, String description, String error) {
+                         String timestamp, String description, String error) {
         this.knnEngine = Objects.requireNonNull(knnEngine, "knnEngine must not be null");
         this.spaceType = Objects.requireNonNull(spaceType, "spaceType must not be null");
         if (dimension <= 0 || dimension >= MAX_DIMENSION) {
@@ -126,7 +124,7 @@ public class ModelMetadata implements Writeable {
      *
      * @return timestamp
      */
-    public TimeValue getTimestamp() {
+    public String getTimestamp() {
         return timestamp;
     }
 
@@ -169,7 +167,7 @@ public class ModelMetadata implements Writeable {
     @Override
     public String toString() {
         return String.join(DELIMITER, knnEngine.getName(), spaceType.getValue(), Integer.toString(dimension),
-                getState().toString(), timestamp.toString(), description, error);
+                getState().toString(), timestamp, description, error);
     }
 
     @Override
@@ -216,7 +214,7 @@ public class ModelMetadata implements Writeable {
         SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
         int dimension = Integer.parseInt(modelMetadataArray[2]);
         ModelState modelState = ModelState.getModelState(modelMetadataArray[3]);
-        TimeValue timestamp = TimeValue.parseTimeValue(modelMetadataArray[4], MODEL_TIMESTAMP);
+        String timestamp = modelMetadataArray[4];
         String description = modelMetadataArray[5];
         String error = modelMetadataArray[6];
 
@@ -229,7 +227,7 @@ public class ModelMetadata implements Writeable {
         out.writeString(getSpaceType().getValue());
         out.writeInt(getDimension());
         getState().writeTo(out);
-        out.writeTimeValue(getTimestamp());
+        out.writeString(getTimestamp());
         out.writeString(getDescription());
         out.writeString(getError());
     }
