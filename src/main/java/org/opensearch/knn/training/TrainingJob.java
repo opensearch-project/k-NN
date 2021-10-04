@@ -13,7 +13,6 @@ package org.opensearch.knn.training;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.index.JNIService;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -23,6 +22,8 @@ import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Objects;
 
 /**
@@ -65,7 +66,7 @@ public class TrainingJob implements Runnable {
                                 knnMethodContext.getSpaceType(),
                                 dimension,
                                 ModelState.TRAINING,
-                                TimeValue.timeValueMillis(System.currentTimeMillis()),
+                                ZonedDateTime.now(ZoneOffset.UTC).toString(),
                                 description,
                                 ""
                         ),

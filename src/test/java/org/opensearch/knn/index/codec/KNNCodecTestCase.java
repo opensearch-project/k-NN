@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.search.TopDocs;
 import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.JNIService;
@@ -67,6 +66,8 @@ import org.opensearch.watcher.ResourceWatcherService;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -225,7 +226,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
 
         // Set model state to created
         ModelMetadata modelMetadata1 = new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED,
-                TimeValue.timeValueDays(3), "", "");
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
 
         Model mockModel = new Model(modelMetadata1, modelBlob);
         when(modelDao.get(modelId)).thenReturn(mockModel);
