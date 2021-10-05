@@ -29,6 +29,7 @@ import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.indices.ModelDao;
@@ -49,6 +50,7 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
+import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.script.Script;
 
@@ -77,8 +79,12 @@ import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
+import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 
@@ -546,6 +552,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return client().performRequest(request);
     }
 
+
     /**
      * Parse KNN Cluster stats from response
      */
@@ -636,7 +643,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     protected void addModelToSystemIndex(String modelId, ModelMetadata modelMetadata, byte[] model) throws IOException {
-        //TODO: This doesnt work. It does not add cluster metadata.
+        assertFalse(Strings.isNullOrEmpty(modelId));
         String modelBase64 = Base64.getEncoder().encodeToString(model);
 
         Request request = new Request(
@@ -645,10 +652,14 @@ public class KNNRestTestCase extends ODFERestTestCase {
         );
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
+                .field(MODEL_STATE, modelMetadata.getState().getName())
                 .field(KNN_ENGINE, modelMetadata.getKnnEngine().getName())
                 .field(METHOD_PARAMETER_SPACE_TYPE, modelMetadata.getSpaceType().getValue())
                 .field(DIMENSION, modelMetadata.getDimension())
                 .field(MODEL_BLOB_PARAMETER, modelBase64)
+                .field(MODEL_TIMESTAMP, modelMetadata.getTimestamp())
+                .field(MODEL_DESCRIPTION, modelMetadata.getDescription())
+                .field(MODEL_ERROR, modelMetadata.getError())
                 .endObject();
 
         request.setJsonEntity(Strings.toString(builder));
