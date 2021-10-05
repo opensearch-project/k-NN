@@ -638,8 +638,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             ModelMetadata modelMetadata = this.modelDao.getMetadata(modelId);
 
             if (modelMetadata == null) {
-                throw new IllegalStateException("Model \"" + modelId + "\" does not exist. A new index will need to " +
-                        "be created.");
+                throw new IllegalStateException("Model \"" + modelId + "\" from " +
+                        context.mapperService().index().getName() + "'s mapping does not exist. Because the " +
+                        "\"" + MODEL_ID + "\" parameter is not updateable, this index will need to " +
+                        "be recreated with a valid model.");
             }
 
             parseCreateField(context, modelMetadata.getDimension());
