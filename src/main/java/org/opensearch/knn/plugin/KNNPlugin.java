@@ -33,11 +33,14 @@ import org.opensearch.knn.index.KNNVectorFieldMapper;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.plugin.rest.RestDeleteModelHandler;
 import org.opensearch.knn.plugin.rest.RestGetModelHandler;
 import org.opensearch.knn.plugin.rest.RestKNNStatsHandler;
 import org.opensearch.knn.plugin.rest.RestKNNWarmupHandler;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.plugin.stats.KNNStats;
+import org.opensearch.knn.plugin.transport.DeleteModelAction;
+import org.opensearch.knn.plugin.transport.DeleteModelTransportAction;
 import org.opensearch.knn.plugin.transport.GetModelAction;
 import org.opensearch.knn.plugin.transport.GetModelTransportAction;
 import org.opensearch.knn.plugin.transport.KNNStatsAction;
@@ -191,8 +194,11 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
         RestKNNWarmupHandler restKNNWarmupHandler = new RestKNNWarmupHandler(settings, restController, clusterService,
                 indexNameExpressionResolver);
         RestGetModelHandler restGetModelHandler = new RestGetModelHandler();
+        RestDeleteModelHandler restDeleteModelHandler = new RestDeleteModelHandler();
 
-        return Arrays.asList(restKNNStatsHandler, restKNNWarmupHandler, restGetModelHandler);
+        return ImmutableList.of(
+            restKNNStatsHandler, restKNNWarmupHandler, restGetModelHandler, restDeleteModelHandler
+        );
     }
 
     /**
@@ -206,7 +212,8 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
                 new ActionHandler<>(UpdateModelMetadataAction.INSTANCE, UpdateModelMetadataTransportAction.class),
                 new ActionHandler<>(TrainingJobRouteDecisionInfoAction.INSTANCE,
                         TrainingJobRouteDecisionInfoTransportAction.class),
-                new ActionHandler<>(GetModelAction.INSTANCE, GetModelTransportAction.class)
+                new ActionHandler<>(GetModelAction.INSTANCE, GetModelTransportAction.class),
+                new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class)
         );
     }
 
