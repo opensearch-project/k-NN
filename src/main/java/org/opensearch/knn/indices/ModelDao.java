@@ -18,6 +18,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.ResourceNotFoundException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.DocWriteRequest;
+import org.opensearch.action.DocWriteResponse;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.delete.DeleteAction;
@@ -430,6 +431,11 @@ public interface ModelDao {
             //TODO: Bug. Model needs to be removed from all nodes caches, not just local.
             // https://github.com/opensearch-project/k-NN/issues/93
             ActionListener<DeleteResponse> onModelDeleteListener = ActionListener.wrap(deleteResponse -> {
+                if(deleteResponse.getResult() != DocWriteResponse.Result.DELETED){
+                    String errorMessage = String.format("Model \" %s \" does not exist", modelId);
+                    listener.onFailure(new ResourceNotFoundException(modelId, errorMessage));
+                    return;
+                }
                 ModelCache.getInstance().remove(modelId);
                 listener.onResponse(deleteResponse);
             }, listener::onFailure);
