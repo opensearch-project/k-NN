@@ -26,22 +26,18 @@
 
 buildscript {
     ext {
-        opensearch_version = System.getProperty("opensearch.version", "1.1.0-SNAPSHOT")
+        opensearch_version = System.getProperty("opensearch.version", "1.2.0-SNAPSHOT")
         opensearch_group = "org.opensearch"
     }
 
     // This isn't applying from repositories.gradle so repeating git diff it here
     repositories {
+        mavenLocal()
+        maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
         mavenCentral()
         maven { url "https://plugins.gradle.org/m2/" }
-        mavenLocal()
         jcenter()
     }
-
-    repositories {
-        mavenLocal()
-    }
-
 
     dependencies {
         classpath "${opensearch_group}.gradle:build-tools:${opensearch_version}"
@@ -61,9 +57,10 @@ plugins {
 }
 
 repositories {
+    mavenLocal()
+    maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
     mavenCentral()
     maven { url "https://plugins.gradle.org/m2/" }
-    mavenLocal()
     jcenter()
 }
 
