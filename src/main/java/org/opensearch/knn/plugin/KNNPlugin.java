@@ -72,6 +72,8 @@ import org.opensearch.index.mapper.Mapper;
 import org.opensearch.knn.plugin.stats.KNNStatsConfig;
 import org.opensearch.knn.plugin.transport.TrainingJobRouteDecisionInfoAction;
 import org.opensearch.knn.plugin.transport.TrainingJobRouteDecisionInfoTransportAction;
+import org.opensearch.knn.plugin.transport.TrainingJobRouterAction;
+import org.opensearch.knn.plugin.transport.TrainingJobRouterTransportAction;
 import org.opensearch.knn.plugin.transport.TrainingModelAction;
 import org.opensearch.knn.plugin.transport.TrainingModelTransportAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
@@ -219,6 +221,7 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
                         TrainingJobRouteDecisionInfoTransportAction.class),
                 new ActionHandler<>(GetModelAction.INSTANCE, GetModelTransportAction.class),
                 new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
+                new ActionHandler<>(TrainingJobRouterAction.INSTANCE, TrainingJobRouterTransportAction.class),
                 new ActionHandler<>(TrainingModelAction.INSTANCE, TrainingModelTransportAction.class)
         );
     }
