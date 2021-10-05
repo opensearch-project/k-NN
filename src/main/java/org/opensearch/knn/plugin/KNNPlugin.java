@@ -33,10 +33,13 @@ import org.opensearch.knn.index.KNNVectorFieldMapper;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.plugin.rest.RestGetModelHandler;
 import org.opensearch.knn.plugin.rest.RestKNNStatsHandler;
 import org.opensearch.knn.plugin.rest.RestKNNWarmupHandler;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.plugin.stats.KNNStats;
+import org.opensearch.knn.plugin.transport.GetModelAction;
+import org.opensearch.knn.plugin.transport.GetModelTransportAction;
 import org.opensearch.knn.plugin.transport.KNNStatsAction;
 import org.opensearch.knn.plugin.transport.KNNStatsTransportAction;
 import org.opensearch.knn.plugin.transport.KNNWarmupAction;
@@ -134,6 +137,7 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
     public static final String KNN_BASE_URI = "/_plugins/_knn";
 
     private KNNStats knnStats;
+    private ModelDao modelDao;
     private ClusterService clusterService;
 
     @Override
@@ -186,8 +190,9 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
         RestKNNStatsHandler restKNNStatsHandler = new RestKNNStatsHandler(settings, restController, knnStats);
         RestKNNWarmupHandler restKNNWarmupHandler = new RestKNNWarmupHandler(settings, restController, clusterService,
                 indexNameExpressionResolver);
+        RestGetModelHandler restGetModelHandler = new RestGetModelHandler();
 
-        return Arrays.asList(restKNNStatsHandler, restKNNWarmupHandler);
+        return Arrays.asList(restKNNStatsHandler, restKNNWarmupHandler, restGetModelHandler);
     }
 
     /**
@@ -200,7 +205,8 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
                 new ActionHandler<>(KNNWarmupAction.INSTANCE, KNNWarmupTransportAction.class),
                 new ActionHandler<>(UpdateModelMetadataAction.INSTANCE, UpdateModelMetadataTransportAction.class),
                 new ActionHandler<>(TrainingJobRouteDecisionInfoAction.INSTANCE,
-                        TrainingJobRouteDecisionInfoTransportAction.class)
+                        TrainingJobRouteDecisionInfoTransportAction.class),
+                new ActionHandler<>(GetModelAction.INSTANCE, GetModelTransportAction.class)
         );
     }
 
