@@ -127,7 +127,7 @@ public interface ModelDao {
      * Get metadata for a model. Non-blocking.
      *
      * @param modelId to retrieve
-     * @return modelMetadata
+     * @return modelMetadata. If model metadata does not exist, returns null
      */
     ModelMetadata getMetadata(String modelId);
 
@@ -380,18 +380,24 @@ public interface ModelDao {
             IndexMetadata indexMetadata = clusterService.state().metadata().index(MODEL_INDEX_NAME);
 
             if (indexMetadata == null) {
-                throw new RuntimeException("Model index's metadata does not exist");
+                logger.debug("ModelMetadata for model \"" + modelId + "\" is null. " + MODEL_INDEX_NAME +
+                        " index does not exist.");
+                return null;
             }
 
             Map<String, String> models = indexMetadata.getCustomData(MODEL_METADATA_FIELD);
             if (models == null) {
-                throw new RuntimeException("Model metadata does not exist");
+                logger.debug("ModelMetadata for model \"" + modelId + "\" is null. " + MODEL_INDEX_NAME +
+                        "'s custom metadata does not exist.");
+                return null;
             }
 
             String modelMetadata = models.get(modelId);
 
             if (modelMetadata == null) {
-                throw new RuntimeException("Model \"" + modelId + "\" does not exist");
+                logger.debug("ModelMetadata for model \"" + modelId + "\" is null. Model \"" + modelId + "\" does " +
+                        "not exist.");
+                return null;
             }
 
             return ModelMetadata.fromString(modelMetadata);

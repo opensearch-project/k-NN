@@ -235,6 +235,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             if (modelIdAsString != null) {
                 ModelMetadata modelMetadata = modelDao.getMetadata(modelIdAsString);
 
+                if (modelMetadata == null) {
+                    throw new IllegalArgumentException("Model \"" + modelId + "\" does not exist");
+                }
+
                 return new ModelFieldMapper(
                         name,
                         new KNNVectorFieldType(buildFullName(context), meta.getValue(), modelMetadata.getDimension()),
