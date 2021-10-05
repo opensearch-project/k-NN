@@ -62,7 +62,6 @@ import java.security.PrivilegedAction;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.index.codec.KNNCodecUtil.buildEngineFileName;
 
@@ -91,9 +90,6 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer) throws IOException {
         KNNCounter.GRAPH_INDEX_REQUESTS.increment();
         if (field.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
-            // Get engine to be used for indexing
-            String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
-            KNNEngine knnEngine = KNNEngine.getEngine(engineName);
 
             // Get values to be indexed
             BinaryDocValues values = valuesProducer.getBinary(field);
@@ -104,44 +100,42 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             }
 
             // Create library index either from model or from scratch
-            String engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getLatestBuildVersion(),
-                    field.name, knnEngine.getExtension());
-            String indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
-                    engineFileName).toString();
-            String tmpEngineFileName = engineFileName + TEMP_SUFFIX;
-            String tempIndexPath = indexPath + TEMP_SUFFIX;
+            String engineFileName;
+            String indexPath;
+            String tmpEngineFileName;
+
             if (field.attributes().containsKey(MODEL_ID)) {
+
                 String modelId = field.attributes().get(MODEL_ID);
                 Model model = ModelCache.getInstance().get(modelId);
 
+                KNNEngine knnEngine = model.getModelMetadata().getKnnEngine();
+
+                engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getLatestBuildVersion(),
+                        field.name, knnEngine.getExtension());
+                indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
+                        engineFileName).toString();
+                tmpEngineFileName = engineFileName + TEMP_SUFFIX;
+                String tempIndexPath = indexPath + TEMP_SUFFIX;
+
                 if (model.getModelBlob() == null) {
-                    throw new RuntimeException("There is no model with id \"" + modelId + "\"");
-                }
-
-                if (model.getModelMetadata().getKnnEngine() != knnEngine) {
-                    throw new RuntimeException("Model Engine \"" + model.getModelMetadata().getKnnEngine().getName()
-                            + "\" cannot be different than index engine \"" + knnEngine.getName() + "\"");
-                }
-
-                String spaceName = field.getAttribute(KNNConstants.SPACE_TYPE);
-                if (spaceName == null) {
-                    throw new RuntimeException("Space Type cannot be null");
-                }
-
-                SpaceType spaceType = SpaceType.getSpace(spaceName);
-                if (model.getModelMetadata().getSpaceType() != spaceType) {
-                    throw new RuntimeException("Model Space Type \"" + model.getModelMetadata().getSpaceType().getValue()
-                            + "\" cannot be different than index Space Type \"" + spaceType.getValue() + "\"");
-                }
-
-                int dimension = Integer.parseInt(field.attributes().getOrDefault(DIMENSION, "-1"));
-                if (model.getModelMetadata().getDimension() != dimension) {
-                    throw new RuntimeException("Model dimension \"" + model.getModelMetadata().getDimension()
-                            + "\" cannot be different than index dimension \"" + dimension + "\"");
+                    throw new RuntimeException("There is no trained model with id \"" + modelId + "\"");
                 }
 
                 createKNNIndexFromTemplate(model.getModelBlob(), pair, knnEngine, tempIndexPath);
             } else {
+
+                // Get engine to be used for indexing
+                String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
+                KNNEngine knnEngine = KNNEngine.getEngine(engineName);
+
+                engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getLatestBuildVersion(),
+                        field.name, knnEngine.getExtension());
+                indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
+                        engineFileName).toString();
+                tmpEngineFileName = engineFileName + TEMP_SUFFIX;
+                String tempIndexPath = indexPath + TEMP_SUFFIX;
+
                 createKNNIndexFromScratch(field, pair, knnEngine, tempIndexPath);
             }
 

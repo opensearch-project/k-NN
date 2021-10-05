@@ -35,6 +35,7 @@ import org.opensearch.knn.index.JNIService;
 import org.opensearch.knn.index.KNNQuery;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorFieldMapper;
+import org.opensearch.knn.index.KNNWeight;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.codec.KNN87Codec.KNN87Codec;
@@ -230,6 +231,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
 
         Model mockModel = new Model(modelMetadata1, modelBlob);
         when(modelDao.get(modelId)).thenReturn(mockModel);
+        when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata1);
 
         Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), 10).build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
@@ -251,9 +253,6 @@ public class  KNNCodecTestCase extends KNNTestCase {
 
         FieldType fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
         fieldType.putAttribute(KNNConstants.MODEL_ID, modelId);
-        fieldType.putAttribute(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName());
-        fieldType.putAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue());
-        fieldType.putAttribute(KNNConstants.DIMENSION, String.valueOf(dimension));
         fieldType.freeze();
 
         // Add the documents to the index
@@ -277,6 +276,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         writer.close();
 
         // Make sure that search returns the correct results
+        KNNWeight.initialize(modelDao);
         NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(createDisabledResourceWatcherService());
         float [] query = {10.0f, 10.0f, 10.0f};
         IndexSearcher searcher = new IndexSearcher(reader);
