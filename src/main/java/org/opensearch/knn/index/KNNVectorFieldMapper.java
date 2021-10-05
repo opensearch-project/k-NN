@@ -233,23 +233,21 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             String modelIdAsString = this.modelId.get();
             if (modelIdAsString != null) {
-                ModelMetadata modelMetadata = modelDao.getMetadata(modelIdAsString);
-
-                if (modelMetadata == null) {
-                    throw new IllegalArgumentException("Model \"" + modelId + "\" does not exist");
-                }
+                // Because model information is stored in cluster metadata, we are unable to get it here. This is
+                // because to get the cluster metadata, you need access to the cluster state. Because this code is
+                // sometimes used to initialize the cluster state/update cluster state, we cannot get the state here
+                // safely. So, we are unable to validate the model. The model gets validated during ingestion.
 
                 return new ModelFieldMapper(
                         name,
-                        new KNNVectorFieldType(buildFullName(context), meta.getValue(), modelMetadata.getDimension()),
+                        new KNNVectorFieldType(buildFullName(context), meta.getValue(), -1, modelIdAsString),
                         multiFieldsBuilder.build(this, context),
                         copyTo.build(),
                         ignoreMalformed(context),
                         stored.get(),
                         hasDocValues.get(),
                         modelDao,
-                        modelIdAsString,
-                        modelMetadata);
+                        modelIdAsString);
             }
 
             // Build legacy
@@ -314,10 +312,16 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     public static class KNNVectorFieldType extends MappedFieldType {
 
         int dimension;
+        String modelId;
 
         public KNNVectorFieldType(String name, Map<String, String> meta, int dimension) {
+            this(name, meta, dimension, null);
+        }
+
+        public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, String modelId) {
             super(name, false, false, true, TextSearchInfo.NONE, meta);
             this.dimension = dimension;
+            this.modelId = modelId;
         }
 
         @Override
@@ -343,6 +347,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         public int getDimension() {
             return dimension;
+        }
+
+        public String getModelId() {
+            return modelId;
         }
 
         @Override
@@ -385,6 +393,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     @Override
     protected void parseCreateField(ParseContext context) throws IOException {
+        parseCreateField(context, fieldType().getDimension());
+    }
+
+    protected void parseCreateField(ParseContext context, int dimension) throws IOException {
+
         if (!KNNSettings.isKNNPluginEnabled()) {
             throw new IllegalStateException("KNN plugin is disabled. To enable " +
                     "update knn.plugin.enabled setting to true");
@@ -431,9 +444,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             context.parser().nextToken();
         }
 
-        if (fieldType().dimension != vector.size()) {
-            String errorMessage = String.format("Vector dimension mismatch. Expected: %d, Given: %d",
-                    fieldType().dimension, vector.size());
+        if (dimension != vector.size()) {
+            String errorMessage = String.format("Vector dimension mismatch. Expected: %d, Given: %d", dimension,
+                    vector.size());
             throw new IllegalArgumentException(errorMessage);
         }
 
@@ -606,21 +619,32 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         private ModelFieldMapper(String simpleName, KNNVectorFieldType mappedFieldType, MultiFields multiFields,
                                 CopyTo copyTo, Explicit<Boolean> ignoreMalformed, boolean stored,
-                                boolean hasDocValues, ModelDao modelDao, String modelId, ModelMetadata modelMetadata) {
+                                boolean hasDocValues, ModelDao modelDao, String modelId) {
             super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues);
 
             this.modelId = modelId;
             this.modelDao = modelDao;
 
             this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
-
             this.fieldType.putAttribute(MODEL_ID, modelId);
-
-            this.fieldType.putAttribute(DIMENSION, String.valueOf(modelMetadata.getDimension()));
-            this.fieldType.putAttribute(SPACE_TYPE, modelMetadata.getSpaceType().getValue());
-            this.fieldType.putAttribute(KNN_ENGINE, modelMetadata.getKnnEngine().getName());
-
             this.fieldType.freeze();
+        }
+
+        @Override
+        protected void parseCreateField(ParseContext context) throws IOException {
+            // For the model field mapper, we cannot validate the model during index creation due to
+            // an issue with reading cluster state during mapper creation. So, we need to validate the
+            // model when ingestion starts.
+            ModelMetadata modelMetadata = this.modelDao.getMetadata(modelId);
+
+            if (modelMetadata == null) {
+                throw new IllegalStateException("Model \"" + modelId + "\" from " +
+                        context.mapperService().index().getName() + "'s mapping does not exist. Because the " +
+                        "\"" + MODEL_ID + "\" parameter is not updateable, this index will need to " +
+                        "be recreated with a valid model.");
+            }
+
+            parseCreateField(context, modelMetadata.getDimension());
         }
     }
 }
