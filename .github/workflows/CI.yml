@@ -27,17 +27,6 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
 
-      # dependencies: OpenSearch
-      - name: Checkout OpenSearch
-        uses: actions/checkout@v2
-        with:
-          repository: 'opensearch-project/OpenSearch'
-          ref: '1.x'
-          path: OpenSearch
-      - name: Build OpenSearch
-        working-directory: ./OpenSearch
-        run: ./gradlew publishToMavenLocal
-
       - name: Run build
         run: |
           ./gradlew build -Dopensearch.version=1.2.0-SNAPSHOT
