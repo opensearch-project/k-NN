@@ -47,6 +47,8 @@ import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.util.DocIdSetBuilder;
 import org.opensearch.common.io.PathUtils;
+import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 
 import java.io.IOException;
@@ -60,6 +62,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
@@ -68,6 +71,8 @@ import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
  */
 public class KNNWeight extends Weight {
     private static Logger logger = LogManager.getLogger(KNNWeight.class);
+    private static ModelDao modelDao;
+
     private final KNNQuery knnQuery;
     private final float boost;
 
@@ -78,6 +83,10 @@ public class KNNWeight extends Weight {
         this.knnQuery = query;
         this.boost = boost;
         this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
+    }
+
+    public static void initialize(ModelDao modelDao) {
+        KNNWeight.modelDao = modelDao;
     }
 
     @Override
@@ -102,8 +111,24 @@ public class KNNWeight extends Weight {
                 return null;
             }
 
-            KNNEngine knnEngine = KNNEngine.getEngine(fieldInfo.getAttribute(KNN_ENGINE));
-            SpaceType spaceType = SpaceType.getSpace(fieldInfo.getAttribute(SPACE_TYPE));
+            KNNEngine knnEngine;
+            SpaceType spaceType;
+
+            // Check if a modelId exists. If so, the space type and engine will need to be picked up from the model's
+            // metadata.
+            String modelId = fieldInfo.getAttribute(MODEL_ID);
+            if (modelId != null) {
+                ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+                if (modelMetadata == null) {
+                    throw new RuntimeException("Model \"" + modelId + "\" does not exist.");
+                }
+
+                knnEngine = modelMetadata.getKnnEngine();
+                spaceType = modelMetadata.getSpaceType();
+            } else {
+                knnEngine = KNNEngine.getEngine(fieldInfo.getAttribute(KNN_ENGINE));
+                spaceType = SpaceType.getSpace(fieldInfo.getAttribute(SPACE_TYPE));
+            }
 
             /*
              * In case of compound file, extension would be <engine-extension> + c otherwise <engine-extension>
