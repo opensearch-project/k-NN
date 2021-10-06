@@ -25,6 +25,8 @@
 
 package org.opensearch.knn.common;
 
+import org.opensearch.knn.index.KNNMethodContext;
+
 public class KNNConstants {
     // shared across library constants
     public static final String DIMENSION = "dimension";
@@ -61,6 +63,11 @@ public class KNNConstants {
 
     public static final String TRAINING_JOB_COUNT_FIELD_NAME = "training_job_count";
     public static final String NODES_KEY = "nodes";
+
+    public static final String TRAIN_INDEX_PARAMETER = "training_index";
+    public static final String TRAIN_FIELD_PARAMETER = "training_field";
+    public static final String MAX_VECTOR_COUNT_PARAMETER = "max_trainng_vector_count";
+    public static final String SEARCH_SIZE_PARAMETER = "search_size";
 
     // nmslib specific constants
     public static final String NMSLIB_NAME = "nmslib";

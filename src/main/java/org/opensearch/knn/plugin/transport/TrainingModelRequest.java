@@ -27,9 +27,6 @@ import org.opensearch.knn.indices.ModelMetadata;
 import java.io.IOException;
 import java.util.Map;
 
-//TODO:
-// 1. Double check source map when full API is ready
-
 /**
  * Request to train and serialize a model
  */
@@ -312,7 +309,22 @@ public class TrainingModelRequest extends ActionRequest {
     private ActionRequestValidationException validateTrainingField(IndexMetadata indexMetadata,
                                                                    ActionRequestValidationException exception) {
         // Index metadata should not be null
-        Object trainingFieldMapping = indexMetadata.mapping().getSourceAsMap().get(trainingField); //TODO: Double check this when full API is ready
+        if (indexMetadata == null) {
+            throw new IllegalArgumentException("IndexMetadata should not be null");
+        }
+
+        // The mapping output *should* look like this:
+        //  "{properties={train_field={type=knn_vector, dimension=8}}}"
+        Map<String, Object> properties = (Map<String, Object>)indexMetadata.mapping().getSourceAsMap()
+                .get("properties");
+
+        if (properties == null) {
+            exception = exception == null ? new ActionRequestValidationException() : exception;
+            exception.addValidationError("Properties in map does not exists. This is unexpected");
+            return exception;
+        }
+
+        Object trainingFieldMapping = properties.get(trainingField);
 
         // Check field existence
         if (trainingFieldMapping == null) {

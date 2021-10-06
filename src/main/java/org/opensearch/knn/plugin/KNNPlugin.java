@@ -38,6 +38,7 @@ import org.opensearch.knn.plugin.rest.RestDeleteModelHandler;
 import org.opensearch.knn.plugin.rest.RestGetModelHandler;
 import org.opensearch.knn.plugin.rest.RestKNNStatsHandler;
 import org.opensearch.knn.plugin.rest.RestKNNWarmupHandler;
+import org.opensearch.knn.plugin.rest.RestTrainModelHandler;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.plugin.stats.KNNStats;
 import org.opensearch.knn.plugin.transport.DeleteModelAction;
@@ -75,6 +76,7 @@ import org.opensearch.knn.plugin.transport.TrainingJobRouteDecisionInfoTransport
 import org.opensearch.knn.plugin.transport.TrainingJobRouterAction;
 import org.opensearch.knn.plugin.transport.TrainingJobRouterTransportAction;
 import org.opensearch.knn.plugin.transport.TrainingModelAction;
+import org.opensearch.knn.plugin.transport.TrainingModelRequest;
 import org.opensearch.knn.plugin.transport.TrainingModelTransportAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
@@ -180,6 +182,7 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
         KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService, client);
         KNNQueryBuilder.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
+        TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
         knnStats = new KNNStats(KNNStatsConfig.KNN_STATS);
         return ImmutableList.of(knnStats);
     }
@@ -202,9 +205,11 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
                 indexNameExpressionResolver);
         RestGetModelHandler restGetModelHandler = new RestGetModelHandler();
         RestDeleteModelHandler restDeleteModelHandler = new RestDeleteModelHandler();
+        RestTrainModelHandler restTrainModelHandler = new RestTrainModelHandler();
 
         return ImmutableList.of(
-            restKNNStatsHandler, restKNNWarmupHandler, restGetModelHandler, restDeleteModelHandler
+            restKNNStatsHandler, restKNNWarmupHandler, restGetModelHandler, restDeleteModelHandler,
+                restTrainModelHandler
         );
     }
 

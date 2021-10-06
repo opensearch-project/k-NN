@@ -62,8 +62,9 @@ public class TrainingModelResponse extends ActionResponse implements ToXContentO
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        //TODO: This will be null on post. We need to fix this after we build the api.
+        builder.startObject();
         builder.field(KNNConstants.MODEL_ID, this.modelId);
+        builder.endObject();
         return builder;
     }
 }
