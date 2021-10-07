@@ -16,6 +16,7 @@ import org.junit.BeforeClass;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
+import org.opensearch.action.DocWriteResponse;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.index.IndexRequest;
@@ -27,6 +28,7 @@ import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
@@ -353,19 +355,24 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
     public void testDelete() throws IOException, InterruptedException {
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
-        String modelId = "efbsdhcvbsd-2";
+        String modelId = "testDeleteModelID";
         byte[] modelBlob = "hello".getBytes();
         int dimension = 2;
 
-        // model index doesnt exist --> nothing should happen
-        modelDao.delete(modelId, null);
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        ActionListener<DeleteModelResponse> deleteModelIndexDoesNotExistListener = ActionListener.wrap(response -> {
+            assertEquals("failed", response.getResult());
+            inProgressLatch.countDown();
+        }, exception -> fail("Unable to delete the model: " + exception));
+        // model index doesnt exist
+        modelDao.delete(modelId, deleteModelIndexDoesNotExistListener);
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
 
-        // model id doesnt exist
         createIndex(MODEL_INDEX_NAME);
 
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
-        ActionListener<DeleteResponse> deleteModelDoesNotExistListener = ActionListener.wrap(response -> {
-            assertEquals(RestStatus.NOT_FOUND, response.status());
+        ActionListener<DeleteModelResponse> deleteModelDoesNotExistListener = ActionListener.wrap(response -> {
+            assertEquals(DocWriteResponse.Result.NOT_FOUND.getLowercase(), response.getResult());
             inProgressLatch1.countDown();
         }, exception -> fail("Unable to delete the model: " + exception));
 
@@ -373,8 +380,10 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
-        ActionListener<DeleteResponse> deleteModelExistsListener = ActionListener.wrap(response -> {
-            assertEquals(modelId, response.getId());
+        ActionListener<DeleteModelResponse> deleteModelExistsListener = ActionListener.wrap(response -> {
+            assertEquals(modelId, response.getModelID());
+            assertEquals(DocWriteResponse.Result.DELETED.getLowercase(), response.getResult());
+            assertNull(response.getErrorMessage());
             inProgressLatch2.countDown();
         }, exception -> fail("Unable to delete model: " + exception));
 
