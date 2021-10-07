@@ -55,8 +55,6 @@ public class TrainingModelTransportActionTests extends KNNSingleNodeTestCase {
             addKnnDoc(trainingIndexName, Integer.toString(i+1), trainingFieldName, vector);
         }
 
-
-
         // Create train model request
         String modelId = "test-model-id";
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
@@ -91,10 +89,7 @@ public class TrainingModelTransportActionTests extends KNNSingleNodeTestCase {
             assertEquals(ModelState.CREATED, modelMetadata.getState());
             assertTrue(modelMetadata.getError() == null || modelMetadata.getError().isEmpty());
             inProgressLatch.countDown();
-        }, e -> {
-            logger.info("Failure: " + e.getMessage());
-            fail();
-        });
+        }, e -> fail("Failure: " + e.getMessage()));
 
         TrainingModelTransportAction trainingModelTransportAction = node().injector()
                 .getInstance(TrainingModelTransportAction.class);

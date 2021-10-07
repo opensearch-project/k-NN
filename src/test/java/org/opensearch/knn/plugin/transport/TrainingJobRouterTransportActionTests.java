@@ -284,7 +284,7 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         String trainingIndexName = "training-index";
         int dimension = 133;
         long vectorCount = 1000000;
-        long expectedSize =  dimension * vectorCount * Float.BYTES / BYTES_PER_KILOBYTES; // 519,531.25 KB ~= 520 MB
+        long expectedSize =  dimension * vectorCount * Float.BYTES / BYTES_PER_KILOBYTES + 1; // 519,531.25 KB ~= 520 MB
 
         // Setup the request
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
