@@ -356,9 +356,11 @@ public class TrainingModelRequestTests extends KNNTestCase {
 
         // Return  mapping with different type
         Map<String, Object> mappingMap = ImmutableMap.of(
-                trainingField, ImmutableMap.of(
-                        "type", "int",
-                        KNNConstants.DIMENSION, dimension
+                "properties", ImmutableMap.of(
+                        trainingField, ImmutableMap.of(
+                                "type", "int",
+                                KNNConstants.DIMENSION, dimension
+                        )
                 )
         );
         MappingMetadata mappingMetadata = mock(MappingMetadata.class);
@@ -411,11 +413,13 @@ public class TrainingModelRequestTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.getMetadata(modelId)).thenReturn(null);
 
-        // Return  mapping with different type
+        // Return  mapping with different dimension
         Map<String, Object> mappingMap = ImmutableMap.of(
-                trainingField, ImmutableMap.of(
-                        "type", KNNVectorFieldMapper.CONTENT_TYPE,
-                        KNNConstants.DIMENSION, dimension + 1
+                "properties", ImmutableMap.of(
+                        trainingField, ImmutableMap.of(
+                                "type", KNNVectorFieldMapper.CONTENT_TYPE,
+                                KNNConstants.DIMENSION, dimension + 1
+                        )
                 )
         );
         MappingMetadata mappingMetadata = mock(MappingMetadata.class);
@@ -469,11 +473,14 @@ public class TrainingModelRequestTests extends KNNTestCase {
 
         // This cluster service mocking should not produce exception
         Map<String, Object> mappingMap = ImmutableMap.of(
-                trainingField, ImmutableMap.of(
-                        "type", KNNVectorFieldMapper.CONTENT_TYPE,
-                        KNNConstants.DIMENSION, dimension
+                "properties", ImmutableMap.of(
+                        trainingField, ImmutableMap.of(
+                                "type", KNNVectorFieldMapper.CONTENT_TYPE,
+                                KNNConstants.DIMENSION, dimension
+                        )
                 )
         );
+
         MappingMetadata mappingMetadata = mock(MappingMetadata.class);
         when(mappingMetadata.getSourceAsMap()).thenReturn(mappingMap);
         IndexMetadata indexMetadata = mock(IndexMetadata.class);
@@ -620,9 +627,11 @@ public class TrainingModelRequestTests extends KNNTestCase {
         
         // Return model id instead of dimension directly
         Map<String, Object> mappingMap = ImmutableMap.of(
-                trainingField, ImmutableMap.of(
-                        "type", KNNVectorFieldMapper.CONTENT_TYPE,
-                        KNNConstants.MODEL_ID, trainingFieldModeId
+                "properties", ImmutableMap.of(
+                        trainingField, ImmutableMap.of(
+                                "type", KNNVectorFieldMapper.CONTENT_TYPE,
+                                KNNConstants.MODEL_ID, trainingFieldModeId
+                        )
                 )
         );
         MappingMetadata mappingMetadata = mock(MappingMetadata.class);
@@ -660,9 +669,11 @@ public class TrainingModelRequestTests extends KNNTestCase {
      */
     private ClusterService getClusterServiceForValidReturns(String trainingIndex, String trainingField, int dimension) {
         Map<String, Object> mappingMap = ImmutableMap.of(
-                trainingField, ImmutableMap.of(
-                        "type", KNNVectorFieldMapper.CONTENT_TYPE,
-                        KNNConstants.DIMENSION, dimension
+                "properties", ImmutableMap.of(
+                        trainingField, ImmutableMap.of(
+                                "type", KNNVectorFieldMapper.CONTENT_TYPE,
+                                KNNConstants.DIMENSION, dimension
+                        )
                 )
         );
         MappingMetadata mappingMetadata = mock(MappingMetadata.class);
