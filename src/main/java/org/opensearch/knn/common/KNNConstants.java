@@ -49,7 +49,7 @@ public class KNNConstants {
     public static final String MODEL_INDEX_NAME = ".opensearch-knn-models";
     public static final String PLUGIN_NAME = "knn";
     public static final String MODEL_METADATA_FIELD = "knn-models";
-    public static Long BYTES_PER_KILOBYTES = 1024L;
+    public static final Long BYTES_PER_KILOBYTES = 1024L;
 
     public static final String MODEL_STATE = "state";
     public static final String MODEL_TIMESTAMP = "timestamp";
