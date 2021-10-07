@@ -27,7 +27,7 @@ import org.opensearch.transport.TransportService;
 import java.io.IOException;
 
 /**
- * Sends training request to appropriate node
+ * Transport action that trains a model and serializes it to model system index
  */
 public class TrainingModelTransportAction extends HandledTransportAction<TrainingModelRequest, TrainingModelResponse> {
 
