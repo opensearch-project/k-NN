@@ -25,8 +25,6 @@
 
 package org.opensearch.knn.common;
 
-import org.opensearch.knn.index.KNNMethodContext;
-
 public class KNNConstants {
     // shared across library constants
     public static final String DIMENSION = "dimension";
