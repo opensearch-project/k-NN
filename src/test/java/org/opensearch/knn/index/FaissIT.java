@@ -207,9 +207,6 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     public void testEndToEnd_fromModel() throws IOException {
-        //TODO this test is broken. Unfortunately, we can not add a document and add cluster metadata to the index
-        // about the document. Once training functionality is added, we will need to use the train api to add the
-        // model to the cluster
         String modelId = "test-model";
         int dimension = 128;
 
