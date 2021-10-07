@@ -50,8 +50,8 @@ public class TrainingModelResponseTests extends KNNTestCase {
 
         TrainingModelResponse response = new TrainingModelResponse(modelId);
 
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
-        builder = response.toXContent(builder, ToXContent.EMPTY_PARAMS).endObject();
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder = response.toXContent(builder, ToXContent.EMPTY_PARAMS);
         Map<String, Object> actual = xContentBuilderToMap(builder);
 
         // We expect this:
