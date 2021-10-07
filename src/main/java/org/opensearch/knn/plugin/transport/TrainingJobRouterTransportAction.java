@@ -115,8 +115,15 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
         searchSourceBuilder.terminateAfter(DEFAULT_TERMINATE_AFTER);
 
         client.search(countRequest, ActionListener.wrap(searchResponse -> {
-            listener.onResponse(estimateVectorSetSizeInKb(searchResponse.getHits().getTotalHits().value,
-                    trainingModelRequest.getDimension()));
+            long trainingVectors = searchResponse.getHits().getTotalHits().value;
+
+            // If there are more docs in the index than what the user wants to use for training, take the min
+            //TODO: We need to change max vector count to a long. For future PR.
+            if (trainingModelRequest.getMaximumVectorCount() < trainingVectors) {
+                trainingVectors = trainingModelRequest.getMaximumVectorCount();
+            }
+
+            listener.onResponse(estimateVectorSetSizeInKb(trainingVectors, trainingModelRequest.getDimension()));
         }, listener::onFailure));
     }
 
@@ -128,6 +135,6 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
      * @return size estimate
      */
     public static long estimateVectorSetSizeInKb(long vectorCount, int dimension) {
-        return Float.BYTES * dimension * vectorCount / BYTES_PER_KILOBYTES;
+        return Float.BYTES * dimension * vectorCount / BYTES_PER_KILOBYTES + 1L;
     }
 }
