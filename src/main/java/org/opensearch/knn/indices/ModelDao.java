@@ -40,6 +40,7 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
@@ -138,7 +139,7 @@ public interface ModelDao {
      * @param modelId  to delete
      * @param listener handles delete response
      */
-    void delete(String modelId, ActionListener<DeleteResponse> listener);
+    void delete(String modelId, ActionListener<DeleteModelResponse> listener);
 
     /**
      * Implementation of ModelDao for k-NN model index
@@ -414,10 +415,12 @@ public interface ModelDao {
         }
 
         @Override
-        public void delete(String modelId, ActionListener<DeleteResponse> listener) {
+        public void delete(String modelId, ActionListener<DeleteModelResponse> listener) {
             // If the index is not created, there is no need to delete the model
             if (!isCreated()) {
-                logger.info("Cannot delete model \"" + modelId + "\". Model index does not exist.");
+                logger.error("Cannot delete model \"" + modelId + "\". Model index "+ MODEL_INDEX_NAME + "does not exist.");
+                String errorMessage = String.format("Cannot delete model \"%s\". Model index does not exist", modelId);
+                listener.onResponse(new DeleteModelResponse(modelId, "failed", errorMessage));
                 return;
             }
 
@@ -433,12 +436,14 @@ public interface ModelDao {
             ActionListener<DeleteResponse> onModelDeleteListener = ActionListener.wrap(deleteResponse -> {
                 if(deleteResponse.getResult() != DocWriteResponse.Result.DELETED){
                     String errorMessage = String.format("Model \" %s \" does not exist", modelId);
-                    listener.onFailure(new ResourceNotFoundException(modelId, errorMessage));
+                    listener.onResponse(new DeleteModelResponse(modelId, deleteResponse.getResult().getLowercase(), errorMessage));
                     return;
                 }
                 ModelCache.getInstance().remove(modelId);
-                listener.onResponse(deleteResponse);
-            }, listener::onFailure);
+                listener.onResponse(new DeleteModelResponse(modelId, deleteResponse.getResult().getLowercase(), null));
+            }, e -> {
+                listener.onResponse(new DeleteModelResponse(modelId, "failed", e.getMessage()));
+            });
 
             // On model metadata removal, delete the model from the index
             ActionListener<AcknowledgedResponse> onMetadataUpdateListener = ActionListener.wrap(acknowledgedResponse ->
