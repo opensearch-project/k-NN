@@ -20,7 +20,7 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
-public class DeleteModelTransportAction extends HandledTransportAction<DeleteModelRequest, DeleteResponse> {
+public class DeleteModelTransportAction extends HandledTransportAction<DeleteModelRequest, DeleteModelResponse> {
 
 
     private final ModelDao modelDao;
@@ -32,7 +32,7 @@ public class DeleteModelTransportAction extends HandledTransportAction<DeleteMod
     }
 
     @Override
-    protected void doExecute(Task task, DeleteModelRequest request, ActionListener<DeleteResponse> listener) {
+    protected void doExecute(Task task, DeleteModelRequest request, ActionListener<DeleteModelResponse> listener) {
         String modelID = request.getModelID();
         modelDao.delete(modelID, listener);
     }
