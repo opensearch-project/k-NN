@@ -33,16 +33,19 @@ import static org.opensearch.knn.common.KNNConstants.MAX_VECTOR_COUNT_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MODELS;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.PREFERENCE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.SEARCH_SIZE_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 
 /**
- * Rest Handler for get model api endpoint.
+ * Rest Handler for model training api endpoint.
  */
 public class RestTrainModelHandler extends BaseRestHandler {
 
     private final static String NAME = "knn_train_model_action";
+    private final static Object DEFAULT_NOT_SET_OBJECT_VALUE = null;
+    private final static int DEFAULT_NOT_SET_INT_VALUE = -1;
 
     @Override
     public String getName() {
@@ -76,73 +79,90 @@ public class RestTrainModelHandler extends BaseRestHandler {
     private TrainingModelRequest createTransportRequest(RestRequest restRequest) throws IOException {
         // Parse query params
         String modelId = restRequest.param(MODEL_ID);
-        String preferredNodeId = restRequest.param("preference");
+        String preferredNodeId = restRequest.param(PREFERENCE_PARAMETER);
 
         // Parse request body
         XContentParser parser = restRequest.contentParser();
         ensureExpectedToken(XContentParser.Token.START_OBJECT, parser.nextToken(), parser);
 
-        KNNMethodContext knnMethodContext = null;
-        int dimension = -1;
-        String trainingIndex = null;
-        String trainingField = null;
-        String description = null;
+        KNNMethodContext knnMethodContext = (KNNMethodContext) DEFAULT_NOT_SET_OBJECT_VALUE;
+        String trainingIndex = (String) DEFAULT_NOT_SET_OBJECT_VALUE;
+        String trainingField = (String) DEFAULT_NOT_SET_OBJECT_VALUE;
+        String description = (String) DEFAULT_NOT_SET_OBJECT_VALUE;
 
-        int maximumVectorCount = -1;
-        int searchSize = -1;
+        int dimension = DEFAULT_NOT_SET_INT_VALUE;
+        int maximumVectorCount = DEFAULT_NOT_SET_INT_VALUE;
+        int searchSize = DEFAULT_NOT_SET_INT_VALUE;
 
         while (parser.nextToken() != XContentParser.Token.END_OBJECT) {
             String fieldName = parser.currentName();
             parser.nextToken();
 
-            if (TRAIN_INDEX_PARAMETER.equals(fieldName) && trainingIndex == null) {
+            if (TRAIN_INDEX_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, trainingIndex)) {
                 trainingIndex = parser.text();
-            } else if (TRAIN_FIELD_PARAMETER.equals(fieldName) && trainingField == null) {
+            } else if (TRAIN_FIELD_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, trainingField)) {
                 trainingField = parser.text();
-            } else if (KNN_METHOD.equals(fieldName) && knnMethodContext == null) {
+            } else if (KNN_METHOD.equals(fieldName) && ensureNotSet(fieldName, knnMethodContext)) {
                 knnMethodContext = KNNMethodContext.parse(parser.map());
-            } else if (DIMENSION.equals(fieldName) && dimension == -1) {
+            } else if (DIMENSION.equals(fieldName) && ensureNotSet(fieldName, dimension)) {
                 dimension = parser.intValue();
-            } else if (MAX_VECTOR_COUNT_PARAMETER.equals(fieldName) && maximumVectorCount == -1) {
+            } else if (MAX_VECTOR_COUNT_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, maximumVectorCount)) {
                 maximumVectorCount = parser.intValue();
-            } else if (SEARCH_SIZE_PARAMETER.equals(fieldName) && searchSize == -1) {
+            } else if (SEARCH_SIZE_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, searchSize)) {
                 searchSize = parser.intValue();
-            } else if (MODEL_DESCRIPTION.equals(fieldName) && description == null) {
+            } else if (MODEL_DESCRIPTION.equals(fieldName) && ensureNotSet(fieldName, description)) {
                 description = parser.text();
             } else {
-                throw new IllegalArgumentException("Unable to parse token \"" + fieldName + "\" either because it " +
-                        "is invalid or it is a duplicate.");
+                throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is not a valid " +
+                        "parameter.");
             }
         }
 
         // Check that these parameters get set
-        if (knnMethodContext == null) {
-            throw new IllegalArgumentException("Request did not set \"" + KNN_METHOD + "\"");
-        }
-
-        if (dimension == -1) {
-            throw new IllegalArgumentException("Request did not set \"" + DIMENSION + "\"");
-        }
-
-        if (trainingIndex == null) {
-            throw new IllegalArgumentException("Request did not set \"" + TRAIN_INDEX_PARAMETER + "\"");
-        }
-
-        if (trainingField == null) {
-            throw new IllegalArgumentException("Request did not set \"" + TRAIN_FIELD_PARAMETER + "\"");
-        }
+        ensureSet(KNN_METHOD, knnMethodContext);
+        ensureSet(DIMENSION, dimension);
+        ensureSet(TRAIN_INDEX_PARAMETER, trainingIndex);
+        ensureSet(TRAIN_FIELD_PARAMETER, trainingField);
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(modelId, knnMethodContext, dimension,
                 trainingIndex, trainingField, preferredNodeId, description);
 
-        if (maximumVectorCount != -1) {
+        if (maximumVectorCount != DEFAULT_NOT_SET_INT_VALUE) {
             trainingModelRequest.setMaximumVectorCount(maximumVectorCount);
         }
 
-        if (searchSize != -1) {
+        if (searchSize != DEFAULT_NOT_SET_INT_VALUE) {
             trainingModelRequest.setSearchSize(searchSize);
         }
 
         return trainingModelRequest;
+    }
+
+    private void ensureSet(String fieldName, Object value) {
+        if (value == DEFAULT_NOT_SET_OBJECT_VALUE) {
+            throw new IllegalArgumentException("Request did not set \"" + fieldName + ".");
+        }
+    }
+
+    private void ensureSet(String fieldName, int value) {
+        if (value == DEFAULT_NOT_SET_INT_VALUE) {
+            throw new IllegalArgumentException("Request did not set \"" + fieldName + ".");
+        }
+    }
+
+    private boolean ensureNotSet(String fieldName, Object value) {
+        if (value != DEFAULT_NOT_SET_OBJECT_VALUE) {
+            throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is duplicated.");
+        }
+
+        return true;
+    }
+
+    private boolean ensureNotSet(String fieldName, int value) {
+        if (value != DEFAULT_NOT_SET_INT_VALUE) {
+            throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is duplicated.");
+        }
+
+        return true;
     }
 }

@@ -50,6 +50,7 @@ public class KNNConstants {
     public static final String PLUGIN_NAME = "knn";
     public static final String MODEL_METADATA_FIELD = "knn-models";
     public static final Long BYTES_PER_KILOBYTES = 1024L;
+    public static final String PREFERENCE_PARAMETER = "preference";
 
     public static final String MODEL_STATE = "state";
     public static final String MODEL_TIMESTAMP = "timestamp";
@@ -97,5 +98,5 @@ public class KNNConstants {
     public static final Integer ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT = 128;
     public static final Integer METHOD_PARAMETER_NLIST_DEFAULT = 4;
     public static final Integer METHOD_PARAMETER_NLIST_LIMIT = 20000;
-    public static final Integer MAX_MODEL_DESCRIPTION_LENGTH = 1000;
+    public static final Integer MAX_MODEL_DESCRIPTION_LENGTH = 1000; // max number of chars a model's description can be
 }

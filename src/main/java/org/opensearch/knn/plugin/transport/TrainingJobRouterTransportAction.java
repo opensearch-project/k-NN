@@ -19,6 +19,7 @@ import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.Strings;
 import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -85,19 +86,18 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
 
         ImmutableOpenMap<String, DiscoveryNode> eligibleNodes = clusterService.state().nodes().getDataNodes();
         DiscoveryNode currentNode;
+
         for (TrainingJobRouteDecisionInfoNodeResponse response : jobInfo.getNodes()) {
             currentNode = response.getNode();
 
-            // If the node has already been selected and the current node's id is not preferred, skip
-            if (selectedNode != null && !currentNode.getId().equals(preferredNode)) {
+            if(!eligibleNodes.containsKey(currentNode.getId())) {
                 continue;
             }
 
-            if (response.getTrainingJobCount() < 1 && eligibleNodes.containsKey(currentNode.getId())) {
+            if (response.getTrainingJobCount() < 1) {
                 selectedNode = currentNode;
-
-                // Return right away if this is the preferred node
-                if (selectedNode.getId().equals(preferredNode)) {
+                // Return right away if the user didnt pass a preferred node or this is the preferred node
+                if (Strings.isEmpty(preferredNode) || selectedNode.getId().equals(preferredNode)) {
                     return selectedNode;
                 }
             }
@@ -135,6 +135,6 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
      * @return size estimate
      */
     public static long estimateVectorSetSizeInKb(long vectorCount, int dimension) {
-        return Float.BYTES * dimension * vectorCount / BYTES_PER_KILOBYTES + 1L;
+        return((Float.BYTES * dimension * vectorCount) / BYTES_PER_KILOBYTES ) + 1L;
     }
 }
