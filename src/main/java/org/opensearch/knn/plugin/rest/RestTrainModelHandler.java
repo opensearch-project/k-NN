@@ -124,6 +124,11 @@ public class RestTrainModelHandler extends BaseRestHandler {
         ensureSet(TRAIN_INDEX_PARAMETER, trainingIndex);
         ensureSet(TRAIN_FIELD_PARAMETER, trainingField);
 
+        // Convert null description to empty string.
+        if (description == DEFAULT_NOT_SET_OBJECT_VALUE) {
+            description = "";
+        }
+
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(modelId, knnMethodContext, dimension,
                 trainingIndex, trainingField, preferredNodeId, description);
 
