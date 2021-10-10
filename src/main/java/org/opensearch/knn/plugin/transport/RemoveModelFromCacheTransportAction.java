@@ -11,44 +11,62 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.nodes.TransportNodesAction;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.inject.Inject;
 import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * Transport action to remove models from some or all nodes in the clusters caches
+ */
 public class RemoveModelFromCacheTransportAction extends
         TransportNodesAction<RemoveModelFromCacheRequest, RemoveModelFromCacheResponse,
-                RemoveModelFromCacheNodeRequest, RemoveFromCacheNodeResponse> {
+                RemoveModelFromCacheNodeRequest, RemoveModelFromCacheNodeResponse> {
 
+    private static Logger logger = LogManager.getLogger(RemoveModelFromCacheTransportAction.class);
 
-    protected RemoveModelFromCacheTransportAction(String actionName, ThreadPool threadPool, ClusterService clusterService, TransportService transportService, ActionFilters actionFilters, Writeable.Reader<RemoveModelFromCacheRequest> request, Writeable.Reader<RemoveModelFromCacheNodeRequest> nodeRequest, String nodeExecutor, String finalExecutor, Class<RemoveFromCacheNodeResponse> removeFromCacheNodeResponseClass) {
-        super(actionName, threadPool, clusterService, transportService, actionFilters, request, nodeRequest, nodeExecutor, finalExecutor, removeFromCacheNodeResponseClass);
+    @Inject
+    public RemoveModelFromCacheTransportAction(ThreadPool threadPool,
+                                               ClusterService clusterService,
+                                               TransportService transportService,
+                                               ActionFilters actionFilters) {
+        super(RemoveModelFromCacheAction.NAME, threadPool, clusterService, transportService, actionFilters,
+                RemoveModelFromCacheRequest::new, RemoveModelFromCacheNodeRequest::new,
+                ThreadPool.Names.SAME, RemoveModelFromCacheNodeResponse.class);
     }
 
     @Override
-    protected RemoveModelFromCacheResponse newResponse(RemoveModelFromCacheRequest nodesRequest, List<RemoveFromCacheNodeResponse> list, List<FailedNodeException> list1) {
-        return null;
+    protected RemoveModelFromCacheResponse newResponse(RemoveModelFromCacheRequest nodesRequest,
+                                                       List<RemoveModelFromCacheNodeResponse> responses,
+                                                       List<FailedNodeException> failures) {
+        return new RemoveModelFromCacheResponse(clusterService.getClusterName(), responses, failures);
     }
 
     @Override
-    protected RemoveModelFromCacheNodeRequest newNodeRequest(RemoveModelFromCacheRequest nodesRequest) {
-        return null;
+    protected RemoveModelFromCacheNodeRequest newNodeRequest(RemoveModelFromCacheRequest request) {
+        return new RemoveModelFromCacheNodeRequest(request.getModelId());
     }
 
     @Override
-    protected RemoveFromCacheNodeResponse newNodeResponse(StreamInput streamInput) throws IOException {
-        return null;
+    protected RemoveModelFromCacheNodeResponse newNodeResponse(StreamInput in) throws IOException {
+        return new RemoveModelFromCacheNodeResponse(in);
     }
 
     @Override
-    protected RemoveFromCacheNodeResponse nodeOperation(RemoveModelFromCacheNodeRequest nodeRequest) {
-        return null;
+    protected RemoveModelFromCacheNodeResponse nodeOperation(RemoveModelFromCacheNodeRequest nodeRequest) {
+        logger.debug("[KNN] Removing model \"" + nodeRequest.getModelId() + "\" on node \"" +
+                clusterService.localNode().getId() + ".");
+        ModelCache.getInstance().remove(nodeRequest.getModelId());
+        return new RemoveModelFromCacheNodeResponse(clusterService.localNode());
     }
 }

@@ -12,7 +12,51 @@
 package org.opensearch.knn.plugin.transport;
 
 import org.opensearch.action.support.nodes.BaseNodeRequest;
+import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.common.io.stream.StreamOutput;
 
+import java.io.IOException;
+
+/**
+ * Request sent to each to tell it to evict a given model from the cache.
+ */
 public class RemoveModelFromCacheNodeRequest extends BaseNodeRequest {
 
+    private final String modelId;
+
+    /**
+     * Constructor.
+     *
+     * @param modelId identifier of the model.
+     */
+    public RemoveModelFromCacheNodeRequest(String modelId) {
+        super();
+        this.modelId = modelId;
+    }
+
+    /**
+     * Constructor from stream
+     *
+     * @param in input stream
+     * @throws IOException thrown when reading from stream fails
+     */
+    public RemoveModelFromCacheNodeRequest(StreamInput in) throws IOException {
+        super(in);
+        this.modelId = in.readString();
+    }
+
+    @Override
+    public void writeTo(StreamOutput out) throws IOException {
+        super.writeTo(out);
+        out.writeString(modelId);
+    }
+
+    /**
+     * Getter for model id
+     *
+     * @return modelId
+     */
+    public String getModelId() {
+        return modelId;
+    }
 }
