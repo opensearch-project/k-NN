@@ -101,8 +101,45 @@ public class MethodComponent {
      *
      * @return requiresTraining
      */
-    public boolean IsTrainingRequired() {
-            return requiresTraining;
+    public boolean isTrainingRequired(MethodComponentContext methodComponentContext) {
+        if (requiresTraining) {
+            return true;
+        }
+
+        // Check if any of the parameters the user provided require training. For example, PQ as an encoder.
+        // If so, return true as well
+        Map<String, Object> providedParameters = methodComponentContext.getParameters();
+
+        if (providedParameters == null) {
+            return false;
+        }
+
+        Parameter<?> parameter;
+        Parameter.MethodComponentContextParameter methodParameter;
+        MethodComponent methodComponent;
+        MethodComponentContext parameterMethodComponentContext;
+        for (Map.Entry<String, Object> providedParameter : providedParameters.entrySet()) {
+
+            if (!parameters.containsKey(providedParameter.getKey())) {
+                // Its not this methods job to check if the provided parameter is valid. If it is not, it doesnt
+                // training
+                continue;
+            }
+
+            // MethodComponentContextParameters are parameters that are MethodComponentContexts.
+            // MethodComponent may or may not require training. So, we have to check if the parameter requires training
+            parameter = parameters.get(providedParameter.getKey());
+            if (parameter instanceof Parameter.MethodComponentContextParameter) {
+                methodParameter = (Parameter.MethodComponentContextParameter) parameter;
+                parameterMethodComponentContext = (MethodComponentContext) providedParameter.getValue();
+                methodComponent = methodParameter.getMethodComponent(parameterMethodComponentContext.getName());
+                if (methodComponent.isTrainingRequired(parameterMethodComponentContext)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
