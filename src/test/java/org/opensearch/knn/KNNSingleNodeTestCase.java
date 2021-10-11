@@ -24,6 +24,8 @@
  */
 package org.opensearch.knn;
 
+import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
@@ -46,6 +48,7 @@ import org.opensearch.test.hamcrest.OpenSearchAssertions;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
@@ -147,5 +150,10 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
         SearchResponse response = client().prepareSearch(index).setQuery(new KNNQueryBuilder(fieldName, vector, k))
                 .get();
         assertEquals(response.status(), RestStatus.OK);
+    }
+
+    public Map<String, Object> xContentBuilderToMap(XContentBuilder xContentBuilder) {
+        return XContentHelper.convertToMap(BytesReference.bytes(xContentBuilder), true,
+                xContentBuilder.contentType()).v2();
     }
 }
