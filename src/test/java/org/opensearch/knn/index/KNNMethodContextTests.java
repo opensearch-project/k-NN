@@ -25,8 +25,11 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
@@ -120,11 +123,25 @@ public class KNNMethodContextTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, hnswMethod);
         assertFalse(knnMethodContext.isTrainingRequired());
 
-        // Check for FAISS
+        // Check for FAISS not required
         hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
         knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, hnswMethod);
         assertFalse(knnMethodContext.isTrainingRequired());
 
+        // Check FAISS required
+        MethodComponentContext pq = new MethodComponentContext(ENCODER_PQ, Collections.emptyMap());
+
+        MethodComponentContext hnswMethodPq = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_ENCODER_PARAMETER, pq));
+        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, hnswMethodPq);
+        assertTrue(knnMethodContext.isTrainingRequired());
+
+        MethodComponentContext ivfMethod = new MethodComponentContext(METHOD_IVF, Collections.emptyMap());
+        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, ivfMethod);
+        assertTrue(knnMethodContext.isTrainingRequired());
+
+        MethodComponentContext ivfMethodPq = new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_ENCODER_PARAMETER, pq));
+        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, ivfMethodPq);
+        assertTrue(knnMethodContext.isTrainingRequired());
     }
 
     /**
