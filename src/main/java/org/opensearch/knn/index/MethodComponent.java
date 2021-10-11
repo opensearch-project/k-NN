@@ -16,7 +16,6 @@ import org.opensearch.knn.common.KNNConstants;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.BiFunction;
 
 /**
@@ -121,24 +120,29 @@ public class MethodComponent {
         MethodComponentContext parameterMethodComponentContext;
         for (Map.Entry<String, Object> providedParameter : providedParameters.entrySet()) {
 
+            // Its not this methods job to check if the provided parameter is valid. If it is not, it doesnt
+            // training
             if (!parameters.containsKey(providedParameter.getKey())) {
-                // Its not this methods job to check if the provided parameter is valid. If it is not, it doesnt
-                // training
                 continue;
             }
 
             // MethodComponentContextParameters are parameters that are MethodComponentContexts.
             // MethodComponent may or may not require training. So, we have to check if the parameter requires training
             parameter = parameters.get(providedParameter.getKey());
+            if (!(parameter instanceof Parameter.MethodComponentContextParameter)) {
+                continue;
+            }
+            methodParameter = (Parameter.MethodComponentContextParameter) parameter;
+
             providedValue = providedParameter.getValue();
-            if (parameter instanceof Parameter.MethodComponentContextParameter &&
-                    providedValue instanceof MethodComponentContext) {
-                methodParameter = (Parameter.MethodComponentContextParameter) parameter;
-                parameterMethodComponentContext = (MethodComponentContext) providedValue;
-                methodComponent = methodParameter.getMethodComponent(parameterMethodComponentContext.getName());
-                if (methodComponent.isTrainingRequired(parameterMethodComponentContext)) {
-                    return true;
-                }
+            if (!(providedValue instanceof MethodComponentContext)) {
+                continue;
+            }
+            parameterMethodComponentContext = (MethodComponentContext) providedValue;
+
+            methodComponent = methodParameter.getMethodComponent(parameterMethodComponentContext.getName());
+            if (methodComponent.isTrainingRequired(parameterMethodComponentContext)) {
+                return true;
             }
         }
 
