@@ -49,6 +49,8 @@ public class KNNConstants {
     public static final String MODEL_INDEX_NAME = ".opensearch-knn-models";
     public static final String PLUGIN_NAME = "knn";
     public static final String MODEL_METADATA_FIELD = "knn-models";
+    public static final Long BYTES_PER_KILOBYTES = 1024L;
+    public static final String PREFERENCE_PARAMETER = "preference";
 
     public static final String MODEL_STATE = "state";
     public static final String MODEL_TIMESTAMP = "timestamp";
@@ -60,6 +62,11 @@ public class KNNConstants {
 
     public static final String TRAINING_JOB_COUNT_FIELD_NAME = "training_job_count";
     public static final String NODES_KEY = "nodes";
+
+    public static final String TRAIN_INDEX_PARAMETER = "training_index";
+    public static final String TRAIN_FIELD_PARAMETER = "training_field";
+    public static final String MAX_VECTOR_COUNT_PARAMETER = "max_trainng_vector_count";
+    public static final String SEARCH_SIZE_PARAMETER = "search_size";
 
     // nmslib specific constants
     public static final String NMSLIB_NAME = "nmslib";
@@ -91,4 +98,5 @@ public class KNNConstants {
     public static final Integer ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT = 128;
     public static final Integer METHOD_PARAMETER_NLIST_DEFAULT = 4;
     public static final Integer METHOD_PARAMETER_NLIST_LIMIT = 20000;
+    public static final Integer MAX_MODEL_DESCRIPTION_LENGTH = 1000; // max number of chars a model's description can be
 }

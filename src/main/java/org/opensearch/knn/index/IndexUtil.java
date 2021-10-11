@@ -13,9 +13,9 @@ package org.opensearch.knn.index;
 
 import java.io.File;
 
-public class IndexUtil {
+import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 
-    private static Long BYTES_PER_KILOBYTES = 1024L;
+public class IndexUtil {
 
     /**
      * Determines the size of a file on disk in kilobytes
