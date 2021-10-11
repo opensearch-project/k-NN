@@ -115,6 +115,7 @@ public class MethodComponent {
         }
 
         Parameter<?> parameter;
+        Object providedValue;
         Parameter.MethodComponentContextParameter methodParameter;
         MethodComponent methodComponent;
         MethodComponentContext parameterMethodComponentContext;
@@ -129,9 +130,11 @@ public class MethodComponent {
             // MethodComponentContextParameters are parameters that are MethodComponentContexts.
             // MethodComponent may or may not require training. So, we have to check if the parameter requires training
             parameter = parameters.get(providedParameter.getKey());
-            if (parameter instanceof Parameter.MethodComponentContextParameter) {
+            providedValue = providedParameter.getValue();
+            if (parameter instanceof Parameter.MethodComponentContextParameter &&
+                    providedValue instanceof MethodComponentContext) {
                 methodParameter = (Parameter.MethodComponentContextParameter) parameter;
-                parameterMethodComponentContext = (MethodComponentContext) providedParameter.getValue();
+                parameterMethodComponentContext = (MethodComponentContext) providedValue;
                 methodComponent = methodParameter.getMethodComponent(parameterMethodComponentContext.getName());
                 if (methodComponent.isTrainingRequired(parameterMethodComponentContext)) {
                     return true;
