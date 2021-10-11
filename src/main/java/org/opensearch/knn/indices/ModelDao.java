@@ -45,6 +45,7 @@ import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheRequest;
+import org.opensearch.knn.plugin.transport.RemoveModelFromCacheResponse;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
 
@@ -276,26 +277,15 @@ public interface ModelDao {
                         new RemoveModelFromCacheRequest(modelId),
                         ActionListener.wrap(
                                 removeModelFromCacheResponse -> {
-
-                                    if (removeModelFromCacheResponse.hasFailures()) {
-
-                                        String failureMessage = "Failed to remove \"" + modelId + "\" from nodes: ";
-                                        StringBuilder stringBuilder = new StringBuilder(failureMessage);
-
-                                        for (FailedNodeException nodeException : removeModelFromCacheResponse.failures()) {
-                                            stringBuilder
-                                                    .append("Node \"")
-                                                    .append(nodeException.nodeId())
-                                                    .append("\" ")
-                                                    .append(nodeException.getMessage())
-                                                    .append("; ");
-                                        }
-
-                                        listener.onFailure(new RuntimeException(stringBuilder.toString()));
+                                    if (!removeModelFromCacheResponse.hasFailures()) {
+                                        listener.onResponse(indexResponse);
                                         return;
                                     }
 
-                                    listener.onResponse(indexResponse);
+                                    String failureMessage = buildRemoveModelErrorMessage(modelId,
+                                            removeModelFromCacheResponse);
+
+                                    listener.onFailure(new RuntimeException(failureMessage));
                                 }, listener::onFailure
                         )
                 ), listener::onFailure);
@@ -473,32 +463,22 @@ public interface ModelDao {
                         ActionListener.wrap(
                                 removeModelFromCacheResponse -> {
 
-                                    if (removeModelFromCacheResponse.hasFailures()) {
-
-                                        String failureMessage = "Failed to remove \"" + modelId + "\" from nodes: ";
-                                        StringBuilder stringBuilder = new StringBuilder(failureMessage);
-
-                                        for (FailedNodeException nodeException : removeModelFromCacheResponse.failures()) {
-                                            stringBuilder
-                                                    .append("Node \"")
-                                                    .append(nodeException.nodeId())
-                                                    .append("\" ")
-                                                    .append(nodeException.getMessage())
-                                                    .append("; ");
-                                        }
-
-                                        listener.onResponse(new DeleteModelResponse(modelId, "failed",
-                                                stringBuilder.toString()));
+                                    if (!removeModelFromCacheResponse.hasFailures()) {
+                                        listener.onResponse(
+                                                new DeleteModelResponse(
+                                                        modelId,
+                                                        deleteResponse.getResult().getLowercase(),
+                                                        null
+                                                )
+                                        );
                                         return;
                                     }
 
-                                    listener.onResponse(
-                                            new DeleteModelResponse(
-                                                    modelId,
-                                                    deleteResponse.getResult().getLowercase(),
-                                                    null
-                                            )
-                                    );
+                                    String failureMessage = buildRemoveModelErrorMessage(modelId,
+                                            removeModelFromCacheResponse);
+
+                                    listener.onResponse(new DeleteModelResponse(modelId, "failed",
+                                            failureMessage));
 
                                 }, e -> listener.onResponse(
                                         new DeleteModelResponse(modelId, "failed", e.getMessage())
@@ -517,6 +497,22 @@ public interface ModelDao {
                     new UpdateModelMetadataRequest(modelId,  true, null),
                     onMetadataUpdateListener
             );
+        }
+
+        private String buildRemoveModelErrorMessage(String modelId, RemoveModelFromCacheResponse response) {
+            String failureMessage = "Failed to remove \"" + modelId + "\" from nodes: ";
+            StringBuilder stringBuilder = new StringBuilder(failureMessage);
+
+            for (FailedNodeException nodeException : response.failures()) {
+                stringBuilder
+                        .append("Node \"")
+                        .append(nodeException.nodeId())
+                        .append("\" ")
+                        .append(nodeException.getMessage())
+                        .append("; ");
+            }
+
+            return stringBuilder.toString();
         }
     }
 }
