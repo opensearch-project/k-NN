@@ -84,10 +84,11 @@ public class KNNMethod {
     /**
      * returns whether training is required or not
      *
+     * @param knnMethodContext context to check if training is required on
      * @return true if training is required; false otherwise
      */
-    public boolean isTrainingRequired() {
-        return methodComponent.IsTrainingRequired();
+    public boolean isTrainingRequired(KNNMethodContext knnMethodContext) {
+        return methodComponent.isTrainingRequired(knnMethodContext.getMethodComponent());
     }
 
     /**

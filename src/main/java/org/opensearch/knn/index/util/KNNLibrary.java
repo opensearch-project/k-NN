@@ -200,7 +200,7 @@ public interface KNNLibrary {
         @Override
         public boolean isTrainingRequired(KNNMethodContext knnMethodContext) {
             String methodName = knnMethodContext.getMethodComponent().getName();
-            return getMethod(methodName).isTrainingRequired();
+            return getMethod(methodName).isTrainingRequired(knnMethodContext);
         }
 
         @Override
