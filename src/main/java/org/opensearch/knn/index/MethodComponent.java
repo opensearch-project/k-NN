@@ -16,7 +16,6 @@ import org.opensearch.knn.common.KNNConstants;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.BiFunction;
 
 /**
@@ -101,8 +100,53 @@ public class MethodComponent {
      *
      * @return requiresTraining
      */
-    public boolean IsTrainingRequired() {
-            return requiresTraining;
+    public boolean isTrainingRequired(MethodComponentContext methodComponentContext) {
+        if (requiresTraining) {
+            return true;
+        }
+
+        // Check if any of the parameters the user provided require training. For example, PQ as an encoder.
+        // If so, return true as well
+        Map<String, Object> providedParameters = methodComponentContext.getParameters();
+
+        if (providedParameters == null) {
+            return false;
+        }
+
+        Parameter<?> parameter;
+        Object providedValue;
+        Parameter.MethodComponentContextParameter methodParameter;
+        MethodComponent methodComponent;
+        MethodComponentContext parameterMethodComponentContext;
+        for (Map.Entry<String, Object> providedParameter : providedParameters.entrySet()) {
+
+            // Its not this methods job to check if the provided parameter is valid. If it is not, it doesnt
+            // training
+            if (!parameters.containsKey(providedParameter.getKey())) {
+                continue;
+            }
+
+            // MethodComponentContextParameters are parameters that are MethodComponentContexts.
+            // MethodComponent may or may not require training. So, we have to check if the parameter requires training
+            parameter = parameters.get(providedParameter.getKey());
+            if (!(parameter instanceof Parameter.MethodComponentContextParameter)) {
+                continue;
+            }
+            methodParameter = (Parameter.MethodComponentContextParameter) parameter;
+
+            providedValue = providedParameter.getValue();
+            if (!(providedValue instanceof MethodComponentContext)) {
+                continue;
+            }
+            parameterMethodComponentContext = (MethodComponentContext) providedValue;
+
+            methodComponent = methodParameter.getMethodComponent(parameterMethodComponentContext.getName());
+            if (methodComponent.isTrainingRequired(parameterMethodComponentContext)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
