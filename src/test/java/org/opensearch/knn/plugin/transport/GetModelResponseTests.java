@@ -27,15 +27,15 @@ import java.io.IOException;
 
 public class GetModelResponseTests extends KNNTestCase {
 
-    private ModelMetadata getModelMetadata() {
-        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED,
+    private ModelMetadata getModelMetadata(ModelState state) {
+        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, state,
             "2021-03-27 10:15:30 AM +05:30", "test model", "");
     }
 
     public void testStreams() throws IOException {
         String modelId = "test-model";
         byte[] testModelBlob = "hello".getBytes();
-        Model model = new Model(getModelMetadata(), testModelBlob);
+        Model model = new Model(getModelMetadata(ModelState.CREATED), testModelBlob);
         GetModelResponse getModelResponse = new GetModelResponse(modelId, model);
         BytesStreamOutput streamOutput = new BytesStreamOutput();
         getModelResponse.writeTo(streamOutput);
@@ -48,11 +48,19 @@ public class GetModelResponseTests extends KNNTestCase {
     public void testXContent() throws IOException {
         String modelId = "test-model";
         byte[] testModelBlob = "hello".getBytes();
-        Model model = new Model(getModelMetadata(), testModelBlob);
+        Model model = new Model(getModelMetadata(ModelState.CREATED), testModelBlob);
         GetModelResponse getModelResponse = new GetModelResponse(modelId, model);
-        BytesStreamOutput streamOutput = new BytesStreamOutput();
-        getModelResponse.writeTo(streamOutput);
         String expectedResponseString = "{\"model_id\":\"test-model\",\"state\":\"created\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"model_blob\":\"aGVsbG8=\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\"}";
+        XContentBuilder xContentBuilder = XContentFactory.contentBuilder(XContentType.JSON);
+        getModelResponse.toXContent(xContentBuilder, null);
+        assertEquals(expectedResponseString, Strings.toString(xContentBuilder));
+    }
+
+    public void testXContentWithNoModelBlob() throws IOException {
+        String modelId = "test-model";
+        Model model = new Model(getModelMetadata(ModelState.FAILED), null);
+        GetModelResponse getModelResponse = new GetModelResponse(modelId, model);
+        String expectedResponseString = "{\"model_id\":\"test-model\",\"state\":\"failed\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"model_blob\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\"}";
         XContentBuilder xContentBuilder = XContentFactory.contentBuilder(XContentType.JSON);
         getModelResponse.toXContent(xContentBuilder, null);
         assertEquals(expectedResponseString, Strings.toString(xContentBuilder));
