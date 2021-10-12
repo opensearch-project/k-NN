@@ -49,8 +49,11 @@ public class GetModelResponse extends ActionResponse implements ToXContentObject
         super(in);
         this.modelID = in.readString();
         ModelMetadata metadata = new ModelMetadata(in);
-        byte[] blob = in.readBoolean() ? in.readByteArray(): null;
-        this.model = new Model(metadata, blob);
+        this.model = new Model(metadata, readOptionalModelBlob(in));
+    }
+
+    private byte[] readOptionalModelBlob(StreamInput in) throws IOException {
+        return in.readBoolean() ? in.readByteArray(): null;
     }
 
     public String getModelID() {
@@ -98,15 +101,20 @@ public class GetModelResponse extends ActionResponse implements ToXContentObject
         return builder;
     }
 
-    @Override
-    public void writeTo(StreamOutput output) throws IOException {
-        output.writeString(modelID);
-        model.getModelMetadata().writeTo(output);
+    private void writeOptionalModelBlob(StreamOutput output) throws IOException {
         if(model.getModelBlob() == null){
             output.writeBoolean(false);
             return;
         }
         output.writeBoolean(true);
         output.writeByteArray(model.getModelBlob());
+    }
+
+
+    @Override
+    public void writeTo(StreamOutput output) throws IOException {
+        output.writeString(modelID);
+        model.getModelMetadata().writeTo(output);
+        writeOptionalModelBlob(output);
     }
 }
