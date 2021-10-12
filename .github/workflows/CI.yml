@@ -3,9 +3,11 @@ on:
   push:
     branches:
       - "*"
+      - "feature/**"
   pull_request:
     branches:
       - "*"
+      - "feature/**"
 
 jobs:
   Build-k-NN:
@@ -25,20 +27,9 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
 
-      # dependencies: OpenSearch
-      - name: Checkout OpenSearch
-        uses: actions/checkout@v2
-        with:
-          repository: 'opensearch-project/OpenSearch'
-          ref: '1.1'
-          path: OpenSearch
-      - name: Build OpenSearch
-        working-directory: ./OpenSearch
-        run: ./gradlew publishToMavenLocal
-
       - name: Run build
         run: |
-          ./gradlew build -Dopensearch.version=1.1.0-SNAPSHOT
+          ./gradlew build -Dopensearch.version=1.2.0-SNAPSHOT
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
