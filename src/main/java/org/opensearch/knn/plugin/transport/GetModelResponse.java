@@ -20,6 +20,7 @@ import org.opensearch.knn.indices.ModelMetadata;
 
 import java.io.IOException;
 import java.util.Base64;
+import java.util.Objects;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
@@ -48,7 +49,8 @@ public class GetModelResponse extends ActionResponse implements ToXContentObject
         super(in);
         this.modelID = in.readString();
         ModelMetadata metadata = new ModelMetadata(in);
-        this.model = new Model(metadata, in.readByteArray());
+        byte[] blob = in.readBoolean() ? in.readByteArray(): null;
+        this.model = new Model(metadata, blob);
     }
 
     public String getModelID() {
@@ -81,7 +83,10 @@ public class GetModelResponse extends ActionResponse implements ToXContentObject
         builder.field(MODEL_DESCRIPTION, model.getModelMetadata().getDescription());
         builder.field(MODEL_ERROR, model.getModelMetadata().getError());
 
-        String base64Model = Base64.getEncoder().encodeToString(model.getModelBlob());
+        String base64Model = "";
+        if(model.getModelBlob() != null){
+            base64Model = Base64.getEncoder().encodeToString(model.getModelBlob());
+        }
         builder.field(MODEL_BLOB_PARAMETER, base64Model);
 
         builder.field(METHOD_PARAMETER_SPACE_TYPE, model.getModelMetadata().getSpaceType().getValue());
@@ -97,6 +102,11 @@ public class GetModelResponse extends ActionResponse implements ToXContentObject
     public void writeTo(StreamOutput output) throws IOException {
         output.writeString(modelID);
         model.getModelMetadata().writeTo(output);
+        if(model.getModelBlob() == null){
+            output.writeBoolean(false);
+            return;
+        }
+        output.writeBoolean(true);
         output.writeByteArray(model.getModelBlob());
     }
 }
