@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.index;
 
+import org.opensearch.common.TriFunction;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 
@@ -26,6 +27,7 @@ public class MethodComponent {
     private String name;
     private Map<String, Parameter<?>> parameters;
     private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
+    private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKbEstimator;
     final private boolean requiresTraining;
 
     /**
@@ -37,6 +39,7 @@ public class MethodComponent {
         this.name = builder.name;
         this.parameters = builder.parameters;
         this.mapGenerator = builder.mapGenerator;
+        this.overheadInKbEstimator = builder.overheadInKbEstimator;
         this.requiresTraining = builder.requiresTraining;
     }
 
@@ -150,6 +153,51 @@ public class MethodComponent {
     }
 
     /**
+     * Estimates the overhead in KB
+     *
+     * @return overhead estimate in kb
+     */
+    public long estimateOverheadInKb(MethodComponentContext methodComponentContext, int dimension) {
+        long size = overheadInKbEstimator.apply(this, methodComponentContext, dimension);
+        // Check if any of the parameters add overhead
+        Map<String, Object> providedParameters = methodComponentContext.getParameters();
+
+        if (providedParameters == null) {
+            return size;
+        }
+
+        Parameter<?> parameter;
+        Object providedValue;
+        Parameter.MethodComponentContextParameter methodParameter;
+        MethodComponent methodComponent;
+        MethodComponentContext parameterMethodComponentContext;
+        for (Map.Entry<String, Object> providedParameter : providedParameters.entrySet()) {
+
+            // Its not this methods job to check if the provided parameter is valid. If it is not, it doesnt
+            // add overhead
+            if (!parameters.containsKey(providedParameter.getKey())) {
+                continue;
+            }
+
+            parameter = parameters.get(providedParameter.getKey());
+            if (!(parameter instanceof Parameter.MethodComponentContextParameter)) {
+                continue;
+            }
+            methodParameter = (Parameter.MethodComponentContextParameter) parameter;
+            providedValue = providedParameter.getValue();
+            if (!(providedValue instanceof MethodComponentContext)) {
+                continue;
+            }
+            parameterMethodComponentContext = (MethodComponentContext) providedValue;
+
+            methodComponent = methodParameter.getMethodComponent(parameterMethodComponentContext.getName());
+            size += methodComponent.overheadInKbEstimator.apply(methodComponent, parameterMethodComponentContext, dimension);
+        }
+
+        return size;
+    }
+
+    /**
      * Builder class for MethodComponent
      */
     public static class Builder {
@@ -157,6 +205,7 @@ public class MethodComponent {
         private String name;
         private Map<String, Parameter<?>> parameters;
         private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
+        private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKbEstimator;
         private boolean requiresTraining;
 
         /**
@@ -173,6 +222,7 @@ public class MethodComponent {
             this.name = name;
             this.parameters = new HashMap<>();
             this.mapGenerator = null;
+            this.overheadInKbEstimator = (mc, mcc, d) -> 0L;
         }
 
         /**
@@ -205,6 +255,17 @@ public class MethodComponent {
          */
         public Builder setRequiresTraining(boolean requiresTraining){
             this.requiresTraining = requiresTraining;
+            return this;
+        }
+
+        /**
+         * Set the function used to compute an estimate of the size of the component in KB
+         *
+         * @param overheadInKbEstimator function that will compute the estimation
+         * @return Builder instance
+         */
+        public Builder setOverheadInKbEstimator(TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKbEstimator) {
+            this.overheadInKbEstimator = overheadInKbEstimator;
             return this;
         }
 

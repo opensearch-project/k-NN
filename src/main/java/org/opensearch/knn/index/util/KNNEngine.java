@@ -137,4 +137,9 @@ public enum KNNEngine implements KNNLibrary {
     public Map<String, Object> getMethodAsMap(KNNMethodContext knnMethodContext) {
         return knnLibrary.getMethodAsMap(knnMethodContext);
     }
+
+    @Override
+    public long estimateOverheadInKb(KNNMethodContext knnMethodContext, int dimension) {
+        return knnLibrary.estimateOverheadInKb(knnMethodContext, dimension);
+    }
 }

@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_COUNT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT;
@@ -116,6 +117,14 @@ public interface KNNLibrary {
     boolean isTrainingRequired(KNNMethodContext knnMethodContext);
 
     /**
+     * Estimate overhead of KNNMethodContext in Kilobytes.
+     *
+     * @param knnMethodContext to estimate size for
+     * @return size overhead estimate in Kb
+     */
+    long estimateOverheadInKb(KNNMethodContext knnMethodContext, int dimension);
+
+    /**
      * Generate method as map that can be used to configure the knn index from the jni
      *
      * @param knnMethodContext to generate parameter map from
@@ -201,6 +210,12 @@ public interface KNNLibrary {
         public boolean isTrainingRequired(KNNMethodContext knnMethodContext) {
             String methodName = knnMethodContext.getMethodComponent().getName();
             return getMethod(methodName).isTrainingRequired(knnMethodContext);
+        }
+
+        @Override
+        public long estimateOverheadInKb(KNNMethodContext knnMethodContext, int dimension) {
+            String methodName = knnMethodContext.getMethodComponent().getName();
+            return getMethod(methodName).estimateOverheadInKb(knnMethodContext, dimension);
         }
 
         @Override
@@ -321,6 +336,32 @@ public interface KNNLibrary {
                                         .addParameter(ENCODER_PARAMETER_PQ_CODE_COUNT, "", "")
                                         .addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, "x", "")
                                         .build()))
+                        .setOverheadInKbEstimator((methodComponent, methodComponentContext, dimension) -> {
+                            // Size estimate formula: 4 * d * 2^code_size / 1024 + 1
+
+                            // Get value of code size passed in by user
+                            Object codeSizeObject = methodComponentContext.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
+
+                            // If not specified, get default value of code size
+                            if (codeSizeObject == null) {
+                                Object codeSizeParameter = methodComponent.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
+
+                                if (codeSizeParameter == null) {
+                                    throw new IllegalStateException(ENCODER_PARAMETER_PQ_CODE_SIZE + " is not a valid " +
+                                            " parameter. This is a bug.");
+                                }
+
+                                codeSizeObject = ((Parameter<?>) codeSizeParameter).getDefaultValue();
+                            }
+
+                            if (!(codeSizeObject instanceof Integer)) {
+                                throw new IllegalStateException(ENCODER_PARAMETER_PQ_CODE_SIZE + " must be " +
+                                        "an integer. This is a bug.");
+                            }
+
+                            int codeSize = (Integer) codeSizeObject;
+                            return (4L *  (1 << codeSize) * dimension / BYTES_PER_KILOBYTES) + 1;
+                        })
                         .build()
         );
 
@@ -355,6 +396,33 @@ public interface KNNLibrary {
                                         .addParameter(METHOD_PARAMETER_NLIST, "", "")
                                         .addParameter(METHOD_ENCODER_PARAMETER, ",", "")
                                         .build()))
+                        .setOverheadInKbEstimator((methodComponent, methodComponentContext, dimension) -> {
+                            // Size estimate formula: 4 * ncentroids * d / 1024 + 1
+
+                            // Get value of code size passed in by user
+                            Object nlistObject = methodComponentContext.getParameters().get(METHOD_PARAMETER_NLIST);
+
+                            if (nlistObject == null) {
+                                // If not specified, get default value of nlist
+
+                                Object nlistParameter = methodComponent.getParameters().get(METHOD_PARAMETER_NLIST);
+
+                                if (nlistParameter == null) {
+                                    throw new IllegalStateException(METHOD_PARAMETER_NLIST + " is not a valid " +
+                                            " parameter. This is a bug.");
+                                }
+
+                                nlistObject = ((Parameter<?>) nlistParameter).getDefaultValue();
+                            }
+
+                            if (!(nlistObject instanceof Integer)) {
+                                throw new IllegalStateException(METHOD_PARAMETER_NLIST + " must be " +
+                                        "an integer. This is a bug.");
+                            }
+
+                            int centroids = (Integer) nlistObject;
+                            return (4L *  centroids * dimension / BYTES_PER_KILOBYTES) + 1;
+                        })
                         .build())
                         .addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build()
         );
