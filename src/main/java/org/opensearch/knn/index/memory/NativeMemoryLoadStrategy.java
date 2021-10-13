@@ -185,4 +185,38 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             executor.shutdown();
         }
     }
+
+    class AnonymousLoadStrategy implements NativeMemoryLoadStrategy<NativeMemoryAllocation.AnonymousAllocation,
+            NativeMemoryEntryContext.AnonymousEntryContext>, Closeable {
+
+        private static AnonymousLoadStrategy INSTANCE;
+
+        /**
+         * Get singleton AnonymousLoadStrategy
+         *
+         * @return instance of AnonymousLoadStrategy
+         */
+        public static synchronized AnonymousLoadStrategy getInstance() {
+            if (INSTANCE == null) {
+                INSTANCE = new AnonymousLoadStrategy();
+            }
+            return INSTANCE;
+        }
+
+        private final ExecutorService executor;
+
+        private AnonymousLoadStrategy() {
+            executor = Executors.newSingleThreadExecutor();
+        }
+
+        @Override
+        public NativeMemoryAllocation.AnonymousAllocation load(NativeMemoryEntryContext.AnonymousEntryContext nativeMemoryEntryContext) {
+            return new NativeMemoryAllocation.AnonymousAllocation(executor, nativeMemoryEntryContext.calculateSizeInKb());
+        }
+
+        @Override
+        public void close() {
+            executor.shutdown();
+        }
+    }
 }

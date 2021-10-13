@@ -77,6 +77,7 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
         NativeMemoryCacheManager.getInstance().close();
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
         NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance().close();
+        NativeMemoryLoadStrategy.AnonymousLoadStrategy.getInstance().close();
         super.tearDown();
     }
 

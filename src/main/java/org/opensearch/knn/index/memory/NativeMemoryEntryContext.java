@@ -17,8 +17,6 @@ import org.opensearch.knn.index.IndexUtil;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Function;
 
 /**
@@ -227,17 +225,19 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
 
     public static class AnonymousEntryContext extends NativeMemoryEntryContext<NativeMemoryAllocation.AnonymousAllocation> {
 
-        private static final ExecutorService executor = Executors.newSingleThreadExecutor();
         private final long size;
+        private final NativeMemoryLoadStrategy.AnonymousLoadStrategy loadStrategy;
 
         /**
          * Constructor
          *
          * @param size Size of the entry
          */
-        public AnonymousEntryContext(long size) {
+        public AnonymousEntryContext(long size,
+                                     NativeMemoryLoadStrategy.AnonymousLoadStrategy loadStrategy) {
             super(UUID.randomUUID().toString());
             this.size = size;
+            this.loadStrategy = loadStrategy;
         }
 
         @Override
@@ -247,7 +247,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
 
         @Override
         public NativeMemoryAllocation.AnonymousAllocation load() throws IOException {
-            return new NativeMemoryAllocation.AnonymousAllocation(executor, calculateSizeInKb());
+            return loadStrategy.load(this);
         }
     }
 }
