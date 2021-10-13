@@ -232,6 +232,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          * Constructor
          *
          * @param size Size of the entry
+         * @param loadStrategy strategy to load anonymous allocation into memory
          */
         public AnonymousEntryContext(long size,
                                      NativeMemoryLoadStrategy.AnonymousLoadStrategy loadStrategy) {

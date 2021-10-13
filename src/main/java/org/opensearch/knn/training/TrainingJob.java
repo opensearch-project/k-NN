@@ -48,6 +48,7 @@ public class TrainingJob implements Runnable {
      * @param knnMethodContext Method definition used to construct model.
      * @param nativeMemoryCacheManager Cache manager loads training data into native memory.
      * @param trainingDataEntryContext Training data configuration
+     * @param modelAnonymousEntryContext Model allocation context
      * @param dimension model's dimension
      * @param description user provided description of the model.
      */

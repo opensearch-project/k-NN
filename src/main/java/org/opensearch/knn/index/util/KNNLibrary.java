@@ -120,6 +120,7 @@ public interface KNNLibrary {
      * Estimate overhead of KNNMethodContext in Kilobytes.
      *
      * @param knnMethodContext to estimate size for
+     * @param dimension to estimate size for
      * @return size overhead estimate in Kb
      */
     long estimateOverheadInKb(KNNMethodContext knnMethodContext, int dimension);
@@ -397,9 +398,9 @@ public interface KNNLibrary {
                                         .addParameter(METHOD_ENCODER_PARAMETER, ",", "")
                                         .build()))
                         .setOverheadInKbEstimator((methodComponent, methodComponentContext, dimension) -> {
-                            // Size estimate formula: 4 * ncentroids * d / 1024 + 1
+                            // Size estimate formula: 4 * nlists * d / 1024 + 1
 
-                            // Get value of code size passed in by user
+                            // Get value of nlists passed in by user
                             Object nlistObject = methodComponentContext.getParameters().get(METHOD_PARAMETER_NLIST);
 
                             if (nlistObject == null) {

@@ -155,6 +155,8 @@ public class MethodComponent {
     /**
      * Estimates the overhead in KB
      *
+     * @param methodComponentContext context to make estimate for
+     * @param dimension dimension to make estimate with
      * @return overhead estimate in kb
      */
     public long estimateOverheadInKb(MethodComponentContext methodComponentContext, int dimension) {

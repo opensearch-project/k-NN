@@ -95,6 +95,7 @@ public class KNNMethod {
      * Returns the estimated overhead of the method in KB
      *
      * @param knnMethodContext context to estimate overhead
+     * @param dimension dimension to make estimate with
      * @return estimate overhead in KB
      */
     public long estimateOverheadInKb(KNNMethodContext knnMethodContext, int dimension) {
