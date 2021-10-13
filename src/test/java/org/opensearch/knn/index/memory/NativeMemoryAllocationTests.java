@@ -377,4 +377,32 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         trainingDataAllocation.setMemoryAddress(newPointer);
         assertEquals(newPointer, trainingDataAllocation.getMemoryAddress());
     }
+
+    public void testAnonymousAllocation_close() throws InterruptedException {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+        NativeMemoryAllocation.AnonymousAllocation anonymousAllocation = new NativeMemoryAllocation.AnonymousAllocation(
+                executorService,
+                0
+        );
+
+        anonymousAllocation.close();
+
+        Thread.sleep(1000*2);
+        anonymousAllocation.writeLock();
+        assertTrue(anonymousAllocation.isClosed());
+        anonymousAllocation.writeUnlock();
+
+        executorService.shutdown();
+    }
+
+    public void testAnonymousAllocation_getSize() {
+        long size = 12;
+        NativeMemoryAllocation.AnonymousAllocation anonymousAllocation = new NativeMemoryAllocation.AnonymousAllocation(
+                null,
+                size
+        );
+
+        assertEquals(size, anonymousAllocation.getSizeInKb());
+    }
 }

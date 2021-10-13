@@ -368,4 +368,68 @@ public interface NativeMemoryAllocation {
             this.memoryAddress = memoryAddress;
         }
     }
+
+    /**
+     * An anonymous allocation is used to reserve space in the native memory cache. It does not have a
+     * memory address. This allocation type should be used when a function allocates a large portion of memory in the
+     * function, runs for awhile, and then frees it.
+     */
+    class AnonymousAllocation implements NativeMemoryAllocation {
+
+        private final ExecutorService executor;
+        private volatile boolean closed;
+        private final long size;
+        private final ReadWriteLock readWriteLock;
+
+        AnonymousAllocation(ExecutorService executor, long size) {
+            this.executor = executor;
+            this.closed = false;
+            this.size = size;
+            this.readWriteLock = new ReentrantReadWriteLock();
+        }
+
+        @Override
+        public void close() {
+            executor.execute(() -> {
+                writeLock();
+                closed = true;
+                writeUnlock();
+            });
+        }
+
+        @Override
+        public boolean isClosed() {
+            return closed;
+        }
+
+        @Override
+        public long getMemoryAddress() {
+            throw new UnsupportedOperationException("Cannot get memory address for an AnonymousAllocation.");
+        }
+
+        @Override
+        public void readLock() {
+            readWriteLock.readLock().lock();
+        }
+
+        @Override
+        public void writeLock() {
+            readWriteLock.writeLock().lock();
+        }
+
+        @Override
+        public void readUnlock() {
+            readWriteLock.readLock().unlock();
+        }
+
+        @Override
+        public void writeUnlock() {
+            readWriteLock.writeLock().unlock();
+        }
+
+        @Override
+        public long getSizeInKb() {
+            return size;
+        }
+    }
 }

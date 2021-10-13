@@ -16,6 +16,9 @@ import org.opensearch.knn.index.IndexUtil;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Function;
 
 /**
@@ -219,6 +222,32 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
 
         private static String generateKey(String trainIndexName, String trainFieldName) {
             return KEY_PREFIX + trainIndexName + DELIMETER + trainFieldName;
+        }
+    }
+
+    public static class AnonymousEntryContext extends NativeMemoryEntryContext<NativeMemoryAllocation.AnonymousAllocation> {
+
+        private static final ExecutorService executor = Executors.newSingleThreadExecutor();
+        private final long size;
+
+        /**
+         * Constructor
+         *
+         * @param size Size of the entry
+         */
+        public AnonymousEntryContext(long size) {
+            super(UUID.randomUUID().toString());
+            this.size = size;
+        }
+
+        @Override
+        public Long calculateSizeInKb() {
+            return size;
+        }
+
+        @Override
+        public NativeMemoryAllocation.AnonymousAllocation load() throws IOException {
+            return new NativeMemoryAllocation.AnonymousAllocation(executor, calculateSizeInKb());
         }
     }
 }
