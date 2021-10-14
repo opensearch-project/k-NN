@@ -130,6 +130,15 @@ public interface ModelDao {
     void get(String modelId, ActionListener<GetModelResponse> listener) throws IOException;
 
     /**
+     * searches model from the system index.  Non-blocking.
+     *
+     * @param request to retrieve
+     * @param listener  handles get model response
+     * @throws IOException   thrown on search
+     */
+    void search(SearchRequest request, ActionListener<SearchResponse> listener) throws IOException;
+
+    /**
      * Get metadata for a model. Non-blocking.
      *
      * @param modelId to retrieve
@@ -364,6 +373,17 @@ public interface ModelDao {
                 actionListener.onResponse(new GetModelResponse(model));
 
             }, actionListener::onFailure));
+        }
+
+        /**
+         * searches model from the system index.  Non-blocking.
+         *
+         * @param request  to retrieve
+         * @param listener handles get model response
+         */
+        @Override
+        public void search(SearchRequest request, ActionListener<SearchResponse> listener) {
+            client.search(request, listener);
         }
 
         @Override
