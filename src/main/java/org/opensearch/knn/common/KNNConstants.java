@@ -65,7 +65,7 @@ public class KNNConstants {
 
     public static final String TRAIN_INDEX_PARAMETER = "training_index";
     public static final String TRAIN_FIELD_PARAMETER = "training_field";
-    public static final String MAX_VECTOR_COUNT_PARAMETER = "max_trainng_vector_count";
+    public static final String MAX_VECTOR_COUNT_PARAMETER = "max_training_vector_count";
     public static final String SEARCH_SIZE_PARAMETER = "search_size";
 
     // nmslib specific constants
