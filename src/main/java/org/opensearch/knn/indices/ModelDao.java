@@ -30,6 +30,8 @@ import org.opensearch.action.get.GetRequestBuilder;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequestBuilder;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.client.Client;
@@ -39,8 +41,6 @@ import org.opensearch.common.Nullable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
@@ -333,33 +333,7 @@ public interface ModelDao {
                     .setPreference("_local");
             GetResponse getResponse = getRequestBuilder.execute().get();
             Map<String, Object> responseMap = getResponse.getSourceAsMap();
-            return new Model(getMetadataFromResponse(responseMap), getModelBlobFromResponse(responseMap));
-        }
-
-        private ModelMetadata getMetadataFromResponse(final Map<String, Object> responseMap){
-            Object engine = responseMap.get(KNNConstants.KNN_ENGINE);
-            Object space = responseMap.get(KNNConstants.METHOD_PARAMETER_SPACE_TYPE);
-            Object dimension = responseMap.get(KNNConstants.DIMENSION);
-            Object state = responseMap.get(KNNConstants.MODEL_STATE);
-            Object timestamp  = responseMap.get(KNNConstants.MODEL_TIMESTAMP);
-            Object description = responseMap.get(KNNConstants.MODEL_DESCRIPTION);
-            Object error = responseMap.get(KNNConstants.MODEL_ERROR);
-
-            ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.getEngine((String) engine),
-                SpaceType.getSpace((String) space), (Integer) dimension, ModelState.getModelState((String) state),
-                (String) timestamp, (String) description,
-                (String) error);
-            return modelMetadata;
-        }
-
-        private byte[] getModelBlobFromResponse(Map<String, Object> responseMap){
-            Object blob = responseMap.get(KNNConstants.MODEL_BLOB_PARAMETER);
-
-            // If byte blob is not there, it means that the state has not yet been updated to CREATED.
-            if(blob == null){
-                return null;
-            }
-            return Base64.getDecoder().decode((String) blob);
+            return Model.getModelFromSourceMap(responseMap, modelId);
         }
 
 
@@ -386,7 +360,7 @@ public interface ModelDao {
                     return;
                 }
                 final Map<String, Object> responseMap = response.getSourceAsMap();
-                Model model = new Model(getMetadataFromResponse(responseMap), getModelBlobFromResponse(responseMap), modelId);
+                Model model = Model.getModelFromSourceMap(responseMap, modelId);
                 actionListener.onResponse(new GetModelResponse(model));
 
             }, actionListener::onFailure));

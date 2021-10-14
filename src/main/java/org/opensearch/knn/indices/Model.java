@@ -13,21 +13,27 @@ package org.opensearch.knn.indices;
 
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
 import java.util.Base64;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
@@ -38,7 +44,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 
-public class Model implements Writeable, ToXContent {
+public class Model implements Writeable, ToXContentObject {
 
     private String modelID;
     private ModelMetadata modelMetadata;
@@ -69,9 +75,9 @@ public class Model implements Writeable, ToXContent {
      * @param modelBlob binary representation of model template index. Can be null if model is not yet in CREATED state.
      * @param modelID model identifier
      */
-    public Model(ModelMetadata modelMetadata, @Nullable byte[] modelBlob, String modelID) {
-        this(modelMetadata,modelBlob);
-        this.modelID = Objects.requireNonNull(modelID, "model id must not be null");
+    public Model(ModelMetadata modelMetadata, @Nullable byte[] modelBlob, @NonNull String modelID) {
+        this(modelMetadata, modelBlob);
+        this.modelID = modelID;
     }
 
     private byte[] readOptionalModelBlob(StreamInput in) throws IOException {
@@ -201,5 +207,28 @@ public class Model implements Writeable, ToXContent {
         getModelMetadata().writeTo(output);
         writeOptionalModelBlob(output);
         output.writeOptionalString(modelID);
+    }
+
+    private static byte[] getModelBlobFromResponse(Map<String, Object> responseMap){
+        Object blob = responseMap.get(KNNConstants.MODEL_BLOB_PARAMETER);
+
+        // If byte blob is not there, it means that the state has not yet been updated to CREATED.
+        if(blob == null){
+            return null;
+        }
+        return Base64.getDecoder().decode((String) blob);
+    }
+
+    /**
+     *  Parse source map content into {@link Model} instance.
+     *
+     * @param sourceMap source contents
+     * @param modelID model's identifier
+     * @return model instance
+     */
+    public static Model getModelFromSourceMap(Map<String,Object> sourceMap, @NonNull String modelID) {
+        ModelMetadata modelMetadata = ModelMetadata.getMetadataFromSourceMap(sourceMap);
+        byte[] blob = getModelBlobFromResponse(sourceMap);
+        return new Model(modelMetadata, blob, modelID);
     }
 }
