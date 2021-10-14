@@ -175,7 +175,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
     }
 
     public void testIndexAllocation_getSize() {
-        long size = 12;
+        int size = 12;
         NativeMemoryAllocation.IndexAllocation indexAllocation = new NativeMemoryAllocation.IndexAllocation(
                 null,
                 0,
@@ -351,7 +351,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
     }
 
     public void testTrainingDataAllocation_getSize() {
-        long size = 12;
+        int size = 12;
 
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
                 null,
