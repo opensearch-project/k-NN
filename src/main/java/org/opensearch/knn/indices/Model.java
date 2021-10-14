@@ -77,7 +77,7 @@ public class Model implements Writeable, ToXContentObject {
      */
     public Model(ModelMetadata modelMetadata, @Nullable byte[] modelBlob, @NonNull String modelID) {
         this(modelMetadata, modelBlob);
-        this.modelID = modelID;
+        this.modelID = Objects.requireNonNull(modelID, "model id must not be null");
     }
 
     private byte[] readOptionalModelBlob(StreamInput in) throws IOException {
