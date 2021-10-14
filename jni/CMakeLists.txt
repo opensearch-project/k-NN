@@ -41,7 +41,7 @@ set(KNN_INDEX KNNIndexV2_0_11)
 set(KNN_PACKAGE_NAME opensearch-knnlib)
 
 if(NOT KNN_PLUGIN_VERSION)
-    set(KNN_PLUGIN_VERSION "1.1.0.0")
+    set(KNN_PLUGIN_VERSION "1.2.0.0")
 endif()
 
 # Check if similarity search exists
