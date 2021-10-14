@@ -386,8 +386,8 @@ public interface ModelDao {
                     return;
                 }
                 final Map<String, Object> responseMap = response.getSourceAsMap();
-                Model model = new Model(getMetadataFromResponse(responseMap), getModelBlobFromResponse(responseMap));
-                actionListener.onResponse(new GetModelResponse(modelId, model));
+                Model model = new Model(getMetadataFromResponse(responseMap), getModelBlobFromResponse(responseMap), modelId);
+                actionListener.onResponse(new GetModelResponse(model));
 
             }, actionListener::onFailure));
         }
