@@ -106,7 +106,7 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
         return selectedNode;
     }
 
-    protected void getTrainingIndexSizeInKB(TrainingModelRequest trainingModelRequest, ActionListener<Long> listener) {
+    protected void getTrainingIndexSizeInKB(TrainingModelRequest trainingModelRequest, ActionListener<Integer> listener) {
         // For this function, I referred to the rest count action: https://github.com/opensearch-project/OpenSearch/
         // blob/main/server/src/main/java/org/opensearch/rest/action/search/RestCountAction.java
         SearchRequest countRequest = new SearchRequest(trainingModelRequest.getTrainingIndex());
@@ -118,7 +118,6 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
             long trainingVectors = searchResponse.getHits().getTotalHits().value;
 
             // If there are more docs in the index than what the user wants to use for training, take the min
-            //TODO: We need to change max vector count to a long. For future PR.
             if (trainingModelRequest.getMaximumVectorCount() < trainingVectors) {
                 trainingVectors = trainingModelRequest.getMaximumVectorCount();
             }
@@ -134,7 +133,8 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
      * @param dimension dimension of vectors
      * @return size estimate
      */
-    public static long estimateVectorSetSizeInKb(long vectorCount, int dimension) {
-        return((Float.BYTES * dimension * vectorCount) / BYTES_PER_KILOBYTES ) + 1L;
+    public static int estimateVectorSetSizeInKb(long vectorCount, int dimension) {
+        // Ensure we do not overflow the int on estimate
+        return Math.toIntExact(((Float.BYTES * dimension * vectorCount) / BYTES_PER_KILOBYTES ) + 1L);
     }
 }
