@@ -48,7 +48,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
      *
      * @return size calculator
      */
-    public abstract Integer calculateSizeInKb();
+    public abstract Integer calculateSizeInKB();
 
     /**
      * Loads entry into memory.
@@ -82,7 +82,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         }
 
         @Override
-        public Integer calculateSizeInKb() {
+        public Integer calculateSizeInKB() {
             return IndexSizeCalculator.INSTANCE.apply(this);
         }
 
@@ -164,7 +164,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         }
 
         @Override
-        public Integer calculateSizeInKb() {
+        public Integer calculateSizeInKB() {
             return size;
         }
 
@@ -225,7 +225,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
 
     public static class AnonymousEntryContext extends NativeMemoryEntryContext<NativeMemoryAllocation.AnonymousAllocation> {
 
-        private final long size;
+        private final int size;
         private final NativeMemoryLoadStrategy.AnonymousLoadStrategy loadStrategy;
 
         /**
@@ -234,7 +234,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          * @param size Size of the entry
          * @param loadStrategy strategy to load anonymous allocation into memory
          */
-        public AnonymousEntryContext(long size,
+        public AnonymousEntryContext(int size,
                                      NativeMemoryLoadStrategy.AnonymousLoadStrategy loadStrategy) {
             super(UUID.randomUUID().toString());
             this.size = size;
@@ -242,7 +242,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         }
 
         @Override
-        public Long calculateSizeInKb() {
+        public Integer calculateSizeInKB() {
             return size;
         }
 

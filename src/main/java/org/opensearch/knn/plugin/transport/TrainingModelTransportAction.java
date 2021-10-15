@@ -58,7 +58,7 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
         // Allocation representing size model will occupy in memory during training
         NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext =
                 new NativeMemoryEntryContext.AnonymousEntryContext(
-                        request.getKnnMethodContext().estimateOverheadInKb(request.getDimension()),
+                        request.getKnnMethodContext().estimateOverheadInKB(request.getDimension()),
                         NativeMemoryLoadStrategy.AnonymousLoadStrategy.getInstance()
                 );
 

@@ -147,13 +147,13 @@ public class KNNMethodContextTests extends KNNTestCase {
         assertTrue(knnMethodContext.isTrainingRequired());
     }
 
-    public void testEstimateOverheadInKb() {
+    public void testEstimateOverheadInKB() {
         // For HNSW no encoding we expect 0
         MethodComponentContext hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
         KNNMethodContext knnMethodContextNmslib = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, hnswMethod);
         KNNMethodContext knnMethodContextFaiss = new KNNMethodContext(KNNEngine.FAISS, SpaceType.INNER_PRODUCT, hnswMethod);
-        assertEquals(0, knnMethodContextNmslib.estimateOverheadInKb(1000));
-        assertEquals(0, knnMethodContextFaiss.estimateOverheadInKb(168));
+        assertEquals(0, knnMethodContextNmslib.estimateOverheadInKB(1000));
+        assertEquals(0, knnMethodContextFaiss.estimateOverheadInKB(168));
 
         // For IVF, we expect  4 * nlist * d / 1024 + 1
         int dimension = 768;
@@ -164,7 +164,7 @@ public class KNNMethodContextTests extends KNNTestCase {
             METHOD_PARAMETER_NLIST, nlists
         ));
         knnMethodContextFaiss = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, ivfMethod);
-        assertEquals(expected, knnMethodContextFaiss.estimateOverheadInKb(dimension));
+        assertEquals(expected, knnMethodContextFaiss.estimateOverheadInKB(dimension));
 
         // For IVFPQ twe expect  4 * nlist * d / 1024 + 1 + 4 * d * 2^code_size / 1024 + 1
         int codeSize = 16;
@@ -180,7 +180,7 @@ public class KNNMethodContextTests extends KNNTestCase {
                 METHOD_ENCODER_PARAMETER, pqMethodContext
         ));
         knnMethodContextFaiss = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, ivfMethodPq);
-        assertEquals(expected, knnMethodContextFaiss.estimateOverheadInKb(dimension));
+        assertEquals(expected, knnMethodContextFaiss.estimateOverheadInKB(dimension));
 
         // For HNSWPQ, we expect 4 * d * 2^code_size / 1024 + 1
         expected = expectedFromPq;
@@ -188,7 +188,7 @@ public class KNNMethodContextTests extends KNNTestCase {
                 METHOD_ENCODER_PARAMETER, pqMethodContext
         ));
         knnMethodContextFaiss = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, hnswMethodPq);
-        assertEquals(expected, knnMethodContextFaiss.estimateOverheadInKb(dimension));
+        assertEquals(expected, knnMethodContextFaiss.estimateOverheadInKB(dimension));
     }
 
     /**

@@ -139,7 +139,7 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public long estimateOverheadInKb(KNNMethodContext knnMethodContext, int dimension) {
-        return knnLibrary.estimateOverheadInKb(knnMethodContext, dimension);
+    public int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension) {
+        return knnLibrary.estimateOverheadInKB(knnMethodContext, dimension);
     }
 }

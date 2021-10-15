@@ -27,7 +27,7 @@ public class MethodComponent {
     private String name;
     private Map<String, Parameter<?>> parameters;
     private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
-    private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKbEstimator;
+    private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
     final private boolean requiresTraining;
 
     /**
@@ -39,7 +39,7 @@ public class MethodComponent {
         this.name = builder.name;
         this.parameters = builder.parameters;
         this.mapGenerator = builder.mapGenerator;
-        this.overheadInKbEstimator = builder.overheadInKbEstimator;
+        this.overheadInKBEstimator = builder.overheadInKBEstimator;
         this.requiresTraining = builder.requiresTraining;
     }
 
@@ -159,13 +159,13 @@ public class MethodComponent {
      * @param dimension dimension to make estimate with
      * @return overhead estimate in kb
      */
-    public long estimateOverheadInKb(MethodComponentContext methodComponentContext, int dimension) {
-        long size = overheadInKbEstimator.apply(this, methodComponentContext, dimension);
+    public int estimateOverheadInKB(MethodComponentContext methodComponentContext, int dimension) {
+        long size = overheadInKBEstimator.apply(this, methodComponentContext, dimension);
         // Check if any of the parameters add overhead
         Map<String, Object> providedParameters = methodComponentContext.getParameters();
 
         if (providedParameters == null) {
-            return size;
+            return Math.toIntExact(size);
         }
 
         Parameter<?> parameter;
@@ -193,10 +193,10 @@ public class MethodComponent {
             parameterMethodComponentContext = (MethodComponentContext) providedValue;
 
             methodComponent = methodParameter.getMethodComponent(parameterMethodComponentContext.getName());
-            size += methodComponent.overheadInKbEstimator.apply(methodComponent, parameterMethodComponentContext, dimension);
+            size += methodComponent.overheadInKBEstimator.apply(methodComponent, parameterMethodComponentContext, dimension);
         }
 
-        return size;
+        return Math.toIntExact(size);
     }
 
     /**
@@ -207,7 +207,7 @@ public class MethodComponent {
         private String name;
         private Map<String, Parameter<?>> parameters;
         private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
-        private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKbEstimator;
+        private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
         private boolean requiresTraining;
 
         /**
@@ -224,7 +224,7 @@ public class MethodComponent {
             this.name = name;
             this.parameters = new HashMap<>();
             this.mapGenerator = null;
-            this.overheadInKbEstimator = (mc, mcc, d) -> 0L;
+            this.overheadInKBEstimator = (mc, mcc, d) -> 0L;
         }
 
         /**
@@ -263,11 +263,11 @@ public class MethodComponent {
         /**
          * Set the function used to compute an estimate of the size of the component in KB
          *
-         * @param overheadInKbEstimator function that will compute the estimation
+         * @param overheadInKBEstimator function that will compute the estimation
          * @return Builder instance
          */
-        public Builder setOverheadInKbEstimator(TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKbEstimator) {
-            this.overheadInKbEstimator = overheadInKbEstimator;
+        public Builder setOverheadInKBEstimator(TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator) {
+            this.overheadInKBEstimator = overheadInKBEstimator;
             return this;
         }
 

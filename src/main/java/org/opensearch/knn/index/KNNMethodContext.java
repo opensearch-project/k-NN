@@ -132,8 +132,8 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
      * @param dimension dimension to make estimate with
      * @return size in Kilobytes
      */
-    public long estimateOverheadInKb(int dimension) {
-        return knnEngine.estimateOverheadInKb(this, dimension);
+    public int estimateOverheadInKB(int dimension) {
+        return knnEngine.estimateOverheadInKB(this, dimension);
     }
 
     /**

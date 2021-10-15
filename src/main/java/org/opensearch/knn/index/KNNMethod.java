@@ -98,8 +98,8 @@ public class KNNMethod {
      * @param dimension dimension to make estimate with
      * @return estimate overhead in KB
      */
-    public long estimateOverheadInKb(KNNMethodContext knnMethodContext, int dimension) {
-        return methodComponent.estimateOverheadInKb(knnMethodContext.getMethodComponent(), dimension);
+    public int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension) {
+        return methodComponent.estimateOverheadInKB(knnMethodContext.getMethodComponent(), dimension);
     }
 
     /**

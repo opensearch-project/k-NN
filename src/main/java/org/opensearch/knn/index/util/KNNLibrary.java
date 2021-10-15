@@ -121,9 +121,9 @@ public interface KNNLibrary {
      *
      * @param knnMethodContext to estimate size for
      * @param dimension to estimate size for
-     * @return size overhead estimate in Kb
+     * @return size overhead estimate in KB
      */
-    long estimateOverheadInKb(KNNMethodContext knnMethodContext, int dimension);
+    int estimateOverheadInKB (KNNMethodContext knnMethodContext, int dimension);
 
     /**
      * Generate method as map that can be used to configure the knn index from the jni
@@ -214,9 +214,9 @@ public interface KNNLibrary {
         }
 
         @Override
-        public long estimateOverheadInKb(KNNMethodContext knnMethodContext, int dimension) {
+        public int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension) {
             String methodName = knnMethodContext.getMethodComponent().getName();
-            return getMethod(methodName).estimateOverheadInKb(knnMethodContext, dimension);
+            return getMethod(methodName).estimateOverheadInKB(knnMethodContext, dimension);
         }
 
         @Override
@@ -337,7 +337,7 @@ public interface KNNLibrary {
                                         .addParameter(ENCODER_PARAMETER_PQ_CODE_COUNT, "", "")
                                         .addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, "x", "")
                                         .build()))
-                        .setOverheadInKbEstimator((methodComponent, methodComponentContext, dimension) -> {
+                        .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
                             // Size estimate formula: 4 * d * 2^code_size / 1024 + 1
 
                             // Get value of code size passed in by user
@@ -397,7 +397,7 @@ public interface KNNLibrary {
                                         .addParameter(METHOD_PARAMETER_NLIST, "", "")
                                         .addParameter(METHOD_ENCODER_PARAMETER, ",", "")
                                         .build()))
-                        .setOverheadInKbEstimator((methodComponent, methodComponentContext, dimension) -> {
+                        .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
                             // Size estimate formula: 4 * nlists * d / 1024 + 1
 
                             // Get value of nlists passed in by user

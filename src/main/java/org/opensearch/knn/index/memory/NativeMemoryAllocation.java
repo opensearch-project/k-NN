@@ -73,7 +73,7 @@ public interface NativeMemoryAllocation {
      *
      * @return size of native memory allocation
      */
-    int getSizeInKb();
+    int getSizeInKB();
 
     /**
      * Represents native indices loaded into memory. Because these indices are backed by files, they should be
@@ -180,7 +180,7 @@ public interface NativeMemoryAllocation {
         }
 
         @Override
-        public int getSizeInKb() {
+        public int getSizeInKB() {
             return size;
         }
 
@@ -355,7 +355,7 @@ public interface NativeMemoryAllocation {
         }
 
         @Override
-        public int getSizeInKb() {
+        public int getSizeInKB() {
             return size;
         }
 
@@ -378,10 +378,10 @@ public interface NativeMemoryAllocation {
 
         private final ExecutorService executor;
         private volatile boolean closed;
-        private final long size;
+        private final int size;
         private final ReadWriteLock readWriteLock;
 
-        AnonymousAllocation(ExecutorService executor, long size) {
+        AnonymousAllocation(ExecutorService executor, int size) {
             this.executor = executor;
             this.closed = false;
             this.size = size;
@@ -428,7 +428,7 @@ public interface NativeMemoryAllocation {
         }
 
         @Override
-        public long getSizeInKb() {
+        public int getSizeInKB() {
             return size;
         }
     }

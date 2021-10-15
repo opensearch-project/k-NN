@@ -122,7 +122,7 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
                 trainingVectors = trainingModelRequest.getMaximumVectorCount();
             }
 
-            listener.onResponse(estimateVectorSetSizeInKb(trainingVectors, trainingModelRequest.getDimension()));
+            listener.onResponse(estimateVectorSetSizeInKB(trainingVectors, trainingModelRequest.getDimension()));
         }, listener::onFailure));
     }
 
@@ -133,7 +133,7 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
      * @param dimension dimension of vectors
      * @return size estimate
      */
-    public static int estimateVectorSetSizeInKb(long vectorCount, int dimension) {
+    public static int estimateVectorSetSizeInKB(long vectorCount, int dimension) {
         // Ensure we do not overflow the int on estimate
         return Math.toIntExact(((Float.BYTES * dimension * vectorCount) / BYTES_PER_KILOBYTES ) + 1L);
     }

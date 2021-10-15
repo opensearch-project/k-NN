@@ -186,7 +186,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
                 null
         );
 
-        assertEquals(size, indexAllocation.getSizeInKb());
+        assertEquals(size, indexAllocation.getSizeInKB());
     }
 
     public void testIndexAllocation_getKnnEngine() {
@@ -359,7 +359,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
                 size
         );
 
-        assertEquals(size, trainingDataAllocation.getSizeInKb());
+        assertEquals(size, trainingDataAllocation.getSizeInKB());
     }
 
     public void testTrainingDataAllocation_setMemoryAddress() {
@@ -397,12 +397,12 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
     }
 
     public void testAnonymousAllocation_getSize() {
-        long size = 12;
+        int size = 12;
         NativeMemoryAllocation.AnonymousAllocation anonymousAllocation = new NativeMemoryAllocation.AnonymousAllocation(
                 null,
                 size
         );
 
-        assertEquals(size, anonymousAllocation.getSizeInKb());
+        assertEquals(size, anonymousAllocation.getSizeInKB());
     }
 }

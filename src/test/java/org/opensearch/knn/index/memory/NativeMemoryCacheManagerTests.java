@@ -244,7 +244,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         nativeMemoryCacheManager.close();
     }
 
-    public void testGetMaxCacheSizeInKb() {
+    public void testGetMaxCacheSizeInKB() {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
         assertEquals(KNNSettings.getCircuitBreakerLimit().getKb(), nativeMemoryCacheManager.getMaxCacheSizeInKilobytes());
         nativeMemoryCacheManager.close();
@@ -280,7 +280,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         NativeMemoryAllocation testNativeMemoryAllocation = nativeMemoryCacheManager.get(testNativeMemoryEntryContent1,
                 true);
         assertEquals(size, nativeMemoryCacheManager.getCacheSizeInKilobytes());
-        assertEquals(size, testNativeMemoryAllocation.getSizeInKb());
+        assertEquals(size, testNativeMemoryAllocation.getSizeInKB());
         assertEquals(pointer, testNativeMemoryAllocation.getMemoryAddress());
 
         nativeMemoryCacheManager.close();
@@ -490,7 +490,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         }
 
         @Override
-        public int getSizeInKb() {
+        public int getSizeInKB() {
             return size;
         }
     }
@@ -513,7 +513,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         }
 
         @Override
-        public Integer calculateSizeInKb() {
+        public Integer calculateSizeInKB() {
             return size;
         }
 
