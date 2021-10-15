@@ -97,7 +97,20 @@ public class TrainingJobRunner {
                                 // Update model id with id from response. We do this because users may or may not
                                 // provide an id
                                 trainingJob.setModelId(indexResponse.getId());
-                                train(trainingJob, listener);
+
+                                // Respond to the request with the initial index response
+                                listener.onResponse(indexResponse);
+
+                                // Because we already responded to the request above, we should just add some
+                                // logging statements here.
+                                ActionListener<IndexResponse> loggingListener = ActionListener.wrap(
+                                        secondIndexResponse -> logger.debug("[KNN] Training for model \"" +
+                                                trainingJob.getModelId() + "\" was successful"),
+                                        e -> logger.error("[KNN] Training for model \"" + trainingJob.getModelId()  +
+                                                "\" failed with the following error: " + e.getMessage())
+                                );
+
+                                train(trainingJob, loggingListener);
                             },
                             exception -> {
                                 // Serialization failed. Let listener handle the exception, but free up resources.

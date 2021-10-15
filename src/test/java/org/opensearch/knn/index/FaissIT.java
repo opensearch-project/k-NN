@@ -206,7 +206,7 @@ public class FaissIT extends KNNRestTestCase {
         deleteKnnDoc(INDEX_NAME, "1");
     }
 
-    public void testEndToEnd_fromModel() throws IOException {
+    public void testEndToEnd_fromModel() throws IOException, InterruptedException {
         String modelId = "test-model";
         int dimension = 128;
 
@@ -230,6 +230,9 @@ public class FaissIT extends KNNRestTestCase {
         Map<String, Object> method = xContentBuilderToMap(builder);
 
         trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, "faiss test description");
+
+        // Make sure training succeeds after 30 seconds
+        assertTrainingSucceeds(modelId, 30, 1000);
 
         // Create knn index from model
         String fieldName = "test-field-name";

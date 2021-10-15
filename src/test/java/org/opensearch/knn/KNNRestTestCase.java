@@ -35,6 +35,7 @@ import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.apache.http.util.EntityUtils;
@@ -82,6 +83,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
@@ -830,7 +832,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         String filterString = "";
 
-        if (filters != null) {
+        if (filters != null && !filters.isEmpty()) {
             filterString = "&filter_path=" + StringUtils.join(filters, ",");
         }
 
@@ -840,6 +842,34 @@ public class KNNRestTestCase extends ODFERestTestCase {
         );
 
         return client().performRequest(request);
+    }
+
+    public void assertTrainingSucceeds(String modelId, int attempts, int delayInMillis) throws InterruptedException,
+            IOException {
+        int attemptNum = 0;
+        Response response;
+        Map<String, Object> responseMap;
+        ModelState modelState;
+        while (attemptNum < attempts) {
+            Thread.sleep(delayInMillis);
+            attemptNum++;
+
+            response = getModel(modelId, null);
+
+            responseMap = createParser(
+                    XContentType.JSON.xContent(),
+                    EntityUtils.toString(response.getEntity())
+            ).map();
+
+            modelState = ModelState.getModelState((String) responseMap.get(MODEL_STATE));
+            if (modelState == ModelState.CREATED) {
+                return;
+            }
+
+            assertNotEquals(ModelState.FAILED, modelState);
+        }
+
+        fail("Training did not succeed after " + attempts + " attempts with a delay of " + delayInMillis + " ms.");
     }
 
     /**
