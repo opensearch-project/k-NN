@@ -73,7 +73,7 @@ public interface NativeMemoryAllocation {
      *
      * @return size of native memory allocation
      */
-    long getSizeInKb();
+    int getSizeInKb();
 
     /**
      * Represents native indices loaded into memory. Because these indices are backed by files, they should be
@@ -83,7 +83,7 @@ public interface NativeMemoryAllocation {
 
         private final ExecutorService executor;
         private final long memoryAddress;
-        private final long size;
+        private final int size;
         private volatile boolean closed;
         private final KNNEngine knnEngine;
         private final String indexPath;
@@ -102,7 +102,7 @@ public interface NativeMemoryAllocation {
          * @param openSearchIndexName Name of OpenSearch index this index is associated with
          * @param watcherHandle Handle for watching index file
          */
-        IndexAllocation(ExecutorService executorService, long memoryAddress, long size, KNNEngine knnEngine,
+        IndexAllocation(ExecutorService executorService, long memoryAddress, int size, KNNEngine knnEngine,
                         String indexPath, String openSearchIndexName, WatcherHandle<FileWatcher> watcherHandle) {
             this.executor = executorService;
             this.closed = false;
@@ -180,7 +180,7 @@ public interface NativeMemoryAllocation {
         }
 
         @Override
-        public long getSizeInKb() {
+        public int getSizeInKb() {
             return size;
         }
 
@@ -221,7 +221,7 @@ public interface NativeMemoryAllocation {
 
         private volatile boolean closed;
         private long memoryAddress;
-        private final long size;
+        private final int size;
 
         // Implement reader/writer with semaphores to deal with passing lock conditions between threads
         private int readCount;
@@ -235,7 +235,7 @@ public interface NativeMemoryAllocation {
          * @param memoryAddress pointer in memory to the training data allocation
          * @param size amount memory needed for allocation in kilobytes
          */
-        TrainingDataAllocation(ExecutorService executor, long memoryAddress, long size) {
+        TrainingDataAllocation(ExecutorService executor, long memoryAddress, int size) {
             this.executor = executor;
             this.closed = false;
             this.memoryAddress = memoryAddress;
@@ -355,7 +355,7 @@ public interface NativeMemoryAllocation {
         }
 
         @Override
-        public long getSizeInKb() {
+        public int getSizeInKb() {
             return size;
         }
 

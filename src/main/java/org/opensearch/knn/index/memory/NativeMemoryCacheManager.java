@@ -75,7 +75,7 @@ public class NativeMemoryCacheManager implements Closeable {
 
         if(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED)) {
             maxWeight = KNNSettings.getCircuitBreakerLimit().getKb();
-            cacheBuilder.maximumWeight(maxWeight).weigher((k, v) -> (int)v.getSizeInKb());
+            cacheBuilder.maximumWeight(maxWeight).weigher((k, v) -> v.getSizeInKb());
         }
 
         if(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED)) {
