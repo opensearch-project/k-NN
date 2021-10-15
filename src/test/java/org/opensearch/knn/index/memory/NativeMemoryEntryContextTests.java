@@ -77,7 +77,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         }
 
         // Get the expected size of this function
-        long expectedSize = IndexUtil.getFileSizeInKB(tmpFile.toAbsolutePath().toString());
+        int expectedSize = IndexUtil.getFileSizeInKB(tmpFile.toAbsolutePath().toString());
 
         // Check that the indexEntryContext will return the same thing
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
@@ -250,14 +250,14 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         }
 
         @Override
-        public long getSizeInKb() {
+        public int getSizeInKb() {
             return 0;
         }
     }
 
     private static class TestNativeMemoryEntryContext extends NativeMemoryEntryContext<TestNativeMemoryAllocation> {
 
-        long size;
+        int size;
 
         /**
          * Constructor
@@ -265,13 +265,13 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
          * @param key  String used to identify entry in the cache
          * @param size size this allocation will take up in the cache
          */
-        public TestNativeMemoryEntryContext(String key, long size) {
+        public TestNativeMemoryEntryContext(String key, int size) {
             super(key);
             this.size = size;
         }
 
         @Override
-        public Long calculateSizeInKb() {
+        public Integer calculateSizeInKb() {
             return size;
         }
 
