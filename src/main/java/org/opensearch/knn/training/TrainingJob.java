@@ -113,24 +113,6 @@ public class TrainingJob implements Runnable {
         ModelMetadata modelMetadata = model.getModelMetadata();
 
         try {
-            // Reserve space in the cache for the model
-            modelAnonymousAllocation = nativeMemoryCacheManager.get(modelAnonymousEntryContext, false);
-
-            // Lock until training completes
-            modelAnonymousAllocation.readLock();
-        } catch (Exception e) {
-            modelMetadata.setState(ModelState.FAILED);
-            modelMetadata.setError(e.getMessage());
-
-            if (modelAnonymousAllocation != null) {
-                nativeMemoryCacheManager.invalidate(modelAnonymousEntryContext.getKey());
-            }
-
-            logger.error("Failed to allocate space in native memory for model \"" + modelId + "\": " + modelMetadata.getError());
-            return;
-        }
-
-        try {
             // Get training data
             trainingDataAllocation = nativeMemoryCacheManager.get(trainingDataEntryContext, false);
 
@@ -140,9 +122,6 @@ public class TrainingJob implements Runnable {
             modelMetadata.setState(ModelState.FAILED);
             modelMetadata.setError(e.getMessage());
 
-            modelAnonymousAllocation.readUnlock();
-            nativeMemoryCacheManager.invalidate(modelAnonymousEntryContext.getKey());
-
             if (trainingDataAllocation != null) {
                 nativeMemoryCacheManager.invalidate(trainingDataEntryContext.getKey());
             }
@@ -151,9 +130,33 @@ public class TrainingJob implements Runnable {
             return;
         }
 
+        try {
+            // Reserve space in the cache for the model
+            modelAnonymousAllocation = nativeMemoryCacheManager.get(modelAnonymousEntryContext, false);
+
+            // Lock until training completes
+            modelAnonymousAllocation.readLock();
+        } catch (Exception e) {
+            modelMetadata.setState(ModelState.FAILED);
+            modelMetadata.setError(e.getMessage());
+
+            trainingDataAllocation.readUnlock();
+            nativeMemoryCacheManager.invalidate(trainingDataEntryContext.getKey());
+
+            if (modelAnonymousAllocation != null) {
+                nativeMemoryCacheManager.invalidate(modelAnonymousEntryContext.getKey());
+            }
+
+            logger.error("Failed to allocate space in native memory for model \"" + modelId + "\": " + modelMetadata.getError());
+            return;
+        }
+
         // Once locks are acquired, train the model. We need a separate try/catch block due to the fact that the lock
         // needs to be released after they are acquired, but cannot be released if it has not been acquired.
         try {
+            // We need to check if either allocation is closed before we proceed. There is a possibility that
+            // immediately after the cache returns the allocation, it will grab the write lock and close them before
+            // this method can get the read lock.
             if (modelAnonymousAllocation.isClosed()) {
                 throw new RuntimeException("Unable to reserve memory for model: allocation is already closed");
             }

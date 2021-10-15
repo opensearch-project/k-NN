@@ -111,7 +111,7 @@ public class MethodComponent {
         // Check if any of the parameters the user provided require training. For example, PQ as an encoder.
         // If so, return true as well
         Map<String, Object> providedParameters = methodComponentContext.getParameters();
-        if (providedParameters == null) {
+        if (providedParameters == null || providedParameters.isEmpty()) {
             return false;
         }
 
@@ -172,7 +172,7 @@ public class MethodComponent {
 
         // Check if any of the parameters add overhead
         Map<String, Object> providedParameters = methodComponentContext.getParameters();
-        if (providedParameters == null) {
+        if (providedParameters == null || providedParameters.isEmpty()) {
             return Math.toIntExact(size);
         }
 
