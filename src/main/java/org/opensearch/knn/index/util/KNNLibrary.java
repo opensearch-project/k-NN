@@ -338,7 +338,7 @@ public interface KNNLibrary {
                                         .addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, "x", "")
                                         .build()))
                         .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
-                            // Size estimate formula: 4 * d * 2^code_size / 1024 + 1
+                            // Size estimate formula: (4 * d * 2^code_size) / 1024 + 1
 
                             // Get value of code size passed in by user
                             Object codeSizeObject = methodComponentContext.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
@@ -346,7 +346,6 @@ public interface KNNLibrary {
                             // If not specified, get default value of code size
                             if (codeSizeObject == null) {
                                 Object codeSizeParameter = methodComponent.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
-
                                 if (codeSizeParameter == null) {
                                     throw new IllegalStateException(ENCODER_PARAMETER_PQ_CODE_SIZE + " is not a valid " +
                                             " parameter. This is a bug.");
@@ -361,7 +360,7 @@ public interface KNNLibrary {
                             }
 
                             int codeSize = (Integer) codeSizeObject;
-                            return (4L *  (1 << codeSize) * dimension / BYTES_PER_KILOBYTES) + 1;
+                            return (4L *  (1 << codeSize) * dimension) / BYTES_PER_KILOBYTES + 1;
                         })
                         .build()
         );
@@ -398,16 +397,14 @@ public interface KNNLibrary {
                                         .addParameter(METHOD_ENCODER_PARAMETER, ",", "")
                                         .build()))
                         .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
-                            // Size estimate formula: 4 * nlists * d / 1024 + 1
+                            // Size estimate formula: (4 * nlists * d) / 1024 + 1
 
                             // Get value of nlists passed in by user
                             Object nlistObject = methodComponentContext.getParameters().get(METHOD_PARAMETER_NLIST);
 
+                            // If not specified, get default value of nlist
                             if (nlistObject == null) {
-                                // If not specified, get default value of nlist
-
                                 Object nlistParameter = methodComponent.getParameters().get(METHOD_PARAMETER_NLIST);
-
                                 if (nlistParameter == null) {
                                     throw new IllegalStateException(METHOD_PARAMETER_NLIST + " is not a valid " +
                                             " parameter. This is a bug.");
@@ -422,7 +419,7 @@ public interface KNNLibrary {
                             }
 
                             int centroids = (Integer) nlistObject;
-                            return (4L *  centroids * dimension / BYTES_PER_KILOBYTES) + 1;
+                            return (4L *  centroids * dimension) / BYTES_PER_KILOBYTES + 1;
                         })
                         .build())
                         .addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build()
