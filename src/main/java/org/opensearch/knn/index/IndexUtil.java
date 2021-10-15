@@ -23,7 +23,7 @@ public class IndexUtil {
      * @param filePath path to the file
      * @return file size in kilobytes
      */
-    public static long getFileSizeInKB(String filePath) {
+    public static int getFileSizeInKB(String filePath) {
         if (filePath == null || filePath.isEmpty()) {
             return 0;
         }
@@ -32,6 +32,6 @@ public class IndexUtil {
             return 0;
         }
 
-        return (file.length() / BYTES_PER_KILOBYTES) + 1L; // Add one so that integer division rounds up
+        return Math.toIntExact((file.length() / BYTES_PER_KILOBYTES) + 1L); // Add one so that integer division rounds up
     }
 }

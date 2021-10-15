@@ -109,7 +109,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String description = "some test description";
         int maxVectorCount = 100;
         int searchSize = 101;
-        long trainingSetSizeInKB = 102;
+        int trainingSetSizeInKB = 102;
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
                 modelId,

@@ -46,7 +46,7 @@ public class TrainingModelRequest extends ActionRequest {
     private int maximumVectorCount;
     private int searchSize;
 
-    private long trainingDataSizeInKB;
+    private int trainingDataSizeInKB;
 
     /**
      * Constructor.
@@ -96,7 +96,7 @@ public class TrainingModelRequest extends ActionRequest {
         this.description = in.readOptionalString();
         this.maximumVectorCount = in.readInt();
         this.searchSize = in.readInt();
-        this.trainingDataSizeInKB = in.readLong();
+        this.trainingDataSizeInKB = in.readInt();
     }
 
     /**
@@ -224,7 +224,7 @@ public class TrainingModelRequest extends ActionRequest {
      *
      * @return trainingDataSizeInKB
      */
-    public long getTrainingDataSizeInKB() {
+    public int getTrainingDataSizeInKB() {
         return trainingDataSizeInKB;
     }
 
@@ -233,7 +233,7 @@ public class TrainingModelRequest extends ActionRequest {
      *
      * @param trainingDataSizeInKB to be set.
      */
-    void setTrainingDataSizeInKB(long trainingDataSizeInKB) {
+    void setTrainingDataSizeInKB(int trainingDataSizeInKB) {
         if (trainingDataSizeInKB <= 0) {
             throw new IllegalArgumentException("Training data size " + trainingDataSizeInKB + " is invalid. " +
                     "Training data size must be greater than 0");
@@ -302,7 +302,7 @@ public class TrainingModelRequest extends ActionRequest {
         out.writeOptionalString(this.description);
         out.writeInt(this.maximumVectorCount);
         out.writeInt(this.searchSize);
-        out.writeLong(this.trainingDataSizeInKB);
+        out.writeInt(this.trainingDataSizeInKB);
     }
 
     @SuppressWarnings("unchecked")
