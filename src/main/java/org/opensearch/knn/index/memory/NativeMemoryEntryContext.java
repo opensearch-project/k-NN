@@ -47,7 +47,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
      *
      * @return size calculator
      */
-    public abstract Long calculateSizeInKb();
+    public abstract Integer calculateSizeInKb();
 
     /**
      * Loads entry into memory.
@@ -81,7 +81,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         }
 
         @Override
-        public Long calculateSizeInKb() {
+        public Integer calculateSizeInKb() {
             return IndexSizeCalculator.INSTANCE.apply(this);
         }
 
@@ -108,14 +108,14 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             return parameters;
         }
 
-        private static class IndexSizeCalculator implements Function<IndexEntryContext, Long> {
+        private static class IndexSizeCalculator implements Function<IndexEntryContext, Integer> {
 
             static IndexSizeCalculator INSTANCE = new IndexSizeCalculator();
 
             IndexSizeCalculator() {}
 
             @Override
-            public Long apply(IndexEntryContext indexEntryContext) {
+            public Integer apply(IndexEntryContext indexEntryContext) {
                 return IndexUtil.getFileSizeInKB(indexEntryContext.getKey());
             }
         }
@@ -126,7 +126,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         private static final String KEY_PREFIX = "tdata#";
         private static final String DELIMETER = ":";
 
-        private final long size;
+        private final int size;
         private final NativeMemoryLoadStrategy.TrainingLoadStrategy trainingLoadStrategy;
         private final IndicesService indicesService;
         private final String trainIndexName;
@@ -145,7 +145,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          * @param maxVectorCount maximum number of vectors there can be
          * @param searchSize size each search request should return during loading
          */
-        public TrainingDataEntryContext(long size,
+        public TrainingDataEntryContext(int size,
                                         String trainIndexName,
                                         String trainFieldName,
                                         NativeMemoryLoadStrategy.TrainingLoadStrategy trainingLoadStrategy,
@@ -163,7 +163,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         }
 
         @Override
-        public Long calculateSizeInKb() {
+        public Integer calculateSizeInKb() {
             return size;
         }
 
