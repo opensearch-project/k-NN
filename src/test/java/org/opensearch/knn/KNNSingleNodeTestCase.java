@@ -29,6 +29,9 @@ import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.action.admin.indices.mapping.put.PutMappingRequest;
@@ -155,5 +158,30 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
     public Map<String, Object> xContentBuilderToMap(XContentBuilder xContentBuilder) {
         return XContentHelper.convertToMap(BytesReference.bytes(xContentBuilder), true,
                 xContentBuilder.contentType()).v2();
+    }
+
+    public void assertTrainingSucceeds(ModelDao modelDao, String modelId, int attempts, int delayInMillis)
+            throws InterruptedException, ExecutionException {
+
+        int attemptNum = 0;
+        ModelMetadata modelMetadata;
+        while (attemptNum < attempts) {
+            Thread.sleep(delayInMillis);
+            attemptNum++;
+
+            if (!modelDao.isCreated()) {
+                continue;
+            }
+
+            modelMetadata = modelDao.get(modelId).getModelMetadata();
+
+            if (modelMetadata.getState() == ModelState.CREATED) {
+                return;
+            }
+
+            assertNotEquals(ModelState.FAILED, modelMetadata.getState());
+        }
+
+        fail("Training did not succeed after " + attempts + " attempts with a delay of " + delayInMillis + " ms.");
     }
 }

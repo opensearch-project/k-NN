@@ -19,15 +19,11 @@ import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelState;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
@@ -79,25 +75,17 @@ public class TrainingModelTransportActionTests extends KNNSingleNodeTestCase {
         );
         trainingModelRequest.setTrainingDataSizeInKB(estimateVectorSetSizeInKb(trainingDataCount, dimension));
 
-        // Create listener that ensures that the test succeeds
-        final CountDownLatch inProgressLatch = new CountDownLatch(1);
-        ActionListener<TrainingModelResponse> listener = ActionListener.wrap(response -> {
-            assertEquals(modelId, response.getModelId());
-            ModelMetadata modelMetadata = ModelDao.OpenSearchKNNModelDao.getInstance().getMetadata(modelId);
-            assertNotNull(modelMetadata);
-            assertEquals(dimension, modelMetadata.getDimension());
-            assertEquals(ModelState.CREATED, modelMetadata.getState());
-            assertTrue(modelMetadata.getError() == null || modelMetadata.getError().isEmpty());
-            inProgressLatch.countDown();
-        }, e -> fail("Failure: " + e.getMessage()));
+        // Create listener that ensures that the initial model put succeeds
+        ActionListener<TrainingModelResponse> listener = ActionListener.wrap(response ->
+                assertEquals(modelId, response.getModelId()), e -> fail("Failure: " + e.getMessage()));
 
         TrainingModelTransportAction trainingModelTransportAction = node().injector()
                 .getInstance(TrainingModelTransportAction.class);
 
         trainingModelTransportAction.doExecute(null, trainingModelRequest, listener);
 
-        // Wait for timeout to confirm everything works
-        assertTrue(inProgressLatch.await(50, TimeUnit.SECONDS));
+        // Wait for model to be created for a max of 30 seconds. If it is not created, fail.
+        assertTrainingSucceeds(ModelDao.OpenSearchKNNModelDao.getInstance(), modelId, 30, 1000);
     }
 
 }

@@ -97,7 +97,10 @@ public class TrainingJobRunner {
                                 // Update model id with id from response. We do this because users may or may not
                                 // provide an id
                                 trainingJob.setModelId(indexResponse.getId());
-                                train(trainingJob, listener);
+
+                                // Respond to the request with the initial index response
+                                listener.onResponse(indexResponse);
+                                train(trainingJob);
                             },
                             exception -> {
                                 // Serialization failed. Let listener handle the exception, but free up resources.
@@ -116,20 +119,27 @@ public class TrainingJobRunner {
         }
     }
 
-    private void train(TrainingJob trainingJob, ActionListener<IndexResponse> listener) {
+    private void train(TrainingJob trainingJob) {
         // Attempt to submit job to training thread pool. On failure, release the resources and serialize the failure.
+
+        // Listener for update model after training index action
+        ActionListener<IndexResponse> loggingListener = ActionListener.wrap(
+                indexResponse -> logger.debug("[KNN] Model serialization update for \"" +
+                        trainingJob.getModelId() + "\" was successful"),
+                e -> logger.error("[KNN] Model serialization update for \"" + trainingJob.getModelId()  +
+                        "\" failed: " + e.getMessage())
+        );
+
         try {
             threadPool.executor(TRAIN_THREAD_POOL).execute(() -> {
                 try {
                     trainingJob.run();
-                    serializeModel(trainingJob, listener, true);
+                    serializeModel(trainingJob, loggingListener, true);
                 } catch (IOException e) {
                     logger.error("Unable to serialize model \"" + trainingJob.getModelId() + "\": " + e.getMessage());
-                    listener.onFailure(e);
                 } catch (Exception e) {
                     logger.error("Unable to complete training for \"" + trainingJob.getModelId() + "\": "
                             + e.getMessage());
-                    listener.onFailure(e);
                 } finally {
                     jobCount.decrementAndGet();
                     semaphore.release();
@@ -143,10 +153,9 @@ public class TrainingJobRunner {
             modelMetadata.setError(ree.getMessage());
 
             try {
-                serializeModel(trainingJob, listener, true);
+                serializeModel(trainingJob, loggingListener, true);
             } catch (IOException ioe) {
                 logger.error("Unable to serialize the failure for model \"" + trainingJob.getModelId() + "\": " + ioe);
-                listener.onFailure(ioe);
             } finally {
                 jobCount.decrementAndGet();
                 semaphore.release();
