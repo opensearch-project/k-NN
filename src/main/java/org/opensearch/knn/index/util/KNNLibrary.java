@@ -356,7 +356,7 @@ public interface KNNLibrary {
 
                             if (!(codeSizeObject instanceof Integer)) {
                                 throw new IllegalStateException(ENCODER_PARAMETER_PQ_CODE_SIZE + " must be " +
-                                        "an integer. This is a bug.");
+                                        "an integer.");
                             }
 
                             int codeSize = (Integer) codeSizeObject;
@@ -415,7 +415,7 @@ public interface KNNLibrary {
 
                             if (!(nlistObject instanceof Integer)) {
                                 throw new IllegalStateException(METHOD_PARAMETER_NLIST + " must be " +
-                                        "an integer. This is a bug.");
+                                        "an integer.");
                             }
 
                             int centroids = (Integer) nlistObject;
