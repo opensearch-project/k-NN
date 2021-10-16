@@ -16,10 +16,12 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -219,6 +221,33 @@ public class ModelMetadata implements Writeable {
         String error = modelMetadataArray[6];
 
         return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error);
+    }
+
+    private static String objectToString(Object value) {
+        if(value == null)
+            return null;
+        return (String)value;
+    }
+
+    /**
+     * Returns ModelMetadata from Map representation
+     *
+     * @param modelSourceMap Map to be parsed
+     * @return ModelMetadata instance
+     */
+    public static ModelMetadata getMetadataFromSourceMap(final Map<String, Object> modelSourceMap){
+        Object engine = modelSourceMap.get(KNNConstants.KNN_ENGINE);
+        Object space = modelSourceMap.get(KNNConstants.METHOD_PARAMETER_SPACE_TYPE);
+        Object dimension = modelSourceMap.get(KNNConstants.DIMENSION);
+        Object state = modelSourceMap.get(KNNConstants.MODEL_STATE);
+        Object timestamp  = modelSourceMap.get(KNNConstants.MODEL_TIMESTAMP);
+        Object description = modelSourceMap.get(KNNConstants.MODEL_DESCRIPTION);
+        Object error = modelSourceMap.get(KNNConstants.MODEL_ERROR);
+
+        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.getEngine(objectToString(engine)),
+            SpaceType.getSpace(objectToString( space)), (Integer) dimension, ModelState.getModelState(objectToString(state)),
+            objectToString(timestamp), objectToString(description), objectToString( error));
+        return modelMetadata;
     }
 
     @Override

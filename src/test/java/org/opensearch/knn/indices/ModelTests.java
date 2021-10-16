@@ -12,11 +12,14 @@
 package org.opensearch.knn.indices;
 
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.opensearch.knn.index.KNNVectorFieldMapper.MAX_DIMENSION;
 
@@ -120,5 +123,34 @@ public class ModelTests extends KNNTestCase {
         assertEquals(model1.hashCode(), model2.hashCode());
         assertNotEquals(model1.hashCode(), model3.hashCode());
         assertNotEquals(model1.hashCode(), model4.hashCode());
+    }
+
+    public void testModelFromSourceMap() {
+        String modelID = "test-modelid";
+        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        SpaceType spaceType = SpaceType.L2;
+        int dimension = 128;
+        ModelState modelState = ModelState.CREATED;
+        String timestamp = ZonedDateTime.now(ZoneOffset.UTC).toString();
+        String description = "test-description";
+        String error = "test-error";
+
+        ModelMetadata metadata = new ModelMetadata(knnEngine, spaceType, dimension, modelState,
+            timestamp, description, error);
+        Map<String,Object> modelAsMap = new HashMap<>();
+        modelAsMap.put(KNNConstants.KNN_ENGINE, knnEngine.getName());
+        modelAsMap.put(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
+        modelAsMap.put(KNNConstants.DIMENSION, dimension);
+        modelAsMap.put(KNNConstants.MODEL_STATE, modelState.getName());
+        modelAsMap.put(KNNConstants.MODEL_TIMESTAMP, timestamp);
+        modelAsMap.put(KNNConstants.MODEL_DESCRIPTION, description);
+        modelAsMap.put(KNNConstants.MODEL_ERROR, error);
+        modelAsMap.put(KNNConstants.MODEL_BLOB_PARAMETER,"aGVsbG8=");
+
+        byte[] blob1 = "hello".getBytes();
+        Model expected = new Model(metadata, blob1, modelID);
+
+        Model fromMap = Model.getModelFromSourceMap(modelAsMap, modelID);
+        assertEquals(expected, fromMap);
     }
 }
