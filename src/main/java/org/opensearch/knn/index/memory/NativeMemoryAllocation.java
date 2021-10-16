@@ -390,6 +390,10 @@ public interface NativeMemoryAllocation {
 
         @Override
         public void close() {
+            if (isClosed()) {
+                return;
+            }
+
             executor.execute(() -> {
                 writeLock();
                 closed = true;

@@ -360,7 +360,7 @@ public interface KNNLibrary {
                             }
 
                             int codeSize = (Integer) codeSizeObject;
-                            return (4L *  (1 << codeSize) * dimension) / BYTES_PER_KILOBYTES + 1;
+                            return ((4L *  (1 << codeSize) * dimension) / BYTES_PER_KILOBYTES) + 1;
                         })
                         .build()
         );
@@ -419,7 +419,7 @@ public interface KNNLibrary {
                             }
 
                             int centroids = (Integer) nlistObject;
-                            return (4L *  centroids * dimension) / BYTES_PER_KILOBYTES + 1;
+                            return ((4L *  centroids * dimension) / BYTES_PER_KILOBYTES) + 1;
                         })
                         .build())
                         .addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build()

@@ -265,6 +265,21 @@ public class TrainingJobTests extends KNNTestCase {
         // Setup model manager
         NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
 
+        // Setup mock allocation for training data
+        NativeMemoryAllocation nativeMemoryAllocation = mock(NativeMemoryAllocation.class);
+        doAnswer(invocationOnMock -> null).when(nativeMemoryAllocation).readLock();
+        doAnswer(invocationOnMock -> null).when(nativeMemoryAllocation).readUnlock();
+        when(nativeMemoryAllocation.isClosed()).thenReturn(false);
+        when(nativeMemoryAllocation.getMemoryAddress()).thenReturn((long) 0);
+
+        String tdataKey = "t-data-key";
+        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext =
+                mock(NativeMemoryEntryContext.TrainingDataEntryContext.class);
+        when(trainingDataEntryContext.getKey()).thenReturn(tdataKey);
+
+        when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
+        doAnswer(invocationOnMock -> null).when(nativeMemoryCacheManager).invalidate(tdataKey);
+
         // Setup mock allocation for model
         NativeMemoryAllocation modelAllocation = mock(NativeMemoryAllocation.class);
         doAnswer(invocationOnMock -> null).when(modelAllocation).readLock();
@@ -275,12 +290,7 @@ public class TrainingJobTests extends KNNTestCase {
         NativeMemoryEntryContext.AnonymousEntryContext modelContext = mock(NativeMemoryEntryContext.AnonymousEntryContext.class);
         when(modelContext.getKey()).thenReturn(modelKey);
 
-        when(nativeMemoryCacheManager.get(modelContext, false)).thenReturn(modelAllocation);
-        doAnswer(invocationOnMock -> null).when(nativeMemoryCacheManager).invalidate(modelKey);
-
-        // Setup mock allocation for training data
-
-        // Throw error on getting data
+        // Throw error on getting model alloc
         String testException = "test exception";
         when(nativeMemoryCacheManager.get(modelContext, false))
                 .thenThrow(new RuntimeException(testException));
@@ -289,7 +299,7 @@ public class TrainingJobTests extends KNNTestCase {
                 modelId,
                 knnMethodContext,
                 nativeMemoryCacheManager,
-                mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
+                trainingDataEntryContext,
                 modelContext,
                 dimension,
                 ""

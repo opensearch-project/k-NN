@@ -119,6 +119,7 @@ public class TrainingJob implements Runnable {
             // Acquire lock on allocation -- this will wait until training data is loaded
             trainingDataAllocation.readLock();
         } catch (Exception e) {
+            logger.error("Failed to get training data for model \"" + modelId + "\": " + e.getMessage());
             modelMetadata.setState(ModelState.FAILED);
             modelMetadata.setError(e.getMessage());
 
@@ -126,7 +127,6 @@ public class TrainingJob implements Runnable {
                 nativeMemoryCacheManager.invalidate(trainingDataEntryContext.getKey());
             }
 
-            logger.error("Failed to get training data for model \"" + modelId + "\": " + modelMetadata.getError());
             return;
         }
 
@@ -137,6 +137,7 @@ public class TrainingJob implements Runnable {
             // Lock until training completes
             modelAnonymousAllocation.readLock();
         } catch (Exception e) {
+            logger.error("Failed to allocate space in native memory for model \"" + modelId + "\": " + e.getMessage());
             modelMetadata.setState(ModelState.FAILED);
             modelMetadata.setError(e.getMessage());
 
@@ -147,7 +148,6 @@ public class TrainingJob implements Runnable {
                 nativeMemoryCacheManager.invalidate(modelAnonymousEntryContext.getKey());
             }
 
-            logger.error("Failed to allocate space in native memory for model \"" + modelId + "\": " + modelMetadata.getError());
             return;
         }
 
@@ -176,10 +176,9 @@ public class TrainingJob implements Runnable {
             model.setModelBlob(modelBlob);
             modelMetadata.setState(ModelState.CREATED);
         } catch (Exception e) {
+            logger.error("Failed to run training job for model \"" + modelId + "\": " + e.getMessage());
             modelMetadata.setState(ModelState.FAILED);
-            logger.error("Exception \"" + modelId + "\": " + e);
             modelMetadata.setError(e.getMessage());
-            logger.error("Failed to run training job for model \"" + modelId + "\": " + modelMetadata.getError());
         } finally {
             // Invalidate right away so we dont run into any big memory problems
             trainingDataAllocation.readUnlock();
