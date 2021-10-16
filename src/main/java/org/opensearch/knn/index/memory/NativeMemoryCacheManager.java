@@ -75,7 +75,7 @@ public class NativeMemoryCacheManager implements Closeable {
 
         if(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED)) {
             maxWeight = KNNSettings.getCircuitBreakerLimit().getKb();
-            cacheBuilder.maximumWeight(maxWeight).weigher((k, v) -> v.getSizeInKb());
+            cacheBuilder.maximumWeight(maxWeight).weigher((k, v) -> v.getSizeInKB());
         }
 
         if(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED)) {
@@ -114,7 +114,7 @@ public class NativeMemoryCacheManager implements Closeable {
      * @return current size of the cache
      */
     public long getCacheSizeInKilobytes() {
-        return cache.asMap().values().stream().mapToLong(NativeMemoryAllocation::getSizeInKb).sum();
+        return cache.asMap().values().stream().mapToLong(NativeMemoryAllocation::getSizeInKB).sum();
     }
 
     /**
@@ -128,7 +128,7 @@ public class NativeMemoryCacheManager implements Closeable {
         return cache.asMap().values().stream()
                 .filter(nativeMemoryAllocation -> nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
                 .filter(indexAllocation -> indexName.equals(((NativeMemoryAllocation.IndexAllocation) indexAllocation).getOpenSearchIndexName()))
-                .mapToLong(NativeMemoryAllocation::getSizeInKb)
+                .mapToLong(NativeMemoryAllocation::getSizeInKB)
                 .sum();
     }
 
@@ -198,11 +198,11 @@ public class NativeMemoryCacheManager implements Closeable {
                                       boolean isAbleToTriggerEviction) throws ExecutionException {
         if (!isAbleToTriggerEviction &&
                 !cache.asMap().containsKey(nativeMemoryEntryContext.getKey()) &&
-                maxWeight - getCacheSizeInKilobytes() - nativeMemoryEntryContext.calculateSizeInKb() <= 0
+                maxWeight - getCacheSizeInKilobytes() - nativeMemoryEntryContext.calculateSizeInKB() <= 0
         ) {
             throw new OutOfNativeMemoryException(
                     "Entry cannot be loaded into cache because it would not fit. " +
-                            "Entry size: " + nativeMemoryEntryContext.calculateSizeInKb() + " KB " +
+                            "Entry size: " + nativeMemoryEntryContext.calculateSizeInKB() + " KB " +
                             "Current Cache Size: " + getCacheSizeInKilobytes() + " KB " +
                             "Max Cache Size: " + maxWeight);
         }

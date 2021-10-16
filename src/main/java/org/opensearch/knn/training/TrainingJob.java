@@ -36,6 +36,7 @@ public class TrainingJob implements Runnable {
     private final KNNMethodContext knnMethodContext;
     private final NativeMemoryCacheManager nativeMemoryCacheManager;
     private final NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext;
+    private final NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext;
     private final Model model;
 
     private String modelId;
@@ -47,12 +48,14 @@ public class TrainingJob implements Runnable {
      * @param knnMethodContext Method definition used to construct model.
      * @param nativeMemoryCacheManager Cache manager loads training data into native memory.
      * @param trainingDataEntryContext Training data configuration
+     * @param modelAnonymousEntryContext Model allocation context
      * @param dimension model's dimension
      * @param description user provided description of the model.
      */
     public TrainingJob(String modelId, KNNMethodContext knnMethodContext,
                        NativeMemoryCacheManager nativeMemoryCacheManager,
                        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext,
+                       NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext,
                        int dimension, String description) {
         this.modelId = modelId;
         this.knnMethodContext = Objects.requireNonNull(knnMethodContext, "MethodContext cannot be null.");
@@ -60,6 +63,8 @@ public class TrainingJob implements Runnable {
                 "NativeMemoryCacheManager cannot be null.");
         this.trainingDataEntryContext = Objects.requireNonNull(trainingDataEntryContext,
                 "TrainingDataEntryContext cannot be null.");
+        this.modelAnonymousEntryContext = Objects.requireNonNull(modelAnonymousEntryContext,
+                "AnonymousEntryContext cannot be null.");
         this.model = new Model(
                         new ModelMetadata(
                                 knnMethodContext.getEngine(),
@@ -103,38 +108,67 @@ public class TrainingJob implements Runnable {
 
     @Override
     public void run() {
-        NativeMemoryAllocation nativeMemoryAllocation = null;
+        NativeMemoryAllocation trainingDataAllocation = null;
+        NativeMemoryAllocation modelAnonymousAllocation = null;
         ModelMetadata modelMetadata = model.getModelMetadata();
 
         try {
             // Get training data
-            nativeMemoryAllocation = nativeMemoryCacheManager.get(trainingDataEntryContext, false);
+            trainingDataAllocation = nativeMemoryCacheManager.get(trainingDataEntryContext, false);
 
             // Acquire lock on allocation -- this will wait until training data is loaded
-            nativeMemoryAllocation.readLock();
+            trainingDataAllocation.readLock();
         } catch (Exception e) {
+            logger.error("Failed to get training data for model \"" + modelId + "\": " + e.getMessage());
             modelMetadata.setState(ModelState.FAILED);
             modelMetadata.setError(e.getMessage());
 
-            if (nativeMemoryAllocation != null) {
+            if (trainingDataAllocation != null) {
                 nativeMemoryCacheManager.invalidate(trainingDataEntryContext.getKey());
             }
 
-            logger.error("Failed to get training data for model \"" + modelId + "\": " + modelMetadata.getError());
             return;
         }
 
-        // Once lock is acquired, train the model. We need a separate try/catch block due to the fact that the lock
-        // needs to be released after it is acquired, but cannot be released if it has not been acquired.
         try {
-            if (nativeMemoryAllocation.isClosed()) {
+            // Reserve space in the cache for the model
+            modelAnonymousAllocation = nativeMemoryCacheManager.get(modelAnonymousEntryContext, false);
+
+            // Lock until training completes
+            modelAnonymousAllocation.readLock();
+        } catch (Exception e) {
+            logger.error("Failed to allocate space in native memory for model \"" + modelId + "\": " + e.getMessage());
+            modelMetadata.setState(ModelState.FAILED);
+            modelMetadata.setError(e.getMessage());
+
+            trainingDataAllocation.readUnlock();
+            nativeMemoryCacheManager.invalidate(trainingDataEntryContext.getKey());
+
+            if (modelAnonymousAllocation != null) {
+                nativeMemoryCacheManager.invalidate(modelAnonymousEntryContext.getKey());
+            }
+
+            return;
+        }
+
+        // Once locks are acquired, train the model. We need a separate try/catch block due to the fact that the lock
+        // needs to be released after they are acquired, but cannot be released if it has not been acquired.
+        try {
+            // We need to check if either allocation is closed before we proceed. There is a possibility that
+            // immediately after the cache returns the allocation, it will grab the write lock and close them before
+            // this method can get the read lock.
+            if (modelAnonymousAllocation.isClosed()) {
+                throw new RuntimeException("Unable to reserve memory for model: allocation is already closed");
+            }
+
+            if (trainingDataAllocation.isClosed()) {
                 throw new RuntimeException("Unable to load training data into memory: allocation is already closed");
             }
 
             byte[] modelBlob = JNIService.trainIndex(
                     model.getModelMetadata().getKnnEngine().getMethodAsMap(knnMethodContext),
                     model.getModelMetadata().getDimension(),
-                    nativeMemoryAllocation.getMemoryAddress(),
+                    trainingDataAllocation.getMemoryAddress(),
                     model.getModelMetadata().getKnnEngine().getName()
             );
 
@@ -142,15 +176,15 @@ public class TrainingJob implements Runnable {
             model.setModelBlob(modelBlob);
             modelMetadata.setState(ModelState.CREATED);
         } catch (Exception e) {
+            logger.error("Failed to run training job for model \"" + modelId + "\": " + e.getMessage());
             modelMetadata.setState(ModelState.FAILED);
-            logger.error("Exception \"" + modelId + "\": " + e);
             modelMetadata.setError(e.getMessage());
-            nativeMemoryAllocation.readUnlock();
-            logger.error("Failed to run training job for model \"" + modelId + "\": " + modelMetadata.getError());
         } finally {
             // Invalidate right away so we dont run into any big memory problems
+            trainingDataAllocation.readUnlock();
+            modelAnonymousAllocation.readUnlock();
             nativeMemoryCacheManager.invalidate(trainingDataEntryContext.getKey());
-            nativeMemoryAllocation.readUnlock();
+            nativeMemoryCacheManager.invalidate(modelAnonymousEntryContext.getKey());
         }
     }
 }
