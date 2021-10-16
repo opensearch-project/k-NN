@@ -207,7 +207,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
 //        assertEquals("failed", responseMap.get(MODEL_STATE));
     }
 
-    public void testTrainModel_success_withId() throws IOException {
+    public void testTrainModel_success_withId() throws IOException, InterruptedException {
         // Test checks that training when passing in an id succeeds
 
         String modelId = "test-model-id";
@@ -277,6 +277,9 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         ).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
+
+        // Make sure training succeeds after 30 seconds
+        assertTrainingSucceeds(modelId, 30, 1000);
     }
 
     public void testTrainModel_success_noId() throws IOException {
