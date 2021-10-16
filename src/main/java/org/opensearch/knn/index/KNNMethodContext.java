@@ -127,6 +127,16 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     }
 
     /**
+     * This method estimates the overhead the knn method adds irrespective of the number of vectors
+     *
+     * @param dimension dimension to make estimate with
+     * @return size in Kilobytes
+     */
+    public int estimateOverheadInKB(int dimension) {
+        return knnEngine.estimateOverheadInKB(this, dimension);
+    }
+
+    /**
      * Parses an Object into a KNNMethodContext.
      *
      * @param in Object containing mapping to be parsed

@@ -49,6 +49,7 @@ public class TrainingJobTests extends KNNTestCase {
                 knnMethodContext,
                 mock(NativeMemoryCacheManager.class),
                 mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
+                mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
                 10,
                 ""
         );
@@ -66,6 +67,7 @@ public class TrainingJobTests extends KNNTestCase {
                 knnMethodContext,
                 mock(NativeMemoryCacheManager.class),
                 mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
+                mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
                 10,
                 ""
         );
@@ -92,6 +94,7 @@ public class TrainingJobTests extends KNNTestCase {
                 knnMethodContext,
                 mock(NativeMemoryCacheManager.class),
                 mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
+                mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
                 dimension,
                 desciption
         );
@@ -129,7 +132,23 @@ public class TrainingJobTests extends KNNTestCase {
         fillFloatArrayRandomly(trainingData);
         long memoryAddress = JNIService.transferVectors(0, trainingData);
 
-        // Setup mock allocation
+        // Setup model manager
+        NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
+
+        // Setup mock allocation for model
+        NativeMemoryAllocation modelAllocation = mock(NativeMemoryAllocation.class);
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readLock();
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readUnlock();
+        when(modelAllocation.isClosed()).thenReturn(false);
+
+        String modelKey = "model-test-key";
+        NativeMemoryEntryContext.AnonymousEntryContext modelContext = mock(NativeMemoryEntryContext.AnonymousEntryContext.class);
+        when(modelContext.getKey()).thenReturn(modelKey);
+
+        when(nativeMemoryCacheManager.get(modelContext, false)).thenReturn(modelAllocation);
+        doAnswer(invocationOnMock -> null).when(nativeMemoryCacheManager).invalidate(modelKey);
+
+        // Setup mock allocation for training data
         NativeMemoryAllocation nativeMemoryAllocation = mock(NativeMemoryAllocation.class);
         doAnswer(invocationOnMock -> null).when(nativeMemoryAllocation).readLock();
         doAnswer(invocationOnMock -> null).when(nativeMemoryAllocation).readUnlock();
@@ -141,7 +160,6 @@ public class TrainingJobTests extends KNNTestCase {
                 mock(NativeMemoryEntryContext.TrainingDataEntryContext.class);
         when(trainingDataEntryContext.getKey()).thenReturn(tdataKey);
 
-        NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
         when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
         doAnswer(invocationOnMock -> {
             JNIService.freeVectors(memoryAddress);
@@ -153,6 +171,7 @@ public class TrainingJobTests extends KNNTestCase {
                 knnMethodContext,
                 nativeMemoryCacheManager,
                 trainingDataEntryContext,
+                modelContext,
                 dimension,
                 ""
         );
@@ -186,13 +205,29 @@ public class TrainingJobTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(knnEngine, SpaceType.INNER_PRODUCT,
                 new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)));
 
+        // Setup model manager
+        NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
+
+        // Setup mock allocation for model
+        NativeMemoryAllocation modelAllocation = mock(NativeMemoryAllocation.class);
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readLock();
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readUnlock();
+        when(modelAllocation.isClosed()).thenReturn(false);
+
+        String modelKey = "model-test-key";
+        NativeMemoryEntryContext.AnonymousEntryContext modelContext = mock(NativeMemoryEntryContext.AnonymousEntryContext.class);
+        when(modelContext.getKey()).thenReturn(modelKey);
+
+        when(nativeMemoryCacheManager.get(modelContext, false)).thenReturn(modelAllocation);
+        doAnswer(invocationOnMock -> null).when(nativeMemoryCacheManager).invalidate(modelKey);
+
+        // Setup mock allocation for training data
         String tdataKey = "t-data-key";
         NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext =
                 mock(NativeMemoryEntryContext.TrainingDataEntryContext.class);
         when(trainingDataEntryContext.getKey()).thenReturn(tdataKey);
 
         // Throw error on getting data
-        NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
         String testException = "test exception";
         when(nativeMemoryCacheManager.get(trainingDataEntryContext, false))
                 .thenThrow(new RuntimeException(testException));
@@ -202,6 +237,70 @@ public class TrainingJobTests extends KNNTestCase {
                 knnMethodContext,
                 nativeMemoryCacheManager,
                 trainingDataEntryContext,
+                modelContext,
+                dimension,
+                ""
+        );
+
+        trainingJob.run();
+
+        Model model = trainingJob.getModel();
+        assertEquals(ModelState.FAILED, trainingJob.getModel().getModelMetadata().getState());
+        assertNotNull(model);
+        assertEquals(testException, model.getModelMetadata().getError());
+    }
+
+    public void testRun_failure_onGetModelAnonymousAllocation() throws ExecutionException {
+        // In this test, getting a training data allocation should fail. Then, run should fail and update the error of
+        // the model
+        String modelId = "test-model-id";
+
+        // Define the method setup for method that requires training
+        int nlists = 5;
+        int dimension = 16;
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNMethodContext knnMethodContext = new KNNMethodContext(knnEngine, SpaceType.INNER_PRODUCT,
+                new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)));
+
+        // Setup model manager
+        NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
+
+        // Setup mock allocation for training data
+        NativeMemoryAllocation nativeMemoryAllocation = mock(NativeMemoryAllocation.class);
+        doAnswer(invocationOnMock -> null).when(nativeMemoryAllocation).readLock();
+        doAnswer(invocationOnMock -> null).when(nativeMemoryAllocation).readUnlock();
+        when(nativeMemoryAllocation.isClosed()).thenReturn(false);
+        when(nativeMemoryAllocation.getMemoryAddress()).thenReturn((long) 0);
+
+        String tdataKey = "t-data-key";
+        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext =
+                mock(NativeMemoryEntryContext.TrainingDataEntryContext.class);
+        when(trainingDataEntryContext.getKey()).thenReturn(tdataKey);
+
+        when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
+        doAnswer(invocationOnMock -> null).when(nativeMemoryCacheManager).invalidate(tdataKey);
+
+        // Setup mock allocation for model
+        NativeMemoryAllocation modelAllocation = mock(NativeMemoryAllocation.class);
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readLock();
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readUnlock();
+        when(modelAllocation.isClosed()).thenReturn(false);
+
+        String modelKey = "model-test-key";
+        NativeMemoryEntryContext.AnonymousEntryContext modelContext = mock(NativeMemoryEntryContext.AnonymousEntryContext.class);
+        when(modelContext.getKey()).thenReturn(modelKey);
+
+        // Throw error on getting model alloc
+        String testException = "test exception";
+        when(nativeMemoryCacheManager.get(modelContext, false))
+                .thenThrow(new RuntimeException(testException));
+
+        TrainingJob trainingJob = new TrainingJob(
+                modelId,
+                knnMethodContext,
+                nativeMemoryCacheManager,
+                trainingDataEntryContext,
+                modelContext,
                 dimension,
                 ""
         );
@@ -231,6 +330,21 @@ public class TrainingJobTests extends KNNTestCase {
                 mock(NativeMemoryEntryContext.TrainingDataEntryContext.class);
         when(trainingDataEntryContext.getKey()).thenReturn(tdataKey);
 
+        // Setup model manager
+        NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
+
+        // Setup mock allocation for model
+        NativeMemoryAllocation modelAllocation = mock(NativeMemoryAllocation.class);
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readLock();
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readUnlock();
+        when(modelAllocation.isClosed()).thenReturn(false);
+
+        String modelKey = "model-test-key";
+        NativeMemoryEntryContext.AnonymousEntryContext modelContext = mock(NativeMemoryEntryContext.AnonymousEntryContext.class);
+        when(modelContext.getKey()).thenReturn(modelKey);
+
+        when(nativeMemoryCacheManager.get(modelContext, false)).thenReturn(modelAllocation);
+        doAnswer(invocationOnMock -> null).when(nativeMemoryCacheManager).invalidate(modelKey);
 
         // Setup mock allocation thats closed
         NativeMemoryAllocation nativeMemoryAllocation = mock(NativeMemoryAllocation.class);
@@ -240,7 +354,6 @@ public class TrainingJobTests extends KNNTestCase {
         when(nativeMemoryAllocation.getMemoryAddress()).thenReturn((long) 0);
 
         // Throw error on getting data
-        NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
         when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
 
         TrainingJob trainingJob = new TrainingJob(
@@ -248,6 +361,7 @@ public class TrainingJobTests extends KNNTestCase {
                 knnMethodContext,
                 nativeMemoryCacheManager,
                 trainingDataEntryContext,
+                mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
                 dimension,
                 ""
         );
@@ -276,6 +390,22 @@ public class TrainingJobTests extends KNNTestCase {
         fillFloatArrayRandomly(trainingData);
         long memoryAddress = JNIService.transferVectors(0, trainingData);
 
+        // Setup model manager
+        NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
+
+        // Setup mock allocation for model
+        NativeMemoryAllocation modelAllocation = mock(NativeMemoryAllocation.class);
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readLock();
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readUnlock();
+        when(modelAllocation.isClosed()).thenReturn(false);
+
+        String modelKey = "model-test-key";
+        NativeMemoryEntryContext.AnonymousEntryContext modelContext = mock(NativeMemoryEntryContext.AnonymousEntryContext.class);
+        when(modelContext.getKey()).thenReturn(modelKey);
+
+        when(nativeMemoryCacheManager.get(modelContext, false)).thenReturn(modelAllocation);
+        doAnswer(invocationOnMock -> null).when(nativeMemoryCacheManager).invalidate(modelKey);
+
         // Setup mock allocation
         NativeMemoryAllocation nativeMemoryAllocation = mock(NativeMemoryAllocation.class);
         doAnswer(invocationOnMock -> null).when(nativeMemoryAllocation).readLock();
@@ -288,7 +418,6 @@ public class TrainingJobTests extends KNNTestCase {
                 mock(NativeMemoryEntryContext.TrainingDataEntryContext.class);
         when(trainingDataEntryContext.getKey()).thenReturn(tdataKey);
 
-        NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
         when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
         doAnswer(invocationOnMock -> {
             JNIService.freeVectors(memoryAddress);
@@ -300,6 +429,7 @@ public class TrainingJobTests extends KNNTestCase {
                 knnMethodContext,
                 nativeMemoryCacheManager,
                 trainingDataEntryContext,
+                modelContext,
                 dimension,
                 ""
         );

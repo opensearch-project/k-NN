@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.index;
 
+import org.opensearch.common.TriFunction;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 
@@ -26,6 +27,7 @@ public class MethodComponent {
     private String name;
     private Map<String, Parameter<?>> parameters;
     private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
+    private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
     final private boolean requiresTraining;
 
     /**
@@ -37,6 +39,7 @@ public class MethodComponent {
         this.name = builder.name;
         this.parameters = builder.parameters;
         this.mapGenerator = builder.mapGenerator;
+        this.overheadInKBEstimator = builder.overheadInKBEstimator;
         this.requiresTraining = builder.requiresTraining;
     }
 
@@ -108,45 +111,92 @@ public class MethodComponent {
         // Check if any of the parameters the user provided require training. For example, PQ as an encoder.
         // If so, return true as well
         Map<String, Object> providedParameters = methodComponentContext.getParameters();
-
-        if (providedParameters == null) {
+        if (providedParameters == null || providedParameters.isEmpty()) {
             return false;
         }
 
-        Parameter<?> parameter;
-        Object providedValue;
-        Parameter.MethodComponentContextParameter methodParameter;
-        MethodComponent methodComponent;
-        MethodComponentContext parameterMethodComponentContext;
         for (Map.Entry<String, Object> providedParameter : providedParameters.entrySet()) {
-
-            // Its not this methods job to check if the provided parameter is valid. If it is not, it doesnt
-            // training
-            if (!parameters.containsKey(providedParameter.getKey())) {
-                continue;
-            }
-
             // MethodComponentContextParameters are parameters that are MethodComponentContexts.
-            // MethodComponent may or may not require training. So, we have to check if the parameter requires training
-            parameter = parameters.get(providedParameter.getKey());
+            // MethodComponent may or may not require training. So, we have to check if the parameter requires training.
+            // If the parameter does not exist, the parameter estimate will be skipped. It is not this function's job
+            // to validate the parameters.
+            Parameter<?> parameter = parameters.get(providedParameter.getKey());
             if (!(parameter instanceof Parameter.MethodComponentContextParameter)) {
                 continue;
             }
-            methodParameter = (Parameter.MethodComponentContextParameter) parameter;
 
-            providedValue = providedParameter.getValue();
+            Parameter.MethodComponentContextParameter methodParameter = (Parameter.MethodComponentContextParameter) parameter;
+            Object providedValue = providedParameter.getValue();
             if (!(providedValue instanceof MethodComponentContext)) {
                 continue;
             }
-            parameterMethodComponentContext = (MethodComponentContext) providedValue;
 
-            methodComponent = methodParameter.getMethodComponent(parameterMethodComponentContext.getName());
+            MethodComponentContext parameterMethodComponentContext = (MethodComponentContext) providedValue;
+            MethodComponent methodComponent = methodParameter.getMethodComponent(parameterMethodComponentContext.getName());
             if (methodComponent.isTrainingRequired(parameterMethodComponentContext)) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Estimates the overhead in KB
+     *
+     * @param methodComponentContext context to make estimate for
+     * @param dimension dimension to make estimate with
+     * @return overhead estimate in kb
+     */
+    public int estimateOverheadInKB(MethodComponentContext methodComponentContext, int dimension) {
+        // Assume we have the following KNNMethodContext:
+        // "method": {
+        //      "name":"METHOD_1",
+        //      "engine":"faiss",
+        //      "space_type": "l2",
+        //      "parameters":{
+        //         "P1":1,
+        //         "P2":{
+        //              "name":"METHOD_2",
+        //              "parameters":{
+        //                 "P3":2
+        //              }
+        //         }
+        //     }
+        // }
+        //
+        // First, we get the overhead estimate of METHOD_1. Then, we add the overhead
+        // estimate for METHOD_2 by looping over parameters of METHOD_1.
+        
+        long size = overheadInKBEstimator.apply(this, methodComponentContext, dimension);
+
+        // Check if any of the parameters add overhead
+        Map<String, Object> providedParameters = methodComponentContext.getParameters();
+        if (providedParameters == null || providedParameters.isEmpty()) {
+            return Math.toIntExact(size);
+        }
+
+        for (Map.Entry<String, Object> providedParameter : providedParameters.entrySet()) {
+            // MethodComponentContextParameters are parameters that are MethodComponentContexts. We need to check if
+            // these parameters add overhead. If the parameter does not exist, the parameter estimate will be skipped.
+            // It is not this function's job to validate the parameters.
+            Parameter<?> parameter = parameters.get(providedParameter.getKey());
+            if (!(parameter instanceof Parameter.MethodComponentContextParameter)) {
+                continue;
+            }
+
+            Parameter.MethodComponentContextParameter methodParameter = (Parameter.MethodComponentContextParameter) parameter;
+            Object providedValue = providedParameter.getValue();
+            if (!(providedValue instanceof MethodComponentContext)) {
+                continue;
+            }
+
+            MethodComponentContext parameterMethodComponentContext = (MethodComponentContext) providedValue;
+            MethodComponent methodComponent = methodParameter.getMethodComponent(parameterMethodComponentContext.getName());
+            size += methodComponent.estimateOverheadInKB(parameterMethodComponentContext, dimension);
+        }
+
+        return Math.toIntExact(size);
     }
 
     /**
@@ -157,6 +207,7 @@ public class MethodComponent {
         private String name;
         private Map<String, Parameter<?>> parameters;
         private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
+        private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
         private boolean requiresTraining;
 
         /**
@@ -173,6 +224,7 @@ public class MethodComponent {
             this.name = name;
             this.parameters = new HashMap<>();
             this.mapGenerator = null;
+            this.overheadInKBEstimator = (mc, mcc, d) -> 0L;
         }
 
         /**
@@ -205,6 +257,17 @@ public class MethodComponent {
          */
         public Builder setRequiresTraining(boolean requiresTraining){
             this.requiresTraining = requiresTraining;
+            return this;
+        }
+
+        /**
+         * Set the function used to compute an estimate of the size of the component in KB
+         *
+         * @param overheadInKBEstimator function that will compute the estimation
+         * @return Builder instance
+         */
+        public Builder setOverheadInKBEstimator(TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator) {
+            this.overheadInKBEstimator = overheadInKBEstimator;
             return this;
         }
 

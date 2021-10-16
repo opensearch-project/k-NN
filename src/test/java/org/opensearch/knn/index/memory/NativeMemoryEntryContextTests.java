@@ -87,7 +87,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
                 "test"
         );
 
-        assertEquals(expectedSize, indexEntryContext.calculateSizeInKb().longValue());
+        assertEquals(expectedSize, indexEntryContext.calculateSizeInKB().longValue());
     }
 
     public void testIndexEntryContext_getOpenSearchIndexName() {
@@ -250,7 +250,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         }
 
         @Override
-        public int getSizeInKb() {
+        public int getSizeInKB() {
             return 0;
         }
     }
@@ -271,7 +271,7 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
         }
 
         @Override
-        public Integer calculateSizeInKb() {
+        public Integer calculateSizeInKB() {
             return size;
         }
 
