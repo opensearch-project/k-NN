@@ -38,6 +38,7 @@ import org.opensearch.knn.plugin.rest.RestDeleteModelHandler;
 import org.opensearch.knn.plugin.rest.RestGetModelHandler;
 import org.opensearch.knn.plugin.rest.RestKNNStatsHandler;
 import org.opensearch.knn.plugin.rest.RestKNNWarmupHandler;
+import org.opensearch.knn.plugin.rest.RestSearchModelHandler;
 import org.opensearch.knn.plugin.rest.RestTrainModelHandler;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.plugin.stats.KNNStats;
@@ -73,6 +74,8 @@ import org.opensearch.index.mapper.Mapper;
 import org.opensearch.knn.plugin.stats.KNNStatsConfig;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheTransportAction;
+import org.opensearch.knn.plugin.transport.SearchModelAction;
+import org.opensearch.knn.plugin.transport.SearchModelTransportAction;
 import org.opensearch.knn.plugin.transport.TrainingJobRouteDecisionInfoAction;
 import org.opensearch.knn.plugin.transport.TrainingJobRouteDecisionInfoTransportAction;
 import org.opensearch.knn.plugin.transport.TrainingJobRouterAction;
@@ -208,10 +211,11 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
         RestGetModelHandler restGetModelHandler = new RestGetModelHandler();
         RestDeleteModelHandler restDeleteModelHandler = new RestDeleteModelHandler();
         RestTrainModelHandler restTrainModelHandler = new RestTrainModelHandler();
+        RestSearchModelHandler restSearchModelHandler = new RestSearchModelHandler();
 
         return ImmutableList.of(
             restKNNStatsHandler, restKNNWarmupHandler, restGetModelHandler, restDeleteModelHandler,
-                restTrainModelHandler
+                restTrainModelHandler, restSearchModelHandler
         );
     }
 
@@ -230,7 +234,8 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
                 new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
                 new ActionHandler<>(TrainingJobRouterAction.INSTANCE, TrainingJobRouterTransportAction.class),
                 new ActionHandler<>(TrainingModelAction.INSTANCE, TrainingModelTransportAction.class),
-                new ActionHandler<>(RemoveModelFromCacheAction.INSTANCE, RemoveModelFromCacheTransportAction.class)
+                new ActionHandler<>(RemoveModelFromCacheAction.INSTANCE, RemoveModelFromCacheTransportAction.class),
+                new ActionHandler<>(SearchModelAction.INSTANCE, SearchModelTransportAction.class)
         );
     }
 

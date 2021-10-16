@@ -30,17 +30,20 @@ import org.opensearch.action.get.GetRequestBuilder;
 import org.opensearch.action.get.GetResponse;
 import org.opensearch.action.index.IndexRequestBuilder;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Nullable;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.ToXContentObject;
+import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
@@ -48,6 +51,10 @@ import org.opensearch.knn.plugin.transport.RemoveModelFromCacheRequest;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheResponse;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
+import org.opensearch.rest.BytesRestResponse;
+import org.opensearch.rest.RestResponse;
+import org.opensearch.rest.RestStatus;
+import org.opensearch.search.SearchHit;
 
 import java.io.IOException;
 import java.net.URL;
@@ -56,6 +63,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import static org.opensearch.common.xcontent.ToXContent.EMPTY_PARAMS;
+import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING;
@@ -128,6 +137,15 @@ public interface ModelDao {
      * @throws IOException   thrown on search
      */
     void get(String modelId, ActionListener<GetModelResponse> listener) throws IOException;
+
+    /**
+     * searches model from the system index.  Non-blocking.
+     *
+     * @param request to retrieve
+     * @param listener  handles get model response
+     * @throws IOException   thrown on search
+     */
+    void search(SearchRequest request, ActionListener<SearchResponse> listener) throws IOException;
 
     /**
      * Get metadata for a model. Non-blocking.
@@ -333,33 +351,7 @@ public interface ModelDao {
                     .setPreference("_local");
             GetResponse getResponse = getRequestBuilder.execute().get();
             Map<String, Object> responseMap = getResponse.getSourceAsMap();
-            return new Model(getMetadataFromResponse(responseMap), getModelBlobFromResponse(responseMap));
-        }
-
-        private ModelMetadata getMetadataFromResponse(final Map<String, Object> responseMap){
-            Object engine = responseMap.get(KNNConstants.KNN_ENGINE);
-            Object space = responseMap.get(KNNConstants.METHOD_PARAMETER_SPACE_TYPE);
-            Object dimension = responseMap.get(KNNConstants.DIMENSION);
-            Object state = responseMap.get(KNNConstants.MODEL_STATE);
-            Object timestamp  = responseMap.get(KNNConstants.MODEL_TIMESTAMP);
-            Object description = responseMap.get(KNNConstants.MODEL_DESCRIPTION);
-            Object error = responseMap.get(KNNConstants.MODEL_ERROR);
-
-            ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.getEngine((String) engine),
-                SpaceType.getSpace((String) space), (Integer) dimension, ModelState.getModelState((String) state),
-                (String) timestamp, (String) description,
-                (String) error);
-            return modelMetadata;
-        }
-
-        private byte[] getModelBlobFromResponse(Map<String, Object> responseMap){
-            Object blob = responseMap.get(KNNConstants.MODEL_BLOB_PARAMETER);
-
-            // If byte blob is not there, it means that the state has not yet been updated to CREATED.
-            if(blob == null){
-                return null;
-            }
-            return Base64.getDecoder().decode((String) blob);
+            return Model.getModelFromSourceMap(responseMap, modelId);
         }
 
 
@@ -386,8 +378,28 @@ public interface ModelDao {
                     return;
                 }
                 final Map<String, Object> responseMap = response.getSourceAsMap();
-                Model model = new Model(getMetadataFromResponse(responseMap), getModelBlobFromResponse(responseMap), modelId);
+                Model model = Model.getModelFromSourceMap(responseMap, modelId);
                 actionListener.onResponse(new GetModelResponse(model));
+
+            }, actionListener::onFailure));
+        }
+
+        /**
+         * searches model from the system index.  Non-blocking.
+         *
+         * @param request  to retrieve
+         * @param actionListener handles get model response
+         */
+        @Override
+        public void search(SearchRequest request, ActionListener<SearchResponse> actionListener) {
+            request.indices(MODEL_INDEX_NAME);
+            client.search(request,ActionListener.wrap(response -> {
+                for (SearchHit hit : response.getHits()) {
+                    ToXContentObject xContentObject = Model.getModelFromSourceMap(hit.getSourceAsMap(), hit.getId());
+                    XContentBuilder builder = xContentObject.toXContent(jsonBuilder(), EMPTY_PARAMS);
+                    hit.sourceRef(BytesReference.bytes(builder));
+                }
+                actionListener.onResponse(response);
 
             }, actionListener::onFailure));
         }
