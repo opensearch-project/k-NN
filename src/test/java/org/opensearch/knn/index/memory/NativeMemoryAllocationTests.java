@@ -186,7 +186,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
                 null
         );
 
-        assertEquals(size, indexAllocation.getSizeInKb());
+        assertEquals(size, indexAllocation.getSizeInKB());
     }
 
     public void testIndexAllocation_getKnnEngine() {
@@ -359,7 +359,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
                 size
         );
 
-        assertEquals(size, trainingDataAllocation.getSizeInKb());
+        assertEquals(size, trainingDataAllocation.getSizeInKB());
     }
 
     public void testTrainingDataAllocation_setMemoryAddress() {
@@ -376,5 +376,33 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         long newPointer = 18;
         trainingDataAllocation.setMemoryAddress(newPointer);
         assertEquals(newPointer, trainingDataAllocation.getMemoryAddress());
+    }
+
+    public void testAnonymousAllocation_close() throws InterruptedException {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+        NativeMemoryAllocation.AnonymousAllocation anonymousAllocation = new NativeMemoryAllocation.AnonymousAllocation(
+                executorService,
+                0
+        );
+
+        anonymousAllocation.close();
+
+        Thread.sleep(1000*2);
+        anonymousAllocation.writeLock();
+        assertTrue(anonymousAllocation.isClosed());
+        anonymousAllocation.writeUnlock();
+
+        executorService.shutdown();
+    }
+
+    public void testAnonymousAllocation_getSize() {
+        int size = 12;
+        NativeMemoryAllocation.AnonymousAllocation anonymousAllocation = new NativeMemoryAllocation.AnonymousAllocation(
+                null,
+                size
+        );
+
+        assertEquals(size, anonymousAllocation.getSizeInKB());
     }
 }

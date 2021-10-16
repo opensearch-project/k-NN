@@ -16,6 +16,7 @@ import org.opensearch.knn.index.IndexUtil;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 /**
@@ -47,7 +48,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
      *
      * @return size calculator
      */
-    public abstract Integer calculateSizeInKb();
+    public abstract Integer calculateSizeInKB();
 
     /**
      * Loads entry into memory.
@@ -81,7 +82,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         }
 
         @Override
-        public Integer calculateSizeInKb() {
+        public Integer calculateSizeInKB() {
             return IndexSizeCalculator.INSTANCE.apply(this);
         }
 
@@ -163,7 +164,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         }
 
         @Override
-        public Integer calculateSizeInKb() {
+        public Integer calculateSizeInKB() {
             return size;
         }
 
@@ -219,6 +220,35 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
 
         private static String generateKey(String trainIndexName, String trainFieldName) {
             return KEY_PREFIX + trainIndexName + DELIMETER + trainFieldName;
+        }
+    }
+
+    public static class AnonymousEntryContext extends NativeMemoryEntryContext<NativeMemoryAllocation.AnonymousAllocation> {
+
+        private final int size;
+        private final NativeMemoryLoadStrategy.AnonymousLoadStrategy loadStrategy;
+
+        /**
+         * Constructor
+         *
+         * @param size Size of the entry
+         * @param loadStrategy strategy to load anonymous allocation into memory
+         */
+        public AnonymousEntryContext(int size,
+                                     NativeMemoryLoadStrategy.AnonymousLoadStrategy loadStrategy) {
+            super(UUID.randomUUID().toString());
+            this.size = size;
+            this.loadStrategy = loadStrategy;
+        }
+
+        @Override
+        public Integer calculateSizeInKB() {
+            return size;
+        }
+
+        @Override
+        public NativeMemoryAllocation.AnonymousAllocation load() throws IOException {
+            return loadStrategy.load(this);
         }
     }
 }
