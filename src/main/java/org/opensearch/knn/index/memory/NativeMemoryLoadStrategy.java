@@ -97,7 +97,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             return new NativeMemoryAllocation.IndexAllocation(
                     executor,
                     memoryAddress,
-                    indexEntryContext.calculateSizeInKb(),
+                    indexEntryContext.calculateSizeInKB(),
                     knnEngine,
                     indexPath.toString(),
                     indexEntryContext.getOpenSearchIndexName(),
@@ -148,7 +148,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                                                                                   nativeMemoryEntryContext) {
             // Generate an empty training data allocation with the appropriate size
             NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation
-                    .TrainingDataAllocation(executor, 0, nativeMemoryEntryContext.calculateSizeInKb());
+                    .TrainingDataAllocation(executor, 0, nativeMemoryEntryContext.calculateSizeInKB());
 
             // Start loading all training data. Once the data has been loaded, release the lock
             TrainingDataConsumer trainingDataConsumer = new TrainingDataConsumer(trainingDataAllocation);
@@ -182,6 +182,40 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
 
         @Override
         public void close() throws IOException {
+            executor.shutdown();
+        }
+    }
+
+    class AnonymousLoadStrategy implements NativeMemoryLoadStrategy<NativeMemoryAllocation.AnonymousAllocation,
+            NativeMemoryEntryContext.AnonymousEntryContext>, Closeable {
+
+        private static AnonymousLoadStrategy INSTANCE;
+
+        /**
+         * Get singleton AnonymousLoadStrategy
+         *
+         * @return instance of AnonymousLoadStrategy
+         */
+        public static synchronized AnonymousLoadStrategy getInstance() {
+            if (INSTANCE == null) {
+                INSTANCE = new AnonymousLoadStrategy();
+            }
+            return INSTANCE;
+        }
+
+        private final ExecutorService executor;
+
+        private AnonymousLoadStrategy() {
+            executor = Executors.newSingleThreadExecutor();
+        }
+
+        @Override
+        public NativeMemoryAllocation.AnonymousAllocation load(NativeMemoryEntryContext.AnonymousEntryContext nativeMemoryEntryContext) {
+            return new NativeMemoryAllocation.AnonymousAllocation(executor, nativeMemoryEntryContext.calculateSizeInKB());
+        }
+
+        @Override
+        public void close() {
             executor.shutdown();
         }
     }

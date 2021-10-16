@@ -92,6 +92,17 @@ public class KNNMethod {
     }
 
     /**
+     * Returns the estimated overhead of the method in KB
+     *
+     * @param knnMethodContext context to estimate overhead
+     * @param dimension dimension to make estimate with
+     * @return estimate overhead in KB
+     */
+    public int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension) {
+        return methodComponent.estimateOverheadInKB(knnMethodContext.getMethodComponent(), dimension);
+    }
+
+    /**
      * Parse knnMethodContext into a map that the library can use to configure the index
      *
      * @param knnMethodContext from which to generate map
