@@ -26,7 +26,7 @@ import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_IN_BYTES_SETTING;
+import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTING;
 
 public class ModelCacheTests extends KNNTestCase {
 
@@ -40,9 +40,9 @@ public class ModelCacheTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId)).thenReturn(mockModel);
 
-        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), cacheSize).build();
+        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), cacheSize).build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
-                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
@@ -65,9 +65,9 @@ public class ModelCacheTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId)).thenReturn(mockModel);
 
-        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), cacheSize).build();
+        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), cacheSize).build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
-                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
@@ -86,9 +86,9 @@ public class ModelCacheTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId)).thenThrow(new IllegalArgumentException());
 
-        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), cacheSize).build();
+        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), cacheSize).build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
-                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
@@ -117,9 +117,9 @@ public class ModelCacheTests extends KNNTestCase {
         when(modelDao.get(modelId2)).thenReturn(mockModel2);
 
 
-        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), cacheSize).build();
+        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), cacheSize).build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
-                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
@@ -132,7 +132,7 @@ public class ModelCacheTests extends KNNTestCase {
         modelCache.get(modelId1);
         modelCache.get(modelId2);
 
-        assertEquals(size1 + size2, modelCache.getTotalWeight());
+        assertEquals(size1 + size2, modelCache.getTotalWeightInKB());
     }
 
     public void testRemove_normal() throws ExecutionException, InterruptedException {
@@ -152,9 +152,9 @@ public class ModelCacheTests extends KNNTestCase {
         when(modelDao.get(modelId1)).thenReturn(mockModel1);
         when(modelDao.get(modelId2)).thenReturn(mockModel2);
 
-        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), cacheSize).build();
+        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), cacheSize).build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
-                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
@@ -167,15 +167,15 @@ public class ModelCacheTests extends KNNTestCase {
         modelCache.get(modelId1);
         modelCache.get(modelId2);
 
-        assertEquals(size1 + size2, modelCache.getTotalWeight());
+        assertEquals(size1 + size2, modelCache.getTotalWeightInKB());
 
         modelCache.remove(modelId1);
 
-        assertEquals( size2, modelCache.getTotalWeight());
+        assertEquals( size2, modelCache.getTotalWeightInKB());
 
         modelCache.remove(modelId2);
 
-        assertEquals( 0, modelCache.getTotalWeight());
+        assertEquals( 0, modelCache.getTotalWeightInKB());
     }
 
     public void testRebuild_normal() throws ExecutionException, InterruptedException {
@@ -188,9 +188,9 @@ public class ModelCacheTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId)).thenReturn(mockModel);
 
-        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), cacheSize).build();
+        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), cacheSize).build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
-                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
@@ -200,15 +200,15 @@ public class ModelCacheTests extends KNNTestCase {
 
         // Add element to cache - nothing should be kept
         modelCache.get(modelId);
-        assertEquals(mockModel.getModelBlob().length, modelCache.getTotalWeight());
+        assertEquals(mockModel.getModelBlob().length, modelCache.getTotalWeightInKB());
 
         // Rebuild and make sure cache is empty
         modelCache.rebuild();
-        assertEquals(0, modelCache.getTotalWeight());
+        assertEquals(0, modelCache.getTotalWeightInKB());
 
         // Add element again
         modelCache.get(modelId);
-        assertEquals(mockModel.getModelBlob().length, modelCache.getTotalWeight());
+        assertEquals(mockModel.getModelBlob().length, modelCache.getTotalWeightInKB());
     }
 
     public void testRebuild_afterSettingUpdate() throws ExecutionException, InterruptedException {
@@ -225,9 +225,9 @@ public class ModelCacheTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId)).thenReturn(mockModel);
 
-        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), cacheSize1).build();
+        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), cacheSize1).build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
-                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
@@ -237,16 +237,16 @@ public class ModelCacheTests extends KNNTestCase {
 
         // Add element to cache - element should not remain in cache
         modelCache.get(modelId);
-        assertEquals(0, modelCache.getTotalWeight());
+        assertEquals(0, modelCache.getTotalWeightInKB());
 
         // Rebuild and make sure cache is empty
-        Settings newSettings = Settings.builder().put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), cacheSize2).build();
+        Settings newSettings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), cacheSize2).build();
         clusterService.getClusterSettings().applySettings(newSettings);
-        assertEquals(0, modelCache.getTotalWeight());
+        assertEquals(0, modelCache.getTotalWeightInKB());
 
         // Add element again - element should remain in cache
         modelCache.get(modelId);
-        assertEquals(modelSize, modelCache.getTotalWeight());
+        assertEquals(modelSize, modelCache.getTotalWeightInKB());
     }
 
     public void testRemove_modelNotInCache() {
@@ -255,9 +255,9 @@ public class ModelCacheTests extends KNNTestCase {
 
         ModelDao modelDao = mock(ModelDao.class);
 
-        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), cacheSize).build();
+        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), cacheSize).build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
-                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
@@ -265,9 +265,9 @@ public class ModelCacheTests extends KNNTestCase {
         ModelCache.initialize(modelDao, clusterService);
         ModelCache modelCache = new ModelCache();
 
-        assertEquals( 0, modelCache.getTotalWeight());
+        assertEquals( 0, modelCache.getTotalWeightInKB());
         modelCache.remove(modelId1);
-        assertEquals( 0, modelCache.getTotalWeight());
+        assertEquals( 0, modelCache.getTotalWeightInKB());
     }
 
     public void testContains() throws ExecutionException, InterruptedException {
@@ -284,9 +284,9 @@ public class ModelCacheTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId1)).thenReturn(mockModel1);
 
-        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), cacheSize).build();
+        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), cacheSize).build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
-                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
@@ -318,9 +318,9 @@ public class ModelCacheTests extends KNNTestCase {
         when(modelDao.get(modelId1)).thenReturn(mockModel1);
         when(modelDao.get(modelId2)).thenReturn(mockModel2);
 
-        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), cacheSize).build();
+        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), cacheSize).build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
-                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
@@ -331,8 +331,8 @@ public class ModelCacheTests extends KNNTestCase {
         modelCache.get(modelId1);
         modelCache.get(modelId2);
 
-        assertEquals( modelSize1 + modelSize2, modelCache.getTotalWeight());
+        assertEquals( modelSize1 + modelSize2, modelCache.getTotalWeightInKB());
         modelCache.removeAll();
-        assertEquals( 0, modelCache.getTotalWeight());
+        assertEquals( 0, modelCache.getTotalWeightInKB());
     }
 }
