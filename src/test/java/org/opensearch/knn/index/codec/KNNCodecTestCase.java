@@ -233,7 +233,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         when(modelDao.get(modelId)).thenReturn(mockModel);
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata1);
 
-        Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), 10).build();
+        Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10%").build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
                 ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
 
