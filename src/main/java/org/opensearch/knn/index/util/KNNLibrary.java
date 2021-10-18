@@ -46,6 +46,9 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST_DEFAULT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST_LIMIT;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_DEFAULT;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_LIMIT;
 
 /**
  * KNNLibrary is an interface that helps the plugin communicate with k-NN libraries
@@ -386,6 +389,8 @@ public interface KNNLibrary {
                         .build())
                         .addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build(),
                 METHOD_IVF, KNNMethod.Builder.builder(MethodComponent.Builder.builder(METHOD_IVF)
+                        .addParameter(METHOD_PARAMETER_NPROBES,
+                                new Parameter.IntegerParameter(METHOD_PARAMETER_NPROBES_DEFAULT, v -> v > 0 && v < METHOD_PARAMETER_NPROBES_LIMIT))
                         .addParameter(METHOD_PARAMETER_NLIST,
                                 new Parameter.IntegerParameter(METHOD_PARAMETER_NLIST_DEFAULT, v -> v > 0 && v < METHOD_PARAMETER_NLIST_LIMIT))
                         .addParameter(METHOD_ENCODER_PARAMETER,
