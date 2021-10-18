@@ -103,8 +103,8 @@ public class KNNSettings {
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION = 512;
     public static final Integer KNN_DEFAULT_ALGO_PARAM_INDEX_THREAD_QTY = 1;
     public static final Integer KNN_DEFAULT_CIRCUIT_BREAKER_UNSET_PERCENTAGE = 75;
-    public static final String KNN_DEFAULT_MODEL_CACHE_SIZE_LIMIT = "10%"; // By default, set aside 10% of the JVM for the limit
-    public static final Double KNN_MAX_MODEL_CACHE_SIZE_LIMIT = 0.25; // Model cache limit cannot exceed 25% of the JVM heap
+    public static final Integer KNN_DEFAULT_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE = 10; // By default, set aside 10% of the JVM for the limit
+    public static final Integer KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE = 25; // Model cache limit cannot exceed 25% of the JVM heap
 
     /**
      * Settings Definition
@@ -165,7 +165,7 @@ public class KNNSettings {
 
     public static final Setting<ByteSizeValue> MODEL_CACHE_SIZE_LIMIT_SETTING = new Setting<>(
             MODEL_CACHE_SIZE_LIMIT,
-            KNN_DEFAULT_MODEL_CACHE_SIZE_LIMIT,
+            percentageAsString(KNN_DEFAULT_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE),
             (s) -> {
                 ByteSizeValue userDefinedLimit =  parseBytesSizeValueOrHeapRatio(s, MODEL_CACHE_SIZE_LIMIT);
 
@@ -173,11 +173,11 @@ public class KNNSettings {
                 // JVM heap. However, we want the maximum percentage of the heap to be much smaller. So, we add
                 // some additional validation here before returning
                 ByteSizeValue jvmHeapSize = JvmInfo.jvmInfo().getMem().getHeapMax();
-                if (userDefinedLimit.getKbFrac() / jvmHeapSize.getKbFrac() > KNN_MAX_MODEL_CACHE_SIZE_LIMIT) {
+                if ((userDefinedLimit.getKbFrac() / jvmHeapSize.getKbFrac()) > percentageAsFraction(KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE)) {
                     throw new OpenSearchParseException("{} ({} KB) cannot exceed {}% of the heap ({} KB).",
                             MODEL_CACHE_SIZE_LIMIT,
                             userDefinedLimit.getKb(),
-                            KNN_MAX_MODEL_CACHE_SIZE_LIMIT*100,
+                            KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE,
                             jvmHeapSize.getKb());
                 }
 
@@ -479,5 +479,13 @@ public class KNNSettings {
                     // TODO: replace cache-rebuild with index reload into the cache
                     NativeMemoryCacheManager.getInstance().rebuildCache();
                 });
+    }
+
+    private static String percentageAsString(Integer percentage) {
+        return percentage + "%";
+    }
+
+    private static Double percentageAsFraction(Integer percentage) {
+        return percentage / 100.0;
     }
 }
