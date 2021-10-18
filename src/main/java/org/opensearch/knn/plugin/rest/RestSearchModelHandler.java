@@ -21,6 +21,7 @@ import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.plugin.KNNPlugin;
+import org.opensearch.knn.plugin.transport.SearchModelAction;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.BytesRestResponse;
 import org.opensearch.rest.RestChannel;
@@ -101,7 +102,7 @@ public class RestSearchModelHandler extends BaseRestHandler {
 
         return channel -> {
             RestCancellableNodeClient cancelClient = new RestCancellableNodeClient(client, request.getHttpChannel());
-            cancelClient.execute(SearchAction.INSTANCE, searchRequest, new RestToXContentListener<>(channel));
+            cancelClient.execute(SearchModelAction.INSTANCE, searchRequest, new RestToXContentListener<>(channel));
         };
     }
 }
