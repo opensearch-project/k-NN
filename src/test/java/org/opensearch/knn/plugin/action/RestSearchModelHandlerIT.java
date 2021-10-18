@@ -16,6 +16,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNRestTestCase;
@@ -83,6 +84,8 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
 
     public void testSearchModelExists() throws IOException {
         createModelSystemIndex();
+        createIndex("irrelevant-index", Settings.EMPTY);
+        addDocWithBinaryField("irrelevant-index", "id1", "field-name", "value");
         List<String> testModelID = Arrays.asList("test-modelid1", "test-modelid2");
         byte[] testModelBlob = "hello".getBytes();
         ModelMetadata testModelMetadata = getModelMetadata();
@@ -108,10 +111,12 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
+
+            //returns only model from ModelIndex
             assertEquals(searchResponse.getHits().getHits().length, testModelID.size());
 
             for(SearchHit hit: searchResponse.getHits().getHits()){
-                testModelID.contains(hit.getId());
+                assertTrue(testModelID.contains(hit.getId()));
             }
         }
     }
