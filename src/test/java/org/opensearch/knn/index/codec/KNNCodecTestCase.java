@@ -80,7 +80,7 @@ import static org.mockito.Mockito.when;
 import static org.opensearch.Version.CURRENT;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
-import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_IN_BYTES_SETTING;
+import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTING;
 
 /**
  * Test used for testing Codecs
@@ -233,9 +233,9 @@ public class  KNNCodecTestCase extends KNNTestCase {
         when(modelDao.get(modelId)).thenReturn(mockModel);
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata1);
 
-        Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), 10).build();
+        Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10%").build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
-                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
 
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.getSettings()).thenReturn(settings);

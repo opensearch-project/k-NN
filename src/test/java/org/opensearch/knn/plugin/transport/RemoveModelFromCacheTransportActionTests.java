@@ -28,15 +28,15 @@ import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_IN_BYTES_SETTING;
+import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTING;
 
 public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestCase {
 
     public void testNodeOperation_modelNotInCache() {
         ClusterService clusterService = mock(ClusterService.class);
-        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), 100).build();
+        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), 100).build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
-                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
 
@@ -45,7 +45,7 @@ public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestC
 
         // Check that model cache is initially empty
         ModelCache modelCache = ModelCache.getInstance();
-        assertEquals(0, modelCache.getTotalWeight());
+        assertEquals(0, modelCache.getTotalWeightInKB());
 
         // Remove the model from the cache
         RemoveModelFromCacheTransportAction action = node().injector()
@@ -54,14 +54,14 @@ public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestC
         RemoveModelFromCacheNodeRequest request = new RemoveModelFromCacheNodeRequest("invalid-model");
         action.nodeOperation(request);
 
-        assertEquals(0L, modelCache.getTotalWeight());
+        assertEquals(0L, modelCache.getTotalWeightInKB());
     }
 
     public void testNodeOperation_modelInCache() throws ExecutionException, InterruptedException {
         ClusterService clusterService = mock(ClusterService.class);
-        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_IN_BYTES_SETTING.getKey(), 100).build();
+        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), 100).build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
-                ImmutableSet.of(MODEL_CACHE_SIZE_IN_BYTES_SETTING));
+                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
 
@@ -88,6 +88,6 @@ public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestC
         RemoveModelFromCacheNodeRequest request = new RemoveModelFromCacheNodeRequest(modelId);
         action.nodeOperation(request);
 
-        assertEquals(0L, modelCache.getTotalWeight());
+        assertEquals(0L, modelCache.getTotalWeightInKB());
     }
 }
