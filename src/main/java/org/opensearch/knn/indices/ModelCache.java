@@ -18,8 +18,11 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.cluster.service.ClusterService;
 
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
-import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_IN_BYTES_SETTING;
+import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
+import static org.opensearch.knn.common.KNNConstants.MODEL_CACHE_EXPIRE_AFTER_ACCESS_TIME_MINUTES;
+import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTING;
 
 
 public final class ModelCache {
@@ -31,7 +34,7 @@ public final class ModelCache {
     private static ClusterService clusterService;
 
     private Cache<String, Model> cache;
-    private long cacheSizeInBytes;
+    private long cacheSizeInKB;
 
     /**
      * Get instance of cache
@@ -65,9 +68,9 @@ public final class ModelCache {
     }
 
     protected ModelCache() {
-        cacheSizeInBytes = MODEL_CACHE_SIZE_IN_BYTES_SETTING.get(clusterService.getSettings());
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(MODEL_CACHE_SIZE_IN_BYTES_SETTING, it -> {
-            cacheSizeInBytes = it;
+        cacheSizeInKB = MODEL_CACHE_SIZE_LIMIT_SETTING.get(clusterService.getSettings()).getKb();
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(MODEL_CACHE_SIZE_LIMIT_SETTING, it -> {
+            cacheSizeInKB = it.getKb();
             rebuild();
         });
         initCache();
@@ -77,8 +80,9 @@ public final class ModelCache {
         CacheBuilder<String, Model> cacheBuilder = CacheBuilder.newBuilder()
                 .recordStats()
                 .concurrencyLevel(1)
-                .maximumWeight(cacheSizeInBytes)
-                .weigher((k, v) -> v.getLength());
+                .maximumWeight(cacheSizeInKB)
+                .expireAfterAccess(MODEL_CACHE_EXPIRE_AFTER_ACCESS_TIME_MINUTES, TimeUnit.MINUTES)
+                .weigher((k, v) -> Math.toIntExact(getModelLengthInKB(v)));
 
         cache = cacheBuilder.build();
     }
@@ -102,8 +106,8 @@ public final class ModelCache {
      *
      * @return total weight
      */
-    public long getTotalWeight() {
-        return cache.asMap().values().stream().map(model -> (long) model.getLength())
+    public long getTotalWeightInKB() {
+        return cache.asMap().values().stream().map(this::getModelLengthInKB)
                 .reduce(0L, Long::sum);
     }
 
@@ -131,5 +135,9 @@ public final class ModelCache {
      */
     public void removeAll() {
         cache.invalidateAll();
+    }
+
+    private Long getModelLengthInKB(Model model) {
+        return (model.getLength() / BYTES_PER_KILOBYTES) + 1L;
     }
 }
