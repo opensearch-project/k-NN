@@ -57,6 +57,7 @@ import static org.opensearch.common.settings.Setting.Property.Dynamic;
 import static org.opensearch.common.settings.Setting.Property.IndexScope;
 import static org.opensearch.common.settings.Setting.Property.NodeScope;
 import static org.opensearch.common.unit.ByteSizeValue.parseBytesSizeValue;
+import static org.opensearch.common.unit.MemorySizeValue.parseBytesSizeValueOrHeapRatio;
 
 /**
  * This class defines
@@ -91,7 +92,7 @@ public class KNNSettings {
     public static final String KNN_INDEX = "index.knn";
     public static final String MODEL_INDEX_NUMBER_OF_SHARDS = "knn.model_index_number_of_shards";
     public static final String MODEL_INDEX_NUMBER_OF_REPLICAS = "knn.model_index_number_of_replicas";
-    public static final String MODEL_CACHE_SIZE_IN_BYTES = "knn.model_cache.size_in_bytes";
+    public static final String MODEL_CACHE_SIZE_LIMIT = "knn.model_cache.size.limit";
 
     /**
      * Default setting values
@@ -102,10 +103,8 @@ public class KNNSettings {
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION = 512;
     public static final Integer KNN_DEFAULT_ALGO_PARAM_INDEX_THREAD_QTY = 1;
     public static final Integer KNN_DEFAULT_CIRCUIT_BREAKER_UNSET_PERCENTAGE = 75;
-    public static final Integer KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES = 50000000; // 50 Mb
-    public static final Integer KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES = 80000000; // 80 Mb
-    public static final Integer KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES = 0;
-
+    public static final Integer KNN_DEFAULT_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE = 10; // By default, set aside 10% of the JVM for the limit
+    public static final Integer KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE = 25; // Model cache limit cannot exceed 25% of the JVM heap
 
     /**
      * Settings Definition
@@ -164,13 +163,29 @@ public class KNNSettings {
             Setting.Property.NodeScope,
             Setting.Property.Dynamic);
 
-    public static final Setting<Long> MODEL_CACHE_SIZE_IN_BYTES_SETTING = Setting.longSetting(
-            MODEL_CACHE_SIZE_IN_BYTES,
-            KNN_DEFAULT_MODEL_CACHE_SIZE_IN_BYTES,
-            KNN_MIN_MODEL_CACHE_SIZE_IN_BYTES,
-            KNN_MAX_MODEL_CACHE_SIZE_IN_BYTES,
+    public static final Setting<ByteSizeValue> MODEL_CACHE_SIZE_LIMIT_SETTING = new Setting<>(
+            MODEL_CACHE_SIZE_LIMIT,
+            percentageAsString(KNN_DEFAULT_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE),
+            (s) -> {
+                ByteSizeValue userDefinedLimit =  parseBytesSizeValueOrHeapRatio(s, MODEL_CACHE_SIZE_LIMIT);
+
+                // parseBytesSizeValueOrHeapRatio will make sure that the value entered falls between 0 and 100% of the
+                // JVM heap. However, we want the maximum percentage of the heap to be much smaller. So, we add
+                // some additional validation here before returning
+                ByteSizeValue jvmHeapSize = JvmInfo.jvmInfo().getMem().getHeapMax();
+                if ((userDefinedLimit.getKbFrac() / jvmHeapSize.getKbFrac()) > percentageAsFraction(KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE)) {
+                    throw new OpenSearchParseException("{} ({} KB) cannot exceed {}% of the heap ({} KB).",
+                            MODEL_CACHE_SIZE_LIMIT,
+                            userDefinedLimit.getKb(),
+                            KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE,
+                            jvmHeapSize.getKb());
+                }
+
+                return userDefinedLimit;
+            },
             Setting.Property.NodeScope,
-            Setting.Property.Dynamic);
+            Setting.Property.Dynamic
+    );
 
     /**
      * This setting identifies KNN index.
@@ -325,7 +340,7 @@ public class KNNSettings {
                 IS_KNN_INDEX_SETTING,
                 MODEL_INDEX_NUMBER_OF_SHARDS_SETTING,
                 MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
-                MODEL_CACHE_SIZE_IN_BYTES_SETTING);
+                MODEL_CACHE_SIZE_LIMIT_SETTING);
         return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream())
                      .collect(Collectors.toList());
     }
@@ -464,5 +479,13 @@ public class KNNSettings {
                     // TODO: replace cache-rebuild with index reload into the cache
                     NativeMemoryCacheManager.getInstance().rebuildCache();
                 });
+    }
+
+    private static String percentageAsString(Integer percentage) {
+        return percentage + "%";
+    }
+
+    private static Double percentageAsFraction(Integer percentage) {
+        return percentage / 100.0;
     }
 }

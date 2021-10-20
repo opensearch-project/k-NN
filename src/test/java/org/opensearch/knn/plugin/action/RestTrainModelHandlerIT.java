@@ -282,7 +282,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         assertTrainingSucceeds(modelId, 30, 1000);
     }
 
-    public void testTrainModel_success_noId() throws IOException {
+    public void testTrainModel_success_noId() throws IOException, InterruptedException {
         // Test to check if training succeeds when no id is passed in
 
         String trainingIndexName = "train-index";
@@ -363,5 +363,6 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
 
+        assertTrainingSucceeds(modelId, 30, 1000);
     }
 }
