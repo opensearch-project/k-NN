@@ -1,4 +1,4 @@
 grant {
-    permission java.lang.RuntimePermission "loadLibrary.OpensearchKNN";
+    permission java.lang.RuntimePermission "loadLibrary.opensearchknn";
     permission java.net.SocketPermission "*", "connect,resolve";
 };
