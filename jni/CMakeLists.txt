@@ -23,22 +23,16 @@
 #   permissions and limitations under the License.
 #
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.17)
 
 project(KNNPlugin_JNI)
 
 # ---------------------------------- SETUP ----------------------------------
 # Target library to be compiled
-set(TARGET_LIB OpensearchKNN)
+set(TARGET_LIB opensearchknn)
 
-# Corner case. For CMake 2.8, there is no option to specify set(CMAKE_CXX_STANDARD 11). Instead, the flag manually needs
-# to be set.
-if (CMAKE_VERSION VERSION_LESS "3.1")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-else()
-    set(CMAKE_CXX_STANDARD 11)
-    set(CMAKE_CXX_STANDARD_REQUIRED True)
-endif()
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Set OS specific variables
 if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
@@ -80,6 +74,8 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search)
 # ---------------------------------- FAISS ----------------------------------
 # Avoid building faiss tests
 set(BUILD_TESTING OFF)
+set(BLA_STATIC ON)
+set(FAISS_OPT_LEVEL generic)
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
     if(CMAKE_C_COMPILER_ID MATCHES "Clang\$")
@@ -98,6 +94,7 @@ endif()
 find_package(OpenMP REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(BLAS REQUIRED)
+enable_language(Fortran)
 find_package(LAPACK REQUIRED)
 
 # Check if faiss exists
@@ -116,7 +113,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/faiss EXCLUDE_FROM_ALL)
 
 # ------------------------------ Lib Compiling ------------------------------
 add_library(${TARGET_LIB} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_index_JNIService.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/jni_util.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/nmslib_wrapper.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/faiss_wrapper.cpp)
-target_link_libraries(${TARGET_LIB} faiss NonMetricSpaceLib ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} OpenMP::OpenMP_CXX)
+target_link_libraries(${TARGET_LIB} faiss NonMetricSpaceLib ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} OpenMP::OpenMP_CXX gfortran)
 target_include_directories(${TARGET_LIB} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE} ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search/include)
 
 set_target_properties(${TARGET_LIB} PROPERTIES SUFFIX ${LIB_EXT})
