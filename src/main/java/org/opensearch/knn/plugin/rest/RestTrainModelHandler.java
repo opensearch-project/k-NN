@@ -14,6 +14,7 @@ package org.opensearch.knn.plugin.rest;
 import com.google.common.collect.ImmutableList;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.TrainingJobRouterAction;
@@ -105,11 +106,11 @@ public class RestTrainModelHandler extends BaseRestHandler {
             } else if (KNN_METHOD.equals(fieldName) && ensureNotSet(fieldName, knnMethodContext)) {
                 knnMethodContext = KNNMethodContext.parse(parser.map());
             } else if (DIMENSION.equals(fieldName) && ensureNotSet(fieldName, dimension)) {
-                dimension = parser.intValue();
+                dimension = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
             } else if (MAX_VECTOR_COUNT_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, maximumVectorCount)) {
-                maximumVectorCount = parser.intValue();
+                maximumVectorCount = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
             } else if (SEARCH_SIZE_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, searchSize)) {
-                searchSize = parser.intValue();
+                searchSize = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
             } else if (MODEL_DESCRIPTION.equals(fieldName) && ensureNotSet(fieldName, description)) {
                 description = parser.text();
             } else {
