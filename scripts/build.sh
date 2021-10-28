@@ -63,7 +63,6 @@ fi
 [ -z "$OUTPUT" ] && OUTPUT=artifacts
 
 work_dir=$PWD
-mkdir -p $OUTPUT/libs
 
 # Pull library submodule explicitly. While "cmake ." actually pulls the submodule if its not there, we
 # need to pull it before calling cmake. Also, we need to call it from the root git directory.
@@ -93,13 +92,28 @@ cmake .
 make opensearchknn
 
 cd $work_dir
-cp ./jni/release/libopensearchknn* ./$OUTPUT/libs
-
 ./gradlew assemble --no-daemon --refresh-dependencies -DskipTests=true -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
 
-zipPath=$(find . -path \*build/distributions/*.zip)
-distributions="$(dirname "${zipPath}")"
+# Manually place the k-NN library into the plugin zip in a new folder called "knnlib". The zips name should be
+# preserved.
+zipPath=$(find . -path \*build/distributions/*.zip)  # Path to the zip produced by gradle (does not include lib)
+zipName=$(basename $zipPath)
+newZipDir=$work_dir/knn-stage  # Folder where the new zip will be located
+newZipStage=$newZipDir/stage  # Folder where will build the new zip
+mkdir -p $newZipDir
+mkdir -p $newZipStage
 
-echo "COPY ${distributions}/*.zip"
+cp $zipPath $newZipStage
+cd $newZipStage
+unzip *.zip
+rm *.zip
+mkdir knnlib
+cp $work_dir/jni/release/lib*knn* ./knnlib
+zip -r $newZipDir/$zipName *
+cd $work_dir
+rm -rf $newZipStage
+
+echo "COPY $newZipDir/*.zip"
 mkdir -p $OUTPUT/plugins
-cp ${distributions}/*.zip ./$OUTPUT/plugins
+cp $newZipDir/*.zip ${OUTPUT}/plugins
+rm -rf $newZipDir
