@@ -94,26 +94,15 @@ make opensearchknn
 cd $work_dir
 ./gradlew assemble --no-daemon --refresh-dependencies -DskipTests=true -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
 
-# Manually place the k-NN library into the plugin zip in a new folder called "knnlib". The zips name should be
-# preserved.
-zipPath=$(find . -path \*build/distributions/*.zip)  # Path to the zip produced by gradle (does not include lib)
-zipName=$(basename $zipPath)
-newZipDir=$work_dir/knn-stage  # Folder where the new zip will be located
-newZipStage=$newZipDir/stage  # Folder where will build the new zip
-mkdir -p $newZipDir
-mkdir -p $newZipStage
-
-cp $zipPath $newZipStage
-cd $newZipStage
-unzip *.zip
-rm *.zip
-mkdir knnlib
-cp $work_dir/jni/release/lib*knn* ./knnlib
-zip -r $newZipDir/$zipName *
+# Add knnlib to zip
+zipPath=$(find "$(pwd)" -path \*build/distributions/*.zip)
+distributions="$(dirname "${zipPath}")"
+mkdir $distributions/knnlib
+cp ./jni/release/libopensearchknn* $distributions/knnlib
+cd $distributions
+zip -ur $zipPath knnlib
 cd $work_dir
-rm -rf $newZipStage
 
-echo "COPY $newZipDir/*.zip"
+echo "COPY ${distributions}/*.zip"
 mkdir -p $OUTPUT/plugins
-cp $newZipDir/*.zip ${OUTPUT}/plugins
-rm -rf $newZipDir
+cp ${distributions}/*.zip $OUTPUT/plugins
