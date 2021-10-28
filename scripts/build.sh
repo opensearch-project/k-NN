@@ -70,7 +70,7 @@ work_dir=$PWD
 git submodule update --init -- jni/external/nmslib
 git submodule update --init -- jni/external/faiss
 
-# Build knnlib and copy it to libs
+# Build knnlib
 cd jni
 
 # For x64, generalize arch so library is compatible for processors without simd instruction extensions
