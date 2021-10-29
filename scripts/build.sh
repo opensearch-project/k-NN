@@ -78,9 +78,11 @@ if [ "$ARCHITECTURE" = "x64" ]; then
     sed -i -e 's/-march=native/-march=x86-64/g' external/nmslib/similarity_search/CMakeLists.txt
 fi
 
-# For arm, march=native is broken in centos 7. Manually override to lowest version of armv8.
+# For arm, march=native is broken in centos 7. Manually override to lowest version of armv8. Also, disable simd in faiss
+# file. This is broken on centos 7 as well.
 if [ "$ARCHITECTURE" = "arm64" ]; then
     sed -i -e 's/-march=native/-march=armv8-a/g' external/nmslib/similarity_search/CMakeLists.txt
+    sed -i -e 's/__aarch64__/__undefine_aarch64__/g' external/faiss/faiss/utils/distances_simd.cpp
 fi
 
 if [ "$JAVA_HOME" = "" ]; then
