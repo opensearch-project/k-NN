@@ -63,7 +63,6 @@ fi
 [ -z "$OUTPUT" ] && OUTPUT=artifacts
 
 work_dir=$PWD
-mkdir -p $OUTPUT/libs
 
 # Pull library submodule explicitly. While "cmake ." actually pulls the submodule if its not there, we
 # need to pull it before calling cmake. Also, we need to call it from the root git directory.
@@ -71,7 +70,7 @@ mkdir -p $OUTPUT/libs
 git submodule update --init -- jni/external/nmslib
 git submodule update --init -- jni/external/faiss
 
-# Build knnlib and copy it to libs
+# Build knnlib
 cd jni
 
 # For x64, generalize arch so library is compatible for processors without simd instruction extensions
@@ -93,13 +92,17 @@ cmake .
 make opensearchknn
 
 cd $work_dir
-cp ./jni/release/libopensearchknn* ./$OUTPUT/libs
-
 ./gradlew assemble --no-daemon --refresh-dependencies -DskipTests=true -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
 
-zipPath=$(find . -path \*build/distributions/*.zip)
+# Add knnlib to zip
+zipPath=$(find "$(pwd)" -path \*build/distributions/*.zip)
 distributions="$(dirname "${zipPath}")"
+mkdir $distributions/knnlib
+cp ./jni/release/libopensearchknn* $distributions/knnlib
+cd $distributions
+zip -ur $zipPath knnlib
+cd $work_dir
 
 echo "COPY ${distributions}/*.zip"
 mkdir -p $OUTPUT/plugins
-cp ${distributions}/*.zip ./$OUTPUT/plugins
+cp ${distributions}/*.zip $OUTPUT/plugins
