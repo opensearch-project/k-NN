@@ -1,0 +1,24 @@
+---
+"knn warmup basic test":
+  - do:
+      indices.create:
+        index: test_index
+        body:
+          settings:
+            index:
+              knn: true
+          mappings:
+            properties:
+              vector1:
+                type: knn_vector
+                dimension: 2
+                method:
+                  name: hnsw
+  - do:
+      knn.warmup:
+        index: test_index
+
+  - gte: { _shards.total: 1 }
+  - gte: { _shards.successful: 1 }
+  - match: { _shards.failed: 0 }
+

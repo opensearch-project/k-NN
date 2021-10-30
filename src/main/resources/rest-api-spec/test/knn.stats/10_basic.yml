@@ -1,0 +1,148 @@
+---
+"knn stats test after adding data and search query":
+  - skip:
+      features: [arbitrary_key]
+
+  - do:
+      nodes.info: {}
+
+  - set:
+      nodes._arbitrary_key_: node_id
+
+  - do:
+      indices.create:
+        index: test_index
+        body:
+          settings:
+            index:
+              knn: true
+          mappings:
+            properties:
+              vector1:
+                type: knn_vector
+                dimension: 2
+                method:
+                  name: hnsw
+  - do:
+      bulk:
+        refresh: true
+        body:
+          - index:
+              _index: test_index
+              _id: test_id1
+          - vector1: [ 1, 2 ]
+            foo: 10
+          - index:
+              _index: test_index
+              _id: test_id2
+          - vector1: [ 2, 3 ]
+            foo: 15
+          - index:
+              _index: test_index
+              _id: test_id3
+          - vector1: [ 3, 4 ]
+            foo: 5
+  - do:
+      search:
+        index: test_index
+        body:
+          size: 1
+          query:
+            knn:
+              vector1:
+                vector: [ 2.5, 3.5 ]
+                k: 1
+
+  - do:
+      knn.stats: {}
+
+  - is_true: cluster_name
+  - is_false: timed_out
+  - is_false: circuit_breaker_triggered
+  - match: { nodes.$node_id.miss_count:                    1 }
+  - gt: { nodes.$node_id.graph_memory_usage_percentage: 0.00 }
+  - gte: { nodes.$node_id.graph_query_requests:          1 }
+  - match: { nodes.$node_id.graph_memory_usage:            1 }
+  - is_false: cache_capacity_reached
+  - gte: { nodes.$node_id.graph_index_requests:          1 }
+  - match: { nodes.$node_id.load_exception_count:          0 }
+  - match: { nodes.$node_id.load_success_count:            1 }
+  - match: { nodes.$node_id.eviction_count:                0 }
+  - gte: { nodes.$node_id.script_query_errors:           0 }
+  - gte: { nodes.$node_id.script_compilations:           0 }
+  - gte: { nodes.$node_id.script_query_requests:         0 }
+  - match: { nodes.$node_id.graph_query_errors:            0 }
+  - match: { nodes.$node_id.hit_count:                     0 }
+  - match: { nodes.$node_id.graph_index_errors:            0 }
+  - gte: { nodes.$node_id.knn_query_requests:            1 }
+  - gte: { nodes.$node_id.script_compilation_errors:     0 }
+
+---
+"knn stats basic test with path parameters":
+  - skip:
+      features: [arbitrary_key]
+
+  - do:
+      nodes.info: {}
+
+  - set:
+      nodes._arbitrary_key_: node_id
+
+  - do:
+      indices.create:
+        index: test_index1
+        body:
+          settings:
+            index:
+              knn: true
+          mappings:
+            properties:
+              vector1:
+                type: knn_vector
+                dimension: 2
+                method:
+                  name: hnsw
+  - do:
+      knn.stats:
+        node_id: _local
+        stat_name: [circuit_breaker_triggered, hit_count]
+
+  - is_false: circuit_breaker_triggered
+  - match: { nodes.$node_id.hit_count:   0 }
+
+---
+"knn stats test with unrecognized parameters":
+  - skip:
+      features: [arbitrary_key]
+
+  - do:
+      nodes.info: {}
+
+  - set:
+      nodes._arbitrary_key_: node_id
+
+  - do:
+      indices.create:
+        index: test_index2
+        body:
+          settings:
+            index:
+              knn: true
+          mappings:
+            properties:
+              vector1:
+                type: knn_vector
+                dimension: 2
+                method:
+                  name: hnsw
+  - do:
+      catch: bad_request
+      knn.stats:
+        node_id: local
+        stat_name: [miss_cont]
+
+  - match: { status: 400 }
+  - match: { error.type: illegal_argument_exception }
+  - match: { error.reason: "request [/_plugins/_knn/local/stats/miss_cont] contains unrecognized stat: [miss_cont]"}
+
+

@@ -1,0 +1,37 @@
+{
+  "knn.stats":{
+    "documentation":{
+      "url":"https://opensearch.org/docs/latest/search-plugins/knn/api/#stats",
+      "description":"Provides information about current status of the K_NN plugin"
+    },
+    "stability":"stable",
+    "url":{
+      "paths":[
+        {
+          "path":"/_plugins/_knn/stats",
+          "methods":[
+            "GET"
+          ]
+        },
+        {
+          "path":"/_plugins/_knn/{node_id}/stats/{stat_name}",
+          "methods":[
+            "GET"
+          ],
+          "parts":{
+            "node_id":{
+              "type":"list",
+              "description":"A comma-separated list of node IDs to limit the returned information"
+            },
+            "stat_name":{
+              "type":"list",
+              "description":"A comma-separated list of statistics to limit the returned information"
+            }
+          }
+        }
+      ]
+    },
+    "params":{
+    }
+  }
+}

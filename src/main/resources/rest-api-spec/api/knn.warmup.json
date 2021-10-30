@@ -1,0 +1,27 @@
+{
+  "knn.warmup": {
+    "documentation": {
+      "url": "https://opensearch.org/docs/latest/search-plugins/knn/api/#warmup-operation",
+      "description": "This operation loads all the graphs for all of the shards of all the indices specified in the request into native memory to avoid latency for searching."
+    },
+    "stability": "stable",
+    "url": {
+      "paths": [
+        {
+          "path": "/_plugins/_knn/warmup/{index}",
+          "methods": [
+            "GET"
+          ],
+          "parts": {
+            "index": {
+              "type": "list",
+              "description": "A comma-separated list of indices for which the graphs needs to be loaded into memory."
+            }
+          }
+        }
+      ]
+    },
+    "params": {
+    }
+  }
+}
