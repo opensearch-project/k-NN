@@ -22,6 +22,7 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
@@ -117,6 +118,144 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
 
             for(SearchHit hit: searchResponse.getHits().getHits()){
                 assertTrue(testModelID.contains(hit.getId()));
+                Model model = Model.getModelFromSourceMap(hit.getSourceAsMap(), hit.getId());
+                assertEquals(getModelMetadata(),model.getModelMetadata());
+                assertArrayEquals(testModelBlob, model.getModelBlob());
+            }
+        }
+    }
+
+    public void testSearchModelWithoutSource() throws IOException {
+        createModelSystemIndex();
+        createIndex("irrelevant-index", Settings.EMPTY);
+        addDocWithBinaryField("irrelevant-index", "id1", "field-name", "value");
+        List<String> testModelID = Arrays.asList("test-modelid1", "test-modelid2");
+        byte[] testModelBlob = "hello".getBytes();
+        ModelMetadata testModelMetadata = getModelMetadata();
+        for(String modelID: testModelID){
+            addModelToSystemIndex(modelID, testModelMetadata, testModelBlob);
+        }
+
+        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
+
+        for(String method: Arrays.asList("GET", "POST")){
+            Request request = new Request(method, restURI);
+            request.setJsonEntity("{\n" +
+                "    \"_source\" : false,\n" +
+                "    \"query\": {\n" +
+                "        \"match_all\": {}\n" +
+                "    }\n" +
+                "}");
+            Response response = client().performRequest(request);
+            assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+            String responseBody = EntityUtils.toString(response.getEntity());
+            assertNotNull(responseBody);
+
+            XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+            SearchResponse searchResponse = SearchResponse.fromXContent(parser);
+            assertNotNull(searchResponse);
+
+            //returns only model from ModelIndex
+            assertEquals(searchResponse.getHits().getHits().length, testModelID.size());
+
+            for(SearchHit hit: searchResponse.getHits().getHits()){
+                assertTrue(testModelID.contains(hit.getId()));
+                assertNull(hit.getSourceAsMap());
+            }
+        }
+    }
+
+    public void testSearchModelWithSourceFilteringIncludes() throws IOException {
+        createModelSystemIndex();
+        createIndex("irrelevant-index", Settings.EMPTY);
+        addDocWithBinaryField("irrelevant-index", "id1", "field-name", "value");
+        List<String> testModelID = Arrays.asList("test-modelid1", "test-modelid2");
+        byte[] testModelBlob = "hello".getBytes();
+        ModelMetadata testModelMetadata = getModelMetadata();
+        for(String modelID: testModelID){
+            addModelToSystemIndex(modelID, testModelMetadata, testModelBlob);
+        }
+
+        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
+
+        for(String method: Arrays.asList("GET", "POST")){
+            Request request = new Request(method, restURI);
+            request.setJsonEntity("{\n" +
+                "    \"_source\": {\n" +
+                "        \"includes\": [ \"state\", \"description\" ]\n"+
+                "    }, " +
+                "    \"query\": {\n" +
+                "        \"match_all\": {}\n" +
+                "    }\n" +
+                "}");
+            Response response = client().performRequest(request);
+            assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+            String responseBody = EntityUtils.toString(response.getEntity());
+            assertNotNull(responseBody);
+
+            XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+            SearchResponse searchResponse = SearchResponse.fromXContent(parser);
+            assertNotNull(searchResponse);
+
+            //returns only model from ModelIndex
+            assertEquals(searchResponse.getHits().getHits().length, testModelID.size());
+
+            for(SearchHit hit: searchResponse.getHits().getHits()){
+                assertTrue(testModelID.contains(hit.getId()));
+                Map<String, Object> sourceAsMap = hit.getSourceAsMap();
+                assertFalse(sourceAsMap.containsKey("model_blob"));
+                assertTrue(sourceAsMap.containsKey("state"));
+                assertFalse(sourceAsMap.containsKey("timestamp"));
+                assertTrue(sourceAsMap.containsKey("description"));
+            }
+        }
+    }
+
+    public void testSearchModelWithSourceFilteringExcludes() throws IOException {
+        createModelSystemIndex();
+        createIndex("irrelevant-index", Settings.EMPTY);
+        addDocWithBinaryField("irrelevant-index", "id1", "field-name", "value");
+        List<String> testModelID = Arrays.asList("test-modelid1", "test-modelid2");
+        byte[] testModelBlob = "hello".getBytes();
+        ModelMetadata testModelMetadata = getModelMetadata();
+        for(String modelID: testModelID){
+            addModelToSystemIndex(modelID, testModelMetadata, testModelBlob);
+        }
+
+        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
+
+        for(String method: Arrays.asList("GET", "POST")){
+            Request request = new Request(method, restURI);
+            request.setJsonEntity("{\n" +
+                "    \"_source\": {\n" +
+                "        \"excludes\": [\"model_blob\" ]\n"+
+                "    }, " +
+                "    \"query\": {\n" +
+                "        \"match_all\": {}\n" +
+                "    }\n" +
+                "}");
+            Response response = client().performRequest(request);
+            assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+            String responseBody = EntityUtils.toString(response.getEntity());
+            assertNotNull(responseBody);
+
+            XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+            SearchResponse searchResponse = SearchResponse.fromXContent(parser);
+            assertNotNull(searchResponse);
+
+            //returns only model from ModelIndex
+            assertEquals(searchResponse.getHits().getHits().length, testModelID.size());
+
+            for(SearchHit hit: searchResponse.getHits().getHits()){
+                assertTrue(testModelID.contains(hit.getId()));
+                Map<String, Object> sourceAsMap = hit.getSourceAsMap();
+                assertFalse(sourceAsMap.containsKey("model_blob"));
+                assertTrue(sourceAsMap.containsKey("state"));
+                assertTrue(sourceAsMap.containsKey("timestamp"));
+                assertTrue(sourceAsMap.containsKey("description"));
             }
         }
     }

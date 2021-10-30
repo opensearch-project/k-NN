@@ -19,13 +19,9 @@ import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
-import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
-import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
 import java.util.Base64;
@@ -33,7 +29,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.opensearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
@@ -164,28 +159,17 @@ public class Model implements Writeable, ToXContentObject {
         return new HashCodeBuilder().append(getModelMetadata()).append(getModelBlob()).toHashCode();
     }
 
-    @Override
-    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        XContentBuilder xContentBuilder = builder.startObject();
-        if(Strings.hasText(modelID)){
-            builder.field(MODEL_ID, modelID);
-        }
-        builder.field(MODEL_STATE, getModelMetadata().getState().getName());
-        builder.field(MODEL_TIMESTAMP, getModelMetadata().getTimestamp());
-        builder.field(MODEL_DESCRIPTION, getModelMetadata().getDescription());
-        builder.field(MODEL_ERROR, getModelMetadata().getError());
-
-        String base64Model = "";
-        if(getModelBlob() != null){
-            base64Model = Base64.getEncoder().encodeToString(getModelBlob());
-        }
-        builder.field(MODEL_BLOB_PARAMETER, base64Model);
-
-        builder.field(METHOD_PARAMETER_SPACE_TYPE, getModelMetadata().getSpaceType().getValue());
-        builder.field(DIMENSION, getModelMetadata().getDimension());
-        builder.field(KNN_ENGINE, getModelMetadata().getKnnEngine().getName());
-
-        return xContentBuilder.endObject();
+    /**
+     *  Parse source map content into {@link Model} instance.
+     *
+     * @param sourceMap source contents
+     * @param modelID model's identifier
+     * @return model instance
+     */
+    public static Model getModelFromSourceMap(Map<String, Object> sourceMap, @NonNull String modelID) {
+        ModelMetadata modelMetadata = ModelMetadata.getMetadataFromSourceMap(sourceMap);
+        byte[] blob = getModelBlobFromResponse(sourceMap);
+        return new Model(modelMetadata, blob, modelID);
     }
 
     private void writeOptionalModelBlob(StreamOutput output) throws IOException {
@@ -219,16 +203,24 @@ public class Model implements Writeable, ToXContentObject {
         return Base64.getDecoder().decode((String) blob);
     }
 
-    /**
-     *  Parse source map content into {@link Model} instance.
-     *
-     * @param sourceMap source contents
-     * @param modelID model's identifier
-     * @return model instance
-     */
-    public static Model getModelFromSourceMap(Map<String,Object> sourceMap, @NonNull String modelID) {
-        ModelMetadata modelMetadata = ModelMetadata.getMetadataFromSourceMap(sourceMap);
-        byte[] blob = getModelBlobFromResponse(sourceMap);
-        return new Model(modelMetadata, blob, modelID);
+    private static void createFieldIfNotNull(XContentBuilder builder, String fieldName, Object value) throws IOException {
+        if (value == null)
+            return;
+        builder.field(fieldName, value);
+    }
+
+    @Override
+    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+        XContentBuilder xContentBuilder = builder.startObject();
+        if (Strings.hasText(modelID)) {
+            builder.field(MODEL_ID, modelID);
+        }
+        String base64Model = "";
+        if (getModelBlob() != null) {
+            base64Model = Base64.getEncoder().encodeToString(getModelBlob());
+        }
+        builder.field(MODEL_BLOB_PARAMETER, base64Model);
+        getModelMetadata().toXContent(builder, params);
+        return xContentBuilder.endObject();
     }
 }

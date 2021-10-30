@@ -38,10 +38,7 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Nullable;
-import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.xcontent.ToXContentObject;
-import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
@@ -51,10 +48,6 @@ import org.opensearch.knn.plugin.transport.RemoveModelFromCacheRequest;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheResponse;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
-import org.opensearch.rest.BytesRestResponse;
-import org.opensearch.rest.RestResponse;
-import org.opensearch.rest.RestStatus;
-import org.opensearch.search.SearchHit;
 
 import java.io.IOException;
 import java.net.URL;
@@ -63,13 +56,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
-import static org.opensearch.common.xcontent.ToXContent.EMPTY_PARAMS;
-import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
+import static org.opensearch.knn.common.KNNConstants.MODEL_METADATA_FIELD;
 import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING;
 import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_SHARDS_SETTING;
-import static org.opensearch.knn.common.KNNConstants.MODEL_METADATA_FIELD;
 
 /**
  * ModelDao is used to interface with the model persistence layer
@@ -393,15 +384,7 @@ public interface ModelDao {
         @Override
         public void search(SearchRequest request, ActionListener<SearchResponse> actionListener) {
             request.indices(MODEL_INDEX_NAME);
-            client.search(request,ActionListener.wrap(response -> {
-                for (SearchHit hit : response.getHits()) {
-                    ToXContentObject xContentObject = Model.getModelFromSourceMap(hit.getSourceAsMap(), hit.getId());
-                    XContentBuilder builder = xContentObject.toXContent(jsonBuilder(), EMPTY_PARAMS);
-                    hit.sourceRef(BytesReference.bytes(builder));
-                }
-                actionListener.onResponse(response);
-
-            }, actionListener::onFailure));
+            client.search(request, actionListener);
         }
 
         @Override
