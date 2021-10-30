@@ -16,18 +16,29 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.common.xcontent.ToXContentObject;
+import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
+import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 import static org.opensearch.knn.index.KNNVectorFieldMapper.MAX_DIMENSION;
 
-public class ModelMetadata implements Writeable {
+public class ModelMetadata implements Writeable, ToXContentObject {
 
     private static final String DELIMITER = ",";
 
@@ -229,6 +240,12 @@ public class ModelMetadata implements Writeable {
         return (String)value;
     }
 
+    private static Integer objectToInteger(Object value) {
+        if(value == null)
+            return null;
+        return (Integer)value;
+    }
+
     /**
      * Returns ModelMetadata from Map representation
      *
@@ -245,7 +262,7 @@ public class ModelMetadata implements Writeable {
         Object error = modelSourceMap.get(KNNConstants.MODEL_ERROR);
 
         ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.getEngine(objectToString(engine)),
-            SpaceType.getSpace(objectToString( space)), (Integer) dimension, ModelState.getModelState(objectToString(state)),
+            SpaceType.getSpace(objectToString( space)), objectToInteger(dimension), ModelState.getModelState(objectToString(state)),
             objectToString(timestamp), objectToString(description), objectToString( error));
         return modelMetadata;
     }
@@ -259,5 +276,18 @@ public class ModelMetadata implements Writeable {
         out.writeString(getTimestamp());
         out.writeString(getDescription());
         out.writeString(getError());
+    }
+
+    @Override
+    public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+        builder.field(MODEL_STATE, getState().getName());
+        builder.field(MODEL_TIMESTAMP, getTimestamp());
+        builder.field(MODEL_DESCRIPTION, getDescription());
+        builder.field(MODEL_ERROR, getError());
+
+        builder.field(METHOD_PARAMETER_SPACE_TYPE, getSpaceType().getValue());
+        builder.field(DIMENSION, getDimension());
+        builder.field(KNN_ENGINE, getKnnEngine().getName());
+        return builder;
     }
 }
