@@ -15,6 +15,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
+import org.opensearch.common.ValidationException;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -82,7 +83,9 @@ public class TrainingJobRunner {
         // the number of training jobs that enter this function. Although the training threadpool size will also prevent
         // this, we want to prevent this before we perform any serialization.
         if (!semaphore.tryAcquire()) {
-            throw new IllegalStateException("Unable to run training job: No training capacity on node.");
+            ValidationException exception = new ValidationException();
+            exception.addValidationError("Unable to run training job: No training capacity on node.");
+            throw exception;
         }
 
         jobCount.incrementAndGet();
