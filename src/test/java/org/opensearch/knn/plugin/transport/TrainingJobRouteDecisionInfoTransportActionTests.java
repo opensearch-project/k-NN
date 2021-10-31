@@ -69,7 +69,6 @@ public class TrainingJobRouteDecisionInfoTransportActionTests extends KNNSingleN
         TrainingJob trainingJob = mock(TrainingJob.class);
         when(trainingJob.getModelId()).thenReturn(modelId);
         when(trainingJob.getModel()).thenReturn(model);
-        doAnswer(invocationOnMock -> null).when(trainingJob).setModelId(modelId);
         doAnswer(invocationOnMock -> null).when(trainingJob).run();
 
         ModelDao modelDao = mock(ModelDao.class);
@@ -88,9 +87,9 @@ public class TrainingJobRouteDecisionInfoTransportActionTests extends KNNSingleN
                     0,
                     true
             );
-            ((ActionListener<IndexResponse>)invocationOnMock.getArguments()[2]).onResponse(indexResponse);
+            ((ActionListener<IndexResponse>)invocationOnMock.getArguments()[1]).onResponse(indexResponse);
             return null;
-        }).when(modelDao).put(anyString(), any(Model.class), any(ActionListener.class));
+        }).when(modelDao).put(any(Model.class), any(ActionListener.class));
 
         // Set up the rest of the training logic
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
@@ -101,7 +100,7 @@ public class TrainingJobRouteDecisionInfoTransportActionTests extends KNNSingleN
         doAnswer(invocationOnMock -> {
             responseListener.onResponse(mock(IndexResponse.class));
             return null;
-        }).when(modelDao).update(modelId, model, responseListener);
+        }).when(modelDao).update(model, responseListener);
 
         ThreadPool threadPool = mock(ThreadPool.class);
         when(threadPool.executor(TRAIN_THREAD_POOL)).thenReturn(executorService);

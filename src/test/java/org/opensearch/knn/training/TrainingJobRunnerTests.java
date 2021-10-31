@@ -52,7 +52,6 @@ public class TrainingJobRunnerTests extends KNNTestCase {
         TrainingJob trainingJob = mock(TrainingJob.class);
         when(trainingJob.getModelId()).thenReturn(modelId);
         when(trainingJob.getModel()).thenReturn(model);
-        doAnswer(invocationOnMock -> null).when(trainingJob).setModelId(modelId);
         doAnswer(invocationOnMock -> null).when(trainingJob).run();
 
         // This gets called right after the initial put, before training begins. Just check that the model id is
@@ -74,13 +73,13 @@ public class TrainingJobRunnerTests extends KNNTestCase {
                     0,
                     true
                     );
-            ((ActionListener<IndexResponse>)invocationOnMock.getArguments()[2]).onResponse(indexResponse);
+            ((ActionListener<IndexResponse>)invocationOnMock.getArguments()[1]).onResponse(indexResponse);
             return null;
-        }).when(modelDao).put(anyString(), any(Model.class), any(ActionListener.class));
+        }).when(modelDao).put(any(Model.class), any(ActionListener.class));
 
         // Function finishes when update is called
         doAnswer(invocationOnMock -> null)
-                .when(modelDao).update(anyString(), any(Model.class), any(ActionListener.class));
+                .when(modelDao).update(any(Model.class), any(ActionListener.class));
 
         // Finally, initialize the singleton runner, execute the job.
         TrainingJobRunner.initialize(threadPool, modelDao);
@@ -91,11 +90,9 @@ public class TrainingJobRunnerTests extends KNNTestCase {
         executorService.awaitTermination(10, TimeUnit.SECONDS);
 
         // Make sure these methods get called once
-        verify(trainingJob, times(1)).setModelId(modelId);
         verify(trainingJob, times(1)).run();
-        verify(modelDao, times(1))
-                .put(anyString(), any(Model.class), any(ActionListener.class));
-        verify(modelDao, times(1)).update(anyString(), any(Model.class), any(ActionListener.class));
+        verify(modelDao, times(1)).put(any(Model.class), any(ActionListener.class));
+        verify(modelDao, times(1)).update(any(Model.class), any(ActionListener.class));
     }
 
     @SuppressWarnings("unchecked")
@@ -114,7 +111,6 @@ public class TrainingJobRunnerTests extends KNNTestCase {
         TrainingJob trainingJob = mock(TrainingJob.class);
         when(trainingJob.getModelId()).thenReturn(modelId);
         when(trainingJob.getModel()).thenReturn(model);
-        doAnswer(invocationOnMock -> null).when(trainingJob).setModelId(modelId);
         doAnswer(invocationOnMock -> null).when(trainingJob).run();
 
         // This gets called right after the initial put, before training begins. Just check that the model id is
@@ -137,16 +133,16 @@ public class TrainingJobRunnerTests extends KNNTestCase {
                     0,
                     true
             );
-            ((ActionListener<IndexResponse>)invocationOnMock.getArguments()[2]).onResponse(indexResponse);
+            ((ActionListener<IndexResponse>)invocationOnMock.getArguments()[1]).onResponse(indexResponse);
             return null;
-        }).when(modelDao).put(anyString(), any(Model.class), any(ActionListener.class));
+        }).when(modelDao).put(any(Model.class), any(ActionListener.class));
 
         // Once update is called, try to start another training job. This should fail because the calling thread
         // is running training
         TrainingJobRunner trainingJobRunner = TrainingJobRunner.getInstance();
         doAnswer(invocationOnMock -> expectThrows(RejectedExecutionException.class,
                 () -> trainingJobRunner.execute(trainingJob, responseListener))).when(modelDao)
-                .update(modelId, model, responseListener);
+                .update(model, responseListener);
 
         // Finally, initialize the singleton runner, execute the job.
         TrainingJobRunner.initialize(threadPool, modelDao);

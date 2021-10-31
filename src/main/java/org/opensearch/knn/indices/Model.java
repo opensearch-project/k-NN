@@ -15,7 +15,6 @@ import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.opensearch.common.Nullable;
-import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
@@ -29,39 +28,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.opensearch.knn.common.KNNConstants.DIMENSION;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
-import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
-import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 
 public class Model implements Writeable, ToXContentObject {
 
     private String modelID;
     private ModelMetadata modelMetadata;
     private AtomicReference<byte[]> modelBlob;
-
-    //TODO: Remove this constructor, by migrate dependents to other constructor
-    /**
-     * Constructor
-     *
-     * @param modelMetadata metadata about the model
-     * @param modelBlob binary representation of model template index. Can be null if model is not yet in CREATED state.
-     */
-    public Model(ModelMetadata modelMetadata, @Nullable byte[] modelBlob) {
-        this.modelMetadata = Objects.requireNonNull(modelMetadata, "modelMetadata must not be null");
-
-        if (ModelState.CREATED.equals(this.modelMetadata.getState()) && modelBlob == null) {
-            throw new IllegalArgumentException("Cannot construct model in state CREATED when model binary is null. " +
-                    "State must be either TRAINING or FAILED");
-        }
-
-        this.modelBlob = new AtomicReference<>(modelBlob);
-    }
 
     /**
      * Constructor
@@ -71,7 +45,14 @@ public class Model implements Writeable, ToXContentObject {
      * @param modelID model identifier
      */
     public Model(ModelMetadata modelMetadata, @Nullable byte[] modelBlob, @NonNull String modelID) {
-        this(modelMetadata, modelBlob);
+        this.modelMetadata = Objects.requireNonNull(modelMetadata, "modelMetadata must not be null");
+
+        if (ModelState.CREATED.equals(this.modelMetadata.getState()) && modelBlob == null) {
+            throw new IllegalArgumentException("Cannot construct model in state CREATED when model binary is null. " +
+                    "State must be either TRAINING or FAILED");
+        }
+
+        this.modelBlob = new AtomicReference<>(modelBlob);
         this.modelID = Objects.requireNonNull(modelID, "model id must not be null");
     }
 
@@ -87,7 +68,7 @@ public class Model implements Writeable, ToXContentObject {
     public Model(StreamInput in) throws IOException {
         this.modelMetadata = new ModelMetadata(in);
         this.modelBlob = new AtomicReference<>(readOptionalModelBlob(in));
-        this.modelID = in.readOptionalString();
+        this.modelID = in.readString();
     }
 
 
@@ -148,6 +129,7 @@ public class Model implements Writeable, ToXContentObject {
         Model other = (Model) obj;
 
         EqualsBuilder equalsBuilder = new EqualsBuilder();
+        equalsBuilder.append(getModelID(), other.getModelID());
         equalsBuilder.append(getModelMetadata(), other.getModelMetadata());
         equalsBuilder.append(getModelBlob(), other.getModelBlob());
 
@@ -156,17 +138,17 @@ public class Model implements Writeable, ToXContentObject {
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(getModelMetadata()).append(getModelBlob()).toHashCode();
+        return new HashCodeBuilder().append(getModelID()).append(getModelMetadata()).append(getModelBlob()).toHashCode();
     }
 
     /**
      *  Parse source map content into {@link Model} instance.
      *
      * @param sourceMap source contents
-     * @param modelID model's identifier
      * @return model instance
      */
-    public static Model getModelFromSourceMap(Map<String, Object> sourceMap, @NonNull String modelID) {
+    public static Model getModelFromSourceMap(Map<String, Object> sourceMap) {
+        String modelID = getModelIDFromResponse(sourceMap);
         ModelMetadata modelMetadata = ModelMetadata.getMetadataFromSourceMap(sourceMap);
         byte[] blob = getModelBlobFromResponse(sourceMap);
         return new Model(modelMetadata, blob, modelID);
@@ -190,7 +172,11 @@ public class Model implements Writeable, ToXContentObject {
     public void writeTo(StreamOutput output) throws IOException {
         getModelMetadata().writeTo(output);
         writeOptionalModelBlob(output);
-        output.writeOptionalString(modelID);
+        output.writeString(modelID);
+    }
+
+    private static String getModelIDFromResponse(Map<String, Object> responseMap) {
+        return (String) responseMap.get(MODEL_ID);
     }
 
     private static byte[] getModelBlobFromResponse(Map<String, Object> responseMap){
@@ -203,18 +189,10 @@ public class Model implements Writeable, ToXContentObject {
         return Base64.getDecoder().decode((String) blob);
     }
 
-    private static void createFieldIfNotNull(XContentBuilder builder, String fieldName, Object value) throws IOException {
-        if (value == null)
-            return;
-        builder.field(fieldName, value);
-    }
-
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         XContentBuilder xContentBuilder = builder.startObject();
-        if (Strings.hasText(modelID)) {
-            builder.field(MODEL_ID, modelID);
-        }
+        builder.field(MODEL_ID, modelID);
         String base64Model = "";
         if (getModelBlob() != null) {
             base64Model = Base64.getEncoder().encodeToString(getModelBlob());

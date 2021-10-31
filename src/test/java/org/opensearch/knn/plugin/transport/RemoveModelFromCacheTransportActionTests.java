@@ -70,7 +70,7 @@ public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestC
         Model model = new Model(
                 new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 16, ModelState.CREATED,
                 "timestamp", "description", ""),
-                new byte[128]
+                new byte[128], modelId
         );
 
         when(modelDao.get(modelId)).thenReturn(model);
