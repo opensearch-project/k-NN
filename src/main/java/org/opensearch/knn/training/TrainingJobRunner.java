@@ -82,7 +82,7 @@ public class TrainingJobRunner {
         // the number of training jobs that enter this function. Although the training threadpool size will also prevent
         // this, we want to prevent this before we perform any serialization.
         if (!semaphore.tryAcquire()) {
-            throw new RejectedExecutionException("Unable to run training job: No training capacity on node.");
+            throw new IllegalStateException("Unable to run training job: No training capacity on node.");
         }
 
         jobCount.incrementAndGet();
