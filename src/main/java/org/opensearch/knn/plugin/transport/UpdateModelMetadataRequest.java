@@ -55,6 +55,7 @@ public class UpdateModelMetadataRequest extends AcknowledgedRequest<UpdateModelM
      * @param modelMetadata Metadata for model
      */
     public UpdateModelMetadataRequest(String modelId, boolean isRemoveRequest, ModelMetadata modelMetadata) {
+        super();
         this.modelId = modelId;
         this.isRemoveRequest = isRemoveRequest;
         this.modelMetadata = modelMetadata;
