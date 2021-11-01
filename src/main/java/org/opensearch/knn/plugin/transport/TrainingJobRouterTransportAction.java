@@ -20,6 +20,7 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
+import org.opensearch.common.ValidationException;
 import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -70,7 +71,9 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
                     DiscoveryNode node = selectNode(request.getPreferredNodeId(), response);
 
                     if (node == null) {
-                        listener.onFailure(new RejectedExecutionException("Cluster does not have capacity to train"));
+                        ValidationException exception = new ValidationException();
+                        exception.addValidationError("Cluster does not have capacity to train");
+                        listener.onFailure(exception);
                         return;
                     }
 
