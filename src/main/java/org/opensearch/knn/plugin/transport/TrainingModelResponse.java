@@ -43,6 +43,7 @@ public class TrainingModelResponse extends ActionResponse implements ToXContentO
      * @throws IOException on failure to read from stream
      */
     public TrainingModelResponse(StreamInput in) throws IOException {
+        super(in);
         this.modelId = in.readOptionalString();
     }
 
