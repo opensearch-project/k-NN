@@ -32,7 +32,6 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
@@ -132,15 +131,15 @@ public class KNNLibraryTests extends KNNTestCase {
                 .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext1 = KNNMethodContext.parse(in);
-        expectThrows(IllegalArgumentException.class, ()-> testNativeLibrary1.validateMethod(knnMethodContext1));
+        expectThrows(IllegalArgumentException.class, () -> testNativeLibrary1.validateMethod(knnMethodContext1));
 
         // Invalid - method validation
         String methodName2 = "test-method-2";
         KNNMethod knnMethod2 = new KNNMethod(MethodComponent.Builder.builder(methodName2).build(),
                 Collections.emptySet()) {
             @Override
-            public void validate(KNNMethodContext knnMethodContext) {
-                throw new ValidationException();
+            public ValidationException validate(KNNMethodContext knnMethodContext) {
+                return new ValidationException();
             }
         };
 
@@ -152,7 +151,7 @@ public class KNNLibraryTests extends KNNTestCase {
                 .endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext2 = KNNMethodContext.parse(in);
-        expectThrows(ValidationException.class, ()-> testNativeLibrary2.validateMethod(knnMethodContext2));
+        assertNotNull(testNativeLibrary2.validateMethod(knnMethodContext2));
     }
 
     public void testNativeLibrary_getMethodAsMap() {

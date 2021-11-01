@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.index.util;
 
+import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
@@ -123,8 +124,8 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public void validateMethod(KNNMethodContext knnMethodContext) {
-        knnLibrary.validateMethod(knnMethodContext);
+    public ValidationException validateMethod(KNNMethodContext knnMethodContext) {
+        return knnLibrary.validateMethod(knnMethodContext);
     }
 
     @Override

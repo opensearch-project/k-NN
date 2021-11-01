@@ -253,11 +253,10 @@ public class TrainingModelRequest extends ActionRequest {
         }
 
         // Confirm that the passed in knnMethodContext is valid and requires training
-        try {
-            this.knnMethodContext.validate();
-        } catch (ValidationException ve) {
+        ValidationException validationException = this.knnMethodContext.validate();
+        if (validationException != null) {
             exception = new ActionRequestValidationException();
-            exception.addValidationError(ve.getMessage());
+            exception.addValidationErrors(validationException.validationErrors());
         }
 
         if (!this.knnMethodContext.isTrainingRequired()) {

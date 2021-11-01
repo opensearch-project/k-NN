@@ -27,7 +27,9 @@ public class ParameterTests extends KNNTestCase {
         String defaultValue = "test-default";
         Parameter<String> parameter = new Parameter<String>(defaultValue, v -> true) {
             @Override
-            public void validate(Object value) {}
+            public ValidationException validate(Object value) {
+                return null;
+            }
         };
 
         assertEquals(defaultValue, parameter.getDefaultValue());
@@ -41,13 +43,13 @@ public class ParameterTests extends KNNTestCase {
                 v -> v > 0);
 
         // Invalid type
-        expectThrows(ValidationException.class, () -> parameter.validate("String"));
+        assertNotNull(parameter.validate("String"));
 
         // Invalid value
-        expectThrows(ValidationException.class, () -> parameter.validate(-1));
+        assertNotNull(parameter.validate(-1));
 
         // valid value
-        parameter.validate(12);
+        assertNull(parameter.validate(12));
     }
 
     public void testMethodComponentContextParameter_validate() {
@@ -70,29 +72,29 @@ public class ParameterTests extends KNNTestCase {
                 methodComponentMap);
 
         // Invalid type
-        expectThrows(ValidationException.class, () -> parameter.validate(17));
-        expectThrows(ValidationException.class, () -> parameter.validate("invalid-value"));
+        assertNotNull(parameter.validate(17));
+        assertNotNull(parameter.validate("invalid-value"));
 
         // Invalid value
         String invalidMethodComponentName = "invalid-method";
         MethodComponentContext invalidMethodComponentContext1 = new MethodComponentContext(invalidMethodComponentName,
                 defaultParameterMap);
-        expectThrows(ValidationException.class, () -> parameter.validate(invalidMethodComponentContext1));
+        assertNotNull(parameter.validate(invalidMethodComponentContext1));
 
         String invalidParameterKey = "invalid-parameter";
         Map<String, Object> invalidParameterMap1 = ImmutableMap.of(invalidParameterKey, parameterValue1);
         MethodComponentContext invalidMethodComponentContext2 = new MethodComponentContext(methodComponentName1,
                 invalidParameterMap1);
-        expectThrows(ValidationException.class, () -> parameter.validate(invalidMethodComponentContext2));
+        assertNotNull(parameter.validate(invalidMethodComponentContext2));
 
         String invalidParameterValue = "invalid-value";
         Map<String, Object> invalidParameterMap2 = ImmutableMap.of(parameterKey1, invalidParameterValue);
         MethodComponentContext invalidMethodComponentContext3 = new MethodComponentContext(methodComponentName1,
                 invalidParameterMap2);
-        expectThrows(ValidationException.class, () -> parameter.validate(invalidMethodComponentContext3));
+        assertNotNull(parameter.validate(invalidMethodComponentContext3));
 
         // valid value
-        parameter.validate(methodComponentContext);
+        assertNull(parameter.validate(methodComponentContext));
     }
 
     public void testMethodComponentContextParameter_getMethodComponent() {

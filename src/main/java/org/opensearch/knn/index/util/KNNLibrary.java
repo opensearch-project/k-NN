@@ -12,6 +12,7 @@
 
 package org.opensearch.knn.index.util;
 
+import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
@@ -108,8 +109,9 @@ public interface KNNLibrary {
      * deemed invalid.
      *
      * @param knnMethodContext to be validated
+     * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    void validateMethod(KNNMethodContext knnMethodContext);
+    ValidationException validateMethod(KNNMethodContext knnMethodContext);
 
     /**
      * Returns whether training is required or not from knnMethodContext for the given library.
@@ -205,9 +207,9 @@ public interface KNNLibrary {
         }
 
         @Override
-        public void validateMethod(KNNMethodContext knnMethodContext) {
+        public ValidationException validateMethod(KNNMethodContext knnMethodContext) {
             String methodName = knnMethodContext.getMethodComponent().getName();
-            getMethod(methodName).validate(knnMethodContext);
+            return getMethod(methodName).validate(knnMethodContext);
         }
 
         @Override

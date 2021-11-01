@@ -82,22 +82,35 @@ public class MethodComponent {
      * Validate that the methodComponentContext is a valid configuration for this methodComponent
      *
      * @param methodComponentContext to be validated
+     * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    public void validate(MethodComponentContext methodComponentContext) {
+    public ValidationException validate(MethodComponentContext methodComponentContext) {
+        ValidationException validationException = null;
         Map<String, Object> providedParameters = methodComponentContext.getParameters();
 
         if (providedParameters == null) {
-            return;
+            return null;
         }
 
+        ValidationException parameterValidation;
         for (Map.Entry<String, Object> parameter : providedParameters.entrySet()) {
             if (!parameters.containsKey(parameter.getKey())) {
-                throw new ValidationException();
+                validationException = validationException == null ? new ValidationException() : validationException;
+                validationException.addValidationError("Invalid parameter for method \"" + getName() + "\".");
+                continue;
             }
 
-            parameters.get(parameter.getKey()).validate(parameter.getValue());
+            parameterValidation = parameters.get(parameter.getKey()).validate(parameter.getValue());
+            if (parameterValidation != null) {
+                validationException = validationException == null ? new ValidationException() : validationException;
+                validationException.addValidationErrors(parameterValidation.validationErrors());
+            }
         }
+
+        return validationException;
     }
+
+
     /**
      * gets requiresTraining value
      *

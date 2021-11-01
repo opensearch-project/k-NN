@@ -72,13 +72,24 @@ public class KNNMethod {
      * Validate that the configured KNNMethodContext is valid for this method
      *
      * @param knnMethodContext to be validated
+     * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    public void validate(KNNMethodContext knnMethodContext) {
+    public ValidationException validate(KNNMethodContext knnMethodContext) {
+        ValidationException validationException = null;
         if (!containsSpace(knnMethodContext.getSpaceType())) {
-            throw new ValidationException();
+            validationException = new ValidationException();
+            validationException.addValidationError("\"" + this.methodComponent.getName() +
+                    "\" configuration does not support space type: \"" + knnMethodContext.getSpaceType() + "\".");
         }
 
-        methodComponent.validate(knnMethodContext.getMethodComponent());
+        ValidationException methodValidation = methodComponent.validate(knnMethodContext.getMethodComponent());
+
+        if (methodValidation != null) {
+            validationException = validationException == null ? new ValidationException() : validationException;
+            validationException.addValidationErrors(methodValidation.validationErrors());
+        }
+
+        return validationException;
     }
 
     /**

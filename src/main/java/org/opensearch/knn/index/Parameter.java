@@ -50,8 +50,9 @@ public abstract class Parameter<T> {
      * Check if the value passed in is valid
      *
      * @param value to be checked
+     * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    public abstract void validate(Object value);
+    public abstract ValidationException validate(Object value);
 
     /**
      * Integer method parameter
@@ -63,10 +64,19 @@ public abstract class Parameter<T> {
         }
 
         @Override
-        public void validate(Object value) {
-            if (!(value instanceof Integer) || !validator.test((Integer) value)) {
-                throw new ValidationException();
+        public ValidationException validate(Object value) {
+            ValidationException validationException = null;
+            if (!(value instanceof Integer)) {
+                validationException = new ValidationException();
+                validationException.addValidationError("Value not of type Integer for Integer parameter.");
+                return validationException;
             }
+
+            if (!validator.test((Integer) value)) {
+                validationException = new ValidationException();
+                validationException.addValidationError("Parameter validation failed.");
+            }
+            return validationException;
         }
     }
 
@@ -93,22 +103,26 @@ public abstract class Parameter<T> {
                     return false;
                 }
 
-                try {
-                    methodComponents.get(methodComponentContext.getName()).validate(methodComponentContext);
-                } catch (ValidationException ex) {
-                    return false;
-                }
-
-                return true;
+                return methodComponents.get(methodComponentContext.getName()).validate(methodComponentContext) == null;
             });
             this.methodComponents = methodComponents;
         }
 
         @Override
-        public void validate(Object value) {
-            if (!(value instanceof MethodComponentContext) || !validator.test((MethodComponentContext) value)) {
-                throw new ValidationException();
+        public ValidationException validate(Object value) {
+            ValidationException validationException = null;
+            if (!(value instanceof MethodComponentContext)) {
+                validationException = new ValidationException();
+                validationException.addValidationError("Value not of type MethodComponentContext for MethodComponentContext parameter.");
+                return validationException;
             }
+
+            if (!validator.test((MethodComponentContext) value)) {
+                validationException = new ValidationException();
+                validationException.addValidationError("Parameter validation failed.");
+            }
+
+            return validationException;
         }
 
         /**
