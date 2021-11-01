@@ -100,9 +100,9 @@ public class RestTrainModelHandler extends BaseRestHandler {
             parser.nextToken();
 
             if (TRAIN_INDEX_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, trainingIndex)) {
-                trainingIndex = parser.text();
+                trainingIndex = parser.textOrNull();
             } else if (TRAIN_FIELD_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, trainingField)) {
-                trainingField = parser.text();
+                trainingField = parser.textOrNull();
             } else if (KNN_METHOD.equals(fieldName) && ensureNotSet(fieldName, knnMethodContext)) {
                 knnMethodContext = KNNMethodContext.parse(parser.map());
             } else if (DIMENSION.equals(fieldName) && ensureNotSet(fieldName, dimension)) {
@@ -112,7 +112,7 @@ public class RestTrainModelHandler extends BaseRestHandler {
             } else if (SEARCH_SIZE_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, searchSize)) {
                 searchSize = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
             } else if (MODEL_DESCRIPTION.equals(fieldName) && ensureNotSet(fieldName, description)) {
-                description = parser.text();
+                description = parser.textOrNull();
             } else {
                 throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is not a valid " +
                         "parameter.");
