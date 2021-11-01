@@ -21,7 +21,6 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
-import org.opensearch.cluster.health.ClusterHealthStatus;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.IndexNotFoundException;
@@ -112,17 +111,17 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         int dimension = 2;
 
         Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-            ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), modelBlob);
-        addDoc(modelId, model);
+            ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), modelBlob, modelId);
+        addDoc(model);
         assertEquals(model, modelDao.get(modelId));
-        assertEquals(ClusterHealthStatus.GREEN, modelDao.getHealthStatus());
+        assertNotNull(modelDao.getHealthStatus());
 
         modelId = "failed-2";
         model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.FAILED,
-            ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), modelBlob);
-        addDoc(modelId, model);
+            ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), modelBlob, modelId);
+        addDoc(model);
         assertEquals(model, modelDao.get(modelId));
-        assertEquals(ClusterHealthStatus.GREEN, modelDao.getHealthStatus());
+        assertNotNull(modelDao.getHealthStatus());
     }
 
     public void testPut_withId() throws InterruptedException, IOException {
