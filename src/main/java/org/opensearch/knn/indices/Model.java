@@ -130,15 +130,13 @@ public class Model implements Writeable, ToXContentObject {
 
         EqualsBuilder equalsBuilder = new EqualsBuilder();
         equalsBuilder.append(getModelID(), other.getModelID());
-        equalsBuilder.append(getModelMetadata(), other.getModelMetadata());
-        equalsBuilder.append(getModelBlob(), other.getModelBlob());
 
         return equalsBuilder.isEquals();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(getModelID()).append(getModelMetadata()).append(getModelBlob()).toHashCode();
+        return new HashCodeBuilder().append(getModelID()).toHashCode();
     }
 
     /**

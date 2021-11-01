@@ -89,21 +89,15 @@ public class ModelTests extends KNNTestCase {
         String time = ZonedDateTime.now(ZoneOffset.UTC).toString();
 
         Model model1 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED,
-                time, "", ""), new byte[16], "test-model");
+                time, "", ""), new byte[16], "test-model-1");
         Model model2 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED,
-                time, "", ""), new byte[16], "test-model");
+                time, "", ""), new byte[16], "test-model-1");
         Model model3 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 2, ModelState.CREATED,
-                time, "", ""), new byte[16], "test-model");
-        Model model4 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED,
-                time, "", ""), new byte[32], "test-model");
-        Model model5 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 4, ModelState.CREATED,
-                time, "", ""), new byte[16], "test-model");
+                time, "", ""), new byte[16], "test-model-2");
 
         assertEquals(model1, model1);
         assertEquals(model1, model2);
         assertNotEquals(model1, model3);
-        assertNotEquals(model1, model4);
-        assertNotEquals(model1, model5);
     }
 
     public void testHashCode() {
@@ -111,18 +105,15 @@ public class ModelTests extends KNNTestCase {
         String time = ZonedDateTime.now(ZoneOffset.UTC).toString();
 
         Model model1 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED,
-                time, "", ""), new byte[16], "test-model");
+                time, "", ""), new byte[16], "test-model-1");
         Model model2 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED,
-                time, "", ""), new byte[16], "test-model");
+                time, "", ""), new byte[16], "test-model-1");
         Model model3 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED,
-                time, "", ""), new byte[32], "test-model");
-        Model model4 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 4, ModelState.CREATED,
-                time, "", ""), new byte[16], "test-model");
+                time, "", ""), new byte[16], "test-model-2");
 
         assertEquals(model1.hashCode(), model1.hashCode());
         assertEquals(model1.hashCode(), model2.hashCode());
         assertNotEquals(model1.hashCode(), model3.hashCode());
-        assertNotEquals(model1.hashCode(), model4.hashCode());
     }
 
     public void testModelFromSourceMap() {
