@@ -35,10 +35,13 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.client.Client;
+import org.opensearch.cluster.health.ClusterHealthStatus;
+import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
@@ -52,6 +55,8 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -81,6 +86,13 @@ public interface ModelDao {
      * @return true if the model index exists; false otherwise
      */
     boolean isCreated();
+
+    /**
+     * gets model index's health status
+     *
+     * @return ClusterHealthStatus of model index
+     */
+    ClusterHealthStatus getHealthStatus();
 
     /**
      * Put a model into the system index. Non-blocking
@@ -204,6 +216,23 @@ public interface ModelDao {
         @Override
         public boolean isCreated() {
             return clusterService.state().getRoutingTable().hasIndex(MODEL_INDEX_NAME);
+        }
+
+        /**
+         * gets model index's health status, provided model index is already created
+         *
+         * @return ClusterHealthStatus of model index
+         */
+        @Override
+        public ClusterHealthStatus getHealthStatus() throws IndexNotFoundException{
+            if (!isCreated()) {
+                throw new IndexNotFoundException(MODEL_INDEX_NAME);
+            }
+            ClusterIndexHealth indexHealth = new ClusterIndexHealth(
+                clusterService.state().metadata().index(MODEL_INDEX_NAME),
+                clusterService.state().getRoutingTable().index(MODEL_INDEX_NAME)
+            );
+            return indexHealth.getStatus();
         }
 
         @Override

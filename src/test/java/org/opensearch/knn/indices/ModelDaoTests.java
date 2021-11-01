@@ -21,8 +21,10 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.cluster.health.ClusterHealthStatus;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.SpaceType;
@@ -94,6 +96,33 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         assertFalse(modelDao.isCreated());
         createIndex(MODEL_INDEX_NAME);
         assertTrue(modelDao.isCreated());
+    }
+
+    public void testModelIndexHealth() throws InterruptedException, ExecutionException, IOException {
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
+
+        // model index doesn't exist
+        expectThrows(IndexNotFoundException.class, () -> modelDao.getHealthStatus());
+
+        createIndex(MODEL_INDEX_NAME);
+
+        // insert model
+        String modelId = "created-1";
+        byte[] modelBlob = "hello".getBytes();
+        int dimension = 2;
+
+        Model model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), modelBlob);
+        addDoc(modelId, model);
+        assertEquals(model, modelDao.get(modelId));
+        assertEquals(ClusterHealthStatus.GREEN, modelDao.getHealthStatus());
+
+        modelId = "failed-2";
+        model = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.FAILED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), modelBlob);
+        addDoc(modelId, model);
+        assertEquals(model, modelDao.get(modelId));
+        assertEquals(ClusterHealthStatus.GREEN, modelDao.getHealthStatus());
     }
 
     public void testPut_withId() throws InterruptedException, IOException {
