@@ -113,7 +113,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/faiss EXCLUDE_FROM_ALL)
 
 # ------------------------------ Lib Compiling ------------------------------
 add_library(${TARGET_LIB} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_index_JNIService.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/jni_util.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/nmslib_wrapper.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/faiss_wrapper.cpp)
-target_link_libraries(${TARGET_LIB} faiss NonMetricSpaceLib ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} OpenMP::OpenMP_CXX gfortran)
+target_link_libraries(${TARGET_LIB} faiss NonMetricSpaceLib OpenMP::OpenMP_CXX)
 target_include_directories(${TARGET_LIB} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE} ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search/include)
 
 set_target_properties(${TARGET_LIB} PROPERTIES SUFFIX ${LIB_EXT})
@@ -147,8 +147,6 @@ target_link_libraries(
         gmock_main
         faiss
         NonMetricSpaceLib
-        ${BLAS_LIBRARIES}
-        ${LAPACK_LIBRARIES}
         OpenMP::OpenMP_CXX
         ${TARGET_LIB}
 )
