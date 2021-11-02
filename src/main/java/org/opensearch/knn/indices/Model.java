@@ -11,8 +11,6 @@
 
 package org.opensearch.knn.indices;
 
-import org.apache.commons.lang.builder.EqualsBuilder;
-import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.io.stream.StreamInput;
@@ -127,16 +125,12 @@ public class Model implements Writeable, ToXContentObject {
         if (obj == null || getClass() != obj.getClass())
             return false;
         Model other = (Model) obj;
-
-        EqualsBuilder equalsBuilder = new EqualsBuilder();
-        equalsBuilder.append(getModelID(), other.getModelID());
-
-        return equalsBuilder.isEquals();
+        return other.getModelID().equals(this.getModelID());
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(getModelID()).toHashCode();
+        return getModelID().hashCode();
     }
 
     /**
