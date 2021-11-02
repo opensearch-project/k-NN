@@ -40,11 +40,11 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
     std::string spaceType = knn_jni::L2;
-    std::string method = "Flat";  // TODO: Revert bach to HNSW32,Flat
+    std::string index_description = "Flat";  // TODO: Revert bach to HNSW32,Flat
 
     std::unordered_map<std::string, jobject> parametersMap;
     parametersMap[knn_jni::SPACE_TYPE] = (jobject)&spaceType;
-    parametersMap[knn_jni::METHOD] = (jobject)&method;
+    parametersMap[knn_jni::INDEX_DESCRIPTION] = (jobject)&index_description;
 
     // Set up jni
     JNIEnv *jniEnv = nullptr;
@@ -245,11 +245,11 @@ TEST(FaissTrainIndexTest, BasicAssertions) {
     // Define the index configuration
     int dim = 2;
     std::string spaceType = knn_jni::L2;
-    std::string method = "IVF4,Flat";
+    std::string index_description = "IVF4,Flat";
 
     std::unordered_map<std::string, jobject> parametersMap;
     parametersMap[knn_jni::SPACE_TYPE] = (jobject) &spaceType;
-    parametersMap[knn_jni::METHOD] = (jobject) &method;
+    parametersMap[knn_jni::INDEX_DESCRIPTION] = (jobject) &index_description;
 
     // Define training data
     int numTrainingVectors = 256;
