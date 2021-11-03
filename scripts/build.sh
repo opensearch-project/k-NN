@@ -101,6 +101,11 @@ zipPath=$(find "$(pwd)" -path \*build/distributions/*.zip)
 distributions="$(dirname "${zipPath}")"
 mkdir $distributions/knnlib
 cp ./jni/release/libopensearchknn* $distributions/knnlib
+
+# Copy libomp to be packaged with the knnlib contents
+ompPath=$(ldconfig -p | grep libgomp | cut -d ' ' -f 4)
+cp $ompPath $distributions/knnlib
+
 cd $distributions
 zip -ur $zipPath knnlib
 cd $work_dir
