@@ -34,7 +34,7 @@ public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestC
 
     public void testNodeOperation_modelNotInCache() {
         ClusterService clusterService = mock(ClusterService.class);
-        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), 100).build();
+        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10%").build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
                 ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
@@ -59,7 +59,7 @@ public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestC
 
     public void testNodeOperation_modelInCache() throws ExecutionException, InterruptedException {
         ClusterService clusterService = mock(ClusterService.class);
-        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), 100).build();
+        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10%").build();
         ClusterSettings clusterSettings = new ClusterSettings(settings,
                 ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
