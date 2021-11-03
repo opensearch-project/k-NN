@@ -53,7 +53,7 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
         ModelMetadata modelMetadata = new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
 
-        Model model = new Model(modelMetadata, modelBlob);
+        Model model = new Model(modelMetadata, modelBlob, modelId);
 
         // Check that an index can be created from the model.
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
@@ -63,7 +63,7 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
         String indexName = "test-index";
         String fieldName = "test-field";
 
-        modelDao.put(modelId, model, ActionListener.wrap(indexResponse -> {
+        modelDao.put(model, ActionListener.wrap(indexResponse -> {
             CreateIndexRequestBuilder createIndexRequestBuilder = client().admin().indices().prepareCreate(indexName)
                     .setSettings(Settings.builder()
                             .put("number_of_shards", 1)

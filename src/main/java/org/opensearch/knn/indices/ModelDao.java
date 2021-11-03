@@ -37,7 +37,6 @@ import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.Nullable;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.common.KNNConstants;
@@ -86,16 +85,6 @@ public interface ModelDao {
     /**
      * Put a model into the system index. Non-blocking
      *
-     * @param modelId   Id of model to create
-     * @param model Model to be indexed
-     * @param listener  handles index response
-     */
-    void put(String modelId, Model model, ActionListener<IndexResponse> listener) throws IOException;
-
-    /**
-     * Put a model into the system index. Non-blocking. When no id is passed in, OpenSearch will generate the id
-     * automatically. The id can be retrieved in the IndexResponse.
-     *
      * @param model Model to be indexed
      * @param listener  handles index response
      */
@@ -104,11 +93,10 @@ public interface ModelDao {
     /**
      * Update model of model id with new model.
      *
-     * @param modelId model id to update
      * @param model new model
      * @param listener handles index response
      */
-    void update(String modelId, Model model, ActionListener<IndexResponse> listener) throws IOException;
+    void update(Model model, ActionListener<IndexResponse> listener) throws IOException;
 
     /**
      * Get a model from the system index. Call blocks.
@@ -219,22 +207,18 @@ public interface ModelDao {
         }
 
         @Override
-        public void put(String modelId, Model model, ActionListener<IndexResponse> listener) throws IOException {
-            putInternal(modelId, model, listener, DocWriteRequest.OpType.CREATE);
-        }
-
-        @Override
         public void put(Model model, ActionListener<IndexResponse> listener) throws IOException {
-            putInternal(null, model, listener, DocWriteRequest.OpType.CREATE);
+            // Generate random modelId if modelId is null
+            putInternal(model, listener, DocWriteRequest.OpType.CREATE);
         }
 
         @Override
-        public void update(String modelId, Model model, ActionListener<IndexResponse> listener)
+        public void update(Model model, ActionListener<IndexResponse> listener)
                 throws IOException {
-            putInternal(modelId, model, listener, DocWriteRequest.OpType.INDEX);
+            putInternal(model, listener, DocWriteRequest.OpType.INDEX);
         }
 
-        private void putInternal(@Nullable String modelId, Model model, ActionListener<IndexResponse> listener,
+        private void putInternal(Model model, ActionListener<IndexResponse> listener,
                                  DocWriteRequest.OpType requestOpType) throws IOException {
 
             if (model == null) {
@@ -244,6 +228,7 @@ public interface ModelDao {
             ModelMetadata modelMetadata = model.getModelMetadata();
 
             Map<String, Object> parameters = new HashMap<String, Object>() {{
+                put(KNNConstants.MODEL_ID, model.getModelID());
                 put(KNNConstants.KNN_ENGINE, modelMetadata.getKnnEngine().getName());
                 put(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, modelMetadata.getSpaceType().getValue());
                 put(KNNConstants.DIMENSION, modelMetadata.getDimension());
@@ -267,11 +252,7 @@ public interface ModelDao {
 
             IndexRequestBuilder indexRequestBuilder = client.prepareIndex(MODEL_INDEX_NAME, "_doc");
 
-            // Set id for request only if modelId is present
-            if (modelId != null) {
-                indexRequestBuilder.setId(modelId);
-            }
-
+            indexRequestBuilder.setId(model.getModelID());
             indexRequestBuilder.setSource(parameters);
 
             indexRequestBuilder.setOpType(requestOpType); // Delegate whether this request can update based on opType
@@ -280,27 +261,23 @@ public interface ModelDao {
             // After metadata update finishes, remove item from every node's cache if necessary. If no model id is
             // passed then nothing needs to be removed from the cache
             ActionListener<IndexResponse> onMetaListener;
-            if (modelId != null) {
-                onMetaListener = ActionListener.wrap(indexResponse -> client.execute(
-                        RemoveModelFromCacheAction.INSTANCE,
-                        new RemoveModelFromCacheRequest(modelId),
-                        ActionListener.wrap(
-                                removeModelFromCacheResponse -> {
-                                    if (!removeModelFromCacheResponse.hasFailures()) {
-                                        listener.onResponse(indexResponse);
-                                        return;
-                                    }
+            onMetaListener = ActionListener.wrap(indexResponse -> client.execute(
+                    RemoveModelFromCacheAction.INSTANCE,
+                    new RemoveModelFromCacheRequest(model.getModelID()),
+                    ActionListener.wrap(
+                            removeModelFromCacheResponse -> {
+                                if (!removeModelFromCacheResponse.hasFailures()) {
+                                    listener.onResponse(indexResponse);
+                                    return;
+                                }
 
-                                    String failureMessage = buildRemoveModelErrorMessage(modelId,
-                                            removeModelFromCacheResponse);
+                                String failureMessage = buildRemoveModelErrorMessage(model.getModelID(),
+                                        removeModelFromCacheResponse);
 
-                                    listener.onFailure(new RuntimeException(failureMessage));
-                                }, listener::onFailure
-                        )
-                ), listener::onFailure);
-            } else {
-                onMetaListener = listener;
-            }
+                                listener.onFailure(new RuntimeException(failureMessage));
+                            }, listener::onFailure
+                    )
+            ), listener::onFailure);
 
             // After the model is indexed, update metadata only if the model is in CREATED state
             ActionListener<IndexResponse> onIndexListener;
@@ -342,7 +319,7 @@ public interface ModelDao {
                     .setPreference("_local");
             GetResponse getResponse = getRequestBuilder.execute().get();
             Map<String, Object> responseMap = getResponse.getSourceAsMap();
-            return Model.getModelFromSourceMap(responseMap, modelId);
+            return Model.getModelFromSourceMap(responseMap);
         }
 
 
@@ -369,7 +346,7 @@ public interface ModelDao {
                     return;
                 }
                 final Map<String, Object> responseMap = response.getSourceAsMap();
-                Model model = Model.getModelFromSourceMap(responseMap, modelId);
+                Model model = Model.getModelFromSourceMap(responseMap);
                 actionListener.onResponse(new GetModelResponse(model));
 
             }, actionListener::onFailure));

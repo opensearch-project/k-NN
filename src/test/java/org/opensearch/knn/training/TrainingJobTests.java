@@ -57,27 +57,6 @@ public class TrainingJobTests extends KNNTestCase {
         assertEquals(modelId, trainingJob.getModelId());
     }
 
-    public void testSetModelId() {
-        KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        when(knnMethodContext.getEngine()).thenReturn(KNNEngine.DEFAULT);
-        when(knnMethodContext.getSpaceType()).thenReturn(SpaceType.DEFAULT);
-
-        TrainingJob trainingJob = new TrainingJob(
-                "test-model-id",
-                knnMethodContext,
-                mock(NativeMemoryCacheManager.class),
-                mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
-                mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
-                10,
-                ""
-        );
-
-        String setModelId = "test-model-id-2";
-        trainingJob.setModelId(setModelId);
-
-        assertEquals(setModelId, trainingJob.getModelId());
-    }
-
     public void testGetModel() {
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
         KNNEngine knnEngine = KNNEngine.DEFAULT;
@@ -89,8 +68,9 @@ public class TrainingJobTests extends KNNTestCase {
         when(knnMethodContext.getEngine()).thenReturn(knnEngine);
         when(knnMethodContext.getSpaceType()).thenReturn(spaceType);
 
+        String modelID = "test-model-id";
         TrainingJob trainingJob = new TrainingJob(
-                "test-model-id",
+                modelID,
                 knnMethodContext,
                 mock(NativeMemoryCacheManager.class),
                 mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
@@ -109,7 +89,8 @@ public class TrainingJobTests extends KNNTestCase {
                         desciption,
                         error
                 ),
-                null
+                null,
+                modelID
         );
 
         assertEquals(model, trainingJob.getModel());

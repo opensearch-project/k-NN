@@ -35,7 +35,7 @@ public class ModelCacheTests extends KNNTestCase {
         String modelId = "test-model-id";
         int dimension = 2;
         Model mockModel = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), "hello".getBytes());
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), "hello".getBytes(), modelId);
         String cacheSize = "10%";
 
         ModelDao modelDao = mock(ModelDao.class);
@@ -61,7 +61,7 @@ public class ModelCacheTests extends KNNTestCase {
 
         Model mockModel = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""),
-                new byte[BYTES_PER_KILOBYTES + 1]);
+                new byte[BYTES_PER_KILOBYTES + 1], modelId);
 
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId)).thenReturn(mockModel);
@@ -108,10 +108,10 @@ public class ModelCacheTests extends KNNTestCase {
 
         int size1 = BYTES_PER_KILOBYTES;
         Model mockModel1 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[size1]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[size1], modelId1);
         int size2 = BYTES_PER_KILOBYTES * 3;
         Model mockModel2 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[size2]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[size2], modelId2);
 
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId1)).thenReturn(mockModel1);
@@ -144,10 +144,10 @@ public class ModelCacheTests extends KNNTestCase {
 
         int size1 = BYTES_PER_KILOBYTES;
         Model mockModel1 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[size1]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[size1], modelId1);
         int size2 = BYTES_PER_KILOBYTES * 3;
         Model mockModel2 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[size2]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[size2], modelId2);
 
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId1)).thenReturn(mockModel1);
@@ -184,7 +184,7 @@ public class ModelCacheTests extends KNNTestCase {
         int dimension = 2;
         String cacheSize = "10%";
         Model mockModel = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), "hello".getBytes());
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), "hello".getBytes(), modelId);
 
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.get(modelId)).thenReturn(mockModel);
@@ -218,7 +218,7 @@ public class ModelCacheTests extends KNNTestCase {
 
         int modelSize = 2 * BYTES_PER_KILOBYTES;
         Model mockModel = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[modelSize]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[modelSize], modelId);
 
         String cacheSize1 = "1kb";
         String cacheSize2 = "4kb";
@@ -276,7 +276,7 @@ public class ModelCacheTests extends KNNTestCase {
         int dimension = 2;
         int modelSize1 = 100;
         Model mockModel1 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[modelSize1]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[modelSize1], modelId1);
 
         String modelId2 = "test-model-id-2";
 
@@ -306,12 +306,12 @@ public class ModelCacheTests extends KNNTestCase {
         String modelId1 = "test-model-id-1";
         int modelSize1 = BYTES_PER_KILOBYTES;
         Model mockModel1 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[modelSize1]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[modelSize1], modelId1);
 
         String modelId2 = "test-model-id-2";
         int modelSize2 = BYTES_PER_KILOBYTES*2;
         Model mockModel2 = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[modelSize2]);
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[modelSize2], modelId2);
 
         String cacheSize = "10%";
 
