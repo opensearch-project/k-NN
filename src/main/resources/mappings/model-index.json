@@ -1,5 +1,8 @@
 {
   "properties": {
+    "model_id": {
+      "type": "keyword"
+    },
     "engine": {
       "type": "keyword"
     },

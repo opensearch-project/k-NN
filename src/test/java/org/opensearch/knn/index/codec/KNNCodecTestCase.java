@@ -229,7 +229,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         ModelMetadata modelMetadata1 = new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
 
-        Model mockModel = new Model(modelMetadata1, modelBlob);
+        Model mockModel = new Model(modelMetadata1, modelBlob, modelId);
         when(modelDao.get(modelId)).thenReturn(mockModel);
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata1);
 

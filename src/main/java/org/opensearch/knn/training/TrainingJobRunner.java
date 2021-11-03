@@ -97,10 +97,6 @@ public class TrainingJobRunner {
                     trainingJob,
                     ActionListener.wrap(
                             indexResponse -> {
-                                // Update model id with id from response. We do this because users may or may not
-                                // provide an id
-                                trainingJob.setModelId(indexResponse.getId());
-
                                 // Respond to the request with the initial index response
                                 listener.onResponse(indexResponse);
                                 train(trainingJob);
@@ -169,9 +165,9 @@ public class TrainingJobRunner {
     private void serializeModel(TrainingJob trainingJob, ActionListener<IndexResponse> listener, boolean update)
             throws IOException {
         if (update) {
-            modelDao.update(trainingJob.getModelId(), trainingJob.getModel(), listener);
+            modelDao.update(trainingJob.getModel(), listener);
         } else {
-            modelDao.put(trainingJob.getModelId(), trainingJob.getModel(), listener);
+            modelDao.put(trainingJob.getModel(), listener);
         }
     }
 

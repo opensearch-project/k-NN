@@ -13,6 +13,8 @@ package org.opensearch.knn.training;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.common.Strings;
+import org.opensearch.common.UUIDs;
 import org.opensearch.knn.index.JNIService;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -25,6 +27,7 @@ import org.opensearch.knn.indices.ModelState;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Encapsulates all information required to generate and train a model.
@@ -57,7 +60,8 @@ public class TrainingJob implements Runnable {
                        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext,
                        NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext,
                        int dimension, String description) {
-        this.modelId = modelId;
+        // Generate random base64 string if one is not provided
+        this.modelId = Strings.hasText(modelId) ? modelId : UUIDs.randomBase64UUID();
         this.knnMethodContext = Objects.requireNonNull(knnMethodContext, "MethodContext cannot be null.");
         this.nativeMemoryCacheManager = Objects.requireNonNull(nativeMemoryCacheManager,
                 "NativeMemoryCacheManager cannot be null.");
@@ -75,7 +79,8 @@ public class TrainingJob implements Runnable {
                                 description,
                                 ""
                         ),
-                        null
+                        null,
+                        this.modelId
                     );
     }
 
@@ -86,15 +91,6 @@ public class TrainingJob implements Runnable {
      */
     public String getModelId() {
         return modelId;
-    }
-
-    /**
-     * Setter for model id.
-     *
-     * @param modelId to set
-     */
-    public void setModelId(String modelId) {
-        this.modelId = modelId;
     }
 
     /**
