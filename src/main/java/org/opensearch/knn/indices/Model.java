@@ -168,7 +168,11 @@ public class Model implements Writeable, ToXContentObject {
     }
 
     private static String getModelIDFromResponse(Map<String, Object> responseMap) {
-        return (String) responseMap.get(MODEL_ID);
+        Object modelId = responseMap.get(MODEL_ID);
+        if (modelId == null) {
+            return null;
+        }
+        return (String) modelId;
     }
 
     private static byte[] getModelBlobFromResponse(Map<String, Object> responseMap){
