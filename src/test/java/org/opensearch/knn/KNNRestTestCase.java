@@ -672,6 +672,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         );
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
+                .field(MODEL_ID, modelId)
                 .field(MODEL_STATE, modelMetadata.getState().getName())
                 .field(KNN_ENGINE, modelMetadata.getKnnEngine().getName())
                 .field(METHOD_PARAMETER_SPACE_TYPE, modelMetadata.getSpaceType().getValue())

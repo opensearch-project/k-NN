@@ -118,7 +118,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
 
             for(SearchHit hit: searchResponse.getHits().getHits()){
                 assertTrue(testModelID.contains(hit.getId()));
-                Model model = Model.getModelFromSourceMap(hit.getSourceAsMap(), hit.getId());
+                Model model = Model.getModelFromSourceMap(hit.getSourceAsMap());
                 assertEquals(getModelMetadata(),model.getModelMetadata());
                 assertArrayEquals(testModelBlob, model.getModelBlob());
             }
