@@ -31,7 +31,7 @@ import org.apache.lucene.search.TopDocs;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.JNIService;
+import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.KNNQuery;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorFieldMapper;

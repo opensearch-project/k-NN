@@ -284,7 +284,7 @@ public interface KNNLibrary {
             V2011("2011"){
                 @Override
                 public String indexLibraryVersion() {
-                    return KNNConstants.JNI_LIBRARY_NAME;
+                    return KNNConstants.NMSLIB_JNI_LIBRARY_NAME;
                 }
             };
 
@@ -541,7 +541,7 @@ public interface KNNLibrary {
             V165("165"){
                 @Override
                 public String indexLibraryVersion() {
-                    return KNNConstants.JNI_LIBRARY_NAME;
+                    return KNNConstants.FAISS_JNI_LIBRARY_NAME;
                 }
             };
 

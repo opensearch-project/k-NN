@@ -28,8 +28,10 @@ cmake_minimum_required(VERSION 3.17)
 project(KNNPlugin_JNI)
 
 # ---------------------------------- SETUP ----------------------------------
-# Target library to be compiled
-set(TARGET_LIB opensearchknn)
+# Target libraries to be compiled
+set(TARGET_LIB_COMMON opensearchknn_common)  # Shared library with common utilities
+set(TARGET_LIB_NMSLIB opensearchknn_nmslib)  # nmslib JNI
+set(TARGET_LIB_FAISS opensearchknn_faiss)    # faiss JNI
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -58,6 +60,14 @@ elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL x86_64)
 endif()
 # ----------------------------------------------------------------------------
 
+# ---------------------------------- COMMON ----------------------------------
+add_library(${TARGET_LIB_COMMON} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/jni_util.cpp)
+target_include_directories(${TARGET_LIB_COMMON} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE})
+set_target_properties(${TARGET_LIB_COMMON} PROPERTIES SUFFIX ${LIB_EXT})
+set_target_properties(${TARGET_LIB_COMMON} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(${TARGET_LIB_COMMON} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
+# ----------------------------------------------------------------------------
+
 # ---------------------------------- NMSLIB ----------------------------------
 # Check if nmslib exists
 find_path(NMS_REPO_DIR NAMES similarity_search PATHS ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib)
@@ -69,13 +79,19 @@ if (NOT EXISTS ${NMS_REPO_DIR})
 endif ()
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search)
+
+add_library(${TARGET_LIB_NMSLIB} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_NmslibService.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/nmslib_wrapper.cpp)
+target_link_libraries(${TARGET_LIB_NMSLIB} NonMetricSpaceLib ${TARGET_LIB_COMMON})
+target_include_directories(${TARGET_LIB_NMSLIB} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE} ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search/include)
+set_target_properties(${TARGET_LIB_NMSLIB} PROPERTIES SUFFIX ${LIB_EXT})
+set_target_properties(${TARGET_LIB_NMSLIB} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(${TARGET_LIB_NMSLIB} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
 # ---------------------------------------------------------------------------
 
 # ---------------------------------- FAISS ----------------------------------
-# Avoid building faiss tests
-set(BUILD_TESTING OFF)
-set(BLA_STATIC ON)
-set(FAISS_OPT_LEVEL generic)
+set(BUILD_TESTING OFF)          # Avoid building faiss tests
+set(BLA_STATIC ON)              # Statically link BLAS
+set(FAISS_OPT_LEVEL generic)    # Keep optimization level generic
 
 if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
     if(CMAKE_C_COMPILER_ID MATCHES "Clang\$")
@@ -109,16 +125,13 @@ endif ()
 set(FAISS_ENABLE_GPU OFF)
 set(FAISS_ENABLE_PYTHON OFF)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/faiss EXCLUDE_FROM_ALL)
-# ---------------------------------------------------------------------------
 
-# ------------------------------ Lib Compiling ------------------------------
-add_library(${TARGET_LIB} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_index_JNIService.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/jni_util.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/nmslib_wrapper.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/faiss_wrapper.cpp)
-target_link_libraries(${TARGET_LIB} faiss NonMetricSpaceLib OpenMP::OpenMP_CXX)
-target_include_directories(${TARGET_LIB} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE} ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search/include)
-
-set_target_properties(${TARGET_LIB} PROPERTIES SUFFIX ${LIB_EXT})
-set_target_properties(${TARGET_LIB} PROPERTIES POSITION_INDEPENDENT_CODE ON)
-set_target_properties(${TARGET_LIB} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
+add_library(${TARGET_LIB_FAISS} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_FaissService.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/faiss_wrapper.cpp)
+target_link_libraries(${TARGET_LIB_FAISS} faiss ${TARGET_LIB_COMMON} OpenMP::OpenMP_CXX)
+target_include_directories(${TARGET_LIB_FAISS} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE} ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss)
+set_target_properties(${TARGET_LIB_FAISS} PROPERTIES SUFFIX ${LIB_EXT})
+set_target_properties(${TARGET_LIB_FAISS} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(${TARGET_LIB_FAISS} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
 # ---------------------------------------------------------------------------
 
 # --------------------------------- TESTS -----------------------------------
@@ -133,7 +146,7 @@ execute_process(COMMAND "${CMAKE_COMMAND}" --build .
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
 add_subdirectory("${CMAKE_BINARY_DIR}/googletest-src"
-        "${CMAKE_BINARY_DIR}/googletest-build"
+        "${CMAKE_BINARY_DIR}/googletest-build" EXCLUDE_FROM_ALL
         )
 add_executable(
         jni_test
@@ -148,7 +161,9 @@ target_link_libraries(
         faiss
         NonMetricSpaceLib
         OpenMP::OpenMP_CXX
-        ${TARGET_LIB}
+        ${TARGET_LIB_FAISS}
+        ${TARGET_LIB_NMSLIB}
+        ${TARGET_LIB_COMMON}
 )
 
 target_include_directories(jni_test PRIVATE
@@ -168,51 +183,7 @@ set_target_properties(jni_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRE
 
 # -------------------------------- INSTALL ----------------------------------
 # Installation rules for shared library
-install(TARGETS ${TARGET_LIB}
+install(TARGETS ${TARGET_LIB_NMSLIB} ${TARGET_LIB_FAISS} ${TARGET_LIB_COMMON}
         LIBRARY DESTINATION lib
         COMPONENT library)
-
-set(KNN_MAINTAINER "OpenSearch Team <opensearch@amazon.com>")
-set(OPENSEARCH_DOWNLOAD_URL "https://opensearch.org/downloads.html")
-set(CPACK_PACKAGE_NAME ${KNN_PACKAGE_NAME})
-set(CPACK_PACKAGE_VERSION ${KNN_PLUGIN_VERSION})
-set(CMAKE_INSTALL_PREFIX /usr)
-set(CPACK_GENERATOR "RPM;DEB")
-set(CPACK_OUTPUT_FILE_PREFIX packages)
-set(CPACK_PACKAGE_RELEASE 1)
-set(CPACK_PACKAGE_VENDOR "Amazon")
-set(CPACK_PACKAGE_CONTACT "Maintainer: ${KNN_MAINTAINER}")
-set(CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
-set(CPACK_COMPONENTS_GROUPING IGNORE)
-get_cmake_property(CPACK_COMPONENTS_ALL COMPONENTS)
-list(REMOVE_ITEM CPACK_COMPONENTS_ALL "Unspecified")
-
-# Component variable
-set(KNN_PACKAGE_NAME opensearch-knnlib)
-set(KNN_PACKAGE_DESCRIPTION "KNN JNI library built off of nmslib and faiss for OpenSearch")
-
-# RPM
-set(CPACK_RPM_PACKAGE_LICENSE "ASL-2.0")
-set(CPACK_RPM_COMPONENT_INSTALL ON)
-set(CPACK_RPM_PACKAGE_URL ${OPENSEARCH_DOWNLOAD_URL})
-set(CPACK_RPM_PACKAGE_RELEASE ${CPACK_PACKAGE_RELEASE})
-
-set(CPACK_RPM_PACKAGE_NAME ${KNN_PACKAGE_NAME})
-set(CPACK_RPM_FILE_NAME "${CPACK_RPM_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${JVM_OS_TYPE}-${MACH_ARCH}.rpm")
-set(CPACK_RPM_PACKAGE_DESCRIPTION ${KNN_PACKAGE_DESCRIPTION})
-set(CPACK_RPM_PACKAGE_SUMMARY "OpenSearch k-NN JNI Library with nmslib and faiss")
-
-# DEB
-set(CPACK_DEBIAN_PACKAGE_HOMEPAGE ${OPENSEARCH_DOWNLOAD_URL})
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER ${KNN_MAINTAINER})
-set(CPACK_DEBIAN_PACKAGE_VERSION ${CPACK_PACKAGE_VERSION})
-set(CPACK_DEBIAN_PACKAGE_SECTION "libs")
-set(CPACK_DEB_COMPONENT_INSTALL ON)
-
-set(CPACK_DEBIAN_PACKAGE_NAME ${KNN_PACKAGE_NAME})
-set(CPACK_DEBIAN_FILE_NAME "${CPACK_DEBIAN_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${JVM_OS_TYPE}-${MACH_ARCH}.deb")
-set(CPACK_DEBIAN_DESCRIPTION ${KNN_PACKAGE_DESCRIPTION})
-set(CPACK_DEBIAN_PACKAGE_SOURCE ${CPACK_DEBIAN_PACKAGE_NAME})
-
-include(CPack)
 # ---------------------------------------------------------------------------

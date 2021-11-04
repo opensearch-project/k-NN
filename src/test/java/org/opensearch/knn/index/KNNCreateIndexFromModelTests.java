@@ -16,6 +16,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNSingleNodeTestCase;
+import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;

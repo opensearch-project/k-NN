@@ -12,7 +12,7 @@
 package org.opensearch.knn.index.memory;
 
 import org.apache.lucene.index.LeafReaderContext;
-import org.opensearch.knn.index.JNIService;
+import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.watcher.FileWatcher;
 import org.opensearch.watcher.WatcherHandle;

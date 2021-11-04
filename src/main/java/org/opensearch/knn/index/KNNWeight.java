@@ -27,6 +27,7 @@ package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
