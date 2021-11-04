@@ -91,7 +91,7 @@ if [ "$JAVA_HOME" = "" ]; then
 fi
 
 cmake .
-make opensearchknn
+make opensearchknn_faiss opensearchknn_nmslib
 
 cd $work_dir
 ./gradlew assemble --no-daemon --refresh-dependencies -DskipTests=true -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT

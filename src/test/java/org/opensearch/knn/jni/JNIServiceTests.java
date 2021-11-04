@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.knn.index;
+package org.opensearch.knn.jni;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -17,6 +17,10 @@ import org.junit.BeforeClass;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.KNNQueryResult;
+import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
@@ -60,14 +64,12 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_nmslib_invalid_noSpaceType() {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
 
         expectThrows(Exception.class, () -> JNIService.createIndex(testData.indexData.docs, testData.indexData.vectors,
                 "something", Collections.emptyMap(), KNNEngine.NMSLIB.getName()));
     }
 
     public void testCreateIndex_nmslib_invalid_vectorDocIDMismatch() throws IOException {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
 
         int[] docIds = new int[]{1, 2, 3};
         float[][] vectors1 = new float[][] {{1, 2}, {3, 4}};
@@ -86,7 +88,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_nmslib_invalid_nullArgument() throws IOException {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
 
         int[] docIds = new int[]{};
         float[][] vectors = new float[][]{};
@@ -109,7 +110,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_nmslib_invalid_badSpace() throws IOException {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
 
         int[] docIds = new int[]{1};
         float[][] vectors = new float[][]{{2, 3}};
@@ -120,7 +120,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_nmslib_invalid_inconsistentDimensions() throws IOException {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
 
         int[] docIds = new int[]{1, 2};
         float[][] vectors = new float[][]{{2, 3}, {2, 3, 4}};
@@ -131,7 +130,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_nmslib_invalid_badParameterType() throws IOException {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
 
         int[] docIds = new int[]{};
         float[][] vectors = new float[][]{};
@@ -144,7 +142,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_nmslib_valid() throws IOException {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
 
         for (SpaceType spaceType : KNNEngine.NMSLIB.getMethod(KNNConstants.METHOD_HNSW).getSpaces()) {
             Path tmpFile = createTempFile();
@@ -165,7 +162,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_faiss_invalid_noSpaceType() {
-        JNIService.initLibrary(FAISS_NAME);
 
         int[] docIds = new int[]{};
         float[][] vectors = new float[][]{};
@@ -175,7 +171,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_faiss_invalid_vectorDocIDMismatch() throws IOException {
-        JNIService.initLibrary(FAISS_NAME);
 
         int[] docIds = new int[]{1, 2, 3};
         float[][] vectors1 = new float[][] {{1, 2}, {3, 4}};
@@ -196,7 +191,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_faiss_invalid_null() throws IOException {
-        JNIService.initLibrary(FAISS_NAME);
 
         int[] docIds = new int[]{};
         float[][] vectors = new float[][]{};
@@ -223,7 +217,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_faiss_invalid_invalidSpace() throws IOException {
-        JNIService.initLibrary(FAISS_NAME);
 
         int[] docIds = new int[]{1};
         float[][] vectors = new float[][]{{2, 3}};
@@ -235,7 +228,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_faiss_invalid_inconsistentDimensions() throws IOException {
-        JNIService.initLibrary(FAISS_NAME);
 
         int[] docIds = new int[]{1, 2};
         float[][] vectors = new float[][]{{2, 3}, {2, 3, 4}};
@@ -247,7 +239,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_faiss_invalid_noIndexDescription() throws IOException {
-        JNIService.initLibrary(FAISS_NAME);
 
         int[] docIds = new int[]{1, 2};
         float[][] vectors = new float[][]{{2, 3}, {2, 3, 4}};
@@ -258,7 +249,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_faiss_invalid_invalidIndexDescription() throws IOException {
-        JNIService.initLibrary(FAISS_NAME);
 
         int[] docIds = new int[]{1, 2};
         float[][] vectors = new float[][]{{2, 3}, {2, 3, 4}};
@@ -270,7 +260,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_faiss_invalid_invalidParameterType() throws IOException {
-        JNIService.initLibrary(FAISS_NAME);
 
         int[] docIds = new int[]{};
         float[][] vectors = new float[][]{};
@@ -285,7 +274,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndex_faiss_valid() throws IOException {
-        JNIService.initLibrary(FAISS_NAME);
 
         List<String> methods = ImmutableList.of(faissMethod);
         List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
@@ -309,26 +297,22 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testLoadIndex_nmslib_invalid_badSpaceType() {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
         expectThrows(Exception.class, () -> JNIService.loadIndex(
                 "test", ImmutableMap.of(KNNConstants.SPACE_TYPE, "invalid"), KNNEngine.NMSLIB.getName()));
     }
 
     public void testLoadIndex_nmslib_invalid_noSpaceType() {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
         expectThrows(Exception.class, () -> JNIService.loadIndex(
                 "test", Collections.emptyMap(), KNNEngine.NMSLIB.getName()));
     }
 
     public void testLoadIndex_nmslib_invalid_fileDoesNotExist() {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
         expectThrows(Exception.class, () -> JNIService.loadIndex(
                 "invalid", ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
                 KNNEngine.NMSLIB.getName()));
     }
 
     public void testLoadIndex_nmslib_invalid_badFile() throws IOException {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
         Path tmpFile = createTempFile();
         expectThrows(Exception.class, () -> JNIService.loadIndex(
                 tmpFile.toAbsolutePath().toString(), ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
@@ -336,7 +320,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testLoadIndex_nmslib_valid() throws IOException {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
 
         Path tmpFile = createTempFile();
 
@@ -351,13 +334,11 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testLoadIndex_faiss_invalid_fileDoesNotExist() {
-        JNIService.initLibrary(FAISS_NAME);
         expectThrows(Exception.class, () -> JNIService.loadIndex(
                 "invalid", Collections.emptyMap(), FAISS_NAME));
     }
 
     public void testLoadIndex_faiss_invalid_badFile() throws IOException {
-        JNIService.initLibrary(FAISS_NAME);
 
         Path tmpFile = createTempFile();
 
@@ -366,7 +347,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testLoadIndex_faiss_valid() throws IOException {
-        JNIService.initLibrary(FAISS_NAME);
 
         Path tmpFile = createTempFile();
 
@@ -389,14 +369,12 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testQueryIndex_nmslib_invalid_badPointer() {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
 
         expectThrows(Exception.class, () -> JNIService.queryIndex(0L,
                 new float[]{}, 0, KNNEngine.NMSLIB.getName()));
     }
 
     public void testQueryIndex_nmslib_invalid_nullQueryVector() throws IOException {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
 
         Path tmpFile = createTempFile();
 
@@ -414,7 +392,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testQueryIndex_nmslib_valid() throws IOException {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
 
         int k = 50;
         for (SpaceType spaceType : KNNEngine.NMSLIB.getMethod(KNNConstants.METHOD_HNSW).getSpaces()) {
@@ -437,13 +414,11 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testQueryIndex_faiss_invalid_badPointer() {
-        JNIService.initLibrary(FAISS_NAME);
 
         expectThrows(Exception.class, () -> JNIService.queryIndex(0L, new float[]{}, 0, FAISS_NAME));
     }
 
     public void testQueryIndex_faiss_invalid_nullQueryVector() throws IOException {
-        JNIService.initLibrary(FAISS_NAME);
 
         Path tmpFile = createTempFile();
 
@@ -461,7 +436,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testQueryIndex_faiss_valid() throws IOException {
-        JNIService.initLibrary(FAISS_NAME);
 
         int k = 10;
 
@@ -496,7 +470,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testFree_nmslib_valid() throws IOException {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
 
         Path tmpFile = createTempFile();
 
@@ -513,7 +486,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testFree_faiss_valid() throws IOException {
-        JNIService.initLibrary(FAISS_NAME);
 
         Path tmpFile = createTempFile();
 
@@ -532,18 +504,6 @@ public class JNIServiceTests extends KNNTestCase {
         JNIService.free(pointer, FAISS_NAME);
     }
 
-    public void testInitLibrary_invalidEngine() {
-        expectThrows(IllegalArgumentException.class, () -> JNIService.initLibrary("invalid-engine"));
-    }
-
-    public void testInitLibrary_nmslib() {
-        JNIService.initLibrary(KNNEngine.NMSLIB.getName());
-    }
-
-    public void testInitLibrary_faiss() {
-        JNIService.initLibrary(FAISS_NAME);
-    }
-
     public void testTransferVectors() {
         long trainPointer1 = JNIService.transferVectors(0, testData.indexData.vectors);
         assertNotEquals(0, trainPointer1);
@@ -558,7 +518,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testTrain() {
-        JNIService.initLibrary(FAISS_NAME);
 
         long trainPointer1 = JNIService.transferVectors(0, testData.indexData.vectors);
         assertNotEquals(0, trainPointer1);
@@ -582,7 +541,6 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testCreateIndexFromTemplate() throws IOException {
-        JNIService.initLibrary(FAISS_NAME);
 
         long trainPointer1 = JNIService.transferVectors(0, testData.indexData.vectors);
         assertNotEquals(0, trainPointer1);

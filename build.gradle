@@ -167,7 +167,7 @@ task cmakeJniLib(type:Exec) {
 task buildJniLib(type:Exec) {
     dependsOn cmakeJniLib
     workingDir 'jni'
-    commandLine 'make', 'opensearchknn'
+    commandLine 'make', 'opensearchknn_nmslib', 'opensearchknn_faiss'
 }
 
 test {

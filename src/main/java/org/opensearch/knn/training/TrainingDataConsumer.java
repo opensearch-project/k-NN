@@ -12,7 +12,7 @@
 package org.opensearch.knn.training;
 
 import org.apache.commons.lang.ArrayUtils;
-import org.opensearch.knn.index.JNIService;
+import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 
 import java.util.List;
