@@ -15,7 +15,7 @@ import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.IndexUtil;
-import org.opensearch.knn.index.JNIService;
+import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.watcher.FileWatcher;

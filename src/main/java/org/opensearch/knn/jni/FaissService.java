@@ -9,31 +9,29 @@
  * GitHub history for details.
  */
 
-package org.opensearch.knn.index;
+package org.opensearch.knn.jni;
 
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.KNNQueryResult;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Map;
 
 /**
- * Service to interact with plugin's jni layer. Class dependencies should be minimal
+ * Service to interact with faiss jni layer. Class dependencies should be minimal
  *
  * In order to compile C++ header file, run:
- * javac -h jni/include src/main/java/org/opensearch/knn/index/JNIService.java
+ * javac -h jni/include src/main/java/org/opensearch/knn/jni/FaissService.java
  *      src/main/java/org/opensearch/knn/index/KNNQueryResult.java
  *      src/main/java/org/opensearch/knn/common/KNNConstants.java
  */
-public class JNIService {
+class FaissService {
 
     static {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            System.loadLibrary(KNNConstants.JNI_LIBRARY_NAME);
-
-            initLibrary(KNNConstants.NMSLIB_NAME);
-            initLibrary(KNNConstants.FAISS_NAME);
-
+            System.loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);
+            initLibrary();
             return null;
         });
     }
@@ -45,10 +43,8 @@ public class JNIService {
      * @param data array of float arrays to be indexed
      * @param indexPath path to save index file to
      * @param parameters parameters to build index
-     * @param engineName name of engine to build index for
      */
-    public static native void createIndex(int[] ids, float[][] data, String indexPath, Map<String, Object> parameters,
-                                          String engineName);
+    public static native void createIndex(int[] ids, float[][] data, String indexPath, Map<String, Object> parameters);
 
     /**
      * Create an index for the native library with a provided template index
@@ -57,20 +53,16 @@ public class JNIService {
      * @param data array of float arrays to be indexed
      * @param indexPath path to save index file to
      * @param templateIndex empty template index
-     * @param engineName name of engine to build index for
      */
-    public static native void createIndexFromTemplate(int[] ids, float[][] data, String indexPath, byte[] templateIndex,
-                                                      String engineName);
+    public static native void createIndexFromTemplate(int[] ids, float[][] data, String indexPath, byte[] templateIndex);
 
     /**
      * Load an index into memory
      *
      * @param indexPath path to index file
-     * @param parameters parameters to be used when loading index
-     * @param engineName name of engine to load index
      * @return pointer to location in memory the index resides in
      */
-    public static native long loadIndex(String indexPath, Map<String, Object> parameters, String engineName);
+    public static native long loadIndex(String indexPath);
 
     /**
      * Query an index
@@ -78,24 +70,20 @@ public class JNIService {
      * @param indexPointer pointer to index in memory
      * @param queryVector vector to be used for query
      * @param k neighbors to be returned
-     * @param engineName name of engine to query index
      * @return KNNQueryResult array of k neighbors
      */
-    public static native KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k, String engineName);
+    public static native KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k);
 
     /**
      * Free native memory pointer
-     *
-     * @param indexPointer location to be freed
      */
-    public static native void free(long indexPointer, String engineName);
+    public static native void free(long indexPointer);
 
     /**
      * Initialize library
      *
-     * @param engineName name of engine to initialize library for
      */
-    public static native void initLibrary(String engineName);
+    public static native void initLibrary();
 
     /**
      * Train an empty index
@@ -103,11 +91,10 @@ public class JNIService {
      * @param indexParameters parameters used to build index
      * @param dimension dimension for the index
      * @param trainVectorsPointer pointer to where training vectors are stored in native memory
-     * @param engine engine to perform the training
      * @return bytes array of trained template index
      */
-    public static native byte[] trainIndex(Map<String, Object> indexParameters, int dimension, long trainVectorsPointer,
-                                           String engine);
+    public static native byte[] trainIndex(Map<String, Object> indexParameters, int dimension,
+                                           long trainVectorsPointer);
 
     /**
      * Transfer vectors from Java to native

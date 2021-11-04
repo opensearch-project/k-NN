@@ -40,7 +40,6 @@ public class KNNConstants {
     public static final String METHOD_PARAMETER_NLIST = "nlist";
     public static final String METHOD_PARAMETER_SPACE_TYPE = "space_type"; // used for mapping parameter
     public static final String COMPOUND_EXTENSION = "c";
-    public static final String JNI_LIBRARY_NAME = "opensearchknn";
     public static final String MODEL = "model";
     public static final String MODELS = "models";
     public static final String MODEL_ID = "model_id";
@@ -102,4 +101,9 @@ public class KNNConstants {
     public static final Integer METHOD_PARAMETER_NLIST_LIMIT = 20000;
     public static final Integer MAX_MODEL_DESCRIPTION_LENGTH = 1000; // max number of chars a model's description can be
     public static final Integer MODEL_CACHE_EXPIRE_AFTER_ACCESS_TIME_MINUTES = 30;
+
+    // Lib names
+    private static final String JNI_LIBRARY_PREFIX = "opensearchknn_";
+    public static final String FAISS_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + FAISS_NAME;
+    public static final String NMSLIB_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + NMSLIB_NAME;
 }

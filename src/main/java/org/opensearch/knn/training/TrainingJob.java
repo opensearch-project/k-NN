@@ -15,7 +15,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.common.Strings;
 import org.opensearch.common.UUIDs;
-import org.opensearch.knn.index.JNIService;
+import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
@@ -27,7 +27,6 @@ import org.opensearch.knn.indices.ModelState;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Objects;
-import java.util.UUID;
 
 /**
  * Encapsulates all information required to generate and train a model.

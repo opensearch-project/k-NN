@@ -29,7 +29,7 @@ import org.opensearch.common.xcontent.DeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.knn.index.JNIService;
+import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNNCodecUtil;
 import org.opensearch.knn.index.util.KNNEngine;

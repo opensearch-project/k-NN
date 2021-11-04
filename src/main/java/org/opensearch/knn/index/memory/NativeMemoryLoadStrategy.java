@@ -12,7 +12,7 @@
 package org.opensearch.knn.index.memory;
 
 import org.opensearch.action.ActionListener;
-import org.opensearch.knn.index.JNIService;
+import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.training.TrainingDataConsumer;
 import org.opensearch.knn.training.VectorReader;
