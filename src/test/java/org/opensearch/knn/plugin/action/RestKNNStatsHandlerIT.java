@@ -25,6 +25,8 @@
 
 package org.opensearch.knn.plugin.action;
 
+import org.opensearch.cluster.health.ClusterHealthStatus;
+import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.KNNQueryBuilder;
@@ -362,6 +364,32 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         nodeStats = parseNodeStatsResponse(EntityUtils.toString(response.getEntity()));
         assertEquals(initialScriptQueryErrors + 2,
             (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_ERRORS.getName())));
+    }
+
+    public void testModelIndexHealthMetricsStats() throws IOException {
+        // Create request that filters only model index
+        String modelIndexStatusName = StatNames.MODEL_INDEX_STATUS.getName();
+
+        Response response = getKnnStats(Collections.emptyList(), Arrays.asList(modelIndexStatusName));
+        String responseBody = EntityUtils.toString(response.getEntity());
+        Map<String, Object> statsMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+
+        // Check that model health status is null since model index is not created to system yet
+        assertNull(statsMap.get(StatNames.MODEL_INDEX_STATUS.getName()));
+
+        createModelSystemIndex();
+
+        response = getKnnStats(Collections.emptyList(), Arrays.asList(modelIndexStatusName));
+
+        responseBody = EntityUtils.toString(response.getEntity());
+        statsMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+
+        // Check that model health status is not null
+        assertNotNull(statsMap.get(modelIndexStatusName));
+
+        // Check value is indeed part of ClusterHealthStatus
+        assertNotNull(ClusterHealthStatus.fromString((String)statsMap.get(modelIndexStatusName)));
+
     }
 
     // Useful settings when debugging to prevent timeouts

@@ -26,11 +26,13 @@
 package org.opensearch.knn.plugin.stats;
 
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.plugin.stats.suppliers.KNNCircuitBreakerSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNCounterSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNInnerCacheStatsSupplier;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.knn.plugin.stats.suppliers.ModelIndexStatusSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.NativeMemoryCacheManagerSupplier;
 
 import java.util.Map;
@@ -67,6 +69,8 @@ public class KNNStatsConfig {
                     new KNNCounterSupplier(KNNCounter.GRAPH_INDEX_REQUESTS)))
             .put(StatNames.CIRCUIT_BREAKER_TRIGGERED.getName(), new KNNStat<>(true,
                     new KNNCircuitBreakerSupplier()))
+            .put(StatNames.MODEL_INDEX_STATUS.getName(), new KNNStat<>(true,
+                    new ModelIndexStatusSupplier<>(ModelDao::getHealthStatus)))
             .put(StatNames.KNN_QUERY_REQUESTS.getName(), new KNNStat<>(false,
                     new KNNCounterSupplier(KNNCounter.KNN_QUERY_REQUESTS)))
             .put(StatNames.SCRIPT_COMPILATIONS.getName(), new KNNStat<>(false,
