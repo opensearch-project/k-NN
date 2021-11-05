@@ -14,9 +14,11 @@ package org.opensearch.knn.index;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -75,20 +77,23 @@ public class KNNMethod {
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
     public ValidationException validate(KNNMethodContext knnMethodContext) {
-        ValidationException validationException = null;
+        List<String> errorMessages = new ArrayList<>();
         if (!containsSpace(knnMethodContext.getSpaceType())) {
-            validationException = new ValidationException();
-            validationException.addValidationError(String.format("\"%s\" configuration does not support space type: " +
+            errorMessages.add(String.format("\"%s\" configuration does not support space type: " +
                     "\"%s\".", this.methodComponent.getName(), knnMethodContext.getSpaceType().getValue()));
         }
 
         ValidationException methodValidation = methodComponent.validate(knnMethodContext.getMethodComponent());
-
         if (methodValidation != null) {
-            validationException = validationException == null ? new ValidationException() : validationException;
-            validationException.addValidationErrors(methodValidation.validationErrors());
+            errorMessages.addAll(methodValidation.validationErrors());
         }
 
+        if(errorMessages.isEmpty()) {
+            return null;
+        }
+
+        ValidationException validationException = new ValidationException();
+        validationException.addValidationErrors(errorMessages);
         return validationException;
     }
 

@@ -15,7 +15,9 @@ import org.opensearch.common.TriFunction;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 
@@ -85,8 +87,8 @@ public class MethodComponent {
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
     public ValidationException validate(MethodComponentContext methodComponentContext) {
-        ValidationException validationException = null;
         Map<String, Object> providedParameters = methodComponentContext.getParameters();
+        List<String> errorMessages = new ArrayList<>();
 
         if (providedParameters == null) {
             return null;
@@ -95,19 +97,22 @@ public class MethodComponent {
         ValidationException parameterValidation;
         for (Map.Entry<String, Object> parameter : providedParameters.entrySet()) {
             if (!parameters.containsKey(parameter.getKey())) {
-                validationException = validationException == null ? new ValidationException() : validationException;
-                validationException.addValidationError(String.format("Invalid parameter for method \"%s\".",
-                        getName()));
+                errorMessages.add(String.format("Invalid parameter for method \"%s\".", getName()));
                 continue;
             }
 
             parameterValidation = parameters.get(parameter.getKey()).validate(parameter.getValue());
             if (parameterValidation != null) {
-                validationException = validationException == null ? new ValidationException() : validationException;
-                validationException.addValidationErrors(parameterValidation.validationErrors());
+                errorMessages.addAll(parameterValidation.validationErrors());
             }
         }
 
+        if(errorMessages.isEmpty()) {
+            return null;
+        }
+
+        ValidationException validationException = new ValidationException();
+        validationException.addValidationErrors(errorMessages);
         return validationException;
     }
 
