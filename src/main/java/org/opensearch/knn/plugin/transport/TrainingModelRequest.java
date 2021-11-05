@@ -388,7 +388,7 @@ public class TrainingModelRequest extends ActionRequest {
         if ((Integer) dimension != this.dimension) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
             exception.addValidationError("Field \"" + this.trainingField + "\" has dimension " + dimension +
-                    ", which is different from dimension specified in the training request: " + 0);
+                    ", which is different from dimension specified in the training request: " + this.dimension);
             return exception;
         }
 
