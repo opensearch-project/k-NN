@@ -116,7 +116,8 @@ public class TrainingJob implements Runnable {
         } catch (Exception e) {
             logger.error("Failed to get training data for model \"" + modelId + "\": " + e.getMessage());
             modelMetadata.setState(ModelState.FAILED);
-            modelMetadata.setError(e.getMessage());
+            modelMetadata.setError("Failed to load training data into memory. " +
+                    "Check if there is enough memory to perform the request.");
 
             if (trainingDataAllocation != null) {
                 nativeMemoryCacheManager.invalidate(trainingDataEntryContext.getKey());
@@ -134,7 +135,8 @@ public class TrainingJob implements Runnable {
         } catch (Exception e) {
             logger.error("Failed to allocate space in native memory for model \"" + modelId + "\": " + e.getMessage());
             modelMetadata.setState(ModelState.FAILED);
-            modelMetadata.setError(e.getMessage());
+            modelMetadata.setError("Failed to allocate space in native memory for the model. " +
+                    "Check if there is enough memory to perform the request.");
 
             trainingDataAllocation.readUnlock();
             nativeMemoryCacheManager.invalidate(trainingDataEntryContext.getKey());
@@ -173,7 +175,8 @@ public class TrainingJob implements Runnable {
         } catch (Exception e) {
             logger.error("Failed to run training job for model \"" + modelId + "\": " + e.getMessage());
             modelMetadata.setState(ModelState.FAILED);
-            modelMetadata.setError(e.getMessage());
+            modelMetadata.setError("Failed to execute training. May be caused by an invalid method definition or " +
+                    "not enough memory to perform training.");
         } finally {
             // Invalidate right away so we dont run into any big memory problems
             trainingDataAllocation.readUnlock();

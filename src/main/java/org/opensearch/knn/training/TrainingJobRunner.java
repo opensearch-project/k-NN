@@ -149,7 +149,7 @@ public class TrainingJobRunner {
 
             ModelMetadata modelMetadata = trainingJob.getModel().getModelMetadata();
             modelMetadata.setState(ModelState.FAILED);
-            modelMetadata.setError(ree.getMessage());
+            modelMetadata.setError("Training job execution was rejected. Node's training queue is at capacity.");
 
             try {
                 serializeModel(trainingJob, loggingListener, true);
