@@ -116,7 +116,7 @@ public class TrainingJob implements Runnable {
         } catch (Exception e) {
             logger.error("Failed to get training data for model \"" + modelId + "\": " + e.getMessage());
             modelMetadata.setState(ModelState.FAILED);
-            modelMetadata.setError("Failed to get training data into memory. " +
+            modelMetadata.setError("Failed to load training data into memory. " +
                     "Check if there is enough memory to perform the request.");
 
             if (trainingDataAllocation != null) {
