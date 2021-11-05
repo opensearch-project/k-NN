@@ -131,7 +131,6 @@ std::unordered_map<std::string, jobject> knn_jni::JNIUtil::ConvertJavaMapToCppMa
 
         env->DeleteLocalRef(entryJ);
         env->DeleteLocalRef(keyJ);
-        env->DeleteLocalRef(valueJ);
     }
 
     this->HasExceptionInStack(env, R"(Could not call "hasNext" method")");
