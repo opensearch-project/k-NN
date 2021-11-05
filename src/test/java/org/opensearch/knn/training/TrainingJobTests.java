@@ -228,7 +228,7 @@ public class TrainingJobTests extends KNNTestCase {
         Model model = trainingJob.getModel();
         assertEquals(ModelState.FAILED, trainingJob.getModel().getModelMetadata().getState());
         assertNotNull(model);
-        assertEquals(testException, model.getModelMetadata().getError());
+        assertFalse(model.getModelMetadata().getError().isEmpty());
     }
 
     public void testRun_failure_onGetModelAnonymousAllocation() throws ExecutionException {
@@ -291,7 +291,7 @@ public class TrainingJobTests extends KNNTestCase {
         Model model = trainingJob.getModel();
         assertEquals(ModelState.FAILED, trainingJob.getModel().getModelMetadata().getState());
         assertNotNull(model);
-        assertEquals(testException, model.getModelMetadata().getError());
+        assertFalse(model.getModelMetadata().getError().isEmpty());
     }
 
     public void testRun_failure_closedTrainingDataAllocation() throws ExecutionException {
