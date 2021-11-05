@@ -161,7 +161,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     ValidationException validationException = null;
                     if (v.isTrainingRequired()){
                         validationException = new ValidationException();
-                        validationException.addValidationError(KNN_METHOD + " requires training");
+                        validationException.addValidationError(String.format("\"%s\" requires training.", KNN_METHOD));
                     }
 
                     ValidationException methodValidation = v.validate();

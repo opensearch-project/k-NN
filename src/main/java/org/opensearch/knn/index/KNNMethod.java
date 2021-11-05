@@ -78,8 +78,8 @@ public class KNNMethod {
         ValidationException validationException = null;
         if (!containsSpace(knnMethodContext.getSpaceType())) {
             validationException = new ValidationException();
-            validationException.addValidationError("\"" + this.methodComponent.getName() +
-                    "\" configuration does not support space type: \"" + knnMethodContext.getSpaceType() + "\".");
+            validationException.addValidationError(String.format("\"%s\" configuration does not support space type: " +
+                    "\"%s\".", this.methodComponent.getName(), knnMethodContext.getSpaceType().getValue()));
         }
 
         ValidationException methodValidation = methodComponent.validate(knnMethodContext.getMethodComponent());

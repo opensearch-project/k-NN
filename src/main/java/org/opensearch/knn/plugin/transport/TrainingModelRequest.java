@@ -27,6 +27,8 @@ import org.opensearch.knn.indices.ModelMetadata;
 import java.io.IOException;
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+
 /**
  * Request to train and serialize a model
  */
@@ -190,8 +192,8 @@ public class TrainingModelRequest extends ActionRequest {
      */
     public void setMaximumVectorCount(int maximumVectorCount) {
         if (maximumVectorCount <= 0) {
-            throw new IllegalArgumentException("Maximum vector count " + maximumVectorCount + " is invalid. " +
-                    "Maximum vector count must be greater than 0");
+            throw new IllegalArgumentException(String.format("Maximum vector count %d is invalid. Maximum vector " +
+                    "count must be greater than 0", maximumVectorCount));
         }
         this.maximumVectorCount = maximumVectorCount;
     }
@@ -213,8 +215,8 @@ public class TrainingModelRequest extends ActionRequest {
      */
     public void setSearchSize(int searchSize) {
         if (searchSize <= 0 || searchSize > 10000) {
-            throw new IllegalArgumentException("Search size " + searchSize + " is invalid. Search size must be " +
-                    "between 0 and 10,000");
+            throw new IllegalArgumentException(String.format("Search size %d is invalid. Search size must be " +
+                    "between 0 and 10,000", searchSize));
         }
         this.searchSize = searchSize;
     }
@@ -235,8 +237,8 @@ public class TrainingModelRequest extends ActionRequest {
      */
     void setTrainingDataSizeInKB(int trainingDataSizeInKB) {
         if (trainingDataSizeInKB <= 0) {
-            throw new IllegalArgumentException("Training data size " + trainingDataSizeInKB + " is invalid. " +
-                    "Training data size must be greater than 0");
+            throw new IllegalArgumentException(String.format("Training data size %d is invalid. Training data size " +
+                    "must be greater than 0", trainingDataSizeInKB));
         }
         this.trainingDataSizeInKB = trainingDataSizeInKB;
     }
@@ -328,14 +330,14 @@ public class TrainingModelRequest extends ActionRequest {
         // Check field existence
         if (trainingFieldMapping == null) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
-            exception.addValidationError("Field \"" + this.trainingField + "\" does not exist.");
+            exception.addValidationError(String.format("Field \"%s\" does not exist.", this.trainingField));
             return exception;
         }
 
         // Check if field is a map. If not, that is a problem
         if (!(trainingFieldMapping instanceof Map)) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
-            exception.addValidationError("Field info for \"" + this.trainingField + "\" is not a map.");
+            exception.addValidationError(String.format("Field info for \"%s\" is not a map.", this.trainingField));
             return exception;
         }
 
@@ -346,8 +348,8 @@ public class TrainingModelRequest extends ActionRequest {
 
         if (!(type instanceof String) || !KNNVectorFieldMapper.CONTENT_TYPE.equals(type)) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
-            exception.addValidationError("Field \"" + this.trainingField + "\" is not of type "
-                    + KNNVectorFieldMapper.CONTENT_TYPE + ".");
+            exception.addValidationError(String.format("Field \"%s\" is not of type %s.", this.trainingField,
+                    KNNVectorFieldMapper.CONTENT_TYPE));
             return exception;
         }
 
@@ -361,23 +363,25 @@ public class TrainingModelRequest extends ActionRequest {
 
             if (modelId == null) {
                 exception = exception == null ? new ActionRequestValidationException() : exception;
-                exception.addValidationError("Field \"" + this.trainingField + "\" does not have a dimension set.");
+                exception.addValidationError(String.format("Field \"%s\" does not have a dimension set.",
+                        this.trainingField));
                 return exception;
             }
 
             ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
             if (modelMetadata == null) {
                 exception = exception == null ? new ActionRequestValidationException() : exception;
-                exception.addValidationError("Model \"" + modelId + "\" for field \"" + this.trainingField +
-                        "\" does not exist.");
+                exception.addValidationError(String.format("Model \"%s\" for field \"%s\" does not exist.", modelId,
+                        this.trainingField));
                 return exception;
             }
 
             dimension = modelMetadata.getDimension();
             if ((Integer) dimension != this.dimension) {
                 exception = exception == null ? new ActionRequestValidationException() : exception;
-                exception.addValidationError("Field \"" + this.trainingField + "\" has dimension " + dimension +
-                        ", which is different from dimension specified in the training request: " + this.dimension);
+                exception.addValidationError(String.format("Field \"%s\" has dimension %d, which is different from " +
+                        "dimension specified in the training request: %d", this.trainingField, dimension,
+                        this.dimension));
                 return exception;
             }
 
@@ -387,8 +391,8 @@ public class TrainingModelRequest extends ActionRequest {
         // If the dimension was found in training fields mapping, check that it equals the models proposed dimension.
         if ((Integer) dimension != this.dimension) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
-            exception.addValidationError("Field \"" + this.trainingField + "\" has dimension " + dimension +
-                    ", which is different from dimension specified in the training request: " + this.dimension);
+            exception.addValidationError(String.format("Field \"%s\" has dimension %d, which is different from " +
+                    "dimension specified in the training request: %d", this.trainingField, dimension, this.dimension));
             return exception;
         }
 
