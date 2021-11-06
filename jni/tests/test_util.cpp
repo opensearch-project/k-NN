@@ -90,8 +90,9 @@ test_util::MockJNIUtil::MockJNIUtil() {
     // meaningful in the unit tests
     ON_CALL(*this, FindMethod)
             .WillByDefault(
-                    [this](JNIEnv *env, jclass jClass, const std::string &methodName,
-                           const std::string &methodSignature) { return (jmethodID)1; });
+                    [this](JNIEnv *env, const std::string &className, const std::string &methodName) {
+                        return (jmethodID)1;
+                    });
 
     // arrayJ is re-interpreted as a std::vector<uint8_t> *
     ON_CALL(*this, GetJavaBytesArrayLength)
