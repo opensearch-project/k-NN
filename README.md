@@ -31,7 +31,7 @@
 
 ## Credits and Acknowledgments
 
-This project uses the Apache 2.0-licensed [Non-Metric Space Library](https://github.com/nmslib/nmslib/). Thank you to Bilegsaikhan Naidan, Leonid Boytsov, Yury Malkov, David Novak and all those who have contributed to that project!
+This project uses two similarity search libraries to perform Approximate Nearest Neighbor Search: the Apache 2.0-licensed [Non-Metric Space Library](https://github.com/nmslib/nmslib/) and the MIT licensed [Faiss library](https://github.com/facebookresearch/faiss). Thank you to all who have contributed to those projects including Bilegsaikhan Naidan, Leonid Boytsov, Yury Malkov and David Novak for nmslib and Hervé Jégou, Matthijs Douze, Jeff Johnson and Lucas Hosseini for Faiss.
 
 ## Code of Conduct
 
