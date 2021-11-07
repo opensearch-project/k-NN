@@ -44,8 +44,7 @@ namespace knn_jni {
         virtual jclass FindClass(JNIEnv * env, const std::string& className) = 0;
 
         // Find a java method given a particular class, name and signature
-        virtual jmethodID FindMethod(JNIEnv * env, jclass jClass, const std::string& methodName,
-                                     const std::string& methodSignature) = 0;
+        virtual jmethodID FindMethod(JNIEnv * env, const std::string& className, const std::string& methodName) = 0;
 
         // --------------------------------------------------------------------------
 
@@ -120,13 +119,16 @@ namespace knn_jni {
     // Class that implements JNIUtilInterface methods
     class JNIUtil: public JNIUtilInterface {
     public:
+        // Initialize and Uninitialize methods are used for caching/cleaning up Java classes and methods
+        void Initialize(JNIEnv* env);
+        void Uninitialize(JNIEnv* env);
+
         void ThrowJavaException(JNIEnv* env, const char* type = "", const char* message = "");
         void HasExceptionInStack(JNIEnv* env);
         void HasExceptionInStack(JNIEnv* env, const std::string& message);
         void CatchCppExceptionAndThrowJava(JNIEnv* env);
         jclass FindClass(JNIEnv * env, const std::string& className);
-        jmethodID FindMethod(JNIEnv * env, jclass jClass, const std::string& methodName,
-                             const std::string& methodSignature);
+        jmethodID FindMethod(JNIEnv * env, const std::string& className, const std::string& methodName);
         std::string ConvertJavaStringToCppString(JNIEnv * env, jstring javaString);
         std::unordered_map<std::string, jobject> ConvertJavaMapToCppMap(JNIEnv *env, jobject parametersJ);
         std::string ConvertJavaObjectToCppString(JNIEnv *env, jobject objectJ);
@@ -152,6 +154,10 @@ namespace knn_jni {
         void ReleaseIntArrayElements(JNIEnv *env, jintArray array, jint *elems, jint mode);
         void SetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index, jobject val);
         void SetByteArrayRegion(JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte * buf);
+
+    private:
+        std::unordered_map<std::string, jclass> cachedClasses;
+        std::unordered_map<std::string, jmethodID> cachedMethods;
     };
 
     // ------------------------------- CONSTANTS --------------------------------

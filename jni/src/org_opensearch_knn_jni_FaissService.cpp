@@ -20,6 +20,25 @@
 #include "jni_util.h"
 
 static knn_jni::JNIUtil jniUtil;
+static const jint KNN_FAISS_JNI_VERSION = JNI_VERSION_1_1;
+
+jint JNI_OnLoad(JavaVM* vm, void* reserved) {
+    // Obtain the JNIEnv from the VM and confirm JNI_VERSION
+    JNIEnv* env;
+    if (vm->GetEnv((void**)&env, KNN_FAISS_JNI_VERSION) != JNI_OK) {
+        return JNI_ERR;
+    }
+
+    jniUtil.Initialize(env);
+
+    return KNN_FAISS_JNI_VERSION;
+}
+
+void JNI_OnUnload(JavaVM *vm, void *reserved) {
+    JNIEnv* env;
+    vm->GetEnv((void**)&env, KNN_FAISS_JNI_VERSION);
+    jniUtil.Uninitialize(env);
+}
 
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createIndex(JNIEnv * env, jclass cls, jintArray idsJ,
                                                                             jobjectArray vectorsJ, jstring indexPathJ,

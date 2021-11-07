@@ -18,6 +18,64 @@
 #include <vector>
 
 
+void knn_jni::JNIUtil::Initialize(JNIEnv *env) {
+    // Followed recommendation from this SO post: https://stackoverflow.com/a/13940735
+    jclass tempLocalClassRef;
+
+    tempLocalClassRef = env->FindClass("java/io/IOException");
+    this->cachedClasses["java/io/IOException"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
+    env->DeleteLocalRef(tempLocalClassRef);
+
+    tempLocalClassRef = env->FindClass("java/lang/Exception");
+    this->cachedClasses["java/lang/Exception"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
+    env->DeleteLocalRef(tempLocalClassRef);
+
+    tempLocalClassRef = env->FindClass("java/util/Map");
+    this->cachedClasses["java/util/Map"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
+    this->cachedMethods["java/util/Map:entrySet"] = env->GetMethodID(tempLocalClassRef, "entrySet", "()Ljava/util/Set;");
+    env->DeleteLocalRef(tempLocalClassRef);
+
+    tempLocalClassRef = env->FindClass("java/util/Set");
+    this->cachedClasses["java/util/Set"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
+    this->cachedMethods["java/util/Set:iterator"] = env->GetMethodID(tempLocalClassRef, "iterator", "()Ljava/util/Iterator;");
+    env->DeleteLocalRef(tempLocalClassRef);
+
+    tempLocalClassRef = env->FindClass("java/util/Iterator");
+    this->cachedClasses["java/util/Iterator"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
+    this->cachedMethods["java/util/Iterator:hasNext"] = env->GetMethodID(tempLocalClassRef, "hasNext", "()Z");
+    this->cachedMethods["java/util/Iterator:next"] = env->GetMethodID(tempLocalClassRef, "next", "()Ljava/lang/Object;");
+    env->DeleteLocalRef(tempLocalClassRef);
+
+    tempLocalClassRef = env->FindClass("java/lang/Object");
+    this->cachedClasses["java/lang/Object"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
+    env->DeleteLocalRef(tempLocalClassRef);
+
+    tempLocalClassRef = env->FindClass("java/util/Map$Entry");
+    this->cachedClasses["java/util/Map$Entry"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
+    this->cachedMethods["java/util/Map$Entry:getKey"] = env->GetMethodID(tempLocalClassRef, "getKey", "()Ljava/lang/Object;");
+    this->cachedMethods["java/util/Map$Entry:getValue"] = env->GetMethodID(tempLocalClassRef, "getValue", "()Ljava/lang/Object;");
+    env->DeleteLocalRef(tempLocalClassRef);
+
+    tempLocalClassRef = env->FindClass("java/lang/Integer");
+    this->cachedClasses["java/lang/Integer"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
+    this->cachedMethods["java/lang/Integer:intValue"] = env->GetMethodID(tempLocalClassRef, "intValue", "()I");
+    env->DeleteLocalRef(tempLocalClassRef);
+
+    tempLocalClassRef = env->FindClass("org/opensearch/knn/index/KNNQueryResult");
+    this->cachedClasses["org/opensearch/knn/index/KNNQueryResult"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
+    this->cachedMethods["org/opensearch/knn/index/KNNQueryResult:<init>"] = env->GetMethodID(tempLocalClassRef, "<init>", "(IF)V");
+    env->DeleteLocalRef(tempLocalClassRef);
+}
+
+void knn_jni::JNIUtil::Uninitialize(JNIEnv* env) {
+    // Delete all classes that are now global refs
+    for (auto & cachedClasse : this->cachedClasses) {
+        env->DeleteGlobalRef(cachedClasse.second);
+    }
+    this->cachedClasses.clear();
+    this->cachedMethods.clear();
+}
+
 void knn_jni::JNIUtil::ThrowJavaException(JNIEnv* env, const char* type, const char* message) {
     jclass newExcCls = env->FindClass(type);
     if (newExcCls != nullptr) {
@@ -56,22 +114,20 @@ void knn_jni::JNIUtil::CatchCppExceptionAndThrowJava(JNIEnv* env)
 }
 
 jclass knn_jni::JNIUtil::FindClass(JNIEnv * env, const std::string& className) {
-    jclass jClass = env->FindClass(className.c_str());
-    this->HasExceptionInStack(env, "Error looking up \"" + className + "\"");
-    if (jClass == nullptr) {
+    if (this->cachedClasses.find(className) == this->cachedClasses.end()) {
         throw std::runtime_error("Unable to load class \"" + className + "\"");
     }
-    return jClass;
+
+    return this->cachedClasses[className];
 }
 
-jmethodID knn_jni::JNIUtil::FindMethod(JNIEnv * env, jclass jClass, const std::string& methodName,
-                                       const std::string& methodSignature) {
-    jmethodID methodId = env->GetMethodID(jClass, methodName.c_str(), methodSignature.c_str());
-    this->HasExceptionInStack(env, "Error looking up \"" + methodName + "\" method");
-    if (jClass == nullptr) {
+jmethodID knn_jni::JNIUtil::FindMethod(JNIEnv * env, const std::string& className, const std::string& methodName) {
+    std::string key = className + ":" + methodName;
+    if (this->cachedMethods.find(key) == this->cachedMethods.end()) {
         throw std::runtime_error("Unable to find \"" + methodName + "\" method");
     }
-    return methodId;
+
+    return this->cachedMethods[key];
 }
 
 std::unordered_map<std::string, jobject> knn_jni::JNIUtil::ConvertJavaMapToCppMap(JNIEnv *env, jobject parametersJ) {
@@ -86,28 +142,28 @@ std::unordered_map<std::string, jobject> knn_jni::JNIUtil::ConvertJavaMapToCppMa
     // Load all of the class and methods to iterate over a map
     jclass mapClassJ = this->FindClass(env, "java/util/Map");
 
-    jmethodID entrySetMethodJ = this->FindMethod(env, mapClassJ, "entrySet", "()Ljava/util/Set;");
+    jmethodID entrySetMethodJ = this->FindMethod(env, "java/util/Map", "entrySet");
 
     jobject parametersEntrySetJ = env->CallObjectMethod(parametersJ, entrySetMethodJ);
     this->HasExceptionInStack(env, R"(Unable to call "entrySet" method on "java/util/Map")");
 
     jclass setClassJ = this->FindClass(env, "java/util/Set");
 
-    jmethodID iteratorJ = this->FindMethod(env, setClassJ, "iterator", "()Ljava/util/Iterator;");
+    jmethodID iteratorJ = this->FindMethod(env, "java/util/Set", "iterator");
 
     jclass iteratorClassJ = this->FindClass(env, "java/util/Iterator");
 
     jobject iterJ = env->CallObjectMethod(parametersEntrySetJ, iteratorJ);
     this->HasExceptionInStack(env, R"(Call to "iterator" method failed")");
 
-    jmethodID hasNextMethodJ = this->FindMethod(env, iteratorClassJ, "hasNext", "()Z");
-    jmethodID nextMethodJ = this->FindMethod(env, iteratorClassJ, "next", "()Ljava/lang/Object;");
+    jmethodID hasNextMethodJ = this->FindMethod(env, "java/util/Iterator", "hasNext");
+    jmethodID nextMethodJ = this->FindMethod(env, "java/util/Iterator", "next");
 
     jclass entryClassJ = this->FindClass(env, "java/util/Map$Entry");
 
-    jmethodID getKeyMethodJ = this->FindMethod(env, entryClassJ, "getKey", "()Ljava/lang/Object;");
+    jmethodID getKeyMethodJ = this->FindMethod(env, "java/util/Map$Entry", "getKey");
 
-    jmethodID getValueMethodJ = this->FindMethod(env, entryClassJ, "getValue", "()Ljava/lang/Object;");
+    jmethodID getValueMethodJ = this->FindMethod(env, "java/util/Map$Entry", "getValue");
 
     // Iterate over the java map and add entries to cpp unordered map
     jobject entryJ;
@@ -166,7 +222,7 @@ int knn_jni::JNIUtil::ConvertJavaObjectToCppInteger(JNIEnv *env, jobject objectJ
     }
 
     jclass integerClass = this->FindClass(env, "java/lang/Integer");
-    jmethodID intValue = this->FindMethod(env, integerClass, "intValue", "()I");
+    jmethodID intValue = this->FindMethod(env, "java/lang/Integer", "intValue");
 
     if (!env->IsInstanceOf(objectJ, integerClass)) {
         throw std::runtime_error("Cannot call IntMethod on non-integer class");
@@ -422,4 +478,3 @@ const std::string knn_jni::M_NMSLIB = "M";
 const std::string knn_jni::EF_CONSTRUCTION = "ef_construction";
 const std::string knn_jni::EF_CONSTRUCTION_NMSLIB = "efConstruction";
 const std::string knn_jni::EF_SEARCH = "ef_search";
-
