@@ -200,7 +200,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniU
     }
 
     jclass resultClass = jniUtil->FindClass(env,"org/opensearch/knn/index/KNNQueryResult");
-    jmethodID allArgs = jniUtil->FindMethod(env, resultClass, "<init>", "(IF)V");
+    jmethodID allArgs = jniUtil->FindMethod(env, "org/opensearch/knn/index/KNNQueryResult", "<init>");
 
     jobjectArray results = jniUtil->NewObjectArray(env, resultSize, resultClass, nullptr);
 

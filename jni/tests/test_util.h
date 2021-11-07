@@ -55,9 +55,7 @@ namespace test_util {
                     (JNIEnv * env, jobject objectJ));
         MOCK_METHOD(void, DeleteLocalRef, (JNIEnv * env, jobject obj));
         MOCK_METHOD(jclass, FindClass, (JNIEnv * env, const std::string& className));
-        MOCK_METHOD(jmethodID, FindMethod,
-                    (JNIEnv * env, jclass jClass, const std::string& methodName,
-                            const std::string& methodSignature));
+        MOCK_METHOD(jmethodID, FindMethod, (JNIEnv * env, const std::string& className, const std::string& methodName));
         MOCK_METHOD(jbyte*, GetByteArrayElements,
                     (JNIEnv * env, jbyteArray array, jboolean* isCopy));
         MOCK_METHOD(jfloat*, GetFloatArrayElements,
