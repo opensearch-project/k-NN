@@ -25,7 +25,7 @@ public class ParameterTests extends KNNTestCase {
      */
     public void testGetDefaultValue() {
         String defaultValue = "test-default";
-        Parameter<String> parameter = new Parameter<String>(defaultValue, v -> true) {
+        Parameter<String> parameter = new Parameter<String>("test", defaultValue, v -> true) {
             @Override
             public ValidationException validate(Object value) {
                 return null;
@@ -39,7 +39,7 @@ public class ParameterTests extends KNNTestCase {
      * Test integer parameter validate
      */
     public void testIntegerParameter_validate() {
-        final IntegerParameter parameter = new IntegerParameter(1,
+        final IntegerParameter parameter = new IntegerParameter("test",1,
                 v -> v > 0);
 
         // Invalid type
@@ -64,12 +64,12 @@ public class ParameterTests extends KNNTestCase {
         Map<String, MethodComponent> methodComponentMap = ImmutableMap.of(
                 methodComponentName1,
                 MethodComponent.Builder.builder(parameterKey1)
-                        .addParameter(parameterKey1, new IntegerParameter(1, v -> v > 0))
+                        .addParameter(parameterKey1, new IntegerParameter(parameterKey1,1, v -> v > 0))
                         .build()
         );
 
-        final MethodComponentContextParameter parameter = new MethodComponentContextParameter(methodComponentContext,
-                methodComponentMap);
+        final MethodComponentContextParameter parameter = new MethodComponentContextParameter("test",
+                methodComponentContext, methodComponentMap);
 
         // Invalid type
         assertNotNull(parameter.validate(17));
@@ -109,12 +109,12 @@ public class ParameterTests extends KNNTestCase {
         Map<String, MethodComponent> methodComponentMap = ImmutableMap.of(
                 methodComponentName1,
                 MethodComponent.Builder.builder(parameterKey1)
-                        .addParameter(parameterKey1, new IntegerParameter(1, v -> v > 0))
+                        .addParameter(parameterKey1, new IntegerParameter(parameterKey1, 1, v -> v > 0))
                         .build()
         );
 
-        final MethodComponentContextParameter parameter = new MethodComponentContextParameter(methodComponentContext,
-                methodComponentMap);
+        final MethodComponentContextParameter parameter = new MethodComponentContextParameter("test",
+                methodComponentContext, methodComponentMap);
 
         // Test when method component is available
         assertEquals(methodComponentMap.get(methodComponentName1), parameter.getMethodComponent(methodComponentName1));

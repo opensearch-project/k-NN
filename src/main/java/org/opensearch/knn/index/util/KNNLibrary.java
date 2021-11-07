@@ -252,8 +252,9 @@ public interface KNNLibrary {
                 KNNMethod.Builder.builder(
                         MethodComponent.Builder.builder(HNSW_LIB_NAME)
                                 .addParameter(METHOD_PARAMETER_M, new Parameter.IntegerParameter(
-                                        KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0))
+                                        METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0))
                                 .addParameter(METHOD_PARAMETER_EF_CONSTRUCTION, new Parameter.IntegerParameter(
+                                        METHOD_PARAMETER_EF_CONSTRUCTION,
                                         KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION, v -> v > 0))
                                 .build())
                         .addSpaces(SpaceType.L2, SpaceType.L1, SpaceType.LINF, SpaceType.COSINESIMIL,
@@ -331,10 +332,12 @@ public interface KNNLibrary {
                                         methodComponentContext).build())).build(),
                 KNNConstants.ENCODER_PQ, MethodComponent.Builder.builder(KNNConstants.ENCODER_PQ)
                         .addParameter(ENCODER_PARAMETER_PQ_CODE_COUNT,
-                                new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT, v -> v > 0
+                                new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_CODE_COUNT,
+                                        ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT, v -> v > 0
                                         && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT))
                         .addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE,
-                                new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT, v -> v > 0
+                                new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_CODE_SIZE,
+                                        ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT, v -> v > 0
                                         && v < ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT))
                         .setRequiresTraining(true)
                         .setMapGenerator(((methodComponent, methodComponentContext) ->
@@ -374,15 +377,17 @@ public interface KNNLibrary {
         public final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
                 METHOD_HNSW, KNNMethod.Builder.builder(MethodComponent.Builder.builder(METHOD_HNSW)
                         .addParameter(METHOD_PARAMETER_M,
-                                new Parameter.IntegerParameter(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0))
+                                new Parameter.IntegerParameter(METHOD_PARAMETER_M,
+                                        KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0))
                         .addParameter(METHOD_PARAMETER_EF_CONSTRUCTION,
-                                new Parameter.IntegerParameter(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
-                                        v -> v > 0))
+                                new Parameter.IntegerParameter(METHOD_PARAMETER_EF_CONSTRUCTION,
+                                        KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION, v -> v > 0))
                         .addParameter(METHOD_PARAMETER_EF_SEARCH,
-                                new Parameter.IntegerParameter(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
-                                        v -> v > 0))
+                                new Parameter.IntegerParameter(METHOD_PARAMETER_EF_SEARCH,
+                                        KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH, v -> v > 0))
                         .addParameter(METHOD_ENCODER_PARAMETER,
-                                new Parameter.MethodComponentContextParameter(ENCODER_DEFAULT, encoderComponents))
+                                new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER,
+                                        ENCODER_DEFAULT, encoderComponents))
                         .setMapGenerator(((methodComponent, methodComponentContext) ->
                                 MethodAsMapBuilder.builder(FAISS_HNSW_DESCRIPTION, methodComponent, methodComponentContext)
                                         .addParameter(METHOD_PARAMETER_M, "", "")
@@ -392,11 +397,15 @@ public interface KNNLibrary {
                         .addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build(),
                 METHOD_IVF, KNNMethod.Builder.builder(MethodComponent.Builder.builder(METHOD_IVF)
                         .addParameter(METHOD_PARAMETER_NPROBES,
-                                new Parameter.IntegerParameter(METHOD_PARAMETER_NPROBES_DEFAULT, v -> v > 0 && v < METHOD_PARAMETER_NPROBES_LIMIT))
+                                new Parameter.IntegerParameter(METHOD_PARAMETER_NPROBES,
+                                        METHOD_PARAMETER_NPROBES_DEFAULT, v -> v > 0
+                                        && v < METHOD_PARAMETER_NPROBES_LIMIT))
                         .addParameter(METHOD_PARAMETER_NLIST,
-                                new Parameter.IntegerParameter(METHOD_PARAMETER_NLIST_DEFAULT, v -> v > 0 && v < METHOD_PARAMETER_NLIST_LIMIT))
+                                new Parameter.IntegerParameter(METHOD_PARAMETER_NLIST, METHOD_PARAMETER_NLIST_DEFAULT,
+                                        v -> v > 0 && v < METHOD_PARAMETER_NLIST_LIMIT))
                         .addParameter(METHOD_ENCODER_PARAMETER,
-                                new Parameter.MethodComponentContextParameter(ENCODER_DEFAULT, encoderComponents))
+                                new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER,
+                                        ENCODER_DEFAULT, encoderComponents))
                         .setRequiresTraining(true)
                         .setMapGenerator(((methodComponent, methodComponentContext) ->
                                 MethodAsMapBuilder.builder(FAISS_IVF_DESCRIPTION, methodComponent, methodComponentContext)

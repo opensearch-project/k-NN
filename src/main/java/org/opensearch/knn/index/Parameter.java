@@ -23,18 +23,30 @@ import java.util.function.Predicate;
  */
 public abstract class Parameter<T> {
 
+    private String name;
     private T defaultValue;
     protected Predicate<T> validator;
 
     /**
      * Constructor
      *
+     * @param name of the parameter
      * @param defaultValue of the parameter
      * @param validator used to validate a parameter value passed
      */
-    public Parameter(T defaultValue, Predicate<T> validator) {
+    public Parameter(String name, T defaultValue, Predicate<T> validator) {
+        this.name = name;
         this.defaultValue = defaultValue;
         this.validator = validator;
+    }
+
+    /**
+     * Getter for parameter name
+     *
+     * @return parameter name
+     */
+    public String getName() {
+        return name;
     }
 
     /**
@@ -58,9 +70,9 @@ public abstract class Parameter<T> {
      * Integer method parameter
      */
     public static class IntegerParameter extends Parameter<Integer> {
-        public IntegerParameter(Integer defaultValue, Predicate<Integer> validator)
+        public IntegerParameter(String name, Integer defaultValue, Predicate<Integer> validator)
         {
-            super(defaultValue, validator);
+            super(name, defaultValue, validator);
         }
 
         @Override
@@ -68,13 +80,15 @@ public abstract class Parameter<T> {
             ValidationException validationException = null;
             if (!(value instanceof Integer)) {
                 validationException = new ValidationException();
-                validationException.addValidationError("Value not of type Integer for Integer parameter.");
+                validationException.addValidationError(String.format("Value not of type Integer for Integer " +
+                        "parameter \"%s\".", getName()));
                 return validationException;
             }
 
             if (!validator.test((Integer) value)) {
                 validationException = new ValidationException();
-                validationException.addValidationError("Parameter validation failed.");
+                validationException.addValidationError(String.format("Parameter validation failed for Integer " +
+                        "parameter \"%s\".", getName()));
             }
             return validationException;
         }
@@ -93,12 +107,14 @@ public abstract class Parameter<T> {
         /**
          * Constructor
          *
+         * @param name of the parameter
          * @param defaultValue value to assign this parameter if it is not set
          * @param methodComponents valid components that the MethodComponentContext can map to
          */
-        public MethodComponentContextParameter(MethodComponentContext defaultValue,
+        public MethodComponentContextParameter(String name,
+                                               MethodComponentContext defaultValue,
                                                Map<String, MethodComponent> methodComponents) {
-            super(defaultValue, methodComponentContext -> {
+            super(name, defaultValue, methodComponentContext -> {
                 if (!methodComponents.containsKey(methodComponentContext.getName())) {
                     return false;
                 }
@@ -113,13 +129,16 @@ public abstract class Parameter<T> {
             ValidationException validationException = null;
             if (!(value instanceof MethodComponentContext)) {
                 validationException = new ValidationException();
-                validationException.addValidationError("Value not of type MethodComponentContext for MethodComponentContext parameter.");
+                validationException.addValidationError(String.format("Value not of type MethodComponentContext for" +
+                        " MethodComponentContext parameter \"%s\".", getName()));
                 return validationException;
             }
 
             if (!validator.test((MethodComponentContext) value)) {
                 validationException = new ValidationException();
                 validationException.addValidationError("Parameter validation failed.");
+                validationException.addValidationError(String.format("Parameter validation failed for " +
+                        "MethodComponentContext parameter \"%s\".", getName()));
             }
 
             return validationException;

@@ -187,8 +187,8 @@ public class KNNLibraryTests extends KNNTestCase {
         String parameter2 = "test-parameter-2";
         Integer value2 = 15;
         MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
-                .addParameter(parameter1, new Parameter.IntegerParameter(10, value -> value > 0))
-                .addParameter(parameter2, new Parameter.IntegerParameter(15, value -> value > 0))
+                .addParameter(parameter1, new Parameter.IntegerParameter(parameter1, 10, value -> value > 0))
+                .addParameter(parameter2, new Parameter.IntegerParameter(parameter2, 15, value -> value > 0))
                 .build();
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
