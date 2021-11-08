@@ -55,10 +55,11 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createIndexFromT
                                                                                         jintArray idsJ,
                                                                                         jobjectArray vectorsJ,
                                                                                         jstring indexPathJ,
-                                                                                        jbyteArray templateIndexJ)
+                                                                                        jbyteArray templateIndexJ,
+                                                                                        jobject parametersJ)
 {
     try {
-        knn_jni::faiss_wrapper::CreateIndexFromTemplate(&jniUtil, env, idsJ, vectorsJ, indexPathJ, templateIndexJ);
+        knn_jni::faiss_wrapper::CreateIndexFromTemplate(&jniUtil, env, idsJ, vectorsJ, indexPathJ, templateIndexJ, parametersJ);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }

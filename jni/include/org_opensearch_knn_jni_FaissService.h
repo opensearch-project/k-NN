@@ -29,10 +29,10 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createIndex
 /*
  * Class:     org_opensearch_knn_jni_FaissService
  * Method:    createIndexFromTemplate
- * Signature: ([I[[FLjava/lang/String;[B)V
+ * Signature: ([I[[FLjava/lang/String;[BLjava/util/Map;)V
  */
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createIndexFromTemplate
-  (JNIEnv *, jclass, jintArray, jobjectArray, jstring, jbyteArray);
+  (JNIEnv *, jclass, jintArray, jobjectArray, jstring, jbyteArray, jobject);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
