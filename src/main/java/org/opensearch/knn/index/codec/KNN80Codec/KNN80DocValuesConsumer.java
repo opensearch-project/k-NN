@@ -29,6 +29,7 @@ import org.opensearch.common.xcontent.DeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNNCodecUtil;
@@ -165,6 +166,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
     private void createKNNIndexFromTemplate(byte[] model, KNNCodecUtil.Pair pair, KNNEngine knnEngine,
                                             String indexPath) {
+        //TODO: I think we should add parameters back to this method to support thread_qty
         AccessController.doPrivileged(
                 (PrivilegedAction<Void>) () -> {
                     JNIService.createIndexFromTemplate(pair.docs, pair.vectors, indexPath, model, knnEngine.getName());
@@ -199,6 +201,12 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                     XContentFactory.xContent(XContentType.JSON).createParser(NamedXContentRegistry.EMPTY,
                             DeprecationHandler.THROW_UNSUPPORTED_OPERATION, parametersString).map()
             );
+        }
+
+        // Used to set the number of threads during indexing -- we could probably generalize this pretty easy
+        if (knnEngine.equals(KNNEngine.NMSLIB)) {
+            parameters.put(KNNConstants.HNSW_ALGO_INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(
+                    KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
         }
 
         // Pass the path for the nms library to save the file

@@ -58,6 +58,12 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, J
         auto m = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::M]);
         indexParameters.push_back(knn_jni::M_NMSLIB + "=" + std::to_string(m));
     }
+
+    if(parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY) != parametersCpp.end()) {
+        auto indexThreadQty = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::INDEX_THREAD_QUANTITY]);
+        indexParameters.push_back(knn_jni::INDEX_THREAD_QUANTITY + "=" + std::to_string(indexThreadQty));
+    }
+
     jniUtil->DeleteLocalRef(env, parametersJ);
 
     // Get the path to save the index
