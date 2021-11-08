@@ -25,13 +25,6 @@
 
 package org.opensearch.knn.plugin.action;
 
-import org.opensearch.cluster.health.ClusterHealthStatus;
-import org.opensearch.common.xcontent.XContentType;
-import org.opensearch.knn.KNNRestTestCase;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.KNNQueryBuilder;
-import org.opensearch.knn.plugin.stats.KNNStats;
-import org.opensearch.knn.plugin.stats.StatNames;
 import org.apache.http.util.EntityUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -40,10 +33,17 @@ import org.junit.rules.DisableOnDebug;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
+import org.opensearch.cluster.health.ClusterHealthStatus;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.index.KNNQueryBuilder;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.plugin.stats.KNNStats;
+import org.opensearch.knn.plugin.stats.StatNames;
 import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
@@ -391,6 +391,24 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         assertNotNull(ClusterHealthStatus.fromString((String)statsMap.get(modelIndexStatusName)));
 
     }
+
+    /**
+     * Test checks whether model indexing degraded is available or not
+     *
+     * @throws IOException throws IOException
+     */
+    public void testModelIndexingDegradedMetricsStats() throws IOException {
+        // Create request that only grabs model indexing degraded stats alone
+        String statName = StatNames.INDEXING_FROM_MODEL_DEGRADED.getName();
+
+        Response response = getKnnStats(Collections.emptyList(), Arrays.asList(statName));
+        String responseBody = EntityUtils.toString(response.getEntity());
+        Map<String, Object> nodeStats = parseNodeStatsResponse(responseBody).get(0);
+
+        assertTrue("does not contain expected key: " + statName, nodeStats.containsKey(statName));
+        assertEquals(false, nodeStats.get(statName));
+    }
+
 
     // Useful settings when debugging to prevent timeouts
     @Override

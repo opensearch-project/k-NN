@@ -44,6 +44,7 @@ public enum StatNames {
     INDICES_IN_CACHE("indices_in_cache"),
     CIRCUIT_BREAKER_TRIGGERED("circuit_breaker_triggered"),
     MODEL_INDEX_STATUS("model_index_status"),
+    INDEXING_FROM_MODEL_DEGRADED("indexing_from_model_degraded"),
     GRAPH_QUERY_ERRORS(KNNCounter.GRAPH_QUERY_ERRORS.getName()),
     GRAPH_QUERY_REQUESTS(KNNCounter.GRAPH_QUERY_REQUESTS.getName()),
     GRAPH_INDEX_ERRORS(KNNCounter.GRAPH_INDEX_ERRORS.getName()),
