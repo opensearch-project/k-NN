@@ -25,16 +25,21 @@
 
 package org.opensearch.knn.plugin.stats;
 
+import com.google.common.cache.CacheStats;
+import com.google.common.collect.ImmutableMap;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.plugin.stats.suppliers.EventOccurredWithinThresholdSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNCircuitBreakerSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNCounterSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNInnerCacheStatsSupplier;
-import com.google.common.cache.CacheStats;
-import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.plugin.stats.suppliers.ModelIndexStatusSupplier;
+import org.opensearch.knn.plugin.stats.suppliers.ModelIndexingDegradingSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.NativeMemoryCacheManagerSupplier;
 
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
 public class KNNStatsConfig {
@@ -81,5 +86,10 @@ public class KNNStatsConfig {
                     new KNNCounterSupplier(KNNCounter.SCRIPT_QUERY_REQUESTS)))
             .put(StatNames.SCRIPT_QUERY_ERRORS.getName(), new KNNStat<>(false,
                     new KNNCounterSupplier(KNNCounter.SCRIPT_QUERY_ERRORS)))
+            .put(StatNames.INDEXING_FROM_MODEL_DEGRADED.getName(), new KNNStat<>(false,
+                    new EventOccurredWithinThresholdSupplier(
+                        new ModelIndexingDegradingSupplier(ModelCache::getEvictedDueToSizeAt),
+                        KNNConstants.MODEL_CACHE_CAPACITY_ATROPHY_THRESHOLD_IN_MINUTES,
+                        ChronoUnit.MINUTES)))
             .build();
 }

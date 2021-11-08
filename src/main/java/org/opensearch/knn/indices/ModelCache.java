@@ -88,6 +88,7 @@ public final class ModelCache {
                 .maximumWeight(cacheSizeInKB)
                 .expireAfterAccess(MODEL_CACHE_EXPIRE_AFTER_ACCESS_TIME_MINUTES, TimeUnit.MINUTES)
                 .weigher((k, v) -> Math.toIntExact(getModelLengthInKB(v)));
+
         cache = cacheBuilder.build();
     }
 
