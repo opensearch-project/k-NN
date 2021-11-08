@@ -83,7 +83,7 @@ public class KNNConstants {
     public static final String METHOD_PARAMETER_NPROBES = "nprobes";
     public static final String ENCODER_FLAT = "flat";
     public static final String ENCODER_PQ = "pq";
-    public static final String ENCODER_PARAMETER_PQ_CODE_COUNT = "code_count";
+    public static final String ENCODER_PARAMETER_PQ_M = "m";
     public static final String ENCODER_PARAMETER_PQ_CODE_SIZE = "code_size";
     public static final String FAISS_HNSW_DESCRIPTION = "HNSW";
     public static final String FAISS_IVF_DESCRIPTION = "IVF";

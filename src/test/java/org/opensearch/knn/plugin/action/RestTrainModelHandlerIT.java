@@ -22,14 +22,13 @@ import org.opensearch.rest.RestStatus;
 import java.io.IOException;
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_COUNT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
-import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
@@ -237,7 +236,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
                         "name":"pq",
                         "parameters":{
                             "code_size":2,
-                            "code_count": 2
+                            "m": 2
                         }
                     }
                   }
@@ -254,7 +253,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
                 .field(NAME, "pq")
                 .startObject(PARAMETERS)
                 .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-                .field(ENCODER_PARAMETER_PQ_CODE_COUNT, 2)
+                .field(ENCODER_PARAMETER_PQ_M, 2)
                 .endObject()
                 .endObject()
                 .endObject()
@@ -311,7 +310,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
                         "name":"pq",
                         "parameters":{
                             "code_size":2,
-                            "code_count": 2
+                            "m": 2
                         }
                     }
                   }
@@ -328,7 +327,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
                 .field(NAME, "pq")
                 .startObject(PARAMETERS)
                 .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-                .field(ENCODER_PARAMETER_PQ_CODE_COUNT, 2)
+                .field(ENCODER_PARAMETER_PQ_M, 2)
                 .endObject()
                 .endObject()
                 .endObject()

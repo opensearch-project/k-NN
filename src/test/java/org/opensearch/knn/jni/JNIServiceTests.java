@@ -30,7 +30,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_COUNT;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
@@ -558,7 +558,7 @@ public class JNIServiceTests extends KNNTestCase {
                                 METHOD_PARAMETER_NLIST, 16,
                                 METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_PQ,
                                         ImmutableMap.of(
-                                                ENCODER_PARAMETER_PQ_CODE_COUNT, 16,
+                                                ENCODER_PARAMETER_PQ_M, 16,
                                                 ENCODER_PARAMETER_PQ_CODE_SIZE, 8
                                         )))));
 

@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_COUNT;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
@@ -331,8 +331,8 @@ public interface KNNLibrary {
                                 MethodAsMapBuilder.builder(KNNConstants.FAISS_FLAT_DESCRIPTION, methodComponent,
                                         methodComponentContext).build())).build(),
                 KNNConstants.ENCODER_PQ, MethodComponent.Builder.builder(KNNConstants.ENCODER_PQ)
-                        .addParameter(ENCODER_PARAMETER_PQ_CODE_COUNT,
-                                new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_CODE_COUNT,
+                        .addParameter(ENCODER_PARAMETER_PQ_M,
+                                new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_M,
                                         ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT, v -> v > 0
                                         && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT))
                         .addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE,
@@ -342,7 +342,7 @@ public interface KNNLibrary {
                         .setRequiresTraining(true)
                         .setMapGenerator(((methodComponent, methodComponentContext) ->
                                 MethodAsMapBuilder.builder(FAISS_PQ_DESCRIPTION, methodComponent, methodComponentContext)
-                                        .addParameter(ENCODER_PARAMETER_PQ_CODE_COUNT, "", "")
+                                        .addParameter(ENCODER_PARAMETER_PQ_M, "", "")
                                         .addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, "x", "")
                                         .build()))
                         .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
