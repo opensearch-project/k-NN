@@ -13,10 +13,13 @@ package org.opensearch.knn.indices;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.RemovalCause;
+import com.google.common.cache.RemovalNotification;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.cluster.service.ClusterService;
 
+import java.time.Instant;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -35,6 +38,7 @@ public final class ModelCache {
 
     private Cache<String, Model> cache;
     private long cacheSizeInKB;
+    private Instant evictedDueToSizeAt;
 
     /**
      * Get instance of cache
@@ -80,11 +84,28 @@ public final class ModelCache {
         CacheBuilder<String, Model> cacheBuilder = CacheBuilder.newBuilder()
                 .recordStats()
                 .concurrencyLevel(1)
+                .removalListener(this::onRemoval)
                 .maximumWeight(cacheSizeInKB)
                 .expireAfterAccess(MODEL_CACHE_EXPIRE_AFTER_ACCESS_TIME_MINUTES, TimeUnit.MINUTES)
                 .weigher((k, v) -> Math.toIntExact(getModelLengthInKB(v)));
-
         cache = cacheBuilder.build();
+    }
+
+    private void onRemoval(RemovalNotification<String, Model> removalNotification) {
+        if (RemovalCause.SIZE == removalNotification.getCause()) {
+            updateEvictedDueToSizeAt();
+        }
+
+        logger.info("[KNN] Model Cache evicted. Key {}, Reason: {}", removalNotification.getKey(),
+            removalNotification.getCause());
+    }
+
+    public Instant getEvictedDueToSizeAt() {
+        return evictedDueToSizeAt;
+    }
+
+    private void updateEvictedDueToSizeAt() {
+        this.evictedDueToSizeAt = Instant.now();
     }
 
     /**
