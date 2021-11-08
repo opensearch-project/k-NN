@@ -68,8 +68,7 @@ public class KNNMethodTests extends KNNTestCase {
                 .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext1 = KNNMethodContext.parse(in);
-
-        expectThrows(ValidationException.class, () -> knnMethod.validate(knnMethodContext1));
+        assertNotNull(knnMethod.validate(knnMethodContext1));
 
         // Invalid methodComponent
         xContentBuilder = XContentFactory.jsonBuilder().startObject()
@@ -82,7 +81,7 @@ public class KNNMethodTests extends KNNTestCase {
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext2 = KNNMethodContext.parse(in);
 
-        expectThrows(ValidationException.class, () -> knnMethod.validate(knnMethodContext2));
+        assertNotNull(knnMethod.validate(knnMethodContext2));
 
         // Valid everything
         xContentBuilder = XContentFactory.jsonBuilder().startObject()
@@ -91,7 +90,7 @@ public class KNNMethodTests extends KNNTestCase {
                 .endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext3 = KNNMethodContext.parse(in);
-        knnMethod.validate(knnMethodContext3);
+        assertNull(knnMethod.validate(knnMethodContext3));
     }
 
     public void testGetAsMap() {

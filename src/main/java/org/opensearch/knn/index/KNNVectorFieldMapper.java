@@ -157,12 +157,22 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 .setValidator(v -> {
                     if (v == null)
                         return;
+
+                    ValidationException validationException = null;
                     if (v.isTrainingRequired()){
-                        ValidationException validationException = new ValidationException();
-                        validationException.addValidationError(KNN_METHOD + " requires training");
+                        validationException = new ValidationException();
+                        validationException.addValidationError(String.format("\"%s\" requires training.", KNN_METHOD));
+                    }
+
+                    ValidationException methodValidation = v.validate();
+                    if (methodValidation != null) {
+                        validationException = validationException == null ? new ValidationException() : validationException;
+                        validationException.addValidationErrors(methodValidation.validationErrors());
+                    }
+
+                    if (validationException != null) {
                         throw validationException;
                     }
-                    v.validate();
                 });
 
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();

@@ -15,7 +15,9 @@ import org.opensearch.common.TriFunction;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 
@@ -82,22 +84,39 @@ public class MethodComponent {
      * Validate that the methodComponentContext is a valid configuration for this methodComponent
      *
      * @param methodComponentContext to be validated
+     * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    public void validate(MethodComponentContext methodComponentContext) {
+    public ValidationException validate(MethodComponentContext methodComponentContext) {
         Map<String, Object> providedParameters = methodComponentContext.getParameters();
+        List<String> errorMessages = new ArrayList<>();
 
         if (providedParameters == null) {
-            return;
+            return null;
         }
 
+        ValidationException parameterValidation;
         for (Map.Entry<String, Object> parameter : providedParameters.entrySet()) {
             if (!parameters.containsKey(parameter.getKey())) {
-                throw new ValidationException();
+                errorMessages.add(String.format("Invalid parameter for method \"%s\".", getName()));
+                continue;
             }
 
-            parameters.get(parameter.getKey()).validate(parameter.getValue());
+            parameterValidation = parameters.get(parameter.getKey()).validate(parameter.getValue());
+            if (parameterValidation != null) {
+                errorMessages.addAll(parameterValidation.validationErrors());
+            }
         }
+
+        if(errorMessages.isEmpty()) {
+            return null;
+        }
+
+        ValidationException validationException = new ValidationException();
+        validationException.addValidationErrors(errorMessages);
+        return validationException;
     }
+
+
     /**
      * gets requiresTraining value
      *
