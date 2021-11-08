@@ -35,6 +35,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_S
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QTY;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
@@ -577,7 +578,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tmpFile1 = createTempFile();
         JNIService.createIndexFromTemplate(testData.indexData.docs, testData.indexData.vectors,
-                tmpFile1.toAbsolutePath().toString(), faissIndex, FAISS_NAME);
+                tmpFile1.toAbsolutePath().toString(), faissIndex, ImmutableMap.of(INDEX_THREAD_QTY, 1), FAISS_NAME);
         assertTrue(tmpFile1.toFile().length() > 0);
 
         long pointer = JNIService.loadIndex(tmpFile1.toAbsolutePath().toString(), Collections.emptyMap(),

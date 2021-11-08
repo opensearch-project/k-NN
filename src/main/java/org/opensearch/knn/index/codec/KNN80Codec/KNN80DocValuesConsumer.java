@@ -25,6 +25,7 @@
 
 package org.opensearch.knn.index.codec.KNN80Codec;
 
+import com.google.common.collect.ImmutableMap;
 import org.opensearch.common.xcontent.DeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -166,13 +167,12 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
     private void createKNNIndexFromTemplate(byte[] model, KNNCodecUtil.Pair pair, KNNEngine knnEngine,
                                             String indexPath) {
-        //TODO: I think we should add parameters back to this method to support thread_qty
-//        Map<String, Object> trainParameters = model.getModelMetadata().getKnnEngine().getMethodAsMap(knnMethodContext);
-//        trainParameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(
-//                KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
+        Map<String, Object> parameters = ImmutableMap.of(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(
+                KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
         AccessController.doPrivileged(
                 (PrivilegedAction<Void>) () -> {
-                    JNIService.createIndexFromTemplate(pair.docs, pair.vectors, indexPath, model, knnEngine.getName());
+                    JNIService.createIndexFromTemplate(pair.docs, pair.vectors, indexPath, model, parameters,
+                            knnEngine.getName());
                     return null;
                 }
         );

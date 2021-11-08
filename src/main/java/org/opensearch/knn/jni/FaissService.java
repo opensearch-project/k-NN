@@ -53,8 +53,10 @@ class FaissService {
      * @param data array of float arrays to be indexed
      * @param indexPath path to save index file to
      * @param templateIndex empty template index
+     * @param parameters additional build time parameters
      */
-    public static native void createIndexFromTemplate(int[] ids, float[][] data, String indexPath, byte[] templateIndex);
+    public static native void createIndexFromTemplate(int[] ids, float[][] data, String indexPath, byte[] templateIndex,
+                                                      Map<String, Object> parameters);
 
     /**
      * Load an index into memory
