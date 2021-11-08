@@ -100,6 +100,7 @@ public class KNNConstants {
     public static final Integer METHOD_PARAMETER_NPROBES_LIMIT = 20000;
     public static final Integer METHOD_PARAMETER_NLIST_LIMIT = 20000;
     public static final Integer MAX_MODEL_DESCRIPTION_LENGTH = 1000; // max number of chars a model's description can be
+    public static final Integer MODEL_CACHE_CAPACITY_ATROPHY_THRESHOLD_IN_MINUTES = 30;
     public static final Integer MODEL_CACHE_EXPIRE_AFTER_ACCESS_TIME_MINUTES = 30;
 
     // Lib names

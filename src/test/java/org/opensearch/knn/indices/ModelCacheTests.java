@@ -336,4 +336,33 @@ public class ModelCacheTests extends KNNTestCase {
         modelCache.removeAll();
         assertEquals( 0, modelCache.getTotalWeightInKB());
     }
+
+    public void testModelCacheEvictionDueToSize() throws ExecutionException, InterruptedException {
+        String modelIdPattern = "test-model-id-%d";
+        int dimension = 2;
+        int maxDocuments = 10;
+        ModelDao modelDao = mock(ModelDao.class);
+        for(int i =0; i < maxDocuments; i++){
+            String modelId = String.format(modelIdPattern,i);
+            Model mockModel = new Model(new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, dimension, ModelState.CREATED,
+                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""), new byte[BYTES_PER_KILOBYTES*2], modelId);
+            when(modelDao.get(modelId)).thenReturn(mockModel);
+        }
+
+        String cacheSize = "10kb";
+        Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), cacheSize).build();
+        ClusterSettings clusterSettings = new ClusterSettings(settings,
+            ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
+        ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        when(clusterService.getSettings()).thenReturn(settings);
+
+        ModelCache.initialize(modelDao, clusterService);
+        ModelCache modelCache = new ModelCache();
+        assertNull(modelCache.getEvictedDueToSizeAt());
+        for(int i =0; i < maxDocuments; i++){
+            modelCache.get(String.format(modelIdPattern,i));
+        }
+       assertNotNull(modelCache.getEvictedDueToSizeAt());
+    }
 }
