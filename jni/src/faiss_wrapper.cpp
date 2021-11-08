@@ -80,6 +80,12 @@ void knn_jni::faiss_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JN
     std::unique_ptr<faiss::Index> indexWriter;
     indexWriter.reset(faiss::index_factory(dim, indexDescriptionCpp.c_str(), metric));
 
+    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
+    if(parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY) != parametersCpp.end()) {
+        auto threadCount = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::INDEX_THREAD_QUANTITY]);
+        omp_set_num_threads(threadCount);
+    }
+
     // Add extra parameters that cant be configured with the index factory
     if(parametersCpp.find(knn_jni::PARAMETERS) != parametersCpp.end()) {
         jobject subParametersJ = parametersCpp[knn_jni::PARAMETERS];
@@ -105,7 +111,7 @@ void knn_jni::faiss_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JN
 
 void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
                                                      jobjectArray vectorsJ, jstring indexPathJ,
-                                                     jbyteArray templateIndexJ) {
+                                                     jbyteArray templateIndexJ, jobject parametersJ) {
     if (idsJ == nullptr) {
         throw std::runtime_error("IDs cannot be null");
     }
@@ -121,6 +127,14 @@ void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface *
     if (templateIndexJ == nullptr) {
         throw std::runtime_error("Template index cannot be null");
     }
+
+    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
+    auto parametersCpp = jniUtil->ConvertJavaMapToCppMap(env, parametersJ);
+    if(parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY) != parametersCpp.end()) {
+        auto threadCount = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::INDEX_THREAD_QUANTITY]);
+        omp_set_num_threads(threadCount);
+    }
+    jniUtil->DeleteLocalRef(env, parametersJ);
 
     // Read data set
     int numVectors = jniUtil->GetJavaObjectArrayLength(env, vectorsJ);
@@ -242,6 +256,12 @@ jbyteArray knn_jni::faiss_wrapper::TrainIndex(knn_jni::JNIUtilInterface * jniUti
 
     std::unique_ptr<faiss::Index> indexWriter;
     indexWriter.reset(faiss::index_factory((int) dimensionJ, indexDescriptionCpp.c_str(), metric));
+
+    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
+    if(parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY) != parametersCpp.end()) {
+        auto threadCount = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::INDEX_THREAD_QUANTITY]);
+        omp_set_num_threads(threadCount);
+    }
 
     // Add extra parameters that cant be configured with the index factory
     if(parametersCpp.find(knn_jni::PARAMETERS) != parametersCpp.end()) {

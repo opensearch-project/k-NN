@@ -25,10 +25,12 @@
 
 package org.opensearch.knn.index.codec.KNN80Codec;
 
+import com.google.common.collect.ImmutableMap;
 import org.opensearch.common.xcontent.DeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNNCodecUtil;
@@ -165,9 +167,12 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
     private void createKNNIndexFromTemplate(byte[] model, KNNCodecUtil.Pair pair, KNNEngine knnEngine,
                                             String indexPath) {
+        Map<String, Object> parameters = ImmutableMap.of(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(
+                KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
         AccessController.doPrivileged(
                 (PrivilegedAction<Void>) () -> {
-                    JNIService.createIndexFromTemplate(pair.docs, pair.vectors, indexPath, model, knnEngine.getName());
+                    JNIService.createIndexFromTemplate(pair.docs, pair.vectors, indexPath, model, parameters,
+                            knnEngine.getName());
                     return null;
                 }
         );
@@ -200,6 +205,10 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                             DeprecationHandler.THROW_UNSUPPORTED_OPERATION, parametersString).map()
             );
         }
+
+        // Used to determine how many threads to use when indexing
+        parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(
+                KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
 
         // Pass the path for the nms library to save the file
         AccessController.doPrivileged(

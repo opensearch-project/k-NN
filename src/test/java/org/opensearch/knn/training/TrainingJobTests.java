@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutionException;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QTY;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 
@@ -170,7 +171,7 @@ public class TrainingJobTests extends KNNTestCase {
         fillFloatArrayRandomly(vectors);
 
         Path indexPath = createTempFile();
-        JNIService.createIndexFromTemplate(ids, vectors, indexPath.toString(), model.getModelBlob(), knnEngine.getName());
+        JNIService.createIndexFromTemplate(ids, vectors, indexPath.toString(), model.getModelBlob(), ImmutableMap.of(INDEX_THREAD_QTY, 1), knnEngine.getName());
         assertNotEquals(0, new File(indexPath.toString()).length());
     }
 

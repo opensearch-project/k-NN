@@ -463,6 +463,7 @@ const std::string knn_jni::METHOD = "method";
 const std::string knn_jni::INDEX_DESCRIPTION = "index_description";
 const std::string knn_jni::PARAMETERS = "parameters";
 const std::string knn_jni::TRAINING_DATASET_SIZE_LIMIT = "training_dataset_size_limit";
+const std::string knn_jni::INDEX_THREAD_QUANTITY = "indexThreadQty";
 
 const std::string knn_jni::L2 = "l2";
 const std::string knn_jni::L1 = "l1";

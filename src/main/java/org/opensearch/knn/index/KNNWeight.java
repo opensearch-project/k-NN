@@ -56,6 +56,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -154,12 +155,22 @@ public class KNNWeight extends Weight {
             // We need to first get index allocation
             NativeMemoryAllocation indexAllocation = null;
 
+            Map<String, Object> loadParameters = new HashMap<String, Object>() {{
+                put(SPACE_TYPE, spaceType.getValue());
+            }};
+
+            // For nmslib, we set efSearch from an index setting. This has the advantage of being able to dynamically
+            // update this value, which we cannot do at the moment for mapping parameters.
+            if (knnEngine.equals(KNNEngine.NMSLIB)) {
+                loadParameters.put(KNNConstants.HNSW_ALGO_EF_SEARCH, KNNSettings.getEfSearchParam(knnQuery.getIndexName()));
+            }
+
             try {
                 indexAllocation = nativeMemoryCacheManager.get(
                         new NativeMemoryEntryContext.IndexEntryContext(
                                 indexPath.toString(),
                                 NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                                ImmutableMap.of(SPACE_TYPE, spaceType.getValue()),
+                                loadParameters,
                                 knnQuery.getIndexName()
                         ), true);
             } catch (ExecutionException e) {

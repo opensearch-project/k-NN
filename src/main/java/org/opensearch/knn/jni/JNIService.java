@@ -52,12 +52,13 @@ public class JNIService {
      * @param data array of float arrays to be indexed
      * @param indexPath path to save index file to
      * @param templateIndex empty template index
+     * @param parameters parameters to build index
      * @param engineName name of engine to build index for
      */
     public static void createIndexFromTemplate(int[] ids, float[][] data, String indexPath, byte[] templateIndex,
-                                                      String engineName) {
+                                               Map<String, Object> parameters, String engineName) {
         if (KNNEngine.FAISS.getName().equals(engineName)) {
-            FaissService.createIndexFromTemplate(ids, data, indexPath, templateIndex);
+            FaissService.createIndexFromTemplate(ids, data, indexPath, templateIndex, parameters);
             return;
         }
 

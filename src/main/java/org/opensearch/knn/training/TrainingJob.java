@@ -15,6 +15,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.common.Strings;
 import org.opensearch.common.UUIDs;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -26,6 +28,7 @@ import org.opensearch.knn.indices.ModelState;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -162,8 +165,12 @@ public class TrainingJob implements Runnable {
                 throw new RuntimeException("Unable to load training data into memory: allocation is already closed");
             }
 
+            Map<String, Object> trainParameters = model.getModelMetadata().getKnnEngine().getMethodAsMap(knnMethodContext);
+            trainParameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(
+                    KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
+
             byte[] modelBlob = JNIService.trainIndex(
-                    model.getModelMetadata().getKnnEngine().getMethodAsMap(knnMethodContext),
+                    trainParameters,
                     model.getModelMetadata().getDimension(),
                     trainingDataAllocation.getMemoryAddress(),
                     model.getModelMetadata().getKnnEngine().getName()
