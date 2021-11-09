@@ -60,15 +60,10 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
         // Get the size of the training request and then route the request. We get/set this here, as opposed to in
         // TrainingModelTransportAction, because in the future, we may want to use size to factor into our routing
         // decision.
-        KNNCounter.TRAINING_REQUESTS.increment();
-        ActionListener<TrainingModelResponse> wrappedListener = ActionListener.wrap(listener::onResponse, ex -> {
-           KNNCounter.TRAINING_ERRORS.increment();
-           listener.onFailure(ex);
-        });
         getTrainingIndexSizeInKB(request, ActionListener.wrap(size -> {
             request.setTrainingDataSizeInKB(size);
-            routeRequest(request, wrappedListener);
-        }, wrappedListener::onFailure));
+            routeRequest(request, listener);
+        }, listener::onFailure));
     }
 
     protected void routeRequest(TrainingModelRequest request, ActionListener<TrainingModelResponse> listener) {
