@@ -13,6 +13,7 @@ package org.opensearch.knn.jni;
 
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNQueryResult;
+import org.opensearch.knn.index.util.KNNEngine;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -32,6 +33,7 @@ class NmslibService {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             System.loadLibrary(KNNConstants.NMSLIB_JNI_LIBRARY_NAME);
             initLibrary();
+            KNNEngine.NMSLIB.setInitialized(true);
             return null;
         });
     }

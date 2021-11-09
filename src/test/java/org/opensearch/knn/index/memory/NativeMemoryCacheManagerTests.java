@@ -173,6 +173,40 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
         nativeMemoryCacheManager.close();
     }
 
+    public void testGetTrainingSize() throws ExecutionException {
+        NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
+        long maxWeight = nativeMemoryCacheManager.getMaxCacheSizeInKilobytes();
+        int genericEntryWeight = (int) (maxWeight / 3);
+        int allocationEntryWeight = (int) (maxWeight / 3);
+
+        TestNativeMemoryEntryContent testNativeMemoryEntryContent = new TestNativeMemoryEntryContent(
+                "test-1", genericEntryWeight, 0);
+
+        nativeMemoryCacheManager.get(testNativeMemoryEntryContent, true);
+
+        String indexName = "test-index";
+        String key = "test-key";
+
+        NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
+                null,
+                0,
+                allocationEntryWeight
+        );
+
+        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext =
+                mock(NativeMemoryEntryContext.TrainingDataEntryContext.class);
+        when(trainingDataEntryContext.load()).thenReturn(trainingDataAllocation);
+        when(trainingDataEntryContext.getKey()).thenReturn(key);
+
+        nativeMemoryCacheManager.get(trainingDataEntryContext, true);
+
+        assertEquals((float) allocationEntryWeight, nativeMemoryCacheManager.getTrainingSizeInKilobytes(), 0.001);
+        assertEquals(100 * (float) allocationEntryWeight / (float) maxWeight,
+                nativeMemoryCacheManager.getTrainingSizeAsPercentage(), 0.001);
+
+        nativeMemoryCacheManager.close();
+    }
+
     public void testGetIndexGraphCount() throws ExecutionException, IOException {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
         long maxWeight = nativeMemoryCacheManager.getMaxCacheSizeInKilobytes();
