@@ -13,6 +13,7 @@ package org.opensearch.knn.jni;
 
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNQueryResult;
+import org.opensearch.knn.index.util.KNNEngine;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -34,6 +35,7 @@ class FaissService {
             initLibrary();
             return null;
         });
+        KNNEngine.FAISS.setInitialized(true);
     }
 
     /**

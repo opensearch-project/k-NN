@@ -29,8 +29,10 @@ import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.plugin.stats.suppliers.LibraryInitializedSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.EventOccurredWithinThresholdSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNCircuitBreakerSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNCounterSupplier;
@@ -91,5 +93,9 @@ public class KNNStatsConfig {
                         new ModelIndexingDegradingSupplier(ModelCache::getEvictedDueToSizeAt),
                         KNNConstants.MODEL_CACHE_CAPACITY_ATROPHY_THRESHOLD_IN_MINUTES,
                         ChronoUnit.MINUTES)))
+            .put(StatNames.FAISS_LOADED.getName(), new KNNStat<>(false,
+                    new LibraryInitializedSupplier(KNNEngine.FAISS)))
+            .put(StatNames.NMSLIB_LOADED.getName(), new KNNStat<>(false,
+                    new LibraryInitializedSupplier(KNNEngine.NMSLIB)))
             .build();
 }
