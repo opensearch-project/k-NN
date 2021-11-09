@@ -19,6 +19,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
@@ -85,6 +86,7 @@ public class TrainingJobRunner {
         if (!semaphore.tryAcquire()) {
             ValidationException exception = new ValidationException();
             exception.addValidationError("Unable to run training job: No training capacity on node.");
+            KNNCounter.TRAINING_ERRORS.increment();
             throw exception;
         }
 
@@ -125,8 +127,11 @@ public class TrainingJobRunner {
         ActionListener<IndexResponse> loggingListener = ActionListener.wrap(
                 indexResponse -> logger.debug("[KNN] Model serialization update for \"" +
                         trainingJob.getModelId() + "\" was successful"),
-                e -> logger.error("[KNN] Model serialization update for \"" + trainingJob.getModelId()  +
-                        "\" failed: " + e.getMessage())
+                e -> {
+                    logger.error("[KNN] Model serialization update for \"" + trainingJob.getModelId()  +
+                            "\" failed: " + e.getMessage());
+                    KNNCounter.TRAINING_ERRORS.increment();
+                }
         );
 
         try {
@@ -136,9 +141,11 @@ public class TrainingJobRunner {
                     serializeModel(trainingJob, loggingListener, true);
                 } catch (IOException e) {
                     logger.error("Unable to serialize model \"" + trainingJob.getModelId() + "\": " + e.getMessage());
+                    KNNCounter.TRAINING_ERRORS.increment();
                 } catch (Exception e) {
                     logger.error("Unable to complete training for \"" + trainingJob.getModelId() + "\": "
                             + e.getMessage());
+                    KNNCounter.TRAINING_ERRORS.increment();
                 } finally {
                     jobCount.decrementAndGet();
                     semaphore.release();
@@ -158,6 +165,7 @@ public class TrainingJobRunner {
             } finally {
                 jobCount.decrementAndGet();
                 semaphore.release();
+                KNNCounter.TRAINING_ERRORS.increment();
             }
         }
     }
