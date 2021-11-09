@@ -33,9 +33,9 @@ class FaissService {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             System.loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);
             initLibrary();
+            KNNEngine.FAISS.setInitialized(true);
             return null;
         });
-        KNNEngine.FAISS.setInitialized(true);
     }
 
     /**

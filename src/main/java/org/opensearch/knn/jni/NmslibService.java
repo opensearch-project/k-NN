@@ -33,9 +33,9 @@ class NmslibService {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             System.loadLibrary(KNNConstants.NMSLIB_JNI_LIBRARY_NAME);
             initLibrary();
+            KNNEngine.NMSLIB.setInitialized(true);
             return null;
         });
-        KNNEngine.NMSLIB.setInitialized(true);
     }
 
     /**
