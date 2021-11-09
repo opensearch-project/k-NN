@@ -63,6 +63,7 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
         KNNCounter.TRAINING_REQUESTS.increment();
         ActionListener<TrainingModelResponse> wrappedListener = ActionListener.wrap(listener::onResponse, ex -> {
            KNNCounter.TRAINING_ERRORS.increment();
+           listener.onFailure(ex);
         });
         getTrainingIndexSizeInKB(request, ActionListener.wrap(size -> {
             request.setTrainingDataSizeInKB(size);
