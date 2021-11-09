@@ -118,6 +118,36 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     /**
+     * Returns how full the cache is as a percentage of the total cache capacity.
+     *
+     * @return Percentage of the cache full
+     */
+    public Float getCacheSizeAsPercentage() {
+        return getSizeAsPercentage(getCacheSizeInKilobytes());
+    }
+
+    /**
+     * Getter for current size of all indices in Kilobytes.
+     *
+     * @return current size of the cache
+     */
+    public long getIndicesSizeInKilobytes() {
+        return cache.asMap().values().stream()
+                .filter(nativeMemoryAllocation -> nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
+                .mapToLong(NativeMemoryAllocation::getSizeInKB)
+                .sum();
+    }
+
+    /**
+     * Returns how full the cache is as a percentage of the total cache capacity.
+     *
+     * @return Percentage of the cache full
+     */
+    public Float getIndicesSizeAsPercentage() {
+        return getSizeAsPercentage(getIndicesSizeInKilobytes());
+    }
+
+    /**
      * Returns the current size of an index in the cache in KiloBytes.
      *
      * @param indexName Name if index to get the weight for
@@ -133,15 +163,6 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     /**
-     * Returns how full the cache is as a percentage of the total cache capacity.
-     *
-     * @return Percentage of the cache full
-     */
-    public Float getCacheSizeAsPercentage() {
-        return 100 * getCacheSizeInKilobytes() / (float) KNNSettings.getCircuitBreakerLimit().getKb();
-    }
-
-    /**
      * Returns the how much space an index is taking up in the cache as a percentage of the total cache capacity.
      *
      * @param indexName name of the index
@@ -149,7 +170,31 @@ public class NativeMemoryCacheManager implements Closeable {
      */
     public Float getIndexSizeAsPercentage(final String indexName) {
         Validate.notNull(indexName, "Index name cannot be null");
-        return 100 * getIndexSizeInKilobytes(indexName) / (float) KNNSettings.getCircuitBreakerLimit().getKb();
+        return getSizeAsPercentage(getIndexSizeInKilobytes(indexName));
+    }
+
+    /**
+     * Getter for current size of all training jobs in Kilobytes.
+     *
+     * @return current size of the cache
+     */
+    public long getTrainingSizeInKilobytes() {
+        // Currently, all allocations that are not index allocations will be for training.
+        return cache.asMap().values().stream()
+                .filter(nativeMemoryAllocation ->
+                        nativeMemoryAllocation instanceof NativeMemoryAllocation.TrainingDataAllocation ||
+                                nativeMemoryAllocation instanceof NativeMemoryAllocation.AnonymousAllocation)
+                .mapToLong(NativeMemoryAllocation::getSizeInKB)
+                .sum();
+    }
+
+    /**
+     * Returns how full the cache is as a percentage of the total cache capacity.
+     *
+     * @return Percentage of the cache full
+     */
+    public Float getTrainingSizeAsPercentage() {
+        return getSizeAsPercentage(getTrainingSizeInKilobytes());
     }
 
     /**
@@ -245,9 +290,9 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     /**
-     * Get the stats of all of the Elasticsearch indices currently loaded into the cache
+     * Get the stats of all of the OpenSearch indices currently loaded into the cache
      *
-     * @return Map containing all of the Elasticsearch indices in the cache and their stats
+     * @return Map containing all of the OpenSearch indices in the cache and their stats
      */
     public Map<String, Map<String, Object>> getIndicesCacheStats() {
         Map<String, Map<String, Object>> statValues = new HashMap<>();
@@ -283,5 +328,13 @@ public class NativeMemoryCacheManager implements Closeable {
 
         logger.debug("[KNN] Cache evicted. Key {}, Reason: {}", removalNotification.getKey(),
                 removalNotification.getCause());
+    }
+
+    private Float getSizeAsPercentage(long size) {
+        long cbLimit = KNNSettings.getCircuitBreakerLimit().getKb();
+        if (cbLimit == 0) {
+            return 0.0F;
+        }
+        return 100 * size / (float) cbLimit;
     }
 }
