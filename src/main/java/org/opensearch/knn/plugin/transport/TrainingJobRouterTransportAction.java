@@ -23,13 +23,11 @@ import org.opensearch.common.Strings;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
 
-import javax.swing.*;
 import java.util.concurrent.RejectedExecutionException;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
