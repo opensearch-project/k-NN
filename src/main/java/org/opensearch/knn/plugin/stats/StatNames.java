@@ -44,6 +44,8 @@ public enum StatNames {
     INDICES_IN_CACHE("indices_in_cache"),
     CIRCUIT_BREAKER_TRIGGERED("circuit_breaker_triggered"),
     MODEL_INDEX_STATUS("model_index_status"),
+    FAISS_LOADED("faiss_initialized"),
+    NMSLIB_LOADED("nmslib_initialized"),
     INDEXING_FROM_MODEL_DEGRADED("indexing_from_model_degraded"),
     GRAPH_QUERY_ERRORS(KNNCounter.GRAPH_QUERY_ERRORS.getName()),
     GRAPH_QUERY_REQUESTS(KNNCounter.GRAPH_QUERY_REQUESTS.getName()),
@@ -53,6 +55,10 @@ public enum StatNames {
     SCRIPT_COMPILATIONS(KNNCounter.SCRIPT_COMPILATIONS.getName()),
     SCRIPT_COMPILATION_ERRORS(KNNCounter.SCRIPT_COMPILATION_ERRORS.getName()),
     SCRIPT_QUERY_REQUESTS(KNNCounter.SCRIPT_QUERY_REQUESTS.getName()),
+    TRAINING_REQUESTS(KNNCounter.TRAINING_REQUESTS.getName()),
+    TRAINING_ERRORS(KNNCounter.TRAINING_ERRORS.getName()),
+    TRAINING_MEMORY_USAGE("training_memory_usage"),
+    TRAINING_MEMORY_USAGE_PERCENTAGE("training_memory_usage_percentage"),
     SCRIPT_QUERY_ERRORS(KNNCounter.SCRIPT_QUERY_ERRORS.getName());
 
     private String name;
