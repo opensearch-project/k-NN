@@ -123,7 +123,7 @@ public class NativeMemoryCacheManager implements Closeable {
      * @return Percentage of the cache full
      */
     public Float getCacheSizeAsPercentage() {
-        return 100 * getCacheSizeInKilobytes() / (float) KNNSettings.getCircuitBreakerLimit().getKb();
+        return getSizeAsPercentage(getCacheSizeInKilobytes());
     }
 
     /**
@@ -144,7 +144,7 @@ public class NativeMemoryCacheManager implements Closeable {
      * @return Percentage of the cache full
      */
     public Float getIndicesSizeAsPercentage() {
-        return 100 * getIndicesSizeInKilobytes() / (float) KNNSettings.getCircuitBreakerLimit().getKb();
+        return getSizeAsPercentage(getIndicesSizeInKilobytes());
     }
 
     /**
@@ -170,7 +170,7 @@ public class NativeMemoryCacheManager implements Closeable {
      */
     public Float getIndexSizeAsPercentage(final String indexName) {
         Validate.notNull(indexName, "Index name cannot be null");
-        return 100 * getIndexSizeInKilobytes(indexName) / (float) KNNSettings.getCircuitBreakerLimit().getKb();
+        return getSizeAsPercentage(getIndexSizeInKilobytes(indexName));
     }
 
     /**
@@ -194,7 +194,7 @@ public class NativeMemoryCacheManager implements Closeable {
      * @return Percentage of the cache full
      */
     public Float getTrainingSizeAsPercentage() {
-        return 100 * getTrainingSizeInKilobytes() / (float) KNNSettings.getCircuitBreakerLimit().getKb();
+        return getSizeAsPercentage(getTrainingSizeInKilobytes());
     }
 
     /**
@@ -328,5 +328,13 @@ public class NativeMemoryCacheManager implements Closeable {
 
         logger.debug("[KNN] Cache evicted. Key {}, Reason: {}", removalNotification.getKey(),
                 removalNotification.getCause());
+    }
+
+    private Float getSizeAsPercentage(long size) {
+        long cbLimit = KNNSettings.getCircuitBreakerLimit().getKb();
+        if (cbLimit == 0) {
+            return 0.0F;
+        }
+        return 100 * size / (float) cbLimit;
     }
 }
