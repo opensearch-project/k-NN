@@ -17,7 +17,6 @@ import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
@@ -42,11 +41,9 @@ public enum KNNEngine implements KNNLibrary {
     KNNEngine(String name, KNNLibrary knnLibrary) {
         this.name = name;
         this.knnLibrary = knnLibrary;
-        this.initialized = new AtomicBoolean(false);
     }
 
     private String name;
-    private AtomicBoolean initialized;
     private KNNLibrary knnLibrary;
 
     /**
