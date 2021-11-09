@@ -97,5 +97,9 @@ public class KNNStatsConfig {
                     new LibraryInitializedSupplier(KNNEngine.FAISS)))
             .put(StatNames.NMSLIB_LOADED.getName(), new KNNStat<>(false,
                     new LibraryInitializedSupplier(KNNEngine.NMSLIB)))
+            .put(StatNames.TRAINING_REQUESTS.getName(), new KNNStat<>(false,
+                    new KNNCounterSupplier(KNNCounter.TRAINING_REQUESTS)))
+            .put(StatNames.TRAINING_ERRORS.getName(), new KNNStat<>(false,
+                    new KNNCounterSupplier(KNNCounter.TRAINING_ERRORS)))
             .build();
 }

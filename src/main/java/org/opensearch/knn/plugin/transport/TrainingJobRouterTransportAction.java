@@ -23,11 +23,13 @@ import org.opensearch.common.Strings;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
 
+import javax.swing.*;
 import java.util.concurrent.RejectedExecutionException;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
@@ -58,10 +60,14 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
         // Get the size of the training request and then route the request. We get/set this here, as opposed to in
         // TrainingModelTransportAction, because in the future, we may want to use size to factor into our routing
         // decision.
+        KNNCounter.TRAINING_REQUESTS.increment();
+        ActionListener<TrainingModelResponse> wrappedListener = ActionListener.wrap(listener::onResponse, ex -> {
+           KNNCounter.TRAINING_ERRORS.increment();
+        });
         getTrainingIndexSizeInKB(request, ActionListener.wrap(size -> {
             request.setTrainingDataSizeInKB(size);
-            routeRequest(request, listener);
-        }, listener::onFailure));
+            routeRequest(request, wrappedListener);
+        }, wrappedListener::onFailure));
     }
 
     protected void routeRequest(TrainingModelRequest request, ActionListener<TrainingModelResponse> listener) {
