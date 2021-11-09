@@ -39,7 +39,9 @@ public enum KNNCounter {
     SCRIPT_COMPILATIONS("script_compilations"),
     SCRIPT_COMPILATION_ERRORS("script_compilation_errors"),
     SCRIPT_QUERY_REQUESTS("script_query_requests"),
-    SCRIPT_QUERY_ERRORS("script_query_errors");
+    SCRIPT_QUERY_ERRORS("script_query_errors"),
+    TRAINING_REQUESTS("training_requests"),
+    TRAINING_ERRORS("training_errors");
 
     private String name;
     private AtomicLong count;

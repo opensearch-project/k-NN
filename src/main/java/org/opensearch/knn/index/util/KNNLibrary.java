@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
@@ -139,6 +140,20 @@ public interface KNNLibrary {
     Map<String, Object> getMethodAsMap(KNNMethodContext knnMethodContext);
 
     /**
+     * Getter for initialized
+     *
+     * @return whether library has been initialized
+     */
+    Boolean isInitialized();
+
+    /**
+     * Set initialized to true
+     *
+     * @param isInitialized whether library has been initialized
+     */
+    void setInitialized(Boolean isInitialized);
+
+    /**
      * Abstract implementation of KNNLibrary. It contains several default methods and fields that
      * are common across different underlying libraries.
      */
@@ -148,6 +163,7 @@ public interface KNNLibrary {
         private String latestLibraryBuildVersion;
         private String latestLibraryVersion;
         private String extension;
+        private AtomicBoolean initialized;
 
         /**
          * Constructor for NativeLibrary
@@ -166,6 +182,7 @@ public interface KNNLibrary {
             this.latestLibraryBuildVersion = latestLibraryBuildVersion;
             this.latestLibraryVersion = latestLibraryVersion;
             this.extension = extension;
+            this.initialized = new AtomicBoolean(false);
         }
 
         @Override
@@ -234,6 +251,16 @@ public interface KNNLibrary {
             }
 
             return knnMethod.getAsMap(knnMethodContext);
+        }
+
+        @Override
+        public Boolean isInitialized() {
+            return initialized.get();
+        }
+
+        @Override
+        public void setInitialized(Boolean isInitialized) {
+            initialized.set(isInitialized);
         }
     }
 

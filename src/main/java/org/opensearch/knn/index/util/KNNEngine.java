@@ -143,4 +143,14 @@ public enum KNNEngine implements KNNLibrary {
     public int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension) {
         return knnLibrary.estimateOverheadInKB(knnMethodContext, dimension);
     }
+
+    @Override
+    public Boolean isInitialized() {
+        return knnLibrary.isInitialized();
+    }
+
+    @Override
+    public void setInitialized(Boolean isInitialized) {
+        knnLibrary.setInitialized(isInitialized);
+    }
 }

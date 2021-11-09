@@ -19,6 +19,7 @@ import org.opensearch.indices.IndicesService;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.knn.training.TrainingJob;
 import org.opensearch.knn.training.TrainingJobRunner;
 import org.opensearch.tasks.Task;
@@ -44,6 +45,7 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
     @Override
     protected void doExecute(Task task, TrainingModelRequest request,
                              ActionListener<TrainingModelResponse> listener) {
+
         NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext =
                 new NativeMemoryEntryContext.TrainingDataEntryContext(
                         request.getTrainingDataSizeInKB(),
@@ -72,13 +74,19 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
                 request.getDescription()
         );
 
+        KNNCounter.TRAINING_REQUESTS.increment();
+        ActionListener<TrainingModelResponse> wrappedListener = ActionListener.wrap(listener::onResponse, ex -> {
+            KNNCounter.TRAINING_ERRORS.increment();
+            listener.onFailure(ex);
+        });
+
         try {
             TrainingJobRunner.getInstance().execute(trainingJob, ActionListener.wrap(
-                    indexResponse -> listener.onResponse(new TrainingModelResponse(indexResponse.getId())),
-                    listener::onFailure)
+                    indexResponse -> wrappedListener.onResponse(new TrainingModelResponse(indexResponse.getId())),
+                    wrappedListener::onFailure)
             );
         } catch (IOException e) {
-            listener.onFailure(e);
+            wrappedListener.onFailure(e);
         }
     }
 }
