@@ -57,6 +57,8 @@ public enum StatNames {
     SCRIPT_QUERY_REQUESTS(KNNCounter.SCRIPT_QUERY_REQUESTS.getName()),
     TRAINING_REQUESTS(KNNCounter.TRAINING_REQUESTS.getName()),
     TRAINING_ERRORS(KNNCounter.TRAINING_ERRORS.getName()),
+    TRAINING_MEMORY_USAGE("training_memory_usage"),
+    TRAINING_MEMORY_USAGE_PERCENTAGE("training_memory_usage_percentage"),
     SCRIPT_QUERY_ERRORS(KNNCounter.SCRIPT_QUERY_ERRORS.getName());
 
     private String name;
