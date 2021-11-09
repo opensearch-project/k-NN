@@ -7,6 +7,7 @@ OpenSearch k-NN is a community project that is built and maintained by people ju
 - [First Things First](#first-things-first)
 - [Ways to Contribute](#ways-to-contribute)
 - [Developer Certificate of Origin](#developer-certificate-of-origin)
+- [License Headers](#license-headers)
 - [Review Process](#review-process)
 
 
@@ -102,6 +103,31 @@ Each commit must include a DCO which looks like this
 Signed-off-by: Jane Smith <jane.smith@email.com>
 ```
 You may type this line on your own when writing your commit messages.  However, if your user.name and user.email are set in your git configs, you can use `-s` or `– – signoff` to add the `Signed-off-by` line to the end of the commit message.
+
+## License Headers
+
+New files in your code contributions should contain the following license header. If you are modifying existing files with license headers, or including new files that already have license headers, do not remove or modify them without guidance.
+
+### Java
+
+```
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+```
+
+### Python
+```
+# Copyright OpenSearch Contributors
+# SPDX-License-Identifier: Apache-2.0
+```
+
+### Shell
+```
+# Copyright OpenSearch Contributors
+# SPDX-License-Identifier: Apache-2.0
+```
 
 ## Review Process
 
