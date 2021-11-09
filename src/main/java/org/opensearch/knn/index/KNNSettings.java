@@ -90,9 +90,9 @@ public class KNNSettings {
     public static final String KNN_PLUGIN_ENABLED = "knn.plugin.enabled";
     public static final String KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE = "knn.circuit_breaker.unset.percentage";
     public static final String KNN_INDEX = "index.knn";
-    public static final String MODEL_INDEX_NUMBER_OF_SHARDS = "knn.model_index_number_of_shards";
-    public static final String MODEL_INDEX_NUMBER_OF_REPLICAS = "knn.model_index_number_of_replicas";
-    public static final String MODEL_CACHE_SIZE_LIMIT = "knn.model_cache.size.limit";
+    public static final String MODEL_INDEX_NUMBER_OF_SHARDS = "knn.model.index.number_of_shards";
+    public static final String MODEL_INDEX_NUMBER_OF_REPLICAS = "knn.model.index.number_of_replicas";
+    public static final String MODEL_CACHE_SIZE_LIMIT = "knn.model.cache.size.limit";
 
     /**
      * Default setting values
