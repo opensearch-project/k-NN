@@ -29,8 +29,10 @@ import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.plugin.stats.suppliers.LibraryInitializedSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.EventOccurredWithinThresholdSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNCircuitBreakerSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNCounterSupplier;
@@ -57,9 +59,9 @@ public class KNNStatsConfig {
             .put(StatNames.EVICTION_COUNT.getName(), new KNNStat<>(false,
                     new KNNInnerCacheStatsSupplier(CacheStats::evictionCount)))
             .put(StatNames.GRAPH_MEMORY_USAGE.getName(), new KNNStat<>(false,
-                    new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getCacheSizeInKilobytes)))
+                    new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getIndicesSizeInKilobytes)))
             .put(StatNames.GRAPH_MEMORY_USAGE_PERCENTAGE.getName(), new KNNStat<>(false,
-                    new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getCacheSizeAsPercentage)))
+                    new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getIndicesSizeAsPercentage)))
             .put(StatNames.INDICES_IN_CACHE.getName(), new KNNStat<>(false,
                     new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getIndicesCacheStats)))
             .put(StatNames.CACHE_CAPACITY_REACHED.getName(), new KNNStat<>(false,
@@ -91,5 +93,17 @@ public class KNNStatsConfig {
                         new ModelIndexingDegradingSupplier(ModelCache::getEvictedDueToSizeAt),
                         KNNConstants.MODEL_CACHE_CAPACITY_ATROPHY_THRESHOLD_IN_MINUTES,
                         ChronoUnit.MINUTES)))
+            .put(StatNames.FAISS_LOADED.getName(), new KNNStat<>(false,
+                    new LibraryInitializedSupplier(KNNEngine.FAISS)))
+            .put(StatNames.NMSLIB_LOADED.getName(), new KNNStat<>(false,
+                    new LibraryInitializedSupplier(KNNEngine.NMSLIB)))
+            .put(StatNames.TRAINING_REQUESTS.getName(), new KNNStat<>(false,
+                    new KNNCounterSupplier(KNNCounter.TRAINING_REQUESTS)))
+            .put(StatNames.TRAINING_ERRORS.getName(), new KNNStat<>(false,
+                    new KNNCounterSupplier(KNNCounter.TRAINING_ERRORS)))
+            .put(StatNames.TRAINING_MEMORY_USAGE.getName(), new KNNStat<>(false,
+                    new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getTrainingSizeInKilobytes)))
+            .put(StatNames.TRAINING_MEMORY_USAGE_PERCENTAGE.getName(), new KNNStat<>(false,
+                    new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getTrainingSizeAsPercentage)))
             .build();
 }
