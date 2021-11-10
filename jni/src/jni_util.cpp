@@ -139,30 +139,18 @@ std::unordered_map<std::string, jobject> knn_jni::JNIUtil::ConvertJavaMapToCppMa
         throw std::runtime_error("Parameters cannot be null");
     }
 
-    // Load all of the class and methods to iterate over a map
-    jclass mapClassJ = this->FindClass(env, "java/util/Map");
-
+    // Load all of the methods to iterate over a map
     jmethodID entrySetMethodJ = this->FindMethod(env, "java/util/Map", "entrySet");
 
     jobject parametersEntrySetJ = env->CallObjectMethod(parametersJ, entrySetMethodJ);
     this->HasExceptionInStack(env, R"(Unable to call "entrySet" method on "java/util/Map")");
-
-    jclass setClassJ = this->FindClass(env, "java/util/Set");
-
     jmethodID iteratorJ = this->FindMethod(env, "java/util/Set", "iterator");
-
-    jclass iteratorClassJ = this->FindClass(env, "java/util/Iterator");
-
     jobject iterJ = env->CallObjectMethod(parametersEntrySetJ, iteratorJ);
     this->HasExceptionInStack(env, R"(Call to "iterator" method failed")");
 
     jmethodID hasNextMethodJ = this->FindMethod(env, "java/util/Iterator", "hasNext");
     jmethodID nextMethodJ = this->FindMethod(env, "java/util/Iterator", "next");
-
-    jclass entryClassJ = this->FindClass(env, "java/util/Map$Entry");
-
     jmethodID getKeyMethodJ = this->FindMethod(env, "java/util/Map$Entry", "getKey");
-
     jmethodID getValueMethodJ = this->FindMethod(env, "java/util/Map$Entry", "getValue");
 
     // Iterate over the java map and add entries to cpp unordered map
