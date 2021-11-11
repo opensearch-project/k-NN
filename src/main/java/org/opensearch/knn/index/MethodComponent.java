@@ -74,7 +74,7 @@ public class MethodComponent {
         if (mapGenerator == null) {
             Map<String, Object> parameterMap = new HashMap<>();
             parameterMap.put(KNNConstants.NAME, methodComponentContext.getName());
-            parameterMap.put(KNNConstants.PARAMETERS, methodComponentContext.getParameters());
+            parameterMap.put(KNNConstants.PARAMETERS, getParameterMapWithDefaultsAdded(methodComponentContext, this));
             return parameterMap;
         }
         return mapGenerator.apply(this, methodComponentContext);
@@ -298,5 +298,27 @@ public class MethodComponent {
         public MethodComponent build() {
             return new MethodComponent(this);
         }
+    }
+
+    /**
+     * Returns a map of the user provided parameters in addition to default parameters the user may not have passed
+     *
+     * @param methodComponentContext context containing user provided parameter
+     * @param methodComponent component containing method parameters and defaults
+     * @return Map of user provided parameters with defaults filled in as needed
+     */
+    public static Map<String, Object> getParameterMapWithDefaultsAdded(MethodComponentContext methodComponentContext,
+                                                                       MethodComponent methodComponent) {
+        Map<String, Object> parametersWithDefaultsMap = new HashMap<>();
+        Map<String, Object> userProvidedParametersMap = methodComponentContext.getParameters();
+        for (Parameter<?> parameter : methodComponent.getParameters().values()) {
+            if (methodComponentContext.getParameters().containsKey(parameter.getName())) {
+                parametersWithDefaultsMap.put(parameter.getName(), userProvidedParametersMap.get(parameter.getName()));
+            } else {
+                parametersWithDefaultsMap.put(parameter.getName(), parameter.getDefaultValue());
+            }
+        }
+
+        return parametersWithDefaultsMap;
     }
 }
