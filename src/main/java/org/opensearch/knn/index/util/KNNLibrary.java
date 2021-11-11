@@ -24,6 +24,7 @@ import org.opensearch.knn.index.SpaceType;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -50,6 +51,8 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST_LIMI
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_DEFAULT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_LIMIT;
+import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 /**
  * KNNLibrary is an interface that helps the plugin communicate with k-NN libraries
@@ -520,12 +523,15 @@ public interface KNNLibrary {
              * @param suffix to append to the index description after the parameter
              * @return this builder
              */
+            @SuppressWarnings("unchecked")
             MethodAsMapBuilder addParameter(String parameterName, String prefix, String suffix) {
                 indexDescription += prefix;
 
+                // When we add a parameter, what we are doing is taking it from the methods parameter and building it
+                // into the index description string faiss uses to create the index.
+                Map<String, Object> methodParameters = (Map<String, Object>) methodAsMap.get(PARAMETERS);
                 Parameter<?> parameter = methodComponent.getParameters().get(parameterName);
-                Object value = methodAsMap.containsKey(parameterName) ? methodAsMap.get(parameterName)
-                        : parameter.getDefaultValue();
+                Object value = methodParameters.containsKey(parameterName) ? methodParameters.get(parameterName) : parameter.getDefaultValue();
 
                 // Recursion is needed if the parameter is a method component context itself.
                 if (parameter instanceof Parameter.MethodComponentContextParameter) {
@@ -539,11 +545,11 @@ public interface KNNLibrary {
 
                     // We replace parameterName with the map that contains only parameters that are not included in
                     // the method description
-                    methodAsMap.put(parameterName, subMethodAsMap);
+                    methodParameters.put(parameterName, subMethodAsMap);
                 } else {
                     // Just add the value to the method description and remove from map
                     indexDescription += value;
-                    methodAsMap.remove(parameterName);
+                    methodParameters.remove(parameterName);
                 }
 
                 indexDescription += suffix;
@@ -562,8 +568,10 @@ public interface KNNLibrary {
 
             static MethodAsMapBuilder builder(String baseDescription, MethodComponent methodComponent,
                                               MethodComponentContext methodComponentContext) {
-                return new MethodAsMapBuilder(baseDescription, methodComponent,
-                        MethodComponent.getParameterMapWithDefaultsAdded(methodComponentContext, methodComponent));
+                Map<String, Object> initialMap = new HashMap<>();
+                initialMap.put(NAME, methodComponent.getName());
+                initialMap.put(PARAMETERS, MethodComponent.getParameterMapWithDefaultsAdded(methodComponentContext, methodComponent));
+                return new MethodAsMapBuilder(baseDescription, methodComponent, initialMap);
             }
         }
 
