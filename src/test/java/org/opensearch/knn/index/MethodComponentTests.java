@@ -13,7 +13,6 @@ package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.common.ValidationException;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 
@@ -112,22 +111,39 @@ public class MethodComponentTests extends KNNTestCase {
 
     public void testGetAsMap_withoutGenerator() throws IOException {
         String methodName = "test-method";
+        String parameterName1 = "valid1";
+        String parameterName2 = "valid2";
+        int default1 = 4;
+        int default2 = 5;
+
         MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
-                .addParameter("valid1", new Parameter.IntegerParameter("valid1",1, v -> v > 0))
-                .addParameter("valid2", new Parameter.IntegerParameter("valid2",1, v -> v > 0))
+                .addParameter(parameterName1, new Parameter.IntegerParameter(parameterName1, default1, v -> v > 0))
+                .addParameter(parameterName2, new Parameter.IntegerParameter(parameterName2, default2, v -> v > 0))
                 .build();
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
                 .field(NAME, methodName)
                 .startObject(PARAMETERS)
-                .field("valid1", 16)
-                .field("valid2", 128)
+                .field(parameterName1, 16)
+                .field(parameterName2, 128)
                 .endObject()
                 .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         MethodComponentContext methodComponentContext = MethodComponentContext.parse(in);
 
         assertEquals(in, methodComponent.getAsMap(methodComponentContext));
+
+        xContentBuilder = XContentFactory.jsonBuilder().startObject()
+                .field(NAME, methodName)
+                .startObject(PARAMETERS)
+                .endObject()
+                .endObject();
+        in = xContentBuilderToMap(xContentBuilder);
+        methodComponentContext = MethodComponentContext.parse(in);
+
+        Map<String, Object> methodAsMap = methodComponent.getAsMap(methodComponentContext);
+        assertEquals(default1, methodAsMap.get(parameterName1));
+        assertEquals(default2, methodAsMap.get(parameterName2));
     }
 
     public void testGetAsMap_withGenerator() throws IOException {
