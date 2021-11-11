@@ -184,11 +184,16 @@ public class KNNLibraryTests extends KNNTestCase {
         String methodDescription = "test-description";
         String parameter1 = "test-parameter-1";
         Integer value1 = 10;
+        Integer defaultValue1 = 1;
         String parameter2 = "test-parameter-2";
         Integer value2 = 15;
+        Integer defaultValue2 = 2;
+        String parameter3 = "test-parameter-3";
+        Integer defaultValue3 = 3;
         MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
-                .addParameter(parameter1, new Parameter.IntegerParameter(parameter1, 10, value -> value > 0))
-                .addParameter(parameter2, new Parameter.IntegerParameter(parameter2, 15, value -> value > 0))
+                .addParameter(parameter1, new Parameter.IntegerParameter(parameter1, defaultValue1, value -> value > 0))
+                .addParameter(parameter2, new Parameter.IntegerParameter(parameter2, defaultValue2, value -> value > 0))
+                .addParameter(parameter3, new Parameter.IntegerParameter(parameter3, defaultValue3, value -> value > 0))
                 .build();
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
@@ -201,8 +206,12 @@ public class KNNLibraryTests extends KNNTestCase {
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         MethodComponentContext methodComponentContext = MethodComponentContext.parse(in);
 
-        Map<String, Object> expectedMap = new HashMap<>(methodComponentContext.getParameters());
-        expectedMap.remove(parameter1);
+        Map<String, Object> expectedParametersMap = new HashMap<>(methodComponentContext.getParameters());
+        expectedParametersMap.put(parameter3, defaultValue3);
+        expectedParametersMap.remove(parameter1);
+        Map<String, Object> expectedMap = new HashMap<>();
+        expectedMap.put(PARAMETERS, expectedParametersMap);
+        expectedMap.put(NAME, methodName);
         expectedMap.put(INDEX_DESCRIPTION_PARAMETER, methodDescription + value1);
 
         Map<String, Object> methodAsMap = MethodAsMapBuilder

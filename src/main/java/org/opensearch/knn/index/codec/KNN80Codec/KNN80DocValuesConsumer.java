@@ -45,6 +45,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.codec.KNNCodecUtil.buildEngineFileName;
 
 /**
@@ -170,15 +171,16 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                     SpaceType.DEFAULT.getValue()));
 
             String efConstruction = fieldAttributes.get(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION);
+            Map<String, Object> algoParams = new HashMap<>();
             if (efConstruction != null) {
-                parameters.put(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, Integer.parseInt(efConstruction));
+                algoParams.put(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, Integer.parseInt(efConstruction));
             }
 
             String m = fieldAttributes.get(KNNConstants.HNSW_ALGO_M);
             if (m != null) {
-                parameters.put(KNNConstants.METHOD_PARAMETER_M, Integer.parseInt(m));
+                algoParams.put(KNNConstants.METHOD_PARAMETER_M, Integer.parseInt(m));
             }
-
+            parameters.put(PARAMETERS, algoParams);
         } else {
             parameters.putAll(
                     XContentFactory.xContent(XContentType.JSON).createParser(NamedXContentRegistry.EMPTY,

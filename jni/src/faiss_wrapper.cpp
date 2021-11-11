@@ -87,7 +87,12 @@ void knn_jni::faiss_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JN
     }
 
     // Add extra parameters that cant be configured with the index factory
-    SetExtraParameters(jniUtil, env, parametersCpp, indexWriter.get());
+    if(parametersCpp.find(knn_jni::PARAMETERS) != parametersCpp.end()) {
+        jobject subParametersJ = parametersCpp[knn_jni::PARAMETERS];
+        auto subParametersCpp = jniUtil->ConvertJavaMapToCppMap(env, subParametersJ);
+        SetExtraParameters(jniUtil, env, subParametersCpp, indexWriter.get());
+        jniUtil->DeleteLocalRef(env, subParametersJ);
+    }
     jniUtil->DeleteLocalRef(env, parametersJ);
 
     // Check that the index does not need to be trained
@@ -259,7 +264,12 @@ jbyteArray knn_jni::faiss_wrapper::TrainIndex(knn_jni::JNIUtilInterface * jniUti
     }
 
     // Add extra parameters that cant be configured with the index factory
-    SetExtraParameters(jniUtil, env, parametersCpp, indexWriter.get());
+    if(parametersCpp.find(knn_jni::PARAMETERS) != parametersCpp.end()) {
+        jobject subParametersJ = parametersCpp[knn_jni::PARAMETERS];
+        auto subParametersCpp = jniUtil->ConvertJavaMapToCppMap(env, subParametersJ);
+        SetExtraParameters(jniUtil, env, subParametersCpp, indexWriter.get());
+        jniUtil->DeleteLocalRef(env, subParametersJ);
+    }
 
     // Train index if needed
     auto *trainingVectorsPointerCpp = reinterpret_cast<std::vector<float>*>(trainVectorsPointerJ);
