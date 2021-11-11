@@ -109,6 +109,7 @@ public class MethodComponentTests extends KNNTestCase {
         assertNull(methodComponent4.validate(componentContext4));
     }
 
+    @SuppressWarnings("unchecked")
     public void testGetAsMap_withoutGenerator() throws IOException {
         String methodName = "test-method";
         String parameterName1 = "valid1";
@@ -135,15 +136,17 @@ public class MethodComponentTests extends KNNTestCase {
 
         xContentBuilder = XContentFactory.jsonBuilder().startObject()
                 .field(NAME, methodName)
-                .startObject(PARAMETERS)
-                .endObject()
                 .endObject();
         in = xContentBuilderToMap(xContentBuilder);
         methodComponentContext = MethodComponentContext.parse(in);
 
         Map<String, Object> methodAsMap = methodComponent.getAsMap(methodComponentContext);
-        assertEquals(default1, methodAsMap.get(parameterName1));
-        assertEquals(default2, methodAsMap.get(parameterName2));
+        for (Map.Entry<String, Object> entry : methodAsMap.entrySet()) {
+            logger.info("Key: " + entry.getKey() + " Value: " + entry.getValue());
+        }
+
+        assertEquals(default1, ((Map<String, Object>) methodAsMap.get(PARAMETERS)).get(parameterName1));
+        assertEquals(default2, ((Map<String, Object>) methodAsMap.get(PARAMETERS)).get(parameterName2));
     }
 
     public void testGetAsMap_withGenerator() throws IOException {
