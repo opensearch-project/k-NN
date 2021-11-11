@@ -305,7 +305,7 @@ public class MethodComponent {
      *
      * @param methodComponentContext context containing user provided parameter
      * @param methodComponent component containing method parameters and defaults
-     * @return
+     * @return Map of user provided parameters with defaults filled in as needed
      */
     public static Map<String, Object> getParameterMapWithDefaultsAdded(MethodComponentContext methodComponentContext,
                                                                        MethodComponent methodComponent) {
