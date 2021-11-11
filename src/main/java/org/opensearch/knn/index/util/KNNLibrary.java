@@ -24,7 +24,6 @@ import org.opensearch.knn.index.SpaceType;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -564,7 +563,7 @@ public interface KNNLibrary {
             static MethodAsMapBuilder builder(String baseDescription, MethodComponent methodComponent,
                                               MethodComponentContext methodComponentContext) {
                 return new MethodAsMapBuilder(baseDescription, methodComponent,
-                        new HashMap<>(methodComponentContext.getParameters()));
+                        MethodComponent.getParameterMapWithDefaultsAdded(methodComponentContext, methodComponent));
             }
         }
 
