@@ -141,10 +141,6 @@ public class MethodComponentTests extends KNNTestCase {
         methodComponentContext = MethodComponentContext.parse(in);
 
         Map<String, Object> methodAsMap = methodComponent.getAsMap(methodComponentContext);
-        for (Map.Entry<String, Object> entry : methodAsMap.entrySet()) {
-            logger.info("Key: " + entry.getKey() + " Value: " + entry.getValue());
-        }
-
         assertEquals(default1, ((Map<String, Object>) methodAsMap.get(PARAMETERS)).get(parameterName1));
         assertEquals(default2, ((Map<String, Object>) methodAsMap.get(PARAMETERS)).get(parameterName2));
     }
