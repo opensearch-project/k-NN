@@ -135,10 +135,10 @@ public class JNIServiceTests extends KNNTestCase {
         int[] docIds = new int[]{};
         float[][] vectors = new float[][]{};
 
+        Map<String, Object> parametersMap = ImmutableMap.of(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, "14", KNNConstants.METHOD_PARAMETER_M, "12");
         Path tmpFile = createTempFile();
         expectThrows(Exception.class, () -> JNIService.createIndex(docIds, vectors, tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue(),
-                        KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, "14", KNNConstants.METHOD_PARAMETER_M, "12"),
+                ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue(), KNNConstants.PARAMETERS, parametersMap),
                 KNNEngine.NMSLIB.getName()));
     }
 

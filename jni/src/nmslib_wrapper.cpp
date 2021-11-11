@@ -49,14 +49,23 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, J
     // Handle parameters
     auto parametersCpp = jniUtil->ConvertJavaMapToCppMap(env, parametersJ);
     std::vector<std::string> indexParameters;
-    if(parametersCpp.find(knn_jni::EF_CONSTRUCTION) != parametersCpp.end()) {
-        auto efConstruction = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::EF_CONSTRUCTION]);
-        indexParameters.push_back(knn_jni::EF_CONSTRUCTION_NMSLIB + "=" + std::to_string(efConstruction));
-    }
 
-    if(parametersCpp.find(knn_jni::M) != parametersCpp.end()) {
-        auto m = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::M]);
-        indexParameters.push_back(knn_jni::M_NMSLIB + "=" + std::to_string(m));
+    // Algorithm parameters will be in a sub map
+    if(parametersCpp.find(knn_jni::PARAMETERS) != parametersCpp.end()) {
+        jobject subParametersJ = parametersCpp[knn_jni::PARAMETERS];
+        auto subParametersCpp = jniUtil->ConvertJavaMapToCppMap(env, subParametersJ);
+
+        if(subParametersCpp.find(knn_jni::EF_CONSTRUCTION) != subParametersCpp.end()) {
+            auto efConstruction = jniUtil->ConvertJavaObjectToCppInteger(env, subParametersCpp[knn_jni::EF_CONSTRUCTION]);
+            indexParameters.push_back(knn_jni::EF_CONSTRUCTION_NMSLIB + "=" + std::to_string(efConstruction));
+        }
+
+        if(subParametersCpp.find(knn_jni::M) != subParametersCpp.end()) {
+            auto m = jniUtil->ConvertJavaObjectToCppInteger(env, subParametersCpp[knn_jni::M]);
+            indexParameters.push_back(knn_jni::M_NMSLIB + "=" + std::to_string(m));
+        }
+
+        jniUtil->DeleteLocalRef(env, subParametersJ);
     }
 
     if(parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY) != parametersCpp.end()) {
