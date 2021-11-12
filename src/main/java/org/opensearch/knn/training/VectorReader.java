@@ -21,10 +21,9 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.indices.IndicesService;
-import org.opensearch.knn.index.KNNVectorFieldMapper;
+import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.sort.SortOrder;
 
@@ -51,6 +50,7 @@ public class VectorReader {
     /**
      * Read vectors from a provided index/field and pass them to vectorConsumer that will do something with them.
      *
+     * @param indicesService
      * @param indexName name of index containing vectors
      * @param fieldName name of field containing vectors
      * @param maxVectorCount maximum number of vectors to return
@@ -81,12 +81,10 @@ public class VectorReader {
             throw validationException;
         }
 
-        MappedFieldType fieldType = indicesService.indexServiceSafe(indexMetadata.getIndex()).mapperService()
-                .fieldType(fieldName);
-
-        if (!(fieldType instanceof KNNVectorFieldMapper.KNNVectorFieldType)) {
+        ValidationException fieldValidationException = IndexUtil.validateKnnField(indexMetadata, fieldName, -1, null);
+        if (fieldValidationException != null) {
             validationException = validationException == null ? new ValidationException() : validationException;
-            validationException.addValidationError("field \"" + fieldName + "\" must be of type KNNVectorFieldType");
+            validationException.addValidationErrors(validationException.validationErrors());
         }
 
         if (validationException != null) {

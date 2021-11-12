@@ -11,7 +11,15 @@
 
 package org.opensearch.knn.index;
 
+import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.cluster.metadata.MappingMetadata;
+import org.opensearch.common.ValidationException;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
+
 import java.io.File;
+import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 
@@ -33,5 +41,119 @@ public class IndexUtil {
         }
 
         return Math.toIntExact((file.length() / BYTES_PER_KILOBYTES) + 1L); // Add one so that integer division rounds up
+    }
+
+    /**
+     * Validate that a field is a k-NN vector field and has the expected dimension
+     *
+     * @param indexMetadata metadata for index to validate
+     * @param field field name to validate
+     * @param expectedDimension expected dimension of the field. If this value is negative, dimension will not be
+     *                          checked
+     * @param modelDao used to look up dimension if field uses a model for initialization. Can be null if
+     *                 expectedDimension is negative
+     * @return ValidationException exception produced by field validation
+     */
+    @SuppressWarnings("unchecked")
+    public static ValidationException validateKnnField(IndexMetadata indexMetadata, String field, int expectedDimension,
+                                                       ModelDao modelDao) {
+        // Index metadata should not be null
+        if (indexMetadata == null) {
+            throw new IllegalArgumentException("IndexMetadata should not be null");
+        }
+
+        ValidationException exception = new ValidationException();
+
+        // Check the mapping
+        MappingMetadata mappingMetadata = indexMetadata.mapping();
+        if (mappingMetadata == null) {
+            exception.addValidationError("Invalid index. Index does not contain a mapping");
+            return exception;
+        }
+
+        // The mapping output *should* look like this:
+        //  "{properties={field={type=knn_vector, dimension=8}}}"
+        Map<String, Object> properties = (Map<String, Object>)mappingMetadata.getSourceAsMap().get("properties");
+
+        if (properties == null) {
+            exception.addValidationError("Properties in map does not exists. This is unexpected");
+            return exception;
+        }
+
+        Object fieldMapping = properties.get(field);
+
+        // Check field existence
+        if (fieldMapping == null) {
+            exception.addValidationError(String.format("Field \"%s\" does not exist.", field));
+            return exception;
+        }
+
+        // Check if field is a map. If not, that is a problem
+        if (!(fieldMapping instanceof Map)) {
+            exception.addValidationError(String.format("Field info for \"%s\" is not a map.", field));
+            return exception;
+        }
+
+        Map<String, Object> fieldMap = (Map<String, Object>) fieldMapping;
+
+        // Check fields type is knn_vector
+        Object type = fieldMap.get("type");
+
+        if (!(type instanceof String) || !KNNVectorFieldMapper.CONTENT_TYPE.equals(type)) {
+            exception.addValidationError(String.format("Field \"%s\" is not of type %s.", field,
+                    KNNVectorFieldMapper.CONTENT_TYPE));
+            return exception;
+        }
+
+        // Return if dimension does not need to be checked
+        if (expectedDimension < 0) {
+            return null;
+        }
+
+        // Check that the dimension of the method passed in matches that of the model
+        Object dimension = fieldMap.get(KNNConstants.DIMENSION);
+
+        // If dimension is null, the training index/field could use a model. In this case, we need to get the model id
+        // for the index and then fetch its dimension from the models metadata
+        if (dimension == null) {
+
+            String modelId = (String) fieldMap.get(KNNConstants.MODEL_ID);
+
+            if (modelId == null) {
+                exception.addValidationError(String.format("Field \"%s\" does not have a dimension set.", field));
+                return exception;
+            }
+
+            if (modelDao == null) {
+                throw new IllegalArgumentException(String.format("Field \"%s\" uses model. modelDao cannot be null.",
+                        field));
+            }
+
+            ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+            if (modelMetadata == null) {
+                exception.addValidationError(String.format("Model \"%s\" for field \"%s\" does not exist.", modelId,
+                        field));
+                return exception;
+            }
+
+            dimension = modelMetadata.getDimension();
+            if ((Integer) dimension != expectedDimension) {
+                exception.addValidationError(String.format("Field \"%s\" has dimension %d, which is different from " +
+                                "dimension specified in the training request: %d", field, dimension,
+                        expectedDimension));
+                return exception;
+            }
+
+            return null;
+        }
+
+        // If the dimension was found in training fields mapping, check that it equals the models proposed dimension.
+        if ((Integer) dimension != expectedDimension) {
+            exception.addValidationError(String.format("Field \"%s\" has dimension %d, which is different from " +
+                    "dimension specified in the training request: %d", field, dimension, expectedDimension));
+            return exception;
+        }
+
+        return null;
     }
 }
