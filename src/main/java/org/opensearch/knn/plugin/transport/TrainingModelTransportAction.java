@@ -14,8 +14,8 @@ package org.opensearch.knn.plugin.transport;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.indices.IndicesService;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
@@ -32,14 +32,14 @@ import java.io.IOException;
  */
 public class TrainingModelTransportAction extends HandledTransportAction<TrainingModelRequest, TrainingModelResponse> {
 
-    private final IndicesService indicesService;
+    private final ClusterService clusterService;
 
     @Inject
     public TrainingModelTransportAction(TransportService transportService,
                                         ActionFilters actionFilters,
-                                        IndicesService indicesService) {
+                                        ClusterService clusterService) {
         super(TrainingModelAction.NAME, transportService, actionFilters, TrainingModelRequest::new);
-        this.indicesService = indicesService;
+        this.clusterService = clusterService;
     }
 
     @Override
@@ -52,7 +52,7 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
                         request.getTrainingIndex(),
                         request.getTrainingField(),
                         NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance(),
-                        indicesService,
+                        clusterService,
                         request.getMaximumVectorCount(),
                         request.getSearchSize()
                 );

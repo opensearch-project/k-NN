@@ -12,6 +12,7 @@
 package org.opensearch.knn.index.memory;
 
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.indices.IndicesService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.IndexUtil;
@@ -198,18 +199,18 @@ public class NativeMemoryEntryContextTests extends KNNTestCase {
     }
 
     public void testTrainingDataEntryContext_getIndicesService() {
-        IndicesService indicesService = mock(IndicesService.class);
+        ClusterService clusterService = mock(ClusterService.class);
         NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext = new NativeMemoryEntryContext.TrainingDataEntryContext(
                 0,
                 "test",
                 "test",
                 null,
-                indicesService,
+                clusterService,
                 0,
                 0
         );
 
-        assertEquals(indicesService, trainingDataEntryContext.getIndicesService());
+        assertEquals(clusterService, trainingDataEntryContext.getClusterService());
     }
 
     private static class TestNativeMemoryAllocation implements NativeMemoryAllocation {
