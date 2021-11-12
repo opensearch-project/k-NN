@@ -156,7 +156,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             trainingDataAllocation.writeLock();
 
             vectorReader.read(
-                    nativeMemoryEntryContext.getIndicesService(),
+                    nativeMemoryEntryContext.getClusterService(),
                     nativeMemoryEntryContext.getTrainIndexName(),
                     nativeMemoryEntryContext.getTrainFieldName(),
                     nativeMemoryEntryContext.getMaxVectorCount(),
