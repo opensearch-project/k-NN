@@ -25,6 +25,7 @@ import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.plugin.stats.KNNCounter;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -126,6 +127,8 @@ public class TrainingJob implements Runnable {
                 nativeMemoryCacheManager.invalidate(trainingDataEntryContext.getKey());
             }
 
+            KNNCounter.TRAINING_ERRORS.increment();
+
             return;
         }
 
@@ -147,6 +150,8 @@ public class TrainingJob implements Runnable {
             if (modelAnonymousAllocation != null) {
                 nativeMemoryCacheManager.invalidate(modelAnonymousEntryContext.getKey());
             }
+
+            KNNCounter.TRAINING_ERRORS.increment();
 
             return;
         }
@@ -184,6 +189,9 @@ public class TrainingJob implements Runnable {
             modelMetadata.setState(ModelState.FAILED);
             modelMetadata.setError("Failed to execute training. May be caused by an invalid method definition or " +
                     "not enough memory to perform training.");
+
+            KNNCounter.TRAINING_ERRORS.increment();
+
         } finally {
             // Invalidate right away so we dont run into any big memory problems
             trainingDataAllocation.readUnlock();
