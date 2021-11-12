@@ -11,7 +11,7 @@
 
 package org.opensearch.knn.index.memory;
 
-import org.opensearch.indices.IndicesService;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.knn.index.IndexUtil;
 
 import java.io.IOException;
@@ -129,7 +129,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
 
         private final int size;
         private final NativeMemoryLoadStrategy.TrainingLoadStrategy trainingLoadStrategy;
-        private final IndicesService indicesService;
+        private final ClusterService clusterService;
         private final String trainIndexName;
         private final String trainFieldName;
         private final int maxVectorCount;
@@ -142,7 +142,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          * @param trainIndexName name of index used to pull training data from
          * @param trainFieldName name of field used to pull training data from
          * @param trainingLoadStrategy strategy to load training data into memory
-         * @param indicesService service used to extract information about indices
+         * @param clusterService service used to extract information about indices
          * @param maxVectorCount maximum number of vectors there can be
          * @param searchSize size each search request should return during loading
          */
@@ -150,7 +150,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
                                         String trainIndexName,
                                         String trainFieldName,
                                         NativeMemoryLoadStrategy.TrainingLoadStrategy trainingLoadStrategy,
-                                        IndicesService indicesService,
+                                        ClusterService clusterService,
                                         int maxVectorCount,
                                         int searchSize) {
             super(generateKey(trainIndexName, trainFieldName));
@@ -158,7 +158,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             this.trainingLoadStrategy = trainingLoadStrategy;
             this.trainIndexName = trainIndexName;
             this.trainFieldName = trainFieldName;
-            this.indicesService = indicesService;
+            this.clusterService = clusterService;
             this.maxVectorCount = maxVectorCount;
             this.searchSize = searchSize;
         }
@@ -210,12 +210,12 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         }
 
         /**
-         * Getter for indices service.
+         * Getter for cluster service.
          *
-         * @return indices service
+         * @return cluster service
          */
-        public IndicesService getIndicesService() {
-            return indicesService;
+        public ClusterService getClusterService() {
+            return clusterService;
         }
 
         private static String generateKey(String trainIndexName, String trainFieldName) {
