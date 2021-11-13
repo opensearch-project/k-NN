@@ -19,15 +19,11 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.knn.index.KNNMethodContext;
-import org.opensearch.knn.index.KNNVectorFieldMapper;
 import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
 
 import java.io.IOException;
-import java.util.Map;
-
-import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 
 /**
  * Request to train and serialize a model
@@ -266,15 +262,6 @@ public class TrainingModelRequest extends ActionRequest {
             exception.addValidationError("Method does not require training.");
         }
 
-        // Validate training data
-        IndexMetadata indexMetadata = clusterService.state().metadata().index(trainingIndex);
-        if (indexMetadata == null) {
-            exception = exception == null ? new ActionRequestValidationException() : exception;
-            exception.addValidationError("Index \"" + this.trainingIndex + "\" does not exist.");
-        } else {
-            exception = validateTrainingField(indexMetadata, exception);
-        }
-
         // Check if preferred node is real
         if (preferredNodeId != null && !clusterService.state().nodes().getDataNodes().containsKey(preferredNodeId)) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
@@ -286,6 +273,22 @@ public class TrainingModelRequest extends ActionRequest {
             exception = exception == null ? new ActionRequestValidationException() : exception;
             exception.addValidationError("Description exceeds limit of " + KNNConstants.MAX_MODEL_DESCRIPTION_LENGTH +
                     " characters");
+        }
+
+        // Validate training index exists
+        IndexMetadata indexMetadata = clusterService.state().metadata().index(trainingIndex);
+        if (indexMetadata == null) {
+            exception = exception == null ? new ActionRequestValidationException() : exception;
+            exception.addValidationError("Index \"" + this.trainingIndex + "\" does not exist.");
+            return exception;
+        }
+
+        // Validate the training field
+        ValidationException fieldValidation = IndexUtil.validateKnnField(indexMetadata, this.trainingField,
+                this.dimension, modelDao);
+        if (fieldValidation != null) {
+            exception = exception == null ? new ActionRequestValidationException() : exception;
+            exception.addValidationErrors(fieldValidation.validationErrors());
         }
 
         return exception;
@@ -304,98 +307,5 @@ public class TrainingModelRequest extends ActionRequest {
         out.writeInt(this.maximumVectorCount);
         out.writeInt(this.searchSize);
         out.writeInt(this.trainingDataSizeInKB);
-    }
-
-    @SuppressWarnings("unchecked")
-    private ActionRequestValidationException validateTrainingField(IndexMetadata indexMetadata,
-                                                                   ActionRequestValidationException exception) {
-        // Index metadata should not be null
-        if (indexMetadata == null) {
-            throw new IllegalArgumentException("IndexMetadata should not be null");
-        }
-
-        // The mapping output *should* look like this:
-        //  "{properties={train_field={type=knn_vector, dimension=8}}}"
-        Map<String, Object> properties = (Map<String, Object>)indexMetadata.mapping().getSourceAsMap()
-                .get("properties");
-
-        if (properties == null) {
-            exception = exception == null ? new ActionRequestValidationException() : exception;
-            exception.addValidationError("Properties in map does not exists. This is unexpected");
-            return exception;
-        }
-
-        Object trainingFieldMapping = properties.get(trainingField);
-
-        // Check field existence
-        if (trainingFieldMapping == null) {
-            exception = exception == null ? new ActionRequestValidationException() : exception;
-            exception.addValidationError(String.format("Field \"%s\" does not exist.", this.trainingField));
-            return exception;
-        }
-
-        // Check if field is a map. If not, that is a problem
-        if (!(trainingFieldMapping instanceof Map)) {
-            exception = exception == null ? new ActionRequestValidationException() : exception;
-            exception.addValidationError(String.format("Field info for \"%s\" is not a map.", this.trainingField));
-            return exception;
-        }
-
-        Map<String, Object> trainingFieldMap = (Map<String, Object>) trainingFieldMapping;
-
-        // Check fields type is knn_vector
-        Object type = trainingFieldMap.get("type");
-
-        if (!(type instanceof String) || !KNNVectorFieldMapper.CONTENT_TYPE.equals(type)) {
-            exception = exception == null ? new ActionRequestValidationException() : exception;
-            exception.addValidationError(String.format("Field \"%s\" is not of type %s.", this.trainingField,
-                    KNNVectorFieldMapper.CONTENT_TYPE));
-            return exception;
-        }
-
-        // Check that the dimension of the method passed in matches that of the model
-        Object dimension = trainingFieldMap.get(KNNConstants.DIMENSION);
-
-        // If dimension is null, the training index/field could use a model. In this case, we need to get the model id
-        // for the index and then fetch its dimension from the models metadata
-        if (dimension == null) {
-            String modelId = (String) trainingFieldMap.get(KNNConstants.MODEL_ID);
-
-            if (modelId == null) {
-                exception = exception == null ? new ActionRequestValidationException() : exception;
-                exception.addValidationError(String.format("Field \"%s\" does not have a dimension set.",
-                        this.trainingField));
-                return exception;
-            }
-
-            ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
-            if (modelMetadata == null) {
-                exception = exception == null ? new ActionRequestValidationException() : exception;
-                exception.addValidationError(String.format("Model \"%s\" for field \"%s\" does not exist.", modelId,
-                        this.trainingField));
-                return exception;
-            }
-
-            dimension = modelMetadata.getDimension();
-            if ((Integer) dimension != this.dimension) {
-                exception = exception == null ? new ActionRequestValidationException() : exception;
-                exception.addValidationError(String.format("Field \"%s\" has dimension %d, which is different from " +
-                        "dimension specified in the training request: %d", this.trainingField, dimension,
-                        this.dimension));
-                return exception;
-            }
-
-            return exception;
-        }
-
-        // If the dimension was found in training fields mapping, check that it equals the models proposed dimension.
-        if ((Integer) dimension != this.dimension) {
-            exception = exception == null ? new ActionRequestValidationException() : exception;
-            exception.addValidationError(String.format("Field \"%s\" has dimension %d, which is different from " +
-                    "dimension specified in the training request: %d", this.trainingField, dimension, this.dimension));
-            return exception;
-        }
-
-        return exception;
     }
 }

@@ -19,12 +19,11 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.search.SearchScrollRequestBuilder;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.query.ExistsQueryBuilder;
-import org.opensearch.indices.IndicesService;
-import org.opensearch.knn.index.KNNVectorFieldMapper;
+import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.sort.SortOrder;
 
@@ -51,6 +50,7 @@ public class VectorReader {
     /**
      * Read vectors from a provided index/field and pass them to vectorConsumer that will do something with them.
      *
+     * @param clusterService cluster service to get information about the index
      * @param indexName name of index containing vectors
      * @param fieldName name of field containing vectors
      * @param maxVectorCount maximum number of vectors to return
@@ -58,7 +58,7 @@ public class VectorReader {
      * @param vectorConsumer consumer used to do something with the collected vectors after each search
      * @param listener ActionListener that should be called once all search operations complete
      */
-    public void read(IndicesService indicesService, String indexName, String fieldName, int maxVectorCount,
+    public void read(ClusterService clusterService, String indexName, String fieldName, int maxVectorCount,
                      int searchSize, Consumer<List<Float[]>> vectorConsumer, ActionListener<SearchResponse> listener) {
 
         ValidationException validationException = null;
@@ -74,19 +74,17 @@ public class VectorReader {
             validationException.addValidationError("searchSize must be > 0 and <= 10000");
         }
 
-        IndexMetadata indexMetadata = indicesService.clusterService().state().metadata().index(indexName);
+        IndexMetadata indexMetadata = clusterService.state().metadata().index(indexName);
         if (indexMetadata == null) {
             validationException = validationException == null ? new ValidationException() : validationException;
             validationException.addValidationError("index \"" + indexName + "\" does not exist");
             throw validationException;
         }
 
-        MappedFieldType fieldType = indicesService.indexServiceSafe(indexMetadata.getIndex()).mapperService()
-                .fieldType(fieldName);
-
-        if (!(fieldType instanceof KNNVectorFieldMapper.KNNVectorFieldType)) {
+        ValidationException fieldValidationException = IndexUtil.validateKnnField(indexMetadata, fieldName, -1, null);
+        if (fieldValidationException != null) {
             validationException = validationException == null ? new ValidationException() : validationException;
-            validationException.addValidationError("field \"" + fieldName + "\" must be of type KNNVectorFieldType");
+            validationException.addValidationErrors(validationException.validationErrors());
         }
 
         if (validationException != null) {
