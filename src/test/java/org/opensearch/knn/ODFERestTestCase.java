@@ -139,7 +139,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
             for (Map<String, Object> index : parserList) {
                 String indexName = (String) index.get("index");
                 if (indexName != null && !".opendistro_security".equals(indexName)) {
-                    client().performRequest(new Request("DELETE", "/" + indexName));
+                    adminClient().performRequest(new Request("DELETE", "/" + indexName));
                 }
             }
         }
