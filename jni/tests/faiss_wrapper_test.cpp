@@ -102,10 +102,16 @@ TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
                         jniEnv, reinterpret_cast<jobjectArray>(&vectors)))
             .WillRepeatedly(Return(vectors.size()));
 
+    std::string spaceType = knn_jni::L2;
+    std::unordered_map<std::string, jobject> parametersMap;
+    parametersMap[knn_jni::SPACE_TYPE] = (jobject) &spaceType;
+
     knn_jni::faiss_wrapper::CreateIndexFromTemplate(
             &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
             reinterpret_cast<jobjectArray>(&vectors), (jstring)&indexPath,
-            reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)));
+            reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)),
+            (jobject) &parametersMap
+            );
 
     // Make sure index can be loaded
     std::unique_ptr<faiss::Index> index(test_util::FaissLoadIndex(indexPath));
