@@ -257,6 +257,13 @@ jbyteArray knn_jni::faiss_wrapper::TrainIndex(knn_jni::JNIUtilInterface * jniUti
     std::unique_ptr<faiss::Index> indexWriter;
     indexWriter.reset(faiss::index_factory((int) dimensionJ, indexDescriptionCpp.c_str(), metric));
 
+    // Related to https://github.com/facebookresearch/faiss/issues/1621. HNSWPQ defaults to l2 even when metric is
+    // passed in. This updates it to the correct metric.
+    indexWriter->metric_type = metric;
+    if (auto * indexHnswPq = dynamic_cast<faiss::IndexHNSWPQ*>(indexWriter.get())) {
+        indexHnswPq->storage->metric_type = metric;
+    }
+
     // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
     if(parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY) != parametersCpp.end()) {
         auto threadCount = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::INDEX_THREAD_QUANTITY]);
