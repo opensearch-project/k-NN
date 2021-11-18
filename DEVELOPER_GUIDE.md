@@ -12,6 +12,7 @@
     - [Run Single-node Cluster Locally](#run-single-node-cluster-locally)
     - [Run Multi-node Cluster Locally](#run-multi-node-cluster-locally)
   - [Debugging](#debugging)
+  - [Backwards Compatibility Testing](#backwards-compatibility-testing)
   - [Submitting Changes](#submitting-changes)
 
 # Developer Guide
@@ -176,6 +177,17 @@ Additionally, it is possible to attach one debugger to the cluster JVM and anoth
 ```
 ./gradlew :integTest -Dtest.debug=1 -Dcluster.debug=1
 ```
+
+## Backwards Compatibility Testing
+
+The purpose of Backwards Compatibility Testing and different types of BWC tests are explained [here](https://github.com/opensearch-project/opensearch-plugins/blob/main/TESTING.md#backwards-compatibility-testing)
+
+Use these commands to run BWC tests for k-NN:
+
+1. Mixed cluster test: `./gradlew knnBwcCluster#mixedClusterTask -Dtests.security.manager=false`
+2. Rolling upgrade tests: `./gradlew knnBwcCluster#rollingUpgradeClusterTask -Dtests.security.manager=false`
+3. Full restart upgrade tests: `./gradlew knnBwcCluster#fullRestartClusterTask -Dtests.security.manager=false`
+4. `./gradlew bwcTestSuite -Dtests.security.manager=false` is used to run all the above bwc tests together.
 
 ## Submitting Changes
 
