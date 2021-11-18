@@ -51,7 +51,7 @@ The plugin requires that cmake >= 3.17.2 is installed in order to build the JNI 
 
 #### Faiss Dependencies
 
-To build the faiss JNI library, you need to have openmp, lapack and blas installed. For more information on faiss 
+To build the *faiss* JNI library, you need to have openmp, lapack and blas installed. For more information on *faiss* 
 dependencies, please refer to [their documentation](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md).
 
 #### Environment
