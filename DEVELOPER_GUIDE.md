@@ -34,7 +34,8 @@ git clone https://github.com/[your username]/OpenSearch.git
 
 #### JDK 14
 
-OpenSearch builds using Java 14 at a minimum. This means you must have a JDK 14 installed with the environment variable `JAVA_HOME` referencing the path to Java home for your JDK 14 installation, e.g. `JAVA_HOME=/usr/lib/jvm/jdk-14`.
+OpenSearch builds using Java 14 at a minimum. This means you must have a JDK 14 installed with the environment variable 
+`JAVA_HOME` referencing the path to Java home for your JDK 14 installation, e.g. `JAVA_HOME=/usr/lib/jvm/jdk-14`.
 
 One easy way to get Java 14 on *nix is to use [sdkman](https://sdkman.io/).
 
@@ -44,6 +45,19 @@ source ~/.sdkman/bin/sdkman-init.sh
 sdk install java 14.0.2-open
 sdk use java 14.0.2-open
 ```
+
+#### CMake
+
+The plugin requires that cmake >= 3.17.2 is installed in order to build the JNI libraries.
+
+#### Faiss Dependencies
+
+To build the *faiss* JNI library, you need to have openmp, lapack and blas installed. For more information on *faiss* 
+dependencies, please refer to [their documentation](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md).
+
+#### Environment
+
+Currently, the plugin only supports Linux on x64 and arm platforms.
 
 ## Use an Editor
 
@@ -59,7 +73,8 @@ You can import the OpenSearch project into IntelliJ IDEA as follows.
 
 ## Build
 
-OpenSearch k-NN uses a [Gradle](https://docs.gradle.org/6.6.1/userguide/userguide.html) wrapper for its build. Run `gradlew` on Unix systems, or `gradlew.bat` on Windows in the root of the repository.
+OpenSearch k-NN uses a [Gradle](https://docs.gradle.org/6.6.1/userguide/userguide.html) wrapper for its build. 
+Run `gradlew` on Unix systems.
 
 Build OpenSearch k-NN using `gradlew build` 
 
@@ -69,36 +84,49 @@ Build OpenSearch k-NN using `gradlew build`
 
 ### JNI Library
 
-The plugin relies on a JNI library to perform approximate k-NN search. For plugin installations from archive(.zip), it is necessary to ensure ```.so``` file for Linux and ```.jnilib``` file for Mac OS are present in the Java library path. This can be possible by copying .so/.jnilib to either $ES_HOME or by adding manually ```-Djava.library.path=<path_to_lib_files>``` in ```jvm.options``` file
+The plugin relies on 2 JNI libraries to perform approximate k-NN search. `./gradlew build` will first build the 
+libraries before running the plugins tests. If you see errors related to library linkage failure, make sure all 
+libraries are in the Java library path. 
 
-To build the JNI Library, follow these steps:
+To build the JNI Library manually, follow these steps:
 
 ```
 cd jni
 cmake .
+
+# To build everything, including tests
 make
+
+# To just build the libraries
+make opensearchknn_nmslib opensearchknn_nmslib
 ```
 
-The library will be placed in the `jni/release` directory.
+The libraries will be placed in the `jni/release` directory.
 
-To build an RPM or DEB of the JNI library, follow these steps:
+Our JNI uses [Google Tests](https://github.com/google/googletest) for the C++ unit testing framework. To run the tests, 
+run:
 
 ```
-cd jni
-cmake .
-make package
-```
+# To run all tests
+./bin/jni_test
 
-The artifacts will be placed in the `jni/packages` directory.
+# To run nmslib tests
+./bin/jni_test --gtest_filter=Nmslib*
+
+# To run faiss tests
+./bin/jni_test --gtest_filter=Faiss*
+```
 
 ### JNI Library Artifacts
 
-We build and distribute binary library artifacts with OpenSearch. We build the library binary, RPM and DEB 
-in [this GitHub action](https://github.com/opensearch-project/k-NN/blob/main/.github/workflows/CD.yml).
-We use Centos 7 with g++ 4.8.5 to build the DEB, RPM and ZIP. Additionally, in order to provide as much
-general compatibility as possible, we compile the library without optimized instruction sets enabled.
-For users that want to get the most out of the library, they should follow [this section](#jni-library)
-and build the library from source in their production environment, so that if their environment has optimized instruction sets, they take advantage of them.
+We build and distribute binary library artifacts with OpenSearch. We build the library binaries in 
+[this script](https://github.com/opensearch-project/k-NN/blob/main/scripts/build.sh). In it, we package the libraries 
+together with an openmp shared object. For blas and lapack, we statically link them into the *faiss* library.
+We use Centos 7 with g++ 4.8.5 to build. Additionally, in order to provide as much
+general compatibility as possible, we compile the libraries without some of the optimized instruction sets.
+For users that want to get the most out of the libraries, they should follow [this section](#jni-library)
+and build the libraries from source in their production environment, so that if their environment has optimized 
+instruction sets, they take advantage of them.
 
 ## Run OpenSearch k-NN
 

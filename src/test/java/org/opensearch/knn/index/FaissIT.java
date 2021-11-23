@@ -60,7 +60,7 @@ public class FaissIT extends KNNRestTestCase {
         String fieldName = "test-field-1";
 
         KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
-        SpaceType spaceType = SpaceType.INNER_PRODUCT;
+        SpaceType spaceType = SpaceType.L2;
 
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
         List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
@@ -115,7 +115,7 @@ public class FaissIT extends KNNRestTestCase {
             List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName);
             for (int j = 0; j < k; j++) {
                 float[] primitiveArray = Floats.toArray(Arrays.stream(knnResults.get(j).getVector()).collect(Collectors.toList()));
-                assertEquals(KNNEngine.FAISS.score(KNNScoringUtil.innerProduct(testData.queries[i], primitiveArray),
+                assertEquals(KNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray),
                         spaceType), actualScores.get(j), 0.0001);
             }
         }
