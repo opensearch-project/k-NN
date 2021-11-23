@@ -2,6 +2,8 @@
 
 Compatible with OpenSearch 1.2.0
 
+### Features
+
 * Add support for faiss library to plugin ([#149](https://github.com/opensearch-project/k-NN/pull/149))
 
 ### Enhancements
