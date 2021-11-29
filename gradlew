@@ -1,16 +1,6 @@
 #!/usr/bin/env sh
 
 #
-#   SPDX-License-Identifier: Apache-2.0
-#
-#   The OpenSearch Contributors require contributions made to
-#   this file be licensed under the Apache-2.0 license or a
-#   compatible open source license.
-#
-#   Modifications Copyright OpenSearch Contributors. See
-#   GitHub history for details.
-#
-#
 # Copyright 2015 the original author or authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -92,6 +82,7 @@ esac
 
 CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
+
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then
     if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
@@ -139,6 +130,7 @@ fi
 if [ "$cygwin" = "true" -o "$msys" = "true" ] ; then
     APP_HOME=`cygpath --path --mixed "$APP_HOME"`
     CLASSPATH=`cygpath --path --mixed "$CLASSPATH"`
+
     JAVACMD=`cygpath --unix "$JAVACMD"`
 
     # We build the pattern for arguments to be converted via cygpath
