@@ -3,9 +3,14 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
+import java.util.concurrent.Callable
+import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
+
 buildscript {
     ext {
         opensearch_version = System.getProperty("opensearch.version", "1.2.0-SNAPSHOT")
+        knn_bwc_version = System.getProperty("bwc.version", "1.1.0.0-SNAPSHOT")
+        opensearch_bwc_version = "${knn_bwc_version}" - ".0-SNAPSHOT"
         opensearch_group = "org.opensearch"
     }
 
@@ -170,6 +175,12 @@ integTest {
     systemProperty "user", System.getProperty("user")
     systemProperty "password", System.getProperty("password")
 
+    if (System.getProperty("tests.rest.bwcsuite_cluster") == null) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.*IT"
+        }
+    }
+
     doFirst {
         // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
         // use longer timeouts for requests.
@@ -206,6 +217,160 @@ testClusters.integTest {
         }
     }
     systemProperty("java.library.path", "$rootDir/jni/release")
+}
+
+// bwcFilePath contains the gradlew assemble binary files of k-NN plugins
+String baseName = "knnBwcCluster"
+String bwcFilePath = "src/test/resources/org/opensearch/knn/bwc/"
+
+// Creates two test clusters of previous version and loads k-NN plugin of bwcVersion
+2.times { i ->
+    testClusters {
+        "${baseName}$i" {
+            testDistribution = "ARCHIVE"
+            versions = [opensearch_bwc_version, opensearch_version] //Opensearch Cluster Versions
+            numberOfNodes = 3
+            plugin(provider(new Callable<RegularFile>() {
+                @Override
+                RegularFile call() throws Exception {
+                    return new RegularFile() {
+                        @Override
+                        File getAsFile() {
+                            return fileTree(bwcFilePath + knn_bwc_version).getSingleFile()
+                        }
+                    }
+                }
+            }))
+            setting 'path.repo', "${buildDir}/cluster/shared/repo/${baseName}"
+            setting 'http.content_type.required', 'true'
+            systemProperty "java.library.path", "$rootDir/src/test/resources/org/opensearch/knn/bwc/lib:$rootDir/jni/release"
+        }
+    }
+}
+
+// upgradeNodeAndPluginToNextVersion(plugins) upgrades plugin on the upgraded node with project.version binary file in bwcFilePath
+// upgradeAllNodesAndPluginsToNextVersion(plugins) upgrades plugins on all the 3 nodes after upgrading the nodes
+List<Provider<RegularFile>> plugins = [
+        provider(new Callable<RegularFile>(){
+            @Override
+            RegularFile call() throws Exception {
+                return new RegularFile() {
+                    @Override
+                    File getAsFile() {
+                        return fileTree(bwcFilePath + project.version).getSingleFile()
+                    }
+                }
+            }
+        })
+]
+
+// Creates 2 test clusters with 3 nodes of the old version.
+2.times { i ->
+    task "${baseName}#oldVersionClusterTask$i"(type: StandaloneRestIntegTestTask) {
+        useCluster testClusters."${baseName}$i"
+        filter {
+            includeTestsMatching "org.opensearch.knn.bwc.*IT"
+        }
+        systemProperty 'tests.rest.bwcsuite_cluster', 'old_cluster'
+        systemProperty 'tests.rest.bwcsuite_round', 'old'
+        systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+        nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}$i".allHttpSocketURI.join(",")}")
+        nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}$i".getName()}")
+    }
+}
+
+// Upgrades one node of the old cluster to new OpenSearch version with upgraded plugin version
+// This results in a mixed cluster with 2 nodes on the old version and 1 upgraded node.
+// This is also used as a one third upgraded cluster for a rolling upgrade.
+task "${baseName}#mixedClusterTask"(type: StandaloneRestIntegTestTask) {
+    useCluster testClusters."${baseName}0"
+    dependsOn "${baseName}#oldVersionClusterTask0"
+    doFirst {
+        testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
+    }
+    filter {
+        includeTestsMatching "org.opensearch.knn.bwc.*IT"
+    }
+    systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
+    systemProperty 'tests.rest.bwcsuite_round', 'first'
+    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}0".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}0".getName()}")
+}
+
+// Upgrades the second node to new OpenSearch version with upgraded plugin version after the first node is upgraded.
+// This results in a mixed cluster with 1 node on the old version and 2 upgraded nodes.
+// This is used for rolling upgrade.
+task "${baseName}#twoThirdsUpgradedClusterTask"(type: StandaloneRestIntegTestTask) {
+    dependsOn "${baseName}#mixedClusterTask"
+    useCluster testClusters."${baseName}0"
+    doFirst {
+        testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
+    }
+    filter {
+        includeTestsMatching "org.opensearch.knn.bwc.*IT"
+    }
+    systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
+    systemProperty 'tests.rest.bwcsuite_round', 'second'
+    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}0".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}0".getName()}")
+}
+
+// Upgrades the third node to new OpenSearch version with upgraded plugin version after the second node is upgraded.
+// This results in a fully upgraded cluster.
+// This is used for rolling upgrade.
+task "${baseName}#rollingUpgradeClusterTask"(type: StandaloneRestIntegTestTask) {
+    dependsOn "${baseName}#twoThirdsUpgradedClusterTask"
+    useCluster testClusters."${baseName}0"
+    doFirst {
+        testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
+    }
+    filter {
+        includeTestsMatching "org.opensearch.knn.bwc.*IT"
+    }
+    mustRunAfter "${baseName}#mixedClusterTask"
+    systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
+    systemProperty 'tests.rest.bwcsuite_round', 'third'
+    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}0".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}0".getName()}")
+}
+
+// Upgrades all the nodes of the old cluster to new OpenSearch version with upgraded plugin version
+// at the same time resulting in a fully upgraded cluster.
+task "${baseName}#fullRestartClusterTask"(type: StandaloneRestIntegTestTask) {
+    dependsOn "${baseName}#oldVersionClusterTask1"
+    useCluster testClusters."${baseName}1"
+    doFirst {
+        testClusters."${baseName}1".upgradeAllNodesAndPluginsToNextVersion(plugins)
+    }
+    filter {
+        includeTestsMatching "org.opensearch.knn.bwc.*IT"
+    }
+    systemProperty 'tests.rest.bwcsuite_cluster', 'upgraded_cluster'
+    systemProperty 'tests.rest.bwcsuite_round', 'fullrestart'
+    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}1".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}1".getName()}")
+}
+
+// A bwc test suite which runs all the bwc tasks combined.
+task bwcTestSuite(type: StandaloneRestIntegTestTask) {
+    dependsOn "copyLatestSnapshot"
+    exclude '**/*Test*'
+    exclude '**/*IT*'
+    dependsOn tasks.named("${baseName}#mixedClusterTask")
+    dependsOn tasks.named("${baseName}#rollingUpgradeClusterTask")
+    dependsOn tasks.named("${baseName}#fullRestartClusterTask")
+}
+
+task copyLatestSnapshot(type: Copy){
+    dependsOn 'assemble'
+    mkdir "$bwcFilePath$project.version"
+    from "$buildDir/distributions"
+    include "*.zip"
+    into "$bwcFilePath$project.version"
 }
 
 run {
