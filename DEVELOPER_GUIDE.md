@@ -13,6 +13,7 @@
     - [Run Multi-node Cluster Locally](#run-multi-node-cluster-locally)
   - [Debugging](#debugging)
   - [Backwards Compatibility Testing](#backwards-compatibility-testing)
+    - [Adding new tests](#adding-new-tests)
   - [Submitting Changes](#submitting-changes)
 
 # Developer Guide
@@ -216,6 +217,16 @@ Use these commands to run BWC tests for k-NN:
 2. Rolling upgrade tests: `./gradlew knnBwcCluster#rollingUpgradeClusterTask -Dtests.security.manager=false`
 3. Full restart upgrade tests: `./gradlew knnBwcCluster#fullRestartClusterTask -Dtests.security.manager=false`
 4. `./gradlew bwcTestSuite -Dtests.security.manager=false` is used to run all the above bwc tests together.
+
+Use this command to run BWC tests for a given Backwards Compatibility Version:
+```
+./gradlew bwcTestSuite -Dbwc.version=1.0.0.0-SNAPSHOT
+```
+Here, we are testing BWC Tests with BWC version of plugin as 1.0.0.0. Make sure to add the binary file of that version in the bwc directory in resources.
+
+### Adding new tests
+
+Before adding any new tests to Backward Compatibility Tests, we should be aware that the tests in BWC are not independent. While creating an index, a test cannot use the same index name if it is already used in other tests. Also, adding extra operations to the existing test may impact other existing tests like graphCount. 
 
 ## Submitting Changes
 

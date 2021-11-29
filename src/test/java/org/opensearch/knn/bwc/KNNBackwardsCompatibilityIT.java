@@ -182,10 +182,11 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
                 String round = System.getProperty(BWCSUITE_ROUND);
                 if (round.equals("second")) {
                     return String.join("/","_nodes", CLUSTER_NAME + "-1", "plugins");
-                } if (round.equals("third")) {
+                }
+                if (round.equals("third")) {
                     return String.join("/","_nodes", CLUSTER_NAME + "-2", "plugins");
                 }
-                    return String.join("/","_nodes", CLUSTER_NAME + "-0", "plugins");
+                return String.join("/","_nodes", CLUSTER_NAME + "-0", "plugins");
 
             case UPGRADED:
                 return "_nodes/plugins";
