@@ -35,6 +35,9 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import org.junit.After;
 
+import static org.opensearch.knn.TestUtils.KNN_BWC_PREFIX;
+import static org.opensearch.knn.TestUtils.OPENDISTRO_SECURITY;
+
 /**
  * ODFE integration test base class to support both security disabled and enabled ODFE cluster.
  */
@@ -138,11 +141,19 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
 
             for (Map<String, Object> index : parserList) {
                 String indexName = (String) index.get("index");
-                if (indexName != null && !".opendistro_security".equals(indexName)) {
+                if (!skipDeleteIndex(indexName)) {
                     adminClient().performRequest(new Request("DELETE", "/" + indexName));
                 }
             }
         }
+    }
+
+    private boolean skipDeleteIndex(String indexName){
+        if (indexName != null && !OPENDISTRO_SECURITY.equals(indexName) && !indexName.matches(KNN_BWC_PREFIX+"(.*)")){
+            return false;
+        }
+
+        return true;
     }
 }
 

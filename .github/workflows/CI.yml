@@ -35,6 +35,11 @@ jobs:
         run: |
           ./gradlew build -Dopensearch.version=1.3.0-SNAPSHOT
 
+      - name: Run k-NN Backwards Compatibility Tests
+        run: |
+          echo "Running backwards compatibility tests ..."
+          ./gradlew bwcTestSuite -Dtests.security.manager=false
+
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
         with:
