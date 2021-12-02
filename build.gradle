@@ -243,7 +243,8 @@ String bwcFilePath = "src/test/resources/org/opensearch/knn/bwc/"
             }))
             setting 'path.repo', "${buildDir}/cluster/shared/repo/${baseName}"
             setting 'http.content_type.required', 'true'
-            systemProperty "java.library.path", "$rootDir/src/test/resources/org/opensearch/knn/bwc/lib:$rootDir/jni/release:$rootDir/$bwcFilePath/$opensearch_bwc_version-SNAPSHOT/opensearch-knn-$opensearch_bwc_version-linux-x64/knnlib"
+            environment "LD_LIBRARY_PATH", "${rootDir}/build/testclusters/${baseName}$i-0/distro/${opensearch_bwc_version}-ARCHIVE/plugins/opensearch-knn/knnlib"
+            systemProperty "java.library.path", "${rootDir}/src/test/resources/org/opensearch/knn/bwc/lib:${rootDir}/build/testclusters/${baseName}$i-0/distro/${opensearch_bwc_version}-ARCHIVE/plugins/opensearch-knn/knnlib"
         }
     }
 }
@@ -286,6 +287,8 @@ task "${baseName}#mixedClusterTask"(type: StandaloneRestIntegTestTask) {
     useCluster testClusters."${baseName}0"
     dependsOn "${baseName}#oldVersionClusterTask0"
     doFirst {
+        testClusters."${baseName}0".getNodes().getAt("${baseName}0" + "-0").environment("LD_LIBRARY_PATH", "")
+        testClusters."${baseName}0".getNodes().getAt("${baseName}0" + "-0").systemProperty("java.library.path", "$rootDir/jni/release")
         testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
     }
     filter {
@@ -305,6 +308,8 @@ task "${baseName}#twoThirdsUpgradedClusterTask"(type: StandaloneRestIntegTestTas
     dependsOn "${baseName}#mixedClusterTask"
     useCluster testClusters."${baseName}0"
     doFirst {
+        testClusters."${baseName}0".getNodes().getAt("${baseName}0" + "-1").environment("LD_LIBRARY_PATH", "")
+        testClusters."${baseName}0".getNodes().getAt("${baseName}0" + "-1").systemProperty("java.library.path", "$rootDir/jni/release")
         testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
     }
     filter {
@@ -324,6 +329,8 @@ task "${baseName}#rollingUpgradeClusterTask"(type: StandaloneRestIntegTestTask) 
     dependsOn "${baseName}#twoThirdsUpgradedClusterTask"
     useCluster testClusters."${baseName}0"
     doFirst {
+        testClusters."${baseName}0".getNodes().getAt("${baseName}0" + "-2").environment("LD_LIBRARY_PATH", "")
+        testClusters."${baseName}0".getNodes().getAt("${baseName}0" + "-2").systemProperty("java.library.path", "$rootDir/jni/release")
         testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
     }
     filter {
@@ -343,6 +350,8 @@ task "${baseName}#fullRestartClusterTask"(type: StandaloneRestIntegTestTask) {
     dependsOn "${baseName}#oldVersionClusterTask1"
     useCluster testClusters."${baseName}1"
     doFirst {
+        testClusters."${baseName}1".environment("LD_LIBRARY_PATH", "")
+        testClusters."${baseName}1".systemProperty("java.library.path", "$rootDir/jni/release")
         testClusters."${baseName}1".upgradeAllNodesAndPluginsToNextVersion(plugins)
     }
     filter {
