@@ -25,6 +25,13 @@ import java.util.List;
 import java.util.Map;
 
 public class TestUtils {
+    public static final String KNN_BWC_PREFIX = "knn-bwc-";
+    public static final String OS_KNN = "opensearch-knn";
+    public static final String OPENDISTRO_SECURITY = ".opendistro_security";
+    public static final String BWCSUITE_CLUSTER = "tests.rest.bwcsuite_cluster";
+    public static final String BWCSUITE_ROUND = "tests.rest.bwcsuite_round";
+    public static final String TEST_CLUSTER_NAME = "tests.clustername";
+
     /**
      * Class to read in some test data from text files
      */
