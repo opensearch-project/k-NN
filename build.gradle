@@ -34,7 +34,7 @@ buildscript {
 
 plugins {
     id 'java-library'
-    id 'nebula.ospackage' version "8.3.0" apply false
+    id 'nebula.ospackage' version "9.0.0" apply false
     id 'idea'
     id 'jacoco'
     id 'checkstyle'
