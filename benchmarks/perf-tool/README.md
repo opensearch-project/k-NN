@@ -6,9 +6,9 @@
 
 ## Welcome!
 
-This directory contains the code related to benchmarking the k-NN plugin. 
-Benchmarks can be run against any OpenSearch cluster with the k-NN plugin 
-installed. Benchmarks are highly configurable using the test configuration 
+This directory contains the code related to benchmarking the k-NN plugin.
+Benchmarks can be run against any OpenSearch cluster with the k-NN plugin
+installed. Benchmarks are highly configurable using the test configuration
 file.
 
 ## Install Prerequisites
@@ -29,26 +29,26 @@ pip install -r requirements.txt
 
 ### Quick Start
 
-In order to run a benchmark, you must first create a test configuration yml 
-file. Checkout [this example](https://github.com/opensearch-project/k-NN/blob/main/benchmarks/perf-tool/sample-configs) file 
-for benchmarking *faiss*'s IVF method. This file contains the definition for 
-the benchmark that you want to run. At the top are 
-[test parameters](#test-parameters). These define high level settings of the 
-test, such as the endpoint of the OpenSearch cluster. 
+In order to run a benchmark, you must first create a test configuration yml
+file. Checkout [this example](https://github.com/opensearch-project/k-NN/blob/main/benchmarks/perf-tool/sample-configs) file
+for benchmarking *faiss*'s IVF method. This file contains the definition for
+the benchmark that you want to run. At the top are
+[test parameters](#test-parameters). These define high level settings of the
+test, such as the endpoint of the OpenSearch cluster.
 
-Next, you define the actions that the test will perform. These actions are 
-referred to as steps. First, you can define "setup" steps. These are steps that 
-are run once at the beginning of the execution to configure the cluster how you 
+Next, you define the actions that the test will perform. These actions are
+referred to as steps. First, you can define "setup" steps. These are steps that
+are run once at the beginning of the execution to configure the cluster how you
 want it. These steps do not contribute to the final metrics.
 
-After that, you define the "steps". These are the steps that the test will be 
-collecting metrics on. Each step emits certain metrics. These are run 
-multiple times, depending on the test parameter "num_runs". At the end of the 
-execution of all of the runs, the metrics from each run are collected and 
+After that, you define the "steps". These are the steps that the test will be
+collecting metrics on. Each step emits certain metrics. These are run
+multiple times, depending on the test parameter "num_runs". At the end of the
+execution of all of the runs, the metrics from each run are collected and
 averaged.
 
-Lastly, you define the "cleanup" steps. The "cleanup" steps are executed after 
-each test run. For instance, if you are measuring index performance, you may 
+Lastly, you define the "cleanup" steps. The "cleanup" steps are executed after
+each test run. For instance, if you are measuring index performance, you may
 want to delete the index after each run.
 
 To run the test, execute the following command:
@@ -60,7 +60,7 @@ python knn-perf-tool.py [--log LOGLEVEL] test config-path.yml output.json
 
 The output will be a json document containing the results.
 
-Additionally, you can get the difference between two test runs using the diff 
+Additionally, you can get the difference between two test runs using the diff
 command:
 ```
 python knn-perf-tool.py [--log LOGLEVEL] diff result1.json result2.json
@@ -85,9 +85,9 @@ The output will be the delta between the two metrics.
 
 ### Steps
 
-Included are the list of steps that are currently supported. Each step contains 
-a set of parameters that are passed in the test configuration file and a set 
-of metrics that the test produces. 
+Included are the list of steps that are currently supported. Each step contains
+a set of parameters that are passed in the test configuration file and a set
+of metrics that the test produces.
 
 #### create_index
 
@@ -253,7 +253,7 @@ Runs a set of queries against an index.
 | recall@R | ratio of top R results from the ground truth neighbors that are in the K results returned by the plugin | float 0.0-1.0 |
 | recall@K | ratio of results returned that were ground truth nearest neighbors  | float 0.0-1.0 |
 
-## Contributing 
+## Contributing
 
 ### Linting
 
