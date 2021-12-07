@@ -24,7 +24,11 @@ def get_file_obj(path: str) -> TextIOWrapper:
     Returns:
         Writeable file object
     """
+<<<<<<< HEAD
     return open(path, 'w', encoding='UTF-8')
+=======
+    return open(path, 'w')
+>>>>>>> 0fdde67 (Initial commit with ported benchmark code)
 
 
 def write_json(data: Dict[str, Any],

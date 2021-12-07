@@ -127,8 +127,12 @@ def get_args() -> Union[TestArgs, DiffArgs]:
     """
     parser = argparse.ArgumentParser(
         description=
+<<<<<<< HEAD
         'Run performance tests against the OpenSearch plugin and various ANN '
         'libaries.'
+=======
+        'Run performance tests against the OpenSearch plugin and various ANN libaries.'
+>>>>>>> 0fdde67 (Initial commit with ported benchmark code)
     )
 
     def define_args():
