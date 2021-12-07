@@ -79,6 +79,8 @@ import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 public class KNNRestTestCase extends ODFERestTestCase {
     public static final String INDEX_NAME = "test_index";
     public static final String FIELD_NAME = "test_field";
+    private static final String DOCUMENT_FIELD_SOURCE = "_source";
+    private static final String DOCUMENT_FIELD_FOUND = "found";
 
     @AfterClass
     public static void dumpCoverage() throws IOException, MalformedObjectNameException {
@@ -484,6 +486,28 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
             RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
+    /**
+     * Retrieve document by index and document id
+     */
+    protected Map<String, Object> getKnnDoc(final String index, final String docId) throws IOException {
+        final Request request = new Request(
+                "GET",
+                "/" + index + "/_doc/" + docId
+        );
+        final Response response = client().performRequest(request);
+
+        final Map<String, Object> responseMap =
+                createParser(XContentType.JSON.xContent(), EntityUtils.toString(response.getEntity())).map();
+
+        assertNotNull(responseMap);
+        assertTrue((Boolean) responseMap.get(DOCUMENT_FIELD_FOUND));
+        assertNotNull(responseMap.get(DOCUMENT_FIELD_SOURCE));
+
+        final Map<String, Object> docMap = (Map<String, Object>) responseMap.get(DOCUMENT_FIELD_SOURCE);
+
+        return docMap;
     }
 
     /**
