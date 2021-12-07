@@ -432,6 +432,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             vector.add(value);
             context.parser().nextToken();
+        } else if (token == XContentParser.Token.VALUE_NULL) {
+            context.path().remove();
+            return;
         }
 
         if (dimension != vector.size()) {
