@@ -1,4 +1,4 @@
-endpoint: localhost:9200
+endpoint: localhost
 test_name: faiss_sift_ivf
 test_id: "Test workflow for faiss ivf"
 num_runs: 3
@@ -12,7 +12,7 @@ setup:
     index_name: train_index
   - name: create_index
     index_name: train_index
-    index_spec: train-index-spec.json
+    index_spec: sample-configs/faiss-sift-ivf/train-index-spec.json
   - name: ingest
     index_name: train_index
     field_name: train_field
@@ -27,11 +27,11 @@ steps:
     train_index: train_index
     train_field: train_field
     dimension: 128
-    method_spec: method-spec.json
+    method_spec: sample-configs/faiss-sift-ivf/method-spec.json
     max_training_vector_count: 1000000000
   - name: create_index
     index_name: target_index
-    index_spec: index-spec.json
+    index_spec: sample-configs/faiss-sift-ivf/index-spec.json
   - name: ingest
     index_name: target_index
     field_name: target_field

@@ -1,4 +1,4 @@
-endpoint: localhost:9200
+endpoint: localhost
 test_name: nmslib_sift_hnsw
 test_id: "Test workflow for nmslib hnsw"
 num_runs: 2
@@ -9,7 +9,7 @@ setup:
 steps:
   - name: create_index
     index_name: target_index
-    index_spec: index-spec.json
+    index_spec: sample-configs/nmslib-sift-hnsw/index-spec.json
   - name: ingest
     index_name: target_index
     field_name: target_field
