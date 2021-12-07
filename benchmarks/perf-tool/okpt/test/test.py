@@ -58,12 +58,8 @@ def _pxx(values: List[Any], p: float):
         return float(values[floor(len(values) * p)])
 
 
-<<<<<<< HEAD
 def _aggregate_steps(step_results: List[Dict[str, Any]],
                      measure_labels=None):
-=======
-def _aggregate_steps(step_results: List[Dict[str, Any]], measure_labels=['took']):
->>>>>>> 0fdde67 (Initial commit with ported benchmark code)
     """Aggregates the steps for a given Test.
 
     The aggregation process extracts the measures from each step and calculates
@@ -90,11 +86,8 @@ def _aggregate_steps(step_results: List[Dict[str, Any]], measure_labels=['took']
     Returns:
         A complete test result.
     """
-<<<<<<< HEAD
     if measure_labels is None:
         measure_labels = ['took']
-=======
->>>>>>> 0fdde67 (Initial commit with ported benchmark code)
     test_measures = {
         f'test_{measure_label}': 0
         for measure_label in measure_labels
@@ -116,7 +109,6 @@ def _aggregate_steps(step_results: List[Dict[str, Any]], measure_labels=['took']
 
             # Add cumulative test measures from steps to test measures
             if measure_label in measure_labels:
-<<<<<<< HEAD
                 test_measures[f'test_{measure_label}'] += sum(step_measure) if \
                     isinstance(step_measure, list) else step_measure
 
@@ -131,19 +123,6 @@ def _aggregate_steps(step_results: List[Dict[str, Any]], measure_labels=['took']
     aggregate = {**test_measures}
     # calculate the totals and percentile statistics for each step measure
     # where relevant
-=======
-                test_measures[f'test_{measure_label}'] += sum(step_measure) if isinstance(step_measure, list) \
-                    else step_measure
-
-            if step_measure_label in step_measures:
-                step_measures[step_measure_label].extend(step_measure) if isinstance(step_measure, list) else \
-                    step_measures[step_measure_label].append(step_measure)
-            else:
-                step_measures[step_measure_label] = step_measure if isinstance(step_measure, list) else [step_measure]
-
-    aggregate = {**test_measures}
-    # calculate the totals and percentile statistics for each step measure where relevant
->>>>>>> 0fdde67 (Initial commit with ported benchmark code)
     for step_measure_label, step_measure in step_measures.items():
         step_measure.sort()
 
@@ -163,7 +142,6 @@ def _aggregate_steps(step_results: List[Dict[str, Any]], measure_labels=['took']
 
 
 class Test:
-<<<<<<< HEAD
     """A base Test class, representing a collection of steps to profiled and
     aggregated.
 
@@ -175,15 +153,6 @@ class Test:
         cleanup: Perform test cleanup. Useful for clearing the state of a
         persistent process like OpenSearch. Cleanup steps are executed after
         each run.
-=======
-    """A base Test class, representing a collection of steps to profiled and aggregated.
-
-    Methods:
-        setup: Performs test setup. Usually for steps not intended to be profiled.
-        run_steps: Runs the test steps, aggregating the results into the `step_results` instance field.
-        cleanup: Perform test cleanup. Useful for clearing the state of a persistent process like OpenSearch. Cleanup
-                    steps are executed after each run.
->>>>>>> 0fdde67 (Initial commit with ported benchmark code)
         execute: Runs steps, cleans up, and aggregates the test result.
     """
     def __init__(self, test_config: TestConfig):
@@ -195,7 +164,6 @@ class Test:
         self.cleanup_steps: List[Step] = test_config.cleanup
 
     def setup(self):
-<<<<<<< HEAD
         _ = [step.execute() for step in self.setup_steps]
 
     def _run_steps(self):
@@ -205,17 +173,6 @@ class Test:
 
     def _cleanup(self):
         _ = [step.execute() for step in self.cleanup_steps]
-=======
-        [step.execute() for step in self.setup_steps]
-
-    def _run_steps(self):
-        step_results = list()
-        [step_results.extend(step.execute()) for step in self.test_steps]
-        return step_results
-
-    def _cleanup(self):
-        [step.execute() for step in self.cleanup_steps]
->>>>>>> 0fdde67 (Initial commit with ported benchmark code)
 
     def execute(self):
         results = self._run_steps()

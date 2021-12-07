@@ -3,7 +3,6 @@
 # The OpenSearch Contributors require contributions made to
 # this file be licensed under the Apache-2.0 license or a
 # compatible open source license.
-
 """Provides function for reading from files.
 
 Functions:
@@ -32,11 +31,7 @@ def get_file_obj(path: str) -> TextIOWrapper:
     Returns:
         Writeable file object
     """
-<<<<<<< HEAD
     return open(path, 'r', encoding='UTF-8')
-=======
-    return open(path, 'r')
->>>>>>> 0fdde67 (Initial commit with ported benchmark code)
 
 
 def parse_yaml(file: TextIOWrapper) -> Dict[str, Any]:
