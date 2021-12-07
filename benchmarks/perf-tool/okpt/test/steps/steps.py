@@ -3,7 +3,6 @@
 # The OpenSearch Contributors require contributions made to
 # this file be licensed under the Apache-2.0 license or a
 # compatible open source license.
-
 """Provides steps for OpenSearch tests.
 
 Some of the OpenSearch operations return a `took` field in the response body,
@@ -73,7 +72,6 @@ class DisableRefreshStep(OpenSearchStep):
     """See base class."""
 
     label = 'disable_refresh'
-
 
     def _action(self):
         """Disables the refresh interval for an OpenSearch index.
@@ -157,8 +155,8 @@ class TrainModelStep(OpenSearchStep):
                                                     None)
         self.dimension = parse_int_param('dimension', step_config.config, {},
                                          None)
-        self.description = parse_string_param('description',
-                                              step_config.config, {}, 'Default')
+        self.description = parse_string_param('description', step_config.config,
+                                              {}, 'Default')
         self.max_training_vector_count = parse_int_param(
             'max_training_vector_count', step_config.config, {}, 10000000000000)
 
@@ -188,11 +186,10 @@ class TrainModelStep(OpenSearchStep):
         # So, we trained the model. Now we need to wait until we have to wait
         # until the model is created. Poll every
         # 1/10 second
-        requests.post(
-            'http://' + self.endpoint + ':' + str(self.port) +
-            '/_plugins/_knn/models/' + str(self.model_id) + '/_train',
-            json.dumps(body),
-            headers={'content-type': 'application/json'})
+        requests.post('http://' + self.endpoint + ':' + str(self.port) +
+                      '/_plugins/_knn/models/' + str(self.model_id) + '/_train',
+                      json.dumps(body),
+                      headers={'content-type': 'application/json'})
 
         sleep_time = 0.1
         timeout = 100000
@@ -283,20 +280,21 @@ class IngestStep(OpenSearchStep):
         results = {}
 
         def action(doc_id):
-            return {'index': {'_index': self.index_name, '_id':doc_id}}
+            return {'index': {'_index': self.index_name, '_id': doc_id}}
 
         i = 0
         index_responses = []
         while i < self.dataset.train.len():
-            partition = cast(np.ndarray, self.dataset.train[i:i +
-                                                              self.bulk_size])
+            partition = cast(np.ndarray,
+                             self.dataset.train[i:i + self.bulk_size])
             body = bulk_transform(partition, self.field_name, action, i)
             result = bulk_index(self.opensearch, self.index_name, body)
             index_responses.append(result)
             i += self.bulk_size
 
-        results['took'] = [float(index_response['took']) for index_response in
-                           index_responses]
+        results['took'] = [
+            float(index_response['took']) for index_response in index_responses
+        ]
         results['store_kb'] = get_index_size_in_kb(self.opensearch,
                                                    self.index_name)
 
@@ -329,6 +327,7 @@ class QueryStep(OpenSearchStep):
         self.implicit_config = step_config.implicit_config
 
     def _action(self):
+
         def get_body(vec):
             return {
                 'size': self.k,
@@ -345,23 +344,23 @@ class QueryStep(OpenSearchStep):
         results = {}
         query_responses = []
         for v in self.dataset.test:
-            query_responses.append(query_index(self.opensearch, self.index_name,
-                                               get_body(v), [self.field_name]))
+            query_responses.append(
+                query_index(self.opensearch, self.index_name, get_body(v),
+                            [self.field_name]))
 
-        results['took'] = [float(query_response['took']) for query_response in
-                           query_responses]
+        results['took'] = [
+            float(query_response['took']) for query_response in query_responses
+        ]
         results['memory_kb'] = get_cache_size_in_kb(self.endpoint, 80)
 
         if self.calculate_recall:
-            ids = [[int(hit['_id']) for hit in query_response['hits']['hits']]
+            ids = [[int(hit['_id'])
+                    for hit in query_response['hits']['hits']]
                    for query_response in query_responses]
-            results['recall@K'] = recall_at_r(ids,  self.dataset.neighbors,
+            results['recall@K'] = recall_at_r(ids, self.dataset.neighbors,
                                               self.k, self.k)
-            results[f'recall@{str(self.r)}'] = recall_at_r(ids,
-                                                           self.dataset.
-                                                           neighbors,
-                                                           self.r,
-                                                           self.k)
+            results[f'recall@{str(self.r)}'] = recall_at_r(
+                ids, self.dataset.neighbors, self.r, self.k)
 
         return results
 
@@ -388,8 +387,10 @@ def bulk_transform(partition: np.ndarray, field_name: str, action,
         An array of transformed vectors in bulk format.
     """
     actions = []
-    _ = [actions.extend([action(i + offset), None]) for i in
-         range(len(partition))]
+    _ = [
+        actions.extend([action(i + offset), None])
+        for i in range(len(partition))
+    ]
     actions[1::2] = [{field_name: vec} for vec in partition.tolist()]
     return actions
 
@@ -414,10 +415,9 @@ def get_model(endpoint, port, model_id):
     Returns:
         Get model response
     """
-    response = requests.get(
-        'http://' + endpoint + ':' + str(port) + '/_plugins/_knn/models/' +
-        model_id,
-        headers={'content-type': 'application/json'})
+    response = requests.get('http://' + endpoint + ':' + str(port) +
+                            '/_plugins/_knn/models/' + model_id,
+                            headers={'content-type': 'application/json'})
     return response.json()
 
 
@@ -431,10 +431,9 @@ def delete_model(endpoint, port, model_id):
     Returns:
         Deleted model response
     """
-    response = requests.delete(
-        'http://' + endpoint + ':' + str(port) + '/_plugins/_knn/models/' +
-        model_id,
-        headers={'content-type': 'application/json'})
+    response = requests.delete('http://' + endpoint + ':' + str(port) +
+                               '/_plugins/_knn/models/' + model_id,
+                               headers={'content-type': 'application/json'})
     return response.json()
 
 
@@ -496,9 +495,9 @@ def get_index_size_in_kb(opensearch, index_name):
     Returns:
         size of index in kilobytes
     """
-    return int(opensearch.indices.stats(index_name, metric='store')['indices']
-               [index_name]['total']['store']
-               ['size_in_bytes']) / 1024
+    return int(
+        opensearch.indices.stats(index_name, metric='store')['indices']
+        [index_name]['total']['store']['size_in_bytes']) / 1024
 
 
 def get_cache_size_in_kb(endpoint, port):
@@ -510,9 +509,9 @@ def get_cache_size_in_kb(endpoint, port):
     Returns:
         size of cache in kilobytes
     """
-    response = requests.get(
-        'http://' + endpoint + ':' + str(port) + '/_plugins/_knn/stats',
-        headers={'content-type': 'application/json'})
+    response = requests.get('http://' + endpoint + ':' + str(port) +
+                            '/_plugins/_knn/stats',
+                            headers={'content-type': 'application/json'})
     stats = response.json()
 
     keys = stats['nodes'].keys()
@@ -525,7 +524,8 @@ def get_cache_size_in_kb(endpoint, port):
 
 def query_index(opensearch: OpenSearch, index_name: str, body: dict,
                 excluded_fields: list):
-    return opensearch.search(index=index_name, body=body,
+    return opensearch.search(index=index_name,
+                             body=body,
                              _source_excludes=excluded_fields)
 
 
