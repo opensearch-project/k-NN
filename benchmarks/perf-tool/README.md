@@ -250,7 +250,7 @@ Runs a set of queries against an index.
 | ----------- | ----------- | ----------- |
 | took | Took times returned per query aggregated as total, p50, p90 and p99 (when applicable) | ms |
 | memory_kb | Native memory k-NN is using at the end of the query workload | KB |
-| recall@R | ratio of when top R ground truth results were returned in K results | float 0.0-1.0 |
+| recall@R | ratio of top R results from the ground truth neighbors that are in the K results returned by the plugin | float 0.0-1.0 |
 | recall@K | ratio of results returned that were ground truth nearest neighbors  | float 0.0-1.0 |
 
 ## Contributing 
