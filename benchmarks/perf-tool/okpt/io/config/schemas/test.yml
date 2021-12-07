@@ -1,0 +1,23 @@
+# defined using the cerberus validation API
+# https://docs.python-cerberus.org/en/stable/index.html
+endpoint:
+  type: string
+  default: "localhost"
+test_name:
+  type: string
+test_id:
+  type: string
+num_runs:
+  type: integer
+  default: 1
+  min: 1
+  max: 10000
+show_runs:
+  type: boolean
+  default: false
+setup:
+  type: list
+steps:
+  type: list
+cleanup:
+  type: list
