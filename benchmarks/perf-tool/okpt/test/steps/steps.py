@@ -16,7 +16,6 @@ import requests
 import time
 
 from opensearchpy import OpenSearch, RequestsHttpConnection
-from requests import RequestException
 
 from okpt.io.config.parsers.base import ConfigurationError
 from okpt.io.config.parsers.util import parse_string_param, parse_int_param, parse_dataset, parse_bool_param
@@ -104,12 +103,13 @@ class RefreshIndexStep(OpenSearchStep):
         while True:
             try:
                 self.opensearch.indices.refresh(index=self.index_name)
-                return {}
-            except RequestException:
+                return {'store_kb': get_index_size_in_kb(self.opensearch,
+                                                         self.index_name)}
+            except:
                 pass
 
     def _get_measures(self) -> List[str]:
-        return ['took']
+        return ['took', 'store_kb']
 
 
 class ForceMergeStep(OpenSearchStep):
@@ -131,7 +131,7 @@ class ForceMergeStep(OpenSearchStep):
                     index=self.index_name,
                     max_num_segments=self.max_num_segments)
                 return {}
-            except RequestException:
+            except:
                 pass
 
     def _get_measures(self) -> List[str]:
@@ -295,13 +295,11 @@ class IngestStep(OpenSearchStep):
         results['took'] = [
             float(index_response['took']) for index_response in index_responses
         ]
-        results['store_kb'] = get_index_size_in_kb(self.opensearch,
-                                                   self.index_name)
 
         return results
 
     def _get_measures(self) -> List[str]:
-        return ['took', 'store_kb']
+        return ['took']
 
 
 class QueryStep(OpenSearchStep):
