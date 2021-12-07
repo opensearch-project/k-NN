@@ -1,6 +1,8 @@
 # OpenSearch k-NN Benchmarking
 - [Welcome!](#welcome)
-- [Usage](#quick-start)
+- [Install Prerequisites](#install-prerequisites)
+- [Usage](#usage)
+- [Contributing](#contributing)
 
 ## Welcome!
 
@@ -28,11 +30,11 @@ pip install -r requirements.txt
 ### Quick Start
 
 In order to run a benchmark, you must first create a test configuration yml 
-file. Checkout [this example](https://github.com/opensearch-project/k-NN) file 
+file. Checkout [this example](https://github.com/opensearch-project/k-NN/blob/main/benchmarks/perf-tool/sample-configs) file 
 for benchmarking *faiss*'s IVF method. This file contains the definition for 
-the benchmark that you want to run. At the top are [test parameters](LINK_ME). 
-These define high level settings of the test, such as the endpoint of the 
-OpenSearch cluster. 
+the benchmark that you want to run. At the top are 
+[test parameters](#test-parameters). These define high level settings of the 
+test, such as the endpoint of the OpenSearch cluster. 
 
 Next, you define the actions that the test will perform. These actions are 
 referred to as steps. First, you can define "setup" steps. These are steps that 
@@ -127,9 +129,13 @@ Refreshes an OpenSearch index.
 | Parameter Name | Description | Default |  
 | ----------- | ----------- | ----------- |
 | index_name | Name of index to refresh | No default |
-| store_kb | Size of index after step completes | KB |
 
 ##### Metrics
+
+| Metric Name | Description | Unit |  
+| ----------- | ----------- | ----------- |
+| took | Time to execute step end to end. | ms |
+| store_kb | Size of index after refresh completes | KB |
 
 #### force_merge
 
