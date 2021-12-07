@@ -416,20 +416,15 @@ public class OpenSearchIT extends KNNRestTestCase {
         final String docTwoId = "2";
         addKnnDoc(INDEX_NAME, docTwoId, FIELD_NAME, vectorForDocumentTwo);
 
-        //checking that one of two documents in retrievable based on closer similarity to query vector
-        int k = 1;
+        //checking that both documents are retrievable based on knn search query
+        int k = 2;
         float[] queryVector = {5.0f, 6.0f, 7.0f, 10.0f};
         final KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, k);
         final Response response = searchKNNIndex(INDEX_NAME, knnQueryBuilder, k);
         final List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
-        assertEquals(1, results.size());
+        assertEquals(2, results.size());
         assertEquals(docOneId, results.get(0).getDocId());
-
-        //retrieving document by id
-        final Map<String, Object> knnDocMap = getKnnDoc(INDEX_NAME, docOneId);
-        final Float[] vectorInDocument = getVectorFromDocument(knnDocMap, FIELD_NAME);
-        assertEquals(vectorForDocumentOne.length, vectorInDocument.length);
-        assertArrayEquals(vectorForDocumentOne, vectorInDocument);
+        assertEquals(docTwoId, results.get(1).getDocId());
 
         // update vector value to null
         updateKnnDoc(INDEX_NAME, docOneId, FIELD_NAME, null);
@@ -438,32 +433,28 @@ public class OpenSearchIT extends KNNRestTestCase {
         final Map<String, Object> knnDocMapUpdated = getKnnDoc(INDEX_NAME, docOneId);
         assertNull(knnDocMapUpdated.get(FIELD_NAME));
 
-        //checking that first document one is no longer discoverable by knn plugin
-        //expected result is the document two which had originally less similarity score
+        //checking that first document one is no longer returned by knn search
         final Response updatedResponse = searchKNNIndex(INDEX_NAME, knnQueryBuilder, k);
         final List<KNNResult> updatedResults =
                 parseSearchResponse(EntityUtils.toString(updatedResponse.getEntity()), FIELD_NAME);
         assertEquals(1, updatedResults.size());
         assertEquals(docTwoId, updatedResults.get(0).getDocId());
 
-        // update vector value back to original value
+        // update vector back to original value
         updateKnnDoc(INDEX_NAME, docOneId, FIELD_NAME, vectorForDocumentOne);
         final Response restoreInitialVectorValueResponse = searchKNNIndex(INDEX_NAME, knnQueryBuilder, k);
         final List<KNNResult> restoreInitialVectorValueResults =
                 parseSearchResponse(EntityUtils.toString(restoreInitialVectorValueResponse.getEntity()), FIELD_NAME);
-        assertEquals(1, restoreInitialVectorValueResults.size());
-        assertEquals(docOneId, restoreInitialVectorValueResults.get(0).getDocId());
+        assertEquals(2, restoreInitialVectorValueResults.size());
+        assertEquals(docOneId, results.get(0).getDocId());
+        assertEquals(docTwoId, results.get(1).getDocId());
 
+        //retrieving updated document by id, vector should be not null but has the original value
         final Map<String, Object> knnDocMapRestoreInitialVectorValue = getKnnDoc(INDEX_NAME, docOneId);
-        final Float[] vectorRestoreInitialValue = getVectorFromDocument(knnDocMapRestoreInitialVectorValue, FIELD_NAME);
-        assertEquals(vectorForDocumentOne.length, vectorRestoreInitialValue.length);
+        assertNotNull(knnDocMapRestoreInitialVectorValue.get(FIELD_NAME));
+        final Float[] vectorRestoreInitialValue = ((List<Double>) knnDocMapRestoreInitialVectorValue.get(FIELD_NAME)).stream()
+                .map(Double::floatValue).toArray(Float[]::new);
         assertArrayEquals(vectorForDocumentOne, vectorRestoreInitialValue);
     }
 
-    private Float[] getVectorFromDocument(final Map<String, Object> knnDocMap, final String fieldName) {
-        assertNotNull(knnDocMap.get(fieldName));
-        final Float[] vectorInDocument = ((List<Double>) knnDocMap.get(fieldName)).stream()
-                .map(Double::floatValue).toArray(Float[]::new);
-        return vectorInDocument;
-    }
 }
