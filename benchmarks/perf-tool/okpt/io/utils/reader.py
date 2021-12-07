@@ -32,7 +32,7 @@ def get_file_obj(path: str) -> TextIOWrapper:
     Returns:
         Writeable file object
     """
-    return open(path, 'r')
+    return open(path, 'r', encoding='UTF-8')
 
 
 def parse_yaml(file: TextIOWrapper) -> Dict[str, Any]:

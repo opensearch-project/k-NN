@@ -26,7 +26,8 @@ class Step:
         label: Name of the step.
 
     Methods:
-        execute: Run the step and return a step response with the label and corresponding measures.
+        execute: Run the step and return a step response with the label and
+        corresponding measures.
     """
 
     label = 'base_step'
@@ -51,10 +52,10 @@ class Step:
         action = self._action
 
         # profile the action with measure decorators - add if necessary
-        action = getattr(profile, "took")(action)
+        action = getattr(profile, 'took')(action)
 
         result = action()
         if isinstance(result, dict):
             return [{'label': self.label, **result}]
 
-        raise ValueError("Invalid return by a step")
+        raise ValueError('Invalid return by a step')

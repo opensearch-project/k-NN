@@ -33,4 +33,4 @@ def create_step(step_config: StepConfig) -> Step:
     elif step_config.step_name == ForceMergeStep.label:
         return ForceMergeStep(step_config)
 
-    raise ConfigurationError("Invalid step {}".format(step_config.step_name))
+    raise ConfigurationError(f'Invalid step {step_config.step_name}')
