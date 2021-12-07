@@ -408,37 +408,44 @@ public class OpenSearchIT extends KNNRestTestCase {
         createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 4));
 
         // valid case with 4 dimension
-        final Float[] vector = {6.0f, 7.0f, 8.0f, 9.0f};
-        final String docId = "1";
-        addKnnDoc(INDEX_NAME, docId, FIELD_NAME, vector);
+        final Float[] vectorForDocumentOne = {6.0f, 7.0f, 8.0f, 9.0f};
+        final String docOneId = "1";
+        addKnnDoc(INDEX_NAME, docOneId, FIELD_NAME, vectorForDocumentOne);
 
-        //checking that document in retrievable with correct vector values and searchable by knn plugin
+        final Float[] vectorForDocumentTwo = {2.0f, 1.0f, 3.8f, 2.5f};
+        final String docTwoId = "2";
+        addKnnDoc(INDEX_NAME, docTwoId, FIELD_NAME, vectorForDocumentTwo);
+
+        //checking that one of two documents in retrievable based on closer similarity to query vector
         int k = 1;
         float[] queryVector = {5.0f, 6.0f, 7.0f, 10.0f};
         final KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, k);
         final Response response = searchKNNIndex(INDEX_NAME, knnQueryBuilder, k);
         final List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(1, results.size());
+        assertEquals(docOneId, results.get(0).getDocId());
 
-        //retrieving the document by id
-        final Map<String, Object> knnDocMap = getKnnDoc(INDEX_NAME, docId);
+        //retrieving document by id
+        final Map<String, Object> knnDocMap = getKnnDoc(INDEX_NAME, docOneId);
         assertNotNull(knnDocMap.get(FIELD_NAME));
         final Float[] vectorInDocument = ((List<Double>) knnDocMap.get(FIELD_NAME)).stream()
                 .map(Double::floatValue).toArray(Float[]::new);
-        assertEquals(vector.length, vectorInDocument.length);
-        assertArrayEquals(vector, vectorInDocument);
+        assertEquals(vectorForDocumentOne.length, vectorInDocument.length);
+        assertArrayEquals(vectorForDocumentOne, vectorInDocument);
 
         // update vector value to null
-        updateKnnDoc(INDEX_NAME, docId, FIELD_NAME, null);
+        updateKnnDoc(INDEX_NAME, docOneId, FIELD_NAME, null);
 
         //retrieving updated document by id, vector should be null
-        final Map<String, Object> knnDocMapUpdated = getKnnDoc(INDEX_NAME, docId);
+        final Map<String, Object> knnDocMapUpdated = getKnnDoc(INDEX_NAME, docOneId);
         assertNull(knnDocMapUpdated.get(FIELD_NAME));
 
-        //checking if document is not discoverable by knn plugin anymore
+        //checking that first document one is no longer discoverable by knn plugin
+        //expected result is the document two which had originally less similarity score
         final Response updatedResponse = searchKNNIndex(INDEX_NAME, knnQueryBuilder, k);
         final List<KNNResult> updatedResults =
                 parseSearchResponse(EntityUtils.toString(updatedResponse.getEntity()), FIELD_NAME);
-        assertEquals(0, updatedResults.size());
+        assertEquals(1, updatedResults.size());
+        assertEquals(docTwoId, updatedResults.get(0).getDocId());
     }
 }
