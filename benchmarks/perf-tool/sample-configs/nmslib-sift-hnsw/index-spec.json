@@ -10,7 +10,7 @@
   },
   "mappings": {
     "properties": {
-      "test_vector": {
+      "target_field": {
         "type": "knn_vector",
         "dimension": 128,
         "method": {
