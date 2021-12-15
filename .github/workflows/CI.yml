@@ -33,7 +33,7 @@ jobs:
 
       - name: Run build
         run: |
-          ./gradlew build -Dopensearch.version=1.2.0-SNAPSHOT
+          ./gradlew build -Dopensearch.version=1.2.2-SNAPSHOT
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
