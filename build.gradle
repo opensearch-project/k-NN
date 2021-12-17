@@ -5,7 +5,7 @@
 
 buildscript {
     ext {
-        opensearch_version = System.getProperty("opensearch.version", "1.2.2-SNAPSHOT")
+        opensearch_version = System.getProperty("opensearch.version", "1.2.3-SNAPSHOT")
         opensearch_group = "org.opensearch"
     }
 
@@ -253,7 +253,7 @@ afterEvaluate {
 
         requires('opensearch', versions.opensearch, EQUAL)
         //TODO: Use default knn lib version for now, fix will be compare with version that is used in build step.
-        requires("opensearch-knnlib",  "1.2.2.0",  EQUAL)
+        requires("opensearch-knnlib",  "1.2.3.0",  EQUAL)
         packager = 'Amazon'
         vendor = 'Amazon'
         os = 'LINUX'
