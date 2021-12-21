@@ -12,6 +12,7 @@
 package org.opensearch.knn.plugin.action;
 
 import org.apache.http.util.EntityUtils;
+import org.junit.Ignore;
 import org.opensearch.client.Response;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -29,181 +30,183 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class RestTrainModelHandlerIT extends KNNRestTestCase {
 
+    @Ignore
     public void testTrainModel_fail_notEnoughData() throws IOException {
-        //TODO: This fails on GET. We need to look into GET failure when training fails
-//
-//        // Check that training fails properly when there is not enough data
-//
-//        String trainingIndexName = "train-index";
-//        String trainingFieldName = "train-field";
-//        int dimension = 16;
-//
-//        // Create a training index and randomly ingest data into it
-//        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
-//        int trainingDataCount = 4;
-//        bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
-//
-//        // Call the train API with this definition:
-//        /*
-//            {
-//              "training_index": "train_index",
-//              "training_field": "train_field",
-//              "dimension": 16,
-//              "description": "this should be allowed to be null",
-//              "method": {
-//                  "name":"ivf",
-//                  "engine":"faiss",
-//                  "space_type": "innerproduct",
-//                  "parameters":{
-//                    "nlist":128,
-//                    "encoder":{
-//                        "name":"pq",
-//                        "parameters":{
-//                            "code_size":2,
-//                            "code_count": 2
-//                        }
-//                    }
-//                  }
-//              }
-//            }
-//        */
-//        XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
-//                .field(NAME, "ivf")
-//                .field(KNN_ENGINE, "faiss")
-//                .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
-//                .startObject(PARAMETERS)
-//                .field(METHOD_PARAMETER_NLIST, 128)
-//                .startObject(METHOD_ENCODER_PARAMETER)
-//                .field(NAME, "pq")
-//                .startObject(PARAMETERS)
-//                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-//                .field(ENCODER_PARAMETER_PQ_CODE_COUNT, 2)
-//                .endObject()
-//                .endObject()
-//                .endObject()
-//                .endObject();
-//        Map<String, Object> method = xContentBuilderToMap(builder);
-//
-//        Response trainResponse = trainModel(null, trainingIndexName, trainingFieldName, dimension, method,
-//                "dummy description");
-//
-//        assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
-//
-//        // Grab the model id from the response
-//        String trainResponseBody = EntityUtils.toString(trainResponse.getEntity());
-//        assertNotNull(trainResponseBody);
-//
-//        Map<String, Object> trainResponseMap = createParser(
-//                XContentType.JSON.xContent(),
-//                trainResponseBody
-//        ).map();
-//        String modelId = (String) trainResponseMap.get(MODEL_ID);
-//        assertNotNull(modelId);
-//
-//        // Confirm that the model fails to create
-//        Response getResponse = getModel(modelId, null);
-//        String responseBody = EntityUtils.toString(getResponse.getEntity());
-//        assertNotNull(responseBody);
-//
-//        Map<String, Object> responseMap = createParser(
-//                XContentType.JSON.xContent(),
-//                responseBody
-//        ).map();
-//
-//        assertEquals(modelId, responseMap.get(MODEL_ID));
-//        assertEquals("failed", responseMap.get(MODEL_STATE));
+
+        // Check that training fails properly when there is not enough data
+
+        String trainingIndexName = "train-index";
+        String trainingFieldName = "train-field";
+        int dimension = 16;
+
+        // Create a training index and randomly ingest data into it
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        int trainingDataCount = 4;
+        bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
+
+        // Call the train API with this definition:
+        /*
+            {
+              "training_index": "train_index",
+              "training_field": "train_field",
+              "dimension": 16,
+              "description": "this should be allowed to be null",
+              "method": {
+                  "name":"ivf",
+                  "engine":"faiss",
+                  "space_type": "innerproduct",
+                  "parameters":{
+                    "nlist":128,
+                    "encoder":{
+                        "name":"pq",
+                        "parameters":{
+                            "code_size":2,
+                            "code_count": 2
+                        }
+                    }
+                  }
+              }
+            }
+        */
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
+                .field(NAME, "ivf")
+                .field(KNN_ENGINE, "faiss")
+                .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_NLIST, 128)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "pq")
+                .startObject(PARAMETERS)
+                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+                .field(ENCODER_PARAMETER_PQ_M, 2)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+        Map<String, Object> method = xContentBuilderToMap(builder);
+
+        Response trainResponse = trainModel(null, trainingIndexName, trainingFieldName, dimension, method,
+                "dummy description");
+
+        assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
+
+        // Grab the model id from the response
+        String trainResponseBody = EntityUtils.toString(trainResponse.getEntity());
+        assertNotNull(trainResponseBody);
+
+        Map<String, Object> trainResponseMap = createParser(
+                XContentType.JSON.xContent(),
+                trainResponseBody
+        ).map();
+        String modelId = (String) trainResponseMap.get(MODEL_ID);
+        assertNotNull(modelId);
+
+        // Confirm that the model fails to create
+        Response getResponse = getModel(modelId, null);
+        String responseBody = EntityUtils.toString(getResponse.getEntity());
+        assertNotNull(responseBody);
+
+        Map<String, Object> responseMap = createParser(
+                XContentType.JSON.xContent(),
+                responseBody
+        ).map();
+
+        assertEquals(modelId, responseMap.get(MODEL_ID));
+        assertEquals("failed", responseMap.get(MODEL_STATE));
     }
 
+    @Ignore
     public void testTrainModel_fail_tooMuchData() throws Exception {
         //TODO: Fails on get
-//
-//        // Limit the cache size and then call train
-//
-//        updateClusterSettings("knn.memory.circuit_breaker.limit", "1kb");
-//
-//        String trainingIndexName = "train-index";
-//        String trainingFieldName = "train-field";
-//        int dimension = 16;
-//
-//        // Create a training index and randomly ingest data into it
-//        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
-//        int trainingDataCount = 20; // 20 * 16 * 4 ~= 10 kb
-//        bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
-//
-//        // Call the train API with this definition:
-//        /*
-//            {
-//              "training_index": "train_index",
-//              "training_field": "train_field",
-//              "dimension": 16,
-//              "description": "this should be allowed to be null",
-//              "method": {
-//                  "name":"ivf",
-//                  "engine":"faiss",
-//                  "space_type": "innerproduct",
-//                  "parameters":{
-//                    "nlist":128,
-//                    "encoder":{
-//                        "name":"pq",
-//                        "parameters":{
-//                            "code_size":2,
-//                            "code_count": 2
-//                        }
-//                    }
-//                  }
-//              }
-//            }
-//        */
-//        XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
-//                .field(NAME, "ivf")
-//                .field(KNN_ENGINE, "faiss")
-//                .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
-//                .startObject(PARAMETERS)
-//                .field(METHOD_PARAMETER_NLIST, 128)
-//                .startObject(METHOD_ENCODER_PARAMETER)
-//                .field(NAME, "pq")
-//                .startObject(PARAMETERS)
-//                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-//                .field(ENCODER_PARAMETER_PQ_CODE_COUNT, 2)
-//                .endObject()
-//                .endObject()
-//                .endObject()
-//                .endObject();
-//        Map<String, Object> method = xContentBuilderToMap(builder);
-//
-//        Response trainResponse = trainModel(null, trainingIndexName, trainingFieldName, dimension, method,
-//                "dummy description");
-//
-//        assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
-//
-//        // Grab the model id from the response
-//        String trainResponseBody = EntityUtils.toString(trainResponse.getEntity());
-//        assertNotNull(trainResponseBody);
-//
-//        Map<String, Object> trainResponseMap = createParser(
-//                XContentType.JSON.xContent(),
-//                trainResponseBody
-//        ).map();
-//        String modelId = (String) trainResponseMap.get(MODEL_ID);
-//        assertNotNull(modelId);
-//
-//        // Confirm that the model fails to create
-//        Response getResponse = getModel(modelId, null);
-//        String responseBody = EntityUtils.toString(getResponse.getEntity());
-//        assertNotNull(responseBody);
-//
-//        Map<String, Object> responseMap = createParser(
-//                XContentType.JSON.xContent(),
-//                responseBody
-//        ).map();
-//
-//        assertEquals(modelId, responseMap.get(MODEL_ID));
-//        assertEquals("failed", responseMap.get(MODEL_STATE));
+
+        // Limit the cache size and then call train
+
+        updateClusterSettings("knn.memory.circuit_breaker.limit", "1kb");
+
+        String trainingIndexName = "train-index";
+        String trainingFieldName = "train-field";
+        int dimension = 16;
+
+        // Create a training index and randomly ingest data into it
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        int trainingDataCount = 20; // 20 * 16 * 4 ~= 10 kb
+        bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
+
+        // Call the train API with this definition:
+        /*
+            {
+              "training_index": "train_index",
+              "training_field": "train_field",
+              "dimension": 16,
+              "description": "this should be allowed to be null",
+              "method": {
+                  "name":"ivf",
+                  "engine":"faiss",
+                  "space_type": "innerproduct",
+                  "parameters":{
+                    "nlist":128,
+                    "encoder":{
+                        "name":"pq",
+                        "parameters":{
+                            "code_size":2,
+                            "code_count": 2
+                        }
+                    }
+                  }
+              }
+            }
+        */
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
+                .field(NAME, "ivf")
+                .field(KNN_ENGINE, "faiss")
+                .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_NLIST, 128)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "pq")
+                .startObject(PARAMETERS)
+                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+                .field(ENCODER_PARAMETER_PQ_M, 2)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+        Map<String, Object> method = xContentBuilderToMap(builder);
+
+        Response trainResponse = trainModel(null, trainingIndexName, trainingFieldName, dimension, method,
+                "dummy description");
+
+        assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
+
+        // Grab the model id from the response
+        String trainResponseBody = EntityUtils.toString(trainResponse.getEntity());
+        assertNotNull(trainResponseBody);
+
+        Map<String, Object> trainResponseMap = createParser(
+                XContentType.JSON.xContent(),
+                trainResponseBody
+        ).map();
+        String modelId = (String) trainResponseMap.get(MODEL_ID);
+        assertNotNull(modelId);
+
+        // Confirm that the model fails to create
+        Response getResponse = getModel(modelId, null);
+        String responseBody = EntityUtils.toString(getResponse.getEntity());
+        assertNotNull(responseBody);
+
+        Map<String, Object> responseMap = createParser(
+                XContentType.JSON.xContent(),
+                responseBody
+        ).map();
+
+        assertEquals(modelId, responseMap.get(MODEL_ID));
+        assertEquals("failed", responseMap.get(MODEL_STATE));
     }
 
     public void testTrainModel_success_withId() throws IOException, InterruptedException {
