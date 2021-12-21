@@ -12,7 +12,6 @@
 package org.opensearch.knn.plugin.action;
 
 import org.apache.http.util.EntityUtils;
-import org.junit.Ignore;
 import org.opensearch.client.Response;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -30,14 +29,12 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
-import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class RestTrainModelHandlerIT extends KNNRestTestCase {
 
-    @Ignore
-    public void testTrainModel_fail_notEnoughData() throws IOException {
+    public void testTrainModel_fail_notEnoughData() throws IOException, InterruptedException {
 
         // Check that training fails properly when there is not enough data
 
@@ -118,13 +115,11 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         ).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
-        assertEquals("failed", responseMap.get(MODEL_STATE));
+
+        assertTrainingFails(modelId, 30, 1000);
     }
 
-    @Ignore
     public void testTrainModel_fail_tooMuchData() throws Exception {
-        //TODO: Fails on get
-
         // Limit the cache size and then call train
 
         updateClusterSettings("knn.memory.circuit_breaker.limit", "1kb");
@@ -206,7 +201,8 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         ).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
-        assertEquals("failed", responseMap.get(MODEL_STATE));
+
+        assertTrainingFails(modelId, 30, 1000);
     }
 
     public void testTrainModel_success_withId() throws IOException, InterruptedException {
