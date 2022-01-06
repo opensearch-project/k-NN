@@ -9,10 +9,11 @@ import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.index.fielddata.ScriptDocValues;
+import org.opensearch.knn.index.codec.VectorSerializer;
+import org.opensearch.knn.index.codec.VectorSerializerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 
 public final class KNNVectorScriptDocValues extends ScriptDocValues<float[]> {
 
@@ -45,8 +46,9 @@ public final class KNNVectorScriptDocValues extends ScriptDocValues<float[]> {
         try {
             BytesRef value = binaryDocValues.binaryValue();
             ByteArrayInputStream byteStream = new ByteArrayInputStream(value.bytes, value.offset, value.length);
-            ObjectInputStream objectStream = new ObjectInputStream(byteStream);
-            return (float[]) objectStream.readObject();
+            final VectorSerializer vectorSerializer = VectorSerializerFactory.getSerializerByStreamContent(byteStream);
+            final float[] vector = vectorSerializer.byteToFloat(byteStream);
+            return vector;
         } catch (IOException e) {
             throw ExceptionsHelper.convertToOpenSearchException(e);
         } catch (ClassNotFoundException e) {
