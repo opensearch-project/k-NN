@@ -877,6 +877,34 @@ public class KNNRestTestCase extends ODFERestTestCase {
         fail("Training did not succeed after " + attempts + " attempts with a delay of " + delayInMillis + " ms.");
     }
 
+    public void assertTrainingFails(String modelId, int attempts, int delayInMillis) throws InterruptedException,
+            IOException {
+        int attemptNum = 0;
+        Response response;
+        Map<String, Object> responseMap;
+        ModelState modelState;
+        while (attemptNum < attempts) {
+            Thread.sleep(delayInMillis);
+            attemptNum++;
+
+            response = getModel(modelId, null);
+
+            responseMap = createParser(
+                    XContentType.JSON.xContent(),
+                    EntityUtils.toString(response.getEntity())
+            ).map();
+
+            modelState = ModelState.getModelState((String) responseMap.get(MODEL_STATE));
+            if (modelState == ModelState.FAILED) {
+                return;
+            }
+
+            assertNotEquals(ModelState.CREATED, modelState);
+        }
+
+        fail("Training did not succeed after " + attempts + " attempts with a delay of " + delayInMillis + " ms.");
+    }
+
     /**
      * We need to be able to dump the jacoco coverage before cluster is shut down.
      * The new internal testing framework removed some of the gradle tasks we were listening to
