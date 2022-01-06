@@ -12,6 +12,7 @@
 package org.opensearch.knn.plugin.transport;
 
 import com.google.common.collect.ImmutableSet;
+import org.junit.Ignore;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -32,6 +33,7 @@ import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTIN
 
 public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestCase {
 
+    @Ignore
     public void testNodeOperation_modelNotInCache() {
         ClusterService clusterService = mock(ClusterService.class);
         Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10%").build();
@@ -57,6 +59,7 @@ public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestC
         assertEquals(0L, modelCache.getTotalWeightInKB());
     }
 
+    @Ignore
     public void testNodeOperation_modelInCache() throws ExecutionException, InterruptedException {
         ClusterService clusterService = mock(ClusterService.class);
         Settings settings = Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10%").build();
