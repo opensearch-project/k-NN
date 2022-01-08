@@ -11,7 +11,6 @@ import org.apache.lucene.util.BytesRef;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.util.ArrayList;
 
 public class KNNCodecUtil {
@@ -34,9 +33,9 @@ public class KNNCodecUtil {
         ArrayList<Integer> docIdList = new ArrayList<>();
         for (int doc = values.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = values.nextDoc()) {
             BytesRef bytesref = values.binaryValue();
-            try (ByteArrayInputStream byteStream = new ByteArrayInputStream(bytesref.bytes, bytesref.offset, bytesref.length);
-                ObjectInputStream objectStream = new ObjectInputStream(byteStream)) {
-                float[] vector = (float[]) objectStream.readObject();
+            try (ByteArrayInputStream byteStream = new ByteArrayInputStream(bytesref.bytes, bytesref.offset, bytesref.length)) {
+                final VectorSerializer vectorSerializer = VectorSerializerFactory.getSerializerByStreamContent(byteStream);
+                final float[] vector = vectorSerializer.byteToFloat(byteStream);
                 vectorList.add(vector);
             } catch (ClassNotFoundException e) {
                 throw new RuntimeException(e);
