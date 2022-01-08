@@ -21,7 +21,10 @@ import java.util.Map;
 import static org.opensearch.knn.index.codec.VectorSerializerFactory.SerializationMode.ARRAY;
 import static org.opensearch.knn.index.codec.VectorSerializerFactory.SerializationMode.COLLECTION_OF_FLOATS;
 
-
+/**
+ * Class abstracts Factory for VectorSerializer implementations. Exact implementation constructed and returned based on
+ * either content of the byte array or directly based on serialization type.
+ */
 public class VectorSerializerFactory {
     private static Map<SerializationMode, VectorSerializer> VECTOR_SERIALIZER_BY_TYPE = ImmutableMap.of(
             ARRAY, new VectorAsArraySerializer(),

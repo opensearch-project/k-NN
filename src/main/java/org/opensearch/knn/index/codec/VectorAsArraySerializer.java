@@ -17,6 +17,9 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
+/**
+ * Class implements VectorSerializer based on standard Java serialization/deserialization as a single array object
+ */
 public class VectorAsArraySerializer implements VectorSerializer {
     @Override
     public byte[] floatToByte(float[] floats) throws Exception {

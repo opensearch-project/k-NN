@@ -14,6 +14,9 @@ package org.opensearch.knn.index.codec;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
+/**
+ * Interface abstracts the vector serializer object that is responsible for serialization and de-serialization of k-NN vector
+ */
 public interface VectorSerializer {
     byte[] floatToByte(float[] floats) throws Exception;
 
