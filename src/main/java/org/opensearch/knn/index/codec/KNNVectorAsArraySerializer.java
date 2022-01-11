@@ -18,22 +18,22 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
 /**
- * Class implements VectorSerializer based on standard Java serialization/deserialization as a single array object
+ * Class implements KNNVectorSerializer based on standard Java serialization/deserialization as a single array object
  */
-public class VectorAsArraySerializer implements VectorSerializer {
+public class KNNVectorAsArraySerializer implements KNNVectorSerializer {
     @Override
-    public byte[] floatToByte(float[] floats) throws Exception {
+    public byte[] floatToByteArray(float[] input) throws Exception {
         byte[] bytes;
         try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
              ObjectOutputStream objectStream = new ObjectOutputStream(byteStream);) {
-            objectStream.writeObject(floats);
+            objectStream.writeObject(input);
             bytes = byteStream.toByteArray();
         }
         return bytes;
     }
 
     @Override
-    public float[] byteToFloat(ByteArrayInputStream byteStream) throws IOException, ClassNotFoundException {
+    public float[] byteToFloatArray(ByteArrayInputStream byteStream) throws IOException, ClassNotFoundException {
         final ObjectInputStream objectStream = new ObjectInputStream(byteStream);
         final float[] vector = (float[]) objectStream.readObject();
         return vector;

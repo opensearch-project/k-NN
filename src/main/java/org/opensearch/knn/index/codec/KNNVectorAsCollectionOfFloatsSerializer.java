@@ -17,22 +17,22 @@ import java.nio.ByteOrder;
 import java.util.stream.IntStream;
 
 /**
- * Class implements VectorSerializer based on serialization/deserialization of array as collection of individual numbers
+ * Class implements KNNVectorSerializer based on serialization/deserialization of array as collection of individual numbers
  */
-public class VectorAsCollectionOfFloatsSerializer implements VectorSerializer{
+public class KNNVectorAsCollectionOfFloatsSerializer implements KNNVectorSerializer {
     private static final int BYTES_IN_FLOAT = 4;
 
     @Override
-    public byte[] floatToByte(float[] floats) {
-        final ByteBuffer bb = ByteBuffer.allocate(floats.length * BYTES_IN_FLOAT).order(ByteOrder.BIG_ENDIAN);
-        IntStream.range(0, floats.length).forEach((index) -> bb.putFloat(floats[index]));
+    public byte[] floatToByteArray(float[] input) {
+        final ByteBuffer bb = ByteBuffer.allocate(input.length * BYTES_IN_FLOAT).order(ByteOrder.BIG_ENDIAN);
+        IntStream.range(0, input.length).forEach((index) -> bb.putFloat(input[index]));
         byte[] bytes = new byte[bb.flip().limit()];
         bb.get(bytes);
         return bytes;
     }
 
     @Override
-    public float[] byteToFloat(ByteArrayInputStream byteStream) {
+    public float[] byteToFloatArray(ByteArrayInputStream byteStream) {
         final byte[] vectorAsByteArray = new byte[byteStream.available()];
         byteStream.read(vectorAsByteArray, 0, byteStream.available());
         final float[] vector = new float[vectorAsByteArray.length / BYTES_IN_FLOAT];

@@ -1,6 +1,12 @@
 /*
- * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
  */
 
 package org.opensearch.knn.index.codec;
@@ -34,8 +40,8 @@ public class KNNCodecUtil {
         for (int doc = values.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = values.nextDoc()) {
             BytesRef bytesref = values.binaryValue();
             try (ByteArrayInputStream byteStream = new ByteArrayInputStream(bytesref.bytes, bytesref.offset, bytesref.length)) {
-                final VectorSerializer vectorSerializer = VectorSerializerFactory.getSerializerByStreamContent(byteStream);
-                final float[] vector = vectorSerializer.byteToFloat(byteStream);
+                final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
+                final float[] vector = vectorSerializer.byteToFloatArray(byteStream);
                 vectorList.add(vector);
             } catch (ClassNotFoundException e) {
                 throw new RuntimeException(e);

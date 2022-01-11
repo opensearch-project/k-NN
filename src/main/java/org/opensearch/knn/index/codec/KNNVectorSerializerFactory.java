@@ -22,16 +22,17 @@ import static org.opensearch.knn.index.codec.SerializationMode.ARRAY;
 import static org.opensearch.knn.index.codec.SerializationMode.COLLECTION_OF_FLOATS;
 
 /**
- * Class abstracts Factory for VectorSerializer implementations. Exact implementation constructed and returned based on
+ * Class abstracts Factory for KNNVectorSerializer implementations. Exact implementation constructed and returned based on
  * either content of the byte array or directly based on serialization type.
  */
-public class VectorSerializerFactory {
-    private static Map<SerializationMode, VectorSerializer> VECTOR_SERIALIZER_BY_TYPE = ImmutableMap.of(
-            ARRAY, new VectorAsArraySerializer(),
-            COLLECTION_OF_FLOATS, new VectorAsCollectionOfFloatsSerializer()
+public class KNNVectorSerializerFactory {
+    private static Map<SerializationMode, KNNVectorSerializer> VECTOR_SERIALIZER_BY_TYPE = ImmutableMap.of(
+            ARRAY, new KNNVectorAsArraySerializer(),
+            COLLECTION_OF_FLOATS, new KNNVectorAsCollectionOfFloatsSerializer()
     );
 
     private static final int ARRAY_HEADER_OFFSET = 27;
+    private static final int BYTES_IN_FLOAT = 4;
 
     /**
      * Array represents first 6 bytes of the byte stream header as per Java serialization protocol described in details
@@ -46,15 +47,15 @@ public class VectorSerializerFactory {
             ObjectStreamConstants.TC_CLASSDESC
     };
 
-    public static VectorSerializer getSerializerBySerializationMode(final SerializationMode serializationMode) {
-        return VECTOR_SERIALIZER_BY_TYPE.getOrDefault(serializationMode, new VectorAsCollectionOfFloatsSerializer());
+    public static KNNVectorSerializer getSerializerBySerializationMode(final SerializationMode serializationMode) {
+        return VECTOR_SERIALIZER_BY_TYPE.getOrDefault(serializationMode, new KNNVectorAsCollectionOfFloatsSerializer());
     }
 
-    public static VectorSerializer getDefaultSerializer() {
+    public static KNNVectorSerializer getDefaultSerializer() {
         return getSerializerBySerializationMode(COLLECTION_OF_FLOATS);
     }
 
-    public static VectorSerializer getSerializerByStreamContent(final ByteArrayInputStream byteStream) {
+    public static KNNVectorSerializer getSerializerByStreamContent(final ByteArrayInputStream byteStream) {
         final SerializationMode serializationMode = serializerModeFromStream(byteStream);
         return getSerializerBySerializationMode(serializationMode);
     }
@@ -62,7 +63,7 @@ public class VectorSerializerFactory {
     private static SerializationMode serializerModeFromStream(ByteArrayInputStream byteStream) {
         //check size, if the length is long enough for header and length is header + some number of floats
         if (byteStream.available() < ARRAY_HEADER_OFFSET ||
-                (byteStream.available() - ARRAY_HEADER_OFFSET) % 4 != 0) {
+                (byteStream.available() - ARRAY_HEADER_OFFSET) % BYTES_IN_FLOAT != 0) {
             return COLLECTION_OF_FLOATS;
         }
         final byte[] byteArray = new byte[SERIALIZATION_PROTOCOL_HEADER_PREFIX.length];

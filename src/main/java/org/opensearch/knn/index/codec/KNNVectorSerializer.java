@@ -17,14 +17,14 @@ import java.io.IOException;
 /**
  * Interface abstracts the vector serializer object that is responsible for serialization and de-serialization of k-NN vector
  */
-public interface VectorSerializer {
+public interface KNNVectorSerializer {
     /**
      * Serializes array of floats to array of bytes
-     * @param floats array that will be converted
+     * @param input array that will be converted
      * @return array of bytes that contains serialized input array
      * @throws Exception
      */
-    byte[] floatToByte(float[] floats) throws Exception;
+    byte[] floatToByteArray(float[] input) throws Exception;
 
     /**
      * Deserializes all bytes from the stream to array of floats
@@ -33,5 +33,5 @@ public interface VectorSerializer {
      * @throws IOException
      * @throws ClassNotFoundException
      */
-    float[] byteToFloat(ByteArrayInputStream byteStream) throws IOException, ClassNotFoundException;
+    float[] byteToFloatArray(ByteArrayInputStream byteStream) throws IOException, ClassNotFoundException;
 }
