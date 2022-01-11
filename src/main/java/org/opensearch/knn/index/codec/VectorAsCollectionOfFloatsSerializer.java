@@ -17,7 +17,7 @@ import java.nio.ByteOrder;
 import java.util.stream.IntStream;
 
 /**
- * Class implements VectorSerializer based on standard Java serialization/deserialization as a single array object
+ * Class implements VectorSerializer based on serialization/deserialization of array as collection of individual numbers
  */
 public class VectorAsCollectionOfFloatsSerializer implements VectorSerializer{
     private static final int BYTES_IN_FLOAT = 4;

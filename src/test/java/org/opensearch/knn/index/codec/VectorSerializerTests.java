@@ -25,12 +25,15 @@ public class VectorSerializerTests extends KNNTestCase {
     Random random = new Random();
 
     public void testVectorSerializerFactory() {
+        final VectorSerializer defaultSerializer = VectorSerializerFactory.getDefaultSerializer();
+        assertNotNull(defaultSerializer);
+
         final VectorSerializer arraySerializer =
-                VectorSerializerFactory.getSerializerBySerializationMode(VectorSerializerFactory.SerializationMode.ARRAY);
+                VectorSerializerFactory.getSerializerBySerializationMode(SerializationMode.ARRAY);
         assertNotNull(arraySerializer);
 
         final VectorSerializer collectionOfFloatsSerializer =
-                VectorSerializerFactory.getSerializerBySerializationMode(VectorSerializerFactory.SerializationMode.COLLECTION_OF_FLOATS);
+                VectorSerializerFactory.getSerializerBySerializationMode(SerializationMode.COLLECTION_OF_FLOATS);
         assertNotNull(collectionOfFloatsSerializer);
     }
 

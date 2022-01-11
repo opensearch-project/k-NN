@@ -18,8 +18,8 @@ import java.io.ObjectStreamConstants;
 import java.util.Arrays;
 import java.util.Map;
 
-import static org.opensearch.knn.index.codec.VectorSerializerFactory.SerializationMode.ARRAY;
-import static org.opensearch.knn.index.codec.VectorSerializerFactory.SerializationMode.COLLECTION_OF_FLOATS;
+import static org.opensearch.knn.index.codec.SerializationMode.ARRAY;
+import static org.opensearch.knn.index.codec.SerializationMode.COLLECTION_OF_FLOATS;
 
 /**
  * Class abstracts Factory for VectorSerializer implementations. Exact implementation constructed and returned based on
@@ -33,6 +33,10 @@ public class VectorSerializerFactory {
 
     private static final int ARRAY_HEADER_OFFSET = 27;
 
+    /**
+     * Array represents first 6 bytes of the byte stream header as per Java serialization protocol described in details
+     * <a href="https://docs.oracle.com/javase/8/docs/platform/serialization/spec/protocol.html">here</a>.
+     */
     private static final byte[] SERIALIZATION_PROTOCOL_HEADER_PREFIX = new byte[] {
             highByte(ObjectStreamConstants.STREAM_MAGIC),
             lowByte(ObjectStreamConstants.STREAM_MAGIC),
@@ -44,6 +48,10 @@ public class VectorSerializerFactory {
 
     public static VectorSerializer getSerializerBySerializationMode(final SerializationMode serializationMode) {
         return VECTOR_SERIALIZER_BY_TYPE.getOrDefault(serializationMode, new VectorAsCollectionOfFloatsSerializer());
+    }
+
+    public static VectorSerializer getDefaultSerializer() {
+        return getSerializerBySerializationMode(COLLECTION_OF_FLOATS);
     }
 
     public static VectorSerializer getSerializerByStreamContent(final ByteArrayInputStream byteStream) {
@@ -61,10 +69,10 @@ public class VectorSerializerFactory {
         byteStream.read(byteArray, 0, SERIALIZATION_PROTOCOL_HEADER_PREFIX.length);
         byteStream.reset();
         //checking if stream protocol grammar in header is valid for serialized array
-        if (!Arrays.equals(SERIALIZATION_PROTOCOL_HEADER_PREFIX, byteArray)) {
-            return COLLECTION_OF_FLOATS;
+        if (Arrays.equals(SERIALIZATION_PROTOCOL_HEADER_PREFIX, byteArray)) {
+            return ARRAY;
         }
-        return ARRAY;
+        return COLLECTION_OF_FLOATS;
     }
 
     private static byte highByte(short shortValue) {
@@ -75,7 +83,5 @@ public class VectorSerializerFactory {
         return (byte) shortValue;
     }
 
-    public enum SerializationMode {
-        ARRAY, COLLECTION_OF_FLOATS
-    }
+
 }
