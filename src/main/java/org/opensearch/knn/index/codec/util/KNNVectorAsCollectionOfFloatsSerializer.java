@@ -1,12 +1,6 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.knn.index.codec.util;
@@ -33,9 +27,13 @@ public class KNNVectorAsCollectionOfFloatsSerializer implements KNNVectorSeriali
 
     @Override
     public float[] byteToFloatArray(ByteArrayInputStream byteStream) {
+        if (byteStream == null || byteStream.available() % BYTES_IN_FLOAT != 0) {
+            throw new IllegalArgumentException("Byte stream cannot be deserialized to array of floats");
+        }
         final byte[] vectorAsByteArray = new byte[byteStream.available()];
         byteStream.read(vectorAsByteArray, 0, byteStream.available());
-        final float[] vector = new float[vectorAsByteArray.length / BYTES_IN_FLOAT];
+        final int sizeOfFloatArray = vectorAsByteArray.length / BYTES_IN_FLOAT;
+        final float[] vector = new float[sizeOfFloatArray];
         ByteBuffer.wrap(vectorAsByteArray).asFloatBuffer().get(vector);
         return vector;
     }

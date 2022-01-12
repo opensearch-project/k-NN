@@ -1,12 +1,6 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.knn.index.codec;
@@ -27,9 +21,24 @@ public class KNNVectorSerializerTests extends KNNTestCase {
 
     Random random = new Random();
 
-    public void testVectorSerializerFactory() {
+    public void testVectorSerializerFactory() throws Exception {
+        //check that default serializer can work with array of floats
+        //setup
+        final float[] vector = getArrayOfRandomFloats(20);
+        final ByteArrayOutputStream bas = new ByteArrayOutputStream();
+        final DataOutputStream ds = new DataOutputStream(bas);
+        for (float f : vector)
+            ds.writeFloat(f);
+        final byte[] vectorAsCollectionOfFloats = bas.toByteArray();
+        final ByteArrayInputStream bais = new ByteArrayInputStream(vectorAsCollectionOfFloats);
+        bais.reset();
+
         final KNNVectorSerializer defaultSerializer = KNNVectorSerializerFactory.getDefaultSerializer();
         assertNotNull(defaultSerializer);
+
+        final float[] actualDeserializedVector = defaultSerializer.byteToFloatArray(bais);
+        assertNotNull(actualDeserializedVector);
+        assertArrayEquals(vector, actualDeserializedVector, 0.1f);
 
         final KNNVectorSerializer arraySerializer =
                 KNNVectorSerializerFactory.getSerializerBySerializationMode(SerializationMode.ARRAY);
@@ -40,10 +49,23 @@ public class KNNVectorSerializerTests extends KNNTestCase {
         assertNotNull(collectionOfFloatsSerializer);
     }
 
+
+    public void testVectorSerializerFactory_throwExceptionForStreamWithUnsupportedDataType() throws Exception {
+        //prepare array of chars that is not supported by serializer factory. expected behavior is to fail
+        final char[] arrayOfChars = new char[] {'a', 'b', 'c'};
+        final ByteArrayOutputStream bas = new ByteArrayOutputStream();
+        final DataOutputStream ds = new DataOutputStream(bas);
+        for (char ch : arrayOfChars)
+            ds.writeChar(ch);
+        final byte[] vectorAsCollectionOfChars = bas.toByteArray();
+        final ByteArrayInputStream bais = new ByteArrayInputStream(vectorAsCollectionOfChars);
+        bais.reset();
+
+        expectThrows(RuntimeException.class, () -> KNNVectorSerializerFactory.getSerializerByStreamContent(bais));
+    }
+
     public void testVectorAsArraySerializer() throws Exception {
-        int arrayLength = 20;
-        float[] vector = new float[arrayLength];
-        IntStream.range(0, arrayLength).forEach(index -> vector[index] = random.nextFloat());
+        final float[] vector = getArrayOfRandomFloats(20);
 
         final ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
         final ObjectOutputStream objectStream = new ObjectOutputStream(byteStream);
@@ -70,9 +92,7 @@ public class KNNVectorSerializerTests extends KNNTestCase {
 
     public void testVectorAsCollectionOfFloatsSerializer() throws Exception {
         //setup
-        int arrayLength = 20;
-        float[] vector = new float[arrayLength];
-        IntStream.range(0, arrayLength).forEach(index -> vector[index] = random.nextFloat());
+        final float[] vector = getArrayOfRandomFloats(20);
 
         final ByteArrayOutputStream bas = new ByteArrayOutputStream();
         final DataOutputStream ds = new DataOutputStream(bas);
@@ -96,5 +116,11 @@ public class KNNVectorSerializerTests extends KNNTestCase {
 
         assertNotNull(actualDeserializedVector);
         assertArrayEquals(vector, actualDeserializedVector, 0.1f);
+    }
+
+    private float[] getArrayOfRandomFloats(int arrayLength) {
+        float[] vector = new float[arrayLength];
+        IntStream.range(0, arrayLength).forEach(index -> vector[index] = random.nextFloat());
+        return vector;
     }
 }

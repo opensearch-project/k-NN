@@ -1,12 +1,6 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.knn.index.codec.util;
@@ -33,6 +27,7 @@ public class KNNVectorSerializerFactory {
 
     private static final int ARRAY_HEADER_OFFSET = 27;
     private static final int BYTES_IN_FLOAT = 4;
+    private static final int BITS_IN_ONE_BYTE = 8;
 
     /**
      * Array represents first 6 bytes of the byte stream header as per Java serialization protocol described in details
@@ -61,23 +56,30 @@ public class KNNVectorSerializerFactory {
     }
 
     private static SerializationMode serializerModeFromStream(ByteArrayInputStream byteStream) {
-        //check size, if the length is long enough for header and length is header + some number of floats
-        if (byteStream.available() < ARRAY_HEADER_OFFSET ||
-                (byteStream.available() - ARRAY_HEADER_OFFSET) % BYTES_IN_FLOAT != 0) {
-            return COLLECTION_OF_FLOATS;
+        int numberOfAvailableBytesInStream = byteStream.available();
+        if (numberOfAvailableBytesInStream < ARRAY_HEADER_OFFSET) {
+            return getSerializerOrThrowError(numberOfAvailableBytesInStream, COLLECTION_OF_FLOATS);
         }
         final byte[] byteArray = new byte[SERIALIZATION_PROTOCOL_HEADER_PREFIX.length];
         byteStream.read(byteArray, 0, SERIALIZATION_PROTOCOL_HEADER_PREFIX.length);
         byteStream.reset();
         //checking if stream protocol grammar in header is valid for serialized array
         if (Arrays.equals(SERIALIZATION_PROTOCOL_HEADER_PREFIX, byteArray)) {
-            return ARRAY;
+            int numberOfAvailableBytesAfterHeader = numberOfAvailableBytesInStream - ARRAY_HEADER_OFFSET;
+            return getSerializerOrThrowError(numberOfAvailableBytesAfterHeader, ARRAY);
         }
-        return COLLECTION_OF_FLOATS;
+        return getSerializerOrThrowError(numberOfAvailableBytesInStream, COLLECTION_OF_FLOATS);
+    }
+
+    private static SerializationMode getSerializerOrThrowError(int numberOfRemainingBytes, final SerializationMode serializationMode) {
+        if (numberOfRemainingBytes % BYTES_IN_FLOAT == 0) {
+            return serializationMode;
+        }
+        throw new IllegalArgumentException(String.format("Byte stream cannot be deserialized to array of floats due to invalid length %d", numberOfRemainingBytes));
     }
 
     private static byte highByte(short shortValue) {
-        return (byte) (shortValue>>8);
+        return (byte) (shortValue>> BITS_IN_ONE_BYTE);
     }
 
     private static byte lowByte(short shortValue) {

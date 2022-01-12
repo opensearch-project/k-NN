@@ -51,8 +51,6 @@ public final class KNNVectorScriptDocValues extends ScriptDocValues<float[]> {
             return vector;
         } catch (IOException e) {
             throw ExceptionsHelper.convertToOpenSearchException(e);
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException((e));
         }
     }
 
