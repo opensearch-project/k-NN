@@ -12,6 +12,9 @@
 package org.opensearch.knn.index.codec;
 
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
+import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
+import org.opensearch.knn.index.codec.util.SerializationMode;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;

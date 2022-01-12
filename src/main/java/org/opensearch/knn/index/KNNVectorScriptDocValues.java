@@ -9,8 +9,8 @@ import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.index.fielddata.ScriptDocValues;
-import org.opensearch.knn.index.codec.KNNVectorSerializer;
-import org.opensearch.knn.index.codec.KNNVectorSerializerFactory;
+import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
+import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;

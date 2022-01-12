@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.knn.index.codec;
+package org.opensearch.knn.index.codec.util;
 
 public enum SerializationMode {
     ARRAY, COLLECTION_OF_FLOATS

@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.knn.index.codec;
+package org.opensearch.knn.index.codec.util;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -18,8 +18,8 @@ import java.io.ObjectStreamConstants;
 import java.util.Arrays;
 import java.util.Map;
 
-import static org.opensearch.knn.index.codec.SerializationMode.ARRAY;
-import static org.opensearch.knn.index.codec.SerializationMode.COLLECTION_OF_FLOATS;
+import static org.opensearch.knn.index.codec.util.SerializationMode.ARRAY;
+import static org.opensearch.knn.index.codec.util.SerializationMode.COLLECTION_OF_FLOATS;
 
 /**
  * Class abstracts Factory for KNNVectorSerializer implementations. Exact implementation constructed and returned based on

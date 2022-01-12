@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.knn.index.codec;
+package org.opensearch.knn.index.codec.util;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;

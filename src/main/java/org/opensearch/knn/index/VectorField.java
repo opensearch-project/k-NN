@@ -8,8 +8,8 @@ package org.opensearch.knn.index;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.index.IndexableFieldType;
 import org.apache.lucene.util.BytesRef;
-import org.opensearch.knn.index.codec.KNNVectorSerializer;
-import org.opensearch.knn.index.codec.KNNVectorSerializerFactory;
+import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
+import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 
 public class VectorField extends Field {
 
