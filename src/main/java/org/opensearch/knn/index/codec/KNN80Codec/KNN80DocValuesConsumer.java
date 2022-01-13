@@ -13,7 +13,7 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.codec.KNNCodecUtil;
+import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelCache;
@@ -46,7 +46,7 @@ import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.index.codec.KNNCodecUtil.buildEngineFileName;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
 
 /**
  * This class writes the KNN docvalues to the segments
