@@ -11,9 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.Arrays;
 import java.util.ArrayList;
-import com.google.common.primitives.Floats;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
@@ -137,7 +135,7 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
 
                     assertEquals(k, results.size());
                     String round = System.getProperty(BWCSUITE_ROUND);
-                    if("first".equals(round)) {
+                    if ("first".equals(round)) {
                         assertEquals("1", results.get(0).getDocId());
                         int graphCountFirst = getTotalGraphsInCache();
 
@@ -147,8 +145,7 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
 
                         knnWarmup(Collections.singletonList(testIndexName));
                         assertEquals(graphCountFirst + 2, getTotalGraphsInCache());
-                    }
-                    else if("second".equals(round)) {
+                    } else if ("second".equals(round)) {
                         assertEquals("2", results.get(0).getDocId());
                         int graphCountSecond = getTotalGraphsInCache();
 
@@ -156,8 +153,7 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
 
                         knnWarmup(Collections.singletonList(testIndexName));
                         assertEquals(graphCountSecond, getTotalGraphsInCache());
-                    }
-                    else {
+                    } else {
                         assertEquals("4", results.get(0).getDocId());
                     }
 
@@ -165,7 +161,7 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
                     float[][] expRecallVal = getIndexVectorsFromIndex(testIndex_Recall_Old, testFieldName, 1, dimensions_Recall_Old);
                     assertEquals(expRecallVal[0][0], recallValMixed, 0.2);
 
-                    if("third".equals(round)){
+                    if ("third".equals(round)) {
                         deleteKNNIndex(testIndexName);
                         deleteKNNIndex(testIndex_Recall);
                         deleteKNNIndex(testIndex_Recall_Old);
@@ -233,13 +229,13 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
 
    private double getkNNBWCRecallValue(String testIndex, String testField, int docCount, int dimensions, int queryCount, int k, boolean isStandard, SpaceType spaceType) throws Exception {
        float[][] indexVectors = getIndexVectorsFromIndex(testIndex, testField, docCount, dimensions);
-       float[][] queryVectors = TestUtils.getQueryVectors(queryCount, dimensions, isStandard);
-       float[][] groundTruthValues = TestUtils.computeGroundTruthDistances(indexVectors, queryVectors, spaceType, k);
-       List<List<float[]>> searchResults = getSearchResults(testIndex, testField, queryVectors, k);
-       return TestUtils.calculateRecallValue(queryVectors, searchResults, groundTruthValues, k, spaceType);
+       float[][] queryVectors = TestUtils.getQueryVectors(queryCount, dimensions, docCount, isStandard);
+       List<Set<String>> groundTruthValues = TestUtils.computeGroundTruthValues(indexVectors, queryVectors, spaceType, k);
+       List<List<String>> searchResults = bulkSearch(testIndex, testField, queryVectors, k);
+       return TestUtils.calculateRecallValue(searchResults, groundTruthValues, k);
    }
 
-    private void addDocs(String testIndex, String testField, int dimensions, int docCount, boolean isStandard) throws Exception{
+    private void addDocs(String testIndex, String testField, int dimensions, int docCount, boolean isStandard) throws Exception {
         createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(testField, dimensions));
 
         updateClusterSettings(KNN_ALGO_PARAM_INDEX_THREAD_QTY, 2);
@@ -248,23 +244,4 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
         bulkAddKnnDocs(testIndex, testField, TestUtils.getIndexVectors(docCount, dimensions, isStandard), docCount);
     }
 
-    private List<List<float[]>> getSearchResults(String testIndex, String testField, float[][] queryVectors, int k) throws IOException {
-        List<List<float[]>> searchResults = new ArrayList<>();
-        List<float[]> kVectors;
-
-        for(int i = 0; i < queryVectors.length; i++){
-            KNNQueryBuilder knnQueryBuilderRecall = new KNNQueryBuilder(testField, queryVectors[i], k);
-            Response respRecall = searchKNNIndex(testIndex, knnQueryBuilderRecall,k);
-            List<KNNResult> resultsRecall = parseSearchResponse(EntityUtils.toString(respRecall.getEntity()), testField);
-
-            assertEquals(resultsRecall.size(), k);
-            kVectors = new ArrayList<>();
-            for(KNNResult result : resultsRecall){
-                kVectors.add(Floats.toArray(Arrays.stream(result.getVector()).collect(Collectors.toList())));
-            }
-            searchResults.add(kVectors);
-        }
-
-        return searchResults;
-    }
 }

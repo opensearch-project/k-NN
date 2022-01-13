@@ -16,18 +16,51 @@ import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.plugin.script.KNNScoringUtil;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.plugin.script.KNNScoringUtil;
+import org.opensearch.knn.plugin.stats.suppliers.ModelIndexStatusSupplier;
+import java.util.Comparator;
+import java.util.Random;
+import java.util.Set;
+import java.util.PriorityQueue;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
-import java.util.Random;
-import java.util.Arrays;
 import static org.apache.lucene.util.LuceneTestCase.random;
 
+class DistVector {
+    public float dist;
+    public String docID;
+
+    public DistVector (float dist, String docID) {
+        this.dist = dist;
+        this.docID = docID;
+    }
+
+    public String getDocID() {
+        return docID;
+    }
+
+    public float getDist() {
+        return dist;
+    }
+}
+
+class DistComparator implements Comparator<DistVector> {
+
+    public int compare(DistVector d1, DistVector d2) {
+        if (d1.dist < d2.dist) {
+            return 1;
+        } else if (d1.dist > d2.dist) {
+            return -1;
+        }
+        return 0;
+    }
+}
 
 public class TestUtils {
     public static final String KNN_BWC_PREFIX = "knn-bwc-";
@@ -37,39 +70,22 @@ public class TestUtils {
     public static final String BWCSUITE_ROUND = "tests.rest.bwcsuite_round";
     public static final String TEST_CLUSTER_NAME = "tests.clustername";
 
-    //Generating index vectors using random function with a seed which makes these vectors standard and generate same vectors for each run.
-    public static float[][] randomlyGenerateStandardIndexVectors(int numVectors, int dimensions) {
-        float[][] standardIndexVectors = new float[numVectors][dimensions];
-        int seedVal = 500;
+    // Generating vectors using random function with a seed which makes these vectors standard and generate same vectors for each run.
+    public static float[][] randomlyGenerateStandardVectors(int numVectors, int dimensions, int seed) {
+        float[][] standardVectors = new float[numVectors][dimensions];
+        Random rand = new Random(seed);
 
         for (int i = 0; i < numVectors; i++) {
             float[] vector = new float[dimensions];
             for (int j = 0; j < dimensions; j++) {
-                Random random = new Random(seedVal++);
-                vector[j] = random.nextFloat();
+                vector[j] = rand.nextFloat();
             }
-            standardIndexVectors[i] = vector;
+            standardVectors[i] = vector;
         }
-        return standardIndexVectors;
+        return standardVectors;
     }
 
-    //Generating query vectors using random function with a seed which makes these vectors standard and generate same vectors for each run.
-    public static float[][] randomlyGenerateStandardQueryVectors(int numVectors, int dimensions){
-        float[][] standardQueryVectors = new float[numVectors][dimensions];
-        int seedVal = 1;
-
-        for (int i = 0; i < numVectors; i++) {
-            float[] vector = new float[dimensions];
-            for (int j = 0; j < dimensions; j++) {
-                Random random = new Random(seedVal++);
-                vector[j] = random.nextFloat();
-            }
-            standardQueryVectors[i] = vector;
-        }
-        return standardQueryVectors;
-    }
-
-    public static float[][] generateRandomVectors(int numVectors, int dimensions){
+    public static float[][] generateRandomVectors(int numVectors, int dimensions) {
         float[][] randomVectors = new float[numVectors][dimensions];
 
         for (int i = 0; i < numVectors; i++) {
@@ -82,50 +98,71 @@ public class TestUtils {
         return randomVectors;
     }
 
-    // Here, for a given space type we will compute the 'k' shortest distances among all the index vectors for each and every query vector.
-    // These computed distances are later used while calculating Recall value to compare with the 'k' index vectors obtained for each and every search query performed.
-    public static float[][] computeGroundTruthDistances(float[][] indexVectors, float[][] queryVectors, SpaceType spaceType, int k){
-        float[][] groundTruthValues = new float[queryVectors.length][k];
-        for(int i = 0; i < queryVectors.length; i++){
-            float[] distValues = new float[indexVectors.length];
-            for(int j = 0; j < indexVectors.length; j++){
-                if(spaceType != null && "l2".equals(spaceType.getValue()))
-                    distValues[j] = KNNScoringUtil.l2Squared(queryVectors[i], indexVectors[j]);
+    /*
+     * Here, for a given space type we will compute the 'k' shortest distances among all the index vectors for each and every query vector using a priority queue and
+     * their document ids are stored. These document ids are later used while calculating Recall value to compare with the document ids of 'k' results obtained for
+     * each and every search query performed.
+     */
+    public static List<Set<String>> computeGroundTruthValues(float[][] indexVectors, float[][] queryVectors, SpaceType spaceType, int k) {
+        ArrayList<Set<String>> groundTruthValues = new ArrayList<>();
+        PriorityQueue<DistVector> pq;
+        HashSet<String> docIds;
+        float dist = 0.0f;
+
+        for (int i = 0; i < queryVectors.length; i++) {
+            pq = new PriorityQueue<>(k, new DistComparator());
+            for (int j = 0; j < indexVectors.length; j++) {
+                if (spaceType != null && "l2".equals(spaceType.getValue())) {
+                    dist = KNNScoringUtil.l2Squared(queryVectors[i], indexVectors[j]);
+                }
+
+                if (pq.size() < k) {
+                    pq.add(new DistVector(dist, String.valueOf(j+1)));
+                } else if (pq.peek().getDist() > dist) {
+                    pq.poll();
+                    pq.add(new DistVector(dist, String.valueOf(j+1)));
+                }
             }
-            Arrays.sort(distValues);
-            System.arraycopy(distValues, 0, groundTruthValues[i], 0, k);
+
+            docIds = new HashSet<>();
+            while (!pq.isEmpty()) {
+                docIds.add(pq.poll().getDocID());
+            }
+
+            groundTruthValues.add(docIds);
         }
+
         return groundTruthValues;
     }
 
-    public static float[][] getQueryVectors(int queryCount, int dimensions, boolean isStandard){
-        if(isStandard)
-            return randomlyGenerateStandardQueryVectors(queryCount, dimensions);
-        else
+    public static float[][] getQueryVectors(int queryCount, int dimensions, int docCount, boolean isStandard) {
+        if (isStandard) {
+            return randomlyGenerateStandardVectors(queryCount, dimensions, docCount+1);
+        } else {
             return generateRandomVectors(queryCount, dimensions);
+        }
     }
 
-    public static float[][] getIndexVectors(int docCount, int dimensions, boolean isStandard){
-        if(isStandard)
-            return randomlyGenerateStandardIndexVectors(docCount, dimensions);
-        else
+    public static float[][] getIndexVectors(int docCount, int dimensions, boolean isStandard) {
+        if (isStandard) {
+            return randomlyGenerateStandardVectors(docCount, dimensions, 1);
+        } else {
             return generateRandomVectors(docCount, dimensions);
+        }
     }
 
-    //Computing recall value by computing distances for the obtained query vectors and search results based on the given spaceType and comparing those distances with the
-    //computed ground truth values
-    public static double calculateRecallValue(float[][] queryVectors, List<List<float[]>> searchResults, float[][] groundTruthValues, int k, SpaceType spaceType){
+    /*
+     * Recall is the number of relevant documents retrieved by a search divided by the total number of existing relevant documents.
+     * We are similarly calculating recall by verifying number of relevant documents obtained in the search results by comparing with
+     * groundTruthValues and then dividing by 'k'
+     */
+    public static double calculateRecallValue(List<List<String>> searchResults, List<Set<String>> groundTruthValues, int k) {
         ArrayList<Float> recalls = new ArrayList<>();
-        float dist = 0.0F;
 
-        for(int i = 0; i < queryVectors.length; i++){
+        for (int i = 0; i < searchResults.size(); i++) {
             float recallVal = 0.0F;
-            for(int j = 0; j < searchResults.get(i).size(); j++){
-                if(spaceType != null && "l2".equals(spaceType.getValue())){
-                    dist = KNNScoringUtil.l2Squared(queryVectors[i], searchResults.get(i).get(j));
-                }
-
-                if (dist <= groundTruthValues[i][j]){
+            for (int j = 0; j < searchResults.get(i).size(); j++) {
+                if (groundTruthValues.get(i).contains(searchResults.get(i).get(j))) {
                     recallVal += 1.0;
                 }
             }

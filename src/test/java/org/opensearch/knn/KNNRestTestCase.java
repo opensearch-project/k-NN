@@ -783,6 +783,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     }
 
+    //Method that adds multiple documents into the index using Bulk API
     public void bulkAddKnnDocs(String index, String fieldName,  float[][] indexVectors, int docCount) throws IOException {
         Request request = new Request(
                 "POST",
@@ -792,7 +793,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         request.addParameter("refresh", "true");
         StringBuilder sb = new StringBuilder();
 
-        for(int i = 0; i < docCount; i++){
+        for (int i = 0; i < docCount; i++) {
             sb.append("{ \"index\" : { \"_index\" : \"")
                     .append(index)
                     .append("\", \"_id\" : \"")
@@ -811,6 +812,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         assertEquals(response.getStatusLine().getStatusCode(), 200);
     }
 
+    //Method that returns index vectors of the documents that were added before into the index
     public float[][] getIndexVectorsFromIndex(String testIndex, String testField, int docCount, int dimensions) throws IOException {
         float[][] vectors = new float[docCount][dimensions];
 
@@ -834,12 +836,33 @@ public class KNNRestTestCase extends ODFERestTestCase {
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), testField);
         int i = 0;
 
-        for(KNNResult result : results) {
+        for (KNNResult result : results) {
             float[] primitiveArray = Floats.toArray(Arrays.stream(result.getVector()).collect(Collectors.toList()));
             vectors[i++] = primitiveArray;
         }
 
         return vectors;
+    }
+
+    // Method that performs bulk search for multiple queries and stores the resulting documents ids into list
+    public List<List<String>> bulkSearch(String testIndex, String testField, float[][] queryVectors, int k) throws IOException {
+        List<List<String>> searchResults = new ArrayList<>();
+        List<String> kVectors;
+
+        for (int i = 0; i < queryVectors.length; i++) {
+            KNNQueryBuilder knnQueryBuilderRecall = new KNNQueryBuilder(testField, queryVectors[i], k);
+            Response respRecall = searchKNNIndex(testIndex, knnQueryBuilderRecall,k);
+            List<KNNResult> resultsRecall = parseSearchResponse(EntityUtils.toString(respRecall.getEntity()), testField);
+
+            assertEquals(resultsRecall.size(), k);
+            kVectors = new ArrayList<>();
+            for (KNNResult result : resultsRecall) {
+                kVectors.add(result.getDocId());
+            }
+            searchResults.add(kVectors);
+        }
+
+        return searchResults;
     }
 
     /**
