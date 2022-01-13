@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec;
+package org.opensearch.knn.index.codec.util;
 
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -11,7 +11,6 @@ import org.apache.lucene.util.BytesRef;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.util.ArrayList;
 
 public class KNNCodecUtil {
@@ -34,12 +33,10 @@ public class KNNCodecUtil {
         ArrayList<Integer> docIdList = new ArrayList<>();
         for (int doc = values.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = values.nextDoc()) {
             BytesRef bytesref = values.binaryValue();
-            try (ByteArrayInputStream byteStream = new ByteArrayInputStream(bytesref.bytes, bytesref.offset, bytesref.length);
-                ObjectInputStream objectStream = new ObjectInputStream(byteStream)) {
-                float[] vector = (float[]) objectStream.readObject();
+            try (ByteArrayInputStream byteStream = new ByteArrayInputStream(bytesref.bytes, bytesref.offset, bytesref.length)) {
+                final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
+                final float[] vector = vectorSerializer.byteToFloatArray(byteStream);
                 vectorList.add(vector);
-            } catch (ClassNotFoundException e) {
-                throw new RuntimeException(e);
             }
             docIdList.add(doc);
         }

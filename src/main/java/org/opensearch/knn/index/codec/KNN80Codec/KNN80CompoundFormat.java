@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.codec.KNN80Codec;
 
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.codec.KNNCodecUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.Codec;
