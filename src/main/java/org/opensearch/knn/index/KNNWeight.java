@@ -104,7 +104,8 @@ public class KNNWeight extends Weight {
             }
 
             FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
-            KNNEngine knnEngine = KNNEngine.getEngine(fieldInfo.getAttribute(KNN_ENGINE));
+            String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, KNNEngine.NMSLIB.getName());
+            KNNEngine knnEngine = KNNEngine.getEngine(engineName);
             SpaceType spaceType = SpaceType.getSpace(fieldInfo.getAttribute(KNNConstants.SPACE_TYPE));
 
 
