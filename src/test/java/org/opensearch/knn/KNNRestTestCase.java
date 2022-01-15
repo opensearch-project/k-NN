@@ -11,6 +11,7 @@ import com.google.common.primitives.Floats;
 import org.apache.commons.lang.StringUtils;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.indices.ModelDao;
@@ -780,6 +781,88 @@ public class KNNRestTestCase extends ODFERestTestCase {
             addKnnDoc(indexName, String.valueOf(i+1), fieldName, Floats.asList(vector).toArray());
         }
 
+    }
+
+    //Method that adds multiple documents into the index using Bulk API
+    public void bulkAddKnnDocs(String index, String fieldName,  float[][] indexVectors, int docCount) throws IOException {
+        Request request = new Request(
+                "POST",
+                "/_bulk"
+        );
+
+        request.addParameter("refresh", "true");
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = 0; i < docCount; i++) {
+            sb.append("{ \"index\" : { \"_index\" : \"")
+                    .append(index)
+                    .append("\", \"_id\" : \"")
+                    .append(i+1)
+                    .append("\" } }\n")
+                    .append("{ \"")
+                    .append(fieldName)
+                    .append("\" : ")
+                    .append(Arrays.toString(indexVectors[i]))
+                    .append(" }\n");
+        }
+
+        request.setJsonEntity(sb.toString());
+
+        Response response = client().performRequest(request);
+        assertEquals(response.getStatusLine().getStatusCode(), 200);
+    }
+
+    //Method that returns index vectors of the documents that were added before into the index
+    public float[][] getIndexVectorsFromIndex(String testIndex, String testField, int docCount, int dimensions) throws IOException {
+        float[][] vectors = new float[docCount][dimensions];
+
+        QueryBuilder qb = new MatchAllQueryBuilder();
+
+        Request request = new Request(
+                "POST",
+                "/" + testIndex + "/_search"
+        );
+
+        request.addParameter("size", Integer.toString(docCount));
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+        builder.field("query", qb);
+        builder.endObject();
+        request.setJsonEntity(Strings.toString(builder));
+
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
+                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), testField);
+        int i = 0;
+
+        for (KNNResult result : results) {
+            float[] primitiveArray = Floats.toArray(Arrays.stream(result.getVector()).collect(Collectors.toList()));
+            vectors[i++] = primitiveArray;
+        }
+
+        return vectors;
+    }
+
+    // Method that performs bulk search for multiple queries and stores the resulting documents ids into list
+    public List<List<String>> bulkSearch(String testIndex, String testField, float[][] queryVectors, int k) throws IOException {
+        List<List<String>> searchResults = new ArrayList<>();
+        List<String> kVectors;
+
+        for (int i = 0; i < queryVectors.length; i++) {
+            KNNQueryBuilder knnQueryBuilderRecall = new KNNQueryBuilder(testField, queryVectors[i], k);
+            Response respRecall = searchKNNIndex(testIndex, knnQueryBuilderRecall,k);
+            List<KNNResult> resultsRecall = parseSearchResponse(EntityUtils.toString(respRecall.getEntity()), testField);
+
+            assertEquals(resultsRecall.size(), k);
+            kVectors = new ArrayList<>();
+            for (KNNResult result : resultsRecall) {
+                kVectors.add(result.getDocId());
+            }
+            searchResults.add(kVectors);
+        }
+
+        return searchResults;
     }
 
     /**
