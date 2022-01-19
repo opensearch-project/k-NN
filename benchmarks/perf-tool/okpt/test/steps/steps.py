@@ -282,15 +282,16 @@ class IngestStep(OpenSearchStep):
         def action(doc_id):
             return {'index': {'_index': self.index_name, '_id': doc_id}}
 
-        i = 0
+        id = 0
         index_responses = []
-        while i < self.dataset.train.len():
-            partition = cast(np.ndarray,
-                             self.dataset.train[i:i + self.bulk_size])
-            body = bulk_transform(partition, self.field_name, action, i)
+        while True:
+            partition = self.dataset.read(self.bulk_size)
+            if partition is None:
+                break
+            body = bulk_transform(partition, self.field_name, action, id)
             result = bulk_index(self.opensearch, self.index_name, body)
             index_responses.append(result)
-            i += self.bulk_size
+            id += self.bulk_size
 
         results['took'] = [
             float(index_response['took']) for index_response in index_responses
@@ -317,11 +318,18 @@ class QueryStep(OpenSearchStep):
                                              {}, None)
         self.calculate_recall = parse_bool_param('calculate_recall',
                                                  step_config.config, {}, False)
-        dataset_format = parse_string_param('dataset_format',
+        dataset_format = parse_string_param('query_dataset_format',
                                             step_config.config, {}, 'hdf5')
-        dataset_path = parse_string_param('dataset_path', step_config.config,
-                                          {}, None)
-        self.dataset = parse_dataset(dataset_path, dataset_format)
+        dataset_path = parse_string_param('query_dataset_path',
+                                          step_config.config, {}, None)
+        self.dataset = parse_dataset(dataset_format, dataset_path, "test")
+
+        neighbors_format = parse_string_param('neighbors_format',
+                                              step_config.config, {}, 'hdf5')
+        neighbors_path = parse_string_param('neighbors_path',
+                                            step_config.config, {}, None)
+        self.neighbors = parse_dataset(neighbors_format, neighbors_path,
+                                       "neighbors")
         self.implicit_config = step_config.implicit_config
 
     def _action(self):
@@ -341,10 +349,13 @@ class QueryStep(OpenSearchStep):
 
         results = {}
         query_responses = []
-        for v in self.dataset.test:
+        while True:
+            query = self.dataset.read(1)
+            if query is None:
+                break
             query_responses.append(
-                query_index(self.opensearch, self.index_name, get_body(v),
-                            [self.field_name]))
+                query_index(self.opensearch, self.index_name,
+                            get_body(query[0]), [self.field_name]))
 
         results['took'] = [
             float(query_response['took']) for query_response in query_responses
@@ -355,10 +366,10 @@ class QueryStep(OpenSearchStep):
             ids = [[int(hit['_id'])
                     for hit in query_response['hits']['hits']]
                    for query_response in query_responses]
-            results['recall@K'] = recall_at_r(ids, self.dataset.neighbors,
+            results['recall@K'] = recall_at_r(ids, self.neighbors.get_data(),
                                               self.k, self.k)
             results[f'recall@{str(self.r)}'] = recall_at_r(
-                ids, self.dataset.neighbors, self.r, self.k)
+                ids, self.neighbors.get_data(), self.r, self.k)
 
         return results
 

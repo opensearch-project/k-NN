@@ -13,23 +13,48 @@ import h5py
 from okpt.io.config.parsers.base import ConfigurationError
 
 
-@dataclass
-class Dataset:
-    train: h5py.Dataset
-    test: h5py.Dataset
-    neighbors: h5py.Dataset
-    distances: h5py.Dataset
+class DataSet(ABC):
+    __metaclass__ = ABCMeta
+
+    @abstractmethod
+    def read(self, chunk_size: int):
+        pass
+
+    @abstractmethod
+    def get_data(self):
+        pass
+
+    @abstractmethod
+    def size(self):
+        pass
 
 
-def parse_dataset(dataset_path: str, dataset_format: str) -> Union[Dataset]:
-    if dataset_format == 'hdf5':
+class HDF5DataSet(Dataset):
+
+    def __init__(self, dataset_path: str, selector: str):
         file = h5py.File(dataset_path)
-        return Dataset(train=cast(h5py.Dataset, file['train']),
-                       test=cast(h5py.Dataset, file['test']),
-                       neighbors=cast(h5py.Dataset, file['neighbors']),
-                       distances=cast(h5py.Dataset, file['distances']))
-    else:
-        raise Exception()
+        self.data = cast(h5py.Dataset, file[selector])
+        self.current = 0
+
+    def read(self, chunk_size: int):
+        ##TODO: This should only return the maximum number of results
+        v = cast(np.ndarray, self.data[self.current:self.current + chunk_size])
+        self.current += chunk_size
+        return v
+
+    def get_data(self):
+        return self.data
+
+    def size(self):
+        return self.data.len()
+
+
+def parse_dataset(dataset_format: str, dataset_path: str,
+                  selector: str = None) -> DataSet:
+    if dataset_format == 'hdf5':
+        return HDF5DataSet(dataset_path, selector)
+
+    raise Exception()
 
 
 def parse_string_param(key: str, first_map, second_map, default) -> str:
