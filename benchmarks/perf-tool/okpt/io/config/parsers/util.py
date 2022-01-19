@@ -10,6 +10,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Union, cast
 import h5py
+import numpy as np
 
 from okpt.io.config.parsers.base import ConfigurationError
 
