@@ -274,7 +274,7 @@ class IngestStep(OpenSearchStep):
                                             step_config.config, {}, 'hdf5')
         dataset_path = parse_string_param('dataset_path', step_config.config,
                                           {}, None)
-        self.dataset = parse_dataset(dataset_path, dataset_format)
+        self.dataset = parse_dataset(dataset_format, dataset_path, "train")
 
     def _action(self):
         results = {}
