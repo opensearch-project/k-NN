@@ -39,9 +39,15 @@ class HDF5DataSet(DataSet):
         self.current = 0
 
     def read(self, chunk_size: int):
-        ##TODO: This should only return the maximum number of results
-        v = cast(np.ndarray, self.data[self.current:self.current + chunk_size])
-        self.current += chunk_size
+        if self.current >= self.size():
+            return None
+
+        end_i = self.current + chunk_size
+        if end_i > self.size():
+            end_i = self.size()
+
+        v = cast(np.ndarray, self.data[self.current:end_i])
+        self.current = end_i
         return v
 
     def get_data(self):
