@@ -30,7 +30,7 @@ class DataSet(ABC):
         pass
 
 
-class HDF5DataSet(Dataset):
+class HDF5DataSet(DataSet):
 
     def __init__(self, dataset_path: str, selector: str):
         file = h5py.File(dataset_path)
