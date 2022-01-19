@@ -297,6 +297,8 @@ class IngestStep(OpenSearchStep):
             float(index_response['took']) for index_response in index_responses
         ]
 
+        self.dataset.reset()
+
         return results
 
     def _get_measures(self) -> List[str]:
@@ -370,6 +372,9 @@ class QueryStep(OpenSearchStep):
                                               self.k, self.k)
             results[f'recall@{str(self.r)}'] = recall_at_r(
                 ids, self.neighbors.get_data(), self.r, self.k)
+
+        self.dataset.reset()
+        self.neighbors.reset()
 
         return results
 

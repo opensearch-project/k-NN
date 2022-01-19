@@ -8,7 +8,7 @@
 
 from abc import ABC, ABCMeta, abstractmethod
 from dataclasses import dataclass
-from typing import Union, cast
+from typing import cast
 import h5py
 import numpy as np
 
@@ -28,6 +28,10 @@ class DataSet(ABC):
 
     @abstractmethod
     def size(self):
+        pass
+
+    @abstractmethod
+    def reset(self):
         pass
 
 
@@ -55,6 +59,9 @@ class HDF5DataSet(DataSet):
 
     def size(self):
         return self.data.len()
+
+    def reset(self):
+        self.current = 0
 
 
 def parse_dataset(dataset_format: str, dataset_path: str,
