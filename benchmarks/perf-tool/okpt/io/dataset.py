@@ -82,7 +82,7 @@ class BigANNNeighborDataSet(DataSet):
 
     def read(self, chunk_size: int):
         return [[int.from_bytes(self.file.read(4), "little") for _ in
-                 range(self.k)] for _ in range(self.num_queries)]
+                 range(self.k)] for _ in range(chunk_size)]
 
     def size(self):
         return self.num_queries

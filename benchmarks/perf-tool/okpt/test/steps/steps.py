@@ -368,13 +368,14 @@ class QueryStep(OpenSearchStep):
             ids = [[int(hit['_id'])
                     for hit in query_response['hits']['hits']]
                    for query_response in query_responses]
-            results['recall@K'] = recall_at_r(ids, self.neighbors.get_data(),
+            results['recall@K'] = recall_at_r(ids, self.neighbors,
                                               self.k, self.k)
+            self.neighbors.reset()
             results[f'recall@{str(self.r)}'] = recall_at_r(
-                ids, self.neighbors.get_data(), self.r, self.k)
+                ids, self.neighbors, self.r, self.k)
+            self.neighbors.reset()
 
         self.dataset.reset()
-        self.neighbors.reset()
 
         return results
 
