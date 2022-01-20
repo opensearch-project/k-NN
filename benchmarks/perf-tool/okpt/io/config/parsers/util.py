@@ -9,15 +9,15 @@
 
 from okpt.io.config.parsers.base import ConfigurationError
 from okpt.io.dataset import HDF5DataSet, BigANNNeighborDataSet, \
-    BigANNVectorDataSet, DataSet
+    BigANNVectorDataSet, DataSet, Context
 
 
 def parse_dataset(dataset_format: str, dataset_path: str,
-                  selector: str = None) -> DataSet:
+                  context: Context) -> DataSet:
     if dataset_format == 'hdf5':
-        return HDF5DataSet(dataset_path, selector)
+        return HDF5DataSet(dataset_path, context)
 
-    if dataset_format == 'bigann' and selector == "neighbors":
+    if dataset_format == 'bigann' and context == Context.NEIGHBORS:
         return BigANNNeighborDataSet(dataset_path)
 
     if dataset_format == 'bigann':

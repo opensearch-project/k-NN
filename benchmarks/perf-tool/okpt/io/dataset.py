@@ -19,11 +19,18 @@ Classes:
 """
 
 from abc import ABC, ABCMeta, abstractmethod
+from enum import Enum
 from typing import cast
 import h5py
 import numpy as np
 
 import struct
+
+
+class Context(Enum):
+    INDEX = 1
+    QUERY = 2
+    NEIGHBORS = 3
 
 
 class DataSet(ABC):
@@ -44,9 +51,9 @@ class DataSet(ABC):
 
 class HDF5DataSet(DataSet):
 
-    def __init__(self, dataset_path: str, selector: str):
+    def __init__(self, dataset_path: str, context: Context):
         file = h5py.File(dataset_path)
-        self.data = cast(h5py.Dataset, file[selector])
+        self.data = cast(h5py.Dataset, file[self._parse_context(context)])
         self.current = 0
 
     def read(self, chunk_size: int):
@@ -66,6 +73,17 @@ class HDF5DataSet(DataSet):
 
     def reset(self):
         self.current = 0
+
+    @staticmethod
+    def _parse_context(context: Context) -> str:
+        if context == Context.NEIGHBORS:
+            return "neighbors"
+
+        if context == Context.INDEX:
+            return "train"
+
+        if context == Context.QUERY:
+            return "test"
 
 
 class BigANNNeighborDataSet(DataSet):

@@ -19,6 +19,7 @@ from opensearchpy import OpenSearch, RequestsHttpConnection
 
 from okpt.io.config.parsers.base import ConfigurationError
 from okpt.io.config.parsers.util import parse_string_param, parse_int_param, parse_dataset, parse_bool_param
+from okpt.io.dataset import Context
 from okpt.io.utils.reader import parse_json_from_path
 from okpt.test.steps import base
 from okpt.test.steps.base import StepConfig
@@ -274,7 +275,8 @@ class IngestStep(OpenSearchStep):
                                             step_config.config, {}, 'hdf5')
         dataset_path = parse_string_param('dataset_path', step_config.config,
                                           {}, None)
-        self.dataset = parse_dataset(dataset_format, dataset_path, "train")
+        self.dataset = parse_dataset(dataset_format, dataset_path,
+                                     Context.INDEX)
 
     def _action(self):
         results = {}
@@ -324,14 +326,15 @@ class QueryStep(OpenSearchStep):
                                             step_config.config, {}, 'hdf5')
         dataset_path = parse_string_param('query_dataset_path',
                                           step_config.config, {}, None)
-        self.dataset = parse_dataset(dataset_format, dataset_path, "test")
+        self.dataset = parse_dataset(dataset_format, dataset_path,
+                                     Context.QUERY)
 
         neighbors_format = parse_string_param('neighbors_format',
                                               step_config.config, {}, 'hdf5')
         neighbors_path = parse_string_param('neighbors_path',
                                             step_config.config, {}, None)
         self.neighbors = parse_dataset(neighbors_format, neighbors_path,
-                                       "neighbors")
+                                       Context.NEIGHBORS)
         self.implicit_config = step_config.implicit_config
 
     def _action(self):
@@ -549,5 +552,5 @@ def query_index(opensearch: OpenSearch, index_name: str, body: dict,
                              _source_excludes=excluded_fields)
 
 
-def bulk_index(opensearch: OpenSearch, index_name: str, body: dict):
+def bulk_index(opensearch: OpenSearch, index_name: str, body: List):
     return opensearch.bulk(index=index_name, body=body, timeout='5m')
