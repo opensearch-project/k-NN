@@ -6,62 +6,10 @@
 
 """Utility functions for parsing"""
 
-from abc import ABC, ABCMeta, abstractmethod
-from dataclasses import dataclass
-from typing import cast
-import h5py
-import numpy as np
 
 from okpt.io.config.parsers.base import ConfigurationError
-
-
-class DataSet(ABC):
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def read(self, chunk_size: int):
-        pass
-
-    @abstractmethod
-    def get_data(self):
-        pass
-
-    @abstractmethod
-    def size(self):
-        pass
-
-    @abstractmethod
-    def reset(self):
-        pass
-
-
-class HDF5DataSet(DataSet):
-
-    def __init__(self, dataset_path: str, selector: str):
-        file = h5py.File(dataset_path)
-        self.data = cast(h5py.Dataset, file[selector])
-        self.current = 0
-
-    def read(self, chunk_size: int):
-        if self.current >= self.size():
-            return None
-
-        end_i = self.current + chunk_size
-        if end_i > self.size():
-            end_i = self.size()
-
-        v = cast(np.ndarray, self.data[self.current:end_i])
-        self.current = end_i
-        return v
-
-    def get_data(self):
-        return self.data
-
-    def size(self):
-        return self.data.len()
-
-    def reset(self):
-        self.current = 0
+from okpt.io.dataset import HDF5DataSet, BigANNNeighborDataSet, \
+    BigANNVectorDataSet, DataSet
 
 
 def parse_dataset(dataset_format: str, dataset_path: str,
@@ -69,7 +17,13 @@ def parse_dataset(dataset_format: str, dataset_path: str,
     if dataset_format == 'hdf5':
         return HDF5DataSet(dataset_path, selector)
 
-    raise Exception()
+    if dataset_format == 'bigann' and selector == "neighbors":
+        return BigANNNeighborDataSet(dataset_path)
+
+    if dataset_format == 'bigann':
+        return BigANNVectorDataSet(dataset_path)
+
+    raise Exception("Unknown dataset format")
 
 
 def parse_string_param(key: str, first_map, second_map, default) -> str:

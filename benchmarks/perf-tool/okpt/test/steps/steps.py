@@ -9,7 +9,7 @@ Some of the OpenSearch operations return a `took` field in the response body,
 so the profiling decorators aren't needed for some functions.
 """
 import json
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List
 
 import numpy as np
 import requests
@@ -474,7 +474,7 @@ def get_opensearch_client(endpoint: str, port: int):
     )
 
 
-def recall_at_r(results, ground_truth_set, r, k):
+def recall_at_r(results, neighbor_dataset, r, k):
     """
     Calculates the recall@R for a set of queries against a ground truth nearest
     neighbor set
@@ -482,8 +482,8 @@ def recall_at_r(results, ground_truth_set, r, k):
         results: 2D list containing ids of results returned by OpenSearch.
         results[i][j] i refers to query, j refers to
             result in the query
-        ground_truth_set: 2D list containing ids of the true nearest neighbors
-        for a set of queries
+        neighbor_dataset: 2D dataset containing ids of the true nearest
+        neighbors for a set of queries
         r: number of top results to check if they are in the ground truth k-NN
         set.
         k: k value for the query
@@ -491,13 +491,18 @@ def recall_at_r(results, ground_truth_set, r, k):
         Recall at R
     """
     correct = 0.0
-    for i, true_neighbors in enumerate(ground_truth_set):
-        true_neighbors_set = set(true_neighbors[:k])
+    query = 0
+    while True:
+        true_neighbors = neighbor_dataset.read(1)
+        if true_neighbors is None:
+            break
+        true_neighbors_set = set(true_neighbors[0][:k])
         for j in range(r):
-            if results[i][j] in true_neighbors_set:
+            if results[query][j] in true_neighbors_set:
                 correct += 1.0
+        query += 1
 
-    return correct / (r * len(ground_truth_set))
+    return correct / (r * neighbor_dataset.size())
 
 
 def get_index_size_in_kb(opensearch, index_name):
