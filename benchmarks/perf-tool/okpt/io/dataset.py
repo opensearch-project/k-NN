@@ -97,16 +97,28 @@ class BigANNNeighborDataSet(DataSet):
         self.file = open(dataset_path, 'rb')
         self.num_queries = int.from_bytes(self.file.read(4), "little")
         self.k = int.from_bytes(self.file.read(4), "little")
+        self.current = 0
 
     def read(self, chunk_size: int):
-        return [[int.from_bytes(self.file.read(4), "little") for _ in
-                 range(self.k)] for _ in range(chunk_size)]
+        if self.current >= self.size():
+            return None
+
+        end_i = self.current + chunk_size
+        if end_i > self.size():
+            end_i = self.size()
+
+        v = [[int.from_bytes(self.file.read(4), "little") for _ in
+              range(self.k)] for _ in range(end_i - self.current)]
+
+        self.current = end_i
+        return v
 
     def size(self):
         return self.num_queries
 
     def reset(self):
         self.file.seek(8)
+        self.current = 0
 
 
 class BigANNVectorDataSet(DataSet):
