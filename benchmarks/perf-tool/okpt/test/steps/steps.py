@@ -322,9 +322,9 @@ class QueryStep(OpenSearchStep):
                                              {}, None)
         self.calculate_recall = parse_bool_param('calculate_recall',
                                                  step_config.config, {}, False)
-        dataset_format = parse_string_param('query_dataset_format',
+        dataset_format = parse_string_param('dataset_format',
                                             step_config.config, {}, 'hdf5')
-        dataset_path = parse_string_param('query_dataset_path',
+        dataset_path = parse_string_param('dataset_path',
                                           step_config.config, {}, None)
         self.dataset = parse_dataset(dataset_format, dataset_path,
                                      Context.QUERY)
