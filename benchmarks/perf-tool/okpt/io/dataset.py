@@ -17,7 +17,7 @@ Classes:
     BigANNNeighborDataSet: Neighbor format for big-ann-benchmarks
     BigANNVectorDataSet: Vector format for big-ann-benchmarks
 """
-
+import os
 from abc import ABC, ABCMeta, abstractmethod
 from enum import Enum
 from typing import cast
@@ -107,8 +107,22 @@ class BigANNNeighborDataSet(DataSet):
 
     def __init__(self, dataset_path: str):
         self.file = open(dataset_path, 'rb')
+        self.file.seek(0, os.SEEK_END)
+        num_bytes = self.file.tell()
+        self.file.seek(0)
+
+        if num_bytes < 8:
+            raise Exception("File is invalid")
+
         self.num_queries = int.from_bytes(self.file.read(4), "little")
         self.k = int.from_bytes(self.file.read(4), "little")
+
+        # According to the website, the number of bytes that will follow will
+        # be:  num_queries X K x sizeof(uint32_t) bytes + num_queries X K x
+        # sizeof(float)
+        if (num_bytes - 8) != 2 * (self.num_queries * self.k * 4):
+            raise Exception("File is invalid")
+
         self.current = 0
 
     def read(self, chunk_size: int):
@@ -140,8 +154,20 @@ class BigANNVectorDataSet(DataSet):
 
     def __init__(self, dataset_path: str):
         self.file = open(dataset_path, 'rb')
+        self.file.seek(0, os.SEEK_END)
+        num_bytes = self.file.tell()
+        self.file.seek(0)
+
+        if num_bytes < 8:
+            raise Exception("File is invalid")
+
         self.num_points = int.from_bytes(self.file.read(4), "little")
         self.dimension = int.from_bytes(self.file.read(4), "little")
+        bytes_per_num = self._get_data_size(dataset_path)
+
+        if (num_bytes - 8) != self.num_points * self.dimension * bytes_per_num:
+            raise Exception("File is invalid")
+
         self.reader = self._value_reader(dataset_path)
         self.current = 0
 
@@ -168,6 +194,17 @@ class BigANNVectorDataSet(DataSet):
     def reset(self):
         self.file.seek(8)  # Seek to 8 bytes to skip re-reading metadata
         self.current = 0
+
+    @staticmethod
+    def _get_data_size(file_name):
+        ext = file_name.split('.')[-1]
+        if ext == "u8bin":
+            return 1
+
+        if ext == "fbin":
+            return 4
+
+        raise Exception("Unknown extension")
 
     @staticmethod
     def _value_reader(file_name):
