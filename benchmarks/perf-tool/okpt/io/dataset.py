@@ -60,8 +60,9 @@ class DataSet(ABC):
 
 
 class HDF5DataSet(DataSet):
-    """ Data-set format corresponding to ann-benchmarks -
-    https://github.com/erikbern/ann-benchmarks#data-sets"""
+    """ Data-set format corresponding to `ANN Benchmarks
+    <https://github.com/erikbern/ann-benchmarks#data-sets>`_ 
+    """
 
     def __init__(self, dataset_path: str, context: Context):
         file = h5py.File(dataset_path)
@@ -101,8 +102,8 @@ class HDF5DataSet(DataSet):
 
 
 class BigANNNeighborDataSet(DataSet):
-    """ Data-set format for neighbor data-sets for Big ANN Benchmarks -
-    https://big-ann-benchmarks.com/index.html#bench-datasets """
+    """ Data-set format for neighbor data-sets for `Big ANN Benchmarks
+    <https://big-ann-benchmarks.com/index.html#bench-datasets>`_"""
 
     def __init__(self, dataset_path: str):
         self.file = open(dataset_path, 'rb')
@@ -133,8 +134,9 @@ class BigANNNeighborDataSet(DataSet):
 
 
 class BigANNVectorDataSet(DataSet):
-    """ Data-set format for vector data-sets for Big ANN Benchmarks -
-    https://big-ann-benchmarks.com/index.html#bench-datasets """
+    """ Data-set format for vector data-sets for `Big ANN Benchmarks
+    <https://big-ann-benchmarks.com/index.html#bench-datasets>`_
+    """
 
     def __init__(self, dataset_path: str):
         self.file = open(dataset_path, 'rb')
