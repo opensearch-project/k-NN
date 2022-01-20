@@ -6,7 +6,7 @@
 
 """Defines DataSet interface and implements particular formats
 
-A DataSet is thas the basic functionality that it can be read in chunks, or
+A DataSet is the basic functionality that it can be read in chunks, or
 read completely and reset to the start.
 
 Currently, we support HDF5 formats from ann-benchmarks and big-ann-benchmarks
@@ -61,7 +61,7 @@ class DataSet(ABC):
 
 class HDF5DataSet(DataSet):
     """ Data-set format corresponding to `ANN Benchmarks
-    <https://github.com/erikbern/ann-benchmarks#data-sets>`_ 
+    <https://github.com/erikbern/ann-benchmarks#data-sets>`_
     """
 
     def __init__(self, dataset_path: str, context: Context):
