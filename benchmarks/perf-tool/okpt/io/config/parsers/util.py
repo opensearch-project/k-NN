@@ -23,7 +23,7 @@ def parse_dataset(dataset_format: str, dataset_path: str,
     if dataset_format == 'bigann':
         return BigANNVectorDataSet(dataset_path)
 
-    raise Exception("Unknown dataset format")
+    raise Exception("Unsupported data-set format")
 
 
 def parse_string_param(key: str, first_map, second_map, default) -> str:

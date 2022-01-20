@@ -28,12 +28,22 @@ import struct
 
 
 class Context(Enum):
+    """DataSet context enum. Can be used to add additional context for how a
+    data-set should be interpreted.
+    """
     INDEX = 1
     QUERY = 2
     NEIGHBORS = 3
 
 
 class DataSet(ABC):
+    """DataSet interface. Used for reading data-sets from files.
+
+    Methods:
+        read: Read a chunk of data from the data-set
+        size: Gets the number of items in the data-set
+        reset: Resets internal state of data-set to beginning
+    """
     __metaclass__ = ABCMeta
 
     @abstractmethod
@@ -50,6 +60,8 @@ class DataSet(ABC):
 
 
 class HDF5DataSet(DataSet):
+    """ Data-set format corresponding to ann-benchmarks -
+    https://github.com/erikbern/ann-benchmarks#data-sets"""
 
     def __init__(self, dataset_path: str, context: Context):
         file = h5py.File(dataset_path)
@@ -85,14 +97,13 @@ class HDF5DataSet(DataSet):
         if context == Context.QUERY:
             return "test"
 
+        raise Exception("Unsupported context")
+
 
 class BigANNNeighborDataSet(DataSet):
-    """
-    Neighbors:
-    1. num_queries(uint32_t) K (uint32)
-    2. num_queries X K x sizeof(uint32_t) bytes of data representing the IDs
-    3. followed by num_queries X K x sizeof(float)
-    """
+    """ Data-set format for neighbor data-sets for Big ANN Benchmarks -
+    https://big-ann-benchmarks.com/index.html#bench-datasets """
+
     def __init__(self, dataset_path: str):
         self.file = open(dataset_path, 'rb')
         self.num_queries = int.from_bytes(self.file.read(4), "little")
@@ -122,16 +133,14 @@ class BigANNNeighborDataSet(DataSet):
 
 
 class BigANNVectorDataSet(DataSet):
-    """
-    1. 8 bytes of data consisting of num_points(uint32_t) num_dimensions(uint32)
-    2. num_pts X num_dimensions x sizeof(type) bytes of data stored one vector
-    after another.
-    """
+    """ Data-set format for vector data-sets for Big ANN Benchmarks -
+    https://big-ann-benchmarks.com/index.html#bench-datasets """
+
     def __init__(self, dataset_path: str):
         self.file = open(dataset_path, 'rb')
         self.num_points = int.from_bytes(self.file.read(4), "little")
         self.dimension = int.from_bytes(self.file.read(4), "little")
-        self.reader = _value_reader(dataset_path)
+        self.reader = self._value_reader(dataset_path)
         self.current = 0
 
     def read(self, chunk_size: int):
@@ -158,14 +167,13 @@ class BigANNVectorDataSet(DataSet):
         self.file.seek(8)  # Seek to 8 bytes to skip re-reading metadata
         self.current = 0
 
+    @staticmethod
+    def _value_reader(file_name):
+        ext = file_name.split('.')[-1]
+        if ext == "u8bin":
+            return lambda file: float(int.from_bytes(file.read(1), "little"))
 
-def _value_reader(file_name):
-    ext = file_name.split('.')[-1]
-    # .fbin, .u8bin, and .i8bin to represent float32, uint8 and int8
-    if ext == "u8bin":
-        return lambda file: float(int.from_bytes(file.read(1), "little"))
+        if ext == "fbin":
+            return lambda file: struct.unpack('<f', file.read(4))
 
-    if ext == "fbin":
-        return lambda file: struct.unpack('<f', file.read(4))
-
-    raise Exception("Unknown extension")
+        raise Exception("Unknown extension")
