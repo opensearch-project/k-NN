@@ -178,6 +178,12 @@ In order to run the integration tests with a 3 node cluster, run this command:
 ./gradlew :integTest -PnumNodes=3
 ```
 
+Integration tests can be run with remote cluster. For that run the following command and replace host/port/cluster name values with ones for the target cluster:
+
+```
+./gradlew :integTestRemote -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="integTest-0" -Dhttps=false
+```
+
 ### Debugging
 
 Sometimes it is useful to attach a debugger to either the OpenSearch cluster or the integration test runner to see what's going on. For running unit tests, hit **Debug** from the IDE's gutter to debug the tests. For the OpenSearch cluster, first, make sure that the debugger is listening on port `5005`. Then, to debug the cluster code, run:
