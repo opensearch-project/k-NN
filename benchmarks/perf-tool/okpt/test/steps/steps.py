@@ -9,7 +9,7 @@ Some of the OpenSearch operations return a `took` field in the response body,
 so the profiling decorators aren't needed for some functions.
 """
 import json
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List
 
 import numpy as np
 import requests
@@ -19,6 +19,7 @@ from opensearchpy import OpenSearch, RequestsHttpConnection
 
 from okpt.io.config.parsers.base import ConfigurationError
 from okpt.io.config.parsers.util import parse_string_param, parse_int_param, parse_dataset, parse_bool_param
+from okpt.io.dataset import Context
 from okpt.io.utils.reader import parse_json_from_path
 from okpt.test.steps import base
 from okpt.test.steps.base import StepConfig
@@ -274,7 +275,8 @@ class IngestStep(OpenSearchStep):
                                             step_config.config, {}, 'hdf5')
         dataset_path = parse_string_param('dataset_path', step_config.config,
                                           {}, None)
-        self.dataset = parse_dataset(dataset_path, dataset_format)
+        self.dataset = parse_dataset(dataset_format, dataset_path,
+                                     Context.INDEX)
 
     def _action(self):
         results = {}
@@ -282,19 +284,22 @@ class IngestStep(OpenSearchStep):
         def action(doc_id):
             return {'index': {'_index': self.index_name, '_id': doc_id}}
 
-        i = 0
+        id = 0
         index_responses = []
-        while i < self.dataset.train.len():
-            partition = cast(np.ndarray,
-                             self.dataset.train[i:i + self.bulk_size])
-            body = bulk_transform(partition, self.field_name, action, i)
+        while True:
+            partition = self.dataset.read(self.bulk_size)
+            if partition is None:
+                break
+            body = bulk_transform(partition, self.field_name, action, id)
             result = bulk_index(self.opensearch, self.index_name, body)
             index_responses.append(result)
-            i += self.bulk_size
+            id += self.bulk_size
 
         results['took'] = [
             float(index_response['took']) for index_response in index_responses
         ]
+
+        self.dataset.reset()
 
         return results
 
@@ -319,9 +324,17 @@ class QueryStep(OpenSearchStep):
                                                  step_config.config, {}, False)
         dataset_format = parse_string_param('dataset_format',
                                             step_config.config, {}, 'hdf5')
-        dataset_path = parse_string_param('dataset_path', step_config.config,
-                                          {}, None)
-        self.dataset = parse_dataset(dataset_path, dataset_format)
+        dataset_path = parse_string_param('dataset_path',
+                                          step_config.config, {}, None)
+        self.dataset = parse_dataset(dataset_format, dataset_path,
+                                     Context.QUERY)
+
+        neighbors_format = parse_string_param('neighbors_format',
+                                              step_config.config, {}, 'hdf5')
+        neighbors_path = parse_string_param('neighbors_path',
+                                            step_config.config, {}, None)
+        self.neighbors = parse_dataset(neighbors_format, neighbors_path,
+                                       Context.NEIGHBORS)
         self.implicit_config = step_config.implicit_config
 
     def _action(self):
@@ -341,10 +354,13 @@ class QueryStep(OpenSearchStep):
 
         results = {}
         query_responses = []
-        for v in self.dataset.test:
+        while True:
+            query = self.dataset.read(1)
+            if query is None:
+                break
             query_responses.append(
-                query_index(self.opensearch, self.index_name, get_body(v),
-                            [self.field_name]))
+                query_index(self.opensearch, self.index_name,
+                            get_body(query[0]), [self.field_name]))
 
         results['took'] = [
             float(query_response['took']) for query_response in query_responses
@@ -355,10 +371,14 @@ class QueryStep(OpenSearchStep):
             ids = [[int(hit['_id'])
                     for hit in query_response['hits']['hits']]
                    for query_response in query_responses]
-            results['recall@K'] = recall_at_r(ids, self.dataset.neighbors,
+            results['recall@K'] = recall_at_r(ids, self.neighbors,
                                               self.k, self.k)
+            self.neighbors.reset()
             results[f'recall@{str(self.r)}'] = recall_at_r(
-                ids, self.dataset.neighbors, self.r, self.k)
+                ids, self.neighbors, self.r, self.k)
+            self.neighbors.reset()
+
+        self.dataset.reset()
 
         return results
 
@@ -458,7 +478,7 @@ def get_opensearch_client(endpoint: str, port: int):
     )
 
 
-def recall_at_r(results, ground_truth_set, r, k):
+def recall_at_r(results, neighbor_dataset, r, k):
     """
     Calculates the recall@R for a set of queries against a ground truth nearest
     neighbor set
@@ -466,8 +486,8 @@ def recall_at_r(results, ground_truth_set, r, k):
         results: 2D list containing ids of results returned by OpenSearch.
         results[i][j] i refers to query, j refers to
             result in the query
-        ground_truth_set: 2D list containing ids of the true nearest neighbors
-        for a set of queries
+        neighbor_dataset: 2D dataset containing ids of the true nearest
+        neighbors for a set of queries
         r: number of top results to check if they are in the ground truth k-NN
         set.
         k: k value for the query
@@ -475,13 +495,18 @@ def recall_at_r(results, ground_truth_set, r, k):
         Recall at R
     """
     correct = 0.0
-    for i, true_neighbors in enumerate(ground_truth_set):
-        true_neighbors_set = set(true_neighbors[:k])
+    query = 0
+    while True:
+        true_neighbors = neighbor_dataset.read(1)
+        if true_neighbors is None:
+            break
+        true_neighbors_set = set(true_neighbors[0][:k])
         for j in range(r):
-            if results[i][j] in true_neighbors_set:
+            if results[query][j] in true_neighbors_set:
                 correct += 1.0
+        query += 1
 
-    return correct / (r * len(ground_truth_set))
+    return correct / (r * neighbor_dataset.size())
 
 
 def get_index_size_in_kb(opensearch, index_name):
@@ -527,5 +552,5 @@ def query_index(opensearch: OpenSearch, index_name: str, body: dict,
                              _source_excludes=excluded_fields)
 
 
-def bulk_index(opensearch: OpenSearch, index_name: str, body: dict):
+def bulk_index(opensearch: OpenSearch, index_name: str, body: List):
     return opensearch.bulk(index=index_name, body=body, timeout='5m')
