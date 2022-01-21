@@ -6,30 +6,24 @@
 
 """Utility functions for parsing"""
 
-from dataclasses import dataclass
-from typing import Union, cast
-import h5py
 
 from okpt.io.config.parsers.base import ConfigurationError
+from okpt.io.dataset import HDF5DataSet, BigANNNeighborDataSet, \
+    BigANNVectorDataSet, DataSet, Context
 
 
-@dataclass
-class Dataset:
-    train: h5py.Dataset
-    test: h5py.Dataset
-    neighbors: h5py.Dataset
-    distances: h5py.Dataset
-
-
-def parse_dataset(dataset_path: str, dataset_format: str) -> Union[Dataset]:
+def parse_dataset(dataset_format: str, dataset_path: str,
+                  context: Context) -> DataSet:
     if dataset_format == 'hdf5':
-        file = h5py.File(dataset_path)
-        return Dataset(train=cast(h5py.Dataset, file['train']),
-                       test=cast(h5py.Dataset, file['test']),
-                       neighbors=cast(h5py.Dataset, file['neighbors']),
-                       distances=cast(h5py.Dataset, file['distances']))
-    else:
-        raise Exception()
+        return HDF5DataSet(dataset_path, context)
+
+    if dataset_format == 'bigann' and context == Context.NEIGHBORS:
+        return BigANNNeighborDataSet(dataset_path)
+
+    if dataset_format == 'bigann':
+        return BigANNVectorDataSet(dataset_path)
+
+    raise Exception("Unsupported data-set format")
 
 
 def parse_string_param(key: str, first_map, second_map, default) -> str:

@@ -51,6 +51,8 @@ steps:
     field_name: target_field
     dataset_format: hdf5
     dataset_path: ../dataset/sift-128-euclidean.hdf5
+    neighbors_format: hdf5
+    neighbors_path: ../dataset/sift-128-euclidean.hdf5
 cleanup:
   - name: delete_model
     model_id: test-model
