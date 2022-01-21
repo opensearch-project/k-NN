@@ -219,7 +219,7 @@ Ingests a dataset of vectors into the cluster.
 | index_name | Name of index to ingest into | No default |
 | field_name | Name of field to ingest into | No default |
 | bulk_size | Documents per bulk request | 300 |
-| dataset_format | Format the dataset is in. Currently only hdf5 is supported. The hdf5 file must be organized in the same way that the ann-benchmarks organizes theirs. This will use the "train" data as the data to ingest. | 'hdf5' |
+| dataset_format | Format the dataset is in. Currently hdf5 and bigann is supported. The hdf5 file must be organized in the same way that the ann-benchmarks organizes theirs. | 'hdf5' |
 | dataset_path | Path to dataset | No default |
 
 ##### Metrics
@@ -241,8 +241,10 @@ Runs a set of queries against an index.
 | index_name | Name of index to search | No default |
 | field_name | Name field to search | No default |
 | calculate_recall | Whether to calculate recall values | False |
-| dataset_format | Format the dataset is in. Currently only hdf5 is supported. The hdf5 file must be organized in the same way that the ann-benchmarks organizes theirs. This will use the "test" data as the data to use for queries. | 'hdf5' |
+| dataset_format | Format the dataset is in. Currently hdf5 and bigann is supported. The hdf5 file must be organized in the same way that the ann-benchmarks organizes theirs. | 'hdf5' |
 | dataset_path | Path to dataset | No default |
+| neighbors_format | Format the neighbors dataset is in. Currently hdf5 and bigann is supported. The hdf5 file must be organized in the same way that the ann-benchmarks organizes theirs. | 'hdf5' |
+| neighbors_path | Path to neighbors dataset | No default |
 
 ##### Metrics
 
