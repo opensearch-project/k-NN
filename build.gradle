@@ -226,6 +226,7 @@ task integTestRemote(type: RestIntegTestTask) {
     if (System.getProperty("tests.rest.cluster") != null) {
         filter {
             includeTestsMatching "org.opensearch.knn.*IT"
+            excludeTestsMatching "org.opensearch.knn.bwc.*IT"
         }
     }
 }
