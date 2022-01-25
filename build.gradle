@@ -5,6 +5,7 @@
 
 import java.util.concurrent.Callable
 import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
+import org.opensearch.gradle.test.RestIntegTestTask
 
 buildscript {
     ext {
@@ -215,6 +216,25 @@ testClusters.integTest {
         }
     }
     systemProperty("java.library.path", "$rootDir/jni/release")
+}
+
+task integTestRemote(type: RestIntegTestTask) {
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
+    systemProperty "https", System.getProperty("https")
+    systemProperty "user", System.getProperty("user")
+    systemProperty "password", System.getProperty("password")
+
+    systemProperty 'cluster.number_of_nodes', "${_numNodes}"
+
+    // Run tests with remote cluster only if rest case is defined
+    if (System.getProperty("tests.rest.cluster") != null) {
+        filter {
+            includeTestsMatching "org.opensearch.knn.*IT"
+            excludeTestsMatching "org.opensearch.knn.bwc.*IT"
+        }
+    }
 }
 
 // bwcFilePath contains the gradlew assemble binary files of k-NN plugins

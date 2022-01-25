@@ -33,7 +33,7 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
         updateClusterSettings("knn.memory.circuit_breaker.limit", "1kb");
 
         // Create index with 1 primary and numNodes-1 replicas so that the data will be on every node in the cluster
-        int numNodes = Integer.parseInt(System.getProperty("cluster.number_of_nodes"));
+        int numNodes = Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1"));
         Settings settings = Settings.builder()
                 .put("number_of_shards", 1)
                 .put("number_of_replicas", numNodes - 1)
