@@ -181,7 +181,7 @@ In order to run the integration tests with a 3 node cluster, run this command:
 Integration tests can be run with remote cluster. For that run the following command and replace host/port/cluster name values with ones for the target cluster:
 
 ```
-./gradlew :integTestRemote -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="integTest-0" -Dhttps=false
+./gradlew :integTestRemote -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="integTest-0" -Dhttps=false -PnumNodes=1
 ```
 
 In case remote cluster is secured it's possible to pass username and password with the following command:
