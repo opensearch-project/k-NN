@@ -222,6 +222,10 @@ task integTestRemote(type: RestIntegTestTask) {
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
 
+    systemProperty "https", System.getProperty("https")
+    systemProperty "user", System.getProperty("user")
+    systemProperty "password", System.getProperty("password")
+
     // Run tests with remote cluster only if rest case is defined
     if (System.getProperty("tests.rest.cluster") != null) {
         filter {
