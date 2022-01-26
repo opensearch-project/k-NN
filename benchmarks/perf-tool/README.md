@@ -226,7 +226,7 @@ Ingests a dataset of vectors into the cluster.
 
 | Metric Name | Description | Unit |  
 | ----------- | ----------- | ----------- |
-| took | Took times returned per bulk request aggregated as total, p50, p90 and p99 (when applicable). Note - this number does not mean the time it took to made the vectors searchable. Time from the refresh step should be looked at as well to determine this.| ms |
+| took | Total time to ingest the dataset into the index.| ms |
 
 #### query
 
