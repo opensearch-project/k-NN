@@ -278,9 +278,9 @@ class IngestStep(OpenSearchStep):
         self.dataset = parse_dataset(dataset_format, dataset_path,
                                      Context.INDEX)
 
-        self.doc_count = parse_int_param('doc_count', step_config.config, {},
-                                         self.dataset.size())
-        self.doc_count = min(self.doc_count, self.dataset.size())
+        input_doc_count = parse_int_param('doc_count', step_config.config, {},
+                                          self.dataset.size())
+        self.doc_count = min(input_doc_count, self.dataset.size())
 
     def _action(self):
 
@@ -326,10 +326,10 @@ class QueryStep(OpenSearchStep):
         self.dataset = parse_dataset(dataset_format, dataset_path,
                                      Context.QUERY)
 
-        self.query_count = parse_int_param('query_count',
-                                           step_config.config, {},
-                                           self.dataset.size())
-        self.query_count = min(self.query_count, self.dataset.size())
+        input_query_count = parse_int_param('query_count',
+                                            step_config.config, {},
+                                            self.dataset.size())
+        self.query_count = min(input_query_count, self.dataset.size())
 
         neighbors_format = parse_string_param('neighbors_format',
                                               step_config.config, {}, 'hdf5')
