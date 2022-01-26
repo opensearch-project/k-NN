@@ -279,7 +279,6 @@ class IngestStep(OpenSearchStep):
                                      Context.INDEX)
 
     def _action(self):
-        results = {}
 
         def action(doc_id):
             return {'index': {'_index': self.index_name, '_id': doc_id}}
@@ -295,13 +294,9 @@ class IngestStep(OpenSearchStep):
             index_responses.append(result)
             id += self.bulk_size
 
-        results['took'] = [
-            float(index_response['took']) for index_response in index_responses
-        ]
-
         self.dataset.reset()
 
-        return results
+        return {}
 
     def _get_measures(self) -> List[str]:
         return ['took']
