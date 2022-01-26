@@ -13,7 +13,7 @@ jobs:
   Build-k-NN:
     strategy:
       matrix:
-        java: [8, 11, 14]
+        java: [11, 14, 17]
 
     name: Build and Test k-NN Plugin
     runs-on: ubuntu-latest
