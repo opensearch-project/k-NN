@@ -219,8 +219,9 @@ Ingests a dataset of vectors into the cluster.
 | index_name | Name of index to ingest into | No default |
 | field_name | Name of field to ingest into | No default |
 | bulk_size | Documents per bulk request | 300 |
-| dataset_format | Format the dataset is in. Currently hdf5 and bigann is supported. The hdf5 file must be organized in the same way that the ann-benchmarks organizes theirs. | 'hdf5' |
-| dataset_path | Path to dataset | No default |
+| dataset_format | Format the data-set is in. Currently hdf5 and bigann is supported. The hdf5 file must be organized in the same way that the ann-benchmarks organizes theirs. | 'hdf5' |
+| dataset_path | Path to data-set | No default |
+| doc_count | Number of documents to create from data-set | Size of the data-set |
 
 ##### Metrics
 
@@ -245,6 +246,7 @@ Runs a set of queries against an index.
 | dataset_path | Path to dataset | No default |
 | neighbors_format | Format the neighbors dataset is in. Currently hdf5 and bigann is supported. The hdf5 file must be organized in the same way that the ann-benchmarks organizes theirs. | 'hdf5' |
 | neighbors_path | Path to neighbors dataset | No default |
+| query_count | Number of queries to create from data-set | Size of the data-set |
 
 ##### Metrics
 
