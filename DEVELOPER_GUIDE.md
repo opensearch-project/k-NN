@@ -2,7 +2,7 @@
   - [Getting Started](#getting-started)
     - [Fork OpenSearch k-NN Repo](#fork-opensearch-k-nn-repo)
     - [Install Prerequisites](#install-prerequisites)
-      - [JDK 14](#jdk-14)
+      - [JDK 11](#jdk-11)
   - [Use an Editor](#use-an-editor)
     - [IntelliJ IDEA](#intellij-idea)
   - [Build](#build)
@@ -33,19 +33,21 @@ git clone https://github.com/[your username]/OpenSearch.git
 
 ### Install Prerequisites
 
-#### JDK 14
+#### JDK 11
 
-OpenSearch builds using Java 14 at a minimum. This means you must have a JDK 14 installed with the environment variable 
-`JAVA_HOME` referencing the path to Java home for your JDK 14 installation, e.g. `JAVA_HOME=/usr/lib/jvm/jdk-14`.
+OpenSearch builds using Java 11 at a minimum. This means you must have a JDK 11 installed with the environment variable 
+`JAVA_HOME` referencing the path to Java home for your JDK 11 installation, e.g. `JAVA_HOME=/usr/lib/jvm/jdk-11`.
 
-One easy way to get Java 14 on *nix is to use [sdkman](https://sdkman.io/).
+One easy way to get Java 11 on *nix is to use [sdkman](https://sdkman.io/).
 
 ```bash
 curl -s "https://get.sdkman.io" | bash
 source ~/.sdkman/bin/sdkman-init.sh
-sdk install java 14.0.2-open
-sdk use java 14.0.2-open
+sdk install java 11.0.2-open
+sdk use java 11.0.2-open
 ```
+
+Team has to replace minimum JDK version 14 as it was not an LTS release. JDK 14 should still work for most scenarios.
 
 #### CMake
 
@@ -64,7 +66,7 @@ Currently, the plugin only supports Linux on x64 and arm platforms.
 
 ### IntelliJ IDEA
 
-When importing into IntelliJ you will need to define an appropriate JDK. The convention is that **this SDK should be named "14"**, and the project import will detect it automatically. For more details on defining an SDK in IntelliJ please refer to [this documentation](https://www.jetbrains.com/help/idea/sdk.html#define-sdk). Note that SDK definitions are global, so you can add the JDK from any project, or after project import. Importing with a missing JDK will still work, IntelliJ will report a problem and will refuse to build until resolved.
+When importing into IntelliJ you will need to define an appropriate JDK. The convention is that **this SDK should be named "11"**, and the project import will detect it automatically. For more details on defining an SDK in IntelliJ please refer to [this documentation](https://www.jetbrains.com/help/idea/sdk.html#define-sdk). Note that SDK definitions are global, so you can add the JDK from any project, or after project import. Importing with a missing JDK will still work, IntelliJ will report a problem and will refuse to build until resolved.
 
 You can import the OpenSearch project into IntelliJ IDEA as follows.
 
