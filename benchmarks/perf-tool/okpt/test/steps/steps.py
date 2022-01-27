@@ -288,11 +288,11 @@ class IngestStep(OpenSearchStep):
             return {'index': {'_index': self.index_name, '_id': doc_id}}
 
         index_responses = []
-        for doc_id_ in range(0, self.doc_count, self.bulk_size):
+        for i in range(0, self.doc_count, self.bulk_size):
             partition = self.dataset.read(self.bulk_size)
             if partition is None:
                 break
-            body = bulk_transform(partition, self.field_name, action, doc_id_)
+            body = bulk_transform(partition, self.field_name, action, i)
             result = bulk_index(self.opensearch, self.index_name, body)
             index_responses.append(result)
 
