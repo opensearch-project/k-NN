@@ -287,6 +287,8 @@ class IngestStep(OpenSearchStep):
         def action(doc_id):
             return {'index': {'_index': self.index_name, '_id': doc_id}}
 
+        # Maintain minimal state outside of this loop. For large data sets, too
+        # much state may cause out of memory failure
         for i in range(0, self.doc_count, self.bulk_size):
             partition = self.dataset.read(self.bulk_size)
             if partition is None:
