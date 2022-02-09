@@ -162,6 +162,14 @@ public class IndexUtil {
         return null;
     }
 
+    /**
+     * Gets the load time parameters for a given engine.
+     *
+     * @param spaceType Space for this particular segment
+     * @param knnEngine Engine used for the native library indices being loaded in
+     * @param indexName Name of OpenSearch index that the segment files belong to
+     * @return load parameters that will be passed to the JNI.
+     */
     public static Map<String, Object> getLoadParameters(SpaceType spaceType, KNNEngine knnEngine, String indexName) {
         Map<String, Object> loadParameters = Maps.newHashMap(ImmutableMap.of(
                 SPACE_TYPE, spaceType.getValue()

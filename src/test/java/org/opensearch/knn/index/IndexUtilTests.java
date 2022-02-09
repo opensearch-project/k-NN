@@ -12,7 +12,6 @@
 package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.Metadata;
