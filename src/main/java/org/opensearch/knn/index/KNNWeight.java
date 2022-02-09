@@ -46,6 +46,7 @@ import java.util.stream.Collectors;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.index.IndexUtil.getLoadParameters;
 import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
 /**
@@ -135,24 +136,13 @@ public class KNNWeight extends Weight {
             KNNCounter.GRAPH_QUERY_REQUESTS.increment();
 
             // We need to first get index allocation
-            NativeMemoryAllocation indexAllocation = null;
-
-            Map<String, Object> loadParameters = new HashMap<String, Object>() {{
-                put(SPACE_TYPE, spaceType.getValue());
-            }};
-
-            // For nmslib, we set efSearch from an index setting. This has the advantage of being able to dynamically
-            // update this value, which we cannot do at the moment for mapping parameters.
-            if (knnEngine.equals(KNNEngine.NMSLIB)) {
-                loadParameters.put(KNNConstants.HNSW_ALGO_EF_SEARCH, KNNSettings.getEfSearchParam(knnQuery.getIndexName()));
-            }
-
+            NativeMemoryAllocation indexAllocation;
             try {
                 indexAllocation = nativeMemoryCacheManager.get(
                         new NativeMemoryEntryContext.IndexEntryContext(
                                 indexPath.toString(),
                                 NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                                loadParameters,
+                                getLoadParameters(spaceType, knnEngine, knnQuery.getIndexName()),
                                 knnQuery.getIndexName()
                         ), true);
             } catch (ExecutionException e) {

@@ -11,10 +11,13 @@
 
 package org.opensearch.knn.index;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 
@@ -22,6 +25,8 @@ import java.io.File;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
+import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_SEARCH;
+import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 public class IndexUtil {
 
@@ -155,5 +160,19 @@ public class IndexUtil {
         }
 
         return null;
+    }
+
+    public static Map<String, Object> getLoadParameters(SpaceType spaceType, KNNEngine knnEngine, String indexName) {
+        Map<String, Object> loadParameters = Maps.newHashMap(ImmutableMap.of(
+                SPACE_TYPE, spaceType.getValue()
+        ));
+
+        // For nmslib, we need to add the dynamic ef_search parameter that needs to be passed in when the
+        // hnsw graphs are loaded into memory
+        if (KNNEngine.NMSLIB.equals(knnEngine)) {
+            loadParameters.put(HNSW_ALGO_EF_SEARCH, KNNSettings.getEfSearchParam(indexName));
+        }
+
+        return loadParameters;
     }
 }

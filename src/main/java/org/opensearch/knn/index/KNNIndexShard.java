@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -31,6 +30,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.index.IndexUtil.getLoadParameters;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
 
 /**
@@ -86,7 +86,7 @@ public class KNNIndexShard {
                             new NativeMemoryEntryContext.IndexEntryContext(
                                     key,
                                     NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                                    ImmutableMap.of(SPACE_TYPE, value.getValue()),
+                                    getLoadParameters(value, KNNEngine.getEngineNameFromPath(key), getIndexName()),
                                     getIndexName()
                             ), true);
                 } catch (ExecutionException ex) {
