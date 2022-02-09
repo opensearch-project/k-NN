@@ -122,7 +122,8 @@ public class KNNIndexShard {
 
             for (FieldInfo fieldInfo : reader.getFieldInfos()) {
                 if (fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
-                    SpaceType spaceType = SpaceType.getSpace(fieldInfo.attributes().get(SPACE_TYPE));
+                    String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
+                    SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
                     String engineFileName = buildEngineFileName(reader.getSegmentInfo().info.name,
                             knnEngine.getLatestBuildVersion(), fieldInfo.name, fileExtension);
 
