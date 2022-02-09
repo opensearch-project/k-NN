@@ -133,6 +133,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         writer.close();
         dir.close();
         resourceWatcherService.close();
+        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 
     public void testMultiFieldsKnnIndex(Codec codec) throws Exception {
@@ -190,6 +191,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         reader.close();
         dir.close();
         resourceWatcherService.close();
+        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 
     public void testBuildFromModelTemplate(Codec codec) throws IOException, ExecutionException, InterruptedException {
@@ -275,6 +277,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         reader.close();
         dir.close();
         resourceWatcherService.close();
+        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 }
 
