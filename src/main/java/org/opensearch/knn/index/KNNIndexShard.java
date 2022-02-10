@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -31,6 +30,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.index.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.codec.KNNCodecUtil.buildEngineFileName;
 
 /**
@@ -86,7 +86,7 @@ public class KNNIndexShard {
                             new NativeMemoryEntryContext.IndexEntryContext(
                                     key,
                                     NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                                    ImmutableMap.of(SPACE_TYPE, value.getValue()),
+                                    getParametersAtLoading(value, KNNEngine.getEngineNameFromPath(key), getIndexName()),
                                     getIndexName()
                             ), true);
                 } catch (ExecutionException ex) {
@@ -122,7 +122,10 @@ public class KNNIndexShard {
 
             for (FieldInfo fieldInfo : reader.getFieldInfos()) {
                 if (fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
-                    SpaceType spaceType = SpaceType.getSpace(fieldInfo.attributes().get(SPACE_TYPE));
+                    // Space Type will not be present on ES versions 7.1 and 7.4 because the only available space type
+                    // was L2. So, if Space Type is not present, just fall back to L2
+                    String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
+                    SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
                     String engineFileName = buildEngineFileName(reader.getSegmentInfo().info.name,
                             knnEngine.getLatestBuildVersion(), fieldInfo.name, fileExtension);
 
