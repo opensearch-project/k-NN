@@ -46,7 +46,7 @@ import java.util.stream.Collectors;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
-import static org.opensearch.knn.index.IndexUtil.getLoadParameters;
+import static org.opensearch.knn.index.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
 /**
@@ -142,7 +142,7 @@ public class KNNWeight extends Weight {
                         new NativeMemoryEntryContext.IndexEntryContext(
                                 indexPath.toString(),
                                 NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                                getLoadParameters(spaceType, knnEngine, knnQuery.getIndexName()),
+                                getParametersAtLoading(spaceType, knnEngine, knnQuery.getIndexName()),
                                 knnQuery.getIndexName()
                         ), true);
             } catch (ExecutionException e) {

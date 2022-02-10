@@ -22,6 +22,7 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
@@ -170,7 +171,7 @@ public class IndexUtil {
      * @param indexName Name of OpenSearch index that the segment files belong to
      * @return load parameters that will be passed to the JNI.
      */
-    public static Map<String, Object> getLoadParameters(SpaceType spaceType, KNNEngine knnEngine, String indexName) {
+    public static Map<String, Object> getParametersAtLoading(SpaceType spaceType, KNNEngine knnEngine, String indexName) {
         Map<String, Object> loadParameters = Maps.newHashMap(ImmutableMap.of(
                 SPACE_TYPE, spaceType.getValue()
         ));
@@ -181,6 +182,6 @@ public class IndexUtil {
             loadParameters.put(HNSW_ALGO_EF_SEARCH, KNNSettings.getEfSearchParam(indexName));
         }
 
-        return loadParameters;
+        return Collections.unmodifiableMap(loadParameters);
     }
 }

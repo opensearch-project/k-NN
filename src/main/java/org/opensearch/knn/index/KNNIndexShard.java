@@ -30,7 +30,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
-import static org.opensearch.knn.index.IndexUtil.getLoadParameters;
+import static org.opensearch.knn.index.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
 
 /**
@@ -86,7 +86,7 @@ public class KNNIndexShard {
                             new NativeMemoryEntryContext.IndexEntryContext(
                                     key,
                                     NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                                    getLoadParameters(value, KNNEngine.getEngineNameFromPath(key), getIndexName()),
+                                    getParametersAtLoading(value, KNNEngine.getEngineNameFromPath(key), getIndexName()),
                                     getIndexName()
                             ), true);
                 } catch (ExecutionException ex) {
@@ -122,6 +122,8 @@ public class KNNIndexShard {
 
             for (FieldInfo fieldInfo : reader.getFieldInfos()) {
                 if (fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
+                    // Space Type will not be present on ES versions 7.1 and 7.4 because the only available space type
+                    // was L2. So, if Space Type is not present, just fall back to L2
                     String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
                     SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
                     String engineFileName = buildEngineFileName(reader.getSegmentInfo().info.name,

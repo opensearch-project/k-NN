@@ -27,7 +27,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
-import static org.opensearch.knn.index.IndexUtil.getLoadParameters;
+import static org.opensearch.knn.index.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.KNNSettings.KNN_ALGO_PARAM_EF_SEARCH;
 
 public class IndexUtilTests extends KNNTestCase {
@@ -37,7 +37,7 @@ public class IndexUtilTests extends KNNTestCase {
         KNNEngine knnEngine1 = KNNEngine.FAISS;
         String indexName = "my-test-index";
 
-        Map<String, Object> loadParameters = getLoadParameters(spaceType1, knnEngine1, indexName);
+        Map<String, Object> loadParameters = getParametersAtLoading(spaceType1, knnEngine1, indexName);
         assertEquals(1, loadParameters.size());
         assertEquals(spaceType1.getValue(), loadParameters.get(SPACE_TYPE));
 
@@ -64,7 +64,7 @@ public class IndexUtilTests extends KNNTestCase {
         when(clusterService.state()).thenReturn(clusterState);
         KNNSettings.state().setClusterService(clusterService);
 
-        loadParameters = getLoadParameters(spaceType2, knnEngine2, indexName);
+        loadParameters = getParametersAtLoading(spaceType2, knnEngine2, indexName);
         assertEquals(2, loadParameters.size());
         assertEquals(spaceType2.getValue(), loadParameters.get(SPACE_TYPE));
         assertEquals(efSearchValue, loadParameters.get(HNSW_ALGO_EF_SEARCH));
