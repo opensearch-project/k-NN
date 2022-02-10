@@ -109,7 +109,8 @@ public class  KNNCodecTestCase extends KNNTestCase {
         doc.add(vectorField);
         writer.addDocument(doc);
 
-        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(createDisabledResourceWatcherService());
+        ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
+        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
         IndexReader reader = writer.getReader();
         LeafReaderContext lrc = reader.getContext().leaves().iterator().next(); // leaf reader context
         SegmentReader segmentReader = (SegmentReader) FilterLeafReader.unwrap(lrc.reader());
@@ -131,6 +132,8 @@ public class  KNNCodecTestCase extends KNNTestCase {
         reader.close();
         writer.close();
         dir.close();
+        resourceWatcherService.close();
+        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 
     public void testMultiFieldsKnnIndex(Codec codec) throws Exception {
@@ -165,7 +168,8 @@ public class  KNNCodecTestCase extends KNNTestCase {
         writer.addDocument(doc1);
         IndexReader reader = writer.getReader();
         writer.close();
-        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(createDisabledResourceWatcherService());
+        ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
+        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
         List<String> hnswfiles = Arrays.stream(dir.listAll()).filter(x -> x.contains("hnsw")).collect(Collectors.toList());
 
         // there should be 2 hnsw index files created. one for test_vector and one for my_vector
@@ -186,6 +190,8 @@ public class  KNNCodecTestCase extends KNNTestCase {
 
         reader.close();
         dir.close();
+        resourceWatcherService.close();
+        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 
     public void testBuildFromModelTemplate(Codec codec) throws IOException, ExecutionException, InterruptedException {
@@ -257,7 +263,8 @@ public class  KNNCodecTestCase extends KNNTestCase {
 
         // Make sure that search returns the correct results
         KNNWeight.initialize(modelDao);
-        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(createDisabledResourceWatcherService());
+        ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
+        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
         float [] query = {10.0f, 10.0f, 10.0f};
         IndexSearcher searcher = new IndexSearcher(reader);
         TopDocs topDocs = searcher.search(new KNNQuery(fieldName, query, 4, "dummy"), 10);
@@ -269,6 +276,8 @@ public class  KNNCodecTestCase extends KNNTestCase {
 
         reader.close();
         dir.close();
+        resourceWatcherService.close();
+        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 }
 
