@@ -74,6 +74,33 @@ You can import the OpenSearch project into IntelliJ IDEA as follows.
 2. In the subsequent dialog navigate to the root `build.gradle` file
 3. In the subsequent dialog select **Open as Project**
 
+## Java Language Formatting Guidelines
+
+Taken from [OpenSearch's guidelines](https://github.com/opensearch-project/OpenSearch/blob/main/DEVELOPER_GUIDE.md):
+
+Java files in the OpenSearch codebase are formatted with the Eclipse JDT formatter, using the [Spotless Gradle](https://github.com/diffplug/spotless/tree/master/plugin-gradle) plugin. The formatting check can be run explicitly with:
+
+    ./gradlew spotlessJavaCheck
+
+The code can be formatted with:
+
+    ./gradlew spotlessApply
+
+Please follow these formatting guidelines:
+
+* Java indent is 4 spaces
+* Line width is 140 characters
+* Lines of code surrounded by `// tag::NAME` and `// end::NAME` comments are included in the documentation and should only be 76 characters wide not counting leading indentation. Such regions of code are not formatted automatically as it is not possible to change the line length rule of the formatter for part of a file. Please format such sections sympathetically with the rest of the code, while keeping lines to maximum length of 76 characters.
+* Wildcard imports (`import foo.bar.baz.*`) are forbidden and will cause the build to fail.
+* If *absolutely* necessary, you can disable formatting for regions of code with the `// tag::NAME` and `// end::NAME` directives, but note that these are intended for use in documentation, so please make it clear what you have done, and only do this where the benefit clearly outweighs the decrease in consistency.
+* Note that JavaDoc and block comments i.e. `/* ... */` are not formatted, but line comments i.e `// ...` are.
+* There is an implicit rule that negative boolean expressions should use the form `foo == false` instead of `!foo` for better readability of the code. While this isn't strictly enforced, if might get called out in PR reviews as something to change.
+
+In order to gradually introduce the spotless formatting, we use the 
+[ratchetFrom](https://github.com/diffplug/spotless/tree/main/plugin-gradle#ratchet) spotless functionality. This makes 
+it so only files that are changed compared to the origin branch are inspected. Because of this, ensure that your 
+origin branch is up to date with the plugins upstream when testing locally.
+
 ## Build
 
 OpenSearch k-NN uses a [Gradle](https://docs.gradle.org/6.6.1/userguide/userguide.html) wrapper for its build. 
