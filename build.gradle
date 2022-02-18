@@ -37,7 +37,7 @@ plugins {
     id 'nebula.ospackage' version "8.3.0" apply false
     id 'idea'
     id 'jacoco'
-    id 'checkstyle'
+    id "com.diffplug.spotless" version "6.3.0" apply false
 }
 
 repositories {
@@ -47,17 +47,9 @@ repositories {
     maven { url "https://plugins.gradle.org/m2/" }
 }
 
+apply from: 'gradle/formatting.gradle'
 apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.rest-test'
-
-
-checkstyle {
-    toolVersion = '9.3'
-    configFile file("checkstyle/checkstyle.xml")
-}
-
-checkstyleMain.ignoreFailures = true
-checkstyleTest.ignoreFailures = true
 
 def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
 def usingMultiNode = project.properties.containsKey('numNodes')
@@ -94,6 +86,7 @@ jacoco {
     toolVersion = "0.8.5"
 }
 
+check.dependsOn spotlessCheck
 check.dependsOn jacocoTestReport
 
 opensearchplugin {
@@ -127,11 +120,6 @@ dependencies {
     compile group: 'com.google.guava', name: 'guava', version:'30.0-jre'
     compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
     testImplementation "org.opensearch.test:framework:${opensearch_version}"
-    configurations.all {
-        resolutionStrategy {
-            force "com.puppycrawl.tools:checkstyle:${project.checkstyle.toolVersion}"
-        }
-    }
 }
 
 licenseHeaders.enabled = true
