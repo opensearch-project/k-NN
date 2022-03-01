@@ -25,8 +25,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -66,7 +66,6 @@ public class TrainingJobRunnerTests extends KNNTestCase {
             assertEquals(1, trainingJobRunner.getJobCount()); // Make sure job count is correct
             IndexResponse indexResponse = new IndexResponse(
                     new ShardId(MODEL_INDEX_NAME, "uuid", 0),
-                    "any-type",
                     modelId,
                     0,
                     0,
@@ -126,7 +125,6 @@ public class TrainingJobRunnerTests extends KNNTestCase {
         doAnswer(invocationOnMock -> {
             IndexResponse indexResponse = new IndexResponse(
                     new ShardId(MODEL_INDEX_NAME, "uuid", 0),
-                    "any-type",
                     modelId,
                     0,
                     0,

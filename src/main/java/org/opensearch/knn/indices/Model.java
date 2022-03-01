@@ -11,7 +11,6 @@
 
 package org.opensearch.knn.indices;
 
-import org.checkerframework.checker.nullness.qual.NonNull;
 import org.opensearch.common.Nullable;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -42,7 +41,7 @@ public class Model implements Writeable, ToXContentObject {
      * @param modelBlob binary representation of model template index. Can be null if model is not yet in CREATED state.
      * @param modelID model identifier
      */
-    public Model(ModelMetadata modelMetadata, @Nullable byte[] modelBlob, @NonNull String modelID) {
+    public Model(ModelMetadata modelMetadata, @Nullable byte[] modelBlob, String modelID) {
         this.modelMetadata = Objects.requireNonNull(modelMetadata, "modelMetadata must not be null");
 
         if (ModelState.CREATED.equals(this.modelMetadata.getState()) && modelBlob == null) {

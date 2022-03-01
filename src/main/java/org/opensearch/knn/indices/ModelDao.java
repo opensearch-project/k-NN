@@ -55,8 +55,6 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -279,7 +277,7 @@ public interface ModelDao {
                 parameters.put(KNNConstants.MODEL_BLOB_PARAMETER, base64Model);
             }
 
-            IndexRequestBuilder indexRequestBuilder = client.prepareIndex(MODEL_INDEX_NAME, "_doc");
+            IndexRequestBuilder indexRequestBuilder = client.prepareIndex(MODEL_INDEX_NAME);
 
             indexRequestBuilder.setId(model.getModelID());
             indexRequestBuilder.setSource(parameters);

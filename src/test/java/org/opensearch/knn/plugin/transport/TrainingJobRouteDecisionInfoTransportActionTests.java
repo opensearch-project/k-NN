@@ -29,8 +29,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -80,7 +80,6 @@ public class TrainingJobRouteDecisionInfoTransportActionTests extends KNNSingleN
 
             IndexResponse indexResponse = new IndexResponse(
                     new ShardId(MODEL_INDEX_NAME, "uuid", 0),
-                    "any-type",
                     modelId,
                     0,
                     0,

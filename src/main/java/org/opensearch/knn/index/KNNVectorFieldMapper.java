@@ -315,7 +315,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }
 
         @Override
-        public ValueFetcher valueFetcher(MapperService mapperService, SearchLookup searchLookup, String format) {
+        public ValueFetcher valueFetcher(QueryShardContext context, SearchLookup searchLookup, String format) {
             throw new UnsupportedOperationException("KNN Vector do not support fields search");
         }
 
