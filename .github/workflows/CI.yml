@@ -35,7 +35,7 @@ jobs:
 
       - name: Run build
         run: |
-          ./gradlew build -Dopensearch.version=1.3.0-SNAPSHOT
+          ./gradlew build -Dopensearch.version=2.0.0-SNAPSHOT
 
       - name: Run k-NN Backwards Compatibility Tests
         run: |
