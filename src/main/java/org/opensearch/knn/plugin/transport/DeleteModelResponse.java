@@ -70,7 +70,7 @@ public class DeleteModelResponse extends ActionResponse implements ToXContentObj
         builder.startObject();
         builder.field(MODEL_ID, getModelID());
         builder.field(RESULT, getResult());
-        if (Strings.hasText(errorMessage)){
+        if (Strings.hasText(errorMessage)) {
             builder.field(ERROR_MSG, getErrorMessage());
         }
         builder.endObject();

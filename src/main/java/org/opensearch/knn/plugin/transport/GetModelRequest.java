@@ -24,6 +24,7 @@ import java.io.IOException;
 public class GetModelRequest extends ActionRequest {
 
     private String modelID;
+
     /**
      * Constructor
      *

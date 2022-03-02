@@ -45,8 +45,9 @@ public class Model implements Writeable, ToXContentObject {
         this.modelMetadata = Objects.requireNonNull(modelMetadata, "modelMetadata must not be null");
 
         if (ModelState.CREATED.equals(this.modelMetadata.getState()) && modelBlob == null) {
-            throw new IllegalArgumentException("Cannot construct model in state CREATED when model binary is null. " +
-                    "State must be either TRAINING or FAILED");
+            throw new IllegalArgumentException(
+                "Cannot construct model in state CREATED when model binary is null. " + "State must be either TRAINING or FAILED"
+            );
         }
 
         this.modelBlob = new AtomicReference<>(modelBlob);
@@ -54,7 +55,7 @@ public class Model implements Writeable, ToXContentObject {
     }
 
     private byte[] readOptionalModelBlob(StreamInput in) throws IOException {
-        return in.readBoolean() ? in.readByteArray(): null;
+        return in.readBoolean() ? in.readByteArray() : null;
     }
 
     /**
@@ -67,7 +68,6 @@ public class Model implements Writeable, ToXContentObject {
         this.modelBlob = new AtomicReference<>(readOptionalModelBlob(in));
         this.modelID = in.readString();
     }
-
 
     /**
      * getter for model's metadata
@@ -119,10 +119,8 @@ public class Model implements Writeable, ToXContentObject {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (obj == null || getClass() != obj.getClass())
-            return false;
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
         Model other = (Model) obj;
         return other.getModelID().equals(this.getModelID());
     }
@@ -146,7 +144,7 @@ public class Model implements Writeable, ToXContentObject {
     }
 
     private void writeOptionalModelBlob(StreamOutput output) throws IOException {
-        if(getModelBlob() == null){
+        if (getModelBlob() == null) {
             output.writeBoolean(false);
             return;
         }
@@ -174,11 +172,11 @@ public class Model implements Writeable, ToXContentObject {
         return (String) modelId;
     }
 
-    private static byte[] getModelBlobFromResponse(Map<String, Object> responseMap){
+    private static byte[] getModelBlobFromResponse(Map<String, Object> responseMap) {
         Object blob = responseMap.get(KNNConstants.MODEL_BLOB_PARAMETER);
 
         // If byte blob is not there, it means that the state has not yet been updated to CREATED.
-        if(blob == null){
+        if (blob == null) {
             return null;
         }
         return Base64.getDecoder().decode((String) blob);

@@ -43,24 +43,26 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
 
     public void testSingleNode_withCapacity() {
         // Mock datanodes in the cluster through mocking the cluster service
-        List<String> nodeIds = ImmutableList.of(
-                "node-1"
-        );
+        List<String> nodeIds = ImmutableList.of("node-1");
 
         ImmutableOpenMap<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
         ClusterService clusterService = generateMockedClusterService(discoveryNodesMap);
 
         // Create a response to be returned with job route decision info
         List<TrainingJobRouteDecisionInfoNodeResponse> responseList = new ArrayList<>();
-        nodeIds.forEach(id -> responseList.add(new TrainingJobRouteDecisionInfoNodeResponse(
-                discoveryNodesMap.get(id),
-                0 // node has capacity
-        )));
+        nodeIds.forEach(
+            id -> responseList.add(
+                new TrainingJobRouteDecisionInfoNodeResponse(
+                    discoveryNodesMap.get(id),
+                    0 // node has capacity
+                )
+            )
+        );
 
         TrainingJobRouteDecisionInfoResponse infoResponse = new TrainingJobRouteDecisionInfoResponse(
-                ClusterName.DEFAULT,
-                responseList,
-                Collections.emptyList()
+            ClusterName.DEFAULT,
+            responseList,
+            Collections.emptyList()
         );
 
         TransportService transportService = mock(TransportService.class);
@@ -68,7 +70,11 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
 
         // Setup the action
         TrainingJobRouterTransportAction transportAction = new TrainingJobRouterTransportAction(
-                transportService, new ActionFilters(Collections.emptySet()), clusterService, client);
+            transportService,
+            new ActionFilters(Collections.emptySet()),
+            clusterService,
+            client
+        );
 
         // Select the node
         DiscoveryNode selectedNode = transportAction.selectNode(null, infoResponse);
@@ -77,24 +83,26 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
 
     public void testSingleNode_withoutCapacity() {
         // Mock datanodes in the cluster through mocking the cluster service
-        List<String> nodeIds = ImmutableList.of(
-                "node-1"
-        );
+        List<String> nodeIds = ImmutableList.of("node-1");
 
         ImmutableOpenMap<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
         ClusterService clusterService = generateMockedClusterService(discoveryNodesMap);
 
         // Create a response to be returned with job route decision info
         List<TrainingJobRouteDecisionInfoNodeResponse> responseList = new ArrayList<>();
-        nodeIds.forEach(id -> responseList.add(new TrainingJobRouteDecisionInfoNodeResponse(
-                discoveryNodesMap.get(id),
-                1 // node has no capacity
-        )));
+        nodeIds.forEach(
+            id -> responseList.add(
+                new TrainingJobRouteDecisionInfoNodeResponse(
+                    discoveryNodesMap.get(id),
+                    1 // node has no capacity
+                )
+            )
+        );
 
         TrainingJobRouteDecisionInfoResponse infoResponse = new TrainingJobRouteDecisionInfoResponse(
-                ClusterName.DEFAULT,
-                responseList,
-                Collections.emptyList()
+            ClusterName.DEFAULT,
+            responseList,
+            Collections.emptyList()
         );
 
         TransportService transportService = mock(TransportService.class);
@@ -102,7 +110,11 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
 
         // Setup the action
         TrainingJobRouterTransportAction transportAction = new TrainingJobRouterTransportAction(
-                transportService, new ActionFilters(Collections.emptySet()), clusterService, client);
+            transportService,
+            new ActionFilters(Collections.emptySet()),
+            clusterService,
+            client
+        );
 
         // Select the node
         DiscoveryNode selectedNode = transportAction.selectNode(null, infoResponse);
@@ -111,11 +123,7 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
 
     public void testMultiNode_withCapacity() {
         // Mock datanodes in the cluster through mocking the cluster service
-        List<String> nodeIds = ImmutableList.of(
-                "node-1",
-                "node-2",
-                "node-3"
-        );
+        List<String> nodeIds = ImmutableList.of("node-1", "node-2", "node-3");
 
         ImmutableOpenMap<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
         ClusterService clusterService = generateMockedClusterService(discoveryNodesMap);
@@ -133,9 +141,9 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         responseList.add(new TrainingJobRouteDecisionInfoNodeResponse(discoveryNodesMap.get(nodeIds.get(1)), 1));
 
         TrainingJobRouteDecisionInfoResponse infoResponse = new TrainingJobRouteDecisionInfoResponse(
-                ClusterName.DEFAULT,
-                responseList,
-                Collections.emptyList()
+            ClusterName.DEFAULT,
+            responseList,
+            Collections.emptyList()
         );
 
         TransportService transportService = mock(TransportService.class);
@@ -143,7 +151,11 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
 
         // Setup the action
         TrainingJobRouterTransportAction transportAction = new TrainingJobRouterTransportAction(
-                transportService, new ActionFilters(Collections.emptySet()), clusterService, client);
+            transportService,
+            new ActionFilters(Collections.emptySet()),
+            clusterService,
+            client
+        );
 
         // Select the node
         DiscoveryNode selectedNode = transportAction.selectNode(null, infoResponse);
@@ -152,11 +164,7 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
 
     public void testMultiNode_withCapacity_withPreferredAvailable() {
         // Mock datanodes in the cluster through mocking the cluster service
-        List<String> nodeIds = ImmutableList.of(
-                "node-1",
-                "node-2",
-                "node-3"
-        );
+        List<String> nodeIds = ImmutableList.of("node-1", "node-2", "node-3");
 
         String preferredNode = nodeIds.get(2);
 
@@ -176,9 +184,9 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         responseList.add(new TrainingJobRouteDecisionInfoNodeResponse(discoveryNodesMap.get(nodeIds.get(2)), 0));
 
         TrainingJobRouteDecisionInfoResponse infoResponse = new TrainingJobRouteDecisionInfoResponse(
-                ClusterName.DEFAULT,
-                responseList,
-                Collections.emptyList()
+            ClusterName.DEFAULT,
+            responseList,
+            Collections.emptyList()
         );
 
         TransportService transportService = mock(TransportService.class);
@@ -186,7 +194,11 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
 
         // Setup the action
         TrainingJobRouterTransportAction transportAction = new TrainingJobRouterTransportAction(
-                transportService, new ActionFilters(Collections.emptySet()), clusterService, client);
+            transportService,
+            new ActionFilters(Collections.emptySet()),
+            clusterService,
+            client
+        );
 
         // Select the node
         DiscoveryNode selectedNode = transportAction.selectNode(preferredNode, infoResponse);
@@ -195,11 +207,7 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
 
     public void testMultiNode_withCapacity_withoutPreferredAvailable() {
         // Mock datanodes in the cluster through mocking the cluster service
-        List<String> nodeIds = ImmutableList.of(
-                "node-1",
-                "node-2",
-                "node-3"
-        );
+        List<String> nodeIds = ImmutableList.of("node-1", "node-2", "node-3");
 
         String preferredNode = nodeIds.get(2);
 
@@ -219,9 +227,9 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         responseList.add(new TrainingJobRouteDecisionInfoNodeResponse(discoveryNodesMap.get(nodeIds.get(1)), 1));
 
         TrainingJobRouteDecisionInfoResponse infoResponse = new TrainingJobRouteDecisionInfoResponse(
-                ClusterName.DEFAULT,
-                responseList,
-                Collections.emptyList()
+            ClusterName.DEFAULT,
+            responseList,
+            Collections.emptyList()
         );
 
         TransportService transportService = mock(TransportService.class);
@@ -229,7 +237,11 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
 
         // Setup the action
         TrainingJobRouterTransportAction transportAction = new TrainingJobRouterTransportAction(
-                transportService, new ActionFilters(Collections.emptySet()), clusterService, client);
+            transportService,
+            new ActionFilters(Collections.emptySet()),
+            clusterService,
+            client
+        );
 
         // Select the node
         DiscoveryNode selectedNode = transportAction.selectNode(preferredNode, infoResponse);
@@ -239,11 +251,7 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
 
     public void testMultiNode_withoutCapacity() {
         // Mock datanodes in the cluster through mocking the cluster service
-        List<String> nodeIds = ImmutableList.of(
-                "node-1",
-                "node-2",
-                "node-3"
-        );
+        List<String> nodeIds = ImmutableList.of("node-1", "node-2", "node-3");
 
         ImmutableOpenMap<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
         ClusterService clusterService = generateMockedClusterService(discoveryNodesMap);
@@ -261,9 +269,9 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         responseList.add(new TrainingJobRouteDecisionInfoNodeResponse(discoveryNodesMap.get(nodeIds.get(1)), 1));
 
         TrainingJobRouteDecisionInfoResponse infoResponse = new TrainingJobRouteDecisionInfoResponse(
-                ClusterName.DEFAULT,
-                responseList,
-                Collections.emptyList()
+            ClusterName.DEFAULT,
+            responseList,
+            Collections.emptyList()
         );
 
         TransportService transportService = mock(TransportService.class);
@@ -271,7 +279,11 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
 
         // Setup the action
         TrainingJobRouterTransportAction transportAction = new TrainingJobRouterTransportAction(
-                transportService, new ActionFilters(Collections.emptySet()), clusterService, client);
+            transportService,
+            new ActionFilters(Collections.emptySet()),
+            clusterService,
+            client
+        );
 
         // Select the node
         DiscoveryNode selectedNode = transportAction.selectNode(null, infoResponse);
@@ -284,17 +296,17 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         String trainingIndexName = "training-index";
         int dimension = 133;
         int vectorCount = 1000000;
-        int expectedSize =  dimension * vectorCount * Float.BYTES / BYTES_PER_KILOBYTES + 1; // 519,531.25 KB ~= 520 MB
+        int expectedSize = dimension * vectorCount * Float.BYTES / BYTES_PER_KILOBYTES + 1; // 519,531.25 KB ~= 520 MB
 
         // Setup the request
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
-                null,
-                KNNMethodContext.getDefault(),
-                dimension,
-                trainingIndexName,
-                "training-field",
-                null,
-                "description"
+            null,
+            KNNMethodContext.getDefault(),
+            dimension,
+            trainingIndexName,
+            "training-field",
+            null,
+            "description"
         );
 
         // Mock client to return the right number of docs
@@ -312,11 +324,15 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         ClusterService clusterService = mock(ClusterService.class);
         TransportService transportService = mock(TransportService.class);
         TrainingJobRouterTransportAction transportAction = new TrainingJobRouterTransportAction(
-                transportService, new ActionFilters(Collections.emptySet()), clusterService, client);
+            transportService,
+            new ActionFilters(Collections.emptySet()),
+            clusterService,
+            client
+        );
 
         ActionListener<Integer> listener = ActionListener.wrap(
-                size -> assertEquals(expectedSize, size.intValue()),
-                e -> fail(e.getMessage())
+            size -> assertEquals(expectedSize, size.intValue()),
+            e -> fail(e.getMessage())
         );
 
         transportAction.getTrainingIndexSizeInKB(trainingModelRequest, listener);

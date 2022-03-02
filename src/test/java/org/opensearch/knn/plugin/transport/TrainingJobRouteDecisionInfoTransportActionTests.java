@@ -30,7 +30,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -55,10 +54,9 @@ public class TrainingJobRouteDecisionInfoTransportActionTests extends KNNSingleN
     public void testNodeOperation() throws IOException, InterruptedException {
         // Ensure initial value of train job count is 0
         TrainingJobRouteDecisionInfoTransportAction action = node().injector()
-                .getInstance(TrainingJobRouteDecisionInfoTransportAction.class);
+            .getInstance(TrainingJobRouteDecisionInfoTransportAction.class);
 
-        TrainingJobRouteDecisionInfoNodeRequest request =
-                new TrainingJobRouteDecisionInfoNodeRequest();
+        TrainingJobRouteDecisionInfoNodeRequest request = new TrainingJobRouteDecisionInfoNodeRequest();
 
         TrainingJobRouteDecisionInfoNodeResponse response1 = action.nodeOperation(request);
         assertEquals(0, response1.getTrainingJobCount().intValue());
@@ -78,23 +76,17 @@ public class TrainingJobRouteDecisionInfoTransportActionTests extends KNNSingleN
             TrainingJobRouteDecisionInfoNodeResponse response2 = action.nodeOperation(request);
             assertEquals(1, response2.getTrainingJobCount().intValue());
 
-            IndexResponse indexResponse = new IndexResponse(
-                    new ShardId(MODEL_INDEX_NAME, "uuid", 0),
-                    modelId,
-                    0,
-                    0,
-                    0,
-                    true
-            );
-            ((ActionListener<IndexResponse>)invocationOnMock.getArguments()[1]).onResponse(indexResponse);
+            IndexResponse indexResponse = new IndexResponse(new ShardId(MODEL_INDEX_NAME, "uuid", 0), modelId, 0, 0, 0, true);
+            ((ActionListener<IndexResponse>) invocationOnMock.getArguments()[1]).onResponse(indexResponse);
             return null;
         }).when(modelDao).put(any(Model.class), any(ActionListener.class));
 
         // Set up the rest of the training logic
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
-        ActionListener<IndexResponse> responseListener = ActionListener.wrap(indexResponse -> {
-            inProgressLatch.countDown();
-        }, e -> fail("Failure should not have occurred"));
+        ActionListener<IndexResponse> responseListener = ActionListener.wrap(
+            indexResponse -> { inProgressLatch.countDown(); },
+            e -> fail("Failure should not have occurred")
+        );
 
         doAnswer(invocationOnMock -> {
             responseListener.onResponse(mock(IndexResponse.class));

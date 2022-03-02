@@ -189,10 +189,9 @@ public interface ModelDao {
             numberOfShards = MODEL_INDEX_NUMBER_OF_SHARDS_SETTING.get(settings);
             numberOfReplicas = MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING.get(settings);
 
-            clusterService.getClusterSettings().addSettingsUpdateConsumer(MODEL_INDEX_NUMBER_OF_SHARDS_SETTING,
-                    it -> numberOfShards = it);
-            clusterService.getClusterSettings().addSettingsUpdateConsumer(MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
-                    it -> numberOfReplicas = it);
+            clusterService.getClusterSettings().addSettingsUpdateConsumer(MODEL_INDEX_NUMBER_OF_SHARDS_SETTING, it -> numberOfShards = it);
+            clusterService.getClusterSettings()
+                .addSettingsUpdateConsumer(MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING, it -> numberOfReplicas = it);
         }
 
         @Override
@@ -201,13 +200,13 @@ public interface ModelDao {
                 return;
             }
 
-            CreateIndexRequest request = new CreateIndexRequest(MODEL_INDEX_NAME)
-                    .mapping("_doc", getMapping(), XContentType.JSON)
-                    .settings(Settings.builder()
-                            .put("index.hidden", true)
-                            .put("index.number_of_shards", this.numberOfShards)
-                            .put("index.number_of_replicas", this.numberOfReplicas)
-                    );
+            CreateIndexRequest request = new CreateIndexRequest(MODEL_INDEX_NAME).mapping("_doc", getMapping(), XContentType.JSON)
+                .settings(
+                    Settings.builder()
+                        .put("index.hidden", true)
+                        .put("index.number_of_shards", this.numberOfShards)
+                        .put("index.number_of_replicas", this.numberOfReplicas)
+                );
             client.admin().indices().create(request, actionListener);
         }
 
@@ -222,7 +221,7 @@ public interface ModelDao {
          * @return ClusterHealthStatus of model index
          */
         @Override
-        public ClusterHealthStatus getHealthStatus() throws IndexNotFoundException{
+        public ClusterHealthStatus getHealthStatus() throws IndexNotFoundException {
             if (!isCreated()) {
                 throw new IndexNotFoundException(MODEL_INDEX_NAME);
             }
@@ -240,13 +239,12 @@ public interface ModelDao {
         }
 
         @Override
-        public void update(Model model, ActionListener<IndexResponse> listener)
-                throws IOException {
+        public void update(Model model, ActionListener<IndexResponse> listener) throws IOException {
             putInternal(model, listener, DocWriteRequest.OpType.INDEX);
         }
 
-        private void putInternal(Model model, ActionListener<IndexResponse> listener,
-                                 DocWriteRequest.OpType requestOpType) throws IOException {
+        private void putInternal(Model model, ActionListener<IndexResponse> listener, DocWriteRequest.OpType requestOpType)
+            throws IOException {
 
             if (model == null) {
                 throw new IllegalArgumentException("Model cannot be null");
@@ -254,16 +252,18 @@ public interface ModelDao {
 
             ModelMetadata modelMetadata = model.getModelMetadata();
 
-            Map<String, Object> parameters = new HashMap<String, Object>() {{
-                put(KNNConstants.MODEL_ID, model.getModelID());
-                put(KNNConstants.KNN_ENGINE, modelMetadata.getKnnEngine().getName());
-                put(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, modelMetadata.getSpaceType().getValue());
-                put(KNNConstants.DIMENSION, modelMetadata.getDimension());
-                put(KNNConstants.MODEL_STATE, modelMetadata.getState().getName());
-                put(KNNConstants.MODEL_TIMESTAMP, modelMetadata.getTimestamp());
-                put(KNNConstants.MODEL_DESCRIPTION, modelMetadata.getDescription());
-                put(KNNConstants.MODEL_ERROR, modelMetadata.getError());
-            }};
+            Map<String, Object> parameters = new HashMap<String, Object>() {
+                {
+                    put(KNNConstants.MODEL_ID, model.getModelID());
+                    put(KNNConstants.KNN_ENGINE, modelMetadata.getKnnEngine().getName());
+                    put(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, modelMetadata.getSpaceType().getValue());
+                    put(KNNConstants.DIMENSION, modelMetadata.getDimension());
+                    put(KNNConstants.MODEL_STATE, modelMetadata.getState().getName());
+                    put(KNNConstants.MODEL_TIMESTAMP, modelMetadata.getTimestamp());
+                    put(KNNConstants.MODEL_DESCRIPTION, modelMetadata.getDescription());
+                    put(KNNConstants.MODEL_ERROR, modelMetadata.getError());
+                }
+            };
 
             byte[] modelBlob = model.getModelBlob();
 
@@ -288,23 +288,23 @@ public interface ModelDao {
             // After metadata update finishes, remove item from every node's cache if necessary. If no model id is
             // passed then nothing needs to be removed from the cache
             ActionListener<IndexResponse> onMetaListener;
-            onMetaListener = ActionListener.wrap(indexResponse -> client.execute(
+            onMetaListener = ActionListener.wrap(
+                indexResponse -> client.execute(
                     RemoveModelFromCacheAction.INSTANCE,
                     new RemoveModelFromCacheRequest(model.getModelID()),
-                    ActionListener.wrap(
-                            removeModelFromCacheResponse -> {
-                                if (!removeModelFromCacheResponse.hasFailures()) {
-                                    listener.onResponse(indexResponse);
-                                    return;
-                                }
+                    ActionListener.wrap(removeModelFromCacheResponse -> {
+                        if (!removeModelFromCacheResponse.hasFailures()) {
+                            listener.onResponse(indexResponse);
+                            return;
+                        }
 
-                                String failureMessage = buildRemoveModelErrorMessage(model.getModelID(),
-                                        removeModelFromCacheResponse);
+                        String failureMessage = buildRemoveModelErrorMessage(model.getModelID(), removeModelFromCacheResponse);
 
-                                listener.onFailure(new RuntimeException(failureMessage));
-                            }, listener::onFailure
-                    )
-            ), listener::onFailure);
+                        listener.onFailure(new RuntimeException(failureMessage));
+                    }, listener::onFailure)
+                ),
+                listener::onFailure
+            );
 
             // After the model is indexed, update metadata only if the model is in CREATED state
             ActionListener<IndexResponse> onIndexListener;
@@ -316,24 +316,29 @@ public interface ModelDao {
 
             // Create the model index if it does not already exist
             if (!isCreated()) {
-                create(ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(onIndexListener),
-                        onIndexListener::onFailure));
+                create(
+                    ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(onIndexListener), onIndexListener::onFailure)
+                );
                 return;
             }
 
             indexRequestBuilder.execute(onIndexListener);
         }
 
-        private ActionListener<IndexResponse> getUpdateModelMetadataListener(ModelMetadata modelMetadata,
-                ActionListener<IndexResponse> listener) {
-            return ActionListener.wrap(indexResponse -> client.execute(
+        private ActionListener<IndexResponse> getUpdateModelMetadataListener(
+            ModelMetadata modelMetadata,
+            ActionListener<IndexResponse> listener
+        ) {
+            return ActionListener.wrap(
+                indexResponse -> client.execute(
                     UpdateModelMetadataAction.INSTANCE,
                     new UpdateModelMetadataRequest(indexResponse.getId(), false, modelMetadata),
                     // Here we wrap the IndexResponse listener around an AcknowledgedListener. This allows us
                     // to pass the indexResponse back up.
-                    ActionListener.wrap(acknowledgedResponse -> listener.onResponse(indexResponse),
-                            listener::onFailure)
-            ), listener::onFailure);
+                    ActionListener.wrap(acknowledgedResponse -> listener.onResponse(indexResponse), listener::onFailure)
+                ),
+                listener::onFailure
+            );
         }
 
         @Override
@@ -341,14 +346,12 @@ public interface ModelDao {
             /*
                 GET /<model_index>/<modelId>?_local
             */
-            GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE, MODEL_INDEX_NAME)
-                    .setId(modelId)
-                    .setPreference("_local");
+            GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE, MODEL_INDEX_NAME).setId(modelId)
+                .setPreference("_local");
             GetResponse getResponse = getRequestBuilder.execute().get();
             Map<String, Object> responseMap = getResponse.getSourceAsMap();
             return Model.getModelFromSourceMap(responseMap);
         }
-
 
         /**
          * Get a model from the system index.  Non-blocking.
@@ -362,14 +365,13 @@ public interface ModelDao {
             /*
                 GET /<model_index>/<modelId>?_local
             */
-            GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE, MODEL_INDEX_NAME)
-                .setId(modelId)
+            GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE, MODEL_INDEX_NAME).setId(modelId)
                 .setPreference("_local");
 
             getRequestBuilder.execute(ActionListener.wrap(response -> {
-                if(response.isSourceEmpty()){
+                if (response.isSourceEmpty()) {
                     String errorMessage = String.format("Model \" %s \" does not exist", modelId);
-                    actionListener.onFailure(new ResourceNotFoundException(modelId,errorMessage));
+                    actionListener.onFailure(new ResourceNotFoundException(modelId, errorMessage));
                     return;
                 }
                 final Map<String, Object> responseMap = response.getSourceAsMap();
@@ -396,23 +398,22 @@ public interface ModelDao {
             IndexMetadata indexMetadata = clusterService.state().metadata().index(MODEL_INDEX_NAME);
 
             if (indexMetadata == null) {
-                logger.debug("ModelMetadata for model \"" + modelId + "\" is null. " + MODEL_INDEX_NAME +
-                        " index does not exist.");
+                logger.debug("ModelMetadata for model \"" + modelId + "\" is null. " + MODEL_INDEX_NAME + " index does not exist.");
                 return null;
             }
 
             Map<String, String> models = indexMetadata.getCustomData(MODEL_METADATA_FIELD);
             if (models == null) {
-                logger.debug("ModelMetadata for model \"" + modelId + "\" is null. " + MODEL_INDEX_NAME +
-                        "'s custom metadata does not exist.");
+                logger.debug(
+                    "ModelMetadata for model \"" + modelId + "\" is null. " + MODEL_INDEX_NAME + "'s custom metadata does not exist."
+                );
                 return null;
             }
 
             String modelMetadata = models.get(modelId);
 
             if (modelMetadata == null) {
-                logger.debug("ModelMetadata for model \"" + modelId + "\" is null. Model \"" + modelId + "\" does " +
-                        "not exist.");
+                logger.debug("ModelMetadata for model \"" + modelId + "\" is null. Model \"" + modelId + "\" does " + "not exist.");
                 return null;
             }
 
@@ -432,69 +433,57 @@ public interface ModelDao {
         public void delete(String modelId, ActionListener<DeleteModelResponse> listener) {
             // If the index is not created, there is no need to delete the model
             if (!isCreated()) {
-                logger.error("Cannot delete model \"" + modelId + "\". Model index "+ MODEL_INDEX_NAME + "does not exist.");
+                logger.error("Cannot delete model \"" + modelId + "\". Model index " + MODEL_INDEX_NAME + "does not exist.");
                 String errorMessage = String.format("Cannot delete model \"%s\". Model index does not exist", modelId);
                 listener.onResponse(new DeleteModelResponse(modelId, "failed", errorMessage));
                 return;
             }
 
             // Setup delete model request
-            DeleteRequestBuilder deleteRequestBuilder = new DeleteRequestBuilder(client, DeleteAction.INSTANCE,
-                    MODEL_INDEX_NAME);
+            DeleteRequestBuilder deleteRequestBuilder = new DeleteRequestBuilder(client, DeleteAction.INSTANCE, MODEL_INDEX_NAME);
             deleteRequestBuilder.setId(modelId);
             deleteRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
             // On model deletion from the index, remove the model from all nodes' model cache
             ActionListener<DeleteResponse> onModelDeleteListener = ActionListener.wrap(deleteResponse -> {
                 // If model is not deleted, return with error message
-                if(deleteResponse.getResult() != DocWriteResponse.Result.DELETED) {
+                if (deleteResponse.getResult() != DocWriteResponse.Result.DELETED) {
                     String errorMessage = String.format("Model \" %s \" does not exist", modelId);
-                    listener.onResponse(new DeleteModelResponse(modelId, deleteResponse.getResult().getLowercase(),
-                            errorMessage));
+                    listener.onResponse(new DeleteModelResponse(modelId, deleteResponse.getResult().getLowercase(), errorMessage));
                     return;
                 }
 
                 // After model is deleted from the index, make sure the model is evicted from every cache in the
                 // cluster
                 client.execute(
-                        RemoveModelFromCacheAction.INSTANCE,
-                        new RemoveModelFromCacheRequest(modelId),
-                        ActionListener.wrap(
-                                removeModelFromCacheResponse -> {
+                    RemoveModelFromCacheAction.INSTANCE,
+                    new RemoveModelFromCacheRequest(modelId),
+                    ActionListener.wrap(removeModelFromCacheResponse -> {
 
-                                    if (!removeModelFromCacheResponse.hasFailures()) {
-                                        listener.onResponse(
-                                                new DeleteModelResponse(
-                                                        modelId,
-                                                        deleteResponse.getResult().getLowercase(),
-                                                        null
-                                                )
-                                        );
-                                        return;
-                                    }
+                        if (!removeModelFromCacheResponse.hasFailures()) {
+                            listener.onResponse(new DeleteModelResponse(modelId, deleteResponse.getResult().getLowercase(), null));
+                            return;
+                        }
 
-                                    String failureMessage = buildRemoveModelErrorMessage(modelId,
-                                            removeModelFromCacheResponse);
+                        String failureMessage = buildRemoveModelErrorMessage(modelId, removeModelFromCacheResponse);
 
-                                    listener.onResponse(new DeleteModelResponse(modelId, "failed",
-                                            failureMessage));
+                        listener.onResponse(new DeleteModelResponse(modelId, "failed", failureMessage));
 
-                                }, e -> listener.onResponse(
-                                        new DeleteModelResponse(modelId, "failed", e.getMessage())
-                                )
-                        )
+                    }, e -> listener.onResponse(new DeleteModelResponse(modelId, "failed", e.getMessage())))
                 );
             }, e -> listener.onResponse(new DeleteModelResponse(modelId, "failed", e.getMessage())));
 
             // On model metadata removal, delete the model from the index
-            ActionListener<AcknowledgedResponse> onMetadataUpdateListener = ActionListener.wrap(acknowledgedResponse ->
-                            deleteRequestBuilder.execute(onModelDeleteListener), listener::onFailure);
+            ActionListener<AcknowledgedResponse> onMetadataUpdateListener = ActionListener.wrap(
+                acknowledgedResponse -> deleteRequestBuilder.execute(onModelDeleteListener),
+                listener::onFailure
+            );
 
             // Remove the metadata asynchronously
             client.execute(
-                    UpdateModelMetadataAction.INSTANCE,
-                    new UpdateModelMetadataRequest(modelId,  true, null),
-                    onMetadataUpdateListener
+                UpdateModelMetadataAction.INSTANCE,
+                new UpdateModelMetadataRequest(modelId, true, null),
+                onMetadataUpdateListener
             );
         }
 
@@ -503,12 +492,11 @@ public interface ModelDao {
             StringBuilder stringBuilder = new StringBuilder(failureMessage);
 
             for (FailedNodeException nodeException : response.failures()) {
-                stringBuilder
-                        .append("Node \"")
-                        .append(nodeException.nodeId())
-                        .append("\" ")
-                        .append(nodeException.getMessage())
-                        .append("; ");
+                stringBuilder.append("Node \"")
+                    .append(nodeException.nodeId())
+                    .append("\" ")
+                    .append(nodeException.getMessage())
+                    .append("; ");
             }
 
             return stringBuilder.toString();
