@@ -29,7 +29,6 @@ import org.opensearch.index.mapper.FieldMapper;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.mapper.MapperParsingException;
-import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.index.mapper.TextSearchInfo;
@@ -91,69 +90,63 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     public static class Builder extends ParametrizedFieldMapper.Builder {
         protected Boolean ignoreMalformed;
 
-        protected final Parameter<Boolean> stored = Parameter.boolParam("store", false,
-                m -> toType(m).stored, false);
-        protected final Parameter<Boolean> hasDocValues = Parameter.boolParam("doc_values", false,
-                m -> toType(m).hasDocValues,  true);
-        protected final Parameter<Integer> dimension = new Parameter<>(KNNConstants.DIMENSION, false,
-                () -> -1,
-                (n, c, o) -> {
-                    if (o == null) {
-                        throw new IllegalArgumentException("Dimension cannot be null");
-                    }
-                    int value = XContentMapValues.nodeIntegerValue(o);
-                    if (value > MAX_DIMENSION) {
-                        throw new IllegalArgumentException("Dimension value cannot be greater than " +
-                                MAX_DIMENSION + " for vector: " + name);
-                    }
+        protected final Parameter<Boolean> stored = Parameter.boolParam("store", false, m -> toType(m).stored, false);
+        protected final Parameter<Boolean> hasDocValues = Parameter.boolParam("doc_values", false, m -> toType(m).hasDocValues, true);
+        protected final Parameter<Integer> dimension = new Parameter<>(KNNConstants.DIMENSION, false, () -> -1, (n, c, o) -> {
+            if (o == null) {
+                throw new IllegalArgumentException("Dimension cannot be null");
+            }
+            int value = XContentMapValues.nodeIntegerValue(o);
+            if (value > MAX_DIMENSION) {
+                throw new IllegalArgumentException("Dimension value cannot be greater than " + MAX_DIMENSION + " for vector: " + name);
+            }
 
-                    if (value <= 0) {
-                        throw new IllegalArgumentException("Dimension value must be greater than 0 " +
-                                "for vector: " + name);
-                    }
-                    return value;
-                }, m -> toType(m).dimension);
+            if (value <= 0) {
+                throw new IllegalArgumentException("Dimension value must be greater than 0 " + "for vector: " + name);
+            }
+            return value;
+        }, m -> toType(m).dimension);
 
         /**
          * modelId provides a way for a user to generate the underlying library indices from an already serialized
          * model template index. If this parameter is set, it will take precedence. This parameter is only relevant for
          * library indices that require training.
          */
-        protected final Parameter<String> modelId = Parameter.stringParam(KNNConstants.MODEL_ID, false,
-                m -> toType(m).modelId, null);
+        protected final Parameter<String> modelId = Parameter.stringParam(KNNConstants.MODEL_ID, false, m -> toType(m).modelId, null);
 
         /**
          * knnMethodContext parameter allows a user to define their k-NN library index configuration. Defaults to an L2
          * hnsw default engine index without any parameters set
          */
-        protected final Parameter<KNNMethodContext> knnMethodContext = new Parameter<>(KNN_METHOD, false,
-                () -> null,
-                (n, c, o) -> KNNMethodContext.parse(o), m -> toType(m).knnMethod)
-                .setSerializer(((b, n, v) ->{
-                    b.startObject(n);
-                    v.toXContent(b, ToXContent.EMPTY_PARAMS);
-                    b.endObject();
-                }), m -> m.getMethodComponent().getName())
-                .setValidator(v -> {
-                    if (v == null)
-                        return;
+        protected final Parameter<KNNMethodContext> knnMethodContext = new Parameter<>(
+            KNN_METHOD,
+            false,
+            () -> null,
+            (n, c, o) -> KNNMethodContext.parse(o),
+            m -> toType(m).knnMethod
+        ).setSerializer(((b, n, v) -> {
+            b.startObject(n);
+            v.toXContent(b, ToXContent.EMPTY_PARAMS);
+            b.endObject();
+        }), m -> m.getMethodComponent().getName()).setValidator(v -> {
+            if (v == null) return;
 
-                    ValidationException validationException = null;
-                    if (v.isTrainingRequired()){
-                        validationException = new ValidationException();
-                        validationException.addValidationError(String.format("\"%s\" requires training.", KNN_METHOD));
-                    }
+            ValidationException validationException = null;
+            if (v.isTrainingRequired()) {
+                validationException = new ValidationException();
+                validationException.addValidationError(String.format("\"%s\" requires training.", KNN_METHOD));
+            }
 
-                    ValidationException methodValidation = v.validate();
-                    if (methodValidation != null) {
-                        validationException = validationException == null ? new ValidationException() : validationException;
-                        validationException.addValidationErrors(methodValidation.validationErrors());
-                    }
+            ValidationException methodValidation = v.validate();
+            if (methodValidation != null) {
+                validationException = validationException == null ? new ValidationException() : validationException;
+                validationException.addValidationErrors(methodValidation.validationErrors());
+            }
 
-                    if (validationException != null) {
-                        throw validationException;
-                    }
-                });
+            if (validationException != null) {
+                throw validationException;
+            }
+        });
 
         protected final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
@@ -211,14 +204,16 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             KNNMethodContext knnMethodContext = this.knnMethodContext.getValue();
             if (knnMethodContext != null) {
-                return new MethodFieldMapper(name,
-                        new KNNVectorFieldType(buildFullName(context), meta.getValue(), dimension.getValue()),
-                        multiFieldsBuilder.build(this, context),
-                        copyTo.build(),
-                        ignoreMalformed(context),
-                        stored.get(),
-                        hasDocValues.get(),
-                        knnMethodContext);
+                return new MethodFieldMapper(
+                    name,
+                    new KNNVectorFieldType(buildFullName(context), meta.getValue(), dimension.getValue()),
+                    multiFieldsBuilder.build(this, context),
+                    copyTo.build(),
+                    ignoreMalformed(context),
+                    stored.get(),
+                    hasDocValues.get(),
+                    knnMethodContext
+                );
             }
 
             String modelIdAsString = this.modelId.get();
@@ -229,15 +224,16 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 // safely. So, we are unable to validate the model. The model gets validated during ingestion.
 
                 return new ModelFieldMapper(
-                        name,
-                        new KNNVectorFieldType(buildFullName(context), meta.getValue(), -1, modelIdAsString),
-                        multiFieldsBuilder.build(this, context),
-                        copyTo.build(),
-                        ignoreMalformed(context),
-                        stored.get(),
-                        hasDocValues.get(),
-                        modelDao,
-                        modelIdAsString);
+                    name,
+                    new KNNVectorFieldType(buildFullName(context), meta.getValue(), -1, modelIdAsString),
+                    multiFieldsBuilder.build(this, context),
+                    copyTo.build(),
+                    ignoreMalformed(context),
+                    stored.get(),
+                    hasDocValues.get(),
+                    modelDao,
+                    modelIdAsString
+                );
             }
 
             // Build legacy
@@ -253,16 +249,18 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 this.efConstruction = LegacyFieldMapper.getEfConstruction(context.indexSettings());
             }
 
-            return new LegacyFieldMapper(name,
-                    new KNNVectorFieldType(buildFullName(context), meta.getValue(), dimension.getValue()),
-                    multiFieldsBuilder.build(this, context),
-                    copyTo.build(),
-                    ignoreMalformed(context),
-                    stored.get(),
-                    hasDocValues.get(),
-                    spaceType,
-                    m,
-                    efConstruction);
+            return new LegacyFieldMapper(
+                name,
+                new KNNVectorFieldType(buildFullName(context), meta.getValue(), dimension.getValue()),
+                multiFieldsBuilder.build(this, context),
+                copyTo.build(),
+                ignoreMalformed(context),
+                stored.get(),
+                hasDocValues.get(),
+                spaceType,
+                m,
+                efConstruction
+            );
         }
     }
 
@@ -277,17 +275,16 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }
 
         @Override
-        public Mapper.Builder<?> parse(String name, Map<String, Object> node, ParserContext parserContext)
-                throws MapperParsingException {
+        public Mapper.Builder<?> parse(String name, Map<String, Object> node, ParserContext parserContext) throws MapperParsingException {
             Builder builder = new KNNVectorFieldMapper.Builder(name, modelDaoSupplier.get());
             builder.parse(name, parserContext, node);
 
-            // All <a href="https://github.com/opensearch-project/OpenSearch/blob/1.0.0/server/src/main/java/org/opensearch/index/mapper/DocumentMapperParser.java#L115-L161">parsing</a>
+            // All <a
+            // href="https://github.com/opensearch-project/OpenSearch/blob/1.0.0/server/src/main/java/org/opensearch/index/mapper/DocumentMapperParser.java#L115-L161">parsing</a>
             // is done before any mappers are built. Therefore, validation should be done during parsing
             // so that it can fail early.
             if (builder.knnMethodContext.get() != null && builder.modelId.get() != null) {
-                throw new IllegalArgumentException("Method and model can not be both specified in the mapping: "
-                        + name);
+                throw new IllegalArgumentException("Method and model can not be both specified in the mapping: " + name);
             }
 
             // Dimension should not be null unless modelId is used
@@ -315,7 +312,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }
 
         @Override
-        public ValueFetcher valueFetcher(MapperService mapperService, SearchLookup searchLookup, String format) {
+        public ValueFetcher valueFetcher(QueryShardContext context, SearchLookup searchLookup, String format) {
             throw new UnsupportedOperationException("KNN Vector do not support fields search");
         }
 
@@ -331,8 +328,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         @Override
         public Query termQuery(Object value, QueryShardContext context) {
-            throw new QueryShardException(context, "KNN vector do not support exact searching, use KNN queries " +
-                    "instead: [" + name() + "]");
+            throw new QueryShardException(
+                context,
+                "KNN vector do not support exact searching, use KNN queries " + "instead: [" + name() + "]"
+            );
         }
 
         public int getDimension() {
@@ -362,10 +361,16 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected KNNMethodContext knnMethod;
     protected String modelId;
 
-    public KNNVectorFieldMapper(String simpleName, KNNVectorFieldType mappedFieldType, MultiFields multiFields,
-                                CopyTo copyTo, Explicit<Boolean> ignoreMalformed, boolean stored,
-                                boolean hasDocValues) {
-        super(simpleName, mappedFieldType,  multiFields, copyTo);
+    public KNNVectorFieldMapper(
+        String simpleName,
+        KNNVectorFieldType mappedFieldType,
+        MultiFields multiFields,
+        CopyTo copyTo,
+        Explicit<Boolean> ignoreMalformed,
+        boolean stored,
+        boolean hasDocValues
+    ) {
+        super(simpleName, mappedFieldType, multiFields, copyTo);
         this.ignoreMalformed = ignoreMalformed;
         this.stored = stored;
         this.hasDocValues = hasDocValues;
@@ -389,13 +394,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected void parseCreateField(ParseContext context, int dimension) throws IOException {
 
         if (!KNNSettings.isKNNPluginEnabled()) {
-            throw new IllegalStateException("KNN plugin is disabled. To enable " +
-                    "update knn.plugin.enabled setting to true");
+            throw new IllegalStateException("KNN plugin is disabled. To enable " + "update knn.plugin.enabled setting to true");
         }
 
         if (KNNSettings.isCircuitBreakerTriggered()) {
-            throw new IllegalStateException("Indexing knn vector fields is rejected as circuit breaker triggered." +
-                    " Check _opendistro/_knn/stats for detailed state");
+            throw new IllegalStateException(
+                "Indexing knn vector fields is rejected as circuit breaker triggered." + " Check _opendistro/_knn/stats for detailed state"
+            );
         }
 
         context.path().add(simpleName());
@@ -438,8 +443,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }
 
         if (dimension != vector.size()) {
-            String errorMessage = String.format("Vector dimension mismatch. Expected: %d, Given: %d", dimension,
-                    vector.size());
+            String errorMessage = String.format("Vector dimension mismatch. Expected: %d, Given: %d", dimension, vector.size());
             throw new IllegalArgumentException(errorMessage);
         }
 
@@ -498,7 +502,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             FIELD_TYPE.setTokenized(false);
             FIELD_TYPE.setIndexOptions(IndexOptions.NONE);
             FIELD_TYPE.setDocValuesType(DocValuesType.BINARY);
-            FIELD_TYPE.putAttribute(KNN_FIELD, "true"); //This attribute helps to determine knn field type
+            FIELD_TYPE.putAttribute(KNN_FIELD, "true"); // This attribute helps to determine knn field type
             FIELD_TYPE.freeze();
         }
     }
@@ -512,9 +516,18 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         protected String m;
         protected String efConstruction;
 
-        private LegacyFieldMapper(String simpleName, KNNVectorFieldType mappedFieldType, MultiFields multiFields,
-                                 CopyTo copyTo, Explicit<Boolean> ignoreMalformed, boolean stored,
-                                 boolean hasDocValues, String spaceType, String m, String efConstruction) {
+        private LegacyFieldMapper(
+            String simpleName,
+            KNNVectorFieldType mappedFieldType,
+            MultiFields multiFields,
+            CopyTo copyTo,
+            Explicit<Boolean> ignoreMalformed,
+            boolean stored,
+            boolean hasDocValues,
+            String spaceType,
+            String m,
+            String efConstruction
+        ) {
             super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues);
 
             this.spaceType = spaceType;
@@ -540,33 +553,45 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }
 
         static String getSpaceType(Settings indexSettings) {
-            String spaceType =  indexSettings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey());
+            String spaceType = indexSettings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey());
             if (spaceType == null) {
-                logger.info("[KNN] The setting \"" + METHOD_PARAMETER_SPACE_TYPE + "\" was not set for the index. " +
-                        "Likely caused by recent version upgrade. Setting the setting to the default value="
-                        + KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE);
+                logger.info(
+                    "[KNN] The setting \""
+                        + METHOD_PARAMETER_SPACE_TYPE
+                        + "\" was not set for the index. "
+                        + "Likely caused by recent version upgrade. Setting the setting to the default value="
+                        + KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE
+                );
                 return KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE;
             }
             return spaceType;
         }
 
         static String getM(Settings indexSettings) {
-            String m =  indexSettings.get(KNNSettings.INDEX_KNN_ALGO_PARAM_M_SETTING.getKey());
+            String m = indexSettings.get(KNNSettings.INDEX_KNN_ALGO_PARAM_M_SETTING.getKey());
             if (m == null) {
-                logger.info("[KNN] The setting \"" + HNSW_ALGO_M + "\" was not set for the index. " +
-                        "Likely caused by recent version upgrade. Setting the setting to the default value="
-                        + KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M);
+                logger.info(
+                    "[KNN] The setting \""
+                        + HNSW_ALGO_M
+                        + "\" was not set for the index. "
+                        + "Likely caused by recent version upgrade. Setting the setting to the default value="
+                        + KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M
+                );
                 return String.valueOf(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M);
             }
             return m;
         }
 
         static String getEfConstruction(Settings indexSettings) {
-            String efConstruction =  indexSettings.get(KNNSettings.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING.getKey());
+            String efConstruction = indexSettings.get(KNNSettings.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING.getKey());
             if (efConstruction == null) {
-                logger.info("[KNN] The setting \"" + HNSW_ALGO_EF_CONSTRUCTION + "\" was not set for" +
-                        " the index. Likely caused by recent version upgrade. Setting the setting to the default value="
-                        + KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION);
+                logger.info(
+                    "[KNN] The setting \""
+                        + HNSW_ALGO_EF_CONSTRUCTION
+                        + "\" was not set for"
+                        + " the index. Likely caused by recent version upgrade. Setting the setting to the default value="
+                        + KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION
+                );
                 return String.valueOf(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION);
             }
             return efConstruction;
@@ -578,9 +603,16 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      */
     protected static class MethodFieldMapper extends KNNVectorFieldMapper {
 
-        private MethodFieldMapper(String simpleName, KNNVectorFieldType mappedFieldType, MultiFields multiFields,
-                                 CopyTo copyTo, Explicit<Boolean> ignoreMalformed, boolean stored,
-                                 boolean hasDocValues, KNNMethodContext knnMethodContext) {
+        private MethodFieldMapper(
+            String simpleName,
+            KNNVectorFieldType mappedFieldType,
+            MultiFields multiFields,
+            CopyTo copyTo,
+            Explicit<Boolean> ignoreMalformed,
+            boolean stored,
+            boolean hasDocValues,
+            KNNMethodContext knnMethodContext
+        ) {
 
             super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues);
 
@@ -595,8 +627,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
 
             try {
-                this.fieldType.putAttribute(PARAMETERS, Strings.toString(XContentFactory.jsonBuilder()
-                        .map(knnEngine.getMethodAsMap(knnMethodContext))));
+                this.fieldType.putAttribute(
+                    PARAMETERS,
+                    Strings.toString(XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)))
+                );
             } catch (IOException ioe) {
                 throw new RuntimeException("Unable to create KNNVectorFieldMapper: " + ioe);
             }
@@ -610,9 +644,17 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      */
     protected static class ModelFieldMapper extends KNNVectorFieldMapper {
 
-        private ModelFieldMapper(String simpleName, KNNVectorFieldType mappedFieldType, MultiFields multiFields,
-                                CopyTo copyTo, Explicit<Boolean> ignoreMalformed, boolean stored,
-                                boolean hasDocValues, ModelDao modelDao, String modelId) {
+        private ModelFieldMapper(
+            String simpleName,
+            KNNVectorFieldType mappedFieldType,
+            MultiFields multiFields,
+            CopyTo copyTo,
+            Explicit<Boolean> ignoreMalformed,
+            boolean stored,
+            boolean hasDocValues,
+            ModelDao modelDao,
+            String modelId
+        ) {
             super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues);
 
             this.modelId = modelId;
@@ -631,10 +673,17 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             ModelMetadata modelMetadata = this.modelDao.getMetadata(modelId);
 
             if (modelMetadata == null) {
-                throw new IllegalStateException("Model \"" + modelId + "\" from " +
-                        context.mapperService().index().getName() + "'s mapping does not exist. Because the " +
-                        "\"" + MODEL_ID + "\" parameter is not updateable, this index will need to " +
-                        "be recreated with a valid model.");
+                throw new IllegalStateException(
+                    "Model \""
+                        + modelId
+                        + "\" from "
+                        + context.mapperService().index().getName()
+                        + "'s mapping does not exist. Because the "
+                        + "\""
+                        + MODEL_ID
+                        + "\" parameter is not updateable, this index will need to "
+                        + "be recreated with a valid model."
+                );
             }
 
             parseCreateField(context, modelMetadata.getDimension());

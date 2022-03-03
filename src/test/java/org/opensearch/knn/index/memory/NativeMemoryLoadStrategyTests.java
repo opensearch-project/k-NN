@@ -30,8 +30,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -61,14 +61,15 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
 
         NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
-                path,
-                NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                parameters,
-                "test"
+            path,
+            NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+            parameters,
+            "test"
         );
 
         // Load
-        NativeMemoryAllocation.IndexAllocation indexAllocation = NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().load(indexEntryContext);
+        NativeMemoryAllocation.IndexAllocation indexAllocation = NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance()
+            .load(indexEntryContext);
 
         // Confirm that the file was loaded by querying
         float[] query = new float[dimension];
@@ -83,7 +84,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         // listener onResponse to release the write lock
         VectorReader vectorReader = mock(VectorReader.class);
         ArrayList<Float[]> vectors = new ArrayList<>();
-        vectors.add(new Float[]{1.0F, 2.0F});
+        vectors.add(new Float[] { 1.0F, 2.0F });
         logger.info("J0");
         doAnswer(invocationOnMock -> {
             logger.info("J1");
@@ -107,17 +108,19 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         NativeMemoryLoadStrategy.TrainingLoadStrategy.initialize(vectorReader);
 
         NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext = new NativeMemoryEntryContext.TrainingDataEntryContext(
-                0,
-                "test",
-                "test",
-                NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance(),
-                null,
-                0,
-                0);
+            0,
+            "test",
+            "test",
+            NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance(),
+            null,
+            0,
+            0
+        );
 
         // Load the allocation. Initially, the memory address should be 0. However, after the readlock is obtained,
         // the memory address should not be 0.
-        NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance().load(trainingDataEntryContext);
+        NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance()
+            .load(trainingDataEntryContext);
         assertEquals(0, trainingDataAllocation.getMemoryAddress());
         trainingDataAllocation.readLock();
         assertNotEquals(0, trainingDataAllocation.getMemoryAddress());

@@ -16,8 +16,6 @@ import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 
-import javax.annotation.Nonnull;
-
 import java.io.IOException;
 
 /**
@@ -26,12 +24,13 @@ import java.io.IOException;
 public class GetModelRequest extends ActionRequest {
 
     private String modelID;
+
     /**
      * Constructor
      *
      * @param modelID model ID of Index Model
      */
-    public GetModelRequest(@Nonnull String modelID) {
+    public GetModelRequest(String modelID) {
         super();
         this.modelID = modelID;
     }

@@ -17,32 +17,29 @@ import org.opensearch.knn.indices.ModelMetadata;
 
 import java.io.IOException;
 
-import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testInvalidK() {
-        float[] queryVector = {1.0f, 1.0f};
+        float[] queryVector = { 1.0f, 1.0f };
 
         /**
          * -ve k
          */
-        expectThrows(IllegalArgumentException.class,
-                () ->  new KNNQueryBuilder("myvector", queryVector, -1));
+        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder("myvector", queryVector, -1));
 
         /**
          * zero k
          */
-        expectThrows(IllegalArgumentException.class,
-                () ->  new KNNQueryBuilder("myvector", queryVector, 0));
+        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder("myvector", queryVector, 0));
 
         /**
          * k > KNNQueryBuilder.K_MAX
          */
-        expectThrows(IllegalArgumentException.class,
-                () ->  new KNNQueryBuilder("myvector", queryVector, KNNQueryBuilder.K_MAX + 1));
+        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder("myvector", queryVector, KNNQueryBuilder.K_MAX + 1));
     }
 
     public void testEmptyVector() {
@@ -50,19 +47,17 @@ public class KNNQueryBuilderTests extends KNNTestCase {
          * null query vector
          */
         float[] queryVector = null;
-        expectThrows(IllegalArgumentException.class,
-                () -> new KNNQueryBuilder("myvector", queryVector, 1));
+        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder("myvector", queryVector, 1));
 
         /**
          * empty query vector
          */
         float[] queryVector1 = {};
-        expectThrows(IllegalArgumentException.class,
-                () -> new KNNQueryBuilder("myvector", queryVector1, 1));
+        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder("myvector", queryVector1, 1));
     }
 
     public void testFromXcontent() throws Exception {
-        float[] queryVector = {1.0f, 2.0f, 3.0f, 4.0f};
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder("myvector", queryVector, 1);
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
@@ -78,7 +73,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     }
 
     public void testDoToQuery_Normal() throws Exception {
-        float[] queryVector = {1.0f, 2.0f, 3.0f, 4.0f};
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder("myvector", queryVector, 1);
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
@@ -86,14 +81,14 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        KNNQuery query = (KNNQuery)knnQueryBuilder.doToQuery(mockQueryShardContext);
+        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertEquals(knnQueryBuilder.getK(), query.getK());
         assertEquals(knnQueryBuilder.fieldName(), query.getField());
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
     }
 
     public void testDoToQuery_FromModel() throws Exception {
-        float[] queryVector = {1.0f, 2.0f, 3.0f, 4.0f};
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder("myvector", queryVector, 1);
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
@@ -113,14 +108,14 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         KNNQueryBuilder.initialize(modelDao);
 
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        KNNQuery query = (KNNQuery)knnQueryBuilder.doToQuery(mockQueryShardContext);
+        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertEquals(knnQueryBuilder.getK(), query.getK());
         assertEquals(knnQueryBuilder.fieldName(), query.getField());
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
     }
 
     public void testDoToQuery_InvalidDimensions() {
-        float[] queryVector = {1.0f, 2.0f, 3.0f, 4.0f};
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder("myvector", queryVector, 1);
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
@@ -134,7 +129,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     }
 
     public void testDoToQuery_InvalidFieldType() throws IOException {
-        float[] queryVector = {1.0f, 2.0f, 3.0f, 4.0f};
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder("mynumber", queryVector, 1);
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);

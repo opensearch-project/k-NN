@@ -11,15 +11,12 @@
 package org.opensearch.knn.plugin.transport;
 
 import org.opensearch.action.ActionResponse;
-import org.opensearch.action.DocWriteResponse;
+import org.opensearch.common.Nullable;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.xcontent.ToXContentObject;
 import org.opensearch.common.xcontent.XContentBuilder;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 
@@ -36,7 +33,7 @@ public class DeleteModelResponse extends ActionResponse implements ToXContentObj
     private final String result;
     private final String errorMessage;
 
-    public DeleteModelResponse(@Nonnull String modelID, @Nonnull String result, @Nullable String errorMessage) {
+    public DeleteModelResponse(String modelID, String result, @Nullable String errorMessage) {
         this.modelID = modelID;
         this.result = result;
         this.errorMessage = errorMessage;
@@ -73,7 +70,7 @@ public class DeleteModelResponse extends ActionResponse implements ToXContentObj
         builder.startObject();
         builder.field(MODEL_ID, getModelID());
         builder.field(RESULT, getResult());
-        if (Strings.hasText(errorMessage)){
+        if (Strings.hasText(errorMessage)) {
             builder.field(ERROR_MSG, getErrorMessage());
         }
         builder.endObject();
