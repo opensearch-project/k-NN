@@ -76,7 +76,7 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
      * Create simple k-NN mapping
      */
     protected void createKnnIndexMapping(String indexName, String fieldName, Integer dimensions) {
-        PutMappingRequest request = new PutMappingRequest(indexName);
+        PutMappingRequest request = new PutMappingRequest(indexName).type("_doc");
         request.source(fieldName, "type=knn_vector,dimension=" + dimensions);
         OpenSearchAssertions.assertAcked(client().admin().indices().putMapping(request).actionGet());
     }
