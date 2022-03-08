@@ -23,15 +23,17 @@ import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.index.IndexUtil.getParametersAtLoading;
-import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFilePrefix;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileSuffix;
 
 /**
  * KNNIndexShard wraps IndexShard and adds methods to perform k-NN related operations against the shard
@@ -126,17 +128,21 @@ public class KNNIndexShard {
                     // was L2. So, if Space Type is not present, just fall back to L2
                     String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
                     SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
-                    String engineFileName = buildEngineFileName(reader.getSegmentInfo().info.name,
-                            knnEngine.getLatestBuildVersion(), fieldInfo.name, fileExtension);
 
-                    engineFiles.putAll(reader.getSegmentInfo().files().stream()
-                            .filter(fileName -> fileName.equals(engineFileName))
-                            .map(fileName -> shardPath.resolve(fileName).toString())
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.toMap(fileName -> fileName, fileName -> spaceType)));
+                    engineFiles.putAll(getEnginePaths(reader.getSegmentInfo().files(),
+                            reader.getSegmentInfo().info.name, fieldInfo.name, fileExtension, shardPath, spaceType));
                 }
             }
         }
         return engineFiles;
+    }
+
+    protected Map<String, SpaceType> getEnginePaths(Collection<String> files, String segmentName, String fieldName,
+                                                   String fileExtension, Path shardPath, SpaceType spaceType) {
+        return files.stream()
+                .filter(fileName -> fileName.startsWith(buildEngineFilePrefix(segmentName)))
+                .filter(fileName -> fileName.endsWith(buildEngineFileSuffix(fieldName, fileExtension)))
+                .map(fileName -> shardPath.resolve(fileName).toString())
+                .collect(Collectors.toMap(fileName -> fileName, fileName -> spaceType));
     }
 }

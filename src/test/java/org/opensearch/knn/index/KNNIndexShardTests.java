@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.engine.Engine;
@@ -12,10 +14,15 @@ import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 
@@ -115,5 +122,36 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         List<String> paths = new ArrayList<>(hnswPaths.keySet());
         assertTrue(paths.get(0).contains("hnsw") || paths.get(0).contains("hnswc"));
         searcher.close();
+    }
+
+    public void testGetEnginePaths() {
+        // Check that the correct engine paths are being returned by the KNNIndexShard
+        String segmentName = "_0";
+        String fieldName = "test_field";
+        String fileExt = ".test";
+        SpaceType spaceType = SpaceType.L2;
+
+        Set<String> includedFileNames = ImmutableSet.of(
+                String.format("%s_111_%s%s", segmentName, fieldName, fileExt),
+                String.format("%s_7_%s%s", segmentName, fieldName, fileExt),
+                String.format("%s_53_%s%s", segmentName, fieldName, fileExt)
+        );
+
+        List<String> excludedFileNames = ImmutableList.of(
+                String.format("_111_%s%s", fieldName, fileExt), // missing segment name
+                String.format("%s_111_%s", segmentName, fileExt), // missing field name
+                String.format("%s_111_%s.invalid", segmentName, fieldName) // missing extension
+        );
+
+        List<String> files = Stream.concat(includedFileNames.stream(), excludedFileNames.stream())
+                .collect(Collectors.toList());
+
+        KNNIndexShard knnIndexShard = new KNNIndexShard(null);
+
+        Path path = Paths.get("").toAbsolutePath();
+        Map<String, SpaceType> included = knnIndexShard.getEnginePaths(files, segmentName, fieldName, fileExt, path, spaceType);
+
+        assertEquals(includedFileNames.size(), included.size());
+        included.keySet().forEach(o -> assertTrue(includedFileNames.contains(o)));
     }
 }
