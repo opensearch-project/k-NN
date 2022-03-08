@@ -40,11 +40,18 @@ public class KNNCodecUtil {
             }
             docIdList.add(doc);
         }
-        return new KNNCodecUtil.Pair(docIdList.stream().mapToInt(Integer::intValue).toArray(), vectorList.toArray(new float[][]{}));
+        return new KNNCodecUtil.Pair(docIdList.stream().mapToInt(Integer::intValue).toArray(), vectorList.toArray(new float[][] {}));
     }
 
-    public static String buildEngineFileName(String segmentName, String latestBuildVersion, String fieldName,
-                                             String extension) {
-        return String.format("%s_%s_%s%s", segmentName, latestBuildVersion, fieldName, extension);
+    public static String buildEngineFileName(String segmentName, String latestBuildVersion, String fieldName, String extension) {
+        return String.format("%s%s%s", buildEngineFilePrefix(segmentName), latestBuildVersion, buildEngineFileSuffix(fieldName, extension));
+    }
+
+    public static String buildEngineFilePrefix(String segmentName) {
+        return String.format("%s_", segmentName);
+    }
+
+    public static String buildEngineFileSuffix(String fieldName, String extension) {
+        return String.format("_%s%s", fieldName, extension);
     }
 }
