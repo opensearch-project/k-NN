@@ -138,9 +138,11 @@ public class KNNIndexShard {
 
     protected Map<String, SpaceType> getEnginePaths(Collection<String> files, String segmentName, String fieldName,
                                                    String fileExtension, Path shardPath, SpaceType spaceType) {
+        String prefix = buildEngineFilePrefix(segmentName);
+        String suffix = buildEngineFileSuffix(fieldName, fileExtension);
         return files.stream()
-                .filter(fileName -> fileName.startsWith(buildEngineFilePrefix(segmentName)))
-                .filter(fileName -> fileName.endsWith(buildEngineFileSuffix(fieldName, fileExtension)))
+                .filter(fileName -> fileName.startsWith(prefix))
+                .filter(fileName -> fileName.endsWith(suffix))
                 .map(fileName -> shardPath.resolve(fileName).toString())
                 .collect(Collectors.toMap(fileName -> fileName, fileName -> spaceType));
     }
