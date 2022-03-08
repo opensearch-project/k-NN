@@ -84,12 +84,14 @@ public class KNNIndexShard {
             getAllEnginePaths(searcher.getIndexReader()).forEach((key, value) -> {
                 try {
                     nativeMemoryCacheManager.get(
-                            new NativeMemoryEntryContext.IndexEntryContext(
-                                    key,
-                                    NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                                    getParametersAtLoading(value, KNNEngine.getEngineNameFromPath(key), getIndexName()),
-                                    getIndexName()
-                            ), true);
+                        new NativeMemoryEntryContext.IndexEntryContext(
+                            key,
+                            NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+                            getParametersAtLoading(value, KNNEngine.getEngineNameFromPath(key), getIndexName()),
+                            getIndexName()
+                        ),
+                        true
+                    );
                 } catch (ExecutionException ex) {
                     throw new RuntimeException(ex);
                 }
@@ -119,7 +121,8 @@ public class KNNIndexShard {
             SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(leafReaderContext.reader());
             Path shardPath = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory();
             String fileExtension = reader.getSegmentInfo().info.getUseCompoundFile()
-                    ? knnEngine.getCompoundExtension() : knnEngine.getExtension();
+                ? knnEngine.getCompoundExtension()
+                : knnEngine.getExtension();
 
             for (FieldInfo fieldInfo : reader.getFieldInfos()) {
                 if (fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
@@ -128,22 +131,36 @@ public class KNNIndexShard {
                     String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
                     SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
 
-                    engineFiles.putAll(getEnginePaths(reader.getSegmentInfo().files(),
-                            reader.getSegmentInfo().info.name, fieldInfo.name, fileExtension, shardPath, spaceType));
+                    engineFiles.putAll(
+                        getEnginePaths(
+                            reader.getSegmentInfo().files(),
+                            reader.getSegmentInfo().info.name,
+                            fieldInfo.name,
+                            fileExtension,
+                            shardPath,
+                            spaceType
+                        )
+                    );
                 }
             }
         }
         return engineFiles;
     }
 
-    protected Map<String, SpaceType> getEnginePaths(Collection<String> files, String segmentName, String fieldName,
-                                                   String fileExtension, Path shardPath, SpaceType spaceType) {
+    protected Map<String, SpaceType> getEnginePaths(
+        Collection<String> files,
+        String segmentName,
+        String fieldName,
+        String fileExtension,
+        Path shardPath,
+        SpaceType spaceType
+    ) {
         String prefix = buildEngineFilePrefix(segmentName);
         String suffix = buildEngineFileSuffix(fieldName, fileExtension);
         return files.stream()
-                .filter(fileName -> fileName.startsWith(prefix))
-                .filter(fileName -> fileName.endsWith(suffix))
-                .map(fileName -> shardPath.resolve(fileName).toString())
-                .collect(Collectors.toMap(fileName -> fileName, fileName -> spaceType));
+            .filter(fileName -> fileName.startsWith(prefix))
+            .filter(fileName -> fileName.endsWith(suffix))
+            .map(fileName -> shardPath.resolve(fileName).toString())
+            .collect(Collectors.toMap(fileName -> fileName, fileName -> spaceType));
     }
 }

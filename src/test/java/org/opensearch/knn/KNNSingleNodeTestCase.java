@@ -77,7 +77,7 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
      */
     protected void createKnnIndexMapping(String indexName, String fieldName, Integer dimensions) {
         PutMappingRequest request = new PutMappingRequest(indexName);
-        request.source(fieldName, "type=knn_vector,dimension="+dimensions);
+        request.source(fieldName, "type=knn_vector,dimension=" + dimensions);
         OpenSearchAssertions.assertAcked(client().admin().indices().putMapping(request).actionGet());
     }
 
@@ -85,26 +85,19 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
      * Get default k-NN settings for test cases
      */
     protected Settings getKNNDefaultIndexSettings() {
-        return Settings.builder()
-                .put("number_of_shards", 1)
-                .put("number_of_replicas", 0)
-                .put("index.knn", true)
-                .build();
+        return Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", true).build();
     }
 
     /**
      * Add a k-NN doc to an index
      */
-    protected void addKnnDoc(String index, String docId, String fieldName, Object[] vector)
-            throws IOException, InterruptedException, ExecutionException {
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
-                .field(fieldName, vector)
-                .endObject();
-        IndexRequest indexRequest = new IndexRequest()
-                .index(index)
-                .id(docId)
-                .source(builder)
-                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+    protected void addKnnDoc(String index, String docId, String fieldName, Object[] vector) throws IOException, InterruptedException,
+        ExecutionException {
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vector).endObject();
+        IndexRequest indexRequest = new IndexRequest().index(index)
+            .id(docId)
+            .source(builder)
+            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
         IndexResponse response = client().index(indexRequest).get();
         assertEquals(response.status(), RestStatus.CREATED);
@@ -113,16 +106,13 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
     /**
      * Add any document to index
      */
-    protected void addDoc(String index, String docId, String fieldName, String dummyValue)
-            throws IOException, InterruptedException, ExecutionException {
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
-                .field(fieldName, dummyValue)
-                .endObject();
-        IndexRequest indexRequest = new IndexRequest()
-                .index(index)
-                .id(docId)
-                .source(builder)
-                .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+    protected void addDoc(String index, String docId, String fieldName, String dummyValue) throws IOException, InterruptedException,
+        ExecutionException {
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, dummyValue).endObject();
+        IndexRequest indexRequest = new IndexRequest().index(index)
+            .id(docId)
+            .source(builder)
+            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
         IndexResponse response = client().index(indexRequest).get();
         assertEquals(response.status(), RestStatus.CREATED);
@@ -132,18 +122,16 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
      * Run a search against a k-NN index
      */
     protected void searchKNNIndex(String index, String fieldName, float[] vector, int k) {
-        SearchResponse response = client().prepareSearch(index).setQuery(new KNNQueryBuilder(fieldName, vector, k))
-                .get();
+        SearchResponse response = client().prepareSearch(index).setQuery(new KNNQueryBuilder(fieldName, vector, k)).get();
         assertEquals(response.status(), RestStatus.OK);
     }
 
     public Map<String, Object> xContentBuilderToMap(XContentBuilder xContentBuilder) {
-        return XContentHelper.convertToMap(BytesReference.bytes(xContentBuilder), true,
-                xContentBuilder.contentType()).v2();
+        return XContentHelper.convertToMap(BytesReference.bytes(xContentBuilder), true, xContentBuilder.contentType()).v2();
     }
 
-    public void assertTrainingSucceeds(ModelDao modelDao, String modelId, int attempts, int delayInMillis)
-            throws InterruptedException, ExecutionException {
+    public void assertTrainingSucceeds(ModelDao modelDao, String modelId, int attempts, int delayInMillis) throws InterruptedException,
+        ExecutionException {
 
         int attemptNum = 0;
         ModelMetadata modelMetadata;
