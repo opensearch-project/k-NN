@@ -148,7 +148,7 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
 
         KNNIndexShard knnIndexShard = new KNNIndexShard(null);
 
-        Path path = Paths.get("").toAbsolutePath();
+        Path path = Paths.get("");
         Map<String, SpaceType> included = knnIndexShard.getEnginePaths(files, segmentName, fieldName, fileExt, path, spaceType);
 
         assertEquals(includedFileNames.size(), included.size());
