@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin;
 
+import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
@@ -49,7 +50,6 @@ import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
 import org.opensearch.index.IndexModule;
 import org.opensearch.index.IndexSettings;
-import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.knn.plugin.stats.KNNStatsConfig;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
@@ -221,9 +221,9 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
     }
 
     @Override
-    public Optional<EngineFactory> getEngineFactory(IndexSettings indexSettings) {
+    public Optional<CodecServiceFactory> getCustomCodecServiceFactory(IndexSettings indexSettings) {
         if (indexSettings.getValue(KNNSettings.IS_KNN_INDEX_SETTING)) {
-            return Optional.of(new KNNEngineFactory());
+            return Optional.of(KNNCodecService::new);
         }
         return Optional.empty();
     }

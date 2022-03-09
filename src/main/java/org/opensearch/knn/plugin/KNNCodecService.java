@@ -5,9 +5,9 @@
 
 package org.opensearch.knn.plugin;
 
+import org.opensearch.index.codec.CodecServiceConfig;
 import org.opensearch.knn.index.codec.KNN87Codec.KNN87Codec;
 import org.apache.lucene.codecs.Codec;
-import org.apache.lucene.codecs.PostingsFormat;
 import org.opensearch.index.codec.CodecService;
 
 /**
@@ -15,8 +15,8 @@ import org.opensearch.index.codec.CodecService;
  */
 class KNNCodecService extends CodecService {
 
-    KNNCodecService() {
-        super(null, null);
+    KNNCodecService(CodecServiceConfig codecServiceConfig) {
+        super(codecServiceConfig.getMapperService(), codecServiceConfig.getLogger());
     }
 
     /**
@@ -33,9 +33,5 @@ class KNNCodecService extends CodecService {
             throw new IllegalArgumentException("failed to find codec [" + name + "]");
         }
         return codec;
-    }
-
-    public void setPostingsFormat(PostingsFormat postingsFormat) {
-        ((KNN87Codec)codec("")).setPostingsFormat(postingsFormat);
     }
 }
