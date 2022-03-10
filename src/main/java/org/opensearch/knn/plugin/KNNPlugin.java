@@ -6,6 +6,7 @@
 package org.opensearch.knn.plugin;
 
 import org.opensearch.index.codec.CodecServiceFactory;
+import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
@@ -133,7 +134,6 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
     public static final String KNN_BASE_URI = "/_plugins/_knn";
 
     private KNNStats knnStats;
-    private ModelDao modelDao;
     private ClusterService clusterService;
 
     @Override
@@ -218,6 +218,11 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
                 new ActionHandler<>(RemoveModelFromCacheAction.INSTANCE, RemoveModelFromCacheTransportAction.class),
                 new ActionHandler<>(SearchModelAction.INSTANCE, SearchModelTransportAction.class)
         );
+    }
+
+    @Override
+    public Optional<EngineFactory> getEngineFactory(IndexSettings indexSettings) {
+        return Optional.empty();
     }
 
     @Override

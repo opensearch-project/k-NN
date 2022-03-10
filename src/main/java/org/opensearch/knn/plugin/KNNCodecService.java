@@ -20,18 +20,13 @@ class KNNCodecService extends CodecService {
     }
 
     /**
-     * If the index is of type KNN i.e index.knn = true, We always
-     * return the KNN Codec
+     * Return the custom k-NN codec that wraps another codec that a user wants to use for non k-NN related operations
      *
-     * @param name dummy name
-     * @return Latest KNN Codec
+     * @param name of delegate codec.
+     * @return Latest KNN Codec built with delegate codec.
      */
     @Override
     public Codec codec(String name) {
-        Codec codec = Codec.forName(KNN87Codec.KNN_87);
-        if (codec == null) {
-            throw new IllegalArgumentException("failed to find codec [" + name + "]");
-        }
-        return codec;
+        return new KNN87Codec(super.codec(name));
     }
 }
