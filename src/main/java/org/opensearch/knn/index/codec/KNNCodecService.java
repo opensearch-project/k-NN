@@ -1,9 +1,15 @@
 /*
- * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
  */
 
-package org.opensearch.knn.plugin;
+package org.opensearch.knn.index.codec;
 
 import org.opensearch.index.codec.CodecServiceConfig;
 import org.opensearch.knn.index.codec.KNN87Codec.KNN87Codec;
@@ -15,7 +21,7 @@ import org.opensearch.index.codec.CodecService;
  */
 class KNNCodecService extends CodecService {
 
-    KNNCodecService(CodecServiceConfig codecServiceConfig) {
+    public KNNCodecService(CodecServiceConfig codecServiceConfig) {
         super(codecServiceConfig.getMapperService(), codecServiceConfig.getLogger());
     }
 

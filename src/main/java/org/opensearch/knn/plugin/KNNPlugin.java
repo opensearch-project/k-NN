@@ -13,6 +13,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorFieldMapper;
 
 import org.opensearch.knn.index.KNNWeight;
+import org.opensearch.knn.index.codec.KNNCodecService;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
