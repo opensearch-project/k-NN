@@ -95,47 +95,6 @@ public class  KNNCodecTestCase extends KNNTestCase {
         );
     }
 
-    public void testFooter(Codec codec) throws Exception {
-        setUpMockClusterService();
-        Directory dir = newFSDirectory(createTempDir());
-        IndexWriterConfig iwc = newIndexWriterConfig();
-        iwc.setMergeScheduler(new SerialMergeScheduler());
-        iwc.setCodec(codec);
-
-        float[] array = {1.0f, 2.0f, 3.0f};
-        VectorField vectorField = new VectorField("test_vector", array, sampleFieldType);
-        RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
-        Document doc = new Document();
-        doc.add(vectorField);
-        writer.addDocument(doc);
-
-        ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
-        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
-        IndexReader reader = writer.getReader();
-        LeafReaderContext lrc = reader.getContext().leaves().iterator().next(); // leaf reader context
-        SegmentReader segmentReader = (SegmentReader) FilterLeafReader.unwrap(lrc.reader());
-        String hnswFileExtension = segmentReader.getSegmentInfo().info.getUseCompoundFile()
-                ? KNNEngine.NMSLIB.getCompoundExtension() : KNNEngine.NMSLIB.getExtension();
-        String hnswSuffix = "test_vector" + hnswFileExtension;
-        List<String> hnswFiles = segmentReader.getSegmentInfo().files().stream()
-                .filter(fileName -> fileName.endsWith(hnswSuffix))
-                .collect(Collectors.toList());
-        assertTrue(!hnswFiles.isEmpty());
-        ChecksumIndexInput indexInput = dir.openChecksumInput(hnswFiles.get(0), IOContext.DEFAULT);
-        indexInput.seek(indexInput.length() - CodecUtil.footerLength());
-        CodecUtil.checkFooter(indexInput); // If footer is not valid, it would throw exception and test fails
-        indexInput.close();
-
-        IndexSearcher searcher = new IndexSearcher(reader);
-        assertEquals(1, searcher.count(new KNNQuery("test_vector", new float[] {1.0f, 2.5f}, 1, "myindex")));
-
-        reader.close();
-        writer.close();
-        dir.close();
-        resourceWatcherService.close();
-        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
-    }
-
     public void testMultiFieldsKnnIndex(Codec codec) throws Exception {
         setUpMockClusterService();
         Directory dir = newFSDirectory(createTempDir());

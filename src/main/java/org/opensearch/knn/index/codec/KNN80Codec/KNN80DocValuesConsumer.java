@@ -67,82 +67,84 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     @Override
     public void addBinaryField(FieldInfo field, DocValuesProducer valuesProducer) throws IOException {
         delegatee.addBinaryField(field, valuesProducer);
-        addKNNBinaryField(field, valuesProducer);
+        if (field.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
+            addKNNBinaryField(field, valuesProducer);
+        }
     }
 
     public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer) throws IOException {
+
+        // Get values to be indexed
+        BinaryDocValues values = valuesProducer.getBinary(field);
+        KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
+        if (pair.vectors.length == 0 || pair.docs.length == 0) {
+            logger.info("Skipping engine index creation as there are no vectors or docs in the documents");
+            return;
+        }
+
+        // Increment counter for number of graph index requests
         KNNCounter.GRAPH_INDEX_REQUESTS.increment();
-        if (field.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
 
-            // Get values to be indexed
-            BinaryDocValues values = valuesProducer.getBinary(field);
-            KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
-            if (pair.vectors.length == 0 || pair.docs.length == 0) {
-                logger.info("Skipping engine index creation as there are no vectors or docs in the documents");
-                return;
+        // Create library index either from model or from scratch
+        String engineFileName;
+        String indexPath;
+        String tmpEngineFileName;
+
+        if (field.attributes().containsKey(MODEL_ID)) {
+
+            String modelId = field.attributes().get(MODEL_ID);
+            Model model = ModelCache.getInstance().get(modelId);
+
+            KNNEngine knnEngine = model.getModelMetadata().getKnnEngine();
+
+            engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getLatestBuildVersion(),
+                    field.name, knnEngine.getExtension());
+            indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
+                    engineFileName).toString();
+            tmpEngineFileName = engineFileName + TEMP_SUFFIX;
+            String tempIndexPath = indexPath + TEMP_SUFFIX;
+
+            if (model.getModelBlob() == null) {
+                throw new RuntimeException("There is no trained model with id \"" + modelId + "\"");
             }
 
-            // Create library index either from model or from scratch
-            String engineFileName;
-            String indexPath;
-            String tmpEngineFileName;
+            createKNNIndexFromTemplate(model.getModelBlob(), pair, knnEngine, tempIndexPath);
+        } else {
 
-            if (field.attributes().containsKey(MODEL_ID)) {
+            // Get engine to be used for indexing
+            String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
+            KNNEngine knnEngine = KNNEngine.getEngine(engineName);
 
-                String modelId = field.attributes().get(MODEL_ID);
-                Model model = ModelCache.getInstance().get(modelId);
+            engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getLatestBuildVersion(),
+                    field.name, knnEngine.getExtension());
+            indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
+                    engineFileName).toString();
+            tmpEngineFileName = engineFileName + TEMP_SUFFIX;
+            String tempIndexPath = indexPath + TEMP_SUFFIX;
 
-                KNNEngine knnEngine = model.getModelMetadata().getKnnEngine();
+            createKNNIndexFromScratch(field, pair, knnEngine, tempIndexPath);
+        }
 
-                engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getLatestBuildVersion(),
-                        field.name, knnEngine.getExtension());
-                indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
-                        engineFileName).toString();
-                tmpEngineFileName = engineFileName + TEMP_SUFFIX;
-                String tempIndexPath = indexPath + TEMP_SUFFIX;
-
-                if (model.getModelBlob() == null) {
-                    throw new RuntimeException("There is no trained model with id \"" + modelId + "\"");
-                }
-
-                createKNNIndexFromTemplate(model.getModelBlob(), pair, knnEngine, tempIndexPath);
-            } else {
-
-                // Get engine to be used for indexing
-                String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
-                KNNEngine knnEngine = KNNEngine.getEngine(engineName);
-
-                engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getLatestBuildVersion(),
-                        field.name, knnEngine.getExtension());
-                indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
-                        engineFileName).toString();
-                tmpEngineFileName = engineFileName + TEMP_SUFFIX;
-                String tempIndexPath = indexPath + TEMP_SUFFIX;
-
-                createKNNIndexFromScratch(field, pair, knnEngine, tempIndexPath);
-            }
-
-            /*
-             * Adds Footer to the serialized graph
-             * 1. Copies the serialized graph to new file.
-             * 2. Adds Footer to the new file.
-             *
-             * We had to create new file here because adding footer directly to the
-             * existing file will miss calculating checksum for the serialized graph
-             * bytes and result in index corruption issues.
-             */
-            //TODO: I think this can be refactored to avoid this copy and then write
-            // https://github.com/opendistro-for-elasticsearch/k-NN/issues/330
-            try (IndexInput is = state.directory.openInput(tmpEngineFileName, state.context);
-                 IndexOutput os = state.directory.createOutput(engineFileName, state.context)) {
-                os.copyBytes(is, is.length());
-                CodecUtil.writeFooter(os);
-            } catch (Exception ex) {
-                KNNCounter.GRAPH_INDEX_ERRORS.increment();
-                throw new RuntimeException("[KNN] Adding footer to serialized graph failed: " + ex);
-            } finally {
-                IOUtils.deleteFilesIgnoringExceptions(state.directory, tmpEngineFileName);
-            }
+        /*
+         * Adds Footer to the serialized graph
+         * 1. Copies the serialized graph to new file.
+         * 2. Adds Footer to the new file.
+         *
+         * We had to create new file here because adding footer directly to the
+         * existing file will miss calculating checksum for the serialized graph
+         * bytes and result in index corruption issues.
+         */
+        //TODO: I think this can be refactored to avoid this copy and then write
+        // https://github.com/opendistro-for-elasticsearch/k-NN/issues/330
+        try (IndexInput is = state.directory.openInput(tmpEngineFileName, state.context);
+             IndexOutput os = state.directory.createOutput(engineFileName, state.context)) {
+            os.copyBytes(is, is.length());
+            CodecUtil.writeFooter(os);
+        } catch (Exception ex) {
+            KNNCounter.GRAPH_INDEX_ERRORS.increment();
+            throw new RuntimeException("[KNN] Adding footer to serialized graph failed: " + ex);
+        } finally {
+            IOUtils.deleteFilesIgnoringExceptions(state.directory, tmpEngineFileName);
         }
     }
 
@@ -214,7 +216,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             assert mergeState.mergeFieldInfos != null;
             for (FieldInfo fieldInfo : mergeState.mergeFieldInfos) {
                 DocValuesType type = fieldInfo.getDocValuesType();
-                if (type == DocValuesType.BINARY) {
+                if (type == DocValuesType.BINARY && fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
                     addKNNBinaryField(fieldInfo, new KNN80DocValuesReader(mergeState));
                 }
             }

@@ -19,7 +19,7 @@ import org.opensearch.index.codec.CodecService;
 /**
  * KNNCodecService to inject the right KNNCodec version
  */
-class KNNCodecService extends CodecService {
+public class KNNCodecService extends CodecService {
 
     public KNNCodecService(CodecServiceConfig codecServiceConfig) {
         super(codecServiceConfig.getMapperService(), codecServiceConfig.getLogger());
