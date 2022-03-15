@@ -77,7 +77,7 @@ allprojects {
     }
     apply from: 'build-tools/repositories.gradle'
     plugins.withId('java') {
-        sourceCompatibility = targetCompatibility = "1.8"
+        sourceCompatibility = targetCompatibility = "11"
     }
 }
 
