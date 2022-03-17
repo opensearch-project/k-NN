@@ -12,7 +12,6 @@ import org.opensearch.knn.index.codec.KNN80Codec.KNN80DocValuesFormat;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.DocValuesFormat;
-import org.apache.lucene.codecs.perfield.PerFieldDocValuesFormat;
 
 /**
  * Extends the Codec to support a new file format for KNN index
@@ -22,7 +21,6 @@ import org.apache.lucene.codecs.perfield.PerFieldDocValuesFormat;
 public final class KNN87Codec extends FilterCodec {
 
     private final DocValuesFormat docValuesFormat;
-    private final DocValuesFormat perFieldDocValuesFormat;
     private final CompoundFormat compoundFormat;
 
     public static final String KNN_87 = "KNN87Codec";
@@ -44,23 +42,12 @@ public final class KNN87Codec extends FilterCodec {
         // Note that DocValuesFormat can use old Codec's DocValuesFormat. For instance Lucene84 uses Lucene80
         // DocValuesFormat. Refer to defaultDVFormat in LuceneXXCodec.java to find out which version it uses
         this.docValuesFormat =  new KNN80DocValuesFormat(delegate.docValuesFormat());
-        this.perFieldDocValuesFormat = new PerFieldDocValuesFormat() {
-            @Override
-            public DocValuesFormat getDocValuesFormatForField(String field) {
-                // If the delegate is an instanceof Lucene87, we can get a field specific doc values format
-                // delegate
-                if (delegate instanceof Lucene87Codec) {
-                    return new KNN80DocValuesFormat(((Lucene87Codec) delegate).getDocValuesFormatForField(field));
-                }
-                return docValuesFormat;
-            }
-        };
         this.compoundFormat = new KNN80CompoundFormat(delegate.compoundFormat());
     }
 
     @Override
     public DocValuesFormat docValuesFormat() {
-        return this.perFieldDocValuesFormat;
+        return this.docValuesFormat;
     }
 
     @Override
