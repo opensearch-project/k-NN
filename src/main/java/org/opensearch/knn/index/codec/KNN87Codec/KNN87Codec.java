@@ -41,7 +41,7 @@ public final class KNN87Codec extends FilterCodec {
         super(KNN_87, delegate);
         // Note that DocValuesFormat can use old Codec's DocValuesFormat. For instance Lucene84 uses Lucene80
         // DocValuesFormat. Refer to defaultDVFormat in LuceneXXCodec.java to find out which version it uses
-        this.docValuesFormat =  new KNN80DocValuesFormat(delegate.docValuesFormat());
+        this.docValuesFormat = new KNN80DocValuesFormat(delegate.docValuesFormat());
         this.compoundFormat = new KNN80CompoundFormat(delegate.compoundFormat());
     }
 

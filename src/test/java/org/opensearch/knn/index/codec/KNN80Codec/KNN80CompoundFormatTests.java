@@ -30,7 +30,6 @@ import static org.mockito.Mockito.when;
 
 public class KNN80CompoundFormatTests extends KNNTestCase {
 
-
     private static Directory directory;
     private static Codec codec;
 
@@ -45,7 +44,6 @@ public class KNN80CompoundFormatTests extends KNNTestCase {
         directory.close();
     }
 
-
     public void testGetCompoundReader() throws IOException {
         CompoundDirectory dir = mock(CompoundDirectory.class);
         CompoundFormat delegate = mock(CompoundFormat.class);
@@ -59,16 +57,15 @@ public class KNN80CompoundFormatTests extends KNNTestCase {
         String segmentName = "_test";
 
         Set<String> segmentFiles = Sets.newHashSet(
-                String.format("%s_nmslib1%s", segmentName, KNNEngine.NMSLIB.getExtension()),
-                String.format("%s_nmslib2%s", segmentName, KNNEngine.NMSLIB.getExtension()),
-                String.format("%s_nmslib3%s", segmentName, KNNEngine.NMSLIB.getExtension()),
-                String.format("%s_faiss1%s", segmentName, KNNEngine.FAISS.getExtension()),
-                String.format("%s_faiss2%s", segmentName, KNNEngine.FAISS.getExtension()),
-                String.format("%s_faiss3%s", segmentName, KNNEngine.FAISS.getExtension())
+            String.format("%s_nmslib1%s", segmentName, KNNEngine.NMSLIB.getExtension()),
+            String.format("%s_nmslib2%s", segmentName, KNNEngine.NMSLIB.getExtension()),
+            String.format("%s_nmslib3%s", segmentName, KNNEngine.NMSLIB.getExtension()),
+            String.format("%s_faiss1%s", segmentName, KNNEngine.FAISS.getExtension()),
+            String.format("%s_faiss2%s", segmentName, KNNEngine.FAISS.getExtension()),
+            String.format("%s_faiss3%s", segmentName, KNNEngine.FAISS.getExtension())
         );
 
-        SegmentInfo segmentInfo = KNNCodecTestUtil.SegmentInfoBuilder.builder(directory, segmentName,
-                segmentFiles.size(), codec).build();
+        SegmentInfo segmentInfo = KNNCodecTestUtil.SegmentInfoBuilder.builder(directory, segmentName, segmentFiles.size(), codec).build();
 
         for (String name : segmentFiles) {
             IndexOutput indexOutput = directory.createOutput(name, IOContext.DEFAULT);

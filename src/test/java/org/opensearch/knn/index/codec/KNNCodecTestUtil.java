@@ -52,7 +52,7 @@ import static org.opensearch.test.OpenSearchTestCase.randomByteArrayOfLength;
 public class KNNCodecTestUtil {
 
     // Utility class to help build SegmentInfo with reasonable defaults
-    public static class SegmentInfoBuilder  {
+    public static class SegmentInfoBuilder {
 
         private final Directory directory;
         private final String segmentName;
@@ -66,8 +66,7 @@ public class KNNCodecTestUtil {
         private final Map<String, String> attributes;
         private Sort indexSort;
 
-        public static SegmentInfoBuilder builder(Directory directory, String segmentName, int docsInSegment,
-                                                       Codec codec) {
+        public static SegmentInfoBuilder builder(Directory directory, String segmentName, int docsInSegment, Codec codec) {
             return new SegmentInfoBuilder(directory, segmentName, docsInSegment, codec);
         }
 
@@ -116,8 +115,19 @@ public class KNNCodecTestUtil {
         }
 
         public SegmentInfo build() {
-            return new SegmentInfo(directory, version, minVersion, segmentName, docsInSegment,
-                    isCompoundFile, codec, Collections.emptyMap(), segmentId, attributes, indexSort);
+            return new SegmentInfo(
+                directory,
+                version,
+                minVersion,
+                segmentName,
+                docsInSegment,
+                isCompoundFile,
+                codec,
+                Collections.emptyMap(),
+                segmentId,
+                attributes,
+                indexSort
+            );
         }
     }
 
@@ -172,7 +182,6 @@ public class KNNCodecTestUtil {
             return this;
         }
 
-
         public FieldInfoBuilder storePayloads(boolean storePayloads) {
             this.storePayloads = storePayloads;
             return this;
@@ -202,10 +211,12 @@ public class KNNCodecTestUtil {
             this.pointDimensionCount = pointDimensionCount;
             return this;
         }
+
         public FieldInfoBuilder pointIndexDimensionCount(int pointIndexDimensionCount) {
             this.pointIndexDimensionCount = pointIndexDimensionCount;
             return this;
         }
+
         public FieldInfoBuilder pointNumBytes(int pointNumBytes) {
             this.pointNumBytes = pointNumBytes;
             return this;
@@ -217,9 +228,21 @@ public class KNNCodecTestUtil {
         }
 
         public FieldInfo build() {
-            return new FieldInfo(fieldName, fieldNumber, storeTermVector, omitNorms, storePayloads, indexOptions,
-                    docValuesType, dvGen, attributes, pointDimensionCount, pointIndexDimensionCount, pointNumBytes,
-                    softDeletes);
+            return new FieldInfo(
+                fieldName,
+                fieldNumber,
+                storeTermVector,
+                omitNorms,
+                storePayloads,
+                indexOptions,
+                docValuesType,
+                dvGen,
+                attributes,
+                pointDimensionCount,
+                pointIndexDimensionCount,
+                pointNumBytes,
+                softDeletes
+            );
         }
     }
 
@@ -359,13 +382,20 @@ public class KNNCodecTestUtil {
         indexInput.close();
     }
 
-    public static void assertLoadableByEngine(SegmentWriteState state, String fileName, KNNEngine knnEngine,
-                                        SpaceType spaceType, int dimension) {
-        String filePath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory()
-                .toString(), fileName).toString();
-        long indexPtr = JNIService.loadIndex(filePath, Maps.newHashMap(ImmutableMap.of(
-                SPACE_TYPE, spaceType.getValue()
-        )), knnEngine.getName());
+    public static void assertLoadableByEngine(
+        SegmentWriteState state,
+        String fileName,
+        KNNEngine knnEngine,
+        SpaceType spaceType,
+        int dimension
+    ) {
+        String filePath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(), fileName)
+            .toString();
+        long indexPtr = JNIService.loadIndex(
+            filePath,
+            Maps.newHashMap(ImmutableMap.of(SPACE_TYPE, spaceType.getValue())),
+            knnEngine.getName()
+        );
         int k = 2;
         float[] queryVector = new float[dimension];
         KNNQueryResult[] results = JNIService.queryIndex(indexPtr, queryVector, k, knnEngine.getName());

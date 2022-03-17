@@ -81,14 +81,14 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
     public void testAddBinaryField_withKNN() throws IOException {
         // Confirm that addKNNBinaryField will get called if the k-NN parameter is true
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test-field")
-                .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
-                .build();
+            .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+            .build();
         DocValuesProducer docValuesProducer = mock(DocValuesProducer.class);
 
         DocValuesConsumer delegate = mock(DocValuesConsumer.class);
         doNothing().when(delegate).addBinaryField(fieldInfo, docValuesProducer);
 
-        final boolean[] called = {false};
+        final boolean[] called = { false };
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(delegate, null) {
 
             @Override
@@ -112,7 +112,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         DocValuesConsumer delegate = mock(DocValuesConsumer.class);
         doNothing().when(delegate).addBinaryField(fieldInfo, docValuesProducer);
 
-        final boolean[] called = {false};
+        final boolean[] called = { false };
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(delegate, null) {
 
             @Override
@@ -146,33 +146,23 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int dimension = 16;
 
-        SegmentInfo segmentInfo = KNNCodecTestUtil.SegmentInfoBuilder
-                .builder(directory, segmentName, docsInSegment, codec)
-                .build();
+        SegmentInfo segmentInfo = KNNCodecTestUtil.SegmentInfoBuilder.builder(directory, segmentName, docsInSegment, codec).build();
 
         KNNMethodContext knnMethodContext = new KNNMethodContext(
-                knnEngine,
-                spaceType,
-                new MethodComponentContext(
-                        METHOD_HNSW,
-                        ImmutableMap.of(
-                                METHOD_PARAMETER_M, 16,
-                                METHOD_PARAMETER_EF_CONSTRUCTION, 512
-                        )
-                )
+            knnEngine,
+            spaceType,
+            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
 
-        String parameterString = Strings.toString(XContentFactory.jsonBuilder()
-                .map(knnEngine.getMethodAsMap(knnMethodContext)));
+        String parameterString = Strings.toString(XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)));
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
-                KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
-                        .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
-                        .addAttribute(KNNConstants.KNN_ENGINE, knnEngine.getName())
-                        .addAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue())
-                        .addAttribute(KNNConstants.PARAMETERS, parameterString)
-                        .build()
-        };
+            KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
+                .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+                .addAttribute(KNNConstants.KNN_ENGINE, knnEngine.getName())
+                .addAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue())
+                .addAttribute(KNNConstants.PARAMETERS, parameterString)
+                .build() };
 
         FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
         SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
@@ -183,8 +173,12 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer);
 
         // The document should be created in the correct location
-        String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getLatestBuildVersion(),
-                fieldName, knnEngine.getExtension());
+        String expectedFile = KNNCodecUtil.buildEngineFileName(
+            segmentName,
+            knnEngine.getLatestBuildVersion(),
+            fieldName,
+            knnEngine.getExtension()
+        );
         assertFileInCorrectLocation(state, expectedFile);
 
         // The footer should be valid
@@ -204,18 +198,15 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int dimension = 16;
 
-        SegmentInfo segmentInfo = KNNCodecTestUtil.SegmentInfoBuilder
-                .builder(directory, segmentName, docsInSegment, codec)
-                .build();
+        SegmentInfo segmentInfo = KNNCodecTestUtil.SegmentInfoBuilder.builder(directory, segmentName, docsInSegment, codec).build();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
-                KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
-                        .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
-                        .addAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, "512")
-                        .addAttribute(KNNConstants.HNSW_ALGO_M, "16")
-                        .addAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue())
-                        .build()
-        };
+            KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
+                .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+                .addAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, "512")
+                .addAttribute(KNNConstants.HNSW_ALGO_M, "16")
+                .addAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue())
+                .build() };
 
         FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
         SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
@@ -226,8 +217,12 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer);
 
         // The document should be created in the correct location
-        String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getLatestBuildVersion(),
-                fieldName, knnEngine.getExtension());
+        String expectedFile = KNNCodecUtil.buildEngineFileName(
+            segmentName,
+            knnEngine.getLatestBuildVersion(),
+            fieldName,
+            knnEngine.getExtension()
+        );
         assertFileInCorrectLocation(state, expectedFile);
 
         // The footer should be valid
@@ -246,33 +241,23 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
         int dimension = 16;
 
-        SegmentInfo segmentInfo = KNNCodecTestUtil.SegmentInfoBuilder
-                .builder(directory, segmentName, docsInSegment, codec)
-                .build();
+        SegmentInfo segmentInfo = KNNCodecTestUtil.SegmentInfoBuilder.builder(directory, segmentName, docsInSegment, codec).build();
 
         KNNMethodContext knnMethodContext = new KNNMethodContext(
-                knnEngine,
-                spaceType,
-                new MethodComponentContext(
-                        METHOD_HNSW,
-                        ImmutableMap.of(
-                                METHOD_PARAMETER_M, 16,
-                                METHOD_PARAMETER_EF_CONSTRUCTION, 512
-                        )
-                )
+            knnEngine,
+            spaceType,
+            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
 
-        String parameterString = Strings.toString(XContentFactory.jsonBuilder()
-                .map(knnEngine.getMethodAsMap(knnMethodContext)));
+        String parameterString = Strings.toString(XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)));
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
-                KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
-                        .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
-                        .addAttribute(KNNConstants.KNN_ENGINE, knnEngine.getName())
-                        .addAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue())
-                        .addAttribute(KNNConstants.PARAMETERS, parameterString)
-                        .build()
-        };
+            KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
+                .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+                .addAttribute(KNNConstants.KNN_ENGINE, knnEngine.getName())
+                .addAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue())
+                .addAttribute(KNNConstants.PARAMETERS, parameterString)
+                .build() };
 
         FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
         SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
@@ -283,8 +268,12 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer);
 
         // The document should be created in the correct location
-        String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getLatestBuildVersion(),
-                fieldName, knnEngine.getExtension());
+        String expectedFile = KNNCodecUtil.buildEngineFileName(
+            segmentName,
+            knnEngine.getLatestBuildVersion(),
+            fieldName,
+            knnEngine.getExtension()
+        );
         assertFileInCorrectLocation(state, expectedFile);
 
         // The footer should be valid
@@ -305,16 +294,17 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         long trainingPtr = JNIService.transferVectors(0, trainingData);
 
         Map<String, Object> parameters = ImmutableMap.of(
-                INDEX_DESCRIPTION_PARAMETER, "IVF4,Flat",
-                KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()
+            INDEX_DESCRIPTION_PARAMETER,
+            "IVF4,Flat",
+            KNNConstants.SPACE_TYPE,
+            SpaceType.L2.getValue()
         );
 
         byte[] modelBytes = JNIService.trainIndex(parameters, dimension, trainingPtr, knnEngine.getName());
         Model model = new Model(
-                new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED, "timestamp",
-                        "Empty description", ""),
-                modelBytes,
-                modelId
+            new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED, "timestamp", "Empty description", ""),
+            modelBytes,
+            modelId
         );
         JNIService.freeVectors(trainingPtr);
 
@@ -325,10 +315,8 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         when(clusterService.getSettings()).thenReturn(Settings.EMPTY);
 
         ClusterSettings clusterSettings = new ClusterSettings(
-                Settings.builder()
-                        .put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10kb")
-                        .build(),
-                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING)
+            Settings.builder().put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10kb").build(),
+            ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING)
         );
 
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
@@ -339,17 +327,13 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         int docsInSegment = 100;
         String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
 
-        SegmentInfo segmentInfo = KNNCodecTestUtil.SegmentInfoBuilder
-                .builder(directory, segmentName, docsInSegment, codec)
-                .build();
-
+        SegmentInfo segmentInfo = KNNCodecTestUtil.SegmentInfoBuilder.builder(directory, segmentName, docsInSegment, codec).build();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
-                KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
-                        .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
-                        .addAttribute(MODEL_ID, modelId)
-                        .build()
-        };
+            KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
+                .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+                .addAttribute(MODEL_ID, modelId)
+                .build() };
 
         FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
         SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
@@ -360,8 +344,12 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer);
 
         // The document should be created in the correct location
-        String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getLatestBuildVersion(),
-                fieldName, knnEngine.getExtension());
+        String expectedFile = KNNCodecUtil.buildEngineFileName(
+            segmentName,
+            knnEngine.getLatestBuildVersion(),
+            fieldName,
+            knnEngine.getExtension()
+        );
         assertFileInCorrectLocation(state, expectedFile);
 
         // The footer should be valid

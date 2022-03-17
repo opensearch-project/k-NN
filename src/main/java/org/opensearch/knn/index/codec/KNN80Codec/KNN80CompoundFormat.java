@@ -26,7 +26,6 @@ public class KNN80CompoundFormat extends CompoundFormat {
 
     private final CompoundFormat delegate;
 
-
     public KNN80CompoundFormat() {
         this.delegate = new Lucene50CompoundFormat();
     }
@@ -53,14 +52,12 @@ public class KNN80CompoundFormat extends CompoundFormat {
         delegate.write(dir, si, context);
     }
 
-    private void writeEngineFiles(Directory dir, SegmentInfo si, IOContext context, String engineExtension)
-            throws IOException {
+    private void writeEngineFiles(Directory dir, SegmentInfo si, IOContext context, String engineExtension) throws IOException {
         /*
          * If engine file present, remove it from the compounding file list to avoid header/footer checks
          * and create a new compounding file format with extension engine + c.
          */
-        Set<String> engineFiles = si.files().stream().filter(file -> file.endsWith(engineExtension))
-                .collect(Collectors.toSet());
+        Set<String> engineFiles = si.files().stream().filter(file -> file.endsWith(engineExtension)).collect(Collectors.toSet());
 
         Set<String> segmentFiles = new HashSet<>(si.files());
 

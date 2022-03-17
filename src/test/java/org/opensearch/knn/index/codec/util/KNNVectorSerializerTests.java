@@ -6,9 +6,6 @@
 package org.opensearch.knn.index.codec.util;
 
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
-import org.opensearch.knn.index.codec.util.SerializationMode;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -22,8 +19,8 @@ public class KNNVectorSerializerTests extends KNNTestCase {
     Random random = new Random();
 
     public void testVectorSerializerFactory() throws Exception {
-        //check that default serializer can work with array of floats
-        //setup
+        // check that default serializer can work with array of floats
+        // setup
         final float[] vector = getArrayOfRandomFloats(20);
         final ByteArrayOutputStream bas = new ByteArrayOutputStream();
         final DataOutputStream ds = new DataOutputStream(bas);
@@ -40,19 +37,18 @@ public class KNNVectorSerializerTests extends KNNTestCase {
         assertNotNull(actualDeserializedVector);
         assertArrayEquals(vector, actualDeserializedVector, 0.1f);
 
-        final KNNVectorSerializer arraySerializer =
-                KNNVectorSerializerFactory.getSerializerBySerializationMode(SerializationMode.ARRAY);
+        final KNNVectorSerializer arraySerializer = KNNVectorSerializerFactory.getSerializerBySerializationMode(SerializationMode.ARRAY);
         assertNotNull(arraySerializer);
 
-        final KNNVectorSerializer collectionOfFloatsSerializer =
-                KNNVectorSerializerFactory.getSerializerBySerializationMode(SerializationMode.COLLECTION_OF_FLOATS);
+        final KNNVectorSerializer collectionOfFloatsSerializer = KNNVectorSerializerFactory.getSerializerBySerializationMode(
+            SerializationMode.COLLECTION_OF_FLOATS
+        );
         assertNotNull(collectionOfFloatsSerializer);
     }
 
-
     public void testVectorSerializerFactory_throwExceptionForStreamWithUnsupportedDataType() throws Exception {
-        //prepare array of chars that is not supported by serializer factory. expected behavior is to fail
-        final char[] arrayOfChars = new char[] {'a', 'b', 'c'};
+        // prepare array of chars that is not supported by serializer factory. expected behavior is to fail
+        final char[] arrayOfChars = new char[] { 'a', 'b', 'c' };
         final ByteArrayOutputStream bas = new ByteArrayOutputStream();
         final DataOutputStream ds = new DataOutputStream(bas);
         for (char ch : arrayOfChars)
@@ -75,14 +71,14 @@ public class KNNVectorSerializerTests extends KNNTestCase {
 
         final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(bais);
 
-        //testing serialization
+        // testing serialization
         bais.reset();
         final byte[] actualSerializedVector = vectorSerializer.floatToByteArray(vector);
 
         assertNotNull(actualSerializedVector);
         assertArrayEquals(serializedVector, actualSerializedVector);
 
-        //testing deserialization
+        // testing deserialization
         bais.reset();
         final float[] actualDeserializedVector = vectorSerializer.byteToFloatArray(bais);
 
@@ -91,7 +87,7 @@ public class KNNVectorSerializerTests extends KNNTestCase {
     }
 
     public void testVectorAsCollectionOfFloatsSerializer() throws Exception {
-        //setup
+        // setup
         final float[] vector = getArrayOfRandomFloats(20);
 
         final ByteArrayOutputStream bas = new ByteArrayOutputStream();
@@ -103,14 +99,14 @@ public class KNNVectorSerializerTests extends KNNTestCase {
 
         final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(bais);
 
-        //testing serialization
+        // testing serialization
         bais.reset();
         final byte[] actualSerializedVector = vectorSerializer.floatToByteArray(vector);
 
         assertNotNull(actualSerializedVector);
         assertArrayEquals(vectorAsCollectionOfFloats, actualSerializedVector);
 
-        //testing deserialization
+        // testing deserialization
         bais.reset();
         final float[] actualDeserializedVector = vectorSerializer.byteToFloatArray(bais);
 
