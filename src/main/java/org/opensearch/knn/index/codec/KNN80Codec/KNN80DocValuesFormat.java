@@ -19,6 +19,11 @@ import java.io.IOException;
 public class KNN80DocValuesFormat extends DocValuesFormat {
     private final DocValuesFormat delegate;
 
+    public KNN80DocValuesFormat() {
+        super(KNN80Codec.LUCENE_80);
+        this.delegate = DocValuesFormat.forName(KNN80Codec.LUCENE_80);
+    }
+
     /**
      * Constructor that takes delegate in order to handle non-overridden methods
      *

@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec.KNN80Codec;
 
 import org.opensearch.knn.common.KNNConstants;
+import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.index.SegmentInfo;
@@ -24,6 +25,11 @@ import java.util.stream.Collectors;
 public class KNN80CompoundFormat extends CompoundFormat {
 
     private final CompoundFormat delegate;
+
+
+    public KNN80CompoundFormat() {
+        this.delegate = Codec.getDefault().compoundFormat();
+    }
 
     /**
      * Constructor that takes a delegate to handle non-overridden methods
