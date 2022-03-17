@@ -5,8 +5,8 @@
 
 package org.opensearch.knn.index.codec.KNN80Codec;
 
+import org.apache.lucene.codecs.lucene50.Lucene50CompoundFormat;
 import org.opensearch.knn.common.KNNConstants;
-import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.index.SegmentInfo;
@@ -28,7 +28,7 @@ public class KNN80CompoundFormat extends CompoundFormat {
 
 
     public KNN80CompoundFormat() {
-        this.delegate = Codec.getDefault().compoundFormat();
+        this.delegate = new Lucene50CompoundFormat();
     }
 
     /**
