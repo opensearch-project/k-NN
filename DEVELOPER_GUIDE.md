@@ -48,6 +48,7 @@ sdk use java 11.0.2-open
 ```
 
 Team has to replace minimum JDK version 14 as it was not an LTS release. JDK 14 should still work for most scenarios.
+In addition to this, the plugin has been tested with JDK 17, and this JDK version is fully supported.
 
 #### CMake
 
