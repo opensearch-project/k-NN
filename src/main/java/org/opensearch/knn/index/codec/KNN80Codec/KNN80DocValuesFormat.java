@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.KNN80Codec;
 import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.DocValuesProducer;
+import org.apache.lucene.codecs.lucene80.Lucene80DocValuesFormat;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 
@@ -20,8 +21,7 @@ public class KNN80DocValuesFormat extends DocValuesFormat {
     private final DocValuesFormat delegate;
 
     public KNN80DocValuesFormat() {
-        super(KNN80Codec.LUCENE_80);
-        this.delegate = DocValuesFormat.forName(KNN80Codec.LUCENE_80);
+        this(new Lucene80DocValuesFormat());
     }
 
     /**
