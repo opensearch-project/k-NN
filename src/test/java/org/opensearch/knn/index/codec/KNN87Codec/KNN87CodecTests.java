@@ -12,10 +12,6 @@ import java.util.concurrent.ExecutionException;
 
 public class KNN87CodecTests extends KNNCodecTestCase {
 
-    public void testFooter() throws Exception {
-        testFooter(new KNN87Codec());
-    }
-
     public void testMultiFieldsKnnIndex() throws Exception {
         testMultiFieldsKnnIndex(new KNN87Codec());
     }

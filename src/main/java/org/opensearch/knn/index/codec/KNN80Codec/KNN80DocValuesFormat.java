@@ -5,11 +5,10 @@
 
 package org.opensearch.knn.index.codec.KNN80Codec;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.DocValuesProducer;
+import org.apache.lucene.codecs.lucene80.Lucene80DocValuesFormat;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 
@@ -19,11 +18,20 @@ import java.io.IOException;
  * Encodes/Decodes per document values
  */
 public class KNN80DocValuesFormat extends DocValuesFormat {
-    private final Logger logger = LogManager.getLogger(KNN80DocValuesFormat.class);
-    private final DocValuesFormat delegate = DocValuesFormat.forName(KNN80Codec.LUCENE_80);
+    private final DocValuesFormat delegate;
 
     public KNN80DocValuesFormat() {
-        super(KNN80Codec.LUCENE_80);
+        this(new Lucene80DocValuesFormat());
+    }
+
+    /**
+     * Constructor that takes delegate in order to handle non-overridden methods
+     *
+     * @param delegate DocValuesFormat to handle non-overridden methods
+     */
+    public KNN80DocValuesFormat(DocValuesFormat delegate) {
+        super(delegate.getName());
+        this.delegate = delegate;
     }
 
     @Override

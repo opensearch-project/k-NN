@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.index.codec.KNN80Codec;
 
-import org.opensearch.knn.index.codec.BinaryDocValuesSub;
+import org.opensearch.knn.index.codec.util.BinaryDocValuesSub;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocIDMerger;
 import org.apache.lucene.util.BytesRef;

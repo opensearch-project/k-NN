@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.index.codec.KNN80Codec;
 
-import org.opensearch.knn.index.codec.BinaryDocValuesSub;
+import org.opensearch.knn.index.codec.util.BinaryDocValuesSub;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocIDMerger;
@@ -22,7 +22,7 @@ import java.util.List;
  */
 class KNN80DocValuesReader extends EmptyDocValuesProducer {
 
-    private MergeState mergeState;
+    private final MergeState mergeState;
 
     KNN80DocValuesReader(MergeState mergeState) {
         this.mergeState = mergeState;
