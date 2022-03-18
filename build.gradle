@@ -9,10 +9,24 @@ import org.opensearch.gradle.test.RestIntegTestTask
 
 buildscript {
     ext {
+        // for opensearch that is used by plugin following version schema is in use:
+        //    "<opensearch_version before first '-'>-<build.version_qualifier>-<SNAPSHOT optional>"
+        // for plugin artifacts produced by this script the version schema is very similar except for additional '0' as a minor version:
+        //    "<opensearch_version before first '-'>.0-<build.version_qualifier>-<SNAPSHOT optional>"
         opensearch_version = System.getProperty("opensearch.version", "2.0.0-SNAPSHOT")
         knn_bwc_version = System.getProperty("bwc.version", "1.2.0.0-SNAPSHOT")
+        version_qualifier = System.getProperty("build.version_qualifier", "")
         opensearch_bwc_version = "${knn_bwc_version}" - ".0-SNAPSHOT"
         opensearch_group = "org.opensearch"
+
+        version_with_qualifier = opensearch_version.tokenize('-')[0]
+        if (version_qualifier) {
+            version_with_qualifier += "-${version_qualifier}"
+        }
+        if(opensearch_version.tokenize('-')[1]) {
+            version_with_qualifier += "-${opensearch_version.tokenize('-')[1]}"
+        }
+        opensearch_version = version_with_qualifier
     }
 
     // This isn't applying from repositories.gradle so repeating git diff it here
@@ -71,7 +85,10 @@ ext {
 
 allprojects {
     group = 'org.opensearch'
-    version = "${opensearch_version}" - "-SNAPSHOT" + ".0"
+    version = opensearch_version.tokenize('-')[0] + '.0'
+    if (version_qualifier) {
+        version += "-${version_qualifier}"
+    }
     if (isSnapshot) {
         version += "-SNAPSHOT"
     }
