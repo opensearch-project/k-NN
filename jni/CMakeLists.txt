@@ -39,8 +39,9 @@ else()
     message(FATAL_ERROR "Unable to run on system: ${CMAKE_SYSTEM_NAME}")
 endif()
 
+# By default, set to 0.0.0
 if(NOT KNN_PLUGIN_VERSION)
-    set(KNN_PLUGIN_VERSION "1.3.0.0")
+    set(KNN_PLUGIN_VERSION "0.0.0")
 endif()
 
 # Set architecture specific variables
