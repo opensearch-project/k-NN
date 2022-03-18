@@ -134,7 +134,7 @@ opensearch_tmp_dir.mkdirs()
 
 task cmakeJniLib(type:Exec) {
     workingDir 'jni'
-    commandLine 'cmake', '.'
+    commandLine 'cmake', '.', "-DKNN_PLUGIN_VERSION=${opensearch_version}"
 }
 
 task buildJniLib(type:Exec) {
