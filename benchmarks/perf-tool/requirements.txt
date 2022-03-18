@@ -18,7 +18,7 @@ h5py==3.3.0
     # via -r requirements.in
 idna==3.2
     # via requests
-numpy==1.22.0
+numpy==1.22.1
     # via
     #   -r requirements.in
     #   h5py
