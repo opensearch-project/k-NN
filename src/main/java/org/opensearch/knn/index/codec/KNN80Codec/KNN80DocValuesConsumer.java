@@ -259,7 +259,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         long value = checksumIndexInput.getChecksum();
         checksumIndexInput.close();
 
-        if ((value & 0xFFFFFFFF00000000L) != 0) {
+        if (isChecksumValid(value)) {
             throw new IllegalStateException("Illegal CRC-32 checksum: " + value + " (resource=" + os + ")");
         }
 
@@ -267,5 +267,11 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         byteBuffer.putLong(0, value);
         os.write(byteBuffer.array());
         os.close();
+    }
+
+    private boolean isChecksumValid(long value) {
+        // Check pulled from
+        // https://github.com/apache/lucene/blob/branch_9_0/lucene/core/src/java/org/apache/lucene/codecs/CodecUtil.java#L630-L632
+        return (value & 0xFFFFFFFF00000000L) != 0;
     }
 }
