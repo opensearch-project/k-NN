@@ -42,7 +42,9 @@ public class KNNQuery extends Query {
         return this.k;
     }
 
-    public String getIndexName() { return this.indexName; }
+    public String getIndexName() {
+        return this.indexName;
+    }
 
     /**
      * Constructs Weight implementation for this query
@@ -77,8 +79,7 @@ public class KNNQuery extends Query {
 
     @Override
     public boolean equals(Object other) {
-        return sameClassAs(other) &&
-                       equalsTo(getClass().cast(other));
+        return sameClassAs(other) && equalsTo(getClass().cast(other));
     }
 
     private boolean equalsTo(KNNQuery other) {

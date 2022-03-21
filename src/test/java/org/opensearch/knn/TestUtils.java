@@ -36,7 +36,7 @@ class DistVector {
     public float dist;
     public String docID;
 
-    public DistVector (float dist, String docID) {
+    public DistVector(float dist, String docID) {
         this.dist = dist;
         this.docID = docID;
     }
@@ -117,10 +117,10 @@ public class TestUtils {
                 }
 
                 if (pq.size() < k) {
-                    pq.add(new DistVector(dist, String.valueOf(j+1)));
+                    pq.add(new DistVector(dist, String.valueOf(j + 1)));
                 } else if (pq.peek().getDist() > dist) {
                     pq.poll();
-                    pq.add(new DistVector(dist, String.valueOf(j+1)));
+                    pq.add(new DistVector(dist, String.valueOf(j + 1)));
                 }
             }
 
@@ -137,7 +137,7 @@ public class TestUtils {
 
     public static float[][] getQueryVectors(int queryCount, int dimensions, int docCount, boolean isStandard) {
         if (isStandard) {
-            return randomlyGenerateStandardVectors(queryCount, dimensions, docCount+1);
+            return randomlyGenerateStandardVectors(queryCount, dimensions, docCount + 1);
         } else {
             return generateRandomVectors(queryCount, dimensions);
         }
@@ -169,8 +169,8 @@ public class TestUtils {
             recalls.add(recallVal / k);
         }
 
-        double sum = recalls.stream().reduce((a,b)->a+b).get();
-        return sum/recalls.size();
+        double sum = recalls.stream().reduce((a, b) -> a + b).get();
+        return sum / recalls.size();
     }
 
     /**
@@ -192,14 +192,15 @@ public class TestUtils {
             BufferedReader reader = new BufferedReader(new FileReader(path));
             String line = reader.readLine();
             while (line != null) {
-                Map<String, Object> doc = XContentFactory.xContent(XContentType.JSON).createParser(
-                        NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, line).map();
+                Map<String, Object> doc = XContentFactory.xContent(XContentType.JSON)
+                    .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, line)
+                    .map();
                 idsList.add((Integer) doc.get("id"));
 
                 @SuppressWarnings("unchecked")
                 ArrayList<Double> vector = (ArrayList<Double>) doc.get("vector");
                 Float[] floatArray = new Float[vector.size()];
-                for (int i =0; i< vector.size(); i++) {
+                for (int i = 0; i < vector.size(); i++) {
                     floatArray[i] = vector.get(i).floatValue();
                 }
                 vectorsList.add(floatArray);
@@ -208,7 +209,7 @@ public class TestUtils {
             }
             reader.close();
 
-            int[] idsArray = new int [idsList.size()];
+            int[] idsArray = new int[idsList.size()];
             float[][] vectorsArray = new float[vectorsList.size()][vectorsList.get(0).length];
             for (int i = 0; i < idsList.size(); i++) {
                 idsArray[i] = idsList.get(i);

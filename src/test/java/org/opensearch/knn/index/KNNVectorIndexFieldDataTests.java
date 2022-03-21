@@ -72,13 +72,14 @@ public class KNNVectorIndexFieldDataTests extends KNNTestCase {
 
     public void testSortField() {
 
-        expectThrows(UnsupportedOperationException.class,
-                () -> indexFieldData.sortField(null, null, null, false));
+        expectThrows(UnsupportedOperationException.class, () -> indexFieldData.sortField(null, null, null, false));
     }
 
     public void testNewBucketedSort() {
 
-        expectThrows(UnsupportedOperationException.class,
-                () -> indexFieldData.newBucketedSort(null, null, null, null, null, null, 0, null));
+        expectThrows(
+            UnsupportedOperationException.class,
+            () -> indexFieldData.newBucketedSort(null, null, null, null, null, null, 0, null)
+        );
     }
 }

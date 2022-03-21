@@ -19,7 +19,6 @@ import org.opensearch.knn.index.KNNVectorFieldMapper;
 import org.opensearch.knn.index.KNNWeight;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorField;
-import org.opensearch.knn.index.codec.KNN87Codec.KNN87Codec;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.FieldType;

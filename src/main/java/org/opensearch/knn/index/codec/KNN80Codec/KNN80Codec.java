@@ -53,8 +53,7 @@ public final class KNN80Codec extends Codec {
      * This function returns the Lucene80 Codec.
      */
     public Codec getDelegatee() {
-        if (lucene80Codec == null)
-            lucene80Codec = Codec.forName(LUCENE_80);
+        if (lucene80Codec == null) lucene80Codec = Codec.forName(LUCENE_80);
         return lucene80Codec;
     }
 

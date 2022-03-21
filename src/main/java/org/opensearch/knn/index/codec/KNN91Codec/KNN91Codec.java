@@ -35,6 +35,7 @@ public final class KNN91Codec extends FilterCodec {
     public KNN91Codec() {
         this(new Lucene91Codec());
     }
+
     /**
      * Constructor that takes a Codec delegate to delegate all methods this code does not implement to.
      *

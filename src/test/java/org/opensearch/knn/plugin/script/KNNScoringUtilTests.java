@@ -35,36 +35,35 @@ public class KNNScoringUtilTests extends KNNTestCase {
     }
 
     public void testL2SquaredScoringFunction() {
-        float[] queryVector = {1.0f, 1.0f, 1.0f};
-        float[] inputVector = {4.0f, 4.0f, 4.0f};
+        float[] queryVector = { 1.0f, 1.0f, 1.0f };
+        float[] inputVector = { 4.0f, 4.0f, 4.0f };
 
         Float distance = KNNScoringUtil.l2Squared(queryVector, inputVector);
         assertTrue(distance == 27.0f);
     }
 
     public void testWrongDimensionL2SquaredScoringFunction() {
-        float[] queryVector = {1.0f, 1.0f};
-        float[] inputVector = {4.0f, 4.0f, 4.0f};
+        float[] queryVector = { 1.0f, 1.0f };
+        float[] inputVector = { 4.0f, 4.0f, 4.0f };
         expectThrows(IllegalArgumentException.class, () -> KNNScoringUtil.l2Squared(queryVector, inputVector));
     }
 
     public void testCosineSimilScoringFunction() {
-        float[] queryVector = {1.0f, 1.0f, 1.0f};
-        float[] inputVector = {4.0f, 4.0f, 4.0f};
+        float[] queryVector = { 1.0f, 1.0f, 1.0f };
+        float[] inputVector = { 4.0f, 4.0f, 4.0f };
 
         float queryVectorMagnitude = KNNScoringSpaceUtil.getVectorMagnitudeSquared(queryVector);
         float inputVectorMagnitude = KNNScoringSpaceUtil.getVectorMagnitudeSquared(inputVector);
         float dotProduct = 12.0f;
         float expectedScore = (float) (dotProduct / (Math.sqrt(queryVectorMagnitude * inputVectorMagnitude)));
 
-
         Float actualScore = KNNScoringUtil.cosinesimil(queryVector, inputVector);
         assertEquals(expectedScore, actualScore, 0.0001);
     }
 
     public void testCosineSimilOptimizedScoringFunction() {
-        float[] queryVector = {1.0f, 1.0f, 1.0f};
-        float[] inputVector = {4.0f, 4.0f, 4.0f};
+        float[] queryVector = { 1.0f, 1.0f, 1.0f };
+        float[] inputVector = { 4.0f, 4.0f, 4.0f };
         float queryVectorMagnitude = KNNScoringSpaceUtil.getVectorMagnitudeSquared(queryVector);
         float inputVectorMagnitude = KNNScoringSpaceUtil.getVectorMagnitudeSquared(inputVector);
         float dotProduct = 12.0f;
@@ -86,26 +85,26 @@ public class KNNScoringUtilTests extends KNNTestCase {
     }
 
     public void testCosineSimilQueryVectorZeroMagnitude() {
-        float[] queryVector = {0, 0};
-        float[] inputVector = {4.0f, 4.0f};
+        float[] queryVector = { 0, 0 };
+        float[] inputVector = { 4.0f, 4.0f };
         assertEquals(0, KNNScoringUtil.cosinesimil(queryVector, inputVector), 0.00001);
     }
 
     public void testCosineSimilOptimizedQueryVectorZeroMagnitude() {
-        float[] inputVector = {4.0f, 4.0f};
-        float[] queryVector = {0, 0};
+        float[] inputVector = { 4.0f, 4.0f };
+        float[] queryVector = { 0, 0 };
         assertTrue(0 == KNNScoringUtil.cosinesimilOptimized(queryVector, inputVector, 0.0f));
     }
 
     public void testWrongDimensionCosineSimilScoringFunction() {
-        float[] queryVector = {1.0f, 1.0f};
-        float[] inputVector = {4.0f, 4.0f, 4.0f};
+        float[] queryVector = { 1.0f, 1.0f };
+        float[] inputVector = { 4.0f, 4.0f, 4.0f };
         expectThrows(IllegalArgumentException.class, () -> KNNScoringUtil.cosinesimil(queryVector, inputVector));
     }
 
     public void testWrongDimensionCosineSimilOPtimizedScoringFunction() {
-        float[] queryVector = {1.0f, 1.0f};
-        float[] inputVector = {4.0f, 4.0f, 4.0f};
+        float[] queryVector = { 1.0f, 1.0f };
+        float[] inputVector = { 4.0f, 4.0f, 4.0f };
         expectThrows(IllegalArgumentException.class, () -> KNNScoringUtil.cosinesimilOptimized(queryVector, inputVector, 1.0f));
     }
 
@@ -173,7 +172,7 @@ public class KNNScoringUtilTests extends KNNTestCase {
     public void testL2SquaredWhitelistedScoringFunction() throws IOException {
         List<Number> queryVector = getTestQueryVector();
         TestKNNScriptDocValues dataset = new TestKNNScriptDocValues();
-        dataset.createKNNVectorDocument(new float[]{4.0f, 4.0f, 4.0f}, "test-index-field-name");
+        dataset.createKNNVectorDocument(new float[] { 4.0f, 4.0f, 4.0f }, "test-index-field-name");
         KNNVectorScriptDocValues scriptDocValues = dataset.getScriptDocValues("test-index-field-name");
         scriptDocValues.setNextDocId(0);
         Float distance = KNNScoringUtil.l2Squared(queryVector, scriptDocValues);
@@ -184,7 +183,7 @@ public class KNNScoringUtilTests extends KNNTestCase {
     public void testScriptDocValuesFailsL2() throws IOException {
         List<Number> queryVector = getTestQueryVector();
         TestKNNScriptDocValues dataset = new TestKNNScriptDocValues();
-        dataset.createKNNVectorDocument(new float[]{4.0f, 4.0f, 4.0f}, "test-index-field-name");
+        dataset.createKNNVectorDocument(new float[] { 4.0f, 4.0f, 4.0f }, "test-index-field-name");
         KNNVectorScriptDocValues scriptDocValues = dataset.getScriptDocValues("test-index-field-name");
         expectThrows(IllegalStateException.class, () -> KNNScoringUtil.l2Squared(queryVector, scriptDocValues));
         dataset.close();
@@ -193,7 +192,7 @@ public class KNNScoringUtilTests extends KNNTestCase {
     public void testCosineSimilarityScoringFunction() throws IOException {
         List<Number> queryVector = getTestQueryVector();
         TestKNNScriptDocValues dataset = new TestKNNScriptDocValues();
-        dataset.createKNNVectorDocument(new float[]{4.0f, 4.0f, 4.0f}, "test-index-field-name");
+        dataset.createKNNVectorDocument(new float[] { 4.0f, 4.0f, 4.0f }, "test-index-field-name");
         KNNVectorScriptDocValues scriptDocValues = dataset.getScriptDocValues("test-index-field-name");
         scriptDocValues.setNextDocId(0);
 
@@ -205,7 +204,7 @@ public class KNNScoringUtilTests extends KNNTestCase {
     public void testScriptDocValuesFailsCosineSimilarity() throws IOException {
         List<Number> queryVector = getTestQueryVector();
         TestKNNScriptDocValues dataset = new TestKNNScriptDocValues();
-        dataset.createKNNVectorDocument(new float[]{4.0f, 4.0f, 4.0f}, "test-index-field-name");
+        dataset.createKNNVectorDocument(new float[] { 4.0f, 4.0f, 4.0f }, "test-index-field-name");
         KNNVectorScriptDocValues scriptDocValues = dataset.getScriptDocValues("test-index-field-name");
         expectThrows(IllegalStateException.class, () -> KNNScoringUtil.cosineSimilarity(queryVector, scriptDocValues));
         dataset.close();
@@ -214,7 +213,7 @@ public class KNNScoringUtilTests extends KNNTestCase {
     public void testCosineSimilarityOptimizedScoringFunction() throws IOException {
         List<Number> queryVector = getTestQueryVector();
         TestKNNScriptDocValues dataset = new TestKNNScriptDocValues();
-        dataset.createKNNVectorDocument(new float[]{4.0f, 4.0f, 4.0f}, "test-index-field-name");
+        dataset.createKNNVectorDocument(new float[] { 4.0f, 4.0f, 4.0f }, "test-index-field-name");
         KNNVectorScriptDocValues scriptDocValues = dataset.getScriptDocValues("test-index-field-name");
         scriptDocValues.setNextDocId(0);
         Float actualScore = KNNScoringUtil.cosineSimilarity(queryVector, scriptDocValues, 3.0f);
@@ -225,7 +224,7 @@ public class KNNScoringUtilTests extends KNNTestCase {
     public void testScriptDocValuesFailsCosineSimilarityOptimized() throws IOException {
         List<Number> queryVector = getTestQueryVector();
         TestKNNScriptDocValues dataset = new TestKNNScriptDocValues();
-        dataset.createKNNVectorDocument(new float[]{4.0f, 4.0f, 4.0f}, "test-index-field-name");
+        dataset.createKNNVectorDocument(new float[] { 4.0f, 4.0f, 4.0f }, "test-index-field-name");
         KNNVectorScriptDocValues scriptDocValues = dataset.getScriptDocValues("test-index-field-name");
         expectThrows(IllegalStateException.class, () -> KNNScoringUtil.cosineSimilarity(queryVector, scriptDocValues, 3.0f));
         dataset.close();
@@ -244,16 +243,14 @@ public class KNNScoringUtilTests extends KNNTestCase {
             if (scriptDocValues == null) {
                 reader = DirectoryReader.open(directory);
                 LeafReaderContext leafReaderContext = reader.getContext().leaves().get(0);
-                scriptDocValues = new KNNVectorScriptDocValues(leafReaderContext.reader().getBinaryDocValues(fieldName),fieldName );
+                scriptDocValues = new KNNVectorScriptDocValues(leafReaderContext.reader().getBinaryDocValues(fieldName), fieldName);
             }
             return scriptDocValues;
         }
 
         public void close() throws IOException {
-            if (reader != null)
-                reader.close();
-            if (directory != null)
-                directory.close();
+            if (reader != null) reader.close();
+            if (directory != null) directory.close();
         }
 
         public void createKNNVectorDocument(final float[] content, final String fieldName) throws IOException {
@@ -261,10 +258,7 @@ public class KNNScoringUtilTests extends KNNTestCase {
             IndexWriter writer = new IndexWriter(directory, conf);
             conf.setMergePolicy(NoMergePolicy.INSTANCE); // prevent merges for this test
             Document knnDocument = new Document();
-            knnDocument.add(
-                    new BinaryDocValuesField(
-                            fieldName,
-                            new VectorField(fieldName, content, new FieldType()).binaryValue()));
+            knnDocument.add(new BinaryDocValuesField(fieldName, new VectorField(fieldName, content, new FieldType()).binaryValue()));
             writer.addDocument(knnDocument);
             writer.commit();
             writer.close();
