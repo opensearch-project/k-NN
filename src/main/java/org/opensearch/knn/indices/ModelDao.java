@@ -39,9 +39,14 @@ import org.opensearch.cluster.health.ClusterHealthStatus;
 import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.Strings;
+import org.opensearch.common.bytes.BytesArray;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.index.IndexNotFoundException;
+import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
@@ -199,8 +204,10 @@ public interface ModelDao {
             if (isCreated()) {
                 return;
             }
-
-            CreateIndexRequest request = new CreateIndexRequest(MODEL_INDEX_NAME).mapping("_doc", getMapping(), XContentType.JSON)
+            String mapping = Strings.toString(
+                    JsonXContent.contentBuilder().startObject().startObject(MapperService.SINGLE_MAPPING_NAME).endObject().endObject()
+            );
+            CreateIndexRequest request = new CreateIndexRequest(MODEL_INDEX_NAME).mapping(mapping)
                 .settings(
                     Settings.builder()
                         .put("index.hidden", true)

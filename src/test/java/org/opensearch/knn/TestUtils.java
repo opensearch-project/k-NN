@@ -21,7 +21,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
-import org.opensearch.knn.plugin.stats.suppliers.ModelIndexStatusSupplier;
 import java.util.Comparator;
 import java.util.Random;
 import java.util.Set;
@@ -30,7 +29,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Map;
-import static org.apache.lucene.util.LuceneTestCase.random;
+
+import static org.apache.lucene.tests.util.LuceneTestCase.random;
 
 class DistVector {
     public float dist;

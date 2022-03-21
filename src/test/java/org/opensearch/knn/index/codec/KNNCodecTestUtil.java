@@ -20,6 +20,7 @@ import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.index.SortedNumericDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
+import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
@@ -145,6 +146,8 @@ public class KNNCodecTestUtil {
         private int pointDimensionCount;
         private int pointIndexDimensionCount;
         private int pointNumBytes;
+        private int vectorDimension;
+        private VectorSimilarityFunction vectorSimilarityFunction;
         private boolean softDeletes;
 
         public static FieldInfoBuilder builder(String fieldName) {
@@ -164,6 +167,8 @@ public class KNNCodecTestUtil {
             this.pointDimensionCount = 0;
             this.pointIndexDimensionCount = 0;
             this.pointNumBytes = 0;
+            this.vectorDimension = 0;
+            this.vectorSimilarityFunction = VectorSimilarityFunction.EUCLIDEAN;
             this.softDeletes = false;
         }
 
@@ -222,6 +227,16 @@ public class KNNCodecTestUtil {
             return this;
         }
 
+        public FieldInfoBuilder vectorDimension(int vectorDimension) {
+            this.vectorDimension = vectorDimension;
+            return this;
+        }
+
+        public FieldInfoBuilder vectorSimilarityFunction(VectorSimilarityFunction vectorSimilarityFunction) {
+            this.vectorSimilarityFunction = vectorSimilarityFunction;
+            return this;
+        }
+
         public FieldInfoBuilder softDeletes(boolean softDeletes) {
             this.softDeletes = softDeletes;
             return this;
@@ -241,6 +256,8 @@ public class KNNCodecTestUtil {
                 pointDimensionCount,
                 pointIndexDimensionCount,
                 pointNumBytes,
+                vectorDimension,
+                vectorSimilarityFunction,
                 softDeletes
             );
         }
@@ -363,11 +380,6 @@ public class KNNCodecTestUtil {
         @Override
         public void close() throws IOException {
 
-        }
-
-        @Override
-        public long ramBytesUsed() {
-            return 0;
         }
     }
 

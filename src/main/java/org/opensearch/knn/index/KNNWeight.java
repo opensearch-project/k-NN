@@ -78,10 +78,6 @@ public class KNNWeight extends Weight {
     }
 
     @Override
-    public void extractTerms(Set<Term> terms) {
-    }
-
-    @Override
     public Scorer scorer(LeafReaderContext context) throws IOException {
             SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(context.reader());
             String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();

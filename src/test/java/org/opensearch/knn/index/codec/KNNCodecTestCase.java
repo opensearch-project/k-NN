@@ -11,6 +11,7 @@ import org.apache.lucene.search.TopDocs;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.codec.KNN91Codec.KNN91Codec;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.KNNQuery;
 import org.opensearch.knn.index.KNNSettings;
@@ -24,7 +25,7 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.RandomIndexWriter;
+import org.apache.lucene.tests.index.RandomIndexWriter;
 import org.apache.lucene.index.SerialMergeScheduler;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.store.Directory;
@@ -61,6 +62,7 @@ import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTIN
  */
 public class KNNCodecTestCase extends KNNTestCase {
 
+    private static final KNN91Codec ACTUAL_CODEC = new KNN91Codec();
     private static FieldType sampleFieldType;
     static {
         sampleFieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
@@ -107,7 +109,7 @@ public class KNNCodecTestCase extends KNNTestCase {
          */
         IndexWriterConfig iwc1 = newIndexWriterConfig();
         iwc1.setMergeScheduler(new SerialMergeScheduler());
-        iwc1.setCodec(new KNN87Codec());
+        iwc1.setCodec(ACTUAL_CODEC);
         writer = new RandomIndexWriter(random(), dir, iwc1);
         float[] array1 = { 6.0f, 14.0f };
         VectorField vectorField1 = new VectorField("my_vector", array1, sampleFieldType);

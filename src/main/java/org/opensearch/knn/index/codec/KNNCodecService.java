@@ -6,9 +6,9 @@
 package org.opensearch.knn.index.codec;
 
 import org.opensearch.index.codec.CodecServiceConfig;
-import org.opensearch.knn.index.codec.KNN87Codec.KNN87Codec;
 import org.apache.lucene.codecs.Codec;
 import org.opensearch.index.codec.CodecService;
+import org.opensearch.knn.index.codec.KNN91Codec.KNN91Codec;
 
 /**
  * KNNCodecService to inject the right KNNCodec version
@@ -27,6 +27,6 @@ public class KNNCodecService extends CodecService {
      */
     @Override
     public Codec codec(String name) {
-        return new KNN87Codec(super.codec(name));
+        return new KNN91Codec(super.codec(name));
     }
 }

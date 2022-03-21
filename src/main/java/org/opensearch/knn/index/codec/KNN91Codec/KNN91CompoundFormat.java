@@ -3,15 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.KNN80Codec;
+package org.opensearch.knn.index.codec.KNN91Codec;
 
-import org.apache.lucene.backward_codecs.lucene50.Lucene50CompoundFormat;
-import org.opensearch.knn.common.KNNConstants;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
@@ -22,20 +21,16 @@ import java.util.stream.Collectors;
 /**
  * Class to encode/decode compound file
  */
-public class KNN80CompoundFormat extends CompoundFormat {
+public class KNN91CompoundFormat extends CompoundFormat {
 
     private final CompoundFormat delegate;
-
-    public KNN80CompoundFormat() {
-        this.delegate = new Lucene50CompoundFormat();
-    }
 
     /**
      * Constructor that takes a delegate to handle non-overridden methods
      *
      * @param delegate CompoundFormat that will handle non-overridden methods
      */
-    public KNN80CompoundFormat(CompoundFormat delegate) {
+    public KNN91CompoundFormat(CompoundFormat delegate) {
         this.delegate = delegate;
     }
 

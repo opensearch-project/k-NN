@@ -14,7 +14,10 @@ package org.opensearch.knn.index;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.admin.indices.create.CreateIndexRequestBuilder;
+import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -64,6 +67,17 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
         String indexName = "test-index";
         String fieldName = "test-field";
 
+        final String mapping = Strings.toString(
+                XContentFactory.jsonBuilder()
+                        .startObject()
+                            .startObject("properties")
+                                .startObject(fieldName)
+                                    .field("type", "knn_vector")
+                                    .field("model_id", modelId)
+                                .endObject()
+                            .endObject()
+                        .endObject());
+
         modelDao.put(model, ActionListener.wrap(indexResponse -> {
             CreateIndexRequestBuilder createIndexRequestBuilder = client().admin().indices().prepareCreate(indexName)
                     .setSettings(Settings.builder()
@@ -71,16 +85,7 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
                             .put("number_of_replicas", 0)
                             .put("index.knn", true)
                             .build()
-                    ).addMapping(
-                            "_doc", ImmutableMap.of(
-                                    "properties", ImmutableMap.of(
-                                            fieldName, ImmutableMap.of(
-                                                    "type", "knn_vector",
-                                                    "model_id", modelId
-                                            )
-                                    )
-                            )
-                    );
+                    ).setMapping(mapping);
 
             client().admin().indices().create(createIndexRequestBuilder.request(),
                     ActionListener.wrap(
