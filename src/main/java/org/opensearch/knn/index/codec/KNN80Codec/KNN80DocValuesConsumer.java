@@ -61,6 +61,8 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     private final DocValuesConsumer delegatee;
     private final SegmentWriteState state;
 
+    private static final Long CRC32_CHECKSUM_SANITY = 0xFFFFFFFF00000000L;
+
     KNN80DocValuesConsumer(DocValuesConsumer delegatee, SegmentWriteState state) {
         this.delegatee = delegatee;
         this.state = state;
@@ -271,7 +273,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
     private boolean isChecksumValid(long value) {
         // Check pulled from
-        // https://github.com/apache/lucene/blob/branch_9_0/lucene/core/src/java/org/apache/lucene/codecs/CodecUtil.java#L630-L632
-        return (value & 0xFFFFFFFF00000000L) != 0;
+        // https://github.com/apache/lucene/blob/branch_9_0/lucene/core/src/java/org/apache/lucene/codecs/CodecUtil.java#L644-L647
+        return (value & CRC32_CHECKSUM_SANITY) != 0;
     }
 }
