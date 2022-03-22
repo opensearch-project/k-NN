@@ -13,6 +13,7 @@ function usage() {
     echo ""
     echo "Arguments:"
     echo -e "-v VERSION\t[Required] OpenSearch version."
+    echo -e "-q QUALIFIER\t[Optional] Version qualifier."
     echo -e "-s SNAPSHOT\t[Optional] Build a snapshot, default is 'false'."
     echo -e "-p PLATFORM\t[Optional] Platform, ignored."
     echo -e "-a ARCHITECTURE\t[Optional] Build architecture, ignored."
@@ -20,7 +21,7 @@ function usage() {
     echo -e "-h help"
 }
 
-while getopts ":h:v:s:o:p:a:" arg; do
+while getopts ":h:v:q:s:o:p:a:" arg; do
     case $arg in
         h)
             usage
@@ -31,6 +32,9 @@ while getopts ":h:v:s:o:p:a:" arg; do
             ;;
         s)
             SNAPSHOT=$OPTARG
+            ;;
+        q)
+            QUALIFIER=$OPTARG
             ;;
         o)
             OUTPUT=$OPTARG
@@ -59,6 +63,7 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
+[[ ! -z "$QUALIFIER" ]] && VERSION=$VERSION-$QUALIFIER
 [[ "$SNAPSHOT" == "true" ]] && VERSION=$VERSION-SNAPSHOT
 [ -z "$OUTPUT" ] && OUTPUT=artifacts
 
@@ -94,7 +99,7 @@ cmake .
 make opensearchknn_faiss opensearchknn_nmslib
 
 cd $work_dir
-./gradlew assemble --no-daemon --refresh-dependencies -DskipTests=true -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
+./gradlew assemble --no-daemon --refresh-dependencies -DskipTests=true -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
 
 # Add knnlib to zip
 zipPath=$(find "$(pwd)" -path \*build/distributions/*.zip)
