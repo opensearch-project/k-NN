@@ -1,9 +1,15 @@
 /*
- * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
  */
 
-package org.opensearch.knn.index.codec.KNN91Codec;
+package org.opensearch.knn.index.codec.KNN91Codec.docformat;
 
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundDirectory;
@@ -16,6 +22,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.opensearch.common.util.set.Sets;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.codec.KNN91Codec.KNN91Codec;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.util.KNNEngine;
 

@@ -16,6 +16,8 @@ import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.FilterCodec;
 import org.apache.lucene.codecs.lucene91.Lucene91Codec;
+import org.opensearch.knn.index.codec.KNNDocFormatFacade;
+import org.opensearch.knn.index.codec.KNNDocFormatFactory;
 
 /**
  * Extends the Codec to support a new file format for KNN index
@@ -24,10 +26,8 @@ import org.apache.lucene.codecs.lucene91.Lucene91Codec;
  */
 public final class KNN91Codec extends FilterCodec {
 
-    private final DocValuesFormat docValuesFormat;
-    private final CompoundFormat compoundFormat;
-
     public static final String KNN_91 = "KNN91Codec";
+    private KNNDocFormatFacade docFormatFacade;
 
     /**
      * No arg constructor that uses Lucene91 as the delegate
@@ -43,17 +43,16 @@ public final class KNN91Codec extends FilterCodec {
      */
     public KNN91Codec(Codec delegate) {
         super(KNN_91, delegate);
-        this.docValuesFormat = new KNN91DocValuesFormat(delegate.docValuesFormat());
-        this.compoundFormat = new KNN91CompoundFormat(delegate.compoundFormat());
+        docFormatFacade = KNNDocFormatFactory.createKNN91DocFormat(delegate);
     }
 
     @Override
     public DocValuesFormat docValuesFormat() {
-        return this.docValuesFormat;
+        return docFormatFacade.docValuesFormat();
     }
 
     @Override
     public CompoundFormat compoundFormat() {
-        return this.compoundFormat;
+        return docFormatFacade.compoundFormat();
     }
 }
