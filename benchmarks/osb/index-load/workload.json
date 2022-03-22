@@ -1,0 +1,23 @@
+{
+    "version": 2,
+    "description": "k-NN Plugin indexing track",
+    "indices": [
+        {
+            "name": "target_index",
+            "body": "index.json"
+        }
+    ],
+    "schedule": [
+        {
+            "name": "delete-target-index",
+            "index": "target_index",
+            "only-if-exists": true,
+            "operation": "delete-index"
+        },
+        {
+            "name": "create-target-index",
+            "index": "target_index",
+            "operation": "create-index"
+        }
+    ]
+}
