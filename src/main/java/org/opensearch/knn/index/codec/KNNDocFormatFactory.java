@@ -16,6 +16,9 @@ import org.opensearch.knn.index.codec.KNN91Codec.docformat.KNN91CompoundFormat;
 import org.opensearch.knn.index.codec.KNN91Codec.KNN91DocFormat;
 import org.opensearch.knn.index.codec.KNN91Codec.docformat.KNN91DocValuesFormat;
 
+/**
+ * Factory abstraction for KNN document format facades
+ */
 public class KNNDocFormatFactory {
 
     public static KNNDocFormatFacade createKNN91DocFormat(Codec delegate) {

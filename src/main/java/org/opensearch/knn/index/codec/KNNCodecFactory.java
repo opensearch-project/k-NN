@@ -14,6 +14,9 @@ package org.opensearch.knn.index.codec;
 import org.apache.lucene.codecs.Codec;
 import org.opensearch.knn.index.codec.KNN91Codec.KNN91Codec;
 
+/**
+ * Factory abstraction for KNN codes
+ */
 public class KNNCodecFactory {
 
     public static Codec createKNN91Codec(Codec userCodec) {
