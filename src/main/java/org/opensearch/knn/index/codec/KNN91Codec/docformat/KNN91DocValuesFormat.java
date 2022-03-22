@@ -1,20 +1,12 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
-
 package org.opensearch.knn.index.codec.KNN91Codec.docformat;
 
 import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.DocValuesProducer;
-import org.apache.lucene.codecs.lucene90.Lucene90DocValuesFormat;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 
@@ -25,10 +17,6 @@ import java.io.IOException;
  */
 public class KNN91DocValuesFormat extends DocValuesFormat {
     private final DocValuesFormat delegate;
-
-    public KNN91DocValuesFormat() {
-        this(new Lucene90DocValuesFormat());
-    }
 
     /**
      * Constructor that takes delegate in order to handle non-overridden methods

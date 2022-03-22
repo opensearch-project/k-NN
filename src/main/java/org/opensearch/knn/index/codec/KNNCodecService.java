@@ -26,6 +26,6 @@ public class KNNCodecService extends CodecService {
      */
     @Override
     public Codec codec(String name) {
-        return KNNCodecFactory.createKNN91Codec(super.codec(name));
+        return KNNCodecFactory.createKNNCodec(super.codec(name));
     }
 }
