@@ -8,7 +8,7 @@ package org.opensearch.knn.index.codec;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.lucene91.Lucene91Codec;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.codec.KNN91Codec.KNN91Codec;
+import org.opensearch.knn.index.codec.KNN910Codec.KNN910Codec;
 
 public class KNNCodecFactoryTests extends KNNTestCase {
 
@@ -22,13 +22,13 @@ public class KNNCodecFactoryTests extends KNNTestCase {
         Lucene91Codec lucene91CodecDelegate = new Lucene91Codec();
         Codec knnCodec = KNNCodecFactory.createKNNCodec(lucene91CodecDelegate);
         assertNotNull(knnCodec);
-        assertTrue(knnCodec instanceof KNN91Codec);
+        assertTrue(knnCodec instanceof KNN910Codec);
     }
 
     public void testKNN91CodecByVersion() {
         Lucene91Codec lucene91CodecDelegate = new Lucene91Codec();
-        Codec knnCodec = KNNCodecFactory.createKNNCodec(KNNCodecFactory.KNNCodecVersion.KNN91, lucene91CodecDelegate);
+        Codec knnCodec = KNNCodecFactory.createKNNCodec(KNNCodecFactory.KNNCodecVersion.KNN910, lucene91CodecDelegate);
         assertNotNull(knnCodec);
-        assertTrue(knnCodec instanceof KNN91Codec);
+        assertTrue(knnCodec instanceof KNN910Codec);
     }
 }

@@ -7,19 +7,19 @@ package org.opensearch.knn.index.codec;
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.lucene91.Lucene91Codec;
-import org.opensearch.knn.index.codec.KNN91Codec.KNN91Codec;
+import org.opensearch.knn.index.codec.KNN910Codec.KNN910Codec;
 
 import java.lang.reflect.Constructor;
 import java.util.Map;
 
 /**
- * Factory abstraction for KNN codes
+ * Factory abstraction for KNN codec
  */
 public class KNNCodecFactory {
 
-    private static Map<KNNCodecVersion, Class> CODEC_BY_VERSION = ImmutableMap.of(KNNCodecVersion.KNN91, KNN91Codec.class);
+    private static Map<KNNCodecVersion, Class> CODEC_BY_VERSION = ImmutableMap.of(KNNCodecVersion.KNN910, KNN910Codec.class);
 
-    private static KNNCodecVersion LATEST_KNN_CODEC_VERSION = KNNCodecVersion.KNN91;
+    private static KNNCodecVersion LATEST_KNN_CODEC_VERSION = KNNCodecVersion.KNN910;
 
     public static Codec createKNNCodec(final Codec userCodec) {
         return getCodec(LATEST_KNN_CODEC_VERSION, userCodec);
@@ -39,6 +39,9 @@ public class KNNCodecFactory {
         }
     }
 
+    /**
+     * Factory abstraction for codec delegate
+     */
     public static class CodecDelegateFactory {
 
         public static Codec createKNN91DefaultDelegate() {
@@ -46,7 +49,10 @@ public class KNNCodecFactory {
         }
     }
 
+    /**
+     * Collection of supported coded versions
+     */
     enum KNNCodecVersion {
-        KNN91
+        KNN910
     }
 }

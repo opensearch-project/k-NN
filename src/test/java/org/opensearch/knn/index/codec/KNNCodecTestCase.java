@@ -11,7 +11,7 @@ import org.apache.lucene.search.TopDocs;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.codec.KNN91Codec.KNN91Codec;
+import org.opensearch.knn.index.codec.KNN910Codec.KNN910Codec;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.KNNQuery;
 import org.opensearch.knn.index.KNNSettings;
@@ -61,7 +61,7 @@ import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTIN
  */
 public class KNNCodecTestCase extends KNNTestCase {
 
-    private static final KNN91Codec ACTUAL_CODEC = new KNN91Codec();
+    private static final KNN910Codec ACTUAL_CODEC = new KNN910Codec();
     private static FieldType sampleFieldType;
     static {
         sampleFieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);

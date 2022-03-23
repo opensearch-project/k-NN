@@ -2,7 +2,7 @@
  * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
  */
-package org.opensearch.knn.index.codec.KNN91Codec;
+package org.opensearch.knn.index.codec.KNN910Codec;
 
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;
@@ -18,15 +18,15 @@ import static org.opensearch.knn.index.codec.KNNCodecFactory.CodecDelegateFactor
  * based on the mappings.
  *
  */
-public final class KNN91Codec extends FilterCodec {
+public final class KNN910Codec extends FilterCodec {
 
-    public static final String KNN_91 = "KNN91Codec";
-    private KNNFormatFacade knnFormatFacade;
+    private static final String KNN910 = "KNN910Codec";
+    private final KNNFormatFacade knnFormatFacade;
 
     /**
      * No arg constructor that uses Lucene91 as the delegate
      */
-    public KNN91Codec() {
+    public KNN910Codec() {
         this(createKNN91DefaultDelegate());
     }
 
@@ -35,9 +35,9 @@ public final class KNN91Codec extends FilterCodec {
      *
      * @param delegate codec that will perform all operations this codec does not override
      */
-    public KNN91Codec(Codec delegate) {
-        super(KNN_91, delegate);
-        knnFormatFacade = KNNFormatFactory.createKNN91Format(delegate);
+    public KNN910Codec(Codec delegate) {
+        super(KNN910, delegate);
+        knnFormatFacade = KNNFormatFactory.createKNN910Format(delegate);
     }
 
     @Override

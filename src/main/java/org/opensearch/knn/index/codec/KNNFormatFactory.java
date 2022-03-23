@@ -5,18 +5,18 @@
 package org.opensearch.knn.index.codec;
 
 import org.apache.lucene.codecs.Codec;
-import org.opensearch.knn.index.codec.KNN91Codec.docformat.KNN91CompoundFormat;
-import org.opensearch.knn.index.codec.KNN91Codec.docformat.KNN91DocValuesFormat;
+import org.opensearch.knn.index.codec.KNN80Codec.KNN80CompoundFormat;
+import org.opensearch.knn.index.codec.KNN80Codec.KNN80DocValuesFormat;
 
 /**
- * Factory abstraction for KNN document format facades
+ * Factory abstraction for KNN format facade creation
  */
 public class KNNFormatFactory {
 
-    public static KNNFormatFacade createKNN91Format(final Codec delegate) {
+    public static KNNFormatFacade createKNN910Format(final Codec delegate) {
         final KNNFormatFacade knnFormatFacade = new KNNFormatFacade(
-            new KNN91DocValuesFormat(delegate.docValuesFormat()),
-            new KNN91CompoundFormat(delegate.compoundFormat())
+            new KNN80DocValuesFormat(delegate.docValuesFormat()),
+            new KNN80CompoundFormat(delegate.compoundFormat())
         );
         return knnFormatFacade;
     }
