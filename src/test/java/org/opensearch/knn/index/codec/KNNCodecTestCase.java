@@ -231,4 +231,26 @@ public class KNNCodecTestCase extends KNNTestCase {
         resourceWatcherService.close();
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
+
+    public void testWriteByOldCodec(Codec codec) throws IOException {
+        setUpMockClusterService();
+        Directory dir = newFSDirectory(createTempDir());
+        IndexWriterConfig iwc = newIndexWriterConfig();
+        iwc.setMergeScheduler(new SerialMergeScheduler());
+        iwc.setCodec(codec);
+
+        /**
+         * Add doc with field "test_vector", expect it to fail
+         */
+        float[] array = { 1.0f, 3.0f, 4.0f };
+        VectorField vectorField = new VectorField("test_vector", array, sampleFieldType);
+        try (RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc)) {
+            Document doc = new Document();
+            doc.add(vectorField);
+            expectThrows(UnsupportedOperationException.class, () -> writer.addDocument(doc));
+        }
+
+        dir.close();
+        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
+    }
 }
