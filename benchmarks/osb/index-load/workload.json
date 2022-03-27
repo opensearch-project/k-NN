@@ -1,6 +1,6 @@
 {
     "version": 2,
-    "description": "k-NN Plugin indexing track",
+    "description": "k-NN Plugin indexing workload",
     "indices": [
         {
             "name": "target_index",
@@ -18,6 +18,33 @@
             "name": "create-target-index",
             "index": "target_index",
             "operation": "create-index"
+        },
+        {
+            "name": "wait-for-cluster-to-be-green",
+            "operation": "cluster-health",
+            "request-params": {
+                "wait_for_status": "green"
+            }
+        },
+        {
+            "operation": {
+                "name": "custom-vector-bulk",
+                "operation-type": "custom-vector-bulk",
+                "param-source": "bulk-from-data-set",
+                "index_name": "target_index",
+                "field_name": "target_field",
+                "bulk_size": 200,
+                "data_set_format": "hdf5",
+                "data_set_path": "<path>"
+            }
+        },
+        {
+            "operation": {
+                "name": "refresh-target-index",
+                "operation-type": "custom-refresh",
+                "index_name": "target_index",
+                "retries": 100
+            }
         }
     ]
 }

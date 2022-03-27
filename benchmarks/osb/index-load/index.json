@@ -3,14 +3,13 @@
     "index": {
       "knn": true,
       "knn.algo_param.ef_search": 512,
-      "refresh_interval": "10s",
       "number_of_shards": 1,
       "number_of_replicas": 0
     }
   },
   "mappings": {
     "properties": {
-      "test_vector": {
+      "target_field": {
         "type": "knn_vector",
         "dimension": 128,
         "method": {
