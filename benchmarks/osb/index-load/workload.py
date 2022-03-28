@@ -30,6 +30,7 @@ class DataSet(ABC):
 
     Methods:
         read: Read a chunk of data from the data-set
+        seek: Get to position in the data-set
         size: Gets the number of items in the data-set
         reset: Resets internal state of data-set to beginning
     """
@@ -37,6 +38,10 @@ class DataSet(ABC):
 
     @abstractmethod
     def read(self, chunk_size: int):
+        pass
+
+    @abstractmethod
+    def seek(self, offset: int):
         pass
 
     @abstractmethod
@@ -69,6 +74,12 @@ class HDF5DataSet(DataSet):
         v = cast(np.ndarray, self.data[self.current:end_i])
         self.current = end_i
         return v
+
+    def seek(self, offset: int):
+        if offset >= self.size():
+            raise Exception("Offset is greater than the size")
+
+        self.current = offset
 
     def size(self):
         return self.data.len()
@@ -126,6 +137,13 @@ class BigANNVectorDataSet(DataSet):
                         range(end_i - self.current)])
         self.current = end_i
         return v
+
+    def seek(self, offset: int):
+        if offset >= self.size():
+            raise Exception("Offset is greater than the size")
+
+        self.file.seek(offset)
+        self.current = offset
 
     def _read_vector(self):
         return np.asarray([self.reader(self.file) for _ in
@@ -199,14 +217,23 @@ class BulkVectorsFromDataSetParamSource:
         self.current = 0
         self.infinite = False
         self.percent_completed = 0
+        self.total = self.data_set.size()
+        self.offset = 0
 
     def partition(self, partition_index, total_partitions):
-        # TODO: Enhance for multiple clients
-        return self
+        if self.data_set.size() % total_partitions != 0:
+            raise Exception("Data set must be divisible by number of clients")
+
+        partition_x = self
+        partition_x.total = int(self.data_set.size() / total_partitions)
+        partition_x.offset = int(partition_index * partition_x.total)
+        partition_x.data_set.seek(partition_x.offset)
+        partition_x.current = partition_x.offset
+        return partition_x
 
     def params(self):
 
-        if self.current >= self.data_set.size():
+        if self.current >= self.total + self.offset:
             raise StopIteration
 
         def action(doc_id):
@@ -214,8 +241,7 @@ class BulkVectorsFromDataSetParamSource:
 
         partition = self.data_set.read(self.bulk_size)
         body = bulk_transform(partition, self.field_name, action, self.current)
-        self.current += len(body) / 2
-
+        self.current += int(len(body) / 2)
         self.percent_completed = float(self.current)/self.data_set.size()
 
         return body

@@ -36,7 +36,8 @@
                 "bulk_size": 200,
                 "data_set_format": "hdf5",
                 "data_set_path": "<path>"
-            }
+            },
+            "clients": 10
         },
         {
             "operation": {
