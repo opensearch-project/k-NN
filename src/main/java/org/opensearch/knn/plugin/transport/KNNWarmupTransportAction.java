@@ -32,18 +32,32 @@ import java.util.List;
  * all shards across the cluster for the given indices. For each shard, shardOperation will be called and the
  * warmup will take place.
  */
-public class KNNWarmupTransportAction extends TransportBroadcastByNodeAction<KNNWarmupRequest, KNNWarmupResponse,
-        TransportBroadcastByNodeAction.EmptyResult> {
+public class KNNWarmupTransportAction extends TransportBroadcastByNodeAction<
+    KNNWarmupRequest,
+    KNNWarmupResponse,
+    TransportBroadcastByNodeAction.EmptyResult> {
 
     public static Logger logger = LogManager.getLogger(KNNWarmupTransportAction.class);
 
     private IndicesService indicesService;
 
     @Inject
-    public KNNWarmupTransportAction(ClusterService clusterService, TransportService transportService, IndicesService indicesService,
-                                    ActionFilters actionFilters, IndexNameExpressionResolver indexNameExpressionResolver) {
-        super(KNNWarmupAction.NAME, clusterService, transportService, actionFilters, indexNameExpressionResolver,
-                KNNWarmupRequest::new, ThreadPool.Names.SEARCH);
+    public KNNWarmupTransportAction(
+        ClusterService clusterService,
+        TransportService transportService,
+        IndicesService indicesService,
+        ActionFilters actionFilters,
+        IndexNameExpressionResolver indexNameExpressionResolver
+    ) {
+        super(
+            KNNWarmupAction.NAME,
+            clusterService,
+            transportService,
+            actionFilters,
+            indexNameExpressionResolver,
+            KNNWarmupRequest::new,
+            ThreadPool.Names.SEARCH
+        );
         this.indicesService = indicesService;
     }
 
@@ -53,10 +67,15 @@ public class KNNWarmupTransportAction extends TransportBroadcastByNodeAction<KNN
     }
 
     @Override
-    protected KNNWarmupResponse newResponse(KNNWarmupRequest request, int totalShards, int successfulShards,
-                                            int failedShards, List<EmptyResult> emptyResults,
-                                            List<DefaultShardOperationFailedException> shardFailures,
-                                            ClusterState clusterState) {
+    protected KNNWarmupResponse newResponse(
+        KNNWarmupRequest request,
+        int totalShards,
+        int successfulShards,
+        int failedShards,
+        List<EmptyResult> emptyResults,
+        List<DefaultShardOperationFailedException> shardFailures,
+        ClusterState clusterState
+    ) {
         return new KNNWarmupResponse(totalShards, successfulShards, failedShards, shardFailures);
     }
 
@@ -67,8 +86,9 @@ public class KNNWarmupTransportAction extends TransportBroadcastByNodeAction<KNN
 
     @Override
     protected EmptyResult shardOperation(KNNWarmupRequest request, ShardRouting shardRouting) throws IOException {
-        KNNIndexShard knnIndexShard = new KNNIndexShard(indicesService.indexServiceSafe(shardRouting.shardId()
-                .getIndex()).getShard(shardRouting.shardId().id()));
+        KNNIndexShard knnIndexShard = new KNNIndexShard(
+            indicesService.indexServiceSafe(shardRouting.shardId().getIndex()).getShard(shardRouting.shardId().id())
+        );
         knnIndexShard.warmup();
         return EmptyResult.INSTANCE;
     }

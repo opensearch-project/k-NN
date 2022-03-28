@@ -29,7 +29,8 @@ import static org.opensearch.knn.common.KNNConstants.NODES_KEY;
  * Aggregated response for training job route decision info
  */
 public class TrainingJobRouteDecisionInfoResponse extends BaseNodesResponse<TrainingJobRouteDecisionInfoNodeResponse>
-        implements ToXContentObject {
+    implements
+        ToXContentObject {
 
     /**
      * Constructor
@@ -48,9 +49,11 @@ public class TrainingJobRouteDecisionInfoResponse extends BaseNodesResponse<Trai
      * @param nodes List of KNNStatsNodeResponses
      * @param failures List of failures from nodes
      */
-    public TrainingJobRouteDecisionInfoResponse(ClusterName clusterName,
-                                                List<TrainingJobRouteDecisionInfoNodeResponse> nodes,
-                                                List<FailedNodeException> failures) {
+    public TrainingJobRouteDecisionInfoResponse(
+        ClusterName clusterName,
+        List<TrainingJobRouteDecisionInfoNodeResponse> nodes,
+        List<FailedNodeException> failures
+    ) {
         super(clusterName, nodes, failures);
     }
 

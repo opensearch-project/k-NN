@@ -63,7 +63,6 @@ public class MethodComponent {
         return parameters;
     }
 
-
     /**
      * Parse methodComponentContext into a map that the library can use to configure the method
      *
@@ -107,7 +106,7 @@ public class MethodComponent {
             }
         }
 
-        if(errorMessages.isEmpty()) {
+        if (errorMessages.isEmpty()) {
             return null;
         }
 
@@ -115,7 +114,6 @@ public class MethodComponent {
         validationException.addValidationErrors(errorMessages);
         return validationException;
     }
-
 
     /**
      * gets requiresTraining value
@@ -170,23 +168,23 @@ public class MethodComponent {
     public int estimateOverheadInKB(MethodComponentContext methodComponentContext, int dimension) {
         // Assume we have the following KNNMethodContext:
         // "method": {
-        //      "name":"METHOD_1",
-        //      "engine":"faiss",
-        //      "space_type": "l2",
-        //      "parameters":{
-        //         "P1":1,
-        //         "P2":{
-        //              "name":"METHOD_2",
-        //              "parameters":{
-        //                 "P3":2
-        //              }
-        //         }
-        //     }
+        // "name":"METHOD_1",
+        // "engine":"faiss",
+        // "space_type": "l2",
+        // "parameters":{
+        // "P1":1,
+        // "P2":{
+        // "name":"METHOD_2",
+        // "parameters":{
+        // "P3":2
+        // }
+        // }
+        // }
         // }
         //
         // First, we get the overhead estimate of METHOD_1. Then, we add the overhead
         // estimate for METHOD_2 by looping over parameters of METHOD_1.
-        
+
         long size = overheadInKBEstimator.apply(this, methodComponentContext, dimension);
 
         // Check if any of the parameters add overhead
@@ -274,7 +272,7 @@ public class MethodComponent {
          * @param requiresTraining parameter to be set
          * @return Builder instance
          */
-        public Builder setRequiresTraining(boolean requiresTraining){
+        public Builder setRequiresTraining(boolean requiresTraining) {
             this.requiresTraining = requiresTraining;
             return this;
         }
@@ -307,8 +305,10 @@ public class MethodComponent {
      * @param methodComponent component containing method parameters and defaults
      * @return Map of user provided parameters with defaults filled in as needed
      */
-    public static Map<String, Object> getParameterMapWithDefaultsAdded(MethodComponentContext methodComponentContext,
-                                                                       MethodComponent methodComponent) {
+    public static Map<String, Object> getParameterMapWithDefaultsAdded(
+        MethodComponentContext methodComponentContext,
+        MethodComponent methodComponent
+    ) {
         Map<String, Object> parametersWithDefaultsMap = new HashMap<>();
         Map<String, Object> userProvidedParametersMap = methodComponentContext.getParameters();
         for (Parameter<?> parameter : methodComponent.getParameters().values()) {

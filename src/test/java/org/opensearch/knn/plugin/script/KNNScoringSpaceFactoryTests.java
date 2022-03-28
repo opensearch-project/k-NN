@@ -18,25 +18,41 @@ import static org.mockito.Mockito.mock;
 public class KNNScoringSpaceFactoryTests extends KNNTestCase {
     public void testValidSpaces() {
 
-        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType =
-                mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
-        NumberFieldMapper.NumberFieldType numberFieldType = new NumberFieldMapper.NumberFieldType("field",
-                NumberFieldMapper.NumberType.LONG);
+        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        NumberFieldMapper.NumberFieldType numberFieldType = new NumberFieldMapper.NumberFieldType(
+            "field",
+            NumberFieldMapper.NumberType.LONG
+        );
         List<Float> floatQueryObject = new ArrayList<>();
         Long longQueryObject = 0L;
 
-        assertTrue(KNNScoringSpaceFactory.create(SpaceType.L2.getValue(), floatQueryObject, knnVectorFieldType)
-                instanceof KNNScoringSpace.L2);
-        assertTrue(KNNScoringSpaceFactory.create(SpaceType.COSINESIMIL.getValue(), floatQueryObject, knnVectorFieldType)
-                instanceof KNNScoringSpace.CosineSimilarity);
-        assertTrue(KNNScoringSpaceFactory.create(SpaceType.INNER_PRODUCT.getValue(), floatQueryObject, knnVectorFieldType)
-                instanceof KNNScoringSpace.InnerProd);
-        assertTrue(KNNScoringSpaceFactory.create(SpaceType.HAMMING_BIT.getValue(), longQueryObject, numberFieldType)
-                instanceof KNNScoringSpace.HammingBit);
+        assertTrue(
+            KNNScoringSpaceFactory.create(SpaceType.L2.getValue(), floatQueryObject, knnVectorFieldType) instanceof KNNScoringSpace.L2
+        );
+        assertTrue(
+            KNNScoringSpaceFactory.create(
+                SpaceType.COSINESIMIL.getValue(),
+                floatQueryObject,
+                knnVectorFieldType
+            ) instanceof KNNScoringSpace.CosineSimilarity
+        );
+        assertTrue(
+            KNNScoringSpaceFactory.create(
+                SpaceType.INNER_PRODUCT.getValue(),
+                floatQueryObject,
+                knnVectorFieldType
+            ) instanceof KNNScoringSpace.InnerProd
+        );
+        assertTrue(
+            KNNScoringSpaceFactory.create(
+                SpaceType.HAMMING_BIT.getValue(),
+                longQueryObject,
+                numberFieldType
+            ) instanceof KNNScoringSpace.HammingBit
+        );
     }
 
     public void testInvalidSpace() {
-        expectThrows(IllegalArgumentException.class, () -> KNNScoringSpaceFactory.create(SpaceType.L2.getValue(),
-                null, null));
+        expectThrows(IllegalArgumentException.class, () -> KNNScoringSpaceFactory.create(SpaceType.L2.getValue(), null, null));
     }
 }

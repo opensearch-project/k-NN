@@ -61,8 +61,12 @@ public class IndexUtil {
      * @return ValidationException exception produced by field validation
      */
     @SuppressWarnings("unchecked")
-    public static ValidationException validateKnnField(IndexMetadata indexMetadata, String field, int expectedDimension,
-                                                       ModelDao modelDao) {
+    public static ValidationException validateKnnField(
+        IndexMetadata indexMetadata,
+        String field,
+        int expectedDimension,
+        ModelDao modelDao
+    ) {
         // Index metadata should not be null
         if (indexMetadata == null) {
             throw new IllegalArgumentException("IndexMetadata should not be null");
@@ -78,8 +82,8 @@ public class IndexUtil {
         }
 
         // The mapping output *should* look like this:
-        //  "{properties={field={type=knn_vector, dimension=8}}}"
-        Map<String, Object> properties = (Map<String, Object>)mappingMetadata.getSourceAsMap().get("properties");
+        // "{properties={field={type=knn_vector, dimension=8}}}"
+        Map<String, Object> properties = (Map<String, Object>) mappingMetadata.getSourceAsMap().get("properties");
 
         if (properties == null) {
             exception.addValidationError("Properties in map does not exists. This is unexpected");
@@ -106,8 +110,7 @@ public class IndexUtil {
         Object type = fieldMap.get("type");
 
         if (!(type instanceof String) || !KNNVectorFieldMapper.CONTENT_TYPE.equals(type)) {
-            exception.addValidationError(String.format("Field \"%s\" is not of type %s.", field,
-                    KNNVectorFieldMapper.CONTENT_TYPE));
+            exception.addValidationError(String.format("Field \"%s\" is not of type %s.", field, KNNVectorFieldMapper.CONTENT_TYPE));
             return exception;
         }
 
@@ -131,22 +134,25 @@ public class IndexUtil {
             }
 
             if (modelDao == null) {
-                throw new IllegalArgumentException(String.format("Field \"%s\" uses model. modelDao cannot be null.",
-                        field));
+                throw new IllegalArgumentException(String.format("Field \"%s\" uses model. modelDao cannot be null.", field));
             }
 
             ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
             if (modelMetadata == null) {
-                exception.addValidationError(String.format("Model \"%s\" for field \"%s\" does not exist.", modelId,
-                        field));
+                exception.addValidationError(String.format("Model \"%s\" for field \"%s\" does not exist.", modelId, field));
                 return exception;
             }
 
             dimension = modelMetadata.getDimension();
             if ((Integer) dimension != expectedDimension) {
-                exception.addValidationError(String.format("Field \"%s\" has dimension %d, which is different from " +
-                                "dimension specified in the training request: %d", field, dimension,
-                        expectedDimension));
+                exception.addValidationError(
+                    String.format(
+                        "Field \"%s\" has dimension %d, which is different from " + "dimension specified in the training request: %d",
+                        field,
+                        dimension,
+                        expectedDimension
+                    )
+                );
                 return exception;
             }
 
@@ -155,8 +161,14 @@ public class IndexUtil {
 
         // If the dimension was found in training fields mapping, check that it equals the models proposed dimension.
         if ((Integer) dimension != expectedDimension) {
-            exception.addValidationError(String.format("Field \"%s\" has dimension %d, which is different from " +
-                    "dimension specified in the training request: %d", field, dimension, expectedDimension));
+            exception.addValidationError(
+                String.format(
+                    "Field \"%s\" has dimension %d, which is different from " + "dimension specified in the training request: %d",
+                    field,
+                    dimension,
+                    expectedDimension
+                )
+            );
             return exception;
         }
 
@@ -172,9 +184,7 @@ public class IndexUtil {
      * @return load parameters that will be passed to the JNI.
      */
     public static Map<String, Object> getParametersAtLoading(SpaceType spaceType, KNNEngine knnEngine, String indexName) {
-        Map<String, Object> loadParameters = Maps.newHashMap(ImmutableMap.of(
-                SPACE_TYPE, spaceType.getValue()
-        ));
+        Map<String, Object> loadParameters = Maps.newHashMap(ImmutableMap.of(SPACE_TYPE, spaceType.getValue()));
 
         // For nmslib, we need to add the dynamic ef_search parameter that needs to be passed in when the
         // hnsw graphs are loaded into memory

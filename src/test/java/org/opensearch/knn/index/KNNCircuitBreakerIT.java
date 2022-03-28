@@ -35,10 +35,10 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
         // Create index with 1 primary and numNodes-1 replicas so that the data will be on every node in the cluster
         int numNodes = Integer.parseInt(System.getProperty("cluster.number_of_nodes", "1"));
         Settings settings = Settings.builder()
-                .put("number_of_shards", 1)
-                .put("number_of_replicas", numNodes - 1)
-                .put("index.knn", true)
-                .build();
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", numNodes - 1)
+            .put("index.knn", true)
+            .build();
 
         String indexName1 = INDEX_NAME + "1";
         String indexName2 = INDEX_NAME + "2";
@@ -46,7 +46,7 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
         createKnnIndex(indexName1, settings, createKnnIndexMapping(FIELD_NAME, 2));
         createKnnIndex(indexName2, settings, createKnnIndexMapping(FIELD_NAME, 2));
 
-        Float[] vector = {1.3f, 2.2f};
+        Float[] vector = { 1.3f, 2.2f };
         int docsInIndex = 5; // through testing, 7 is minimum number of docs to trip circuit breaker at 1kb
 
         for (int i = 0; i < docsInIndex; i++) {
@@ -58,7 +58,7 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
         forceMergeKnnIndex(indexName2);
 
         // Execute search on both indices - will cause eviction
-        float[] qvector = {1.9f, 2.4f};
+        float[] qvector = { 1.9f, 2.4f };
         int k = 10;
 
         // Ensure that each shard is searched over so that each Lucene segment gets loaded into memory
@@ -68,13 +68,12 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
         }
 
         // Give cluster 5 seconds to update settings and then assert that Cb get triggered
-        Thread.sleep(5*1000); // seconds
+        Thread.sleep(5 * 1000); // seconds
         assertTrue(isCbTripped());
     }
 
     public boolean isCbTripped() throws Exception {
-        Response response = getKnnStats(Collections.emptyList(),
-                Collections.singletonList("circuit_breaker_triggered"));
+        Response response = getKnnStats(Collections.emptyList(), Collections.singletonList("circuit_breaker_triggered"));
         String responseBody = EntityUtils.toString(response.getEntity());
         Map<String, Object> clusterStats = parseClusterStatsResponse(responseBody);
         return Boolean.parseBoolean(clusterStats.get("circuit_breaker_triggered").toString());
@@ -89,11 +88,11 @@ public class KNNCircuitBreakerIT extends KNNRestTestCase {
         assertTrue(isCbTripped());
 
         int backOffInterval = 5; // seconds
-        for (int i = 0; i < CB_TIME_INTERVAL; i+=backOffInterval) {
+        for (int i = 0; i < CB_TIME_INTERVAL; i += backOffInterval) {
             if (!isCbTripped()) {
                 break;
             }
-            Thread.sleep(backOffInterval*1000);
+            Thread.sleep(backOffInterval * 1000);
         }
         assertFalse(isCbTripped());
     }

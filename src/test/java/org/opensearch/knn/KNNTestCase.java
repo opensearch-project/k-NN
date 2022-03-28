@@ -36,7 +36,6 @@ public class KNNTestCase extends OpenSearchTestCase {
     }
 
     public Map<String, Object> xContentBuilderToMap(XContentBuilder xContentBuilder) {
-        return XContentHelper.convertToMap(BytesReference.bytes(xContentBuilder), true,
-                xContentBuilder.contentType()).v2();
+        return XContentHelper.convertToMap(BytesReference.bytes(xContentBuilder), true, xContentBuilder.contentType()).v2();
     }
 }

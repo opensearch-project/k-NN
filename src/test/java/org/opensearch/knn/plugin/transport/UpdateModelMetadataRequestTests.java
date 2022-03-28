@@ -32,8 +32,15 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
         String modelId = "test-model";
         boolean isRemoveRequest = false;
 
-        ModelMetadata modelMetadata = new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
+        ModelMetadata modelMetadata = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            ""
+        );
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, isRemoveRequest, modelMetadata);
 
         BytesStreamOutput streamOutput = new BytesStreamOutput();
@@ -48,8 +55,15 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
 
     public void testValidate() {
 
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 128, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
+        ModelMetadata modelMetadata = new ModelMetadata(
+            KNNEngine.DEFAULT,
+            SpaceType.L2,
+            128,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            ""
+        );
 
         UpdateModelMetadataRequest updateModelMetadataRequest1 = new UpdateModelMetadataRequest("test", true, null);
         assertNull(updateModelMetadataRequest1.validate());
@@ -79,8 +93,15 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
     }
 
     public void testGetModelMetadata() {
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 128, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
+        ModelMetadata modelMetadata = new ModelMetadata(
+            KNNEngine.DEFAULT,
+            SpaceType.L2,
+            128,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            ""
+        );
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest("test", true, modelMetadata);
 
         assertEquals(modelMetadata, updateModelMetadataRequest.getModelMetadata());

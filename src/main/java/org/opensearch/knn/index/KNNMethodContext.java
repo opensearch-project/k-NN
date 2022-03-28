@@ -48,8 +48,11 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
     public static synchronized KNNMethodContext getDefault() {
         if (defaultInstance == null) {
-            defaultInstance = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT,
-                    new MethodComponentContext(METHOD_HNSW, Collections.emptyMap()));
+            defaultInstance = new KNNMethodContext(
+                KNNEngine.DEFAULT,
+                SpaceType.DEFAULT,
+                new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
+            );
         }
         return defaultInstance;
     }
@@ -197,15 +200,15 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
                 // Interpret all map parameters as sub-MethodComponentContexts
                 @SuppressWarnings("unchecked")
-                Map<String, Object> parameters1 = ((Map<String, Object>) value).entrySet().stream().collect(Collectors.toMap(
-                        Map.Entry::getKey, e -> {
-                            Object v = e.getValue();
-                            if (v instanceof Map) {
-                                return MethodComponentContext.parse(v);
-                            }
-                            return v;
+                Map<String, Object> parameters1 = ((Map<String, Object>) value).entrySet()
+                    .stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> {
+                        Object v = e.getValue();
+                        if (v instanceof Map) {
+                            return MethodComponentContext.parse(v);
                         }
-                ));
+                        return v;
+                    }));
 
                 parameters = parameters1;
             } else {
@@ -232,10 +235,8 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (obj == null || getClass() != obj.getClass())
-            return false;
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
         KNNMethodContext other = (KNNMethodContext) obj;
 
         EqualsBuilder equalsBuilder = new EqualsBuilder();

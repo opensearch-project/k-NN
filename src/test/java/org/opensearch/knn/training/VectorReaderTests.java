@@ -67,8 +67,15 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         // Read all vectors and confirm they match vectors
         TestVectorConsumer testVectorConsumer = new TestVectorConsumer();
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
-        vectorReader.read(clusterService, indexName, fieldName, 10000, 10, testVectorConsumer,
-                ActionListener.wrap(response -> inProgressLatch1.countDown(), e -> fail(e.toString())));
+        vectorReader.read(
+            clusterService,
+            indexName,
+            fieldName,
+            10000,
+            10,
+            testVectorConsumer,
+            ActionListener.wrap(response -> inProgressLatch1.countDown(), e -> fail(e.toString()))
+        );
 
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 
@@ -104,7 +111,7 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
 
             vectors.add(vector);
 
-            addKnnDoc(indexName, Integer.toString(i ), fieldName, vector);
+            addKnnDoc(indexName, Integer.toString(i), fieldName, vector);
         }
 
         // Create documents that do not have fieldName for training
@@ -121,8 +128,15 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         // Read all vectors and confirm they match vectors
         TestVectorConsumer testVectorConsumer = new TestVectorConsumer();
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
-        vectorReader.read(clusterService, indexName, fieldName, 10000, 10, testVectorConsumer,
-                ActionListener.wrap(response -> inProgressLatch1.countDown(), e -> fail(e.toString())));
+        vectorReader.read(
+            clusterService,
+            indexName,
+            fieldName,
+            10000,
+            10,
+            testVectorConsumer,
+            ActionListener.wrap(response -> inProgressLatch1.countDown(), e -> fail(e.toString()))
+        );
 
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 
@@ -156,7 +170,7 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
                 vector[j] = random.nextFloat();
             }
 
-            addKnnDoc(indexName, Integer.toString(i ), fieldName, vector);
+            addKnnDoc(indexName, Integer.toString(i), fieldName, vector);
         }
 
         // Configure VectorReader
@@ -166,8 +180,15 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         // Read maxNumVectorsRead vectors
         TestVectorConsumer testVectorConsumer = new TestVectorConsumer();
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
-        vectorReader.read(clusterService, indexName, fieldName, maxNumVectorsRead, 10, testVectorConsumer,
-                ActionListener.wrap(response -> inProgressLatch1.countDown(), e -> fail(e.toString())));
+        vectorReader.read(
+            clusterService,
+            indexName,
+            fieldName,
+            maxNumVectorsRead,
+            10,
+            testVectorConsumer,
+            ActionListener.wrap(response -> inProgressLatch1.countDown(), e -> fail(e.toString()))
+        );
 
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 

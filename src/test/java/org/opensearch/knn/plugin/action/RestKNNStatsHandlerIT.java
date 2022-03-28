@@ -82,11 +82,11 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
 
         // Index test document
-        Float[] vector = {6.0f, 6.0f};
+        Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
 
         // First search: Ensure that misses=1
-        float[] qvector = {6.0f, 6.0f};
+        float[] qvector = { 6.0f, 6.0f };
         searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1);
 
         response = getKnnStats(Collections.emptyList(), Collections.emptyList());
@@ -137,8 +137,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      * Test checks that handler correctly returns failure on an invalid metric
      */
     public void testInvalidMetricsStats() {
-        expectThrows(ResponseException.class, () -> getKnnStats(Collections.emptyList(),
-            Collections.singletonList("invalid_metric")));
+        expectThrows(ResponseException.class, () -> getKnnStats(Collections.emptyList(), Collections.singletonList("invalid_metric")));
     }
 
     /**
@@ -172,10 +171,13 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         clearScriptCache();
 
         // Get initial stats
-        Response response = getKnnStats(Collections.emptyList(), Arrays.asList(
-            StatNames.SCRIPT_COMPILATIONS.getName(),
-            StatNames.SCRIPT_QUERY_REQUESTS.getName(),
-            StatNames.SCRIPT_QUERY_ERRORS.getName())
+        Response response = getKnnStats(
+            Collections.emptyList(),
+            Arrays.asList(
+                StatNames.SCRIPT_COMPILATIONS.getName(),
+                StatNames.SCRIPT_QUERY_REQUESTS.getName(),
+                StatNames.SCRIPT_QUERY_ERRORS.getName()
+            )
         );
         List<Map<String, Object>> nodeStats = parseNodeStatsResponse(EntityUtils.toString(response.getEntity()));
         int initialScriptCompilations = (int) (nodeStats.get(0).get(StatNames.SCRIPT_COMPILATIONS.getName()));
@@ -184,29 +186,27 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
         // Create an index with a single vector
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
-        Float[] vector = {6.0f, 6.0f};
+        Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
 
         // Check l2 query and script compilation stats
         QueryBuilder qb = new MatchAllQueryBuilder();
         Map<String, Object> params = new HashMap<>();
-        float[] queryVector = {1.0f, 1.0f};
+        float[] queryVector = { 1.0f, 1.0f };
         params.put("field", FIELD_NAME);
         params.put("query_value", queryVector);
         params.put("space_type", SpaceType.L2.getValue());
         Request request = constructKNNScriptQueryRequest(INDEX_NAME, qb, params);
         response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-            RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
-        response = getKnnStats(Collections.emptyList(), Arrays.asList(
-            StatNames.SCRIPT_COMPILATIONS.getName(),
-            StatNames.SCRIPT_QUERY_REQUESTS.getName())
+        response = getKnnStats(
+            Collections.emptyList(),
+            Arrays.asList(StatNames.SCRIPT_COMPILATIONS.getName(), StatNames.SCRIPT_QUERY_REQUESTS.getName())
         );
         nodeStats = parseNodeStatsResponse(EntityUtils.toString(response.getEntity()));
         assertEquals((int) (nodeStats.get(0).get(StatNames.SCRIPT_COMPILATIONS.getName())), initialScriptCompilations + 1);
-        assertEquals(initialScriptQueryRequests + 1,
-            (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_REQUESTS.getName())));
+        assertEquals(initialScriptQueryRequests + 1, (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_REQUESTS.getName())));
 
         // Check query error stats
         params = new HashMap<>();
@@ -217,12 +217,9 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         Request finalRequest = request;
         expectThrows(ResponseException.class, () -> client().performRequest(finalRequest));
 
-        response = getKnnStats(Collections.emptyList(), Collections.singletonList(
-            StatNames.SCRIPT_QUERY_ERRORS.getName())
-        );
+        response = getKnnStats(Collections.emptyList(), Collections.singletonList(StatNames.SCRIPT_QUERY_ERRORS.getName()));
         nodeStats = parseNodeStatsResponse(EntityUtils.toString(response.getEntity()));
-        assertEquals(initialScriptQueryErrors + 1,
-            (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_ERRORS.getName())));
+        assertEquals(initialScriptQueryErrors + 1, (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_ERRORS.getName())));
     }
 
     /**
@@ -232,10 +229,13 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         clearScriptCache();
 
         // Get initial stats
-        Response response = getKnnStats(Collections.emptyList(), Arrays.asList(
-            StatNames.SCRIPT_COMPILATIONS.getName(),
-            StatNames.SCRIPT_QUERY_REQUESTS.getName(),
-            StatNames.SCRIPT_QUERY_ERRORS.getName())
+        Response response = getKnnStats(
+            Collections.emptyList(),
+            Arrays.asList(
+                StatNames.SCRIPT_COMPILATIONS.getName(),
+                StatNames.SCRIPT_QUERY_REQUESTS.getName(),
+                StatNames.SCRIPT_QUERY_ERRORS.getName()
+            )
         );
         List<Map<String, Object>> nodeStats = parseNodeStatsResponse(EntityUtils.toString(response.getEntity()));
         int initialScriptCompilations = (int) (nodeStats.get(0).get(StatNames.SCRIPT_COMPILATIONS.getName()));
@@ -243,14 +243,13 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         int initialScriptQueryErrors = (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_ERRORS.getName()));
 
         // Create an index with a single vector
-        createKnnIndex(INDEX_NAME, Settings.builder()
-                .put("number_of_shards", 2)
-                .put("number_of_replicas", 0)
-                .put("index.knn", true)
-                .build(),
-            createKnnIndexMapping(FIELD_NAME, 2));
+        createKnnIndex(
+            INDEX_NAME,
+            Settings.builder().put("number_of_shards", 2).put("number_of_replicas", 0).put("index.knn", true).build(),
+            createKnnIndexMapping(FIELD_NAME, 2)
+        );
 
-        Float[] vector = {6.0f, 6.0f};
+        Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
         addKnnDoc(INDEX_NAME, "2", FIELD_NAME, vector);
         addKnnDoc(INDEX_NAME, "3", FIELD_NAME, vector);
@@ -259,25 +258,23 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         // Check l2 query and script compilation stats
         QueryBuilder qb = new MatchAllQueryBuilder();
         Map<String, Object> params = new HashMap<>();
-        float[] queryVector = {1.0f, 1.0f};
+        float[] queryVector = { 1.0f, 1.0f };
         params.put("field", FIELD_NAME);
         params.put("query_value", queryVector);
         params.put("space_type", SpaceType.L2.getValue());
         Request request = constructKNNScriptQueryRequest(INDEX_NAME, qb, params);
         response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-            RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
-        response = getKnnStats(Collections.emptyList(), Arrays.asList(
-            StatNames.SCRIPT_COMPILATIONS.getName(),
-            StatNames.SCRIPT_QUERY_REQUESTS.getName())
+        response = getKnnStats(
+            Collections.emptyList(),
+            Arrays.asList(StatNames.SCRIPT_COMPILATIONS.getName(), StatNames.SCRIPT_QUERY_REQUESTS.getName())
         );
         nodeStats = parseNodeStatsResponse(EntityUtils.toString(response.getEntity()));
         assertEquals((int) (nodeStats.get(0).get(StatNames.SCRIPT_COMPILATIONS.getName())), initialScriptCompilations + 1);
-        //TODO fix the test case. For some reason request count is treated as 4.
+        // TODO fix the test case. For some reason request count is treated as 4.
         // https://github.com/opendistro-for-elasticsearch/k-NN/issues/272
-        assertEquals(initialScriptQueryRequests + 4,
-            (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_REQUESTS.getName())));
+        assertEquals(initialScriptQueryRequests + 4, (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_REQUESTS.getName())));
 
         // Check query error stats
         params = new HashMap<>();
@@ -288,12 +285,9 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         Request finalRequest = request;
         expectThrows(ResponseException.class, () -> client().performRequest(finalRequest));
 
-        response = getKnnStats(Collections.emptyList(), Collections.singletonList(
-            StatNames.SCRIPT_QUERY_ERRORS.getName())
-        );
+        response = getKnnStats(Collections.emptyList(), Collections.singletonList(StatNames.SCRIPT_QUERY_ERRORS.getName()));
         nodeStats = parseNodeStatsResponse(EntityUtils.toString(response.getEntity()));
-        assertEquals(initialScriptQueryErrors + 2,
-            (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_ERRORS.getName())));
+        assertEquals(initialScriptQueryErrors + 2, (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_ERRORS.getName())));
     }
 
     public void testModelIndexHealthMetricsStats() throws IOException {
@@ -318,7 +312,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         assertNotNull(statsMap.get(modelIndexStatusName));
 
         // Check value is indeed part of ClusterHealthStatus
-        assertNotNull(ClusterHealthStatus.fromString((String)statsMap.get(modelIndexStatusName)));
+        assertNotNull(ClusterHealthStatus.fromString((String) statsMap.get(modelIndexStatusName)));
 
     }
 
@@ -339,14 +333,11 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         assertEquals(false, nodeStats.get(statName));
     }
 
-
     // Useful settings when debugging to prevent timeouts
     @Override
     protected Settings restClientSettings() {
         if (isDebuggingTest || isDebuggingRemoteCluster) {
-            return Settings.builder()
-                .put(CLIENT_SOCKET_TIMEOUT, TimeValue.timeValueMinutes(10))
-                .build();
+            return Settings.builder().put(CLIENT_SOCKET_TIMEOUT, TimeValue.timeValueMinutes(10)).build();
         } else {
             return super.restClientSettings();
         }

@@ -30,8 +30,7 @@ public class JNIService {
      * @param parameters parameters to build index
      * @param engineName name of engine to build index for
      */
-    public static void createIndex(int[] ids, float[][] data, String indexPath, Map<String, Object> parameters,
-                                          String engineName) {
+    public static void createIndex(int[] ids, float[][] data, String indexPath, Map<String, Object> parameters, String engineName) {
         if (KNNEngine.NMSLIB.getName().equals(engineName)) {
             NmslibService.createIndex(ids, data, indexPath, parameters);
             return;
@@ -55,8 +54,14 @@ public class JNIService {
      * @param parameters parameters to build index
      * @param engineName name of engine to build index for
      */
-    public static void createIndexFromTemplate(int[] ids, float[][] data, String indexPath, byte[] templateIndex,
-                                               Map<String, Object> parameters, String engineName) {
+    public static void createIndexFromTemplate(
+        int[] ids,
+        float[][] data,
+        String indexPath,
+        byte[] templateIndex,
+        Map<String, Object> parameters,
+        String engineName
+    ) {
         if (KNNEngine.FAISS.getName().equals(engineName)) {
             FaissService.createIndexFromTemplate(ids, data, indexPath, templateIndex, parameters);
             return;
@@ -135,8 +140,7 @@ public class JNIService {
      * @param engineName engine to perform the training
      * @return bytes array of trained template index
      */
-    public static byte[] trainIndex(Map<String, Object> indexParameters, int dimension, long trainVectorsPointer,
-                                           String engineName) {
+    public static byte[] trainIndex(Map<String, Object> indexParameters, int dimension, long trainVectorsPointer, String engineName) {
         if (KNNEngine.FAISS.getName().equals(engineName)) {
             return FaissService.trainIndex(indexParameters, dimension, trainVectorsPointer);
         }

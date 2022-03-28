@@ -23,86 +23,80 @@ import static org.mockito.Mockito.mock;
 public class KNNScoringSpaceTests extends KNNTestCase {
 
     public void testL2() {
-        float[] arrayFloat = new float[]{1.0f, 2.0f, 3.0f};
+        float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
         List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
-        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType("test",
-                Collections.emptyMap(), 3);
+        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType("test", Collections.emptyMap(), 3);
         KNNScoringSpace.L2 l2 = new KNNScoringSpace.L2(arrayListQueryObject, fieldType);
         assertEquals(1F, l2.scoringMethod.apply(arrayFloat, arrayFloat), 0.1F);
 
-        NumberFieldMapper.NumberFieldType invalidFieldType = new NumberFieldMapper.NumberFieldType("field",
-                NumberFieldMapper.NumberType.INTEGER);
-        expectThrows(IllegalArgumentException.class, () ->
-                new KNNScoringSpace.L2(arrayListQueryObject, invalidFieldType));
+        NumberFieldMapper.NumberFieldType invalidFieldType = new NumberFieldMapper.NumberFieldType(
+            "field",
+            NumberFieldMapper.NumberType.INTEGER
+        );
+        expectThrows(IllegalArgumentException.class, () -> new KNNScoringSpace.L2(arrayListQueryObject, invalidFieldType));
     }
 
     public void testCosineSimilarity() {
-        float[] arrayFloat = new float[]{1.0f, 2.0f, 3.0f};
+        float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
         List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
-        float[] arrayFloat2 = new float[]{2.0f, 4.0f, 6.0f};
+        float[] arrayFloat2 = new float[] { 2.0f, 4.0f, 6.0f };
 
-        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType("test",
-                Collections.emptyMap(), 3);
-        KNNScoringSpace.CosineSimilarity cosineSimilarity =
-                new KNNScoringSpace.CosineSimilarity(arrayListQueryObject, fieldType);
+        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType("test", Collections.emptyMap(), 3);
+        KNNScoringSpace.CosineSimilarity cosineSimilarity = new KNNScoringSpace.CosineSimilarity(arrayListQueryObject, fieldType);
 
         assertEquals(3F, cosineSimilarity.scoringMethod.apply(arrayFloat2, arrayFloat), 0.1F);
 
-        NumberFieldMapper.NumberFieldType invalidFieldType = new NumberFieldMapper.NumberFieldType("field",
-                NumberFieldMapper.NumberType.INTEGER);
-        expectThrows(IllegalArgumentException.class, () ->
-                new KNNScoringSpace.CosineSimilarity(arrayListQueryObject, invalidFieldType));
+        NumberFieldMapper.NumberFieldType invalidFieldType = new NumberFieldMapper.NumberFieldType(
+            "field",
+            NumberFieldMapper.NumberType.INTEGER
+        );
+        expectThrows(IllegalArgumentException.class, () -> new KNNScoringSpace.CosineSimilarity(arrayListQueryObject, invalidFieldType));
     }
 
     public void testInnerProdSimilarity() {
-        float[] arrayFloat_case1 = new float[]{1.0f, 2.0f, 3.0f};
+        float[] arrayFloat_case1 = new float[] { 1.0f, 2.0f, 3.0f };
         List<Double> arrayListQueryObject_case1 = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
-        float[] arrayFloat2_case1 = new float[]{1.0f, 1.0f, 1.0f};
+        float[] arrayFloat2_case1 = new float[] { 1.0f, 1.0f, 1.0f };
 
-        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType("test",
-                Collections.emptyMap(), 3);
-        KNNScoringSpace.InnerProd innerProd =
-                new KNNScoringSpace.InnerProd(arrayListQueryObject_case1, fieldType);
+        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType("test", Collections.emptyMap(), 3);
+        KNNScoringSpace.InnerProd innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case1, fieldType);
 
         assertEquals(7.0F, innerProd.scoringMethod.apply(arrayFloat_case1, arrayFloat2_case1), 0.001F);
 
-        float[] arrayFloat_case2 = new float[]{100_000.0f, 200_000.0f, 300_000.0f};
+        float[] arrayFloat_case2 = new float[] { 100_000.0f, 200_000.0f, 300_000.0f };
         List<Double> arrayListQueryObject_case2 = new ArrayList<>(Arrays.asList(100_000.0, 200_000.0, 300_000.0));
-        float[] arrayFloat2_case2 = new float[]{-100_000.0f, -200_000.0f, -300_000.0f};
+        float[] arrayFloat2_case2 = new float[] { -100_000.0f, -200_000.0f, -300_000.0f };
 
         innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case2, fieldType);
 
-        assertEquals(7.142857143E-12F, innerProd.scoringMethod.apply(arrayFloat_case2, arrayFloat2_case2),
-                1.0E-11F);
+        assertEquals(7.142857143E-12F, innerProd.scoringMethod.apply(arrayFloat_case2, arrayFloat2_case2), 1.0E-11F);
 
-        float[] arrayFloat_case3 = new float[]{100_000.0f, 200_000.0f, 300_000.0f};
+        float[] arrayFloat_case3 = new float[] { 100_000.0f, 200_000.0f, 300_000.0f };
         List<Double> arrayListQueryObject_case3 = new ArrayList<>(Arrays.asList(100_000.0, 200_000.0, 300_000.0));
-        float[] arrayFloat2_case3 = new float[]{100_000.0f, 200_000.0f, 300_000.0f};
+        float[] arrayFloat2_case3 = new float[] { 100_000.0f, 200_000.0f, 300_000.0f };
 
         innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case3, fieldType);
 
         assertEquals(140_000_000_001F, innerProd.scoringMethod.apply(arrayFloat_case3, arrayFloat2_case3), 0.01F);
 
-        NumberFieldMapper.NumberFieldType invalidFieldType = new NumberFieldMapper.NumberFieldType("field",
-                NumberFieldMapper.NumberType.INTEGER);
-        expectThrows(IllegalArgumentException.class, () ->
-                new KNNScoringSpace.InnerProd(arrayListQueryObject_case2, invalidFieldType));
+        NumberFieldMapper.NumberFieldType invalidFieldType = new NumberFieldMapper.NumberFieldType(
+            "field",
+            NumberFieldMapper.NumberType.INTEGER
+        );
+        expectThrows(IllegalArgumentException.class, () -> new KNNScoringSpace.InnerProd(arrayListQueryObject_case2, invalidFieldType));
     }
 
     @SuppressWarnings("unchecked")
     public void testHammingBit_Long() {
-        NumberFieldMapper.NumberFieldType fieldType = new NumberFieldMapper.NumberFieldType("field",
-                NumberFieldMapper.NumberType.LONG);
+        NumberFieldMapper.NumberFieldType fieldType = new NumberFieldMapper.NumberFieldType("field", NumberFieldMapper.NumberType.LONG);
         Long longObject1 = 1234L; // ..._0000_0100_1101_0010
         Long longObject2 = 2468L; // ..._0000_1001_1010_0100
         KNNScoringSpace.HammingBit hammingBit = new KNNScoringSpace.HammingBit(longObject1, fieldType);
 
-        assertEquals(0.1111F,
-                ((BiFunction<Long, Long, Float>)hammingBit.scoringMethod).apply(longObject1, longObject2), 0.1F);
+        assertEquals(0.1111F, ((BiFunction<Long, Long, Float>) hammingBit.scoringMethod).apply(longObject1, longObject2), 0.1F);
 
         KNNVectorFieldMapper.KNNVectorFieldType invalidFieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
-        expectThrows(IllegalArgumentException.class, () ->
-                new KNNScoringSpace.HammingBit(longObject1, invalidFieldType));
+        expectThrows(IllegalArgumentException.class, () -> new KNNScoringSpace.HammingBit(longObject1, invalidFieldType));
     }
 
     @SuppressWarnings("unchecked")
@@ -120,14 +114,16 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         float expectedResult = 1F / (1 + 16);
         KNNScoringSpace.HammingBit hammingBit = new KNNScoringSpace.HammingBit(base64Object1, fieldType);
 
-        assertEquals(expectedResult,
-                ((BiFunction<BigInteger, BigInteger, Float>)hammingBit.scoringMethod).apply(
-                        new BigInteger(Base64.getDecoder().decode(base64Object1)),
-                        new BigInteger(Base64.getDecoder().decode(base64Object2))
-                ), 0.1F);
+        assertEquals(
+            expectedResult,
+            ((BiFunction<BigInteger, BigInteger, Float>) hammingBit.scoringMethod).apply(
+                new BigInteger(Base64.getDecoder().decode(base64Object1)),
+                new BigInteger(Base64.getDecoder().decode(base64Object2))
+            ),
+            0.1F
+        );
 
         KNNVectorFieldMapper.KNNVectorFieldType invalidFieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
-        expectThrows(IllegalArgumentException.class, () ->
-                new KNNScoringSpace.HammingBit(base64Object1, invalidFieldType));
+        expectThrows(IllegalArgumentException.class, () -> new KNNScoringSpace.HammingBit(base64Object1, invalidFieldType));
     }
 }

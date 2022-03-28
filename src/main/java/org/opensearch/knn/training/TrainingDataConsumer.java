@@ -36,7 +36,11 @@ public class TrainingDataConsumer implements Consumer<List<Float[]>> {
 
     @Override
     public void accept(List<Float[]> floats) {
-        trainingDataAllocation.setMemoryAddress(JNIService.transferVectors(trainingDataAllocation.getMemoryAddress(),
-                floats.stream().map(ArrayUtils::toPrimitive).toArray(float[][]::new)));
+        trainingDataAllocation.setMemoryAddress(
+            JNIService.transferVectors(
+                trainingDataAllocation.getMemoryAddress(),
+                floats.stream().map(ArrayUtils::toPrimitive).toArray(float[][]::new)
+            )
+        );
     }
 }

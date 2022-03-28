@@ -39,8 +39,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
         Objects.requireNonNull(properties);
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject().startObject("properties");
         for (MappingProperty property : properties) {
-            XContentBuilder builder = xContentBuilder.startObject(property.getName())
-                    .field("type", property.getType());
+            XContentBuilder builder = xContentBuilder.startObject(property.getName()).field("type", property.getType());
             if (property.getDimension() != null) {
                 builder.field("dimension", property.getDimension());
             }
@@ -64,54 +63,54 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
 
     private Map<String, Float[]> getKnnVectorTestData() {
         Map<String, Float[]> data = new HashMap<>();
-        data.put("1", new Float[]{100.0f, 1.0f});
-        data.put("2", new Float[]{99.0f, 2.0f});
-        data.put("3", new Float[]{97.0f, 3.0f});
-        data.put("4", new Float[]{98.0f, 4.0f});
+        data.put("1", new Float[] { 100.0f, 1.0f });
+        data.put("2", new Float[] { 99.0f, 2.0f });
+        data.put("3", new Float[] { 97.0f, 3.0f });
+        data.put("4", new Float[] { 98.0f, 4.0f });
         return data;
     }
 
     private Map<String, Float[]> getL2TestData() {
         Map<String, Float[]> data = new HashMap<>();
-        data.put("1", new Float[]{6.0f, 6.0f});
-        data.put("2", new Float[]{2.0f, 2.0f});
-        data.put("3", new Float[]{4.0f, 4.0f});
-        data.put("4", new Float[]{3.0f, 3.0f});
+        data.put("1", new Float[] { 6.0f, 6.0f });
+        data.put("2", new Float[] { 2.0f, 2.0f });
+        data.put("3", new Float[] { 4.0f, 4.0f });
+        data.put("4", new Float[] { 3.0f, 3.0f });
         return data;
     }
 
     private Map<String, Float[]> getL1TestData() {
         Map<String, Float[]> data = new HashMap<>();
-        data.put("1", new Float[]{6.0f, 6.0f});
-        data.put("2", new Float[]{4.0f, 1.0f});
-        data.put("3", new Float[]{3.0f, 3.0f});
-        data.put("4", new Float[]{5.0f, 5.0f});
+        data.put("1", new Float[] { 6.0f, 6.0f });
+        data.put("2", new Float[] { 4.0f, 1.0f });
+        data.put("3", new Float[] { 3.0f, 3.0f });
+        data.put("4", new Float[] { 5.0f, 5.0f });
         return data;
     }
 
     private Map<String, Float[]> getLInfTestData() {
         Map<String, Float[]> data = new HashMap<>();
-        data.put("1", new Float[]{6.0f, 6.0f});
-        data.put("2", new Float[]{4.0f, 1.0f});
-        data.put("3", new Float[]{3.0f, 3.0f});
-        data.put("4", new Float[]{5.0f, 5.0f});
+        data.put("1", new Float[] { 6.0f, 6.0f });
+        data.put("2", new Float[] { 4.0f, 1.0f });
+        data.put("3", new Float[] { 3.0f, 3.0f });
+        data.put("4", new Float[] { 5.0f, 5.0f });
         return data;
     }
 
     private Map<String, Float[]> getInnerProdTestData() {
         Map<String, Float[]> data = new HashMap<>();
-        data.put("1", new Float[]{-2.0f, -2.0f});
-        data.put("2", new Float[]{1.0f, 1.0f});
-        data.put("3", new Float[]{2.0f, 2.0f});
-        data.put("4", new Float[]{2.0f, -2.0f});
+        data.put("1", new Float[] { -2.0f, -2.0f });
+        data.put("2", new Float[] { 1.0f, 1.0f });
+        data.put("3", new Float[] { 2.0f, 2.0f });
+        data.put("4", new Float[] { 2.0f, -2.0f });
         return data;
     }
 
     private Map<String, Float[]> getCosineTestData() {
         Map<String, Float[]> data = new HashMap<>();
-        data.put("0", new Float[]{1.0f, -1.0f});
-        data.put("2", new Float[]{1.0f, 1.0f});
-        data.put("1", new Float[]{1.0f, 0.0f});
+        data.put("0", new Float[] { 1.0f, -1.0f });
+        data.put("2", new Float[] { 1.0f, 1.0f });
+        data.put("1", new Float[] { 1.0f, 0.0f });
         return data;
     }
 
@@ -133,12 +132,10 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
         deleteKNNIndex(INDEX_NAME);
     }
 
-    private Request buildPainlessScriptRequest(
-            String source, int size, Map<String, Float[]> documents) throws Exception {
+    private Request buildPainlessScriptRequest(String source, int size, Map<String, Float[]> documents) throws Exception {
         buildTestIndex(documents);
         QueryBuilder qb = new MatchAllQueryBuilder();
-        return constructScriptQueryRequest(
-                INDEX_NAME, qb, Collections.emptyMap(), Script.DEFAULT_SCRIPT_LANG, source, size);
+        return constructScriptQueryRequest(INDEX_NAME, qb, Collections.emptyMap(), Script.DEFAULT_SCRIPT_LANG, source, size);
     }
 
     public void testL2ScriptScore() throws Exception {
@@ -147,14 +144,12 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
         Request request = buildPainlessScriptRequest(source, 3, getL2TestData());
 
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(3, results.size());
 
-
-        String[] expectedDocIDs = {"2", "4", "3", "1"};
+        String[] expectedDocIDs = { "2", "4", "3", "1" };
         for (int i = 0; i < results.size(); i++) {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
@@ -168,14 +163,12 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
         Request request = buildPainlessScriptRequest(source, testData.size(), testData);
 
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
-        assertEquals(testData.size(),results.size());
+        assertEquals(testData.size(), results.size());
 
-
-        String[] expectedDocIDs = {"1", "2", "4", "3"};
+        String[] expectedDocIDs = { "1", "2", "4", "3" };
         for (int i = 0; i < results.size(); i++) {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
@@ -198,23 +191,19 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
         deleteKNNIndex(INDEX_NAME);
     }
 
-
     public void testGetValueScriptScoreWithNumericField() throws Exception {
 
-        String source = String.format(
-                "doc['%s'].size() == 0 ? 0 : doc['%s'].value[0]", FIELD_NAME, FIELD_NAME);
+        String source = String.format("doc['%s'].size() == 0 ? 0 : doc['%s'].value[0]", FIELD_NAME, FIELD_NAME);
         Map<String, Float[]> testData = getKnnVectorTestData();
         Request request = buildPainlessScriptRequest(source, testData.size(), testData);
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(testData.size(), results.size());
 
-
-        String[] expectedDocIDs = {"1", "2", "4", "3"};
+        String[] expectedDocIDs = { "1", "2", "4", "3" };
         for (int i = 0; i < results.size(); i++) {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
@@ -223,19 +212,16 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
 
     public void testL2ScriptScoreWithNumericField() throws Exception {
 
-        String source = String.format(
-                "doc['%s'].size() == 0 ? 0 : 1/(1 + l2Squared([1.0f, 1.0f], doc['%s']))", FIELD_NAME, FIELD_NAME);
+        String source = String.format("doc['%s'].size() == 0 ? 0 : 1/(1 + l2Squared([1.0f, 1.0f], doc['%s']))", FIELD_NAME, FIELD_NAME);
         Request request = buildPainlessScriptRequest(source, 3, getL2TestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(3, results.size());
 
-
-        String[] expectedDocIDs = {"2", "4", "3", "1"};
+        String[] expectedDocIDs = { "2", "4", "3", "1" };
         for (int i = 0; i < results.size(); i++) {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
@@ -254,13 +240,12 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
         String source = String.format("1 + cosineSimilarity([2.0f, -2.0f], doc['%s'])", FIELD_NAME);
         Request request = buildPainlessScriptRequest(source, 3, getCosineTestData());
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(3, results.size());
 
-        String[] expectedDocIDs = {"0", "1", "2"};
+        String[] expectedDocIDs = { "0", "1", "2" };
         for (int i = 0; i < results.size(); i++) {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
@@ -268,18 +253,16 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
     }
 
     public void testCosineSimilarityScriptScoreWithNumericField() throws Exception {
-        String source = String.format(
-                "doc['%s'].size() == 0 ? 0 : 1 + cosineSimilarity([2.0f, -2.0f], doc['%s'])", FIELD_NAME, FIELD_NAME);
+        String source = String.format("doc['%s'].size() == 0 ? 0 : 1 + cosineSimilarity([2.0f, -2.0f], doc['%s'])", FIELD_NAME, FIELD_NAME);
         Request request = buildPainlessScriptRequest(source, 3, getCosineTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(3, results.size());
 
-        String[] expectedDocIDs = {"0", "1", "2"};
+        String[] expectedDocIDs = { "0", "1", "2" };
         for (int i = 0; i < results.size(); i++) {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
@@ -299,13 +282,12 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
         String source = String.format("1 + cosineSimilarity([2.0f, -2.0f], doc['%s'], 3.0f)", FIELD_NAME);
         Request request = buildPainlessScriptRequest(source, 3, getCosineTestData());
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(3, results.size());
 
-        String[] expectedDocIDs = {"0", "1", "2"};
+        String[] expectedDocIDs = { "0", "1", "2" };
         for (int i = 0; i < results.size(); i++) {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
@@ -314,18 +296,19 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
 
     public void testCosineSimilarityNormalizedScriptScoreWithNumericField() throws Exception {
         String source = String.format(
-                "doc['%s'].size() == 0 ? 0 : 1 + cosineSimilarity([2.0f, -2.0f], doc['%s'], 3.0f)",
-                FIELD_NAME, FIELD_NAME);
+            "doc['%s'].size() == 0 ? 0 : 1 + cosineSimilarity([2.0f, -2.0f], doc['%s'], 3.0f)",
+            FIELD_NAME,
+            FIELD_NAME
+        );
         Request request = buildPainlessScriptRequest(source, 3, getCosineTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(3, results.size());
 
-        String[] expectedDocIDs = {"0", "1", "2"};
+        String[] expectedDocIDs = { "0", "1", "2" };
         for (int i = 0; i < results.size(); i++) {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
@@ -340,20 +323,19 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
         expectThrows(ResponseException.class, () -> client().performRequest(request));
         deleteKNNIndex(INDEX_NAME);
     }
+
     public void testL1ScriptScore() throws Exception {
 
         String source = String.format("1/(1 + l1Norm([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
         Request request = buildPainlessScriptRequest(source, 3, getL1TestData());
 
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(3, results.size());
 
-
-        String[] expectedDocIDs = {"2", "3", "4", "1"};
+        String[] expectedDocIDs = { "2", "3", "4", "1" };
         for (int i = 0; i < results.size(); i++) {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
@@ -362,47 +344,43 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
 
     public void testL1ScriptScoreWithNumericField() throws Exception {
 
-        String source = String.format(
-                "doc['%s'].size() == 0 ? 0 : 1/(1 + l1Norm([1.0f, 1.0f], doc['%s']))", FIELD_NAME, FIELD_NAME);
+        String source = String.format("doc['%s'].size() == 0 ? 0 : 1/(1 + l1Norm([1.0f, 1.0f], doc['%s']))", FIELD_NAME, FIELD_NAME);
         Request request = buildPainlessScriptRequest(source, 3, getL1TestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(3, results.size());
 
-
-        String[] expectedDocIDs = {"2", "3", "4", "1"};
+        String[] expectedDocIDs = { "2", "3", "4", "1" };
         for (int i = 0; i < results.size(); i++) {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
         deleteKNNIndex(INDEX_NAME);
     }
 
-     // L-inf tests
-     public void testLInfScriptScoreFails() throws Exception {
+    // L-inf tests
+    public void testLInfScriptScoreFails() throws Exception {
         String source = String.format("1/(1 + lInfNorm([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
         Request request = buildPainlessScriptRequest(source, 3, getLInfTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         expectThrows(ResponseException.class, () -> client().performRequest(request));
         deleteKNNIndex(INDEX_NAME);
     }
+
     public void testLInfScriptScore() throws Exception {
 
         String source = String.format("1/(1 + lInfNorm([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
         Request request = buildPainlessScriptRequest(source, 3, getLInfTestData());
 
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(3, results.size());
 
-
-        String[] expectedDocIDs = {"3", "2", "4", "1"};
+        String[] expectedDocIDs = { "3", "2", "4", "1" };
         for (int i = 0; i < results.size(); i++) {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
@@ -411,19 +389,16 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
 
     public void testLInfScriptScoreWithNumericField() throws Exception {
 
-        String source = String.format(
-                "doc['%s'].size() == 0 ? 0 : 1/(1 + lInfNorm([1.0f, 1.0f], doc['%s']))", FIELD_NAME, FIELD_NAME);
+        String source = String.format("doc['%s'].size() == 0 ? 0 : 1/(1 + lInfNorm([1.0f, 1.0f], doc['%s']))", FIELD_NAME, FIELD_NAME);
         Request request = buildPainlessScriptRequest(source, 3, getLInfTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(3, results.size());
 
-
-        String[] expectedDocIDs = {"3", "2", "4", "1"};
+        String[] expectedDocIDs = { "3", "2", "4", "1" };
         for (int i = 0; i < results.size(); i++) {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
@@ -431,8 +406,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
     }
 
     public void testInnerProdScriptScoreFails() throws Exception {
-        String source = String.format(
-                "float x = innerProduct([1.0f, 1.0f], doc['%s']); return x >= 0? 2-1/(x+1):1/(1-x);", FIELD_NAME);
+        String source = String.format("float x = innerProduct([1.0f, 1.0f], doc['%s']); return x >= 0? 2-1/(x+1):1/(1-x);", FIELD_NAME);
         Request request = buildPainlessScriptRequest(source, 3, getInnerProdTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         expectThrows(ResponseException.class, () -> client().performRequest(request));
@@ -441,19 +415,16 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
 
     public void testInnerProdScriptScore() throws Exception {
 
-        String source = String.format(
-                "float x = innerProduct([1.0f, 1.0f], doc['%s']); return x >= 0? 2-1/(x+1):1/(1-x);", FIELD_NAME);
+        String source = String.format("float x = innerProduct([1.0f, 1.0f], doc['%s']); return x >= 0? 2-1/(x+1):1/(1-x);", FIELD_NAME);
         Request request = buildPainlessScriptRequest(source, 3, getInnerProdTestData());
 
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(3, results.size());
 
-
-        String[] expectedDocIDs = {"3", "2", "4", "1"};
+        String[] expectedDocIDs = { "3", "2", "4", "1" };
         for (int i = 0; i < results.size(); i++) {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
@@ -463,28 +434,27 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
     public void testInnerProdScriptScoreWithNumericField() throws Exception {
 
         String source = String.format(
-                "if (doc['%s'].size() == 0) " +
-                        "{ return 0; } " +
-                        "else " +
-                        "{ float x = innerProduct([1.0f, 1.0f], doc['%s']); return x >= 0? 2-1/(x+1):1/(1-x); }",
-                FIELD_NAME, FIELD_NAME);
+            "if (doc['%s'].size() == 0) "
+                + "{ return 0; } "
+                + "else "
+                + "{ float x = innerProduct([1.0f, 1.0f], doc['%s']); return x >= 0? 2-1/(x+1):1/(1-x); }",
+            FIELD_NAME,
+            FIELD_NAME
+        );
         Request request = buildPainlessScriptRequest(source, 3, getInnerProdTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK,
-                RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(3, results.size());
 
-
-        String[] expectedDocIDs = {"3", "2", "4", "1"};
+        String[] expectedDocIDs = { "3", "2", "4", "1" };
         for (int i = 0; i < results.size(); i++) {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
         deleteKNNIndex(INDEX_NAME);
     }
-
 
     class MappingProperty {
 
@@ -515,4 +485,3 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
         }
     }
 }
-

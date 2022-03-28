@@ -56,11 +56,12 @@ public class TrainingModelResponseTests extends KNNTestCase {
 
         // We expect this:
         // {
-        //    "model_id": "test-model-id"
+        // "model_id": "test-model-id"
         // }
-        XContentBuilder expectedXContentBuilder = XContentFactory.jsonBuilder().startObject()
-                .field(KNNConstants.MODEL_ID, modelId)
-                .endObject();
+        XContentBuilder expectedXContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(KNNConstants.MODEL_ID, modelId)
+            .endObject();
         Map<String, Object> expected = xContentBuilderToMap(expectedXContentBuilder);
 
         // Check responses are equal

@@ -39,8 +39,7 @@ public class ParameterTests extends KNNTestCase {
      * Test integer parameter validate
      */
     public void testIntegerParameter_validate() {
-        final IntegerParameter parameter = new IntegerParameter("test",1,
-                v -> v > 0);
+        final IntegerParameter parameter = new IntegerParameter("test", 1, v -> v > 0);
 
         // Invalid type
         assertNotNull(parameter.validate("String"));
@@ -58,18 +57,20 @@ public class ParameterTests extends KNNTestCase {
         Integer parameterValue1 = 12;
 
         Map<String, Object> defaultParameterMap = ImmutableMap.of(parameterKey1, parameterValue1);
-        MethodComponentContext methodComponentContext = new MethodComponentContext(methodComponentName1,
-                defaultParameterMap);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(methodComponentName1, defaultParameterMap);
 
         Map<String, MethodComponent> methodComponentMap = ImmutableMap.of(
-                methodComponentName1,
-                MethodComponent.Builder.builder(parameterKey1)
-                        .addParameter(parameterKey1, new IntegerParameter(parameterKey1,1, v -> v > 0))
-                        .build()
+            methodComponentName1,
+            MethodComponent.Builder.builder(parameterKey1)
+                .addParameter(parameterKey1, new IntegerParameter(parameterKey1, 1, v -> v > 0))
+                .build()
         );
 
-        final MethodComponentContextParameter parameter = new MethodComponentContextParameter("test",
-                methodComponentContext, methodComponentMap);
+        final MethodComponentContextParameter parameter = new MethodComponentContextParameter(
+            "test",
+            methodComponentContext,
+            methodComponentMap
+        );
 
         // Invalid type
         assertNotNull(parameter.validate(17));
@@ -77,20 +78,17 @@ public class ParameterTests extends KNNTestCase {
 
         // Invalid value
         String invalidMethodComponentName = "invalid-method";
-        MethodComponentContext invalidMethodComponentContext1 = new MethodComponentContext(invalidMethodComponentName,
-                defaultParameterMap);
+        MethodComponentContext invalidMethodComponentContext1 = new MethodComponentContext(invalidMethodComponentName, defaultParameterMap);
         assertNotNull(parameter.validate(invalidMethodComponentContext1));
 
         String invalidParameterKey = "invalid-parameter";
         Map<String, Object> invalidParameterMap1 = ImmutableMap.of(invalidParameterKey, parameterValue1);
-        MethodComponentContext invalidMethodComponentContext2 = new MethodComponentContext(methodComponentName1,
-                invalidParameterMap1);
+        MethodComponentContext invalidMethodComponentContext2 = new MethodComponentContext(methodComponentName1, invalidParameterMap1);
         assertNotNull(parameter.validate(invalidMethodComponentContext2));
 
         String invalidParameterValue = "invalid-value";
         Map<String, Object> invalidParameterMap2 = ImmutableMap.of(parameterKey1, invalidParameterValue);
-        MethodComponentContext invalidMethodComponentContext3 = new MethodComponentContext(methodComponentName1,
-                invalidParameterMap2);
+        MethodComponentContext invalidMethodComponentContext3 = new MethodComponentContext(methodComponentName1, invalidParameterMap2);
         assertNotNull(parameter.validate(invalidMethodComponentContext3));
 
         // valid value
@@ -103,18 +101,20 @@ public class ParameterTests extends KNNTestCase {
         Integer parameterValue1 = 12;
 
         Map<String, Object> defaultParameterMap = ImmutableMap.of(parameterKey1, parameterValue1);
-        MethodComponentContext methodComponentContext = new MethodComponentContext(methodComponentName1,
-                defaultParameterMap);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(methodComponentName1, defaultParameterMap);
 
         Map<String, MethodComponent> methodComponentMap = ImmutableMap.of(
-                methodComponentName1,
-                MethodComponent.Builder.builder(parameterKey1)
-                        .addParameter(parameterKey1, new IntegerParameter(parameterKey1, 1, v -> v > 0))
-                        .build()
+            methodComponentName1,
+            MethodComponent.Builder.builder(parameterKey1)
+                .addParameter(parameterKey1, new IntegerParameter(parameterKey1, 1, v -> v > 0))
+                .build()
         );
 
-        final MethodComponentContextParameter parameter = new MethodComponentContextParameter("test",
-                methodComponentContext, methodComponentMap);
+        final MethodComponentContextParameter parameter = new MethodComponentContextParameter(
+            "test",
+            methodComponentContext,
+            methodComponentMap
+        );
 
         // Test when method component is available
         assertEquals(methodComponentMap.get(methodComponentName1), parameter.getMethodComponent(methodComponentName1));

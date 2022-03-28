@@ -48,39 +48,41 @@ public class TrainingModelTransportActionTests extends KNNSingleNodeTestCase {
         for (int i = 0; i < trainingDataCount; i++) {
             Float[] vector = new Float[dimension];
             Arrays.fill(vector, Float.intBitsToFloat(i));
-            addKnnDoc(trainingIndexName, Integer.toString(i+1), trainingFieldName, vector);
+            addKnnDoc(trainingIndexName, Integer.toString(i + 1), trainingFieldName, vector);
         }
 
         // Create train model request
         String modelId = "test-model-id";
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject()
-                .field(NAME, METHOD_IVF)
-                .field(KNN_ENGINE, KNNEngine.FAISS.getName())
-                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
-                .startObject(PARAMETERS)
-                .field(METHOD_PARAMETER_NLIST, 4)
-                .endObject()
-                .endObject();
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 4)
+            .endObject()
+            .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
-                modelId,
-                knnMethodContext,
-                dimension,
-                trainingIndexName,
-                trainingFieldName,
-                null,
-                "test-detector"
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndexName,
+            trainingFieldName,
+            null,
+            "test-detector"
         );
         trainingModelRequest.setTrainingDataSizeInKB(estimateVectorSetSizeInKB(trainingDataCount, dimension));
 
         // Create listener that ensures that the initial model put succeeds
-        ActionListener<TrainingModelResponse> listener = ActionListener.wrap(response ->
-                assertEquals(modelId, response.getModelId()), e -> fail("Failure: " + e.getMessage()));
+        ActionListener<TrainingModelResponse> listener = ActionListener.wrap(
+            response -> assertEquals(modelId, response.getModelId()),
+            e -> fail("Failure: " + e.getMessage())
+        );
 
-        TrainingModelTransportAction trainingModelTransportAction = node().injector()
-                .getInstance(TrainingModelTransportAction.class);
+        TrainingModelTransportAction trainingModelTransportAction = node().injector().getInstance(TrainingModelTransportAction.class);
 
         trainingModelTransportAction.doExecute(null, trainingModelRequest, listener);
 

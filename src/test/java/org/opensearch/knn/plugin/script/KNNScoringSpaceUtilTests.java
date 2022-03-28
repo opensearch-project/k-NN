@@ -20,15 +20,16 @@ import static org.mockito.Mockito.when;
 
 public class KNNScoringSpaceUtilTests extends KNNTestCase {
     public void testFieldTypeCheck() {
-        assertTrue(KNNScoringSpaceUtil.isLongFieldType(new NumberFieldMapper.NumberFieldType("field",
-                NumberFieldMapper.NumberType.LONG)));
-        assertFalse(KNNScoringSpaceUtil.isLongFieldType(new NumberFieldMapper.NumberFieldType("field",
-                NumberFieldMapper.NumberType.INTEGER)));
+        assertTrue(KNNScoringSpaceUtil.isLongFieldType(new NumberFieldMapper.NumberFieldType("field", NumberFieldMapper.NumberType.LONG)));
+        assertFalse(
+            KNNScoringSpaceUtil.isLongFieldType(new NumberFieldMapper.NumberFieldType("field", NumberFieldMapper.NumberType.INTEGER))
+        );
         assertFalse(KNNScoringSpaceUtil.isLongFieldType(new BinaryFieldMapper.BinaryFieldType("test")));
 
         assertTrue(KNNScoringSpaceUtil.isBinaryFieldType(new BinaryFieldMapper.BinaryFieldType("test")));
-        assertFalse(KNNScoringSpaceUtil.isBinaryFieldType(new NumberFieldMapper.NumberFieldType("field",
-                NumberFieldMapper.NumberType.INTEGER)));
+        assertFalse(
+            KNNScoringSpaceUtil.isBinaryFieldType(new NumberFieldMapper.NumberFieldType("field", NumberFieldMapper.NumberType.INTEGER))
+        );
 
         assertTrue(KNNScoringSpaceUtil.isKNNVectorFieldType(mock(KNNVectorFieldMapper.KNNVectorFieldType.class)));
         assertFalse(KNNScoringSpaceUtil.isKNNVectorFieldType(new BinaryFieldMapper.BinaryFieldType("test")));
@@ -57,7 +58,7 @@ public class KNNScoringSpaceUtilTests extends KNNTestCase {
     }
 
     public void testParseKNNVectorQuery() {
-        float[] arrayFloat = new float[]{1.0f, 2.0f, 3.0f};
+        float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
         List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
 
         KNNVectorFieldMapper.KNNVectorFieldType fieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);

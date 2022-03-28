@@ -79,8 +79,13 @@ public class KNNMethod {
     public ValidationException validate(KNNMethodContext knnMethodContext) {
         List<String> errorMessages = new ArrayList<>();
         if (!containsSpace(knnMethodContext.getSpaceType())) {
-            errorMessages.add(String.format("\"%s\" configuration does not support space type: " +
-                    "\"%s\".", this.methodComponent.getName(), knnMethodContext.getSpaceType().getValue()));
+            errorMessages.add(
+                String.format(
+                    "\"%s\" configuration does not support space type: " + "\"%s\".",
+                    this.methodComponent.getName(),
+                    knnMethodContext.getSpaceType().getValue()
+                )
+            );
         }
 
         ValidationException methodValidation = methodComponent.validate(knnMethodContext.getMethodComponent());
@@ -88,7 +93,7 @@ public class KNNMethod {
             errorMessages.addAll(methodValidation.validationErrors());
         }
 
-        if(errorMessages.isEmpty()) {
+        if (errorMessages.isEmpty()) {
             return null;
         }
 
@@ -130,7 +135,6 @@ public class KNNMethod {
         return parameterMap;
     }
 
-
     /**
      * Builder for KNNMethod
      */
@@ -160,7 +164,7 @@ public class KNNMethod {
          * @param spaceTypes to be added
          * @return Builder
          */
-        public Builder addSpaces(SpaceType ...spaceTypes) {
+        public Builder addSpaces(SpaceType... spaceTypes) {
             spaces.addAll(Arrays.asList(spaceTypes));
             return this;
         }
