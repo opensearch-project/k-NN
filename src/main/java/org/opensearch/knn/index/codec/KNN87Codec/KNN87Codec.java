@@ -6,7 +6,7 @@
 package org.opensearch.knn.index.codec.KNN87Codec;
 
 import org.apache.lucene.codecs.FilterCodec;
-import org.apache.lucene.codecs.lucene87.Lucene87Codec;
+import org.apache.lucene.backward_codecs.lucene87.Lucene87Codec;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80CompoundFormat;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80DocValuesFormat;
 import org.apache.lucene.codecs.Codec;

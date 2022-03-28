@@ -40,7 +40,6 @@ import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
@@ -199,8 +198,7 @@ public interface ModelDao {
             if (isCreated()) {
                 return;
             }
-
-            CreateIndexRequest request = new CreateIndexRequest(MODEL_INDEX_NAME).mapping("_doc", getMapping(), XContentType.JSON)
+            CreateIndexRequest request = new CreateIndexRequest(MODEL_INDEX_NAME).mapping(getMapping())
                 .settings(
                     Settings.builder()
                         .put("index.hidden", true)

@@ -11,9 +11,9 @@ buildscript {
     ext {
         // build.version_qualifier parameter applies to knn plugin artifacts only. OpenSearch version must be set
         // explicitly as 'opensearch.version' property, for instance opensearch.version=2.0.0-alpha1-SNAPSHOT
-        opensearch_version = System.getProperty("opensearch.version", "2.0.0-SNAPSHOT")
+        opensearch_version = System.getProperty("opensearch.version", "2.0.0-alpha1-SNAPSHOT")
         knn_bwc_version = System.getProperty("bwc.version", "1.2.0.0-SNAPSHOT")
-        version_qualifier = System.getProperty("build.version_qualifier", "")
+        version_qualifier = System.getProperty("build.version_qualifier", "alpha1")
         opensearch_bwc_version = "${knn_bwc_version}" - ".0-SNAPSHOT"
         opensearch_group = "org.opensearch"
     }
