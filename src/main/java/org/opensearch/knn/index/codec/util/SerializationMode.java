@@ -6,5 +6,6 @@
 package org.opensearch.knn.index.codec.util;
 
 public enum SerializationMode {
-    ARRAY, COLLECTION_OF_FLOATS
+    ARRAY,
+    COLLECTION_OF_FLOATS
 }

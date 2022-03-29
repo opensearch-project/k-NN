@@ -4,6 +4,7 @@
  */
 
 package org.opensearch.knn.plugin.stats.suppliers;
+
 import org.opensearch.knn.index.KNNSettings;
 
 import java.util.function.Supplier;

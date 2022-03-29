@@ -45,8 +45,12 @@ public class KNNStatsResponse extends BaseNodesResponse<KNNStatsNodeResponse> im
      * @param failures List of failures from nodes
      * @param clusterStats Cluster level stats only obtained from a single node
      */
-    public KNNStatsResponse(ClusterName clusterName, List<KNNStatsNodeResponse> nodes, List<FailedNodeException> failures,
-                     Map<String, Object> clusterStats) {
+    public KNNStatsResponse(
+        ClusterName clusterName,
+        List<KNNStatsNodeResponse> nodes,
+        List<FailedNodeException> failures,
+        Map<String, Object> clusterStats
+    ) {
         super(clusterName, nodes, failures);
         this.clusterStats = clusterStats;
     }

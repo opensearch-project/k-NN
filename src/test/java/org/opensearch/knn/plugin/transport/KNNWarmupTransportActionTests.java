@@ -44,7 +44,7 @@ public class KNNWarmupTransportActionTests extends KNNSingleNodeTestCase {
         knnWarmupTransportAction.shardOperation(knnWarmupRequest, shardRouting);
         assertEquals(0, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().size());
 
-        addKnnDoc(testIndexName, "1", testFieldName, new Long[] {0L, 1L});
+        addKnnDoc(testIndexName, "1", testFieldName, new Long[] { 0L, 1L });
 
         knnWarmupTransportAction.shardOperation(knnWarmupRequest, shardRouting);
         assertEquals(1, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().size());
@@ -57,18 +57,27 @@ public class KNNWarmupTransportActionTests extends KNNSingleNodeTestCase {
 
         createKNNIndex(testIndexName);
         createKnnIndexMapping(testIndexName, testFieldName, dimensions);
-        addKnnDoc(testIndexName, "1", testFieldName, new Long[] {0L, 1L});
+        addKnnDoc(testIndexName, "1", testFieldName, new Long[] { 0L, 1L });
 
-        ShardsIterator shardsIterator = knnWarmupTransportAction.shards(clusterService.state(), knnWarmupRequest,
-                new String[] {testIndexName});
+        ShardsIterator shardsIterator = knnWarmupTransportAction.shards(
+            clusterService.state(),
+            knnWarmupRequest,
+            new String[] { testIndexName }
+        );
         assertEquals(1, shardsIterator.size());
     }
 
     public void testCheckGlobalBlock() {
         ClusterService clusterService = mock(ClusterService.class);
-        ClusterBlock metaReadClusterBlock = new ClusterBlock(randomInt(), "test-meta-data-block",
-                false, false, false, RestStatus.FORBIDDEN,
-                EnumSet.of(ClusterBlockLevel.METADATA_READ));
+        ClusterBlock metaReadClusterBlock = new ClusterBlock(
+            randomInt(),
+            "test-meta-data-block",
+            false,
+            false,
+            false,
+            RestStatus.FORBIDDEN,
+            EnumSet.of(ClusterBlockLevel.METADATA_READ)
+        );
         ClusterBlocks clusterBlocks = ClusterBlocks.builder().addGlobalBlock(metaReadClusterBlock).build();
         ClusterState state = ClusterState.builder(ClusterName.DEFAULT).blocks(clusterBlocks).build();
         when(clusterService.state()).thenReturn(state);
@@ -80,16 +89,21 @@ public class KNNWarmupTransportActionTests extends KNNSingleNodeTestCase {
 
     public void testCheckRequestBlock() {
         ClusterService clusterService = mock(ClusterService.class);
-        ClusterBlock metaReadClusterBlock = new ClusterBlock(randomInt(), "test-meta-data-block",
-                false, false, false, RestStatus.FORBIDDEN,
-                EnumSet.of(ClusterBlockLevel.METADATA_READ));
+        ClusterBlock metaReadClusterBlock = new ClusterBlock(
+            randomInt(),
+            "test-meta-data-block",
+            false,
+            false,
+            false,
+            RestStatus.FORBIDDEN,
+            EnumSet.of(ClusterBlockLevel.METADATA_READ)
+        );
         ClusterBlocks clusterBlocks = ClusterBlocks.builder().addGlobalBlock(metaReadClusterBlock).build();
         ClusterState state = ClusterState.builder(ClusterName.DEFAULT).blocks(clusterBlocks).build();
         when(clusterService.state()).thenReturn(state);
 
         KNNWarmupTransportAction knnWarmupTransportAction = node().injector().getInstance(KNNWarmupTransportAction.class);
         KNNWarmupRequest knnWarmupRequest = new KNNWarmupRequest(testIndexName);
-        assertNotNull(knnWarmupTransportAction.checkRequestBlock(clusterService.state(), knnWarmupRequest,
-                new String[] {testIndexName}));
+        assertNotNull(knnWarmupTransportAction.checkRequestBlock(clusterService.state(), knnWarmupRequest, new String[] { testIndexName }));
     }
 }

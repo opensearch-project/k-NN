@@ -26,8 +26,14 @@ public abstract class KNNScoreScript<T> extends ScoreScript {
     protected final String field;
     protected final BiFunction<T, T, Float> scoringMethod;
 
-    public KNNScoreScript(Map<String, Object> params, T queryValue, String field,
-                          BiFunction<T, T, Float> scoringMethod, SearchLookup lookup, LeafReaderContext leafContext) {
+    public KNNScoreScript(
+        Map<String, Object> params,
+        T queryValue,
+        String field,
+        BiFunction<T, T, Float> scoringMethod,
+        SearchLookup lookup,
+        LeafReaderContext leafContext
+    ) {
         super(params, lookup, leafContext);
         this.queryValue = queryValue;
         this.field = field;
@@ -39,9 +45,14 @@ public abstract class KNNScoreScript<T> extends ScoreScript {
      * expected to be Longs.
      */
     public static class LongType extends KNNScoreScript<Long> {
-        public LongType(Map<String, Object> params, Long queryValue, String field,
-                        BiFunction<Long, Long, Float> scoringMethod, SearchLookup lookup,
-                        LeafReaderContext leafContext) {
+        public LongType(
+            Map<String, Object> params,
+            Long queryValue,
+            String field,
+            BiFunction<Long, Long, Float> scoringMethod,
+            SearchLookup lookup,
+            LeafReaderContext leafContext
+        ) {
             super(params, queryValue, field, scoringMethod, lookup, leafContext);
         }
 
@@ -67,9 +78,14 @@ public abstract class KNNScoreScript<T> extends ScoreScript {
      * are expected to be BigInteger.
      */
     public static class BigIntegerType extends KNNScoreScript<BigInteger> {
-        public BigIntegerType(Map<String, Object> params, BigInteger queryValue, String field,
-                              BiFunction<BigInteger, BigInteger, Float> scoringMethod, SearchLookup lookup,
-                              LeafReaderContext leafContext) {
+        public BigIntegerType(
+            Map<String, Object> params,
+            BigInteger queryValue,
+            String field,
+            BiFunction<BigInteger, BigInteger, Float> scoringMethod,
+            SearchLookup lookup,
+            LeafReaderContext leafContext
+        ) {
             super(params, queryValue, field, scoringMethod, lookup, leafContext);
         }
 
@@ -96,9 +112,14 @@ public abstract class KNNScoreScript<T> extends ScoreScript {
      */
     public static class KNNVectorType extends KNNScoreScript<float[]> {
 
-        public KNNVectorType(Map<String, Object> params, float[] queryValue, String field,
-                             BiFunction<float[], float[], Float> scoringMethod, SearchLookup lookup,
-                             LeafReaderContext leafContext) throws IOException {
+        public KNNVectorType(
+            Map<String, Object> params,
+            float[] queryValue,
+            String field,
+            BiFunction<float[], float[], Float> scoringMethod,
+            SearchLookup lookup,
+            LeafReaderContext leafContext
+        ) throws IOException {
             super(params, queryValue, field, scoringMethod, lookup, leafContext);
         }
 

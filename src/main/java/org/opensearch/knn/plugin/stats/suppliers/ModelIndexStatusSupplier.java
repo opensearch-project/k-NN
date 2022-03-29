@@ -14,11 +14,8 @@ package org.opensearch.knn.plugin.stats.suppliers;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.ResourceNotFoundException;
-import org.opensearch.cluster.health.ClusterHealthStatus;
-import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.indices.ModelDao;
 
-import java.util.Locale;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -37,9 +34,9 @@ public class ModelIndexStatusSupplier<T> implements Supplier<T> {
 
     @Override
     public T get() {
-        try{
+        try {
             return getter.apply(ModelDao.OpenSearchKNNModelDao.getInstance());
-        } catch (ResourceNotFoundException e) { //catch to prevent exception to be raised.
+        } catch (ResourceNotFoundException e) { // catch to prevent exception to be raised.
             logger.info(e.getMessage());
             return null; // to let consumer knows that no value is available for getter.
         }

@@ -43,7 +43,7 @@ public class DeleteModelRequest extends ActionRequest {
 
     @Override
     public ActionRequestValidationException validate() {
-        if(Strings.hasText(modelID)) {
+        if (Strings.hasText(modelID)) {
             return null;
         }
         return addValidationError("Model id cannot be empty ", null);

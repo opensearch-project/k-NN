@@ -27,6 +27,7 @@ import java.util.Locale;
 
 import static org.opensearch.knn.common.KNNConstants.MODELS;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+
 /**
  * Rest Handler for get model api endpoint.
  */
@@ -41,13 +42,9 @@ public class RestGetModelHandler extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
-        return ImmutableList
-            .of(
-                new Route(
-                    RestRequest.Method.GET,
-                    String.format(Locale.ROOT, "%s/%s/{%s}", KNNPlugin.KNN_BASE_URI, MODELS, MODEL_ID)
-                )
-            );
+        return ImmutableList.of(
+            new Route(RestRequest.Method.GET, String.format(Locale.ROOT, "%s/%s/{%s}", KNNPlugin.KNN_BASE_URI, MODELS, MODEL_ID))
+        );
     }
 
     @Override
@@ -58,7 +55,6 @@ public class RestGetModelHandler extends BaseRestHandler {
         }
 
         GetModelRequest getModelRequest = new GetModelRequest(modelID);
-        return channel -> client
-            .execute(GetModelAction.INSTANCE, getModelRequest, new RestToXContentListener<>(channel));
+        return channel -> client.execute(GetModelAction.INSTANCE, getModelRequest, new RestToXContentListener<>(channel));
     }
 }

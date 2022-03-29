@@ -40,12 +40,12 @@ public class KNNVectorDVLeafFieldData implements LeafFieldData {
             BinaryDocValues values = DocValues.getBinary(reader, fieldName);
             return new KNNVectorScriptDocValues(values, fieldName);
         } catch (IOException e) {
-            throw new IllegalStateException("Cannot load doc values for knn vector field: "+fieldName, e);
+            throw new IllegalStateException("Cannot load doc values for knn vector field: " + fieldName, e);
         }
     }
 
     @Override
     public SortedBinaryDocValues getBytesValues() {
-        throw new UnsupportedOperationException("knn vector field '"+ fieldName + "' doesn't support sorting");
+        throw new UnsupportedOperationException("knn vector field '" + fieldName + "' doesn't support sorting");
     }
 }

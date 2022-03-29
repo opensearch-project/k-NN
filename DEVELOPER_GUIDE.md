@@ -97,11 +97,6 @@ Please follow these formatting guidelines:
 * Note that JavaDoc and block comments i.e. `/* ... */` are not formatted, but line comments i.e `// ...` are.
 * There is an implicit rule that negative boolean expressions should use the form `foo == false` instead of `!foo` for better readability of the code. While this isn't strictly enforced, if might get called out in PR reviews as something to change.
 
-In order to gradually introduce the spotless formatting, we use the 
-[ratchetFrom](https://github.com/diffplug/spotless/tree/main/plugin-gradle#ratchet) spotless functionality. This makes 
-it so only files that are changed compared to the origin branch are inspected. Because of this, ensure that your 
-origin branch is up to date with the plugins upstream when testing locally.
-
 ## Build
 
 OpenSearch k-NN uses a [Gradle](https://docs.gradle.org/6.6.1/userguide/userguide.html) wrapper for its build. 

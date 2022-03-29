@@ -25,7 +25,6 @@ import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.parseToBigInt
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.parseToFloatArray;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.parseToLong;
 
-
 public interface KNNScoringSpace {
     /**
      * Return the correct scoring script for a given query. The scoring script
@@ -37,8 +36,7 @@ public interface KNNScoringSpace {
      * @return ScoreScript for this query
      * @throws IOException throws IOException if ScoreScript cannot be constructed
      */
-    ScoreScript getScoreScript(Map<String, Object> params, String field, SearchLookup lookup, LeafReaderContext ctx)
-            throws IOException;
+    ScoreScript getScoreScript(Map<String, Object> params, String field, SearchLookup lookup, LeafReaderContext ctx) throws IOException;
 
     class L2 implements KNNScoringSpace {
 
@@ -53,19 +51,16 @@ public interface KNNScoringSpace {
          */
         public L2(Object query, MappedFieldType fieldType) {
             if (!isKNNVectorFieldType(fieldType)) {
-                throw new IllegalArgumentException("Incompatible field_type for l2 space. The field type must " +
-                        "be knn_vector.");
+                throw new IllegalArgumentException("Incompatible field_type for l2 space. The field type must " + "be knn_vector.");
             }
 
-            this.processedQuery = parseToFloatArray(query,
-                    ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
+            this.processedQuery = parseToFloatArray(query, ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
             this.scoringMethod = (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.l2Squared(q, v));
         }
 
-        public ScoreScript getScoreScript(Map<String, Object> params, String field, SearchLookup lookup,
-                                          LeafReaderContext ctx) throws IOException {
-            return new KNNScoreScript.KNNVectorType(params, this.processedQuery, field, this.scoringMethod, lookup,
-                    ctx);
+        public ScoreScript getScoreScript(Map<String, Object> params, String field, SearchLookup lookup, LeafReaderContext ctx)
+            throws IOException {
+            return new KNNScoreScript.KNNVectorType(params, this.processedQuery, field, this.scoringMethod, lookup, ctx);
         }
     }
 
@@ -83,21 +78,17 @@ public interface KNNScoringSpace {
          */
         public CosineSimilarity(Object query, MappedFieldType fieldType) {
             if (!isKNNVectorFieldType(fieldType)) {
-                throw new IllegalArgumentException("Incompatible field_type for cosine space. The field type must " +
-                        "be knn_vector.");
+                throw new IllegalArgumentException("Incompatible field_type for cosine space. The field type must " + "be knn_vector.");
             }
 
-            this.processedQuery = parseToFloatArray(query,
-                    ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
+            this.processedQuery = parseToFloatArray(query, ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
             float qVectorSquaredMagnitude = getVectorMagnitudeSquared(this.processedQuery);
-            this.scoringMethod = (float[] q, float[] v) -> 1 + KNNScoringUtil.cosinesimilOptimized(q, v,
-                    qVectorSquaredMagnitude);
+            this.scoringMethod = (float[] q, float[] v) -> 1 + KNNScoringUtil.cosinesimilOptimized(q, v, qVectorSquaredMagnitude);
         }
 
-        public ScoreScript getScoreScript(Map<String, Object> params, String field, SearchLookup lookup,
-                                          LeafReaderContext ctx) throws IOException {
-                return new KNNScoreScript.KNNVectorType(params, this.processedQuery, field, this.scoringMethod, lookup,
-                        ctx);
+        public ScoreScript getScoreScript(Map<String, Object> params, String field, SearchLookup lookup, LeafReaderContext ctx)
+            throws IOException {
+            return new KNNScoreScript.KNNVectorType(params, this.processedQuery, field, this.scoringMethod, lookup, ctx);
         }
     }
 
@@ -119,24 +110,36 @@ public interface KNNScoringSpace {
                 this.scoringMethod = (Long q, Long v) -> 1.0f / (1 + KNNScoringUtil.calculateHammingBit(q, v));
             } else if (isBinaryFieldType(fieldType)) {
                 this.processedQuery = parseToBigInteger(query);
-                this.scoringMethod = (BigInteger q, BigInteger v) ->
-                        1.0f / (1 + KNNScoringUtil.calculateHammingBit(q, v));
+                this.scoringMethod = (BigInteger q, BigInteger v) -> 1.0f / (1 + KNNScoringUtil.calculateHammingBit(q, v));
             } else {
-                throw new IllegalArgumentException("Incompatible field_type for hamming space. The field type must " +
-                        "of type long or binary.");
+                throw new IllegalArgumentException(
+                    "Incompatible field_type for hamming space. The field type must " + "of type long or binary."
+                );
             }
         }
 
         @SuppressWarnings("unchecked")
-        public ScoreScript getScoreScript(Map<String, Object> params, String field, SearchLookup lookup,
-                                          LeafReaderContext ctx) throws IOException {
+        public ScoreScript getScoreScript(Map<String, Object> params, String field, SearchLookup lookup, LeafReaderContext ctx)
+            throws IOException {
             if (this.processedQuery instanceof Long) {
-                return new KNNScoreScript.LongType(params, (Long) this.processedQuery, field,
-                        (BiFunction<Long, Long, Float>) this.scoringMethod, lookup, ctx);
+                return new KNNScoreScript.LongType(
+                    params,
+                    (Long) this.processedQuery,
+                    field,
+                    (BiFunction<Long, Long, Float>) this.scoringMethod,
+                    lookup,
+                    ctx
+                );
             }
 
-            return new KNNScoreScript.BigIntegerType(params, (BigInteger) this.processedQuery, field,
-                    (BiFunction<BigInteger, BigInteger, Float>) this.scoringMethod, lookup, ctx);
+            return new KNNScoreScript.BigIntegerType(
+                params,
+                (BigInteger) this.processedQuery,
+                field,
+                (BiFunction<BigInteger, BigInteger, Float>) this.scoringMethod,
+                lookup,
+                ctx
+            );
         }
     }
 
@@ -153,19 +156,16 @@ public interface KNNScoringSpace {
          */
         public L1(Object query, MappedFieldType fieldType) {
             if (!isKNNVectorFieldType(fieldType)) {
-                throw new IllegalArgumentException("Incompatible field_type for l1 space. The field type must " +
-                        "be knn_vector.");
+                throw new IllegalArgumentException("Incompatible field_type for l1 space. The field type must " + "be knn_vector.");
             }
 
-            this.processedQuery = parseToFloatArray(query,
-                    ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
+            this.processedQuery = parseToFloatArray(query, ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
             this.scoringMethod = (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.l1Norm(q, v));
         }
 
-        public ScoreScript getScoreScript(Map<String, Object> params, String field, SearchLookup lookup,
-                                          LeafReaderContext ctx) throws IOException {
-            return new KNNScoreScript.KNNVectorType(params, this.processedQuery, field, this.scoringMethod, lookup,
-                    ctx);
+        public ScoreScript getScoreScript(Map<String, Object> params, String field, SearchLookup lookup, LeafReaderContext ctx)
+            throws IOException {
+            return new KNNScoreScript.KNNVectorType(params, this.processedQuery, field, this.scoringMethod, lookup, ctx);
         }
     }
 
@@ -182,19 +182,16 @@ public interface KNNScoringSpace {
          */
         public LInf(Object query, MappedFieldType fieldType) {
             if (!isKNNVectorFieldType(fieldType)) {
-                throw new IllegalArgumentException("Incompatible field_type for l-inf space. The field type must " +
-                        "be knn_vector.");
+                throw new IllegalArgumentException("Incompatible field_type for l-inf space. The field type must " + "be knn_vector.");
             }
 
-            this.processedQuery = parseToFloatArray(query,
-                    ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
+            this.processedQuery = parseToFloatArray(query, ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
             this.scoringMethod = (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.lInfNorm(q, v));
         }
 
-        public ScoreScript getScoreScript(Map<String, Object> params, String field, SearchLookup lookup,
-                                          LeafReaderContext ctx) throws IOException {
-            return new KNNScoreScript.KNNVectorType(params, this.processedQuery, field, this.scoringMethod, lookup,
-                    ctx);
+        public ScoreScript getScoreScript(Map<String, Object> params, String field, SearchLookup lookup, LeafReaderContext ctx)
+            throws IOException {
+            return new KNNScoreScript.KNNVectorType(params, this.processedQuery, field, this.scoringMethod, lookup, ctx);
         }
     }
 
@@ -211,19 +208,19 @@ public interface KNNScoringSpace {
          */
         public InnerProd(Object query, MappedFieldType fieldType) {
             if (!isKNNVectorFieldType(fieldType)) {
-                throw new IllegalArgumentException("Incompatible field_type for innerproduct space. The field type must " +
-                        "be knn_vector.");
+                throw new IllegalArgumentException(
+                    "Incompatible field_type for innerproduct space. The field type must " + "be knn_vector."
+                );
             }
 
-            this.processedQuery = parseToFloatArray(query,
-                    ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
+            this.processedQuery = parseToFloatArray(query, ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
             this.scoringMethod = (float[] q, float[] v) -> KNNWeight.normalizeScore(-KNNScoringUtil.innerProduct(q, v));
         }
 
         @Override
-        public ScoreScript getScoreScript(Map<String, Object> params, String field, SearchLookup lookup, LeafReaderContext ctx) throws IOException {
-            return new KNNScoreScript.KNNVectorType(params, this.processedQuery, field, this.scoringMethod, lookup,
-                    ctx);
+        public ScoreScript getScoreScript(Map<String, Object> params, String field, SearchLookup lookup, LeafReaderContext ctx)
+            throws IOException {
+            return new KNNScoreScript.KNNVectorType(params, this.processedQuery, field, this.scoringMethod, lookup, ctx);
         }
     }
 }

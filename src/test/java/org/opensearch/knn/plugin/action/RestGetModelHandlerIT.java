@@ -47,8 +47,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 public class RestGetModelHandlerIT extends KNNRestTestCase {
 
     private ModelMetadata getModelMetadata() {
-        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED,
-            "2021-03-27", "test model", "");
+        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED, "2021-03-27", "test model", "");
     }
 
     public void testGetModelExists() throws IOException {
@@ -68,10 +67,7 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(response.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(
-            XContentType.JSON.xContent(),
-            responseBody
-        ).map();
+        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
 
         assertEquals(testModelID, responseMap.get(MODEL_ID));
         assertEquals(testModelMetadata.getDescription(), responseMap.get(MODEL_DESCRIPTION));
@@ -82,7 +78,6 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         assertEquals(testModelMetadata.getState().getName(), responseMap.get(MODEL_STATE));
         assertEquals(testModelMetadata.getTimestamp(), responseMap.get(MODEL_TIMESTAMP));
     }
-
 
     public void testGetModelExistsWithFilter() throws IOException {
         createModelSystemIndex();
@@ -104,10 +99,7 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(response.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(
-            XContentType.JSON.xContent(),
-            responseBody
-        ).map();
+        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
 
         assertTrue(responseMap.size() == filterdPath.size());
         assertEquals(testModelID, responseMap.get(MODEL_ID));
@@ -125,8 +117,7 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "invalid-model-id");
         Request request = new Request("GET", restURI);
 
-        ResponseException ex = expectThrows(ResponseException.class, () ->
-            client().performRequest(request));
+        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
         assertTrue(ex.getMessage().contains("\"invalid-model-id\""));
     }
 

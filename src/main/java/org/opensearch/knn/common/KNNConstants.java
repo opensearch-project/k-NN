@@ -9,7 +9,7 @@ public class KNNConstants {
     // shared across library constants
     public static final String DIMENSION = "dimension";
     public static final String KNN_ENGINE = "engine";
-    public static final String KNN_METHOD= "method";
+    public static final String KNN_METHOD = "method";
     public static final String NAME = "name";
     public static final String PARAMETERS = "parameters";
     public static final String METHOD_HNSW = "hnsw";

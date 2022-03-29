@@ -17,11 +17,6 @@ import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.indices.Model;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelState;
 
 import java.io.IOException;
 
@@ -37,7 +32,6 @@ public class DeleteModelResponseTests extends KNNTestCase {
         assertEquals(deleteModelResponse.getResult(), deleteModelResponseCopy.getResult());
         assertEquals(deleteModelResponse.getErrorMessage(), deleteModelResponseCopy.getErrorMessage());
     }
-
 
     public void testXContentWithError() throws IOException {
         String modelId = "test-model";

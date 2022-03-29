@@ -17,8 +17,7 @@ import org.opensearch.common.io.stream.Writeable;
 public class TrainingModelAction extends ActionType<TrainingModelResponse> {
 
     public static final String NAME = "cluster:admin/knn_training_model_action";
-    public static final TrainingModelAction INSTANCE = new TrainingModelAction(NAME,
-            TrainingModelResponse::new);
+    public static final TrainingModelAction INSTANCE = new TrainingModelAction(NAME, TrainingModelResponse::new);
 
     private TrainingModelAction(String name, Writeable.Reader<TrainingModelResponse> trainingModelResponseReader) {
         super(name, trainingModelResponseReader);
