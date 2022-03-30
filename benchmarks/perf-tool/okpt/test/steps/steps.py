@@ -138,6 +138,28 @@ class ForceMergeStep(OpenSearchStep):
     def _get_measures(self) -> List[str]:
         return ['took']
 
+class ClearCacheStep(OpenSearchStep):
+    """See base class."""
+
+    label = 'clear_cache'
+
+    def __init__(self, step_config: StepConfig):
+        super().__init__(step_config)
+        self.index_name = parse_string_param('index_name', step_config.config,
+                                             {}, None)
+
+    def _action(self):
+        while True:
+            try:
+                self.opensearch.indices.clear_cache(
+                    index=self.index_name)
+                return {}
+            except:
+                pass
+
+    def _get_measures(self) -> List[str]:
+        return ['took']
+
 
 class TrainModelStep(OpenSearchStep):
     """See base class."""
