@@ -1,0 +1,27 @@
+{
+  "settings": {
+    "index": {
+      "knn": true,
+      "knn.algo_param.ef_search":  {{ target_index_ef_search | default(512) }},
+      "number_of_shards": {{ target_index_primary_shards | default(1) }},
+      "number_of_replicas": {{ target_index_replica_shards | default(0) }},
+    }
+  },
+  "mappings": {
+    "properties": {
+      "target_field": {
+        "type": "knn_vector",
+        "dimension": {{ target_index_dimension }},
+        "method": {
+          "name": "hnsw",
+          "space_type": "{{ target_index_space_type }}",
+          "engine": "nmslib",
+          "parameters": {
+            "ef_construction": {{ target_index_ef_construction | default(512) }},
+            "m": {{ target_index_m | default(16) }}
+          }
+        }
+      }
+    }
+  }
+}

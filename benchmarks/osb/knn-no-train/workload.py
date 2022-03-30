@@ -14,7 +14,6 @@ sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
 from helpers.registry import register as custom_register
 
 #TODO:
-# 2. Add parametrization
 # 3. Add support for training
 # 4. Add validation (Similar to steps)
 # 5. Add different requirements.txt file

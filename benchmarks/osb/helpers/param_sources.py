@@ -25,8 +25,8 @@ class BulkVectorsFromDataSetParamSource:
         elif data_set_format == "bigann":
             self.data_set = BigANNVectorDataSet(data_set_path)
 
-        self.field_name: str = params["field_name"]
-        self.index_name: str = params["index_name"]
+        self.field_name: str = params["field"]
+        self.index_name: str = params["index"]
         self.bulk_size: int = params["bulk_size"]
         self.current = 0
         self.infinite = False

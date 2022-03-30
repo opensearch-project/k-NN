@@ -37,7 +37,7 @@ class CustomRefreshRunner:
 
         for _ in range(attempts):
             try:
-                return await opensearch.indices.refresh(index=params["index_name"])
+                return await opensearch.indices.refresh(index=params["index"])
             except:
                 pass
 
