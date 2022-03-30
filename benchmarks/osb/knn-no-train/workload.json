@@ -4,7 +4,7 @@
     "indices": [
         {
             "name": "{{ target_index_name | default("target_index") }}",
-            "body": "{{ target_index_body | default("index.json") }}"
+            "body": "{{ target_index_body | default("nmslib-index.json") }}"
         }
     ],
     "schedule": [

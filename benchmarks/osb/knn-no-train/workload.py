@@ -16,8 +16,6 @@ from helpers.registry import register as custom_register
 #TODO:
 # 3. Add support for training
 # 4. Add validation (Similar to steps)
-# 5. Add different requirements.txt file
-# 6. Add descriptive documentation
 # ------------------------ PR ----------------------------
 # 7. Add query workloads
 # 8. Add recall computation workloads

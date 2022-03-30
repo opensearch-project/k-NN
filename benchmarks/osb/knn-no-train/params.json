@@ -1,6 +1,6 @@
 {
   "target_index_name": "target_index",
-  "target_index_body": "index.json",
+  "target_index_body": "nmslib-index.json",
   "target_field_name": "target_field",
   "target_index_primary_shards": 3,
   "target_index_replica_shards": 1,
