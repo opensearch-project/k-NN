@@ -6,7 +6,8 @@
 
 from helpers.data_set import Context, HDF5DataSet, DataSet, \
     BigANNVectorDataSet
-from helpers.helper import bulk_transform
+from helpers.helper import bulk_transform, parse_string_parameter, \
+    parse_int_parameter
 
 
 def register(registry):
@@ -17,17 +18,17 @@ def register(registry):
 class BulkVectorsFromDataSetParamSource:
     def __init__(self, workload, params, **kwargs):
         self.data_set: DataSet
-        data_set_format = params["data_set_format"]
-        data_set_path = params["data_set_path"]
+        data_set_format = parse_string_parameter("data_set_format", params["data_set_format"])
+        data_set_path = parse_string_parameter("data_set_path", params["data_set_path"])
 
         if data_set_format == "hdf5":
             self.data_set = HDF5DataSet(data_set_path, Context.INDEX)
         elif data_set_format == "bigann":
             self.data_set = BigANNVectorDataSet(data_set_path)
 
-        self.field_name: str = params["field"]
-        self.index_name: str = params["index"]
-        self.bulk_size: int = params["bulk_size"]
+        self.field_name: str = parse_string_parameter("field", params["field"])
+        self.index_name: str = parse_string_parameter("index", params["index"])
+        self.bulk_size: int = parse_int_parameter("bulk_size", params["bulk_size"])
         self.current = 0
         self.infinite = False
         self.percent_completed = 0

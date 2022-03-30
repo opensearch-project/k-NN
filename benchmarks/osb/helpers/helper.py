@@ -30,3 +30,27 @@ def bulk_transform(partition: np.ndarray, field_name: str, action,
     actions[1::2] = [{field_name: vec} for vec in partition.tolist()]
     return actions
 
+def parse_string_parameter(key: str, value) -> str:
+    if value is None:
+        raise ConfigurationError("Value cannot be None for param {}".format(key))
+    if type(value) is str:
+        return value
+    raise ConfigurationError("Value must be a string for param {}".format(key))
+
+def parse_int_parameter(key: str, value) -> int:
+    if value is None:
+        raise ConfigurationError("Value cannot be None for param {}".format(key))
+    if type(value) is int:
+        return value
+    raise ConfigurationError("Value must be a int for param {}".format(key))
+
+class ConfigurationError(Exception):
+    """Exception raised for errors configuration.
+
+    Attributes:
+        message -- explanation of the error
+    """
+
+    def __init__(self, message: str):
+        self.message = f'{message}'
+        super().__init__(self.message)

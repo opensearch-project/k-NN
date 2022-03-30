@@ -4,6 +4,7 @@
 # this file be licensed under the Apache-2.0 license or a
 # compatible open source license.
 
+from helpers.helper import parse_int_parameter, parse_string_parameter
 
 def register(registry):
     registry.register_runner("custom-vector-bulk",
@@ -33,11 +34,11 @@ class CustomRefreshRunner:
 
     async def __call__(self, opensearch, params):
         # Basically just keep calling it until it succeeds
-        attempts = params["retries"]
+        attempts = parse_int_parameter("retries", params["retries"])
 
         for _ in range(attempts):
             try:
-                return await opensearch.indices.refresh(index=params["index"])
+                return await opensearch.indices.refresh(index=parse_string_parameter("index", params["index"]))
             except:
                 pass
 
