@@ -14,6 +14,7 @@
   - [Debugging](#debugging)
   - [Backwards Compatibility Testing](#backwards-compatibility-testing)
     - [Adding new tests](#adding-new-tests)
+  - [Codec Versioning](#codec-versioning)
   - [Submitting Changes](#submitting-changes)
 
 # Developer Guide
@@ -264,6 +265,26 @@ Here, we are testing BWC Tests with BWC version of plugin as 1.0.0.0. Make sure 
 ### Adding new tests
 
 Before adding any new tests to Backward Compatibility Tests, we should be aware that the tests in BWC are not independent. While creating an index, a test cannot use the same index name if it is already used in other tests. Also, adding extra operations to the existing test may impact other existing tests like graphCount. 
+
+## Codec Versioning
+
+Starting from 2.0 release the new versioning for codec has been introduced. Two positions will be used to define the version,
+in format 'X.Y', where 'X' corresponds to underlying version of Lucene and 'Y' is the version of the format. 
+
+Codec version is used in following classes and methods:
+- org.opensearch.knn.index.codec.KNNXYCodec.KNNXYCodec
+- org.opensearch.knn.index.codec.KNNFormatFactory.createKNNXYFormat
+
+These classes and methods are tied directly to Lucene version represented by 'X' part. 
+Other classes use the delegate pattern so no direct tie to Lucene version are related to format and represented by 'Y'
+
+- BinaryDocValues
+- CompoundFormat
+- DocValuesConsumer
+- DocValuesReader
+
+Version '910' is going to be the first such new version. It corresponds to Lucene 9.1 that is used by the underlying OpenSearch 2.0 and initial
+version of the format classes. If in future we need to adjust something in format logic, we only increment the 'Y' part and version became '911'.
 
 ## Submitting Changes
 
