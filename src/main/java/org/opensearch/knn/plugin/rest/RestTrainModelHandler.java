@@ -105,7 +105,7 @@ public class RestTrainModelHandler extends BaseRestHandler {
             } else if (MODEL_DESCRIPTION.equals(fieldName) && ensureNotSet(fieldName, description)) {
                 description = parser.textOrNull();
             } else {
-                throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is not a valid " + "parameter.");
+                throw new IllegalArgumentException("Unable to parse token. An invalid parameter is provided in the request.");
             }
         }
 

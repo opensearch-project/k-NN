@@ -64,7 +64,7 @@ public class DeleteModelResponse extends ActionResponse implements ToXContentObj
             {
                 "model_id": "my_model_id"
                 "result": "not_found",
-                "error": "Model my_model_id doesn't exist"
+                "error": "Model doesn't exist"
         }
          */
         builder.startObject();

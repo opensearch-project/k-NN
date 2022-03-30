@@ -119,7 +119,7 @@ public class RestKNNStatsHandler extends BaseRestHandler {
         } else if (statsSet.size() == 1 && statsSet.contains("_all")) {
             knnStatsRequest.all();
         } else if (statsSet.contains(KNNStatsRequest.ALL_STATS_KEY)) {
-            throw new IllegalArgumentException("Request " + request.path() + " contains _all and individual stats");
+            throw new IllegalArgumentException("Request contains _all and individual stats");
         } else {
             Set<String> invalidStats = new TreeSet<>();
             for (String stat : statsSet) {

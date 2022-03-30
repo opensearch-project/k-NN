@@ -132,16 +132,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                         } else if (AbstractQueryBuilder.NAME_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                             queryName = parser.text();
                         } else {
-                            throw new ParsingException(
-                                parser.getTokenLocation(),
-                                "[" + NAME + "] query does not support [" + currentFieldName + "]"
-                            );
+                            throw new ParsingException(parser.getTokenLocation(), "[" + NAME + "] unsupported field in the query");
                         }
                     } else {
-                        throw new ParsingException(
-                            parser.getTokenLocation(),
-                            "[" + NAME + "] unknown token [" + token + "] after [" + currentFieldName + "]"
-                        );
+                        throw new ParsingException(parser.getTokenLocation(), "[" + NAME + "] unknown token after a field");
                     }
                 }
             } else {
@@ -200,7 +194,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         MappedFieldType mappedFieldType = context.fieldMapper(this.fieldName);
 
         if (!(mappedFieldType instanceof KNNVectorFieldMapper.KNNVectorFieldType)) {
-            throw new IllegalArgumentException("Field '" + this.fieldName + "' is not knn_vector type.");
+            throw new IllegalArgumentException("Field type is not knn_vector type.");
         }
 
         int dimension = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getDimension();
@@ -216,7 +210,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
 
             if (modelMetadata == null) {
-                throw new IllegalArgumentException("Model ID \"" + modelId + "\" does not exist.");
+                throw new IllegalArgumentException("Model ID does not exist.");
             }
             dimension = modelMetadata.getDimension();
         }

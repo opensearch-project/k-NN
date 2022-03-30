@@ -119,7 +119,7 @@ public class TrainingJob implements Runnable {
             // Acquire lock on allocation -- this will wait until training data is loaded
             trainingDataAllocation.readLock();
         } catch (Exception e) {
-            logger.error("Failed to get training data for model \"" + modelId + "\": " + e.getMessage());
+            logger.error("Failed to get training data for model: " + e.getMessage());
             modelMetadata.setState(ModelState.FAILED);
             modelMetadata.setError(
                 "Failed to load training data into memory. " + "Check if there is enough memory to perform the request."
@@ -141,7 +141,7 @@ public class TrainingJob implements Runnable {
             // Lock until training completes
             modelAnonymousAllocation.readLock();
         } catch (Exception e) {
-            logger.error("Failed to allocate space in native memory for model \"" + modelId + "\": " + e.getMessage());
+            logger.error("Failed to allocate space in native memory for model" + e.getMessage());
             modelMetadata.setState(ModelState.FAILED);
             modelMetadata.setError(
                 "Failed to allocate space in native memory for the model. " + "Check if there is enough memory to perform the request."
@@ -190,7 +190,7 @@ public class TrainingJob implements Runnable {
             model.setModelBlob(modelBlob);
             modelMetadata.setState(ModelState.CREATED);
         } catch (Exception e) {
-            logger.error("Failed to run training job for model \"" + modelId + "\": " + e.getMessage());
+            logger.error("Failed to run training job for model: " + e.getMessage());
             modelMetadata.setState(ModelState.FAILED);
             modelMetadata.setError(
                 "Failed to execute training. May be caused by an invalid method definition or " + "not enough memory to perform training."

@@ -296,7 +296,7 @@ public interface ModelDao {
                             return;
                         }
 
-                        String failureMessage = buildRemoveModelErrorMessage(model.getModelID(), removeModelFromCacheResponse);
+                        String failureMessage = buildRemoveModelErrorMessage(removeModelFromCacheResponse);
 
                         listener.onFailure(new RuntimeException(failureMessage));
                     }, listener::onFailure)
@@ -368,7 +368,7 @@ public interface ModelDao {
 
             getRequestBuilder.execute(ActionListener.wrap(response -> {
                 if (response.isSourceEmpty()) {
-                    String errorMessage = String.format("Model \" %s \" does not exist", modelId);
+                    String errorMessage = "Model does not exist";
                     actionListener.onFailure(new ResourceNotFoundException(modelId, errorMessage));
                     return;
                 }
@@ -396,22 +396,20 @@ public interface ModelDao {
             IndexMetadata indexMetadata = clusterService.state().metadata().index(MODEL_INDEX_NAME);
 
             if (indexMetadata == null) {
-                logger.debug("ModelMetadata for model \"" + modelId + "\" is null. " + MODEL_INDEX_NAME + " index does not exist.");
+                logger.debug("ModelMetadata for model is null. " + MODEL_INDEX_NAME + " index does not exist.");
                 return null;
             }
 
             Map<String, String> models = indexMetadata.getCustomData(MODEL_METADATA_FIELD);
             if (models == null) {
-                logger.debug(
-                    "ModelMetadata for model \"" + modelId + "\" is null. " + MODEL_INDEX_NAME + "'s custom metadata does not exist."
-                );
+                logger.debug("ModelMetadata for model is null. " + MODEL_INDEX_NAME + "'s custom metadata does not exist.");
                 return null;
             }
 
             String modelMetadata = models.get(modelId);
 
             if (modelMetadata == null) {
-                logger.debug("ModelMetadata for model \"" + modelId + "\" is null. Model \"" + modelId + "\" does " + "not exist.");
+                logger.debug("ModelMetadata for model is null. Model does not exist.");
                 return null;
             }
 
@@ -431,8 +429,8 @@ public interface ModelDao {
         public void delete(String modelId, ActionListener<DeleteModelResponse> listener) {
             // If the index is not created, there is no need to delete the model
             if (!isCreated()) {
-                logger.error("Cannot delete model \"" + modelId + "\". Model index " + MODEL_INDEX_NAME + "does not exist.");
-                String errorMessage = String.format("Cannot delete model \"%s\". Model index does not exist", modelId);
+                logger.error("Cannot delete model. Model index " + MODEL_INDEX_NAME + "does not exist.");
+                String errorMessage = "Cannot delete model. Model index does not exist";
                 listener.onResponse(new DeleteModelResponse(modelId, "failed", errorMessage));
                 return;
             }
@@ -446,7 +444,7 @@ public interface ModelDao {
             ActionListener<DeleteResponse> onModelDeleteListener = ActionListener.wrap(deleteResponse -> {
                 // If model is not deleted, return with error message
                 if (deleteResponse.getResult() != DocWriteResponse.Result.DELETED) {
-                    String errorMessage = String.format("Model \" %s \" does not exist", modelId);
+                    String errorMessage = "Model does not exist";
                     listener.onResponse(new DeleteModelResponse(modelId, deleteResponse.getResult().getLowercase(), errorMessage));
                     return;
                 }
@@ -463,7 +461,7 @@ public interface ModelDao {
                             return;
                         }
 
-                        String failureMessage = buildRemoveModelErrorMessage(modelId, removeModelFromCacheResponse);
+                        String failureMessage = buildRemoveModelErrorMessage(removeModelFromCacheResponse);
 
                         listener.onResponse(new DeleteModelResponse(modelId, "failed", failureMessage));
 
@@ -485,8 +483,8 @@ public interface ModelDao {
             );
         }
 
-        private String buildRemoveModelErrorMessage(String modelId, RemoveModelFromCacheResponse response) {
-            String failureMessage = "Failed to remove \"" + modelId + "\" from nodes: ";
+        private String buildRemoveModelErrorMessage(RemoveModelFromCacheResponse response) {
+            String failureMessage = "Failed to remove model_id from nodes: ";
             StringBuilder stringBuilder = new StringBuilder(failureMessage);
 
             for (FailedNodeException nodeException : response.failures()) {

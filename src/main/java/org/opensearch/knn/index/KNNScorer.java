@@ -48,7 +48,7 @@ public class KNNScorer extends Scorer {
     public float score() {
         assert docID() != DocIdSetIterator.NO_MORE_DOCS;
         Float score = scores.get(docID());
-        if (score == null) throw new RuntimeException("Null score for the docID: " + docID());
+        if (score == null) throw new RuntimeException("Null score in a document");
         return score;
     }
 

@@ -674,9 +674,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             if (modelMetadata == null) {
                 throw new IllegalStateException(
-                    "Model \""
-                        + modelId
-                        + "\" from "
+                    "Model from "
                         + context.mapperService().index().getName()
                         + "'s mapping does not exist. Because the "
                         + "\""

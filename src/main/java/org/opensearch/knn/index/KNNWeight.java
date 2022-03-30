@@ -94,7 +94,7 @@ public class KNNWeight extends Weight {
         if (modelId != null) {
             ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
             if (modelMetadata == null) {
-                throw new RuntimeException("Model \"" + modelId + "\" does not exist.");
+                throw new RuntimeException("Model does not exist.");
             }
 
             knnEngine = modelMetadata.getKnnEngine();

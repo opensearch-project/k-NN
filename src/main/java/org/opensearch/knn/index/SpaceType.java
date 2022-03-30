@@ -103,6 +103,6 @@ public enum SpaceType {
                 return currentSpaceType;
             }
         }
-        throw new IllegalArgumentException("Unable to find space: " + spaceTypeName);
+        throw new IllegalArgumentException("Unable to find the space_type");
     }
 }

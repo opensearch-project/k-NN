@@ -84,7 +84,7 @@ public class VectorReader {
         IndexMetadata indexMetadata = clusterService.state().metadata().index(indexName);
         if (indexMetadata == null) {
             validationException = validationException == null ? new ValidationException() : validationException;
-            validationException.addValidationError("index \"" + indexName + "\" does not exist");
+            validationException.addValidationError("index does not exist");
             throw validationException;
         }
 

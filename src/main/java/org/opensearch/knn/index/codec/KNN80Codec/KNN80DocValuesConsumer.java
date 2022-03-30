@@ -109,7 +109,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                 .toString();
 
             if (model.getModelBlob() == null) {
-                throw new RuntimeException("There is no trained model with id \"" + modelId + "\"");
+                throw new RuntimeException("There is no trained model with given model_id");
             }
 
             indexCreator = () -> createKNNIndexFromTemplate(model.getModelBlob(), pair, knnEngine, indexPath);

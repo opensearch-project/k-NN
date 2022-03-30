@@ -216,7 +216,7 @@ public interface KNNLibrary {
             if (method != null) {
                 return method;
             }
-            throw new IllegalArgumentException("Invalid method name: " + methodName);
+            throw new IllegalArgumentException("Invalid method name");
         }
 
         @Override
@@ -251,7 +251,7 @@ public interface KNNLibrary {
             KNNMethod knnMethod = methods.get(knnMethodContext.getMethodComponent().getName());
 
             if (knnMethod == null) {
-                throw new IllegalArgumentException("Invalid method name: " + knnMethodContext.getMethodComponent().getName());
+                throw new IllegalArgumentException("Invalid method name");
             }
 
             return knnMethod.getAsMap(knnMethodContext);

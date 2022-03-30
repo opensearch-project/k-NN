@@ -174,7 +174,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
                     try {
                         engine = KNNEngine.getEngine((String) value);
                     } catch (IllegalArgumentException iae) {
-                        throw new MapperParsingException("Invalid " + KNN_ENGINE + ": " + value);
+                        throw new MapperParsingException("Invalid " + KNN_ENGINE);
                     }
                 }
             } else if (METHOD_PARAMETER_SPACE_TYPE.equals(key)) {
@@ -185,7 +185,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
                 try {
                     spaceType = SpaceType.getSpace((String) value);
                 } catch (IllegalArgumentException iae) {
-                    throw new MapperParsingException("Invalid " + METHOD_PARAMETER_SPACE_TYPE + ": " + value);
+                    throw new MapperParsingException("Invalid " + METHOD_PARAMETER_SPACE_TYPE);
                 }
             } else if (NAME.equals(key)) {
                 if (!(value instanceof String)) {
@@ -212,7 +212,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
                 parameters = parameters1;
             } else {
-                throw new MapperParsingException("Invalid parameter: " + key);
+                throw new MapperParsingException("Invalid parameter in method");
             }
         }
 

@@ -65,7 +65,7 @@ public class RestSearchModelHandler extends BaseRestHandler {
             }
         });
         if (invalidParam.isEmpty()) return;
-        String errorMessage = "request contains an unrecognized parameter: [ " + String.join(",", invalidParam) + " ]";
+        String errorMessage = "request contains an unrecognized parameter";
         throw new IllegalArgumentException(errorMessage);
     }
 

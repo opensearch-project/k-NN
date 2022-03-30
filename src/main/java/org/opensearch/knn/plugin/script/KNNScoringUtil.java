@@ -27,11 +27,7 @@ public class KNNScoringUtil {
         Objects.requireNonNull(queryVector);
         Objects.requireNonNull(inputVector);
         if (queryVector.length != inputVector.length) {
-            String errorMessage = String.format(
-                "query vector dimension mismatch. Expected: %d, Given: %d",
-                inputVector.length,
-                queryVector.length
-            );
+            String errorMessage = String.format("query vector dimension mismatch. Expected: %d", inputVector.length);
             throw new IllegalArgumentException(errorMessage);
         }
     }

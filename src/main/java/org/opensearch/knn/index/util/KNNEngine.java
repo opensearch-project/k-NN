@@ -60,7 +60,7 @@ public enum KNNEngine implements KNNLibrary {
             return FAISS;
         }
 
-        throw new IllegalArgumentException("Invalid engine type: " + name);
+        throw new IllegalArgumentException("Invalid engine type");
     }
 
     /**

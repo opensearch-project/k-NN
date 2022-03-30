@@ -195,9 +195,7 @@ public class TrainingModelRequest extends ActionRequest {
      */
     public void setMaximumVectorCount(int maximumVectorCount) {
         if (maximumVectorCount <= 0) {
-            throw new IllegalArgumentException(
-                String.format("Maximum vector count %d is invalid. Maximum vector " + "count must be greater than 0", maximumVectorCount)
-            );
+            throw new IllegalArgumentException("Maximum vector count is invalid. Maximum vector count must be greater than 0");
         }
         this.maximumVectorCount = maximumVectorCount;
     }
@@ -219,9 +217,7 @@ public class TrainingModelRequest extends ActionRequest {
      */
     public void setSearchSize(int searchSize) {
         if (searchSize <= 0 || searchSize > 10000) {
-            throw new IllegalArgumentException(
-                String.format("Search size %d is invalid. Search size must be " + "between 0 and 10,000", searchSize)
-            );
+            throw new IllegalArgumentException("Search size is invalid. Search size must be between 0 and 10,000");
         }
         this.searchSize = searchSize;
     }
@@ -242,9 +238,7 @@ public class TrainingModelRequest extends ActionRequest {
      */
     void setTrainingDataSizeInKB(int trainingDataSizeInKB) {
         if (trainingDataSizeInKB <= 0) {
-            throw new IllegalArgumentException(
-                String.format("Training data size %d is invalid. Training data size " + "must be greater than 0", trainingDataSizeInKB)
-            );
+            throw new IllegalArgumentException("Training data size is invalid. Training data size must be greater than 0");
         }
         this.trainingDataSizeInKB = trainingDataSizeInKB;
     }
@@ -256,7 +250,7 @@ public class TrainingModelRequest extends ActionRequest {
         // Check if model id exists via model metadata
         if (modelDao.getMetadata(modelId) != null) {
             exception = new ActionRequestValidationException();
-            exception.addValidationError("Model with id=\"" + modelId + "\" already exists");
+            exception.addValidationError("Model with given model_id already exists");
             return exception;
         }
 
@@ -275,7 +269,7 @@ public class TrainingModelRequest extends ActionRequest {
         // Check if preferred node is real
         if (preferredNodeId != null && !clusterService.state().nodes().getDataNodes().containsKey(preferredNodeId)) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
-            exception.addValidationError("Preferred node \"" + preferredNodeId + "\" does not exist");
+            exception.addValidationError("Preferred node does not exist");
         }
 
         // Check if description is too long
@@ -288,7 +282,7 @@ public class TrainingModelRequest extends ActionRequest {
         IndexMetadata indexMetadata = clusterService.state().metadata().index(trainingIndex);
         if (indexMetadata == null) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
-            exception.addValidationError("Index \"" + this.trainingIndex + "\" does not exist.");
+            exception.addValidationError("The training_index does not exist.");
             return exception;
         }
 

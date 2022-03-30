@@ -322,7 +322,7 @@ public class KNNSettings {
             return KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING;
         }
 
-        throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
+        throw new IllegalArgumentException("Unsupported kNN setting");
     }
 
     public List<Setting<?>> getSettings() {
@@ -474,7 +474,7 @@ public class KNNSettings {
 
     public void onIndexModule(IndexModule module) {
         module.addSettingsUpdateConsumer(INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING, newVal -> {
-            logger.debug("The value of [KNN] setting [{}] changed to [{}]", KNN_ALGO_PARAM_EF_SEARCH, newVal);
+            logger.debug("The value of [KNN] setting [{}] changed", KNN_ALGO_PARAM_EF_SEARCH);
             latestSettings.put(KNN_ALGO_PARAM_EF_SEARCH, newVal);
             // TODO: replace cache-rebuild with index reload into the cache
             NativeMemoryCacheManager.getInstance().rebuildCache();

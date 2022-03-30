@@ -36,7 +36,7 @@ public class KNNScoringScriptEngine implements ScriptEngine {
         // we use the script "source" as the script identifier
         if (!SCRIPT_SOURCE.equals(code)) {
             KNNCounter.SCRIPT_COMPILATION_ERRORS.increment();
-            throw new IllegalArgumentException("Unknown script name " + code);
+            throw new IllegalArgumentException("Unknown script name");
         }
         ScoreScript.Factory factory = KNNScoreScriptFactory::new;
         return context.factoryClazz.cast(factory);

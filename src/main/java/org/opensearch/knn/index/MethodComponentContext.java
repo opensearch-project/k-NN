@@ -111,7 +111,7 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
 
                 parameters = parameters1;
             } else {
-                throw new MapperParsingException("Invalid parameter for MethodComponentContext: " + key);
+                throw new MapperParsingException("Invalid parameter for MethodComponentContext");
             }
         }
 

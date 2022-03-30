@@ -284,7 +284,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
         request.setJsonEntity(Strings.toString(builder));
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString("Unknown script name Dummy_source"));
+        assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString("Unknown script name"));
     }
 
     public void testInvalidSpace() throws Exception {

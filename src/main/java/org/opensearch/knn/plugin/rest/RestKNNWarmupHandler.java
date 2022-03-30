@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.plugin.rest;
 
-import org.opensearch.knn.common.exception.KNNInvalidIndicesException;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.KNNWarmupAction;
 import org.opensearch.knn.plugin.transport.KNNWarmupRequest;
@@ -76,7 +75,7 @@ public class RestKNNWarmupHandler extends BaseRestHandler {
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) {
         KNNWarmupRequest knnWarmupRequest = createKNNWarmupRequest(request);
-        logger.info("[KNN] Warmup started for the following indices: " + String.join(",", knnWarmupRequest.indices()));
+        logger.info("[KNN] Warmup started for the indices");
         return channel -> client.execute(KNNWarmupAction.INSTANCE, knnWarmupRequest, new RestToXContentListener<>(channel));
     }
 
@@ -92,10 +91,7 @@ public class RestKNNWarmupHandler extends BaseRestHandler {
         });
 
         if (invalidIndexNames.size() != 0) {
-            throw new KNNInvalidIndicesException(
-                invalidIndexNames,
-                "Warm up request rejected. One or more indices have 'index.knn' set to false."
-            );
+            throw new IllegalArgumentException("[KNN] Warm up request rejected. One or more indices have 'index.knn' set to false.");
         }
 
         return new KNNWarmupRequest(indexNames);

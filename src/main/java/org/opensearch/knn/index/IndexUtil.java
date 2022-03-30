@@ -139,7 +139,7 @@ public class IndexUtil {
 
             ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
             if (modelMetadata == null) {
-                exception.addValidationError(String.format("Model \"%s\" for field \"%s\" does not exist.", modelId, field));
+                exception.addValidationError(String.format("model_id for field \"%s\" does not exist.", field));
                 return exception;
             }
 
@@ -147,9 +147,8 @@ public class IndexUtil {
             if ((Integer) dimension != expectedDimension) {
                 exception.addValidationError(
                     String.format(
-                        "Field \"%s\" has dimension %d, which is different from " + "dimension specified in the training request: %d",
+                        "Field \"%s\" has dimension, which is different from " + "dimension specified in the training request: %d",
                         field,
-                        dimension,
                         expectedDimension
                     )
                 );
@@ -163,9 +162,8 @@ public class IndexUtil {
         if ((Integer) dimension != expectedDimension) {
             exception.addValidationError(
                 String.format(
-                    "Field \"%s\" has dimension %d, which is different from " + "dimension specified in the training request: %d",
+                    "Field \"%s\" has dimension, which is different from " + "dimension specified in the training request: %d",
                     field,
-                    dimension,
                     expectedDimension
                 )
             );

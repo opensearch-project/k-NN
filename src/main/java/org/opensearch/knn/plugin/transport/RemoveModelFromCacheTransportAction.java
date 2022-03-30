@@ -78,7 +78,7 @@ public class RemoveModelFromCacheTransportAction extends TransportNodesAction<
 
     @Override
     protected RemoveModelFromCacheNodeResponse nodeOperation(RemoveModelFromCacheNodeRequest nodeRequest) {
-        logger.debug("[KNN] Removing model \"" + nodeRequest.getModelId() + "\" on node \"" + clusterService.localNode().getId() + ".");
+        logger.debug("[KNN] Removing model on node \"" + clusterService.localNode().getId() + ".");
         ModelCache.getInstance().remove(nodeRequest.getModelId());
         return new RemoveModelFromCacheNodeResponse(clusterService.localNode());
     }

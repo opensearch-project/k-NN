@@ -79,6 +79,6 @@ public enum ModelState implements Writeable {
             return FAILED;
         }
 
-        throw new IllegalArgumentException("Unable to find model state: \"" + name + "\"");
+        throw new IllegalArgumentException("Unable to find model state");
     }
 }

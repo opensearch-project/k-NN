@@ -96,7 +96,7 @@ public class MethodComponent {
         ValidationException parameterValidation;
         for (Map.Entry<String, Object> parameter : providedParameters.entrySet()) {
             if (!parameters.containsKey(parameter.getKey())) {
-                errorMessages.add(String.format("Invalid parameter for method \"%s\".", getName()));
+                errorMessages.add("Invalid parameter for method");
                 continue;
             }
 
