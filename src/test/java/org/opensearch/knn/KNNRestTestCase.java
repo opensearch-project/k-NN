@@ -92,7 +92,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             return;
         }
 
-        String serverUrl = "service:jmx:rmi:///jndi/rmi://127.0.0.1:7777/jmxrmi";
+        String serverUrl = System.getProperty("jmx.serviceUrl");
         try (JMXConnector connector = JMXConnectorFactory.connect(new JMXServiceURL(serverUrl))) {
             IProxy proxy = MBeanServerInvocationHandler.newProxyInstance(
                 connector.getMBeanServerConnection(), new ObjectName("org.jacoco:type=Runtime"), IProxy.class,
