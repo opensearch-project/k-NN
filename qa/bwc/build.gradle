@@ -1,0 +1,20 @@
+/*
+ *  Copyright OpenSearch Contributors
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
+
+import org.opensearch.gradle.testclusters.RunTask
+
+apply plugin: 'opensearch.testclusters'
+
+
+testClusters {
+    jack {
+        testDistribution = 'ARCHIVE'
+    }
+}
+
+task jack(type: RunTask) {
+    useCluster testClusters.jack
+}

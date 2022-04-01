@@ -3,8 +3,6 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
-import java.util.concurrent.Callable
-import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
 import org.opensearch.gradle.test.RestIntegTestTask
 
 buildscript {
@@ -12,9 +10,7 @@ buildscript {
         // build.version_qualifier parameter applies to knn plugin artifacts only. OpenSearch version must be set
         // explicitly as 'opensearch.version' property, for instance opensearch.version=2.0.0-alpha1-SNAPSHOT
         opensearch_version = System.getProperty("opensearch.version", "2.0.0-alpha1-SNAPSHOT")
-        knn_bwc_version = System.getProperty("bwc.version", "1.2.0.0-SNAPSHOT")
         version_qualifier = System.getProperty("build.version_qualifier", "alpha1")
-        opensearch_bwc_version = "${knn_bwc_version}" - ".0-SNAPSHOT"
         opensearch_group = "org.opensearch"
     }
 
@@ -81,7 +77,7 @@ allprojects {
     if (isSnapshot) {
         version += "-SNAPSHOT"
     }
-    apply from: 'build-tools/repositories.gradle'
+    apply from: rootProject.file('build-tools/repositories.gradle').absoluteFile
     plugins.withId('java') {
         sourceCompatibility = targetCompatibility = "11"
     }
@@ -110,7 +106,7 @@ tasks.named("integTest").configure {
 }
 
 task release(type: Copy, group: 'build') {
-    dependsOn allprojects*.tasks.build
+    dependsOn project.tasks.build
     from(zipTree(project.tasks.bundlePlugin.outputs.files.getSingleFile()))
     into "build/plugins/opensearch-knn"
     includeEmptyDirs = false
@@ -233,169 +229,6 @@ task integTestRemote(type: RestIntegTestTask) {
     }
 }
 
-// bwcFilePath contains the gradlew assemble binary files of k-NN plugins
-String baseName = "knnBwcCluster"
-String bwcFilePath = "src/test/resources/org/opensearch/knn/bwc/"
-
-// Creates two test clusters of previous version and loads k-NN plugin of bwcVersion
-2.times { i ->
-    testClusters {
-        "${baseName}$i" {
-            testDistribution = "ARCHIVE"
-            versions = [opensearch_bwc_version, opensearch_version] //Opensearch Cluster Versions
-            numberOfNodes = 3
-            plugin(provider(new Callable<RegularFile>() {
-                @Override
-                RegularFile call() throws Exception {
-                    return new RegularFile() {
-                        @Override
-                        File getAsFile() {
-                            return fileTree(bwcFilePath + knn_bwc_version).getSingleFile()
-                        }
-                    }
-                }
-            }))
-            setting 'path.repo', "${buildDir}/cluster/shared/repo/${baseName}"
-            setting 'http.content_type.required', 'true'
-            environment "LD_LIBRARY_PATH", "${rootDir}/build/testclusters/${baseName}$i-0/distro/${opensearch_bwc_version}-ARCHIVE/plugins/opensearch-knn/knnlib"
-            systemProperty "java.library.path", "${rootDir}/src/test/resources/org/opensearch/knn/bwc/lib:${rootDir}/build/testclusters/${baseName}$i-0/distro/${opensearch_bwc_version}-ARCHIVE/plugins/opensearch-knn/knnlib"
-        }
-    }
-}
-
-// upgradeNodeAndPluginToNextVersion(plugins) upgrades plugin on the upgraded node with project.version binary file in bwcFilePath
-// upgradeAllNodesAndPluginsToNextVersion(plugins) upgrades plugins on all the 3 nodes after upgrading the nodes
-List<Provider<RegularFile>> plugins = [
-        provider(new Callable<RegularFile>(){
-            @Override
-            RegularFile call() throws Exception {
-                return new RegularFile() {
-                    @Override
-                    File getAsFile() {
-                        return fileTree(bwcFilePath + project.version).getSingleFile()
-                    }
-                }
-            }
-        })
-]
-
-// Creates 2 test clusters with 3 nodes of the old version.
-2.times { i ->
-    task "${baseName}#oldVersionClusterTask$i"(type: StandaloneRestIntegTestTask) {
-        useCluster testClusters."${baseName}$i"
-        filter {
-            includeTestsMatching "org.opensearch.knn.bwc.*IT"
-        }
-        systemProperty 'tests.rest.bwcsuite_cluster', 'old_cluster'
-        systemProperty 'tests.rest.bwcsuite_round', 'old'
-        systemProperty 'tests.plugin_bwc_version', knn_bwc_version
-        nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}$i".allHttpSocketURI.join(",")}")
-        nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}$i".getName()}")
-    }
-}
-
-// Upgrades one node of the old cluster to new OpenSearch version with upgraded plugin version
-// This results in a mixed cluster with 2 nodes on the old version and 1 upgraded node.
-// This is also used as a one third upgraded cluster for a rolling upgrade.
-task "${baseName}#mixedClusterTask"(type: StandaloneRestIntegTestTask) {
-    useCluster testClusters."${baseName}0"
-    dependsOn "${baseName}#oldVersionClusterTask0"
-    doFirst {
-        testClusters."${baseName}0".getNodes().getAt("${baseName}0" + "-0").environment("LD_LIBRARY_PATH", "")
-        testClusters."${baseName}0".getNodes().getAt("${baseName}0" + "-0").systemProperty("java.library.path", "$rootDir/jni/release")
-        testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
-    }
-    filter {
-        includeTestsMatching "org.opensearch.knn.bwc.*IT"
-    }
-    systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
-    systemProperty 'tests.rest.bwcsuite_round', 'first'
-    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
-    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}0".allHttpSocketURI.join(",")}")
-    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}0".getName()}")
-}
-
-// Upgrades the second node to new OpenSearch version with upgraded plugin version after the first node is upgraded.
-// This results in a mixed cluster with 1 node on the old version and 2 upgraded nodes.
-// This is used for rolling upgrade.
-task "${baseName}#twoThirdsUpgradedClusterTask"(type: StandaloneRestIntegTestTask) {
-    dependsOn "${baseName}#mixedClusterTask"
-    useCluster testClusters."${baseName}0"
-    doFirst {
-        testClusters."${baseName}0".getNodes().getAt("${baseName}0" + "-1").environment("LD_LIBRARY_PATH", "")
-        testClusters."${baseName}0".getNodes().getAt("${baseName}0" + "-1").systemProperty("java.library.path", "$rootDir/jni/release")
-        testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
-    }
-    filter {
-        includeTestsMatching "org.opensearch.knn.bwc.*IT"
-    }
-    systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
-    systemProperty 'tests.rest.bwcsuite_round', 'second'
-    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
-    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}0".allHttpSocketURI.join(",")}")
-    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}0".getName()}")
-}
-
-// Upgrades the third node to new OpenSearch version with upgraded plugin version after the second node is upgraded.
-// This results in a fully upgraded cluster.
-// This is used for rolling upgrade.
-task "${baseName}#rollingUpgradeClusterTask"(type: StandaloneRestIntegTestTask) {
-    dependsOn "${baseName}#twoThirdsUpgradedClusterTask"
-    useCluster testClusters."${baseName}0"
-    doFirst {
-        testClusters."${baseName}0".getNodes().getAt("${baseName}0" + "-2").environment("LD_LIBRARY_PATH", "")
-        testClusters."${baseName}0".getNodes().getAt("${baseName}0" + "-2").systemProperty("java.library.path", "$rootDir/jni/release")
-        testClusters."${baseName}0".upgradeNodeAndPluginToNextVersion(plugins)
-    }
-    filter {
-        includeTestsMatching "org.opensearch.knn.bwc.*IT"
-    }
-    mustRunAfter "${baseName}#mixedClusterTask"
-    systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
-    systemProperty 'tests.rest.bwcsuite_round', 'third'
-    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
-    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}0".allHttpSocketURI.join(",")}")
-    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}0".getName()}")
-}
-
-// Upgrades all the nodes of the old cluster to new OpenSearch version with upgraded plugin version
-// at the same time resulting in a fully upgraded cluster.
-task "${baseName}#fullRestartClusterTask"(type: StandaloneRestIntegTestTask) {
-    dependsOn "${baseName}#oldVersionClusterTask1"
-    useCluster testClusters."${baseName}1"
-    doFirst {
-        testClusters."${baseName}1".environment("LD_LIBRARY_PATH", "")
-        testClusters."${baseName}1".systemProperty("java.library.path", "$rootDir/jni/release")
-        testClusters."${baseName}1".upgradeAllNodesAndPluginsToNextVersion(plugins)
-    }
-    filter {
-        includeTestsMatching "org.opensearch.knn.bwc.*IT"
-    }
-    systemProperty 'tests.rest.bwcsuite_cluster', 'upgraded_cluster'
-    systemProperty 'tests.rest.bwcsuite_round', 'fullrestart'
-    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
-    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}1".allHttpSocketURI.join(",")}")
-    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}1".getName()}")
-}
-
-// A bwc test suite which runs all the bwc tasks combined.
-task bwcTestSuite(type: StandaloneRestIntegTestTask) {
-    dependsOn "copyLatestSnapshot"
-    exclude '**/*Test*'
-    exclude '**/*IT*'
-    dependsOn tasks.named("${baseName}#mixedClusterTask")
-    dependsOn tasks.named("${baseName}#rollingUpgradeClusterTask")
-    dependsOn tasks.named("${baseName}#fullRestartClusterTask")
-}
-
-task copyLatestSnapshot(type: Copy){
-    dependsOn 'assemble'
-    mkdir "$bwcFilePath$project.version"
-    from "$buildDir/distributions"
-    include "*.zip"
-    into "$bwcFilePath$project.version"
-}
-
 run {
     useCluster project.testClusters.integTest
     dependsOn buildJniLib
@@ -407,7 +240,6 @@ run {
         }
     }
 }
-
 
 //TODO fix these
 forbiddenApis.ignoreFailures = true
@@ -421,66 +253,3 @@ forbiddenPatterns {
 testingConventions.enabled = false
 validateNebulaPom.enabled = false
 apply plugin: 'nebula.ospackage'
-
-// This is afterEvaluate because the bundlePlugin ZIP task is updated afterEvaluate and changes the ZIP name to match the plugin name
-afterEvaluate {
-    ospackage {
-        packageName = "${name}"
-        release = isSnapshot ? "0.1" : '1'
-        version = "${project.version}" - "-SNAPSHOT"
-
-        into '/usr/share/opensearch/plugins'
-        from(zipTree(bundlePlugin.archivePath)) {
-            into opensearchplugin.name
-        }
-
-        user 'root'
-        permissionGroup 'root'
-        fileMode 0644
-        dirMode 0755
-
-        requires('opensearch', versions.opensearch, EQUAL)
-        //TODO: Use default knn lib version for now, fix will be compare with version that is used in build step.
-        requires("opensearch-knnlib",  "1.3.0.0",  EQUAL)
-        packager = 'Amazon'
-        vendor = 'Amazon'
-        os = 'LINUX'
-        prefix '/usr'
-
-        license 'ASL-2.0'
-        maintainer 'OpenSearch <opensearch@amazon.com>'
-        url 'https://opensearch.org/downloads.html'
-        summary '''
-         KNN plugin for OpenSearch.
-    '''.stripIndent().replace('\n', ' ').trim()
-    }
-
-    buildRpm {
-        arch = 'NOARCH'
-        dependsOn 'assemble'
-        finalizedBy 'renameRpm'
-        task renameRpm(type: Copy) {
-            from("$buildDir/distributions")
-            into("$buildDir/distributions")
-            include archiveName
-            rename archiveName, "${packageName}-${version}.rpm"
-            doLast { delete file("$buildDir/distributions/$archiveName") }
-        }
-    }
-    buildDeb {
-        arch = 'all'
-        dependsOn 'assemble'
-        finalizedBy 'renameDeb'
-        task renameDeb(type: Copy) {
-            from("$buildDir/distributions")
-            into("$buildDir/distributions")
-            include archiveName
-            rename archiveName, "${packageName}-${version}.deb"
-            doLast { delete file("$buildDir/distributions/$archiveName") }
-        }
-    }
-
-    task buildPackages(type: GradleBuild) {
-        tasks = ['build', 'buildRpm', 'buildDeb']
-    }
-}
