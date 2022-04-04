@@ -33,17 +33,11 @@ buildscript {
 
 plugins {
     id 'java-library'
+    id 'java-test-fixtures'
     id 'nebula.ospackage' version "8.3.0" apply false
     id 'idea'
     id 'jacoco'
     id "com.diffplug.spotless" version "6.3.0" apply false
-}
-
-repositories {
-    mavenLocal()
-    maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
-    mavenCentral()
-    maven { url "https://plugins.gradle.org/m2/" }
 }
 
 apply from: 'gradle/formatting.gradle'
@@ -123,7 +117,7 @@ dependencies {
     api group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
     api group: 'com.google.guava', name: 'guava', version:'30.0-jre'
     api group: 'commons-lang', name: 'commons-lang', version: '2.6'
-    testImplementation "org.opensearch.test:framework:${opensearch_version}"
+    testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
 }
 
 licenseHeaders.enabled = true

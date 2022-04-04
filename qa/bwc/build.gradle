@@ -5,10 +5,8 @@
 
 //TODO:
 // 1. Setup arbitrary BWC cluster for full restart - use a function
-// 2. Move tests here and get them to run
-// 3. Setup upgrade to current
-// 4. Add rolling
-// 5. Enhance BWC tests
+// 2. Setup upgrade to current
+// 3. Add back rolling
 
 import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
 
@@ -40,36 +38,20 @@ buildscript {
     }
 }
 
+dependencyLicenses.enabled = false
+thirdPartyAudit.enabled = false
+loggerUsageCheck.enabled = false
+forbiddenApis.ignoreFailures = true
+forbiddenPatterns {
+    setEnabled(false)
+}
+testingConventions.enabled = false
+validateNebulaPom.enabled = false
+apply plugin: 'nebula.ospackage'
+
 ext {
     licenseFile = rootProject.file('LICENSE.TXT')
     noticeFile = rootProject.file('NOTICE.TXT')
-}
-
-sourceSets {
-    main {
-        java {
-            srcDirs = ["${rootDir}/src/main/java"]
-        }
-        resources {
-            srcDirs = ["${rootDir}/src/main/resources"]
-        }
-    }
-
-    test {
-        java {
-            srcDirs = ["${rootDir}/src/test/java"]
-        }
-        resources {
-            srcDirs = ["${rootDir}/src/test/resources", "src/test/resources"]
-        }
-    }
-}
-
-repositories {
-    mavenLocal()
-    maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
-    mavenCentral()
-    maven { url "https://plugins.gradle.org/m2/" }
 }
 
 dependencies {
@@ -84,6 +66,8 @@ dependencies {
     api "org.apache.logging.log4j:log4j-jcl:${versions.log4j}"
 
     testImplementation "org.opensearch.test:framework:${opensearch_version}"
+    api rootProject
+    testImplementation(testFixtures(rootProject))
 }
 
 String baseName = "knnBwcCluster"
@@ -127,6 +111,7 @@ task oldVersionClusterTask(type: StandaloneRestIntegTestTask) {
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
+    systemProperty 'tests.security.manager', 'false'
 }
 
 task fullRestartClusterTask(type: StandaloneRestIntegTestTask) {
@@ -152,6 +137,7 @@ task fullRestartClusterTask(type: StandaloneRestIntegTestTask) {
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
+    systemProperty 'tests.security.manager', 'false'
 }
 
 task bwcTestSuite(type: StandaloneRestIntegTestTask) {
