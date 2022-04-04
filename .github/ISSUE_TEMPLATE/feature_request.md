@@ -2,10 +2,9 @@
 name: 🎆 Feature request
 about: Request a feature in this project
 title: '[FEATURE]'
-labels: enhancement
+labels: 'enhancement, untriaged'
 assignees: ''
 ---
-
 **Is your feature request related to a problem?**
 A clear and concise description of what the problem is, e.g. _I'm always frustrated when [...]_
 
