@@ -60,7 +60,7 @@ sourceSets {
             srcDirs = ["${rootDir}/src/test/java"]
         }
         resources {
-            srcDirs = ["${rootDir}/src/test/resources"]
+            srcDirs = ["${rootDir}/src/test/resources", "src/test/resources"]
         }
     }
 }
@@ -89,7 +89,7 @@ dependencies {
 String baseName = "knnBwcCluster"
 String knn_bwc_version = System.getProperty("bwc.version", "1.2.0.0-SNAPSHOT")
 String opensearch_bwc_version = "${knn_bwc_version}" - ".0-SNAPSHOT"
-String bwcFilePath = "${rootDir}/src/test/resources/org/opensearch/knn/bwc/"
+String bwcFilePath = "src/test/resources/org/opensearch/knn/bwc/"
 
 def _numNodes = findProperty('numNodes') as Integer ?: 3
 testClusters {

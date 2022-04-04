@@ -166,12 +166,6 @@ integTest {
     systemProperty "user", System.getProperty("user")
     systemProperty "password", System.getProperty("password")
 
-    if (System.getProperty("tests.rest.bwcsuite_cluster") == null) {
-        filter {
-            excludeTestsMatching "org.opensearch.knn.bwc.*IT"
-        }
-    }
-
     doFirst {
         // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
         // use longer timeouts for requests.
@@ -224,7 +218,6 @@ task integTestRemote(type: RestIntegTestTask) {
     if (System.getProperty("tests.rest.cluster") != null) {
         filter {
             includeTestsMatching "org.opensearch.knn.*IT"
-            excludeTestsMatching "org.opensearch.knn.bwc.*IT"
         }
     }
 }
