@@ -12,6 +12,8 @@
 
 import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
 
+import java.util.concurrent.Callable
+
 apply plugin: 'opensearch.testclusters'
 apply plugin: 'opensearch.build'
 apply plugin: 'opensearch.rest-test'
@@ -85,15 +87,29 @@ dependencies {
 }
 
 String baseName = "knnBwcCluster"
-String knn_bwc_version = opensearch_version
+String knn_bwc_version = System.getProperty("bwc.version", "1.2.0.0-SNAPSHOT")
+String opensearch_bwc_version = "${knn_bwc_version}" - ".0-SNAPSHOT"
+String bwcFilePath = "${rootDir}/src/test/resources/org/opensearch/knn/bwc/"
 
 def _numNodes = findProperty('numNodes') as Integer ?: 3
 testClusters {
     "${baseName}" {
         testDistribution = "ARCHIVE"
-        versions = [opensearch_version] //Opensearch Cluster Versions
+        versions = [opensearch_bwc_version, opensearch_version] //Opensearch Cluster Versions
         numberOfNodes = _numNodes
-        plugin(rootProject.tasks.bundlePlugin.archiveFile)
+
+        plugin(provider(new Callable<RegularFile>() {
+            @Override
+            RegularFile call() throws Exception {
+                return new RegularFile() {
+                    @Override
+                    File getAsFile() {
+                        return fileTree(bwcFilePath + knn_bwc_version).getSingleFile()
+                    }
+                }
+            }
+        }))
+
         setting 'path.repo', "${buildDir}/cluster/shared/repo/${baseName}"
         setting 'http.content_type.required', 'true'
         environment "LD_LIBRARY_PATH", "${rootDir}/jni/release"
@@ -115,7 +131,19 @@ task oldVersionClusterTask(type: StandaloneRestIntegTestTask) {
 
 task fullRestartClusterTask(type: StandaloneRestIntegTestTask) {
     dependsOn "oldVersionClusterTask"
+    dependsOn rootProject.tasks.buildJniLib
+    dependsOn rootProject.tasks.assemble
+    mustRunAfter(rootProject.tasks.buildJniLib)
+    mustRunAfter(rootProject.tasks.assemble)
+
     useCluster testClusters."${baseName}"
+
+    doFirst {
+        testClusters."${baseName}".environment("java.library.path", "$rootDir/jni/release")
+        testClusters."${baseName}".systemProperty("java.library.path", "$rootDir/jni/release")
+        testClusters."${baseName}".upgradeAllNodesAndPluginsToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
+    }
+
     filter {
         includeTestsMatching "org.opensearch.knn.bwc.*IT"
     }
@@ -129,5 +157,5 @@ task fullRestartClusterTask(type: StandaloneRestIntegTestTask) {
 task bwcTestSuite(type: StandaloneRestIntegTestTask) {
     exclude '**/*Test*'
     exclude '**/*IT*'
-    dependsOn tasks.named("fullRestartClusterTask")
+    dependsOn "fullRestartClusterTask"
 }
