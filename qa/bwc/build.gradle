@@ -3,18 +3,131 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
+//TODO:
+// 1. Setup arbitrary BWC cluster for full restart - use a function
+// 2. Move tests here and get them to run
+// 3. Setup upgrade to current
+// 4. Add rolling
+// 5. Enhance BWC tests
 
-import org.opensearch.gradle.testclusters.RunTask
+import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
 
 apply plugin: 'opensearch.testclusters'
+apply plugin: 'opensearch.build'
+apply plugin: 'opensearch.rest-test'
 
+buildscript {
+    ext {
+        // build.version_qualifier parameter applies to knn plugin artifacts only. OpenSearch version must be set
+        // explicitly as 'opensearch.version' property, for instance opensearch.version=2.0.0-alpha1-SNAPSHOT
+        opensearch_version = System.getProperty("opensearch.version", "2.0.0-alpha1-SNAPSHOT")
+        version_qualifier = System.getProperty("build.version_qualifier", "alpha1")
+        opensearch_group = "org.opensearch"
+    }
 
-testClusters {
-    jack {
-        testDistribution = 'ARCHIVE'
+    // This isn't applying from repositories.gradle so repeating git diff it here
+    repositories {
+        mavenLocal()
+        maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
+        mavenCentral()
+        maven { url "https://plugins.gradle.org/m2/" }
+    }
+
+    dependencies {
+        classpath "${opensearch_group}.gradle:build-tools:${opensearch_version}"
     }
 }
 
-task jack(type: RunTask) {
-    useCluster testClusters.jack
+ext {
+    licenseFile = rootProject.file('LICENSE.TXT')
+    noticeFile = rootProject.file('NOTICE.TXT')
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ["${rootDir}/src/main/java"]
+        }
+        resources {
+            srcDirs = ["${rootDir}/src/main/resources"]
+        }
+    }
+
+    test {
+        java {
+            srcDirs = ["${rootDir}/src/test/java"]
+        }
+        resources {
+            srcDirs = ["${rootDir}/src/test/resources"]
+        }
+    }
+}
+
+repositories {
+    mavenLocal()
+    maven { url "https://aws.oss.sonatype.org/content/repositories/snapshots" }
+    mavenCentral()
+    maven { url "https://plugins.gradle.org/m2/" }
+}
+
+dependencies {
+    api "org.opensearch:opensearch:${opensearch_version}"
+    compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"
+    api group: 'com.google.guava', name: 'failureaccess', version:'1.0.1'
+    api group: 'com.google.guava', name: 'guava', version:'30.0-jre'
+    api group: 'commons-lang', name: 'commons-lang', version: '2.6'
+
+    api "org.apache.logging.log4j:log4j-api:${versions.log4j}"
+    api "org.apache.logging.log4j:log4j-core:${versions.log4j}"
+    api "org.apache.logging.log4j:log4j-jcl:${versions.log4j}"
+
+    testImplementation "org.opensearch.test:framework:${opensearch_version}"
+}
+
+String baseName = "knnBwcCluster"
+String knn_bwc_version = opensearch_version
+
+def _numNodes = findProperty('numNodes') as Integer ?: 3
+testClusters {
+    "${baseName}" {
+        testDistribution = "ARCHIVE"
+        versions = [opensearch_version] //Opensearch Cluster Versions
+        numberOfNodes = _numNodes
+        plugin(rootProject.tasks.bundlePlugin.archiveFile)
+        setting 'path.repo', "${buildDir}/cluster/shared/repo/${baseName}"
+        setting 'http.content_type.required', 'true'
+        environment "LD_LIBRARY_PATH", "${rootDir}/jni/release"
+        systemProperty "java.library.path", "${rootDir}/jni/release"
+    }
+}
+
+task oldVersionClusterTask(type: StandaloneRestIntegTestTask) {
+    useCluster testClusters."${baseName}"
+    filter {
+        includeTestsMatching "org.opensearch.knn.bwc.*IT"
+    }
+    systemProperty 'tests.rest.bwcsuite_cluster', 'old_cluster'
+    systemProperty 'tests.rest.bwcsuite_round', 'old'
+    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
+}
+
+task fullRestartClusterTask(type: StandaloneRestIntegTestTask) {
+    dependsOn "oldVersionClusterTask"
+    useCluster testClusters."${baseName}"
+    filter {
+        includeTestsMatching "org.opensearch.knn.bwc.*IT"
+    }
+    systemProperty 'tests.rest.bwcsuite_cluster', 'upgraded_cluster'
+    systemProperty 'tests.rest.bwcsuite_round', 'fullrestart'
+    systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
+    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
+}
+
+task bwcTestSuite(type: StandaloneRestIntegTestTask) {
+    exclude '**/*Test*'
+    exclude '**/*IT*'
+    dependsOn tasks.named("fullRestartClusterTask")
 }
