@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.http.util.EntityUtils;
+import org.opensearch.common.Strings;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.KNNQueryBuilder;
@@ -22,6 +24,10 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import static org.opensearch.knn.TestUtils.*;
+import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY;
 import static org.opensearch.knn.index.KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED;
 
@@ -29,6 +35,7 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
     private static final String CLUSTER_NAME = System.getProperty(TEST_CLUSTER_NAME);
     private final String testIndexName = KNN_BWC_PREFIX + "test-index";
     private final String testIndex_Recall = KNN_BWC_PREFIX + "test-index-recall";
+    private final String testIndex_NullParams = KNN_BWC_PREFIX + "test-index-null-params";
     private final String testFieldName = "test-field";
     private final String testField_Recall = "test-field-recall";
     private final String testIndex_Recall_Old = KNN_BWC_PREFIX + "test-index-recall-value-old";
@@ -231,6 +238,39 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
                     break;
             }
             break;
+        }
+    }
+
+    public void testNullParametersOnUpgrade() throws Exception {
+        // Confirm cluster is green before starting
+        Request waitForGreen = new Request("GET", "/_cluster/health");
+        waitForGreen.addParameter("wait_for_nodes", "3");
+        waitForGreen.addParameter("wait_for_status", "green");
+        client().performRequest(waitForGreen);
+
+        switch (getClusterType()) {
+            case OLD:
+                String mapping = Strings.toString(
+                    XContentFactory.jsonBuilder()
+                        .startObject()
+                        .startObject("properties")
+                        .startObject(testFieldName)
+                        .field("type", "knn_vector")
+                        .field("dimension", String.valueOf(dimensions))
+                        .startObject(KNN_METHOD)
+                        .field(NAME, METHOD_HNSW)
+                        .field(PARAMETERS, (String) null)
+                        .endObject()
+                        .endObject()
+                        .endObject()
+                        .endObject()
+                );
+
+                createKnnIndex(testIndex_NullParams, getKNNDefaultIndexSettings(), mapping);
+                break;
+            case UPGRADED:
+                deleteKNNIndex(testIndex_NullParams);
+                break;
         }
     }
 
