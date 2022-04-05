@@ -21,6 +21,7 @@ import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.index.mapper.MapperParsingException;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -38,10 +39,10 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  */
 public class MethodComponentContext implements ToXContentFragment, Writeable {
 
-    private static Logger logger = LogManager.getLogger(MethodComponentContext.class);
+    private static final Logger logger = LogManager.getLogger(MethodComponentContext.class);
 
-    private String name;
-    private Map<String, Object> parameters;
+    private final String name;
+    private final Map<String, Object> parameters;
 
     /**
      * Constructor
@@ -62,7 +63,15 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
      */
     public MethodComponentContext(StreamInput in) throws IOException {
         this.name = in.readString();
-        this.parameters = in.readMap(StreamInput::readString, new ParameterMapValueReader());
+
+        // Due to backwards compatibility issue, parameters could be null. To prevent any null pointer exceptions,
+        // do not read if their are no bytes left is null. Make sure this is in sync with the fellow read method. For
+        // more information, refer to https://github.com/opensearch-project/k-NN/issues/353.
+        if (in.available() > 0) {
+            this.parameters = in.readMap(StreamInput::readString, new ParameterMapValueReader());
+        } else {
+            this.parameters = null;
+        }
     }
 
     /**
@@ -94,6 +103,11 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
                 }
                 name = (String) value;
             } else if (PARAMETERS.equals(key)) {
+                if (value == null) {
+                    parameters = null;
+                    continue;
+                }
+
                 if (!(value instanceof Map)) {
                     throw new MapperParsingException("Unable to parse parameters for  method component");
                 }
@@ -126,22 +140,30 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.field(NAME, name);
-        builder.startObject(PARAMETERS);
-        parameters.forEach((key, value) -> {
-            try {
-                if (value instanceof MethodComponentContext) {
-                    builder.startObject(key);
-                    ((MethodComponentContext) value).toXContent(builder, params);
-                    builder.endObject();
-                } else {
-                    builder.field(key, value);
+        // Due to backwards compatibility issue, parameters could be null. To prevent any null pointer exceptions,
+        // we just create the null field. If parameters are not null, we created a nested structure. For more
+        // information, refer to https://github.com/opensearch-project/k-NN/issues/353.
+        if (parameters == null) {
+            builder.field(PARAMETERS, (String) null);
+        } else {
+            builder.startObject(PARAMETERS);
+            parameters.forEach((key, value) -> {
+                try {
+                    if (value instanceof MethodComponentContext) {
+                        builder.startObject(key);
+                        ((MethodComponentContext) value).toXContent(builder, params);
+                        builder.endObject();
+                    } else {
+                        builder.field(key, value);
+                    }
+                } catch (IOException ioe) {
+                    throw new RuntimeException("Unable to generate xcontent for method component");
                 }
-            } catch (IOException ioe) {
-                throw new RuntimeException("Unable to generate xcontent for method component");
-            }
 
-        });
-        builder.endObject();
+            });
+            builder.endObject();
+        }
+
         return builder;
     }
 
@@ -179,13 +201,25 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
      * @return parameters
      */
     public Map<String, Object> getParameters() {
+        // Due to backwards compatibility issue, parameters could be null. To prevent any null pointer exceptions,
+        // return an empty map if parameters is null. For more information, refer to
+        // https://github.com/opensearch-project/k-NN/issues/353.
+        if (parameters == null) {
+            return Collections.emptyMap();
+        }
         return parameters;
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(this.name);
-        out.writeMap(this.parameters, StreamOutput::writeString, new ParameterMapValueWriter());
+
+        // Due to backwards compatibility issue, parameters could be null. To prevent any null pointer exceptions,
+        // do not write if parameters is null. Make sure this is in sync with the fellow read method. For more
+        // information, refer to https://github.com/opensearch-project/k-NN/issues/353.
+        if (this.parameters != null) {
+            out.writeMap(this.parameters, StreamOutput::writeString, new ParameterMapValueWriter());
+        }
     }
 
     // Because the generic StreamOutput writeMap method can only write generic values, we need to create a custom one
