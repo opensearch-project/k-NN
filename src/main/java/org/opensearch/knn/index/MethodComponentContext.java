@@ -31,7 +31,6 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
-
 /**
  * MethodComponentContext represents a single user provided building block of a knn library index.
  *
@@ -114,15 +113,15 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
 
                 // Check to interpret map parameters as sub-methodComponentContexts
                 @SuppressWarnings("unchecked")
-                Map<String, Object> parameters1 = ((Map<String, Object>) value).entrySet().stream().collect(Collectors.toMap(
-                        Map.Entry::getKey, e -> {
-                            Object v = e.getValue();
-                            if (v instanceof Map) {
-                                return MethodComponentContext.parse(v);
-                            }
-                            return v;
+                Map<String, Object> parameters1 = ((Map<String, Object>) value).entrySet()
+                    .stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> {
+                        Object v = e.getValue();
+                        if (v instanceof Map) {
+                            return MethodComponentContext.parse(v);
                         }
-                ));
+                        return v;
+                    }));
 
                 parameters = parameters1;
             } else {
@@ -169,10 +168,8 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (obj == null || getClass() != obj.getClass())
-            return false;
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
         MethodComponentContext other = (MethodComponentContext) obj;
 
         EqualsBuilder equalsBuilder = new EqualsBuilder();
