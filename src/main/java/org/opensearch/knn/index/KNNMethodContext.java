@@ -195,6 +195,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
                 name = (String) value;
             } else if (PARAMETERS.equals(key)) {
                 if (value == null) {
+                    parameters = null;
                     continue;
                 }
 

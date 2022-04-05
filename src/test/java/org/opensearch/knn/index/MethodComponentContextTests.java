@@ -47,6 +47,13 @@ public class MethodComponentContextTests extends KNNTestCase {
         MethodComponentContext copy = new MethodComponentContext(streamOutput.bytes().streamInput());
 
         assertEquals(original, copy);
+
+        // Check that everything works when streams are null
+        original = new MethodComponentContext(name, null);
+        streamOutput = new BytesStreamOutput();
+        original.writeTo(streamOutput);
+        copy = new MethodComponentContext(streamOutput.bytes().streamInput());
+        assertEquals(original, copy);
     }
 
     /**
@@ -105,6 +112,10 @@ public class MethodComponentContextTests extends KNNTestCase {
         MethodComponentContext methodContext = new MethodComponentContext(name, params);
         assertEquals(paramVal1, methodContext.getParameters().get(paramKey1));
         assertEquals(paramVal2, methodContext.getParameters().get(paramKey2));
+
+        // When parameters are null, an empty map should be returned
+        methodContext = new MethodComponentContext(name, null);
+        assertTrue(methodContext.getParameters().isEmpty());
     }
 
     /**
@@ -215,6 +226,15 @@ public class MethodComponentContextTests extends KNNTestCase {
 
         assertEquals(paramVal1, paramMap.get(paramKey1));
         assertEquals(paramVal2, paramMap.get(paramKey2));
+
+        // Check when parameters are null
+        xContentBuilder = XContentFactory.jsonBuilder().startObject().field(NAME, name).field(PARAMETERS, (String) null).endObject();
+        in = xContentBuilderToMap(xContentBuilder);
+        methodContext = MethodComponentContext.parse(in);
+        builder = XContentFactory.jsonBuilder().startObject();
+        builder = methodContext.toXContent(builder, ToXContent.EMPTY_PARAMS).endObject();
+        out = xContentBuilderToMap(builder);
+        assertNull(out.get(PARAMETERS));
     }
 
     public void testEquals() {
@@ -229,11 +249,15 @@ public class MethodComponentContextTests extends KNNTestCase {
         MethodComponentContext methodContext1 = new MethodComponentContext(name1, parameters1);
         MethodComponentContext methodContext2 = new MethodComponentContext(name1, parameters1);
         MethodComponentContext methodContext3 = new MethodComponentContext(name2, parameters2);
+        MethodComponentContext methodContext4 = new MethodComponentContext(name2, null);
+        MethodComponentContext methodContext5 = new MethodComponentContext(name2, null);
 
         assertEquals(methodContext1, methodContext1);
         assertEquals(methodContext1, methodContext2);
         assertNotEquals(methodContext1, methodContext3);
         assertNotEquals(methodContext1, null);
+        assertNotEquals(methodContext2, methodContext4);
+        assertEquals(methodContext4, methodContext5);
     }
 
     public void testHashCode() {
@@ -248,9 +272,13 @@ public class MethodComponentContextTests extends KNNTestCase {
         MethodComponentContext methodContext1 = new MethodComponentContext(name1, parameters1);
         MethodComponentContext methodContext2 = new MethodComponentContext(name1, parameters1);
         MethodComponentContext methodContext3 = new MethodComponentContext(name2, parameters2);
+        MethodComponentContext methodContext4 = new MethodComponentContext(name2, null);
+        MethodComponentContext methodContext5 = new MethodComponentContext(name2, null);
 
         assertEquals(methodContext1.hashCode(), methodContext1.hashCode());
         assertEquals(methodContext1.hashCode(), methodContext2.hashCode());
         assertNotEquals(methodContext1.hashCode(), methodContext3.hashCode());
+        assertNotEquals(methodContext1.hashCode(), methodContext4.hashCode());
+        assertEquals(methodContext4.hashCode(), methodContext5.hashCode());
     }
 }
