@@ -42,14 +42,17 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  */
 public class KNNMethodContext implements ToXContentFragment, Writeable {
 
-    private static Logger logger = LogManager.getLogger(KNNMethodContext.class);
+    private static final Logger logger = LogManager.getLogger(KNNMethodContext.class);
 
     private static KNNMethodContext defaultInstance = null;
 
     public static synchronized KNNMethodContext getDefault() {
         if (defaultInstance == null) {
-            defaultInstance = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT,
-                    new MethodComponentContext(METHOD_HNSW, Collections.emptyMap()));
+            defaultInstance = new KNNMethodContext(
+                KNNEngine.DEFAULT,
+                SpaceType.DEFAULT,
+                new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
+            );
         }
         return defaultInstance;
     }
@@ -191,21 +194,26 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
                 name = (String) value;
             } else if (PARAMETERS.equals(key)) {
+                if (value == null) {
+                    parameters = null;
+                    continue;
+                }
+
                 if (!(value instanceof Map)) {
                     throw new MapperParsingException("Unable to parse parameters for main method component");
                 }
 
                 // Interpret all map parameters as sub-MethodComponentContexts
                 @SuppressWarnings("unchecked")
-                Map<String, Object> parameters1 = ((Map<String, Object>) value).entrySet().stream().collect(Collectors.toMap(
-                        Map.Entry::getKey, e -> {
-                            Object v = e.getValue();
-                            if (v instanceof Map) {
-                                return MethodComponentContext.parse(v);
-                            }
-                            return v;
+                Map<String, Object> parameters1 = ((Map<String, Object>) value).entrySet()
+                    .stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> {
+                        Object v = e.getValue();
+                        if (v instanceof Map) {
+                            return MethodComponentContext.parse(v);
                         }
-                ));
+                        return v;
+                    }));
 
                 parameters = parameters1;
             } else {
@@ -232,10 +240,8 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (obj == null || getClass() != obj.getClass())
-            return false;
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
         KNNMethodContext other = (KNNMethodContext) obj;
 
         EqualsBuilder equalsBuilder = new EqualsBuilder();
