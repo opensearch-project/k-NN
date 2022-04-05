@@ -113,10 +113,10 @@ public class MethodComponentContextTests extends KNNTestCase {
     public void testParse_nullParameters() throws IOException {
         String name = "test-name";
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-                .startObject()
-                .field(NAME, name)
-                .field(PARAMETERS, (String) null)
-                .endObject();
+            .startObject()
+            .field(NAME, name)
+            .field(PARAMETERS, (String) null)
+            .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         MethodComponentContext methodComponentContext = MethodComponentContext.parse(in);
         assertTrue(methodComponentContext.getParameters().isEmpty());

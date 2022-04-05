@@ -37,10 +37,10 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  */
 public class MethodComponentContext implements ToXContentFragment, Writeable {
 
-    private static Logger logger = LogManager.getLogger(MethodComponentContext.class);
+    private static final Logger logger = LogManager.getLogger(MethodComponentContext.class);
 
-    private String name;
-    private Map<String, Object> parameters;
+    private final String name;
+    private final Map<String, Object> parameters;
 
     /**
      * Constructor
@@ -93,6 +93,10 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
                 }
                 name = (String) value;
             } else if (PARAMETERS.equals(key)) {
+                if (value == null) {
+                    continue;
+                }
+
                 if (!(value instanceof Map)) {
                     throw new MapperParsingException("Unable to parse parameters for  method component");
                 }
