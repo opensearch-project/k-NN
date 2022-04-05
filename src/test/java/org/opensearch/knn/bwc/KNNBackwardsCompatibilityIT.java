@@ -242,6 +242,14 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
     }
 
     public void testNullParametersOnUpgrade() throws Exception {
+
+        // Skip test if version is 1.2 or 1.3
+        // systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+        String bwcVersion = System.getProperty("tests.plugin_bwc_version", null);
+        if (bwcVersion == null || bwcVersion.startsWith("1.2") || bwcVersion.startsWith("1.3")) {
+            return;
+        }
+
         // Confirm cluster is green before starting
         Request waitForGreen = new Request("GET", "/_cluster/health");
         waitForGreen.addParameter("wait_for_nodes", "3");
