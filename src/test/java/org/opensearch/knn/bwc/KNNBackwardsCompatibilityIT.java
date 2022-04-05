@@ -5,13 +5,11 @@
 
 package org.opensearch.knn.bwc;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.ArrayList;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -65,14 +63,13 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
 
     @Override
     protected final Settings restClientSettings() {
-        return Settings
-                .builder()
-                .put(super.restClientSettings())
-                // increase the timeout here to 90 seconds to handle long waits for a green
-                // cluster health. the waits for green need to be longer than a minute to
-                // account for delayed shards
-                .put(OpenSearchRestTestCase.CLIENT_SOCKET_TIMEOUT, "90s")
-                .build();
+        return Settings.builder()
+            .put(super.restClientSettings())
+            // increase the timeout here to 90 seconds to handle long waits for a green
+            // cluster health. the waits for green need to be longer than a minute to
+            // account for delayed shards
+            .put(OpenSearchRestTestCase.CLIENT_SOCKET_TIMEOUT, "90s")
+            .build();
     }
 
     private enum ClusterType {
@@ -94,12 +91,12 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
         }
     }
 
-    private ClusterType getClusterType(){
+    private ClusterType getClusterType() {
         return ClusterType.parse(System.getProperty(BWCSUITE_CLUSTER));
     }
 
-// Use this prefix "knn-bwc-" while creating a test index to test BWC Tests.
-// For example:  testIndexName = "knn-bwc-test-index"
+    // Use this prefix "knn-bwc-" while creating a test index to test BWC Tests.
+    // For example: testIndexName = "knn-bwc-test-index"
     @SuppressWarnings("unchecked")
     public void testBackwardsCompatibility() throws Exception {
         String uri = getUri(getClusterType());
@@ -119,25 +116,38 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
                     int graphCountBefore = getTotalGraphsInCache();
 
                     createKnnIndex(testIndexName, getKNNDefaultIndexSettings(), createKnnIndexMapping(testFieldName, dimensions));
-                    addKnnDoc(testIndexName, "1", testFieldName, new Float[]{6.0f, 6.0f});
+                    addKnnDoc(testIndexName, "1", testFieldName, new Float[] { 6.0f, 6.0f });
 
                     knnWarmup(Collections.singletonList(testIndexName));
                     assertEquals(graphCountBefore + 1, getTotalGraphsInCache());
 
                     addDocs(testIndex_Recall, testField_Recall, dimensions_Recall, docCount, true);
-                    double recallVal = getkNNBWCRecallValue(testIndex_Recall, testField_Recall, docCount, dimensions_Recall, queryCount, k_Recall, true, SpaceType.L2);
-                    createKnnIndex(testIndex_Recall_Old, getKNNDefaultIndexSettings(), createKnnIndexMapping(testFieldName, dimensions_Recall_Old));
-                    addKnnDoc(testIndex_Recall_Old, "1", testFieldName, new Float[]{(float) recallVal});
+                    double recallVal = getkNNBWCRecallValue(
+                        testIndex_Recall,
+                        testField_Recall,
+                        docCount,
+                        dimensions_Recall,
+                        queryCount,
+                        k_Recall,
+                        true,
+                        SpaceType.L2
+                    );
+                    createKnnIndex(
+                        testIndex_Recall_Old,
+                        getKNNDefaultIndexSettings(),
+                        createKnnIndexMapping(testFieldName, dimensions_Recall_Old)
+                    );
+                    addKnnDoc(testIndex_Recall_Old, "1", testFieldName, new Float[] { (float) recallVal });
 
                     break;
                 case MIXED:
                     Assert.assertTrue(pluginNames.contains(OS_KNN));
 
-                    float[] queryVector = {10.0f, 10.0f};
+                    float[] queryVector = { 10.0f, 10.0f };
                     int k = 1;
 
                     KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(testFieldName, queryVector, k);
-                    Response resp = searchKNNIndex(testIndexName, knnQueryBuilder,k);
+                    Response resp = searchKNNIndex(testIndexName, knnQueryBuilder, k);
                     List<KNNResult> results = parseSearchResponse(EntityUtils.toString(resp.getEntity()), testFieldName);
 
                     assertEquals(k, results.size());
@@ -147,8 +157,8 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
                         int graphCountFirst = getTotalGraphsInCache();
 
                         deleteKnnDoc(testIndexName, "1");
-                        addKnnDoc(testIndexName, "2", testFieldName, new Float[]{50.0f, 50.0f});
-                        addKnnDoc(testIndexName, "4", testFieldName, new Float[]{55.0f, 55.0f});
+                        addKnnDoc(testIndexName, "2", testFieldName, new Float[] { 50.0f, 50.0f });
+                        addKnnDoc(testIndexName, "4", testFieldName, new Float[] { 55.0f, 55.0f });
 
                         knnWarmup(Collections.singletonList(testIndexName));
                         assertEquals(graphCountFirst + 2, getTotalGraphsInCache());
@@ -164,7 +174,16 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
                         assertEquals("4", results.get(0).getDocId());
                     }
 
-                    double recallValMixed = getkNNBWCRecallValue(testIndex_Recall, testField_Recall, docCount, dimensions_Recall, queryCount, k_Recall, true, SpaceType.L2);
+                    double recallValMixed = getkNNBWCRecallValue(
+                        testIndex_Recall,
+                        testField_Recall,
+                        docCount,
+                        dimensions_Recall,
+                        queryCount,
+                        k_Recall,
+                        true,
+                        SpaceType.L2
+                    );
                     float[][] expRecallVal = getIndexVectorsFromIndex(testIndex_Recall_Old, testFieldName, 1, dimensions_Recall_Old);
                     assertEquals(expRecallVal[0][0], recallValMixed, 0.2);
 
@@ -180,26 +199,35 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
 
                     int graphCountUpgraded = getTotalGraphsInCache();
 
-                    updateKnnDoc(testIndexName, "1", testFieldName, new Float[]{17.0f, 17.0f});
+                    updateKnnDoc(testIndexName, "1", testFieldName, new Float[] { 17.0f, 17.0f });
 
-                    addKnnDoc(testIndexName, "3", testFieldName, new Float[]{20.0f, 20.0f});
+                    addKnnDoc(testIndexName, "3", testFieldName, new Float[] { 20.0f, 20.0f });
 
                     knnWarmup(Collections.singletonList(testIndexName));
-                    assertEquals(graphCountUpgraded+3, getTotalGraphsInCache());
+                    assertEquals(graphCountUpgraded + 3, getTotalGraphsInCache());
 
                     forceMergeKnnIndex(testIndexName);
 
-                    float[] queryVector1 = {15.0f, 15.0f};
+                    float[] queryVector1 = { 15.0f, 15.0f };
                     int k1 = 1;
 
                     KNNQueryBuilder knnQueryBuilder1 = new KNNQueryBuilder(testFieldName, queryVector1, k1);
-                    Response resp1 = searchKNNIndex(testIndexName, knnQueryBuilder1,k1);
+                    Response resp1 = searchKNNIndex(testIndexName, knnQueryBuilder1, k1);
                     List<KNNResult> results1 = parseSearchResponse(EntityUtils.toString(resp1.getEntity()), testFieldName);
 
                     assertEquals(results1.size(), k1);
                     assertEquals("1", results1.get(0).getDocId());
 
-                    double recallValUpgraded = getkNNBWCRecallValue(testIndex_Recall, testField_Recall, docCount, dimensions_Recall, queryCount, k_Recall, true, SpaceType.L2);
+                    double recallValUpgraded = getkNNBWCRecallValue(
+                        testIndex_Recall,
+                        testField_Recall,
+                        docCount,
+                        dimensions_Recall,
+                        queryCount,
+                        k_Recall,
+                        true,
+                        SpaceType.L2
+                    );
                     float[][] expRecallValue = getIndexVectorsFromIndex(testIndex_Recall_Old, testFieldName, 1, dimensions_Recall_Old);
                     assertEquals(expRecallValue[0][0], recallValUpgraded, 0.2);
 
@@ -257,16 +285,16 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
     private String getUri(ClusterType clusterType) {
         switch (clusterType) {
             case OLD:
-                return String.join("/","_nodes", CLUSTER_NAME + "-0", "plugins");
+                return String.join("/", "_nodes", CLUSTER_NAME + "-0", "plugins");
             case MIXED:
                 String round = System.getProperty(BWCSUITE_ROUND);
                 if ("second".equals(round)) {
-                    return String.join("/","_nodes", CLUSTER_NAME + "-1", "plugins");
+                    return String.join("/", "_nodes", CLUSTER_NAME + "-1", "plugins");
                 }
                 if ("third".equals(round)) {
-                    return String.join("/","_nodes", CLUSTER_NAME + "-2", "plugins");
+                    return String.join("/", "_nodes", CLUSTER_NAME + "-2", "plugins");
                 }
-                return String.join("/","_nodes", CLUSTER_NAME + "-0", "plugins");
+                return String.join("/", "_nodes", CLUSTER_NAME + "-0", "plugins");
 
             case UPGRADED:
                 return "_nodes/plugins";
@@ -275,13 +303,22 @@ public class KNNBackwardsCompatibilityIT extends KNNRestTestCase {
         }
     }
 
-   private double getkNNBWCRecallValue(String testIndex, String testField, int docCount, int dimensions, int queryCount, int k, boolean isStandard, SpaceType spaceType) throws Exception {
-       float[][] indexVectors = getIndexVectorsFromIndex(testIndex, testField, docCount, dimensions);
-       float[][] queryVectors = TestUtils.getQueryVectors(queryCount, dimensions, docCount, isStandard);
-       List<Set<String>> groundTruthValues = TestUtils.computeGroundTruthValues(indexVectors, queryVectors, spaceType, k);
-       List<List<String>> searchResults = bulkSearch(testIndex, testField, queryVectors, k);
-       return TestUtils.calculateRecallValue(searchResults, groundTruthValues, k);
-   }
+    private double getkNNBWCRecallValue(
+        String testIndex,
+        String testField,
+        int docCount,
+        int dimensions,
+        int queryCount,
+        int k,
+        boolean isStandard,
+        SpaceType spaceType
+    ) throws Exception {
+        float[][] indexVectors = getIndexVectorsFromIndex(testIndex, testField, docCount, dimensions);
+        float[][] queryVectors = TestUtils.getQueryVectors(queryCount, dimensions, docCount, isStandard);
+        List<Set<String>> groundTruthValues = TestUtils.computeGroundTruthValues(indexVectors, queryVectors, spaceType, k);
+        List<List<String>> searchResults = bulkSearch(testIndex, testField, queryVectors, k);
+        return TestUtils.calculateRecallValue(searchResults, groundTruthValues, k);
+    }
 
     private void addDocs(String testIndex, String testField, int dimensions, int docCount, boolean isStandard) throws Exception {
         createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(testField, dimensions));
