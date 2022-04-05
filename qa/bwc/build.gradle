@@ -4,13 +4,9 @@
  */
 
 //TODO:
-// 1. Setup arbitrary BWC cluster for full restart - use a function
-// 2. Setup upgrade to current
 // 3. Add back rolling
 
 import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
-
-import java.util.concurrent.Callable
 
 apply plugin: 'opensearch.testclusters'
 apply plugin: 'opensearch.build'
@@ -71,37 +67,55 @@ dependencies {
 }
 
 String baseName = "knnBwcCluster"
-String knn_bwc_version = System.getProperty("bwc.version", "1.2.0.0-SNAPSHOT")
-String opensearch_bwc_version = "${knn_bwc_version}" - ".0-SNAPSHOT"
-String bwcFilePath = "src/test/resources/org/opensearch/knn/bwc/"
+String knn_bwc_version = System.getProperty("bwc.version", "1.3.1")
+
+def tmp_dir = project.file('build/private/artifact_tmp').absoluteFile
+tmp_dir.mkdirs()
+
+task pullBwcPlugin {
+    doLast {
+        exec {
+            workingDir tmp_dir.absolutePath
+            commandLine "curl", "-O", "https://artifacts.opensearch.org/releases/bundle/opensearch/${knn_bwc_version}/opensearch-${knn_bwc_version}-linux-x64.tar.gz"
+        }
+        exec {
+            workingDir tmp_dir.absolutePath
+            commandLine "tar", "-zxf", "opensearch-${knn_bwc_version}-linux-x64.tar.gz"
+        }
+        exec {
+            workingDir tmp_dir.absolutePath
+            commandLine "cp", "-r", "opensearch-${knn_bwc_version}/plugins/opensearch-knn", "./"
+        }
+        exec {
+            workingDir tmp_dir.absolutePath
+            commandLine "rm", "-rf", "opensearch-${knn_bwc_version}-linux-x64.tar.gz", "opensearch-${knn_bwc_version}"
+        }
+    }
+}
+
+task zipBwcPlugin(type: Zip) {
+    dependsOn "pullBwcPlugin"
+    from(tmp_dir.absolutePath + "/opensearch-knn")
+    destinationDirectory = tmp_dir
+    archiveFileName = "opensearch-knn-${knn_bwc_version}.zip"
+}
 
 def _numNodes = findProperty('numNodes') as Integer ?: 3
 testClusters {
     "${baseName}" {
         testDistribution = "ARCHIVE"
-        versions = [opensearch_bwc_version, opensearch_version] //Opensearch Cluster Versions
+        versions = [knn_bwc_version, opensearch_version]
         numberOfNodes = _numNodes
-
-        plugin(provider(new Callable<RegularFile>() {
-            @Override
-            RegularFile call() throws Exception {
-                return new RegularFile() {
-                    @Override
-                    File getAsFile() {
-                        return fileTree(bwcFilePath + knn_bwc_version).getSingleFile()
-                    }
-                }
-            }
-        }))
-
+        plugin(project.tasks.zipBwcPlugin.archiveFile)
         setting 'path.repo', "${buildDir}/cluster/shared/repo/${baseName}"
         setting 'http.content_type.required', 'true'
-        environment "LD_LIBRARY_PATH", "${rootDir}/jni/release"
-        systemProperty "java.library.path", "${rootDir}/jni/release"
+        environment "LD_LIBRARY_PATH", "${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version}-ARCHIVE/plugins/opensearch-knn/knnlib"
+        systemProperty "java.library.path", "${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version}-ARCHIVE/plugins/opensearch-knn/knnlib"
     }
 }
 
 task oldVersionClusterTask(type: StandaloneRestIntegTestTask) {
+    dependsOn "zipBwcPlugin"
     useCluster testClusters."${baseName}"
     filter {
         includeTestsMatching "org.opensearch.knn.bwc.*IT"
