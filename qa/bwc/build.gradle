@@ -9,6 +9,13 @@ apply plugin: 'opensearch.testclusters'
 apply plugin: 'opensearch.build'
 apply plugin: 'opensearch.rest-test'
 
+// Disable a few tasks that come with build
+build.enabled = false
+integTest.enabled = false
+test.enabled = false
+assemble.enabled = false
+dependenciesInfo.enabled = false
+
 dependencies {
     api "org.opensearch:opensearch:${opensearch_version}"
     compileOnly "org.opensearch.plugin:opensearch-scripting-painless-spi:${versions.opensearch}"

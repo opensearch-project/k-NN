@@ -79,15 +79,6 @@ allprojects {
             project.noticeFile = rootProject.file('NOTICE.txt')
             project.forbiddenApis.ignoreFailures = true
         }
-
-        if (project.path.contains(':qa:')) {
-            maybeConfigure(project.tasks, 'assemble') {
-                it.enabled = false
-            }
-            maybeConfigure(project.tasks, 'dependenciesInfo') {
-                it.enabled = false
-            }
-        }
     }
 }
 
