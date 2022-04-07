@@ -36,6 +36,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.MODELS;
+import static org.opensearch.knn.common.KNNConstants.PARAM_SIZE;
+import static org.opensearch.knn.common.KNNConstants.SEARCH_MODEL_MAX_SIZE;
+import static org.opensearch.knn.common.KNNConstants.SEARCH_MODEL_MIN_SIZE;
 
 /**
  * Integration tests to check the correctness of {@link org.opensearch.knn.plugin.rest.RestSearchModelHandler}
@@ -73,6 +76,23 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
         SearchResponse searchResponse = SearchResponse.fromXContent(parser);
         assertNotNull(searchResponse);
         assertEquals(searchResponse.getHits().getHits().length, 0);
+
+    }
+
+    public void testSizeValidationFailsInvalidSize() throws IOException {
+        createModelSystemIndex();
+        for (Integer invalidSize : Arrays.asList(SEARCH_MODEL_MIN_SIZE - 1, SEARCH_MODEL_MAX_SIZE + 1)) {
+            String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search?" + PARAM_SIZE + "=" + invalidSize);
+            Request request = new Request("GET", restURI);
+
+            ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+            assertTrue(
+                ex.getMessage()
+                    .contains(
+                        String.format("%s must be between %d and %d inclusive", PARAM_SIZE, SEARCH_MODEL_MIN_SIZE, SEARCH_MODEL_MAX_SIZE)
+                    )
+            );
+        }
 
     }
 
