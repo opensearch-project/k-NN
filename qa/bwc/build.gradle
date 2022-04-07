@@ -78,7 +78,7 @@ def clusterNames = [baseName + "-rolling", baseName + "-restart"] as String[]
 
 // Creates 2 tasks to run BWC tests against the old clusters
 2.times { i ->
-    task "${clusterNames[i]}#oldVersionClusterTask"(type: StandaloneRestIntegTestTask) {
+    task "${clusterNames[i]}#testAgainstOldCluster"(type: StandaloneRestIntegTestTask) {
         dependsOn "zipBwcPlugin"
         useCluster testClusters."${clusterNames[i]}"
         systemProperty 'tests.rest.bwcsuite_cluster', 'old_cluster'
@@ -92,11 +92,11 @@ def clusterNames = [baseName + "-rolling", baseName + "-restart"] as String[]
 
 // Part of rolling upgrade. Upgrades one node of the old cluster to new OpenSearch version with upgraded plugin version
 // This results in a mixed cluster with 2 nodes on the old version and 1 upgraded node.
-task oneThirdUpgradedClusterTask (type: StandaloneRestIntegTestTask) {
+task testAgainstOneThirdUpgradedCluster (type: StandaloneRestIntegTestTask) {
     useCluster testClusters."${clusterNames[0]}"
     dependsOn rootProject.tasks.buildJniLib
     dependsOn rootProject.tasks.assemble
-    dependsOn "${clusterNames[0]}#oldVersionClusterTask"
+    dependsOn "${clusterNames[0]}#testAgainstOldCluster"
     doFirst {
         testClusters."${clusterNames[0]}".getNodes().getAt("${clusterNames[0]}" + "-0").environment("LD_LIBRARY_PATH", "$rootDir/jni/release")
         testClusters."${clusterNames[0]}".getNodes().getAt("${clusterNames[0]}" + "-0").systemProperty("java.library.path", "$rootDir/jni/release")
@@ -112,8 +112,8 @@ task oneThirdUpgradedClusterTask (type: StandaloneRestIntegTestTask) {
 
 // Part of rolling upgrade. Upgrades the second node to new OpenSearch version with upgraded plugin version after the
 // first node is upgraded. This results in a mixed cluster with 1 node on the old version and 2 upgraded nodes.
-task twoThirdsUpgradedClusterTask(type: StandaloneRestIntegTestTask) {
-    dependsOn "oneThirdUpgradedClusterTask"
+task testAgainstTwoThirdsUpgradedCluster(type: StandaloneRestIntegTestTask) {
+    dependsOn "testAgainstOneThirdUpgradedCluster"
     useCluster testClusters."${clusterNames[0]}"
     doFirst {
         testClusters."${clusterNames[0]}".getNodes().getAt("${clusterNames[0]}" + "-1").environment("LD_LIBRARY_PATH", "$rootDir/jni/release")
@@ -130,15 +130,15 @@ task twoThirdsUpgradedClusterTask(type: StandaloneRestIntegTestTask) {
 
 // Part of rolling upgrade. Upgrades the third node to new OpenSearch version with upgraded plugin version after the
 // second node is upgraded. This results in a fully upgraded cluster.
-task rollingUpgradeClusterTest(type: StandaloneRestIntegTestTask) {
-    dependsOn "twoThirdsUpgradedClusterTask"
+task testRollingUpgrade(type: StandaloneRestIntegTestTask) {
+    dependsOn "testAgainstTwoThirdsUpgradedCluster"
     useCluster testClusters."${clusterNames[0]}"
     doFirst {
         testClusters."${clusterNames[0]}".getNodes().getAt("${clusterNames[0]}" + "-2").environment("LD_LIBRARY_PATH", "$rootDir/jni/release")
         testClusters."${clusterNames[0]}".getNodes().getAt("${clusterNames[0]}" + "-2").systemProperty("java.library.path", "$rootDir/jni/release")
         testClusters."${clusterNames[0]}".upgradeNodeAndPluginToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
     }
-    mustRunAfter "oneThirdUpgradedClusterTask"
+    mustRunAfter "testAgainstOneThirdUpgradedCluster"
     systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
     systemProperty 'tests.rest.bwcsuite_round', 'third'
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
@@ -149,8 +149,8 @@ task rollingUpgradeClusterTest(type: StandaloneRestIntegTestTask) {
 
 // Part of restart cluster tests. First, tests run against old cluster. Then, all nodes are upgraded and tests are
 // re-ran
-task fullRestartClusterTest(type: StandaloneRestIntegTestTask) {
-    dependsOn "${clusterNames[1]}#oldVersionClusterTask"
+task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
+    dependsOn "${clusterNames[1]}#testAgainstOldCluster"
     dependsOn rootProject.tasks.buildJniLib
     dependsOn rootProject.tasks.assemble
     useCluster testClusters."${clusterNames[1]}"
@@ -169,6 +169,6 @@ task fullRestartClusterTest(type: StandaloneRestIntegTestTask) {
 
 // Task to run both fullRestartClusterTests and rollingUpgradeClusterTests
 task bwcTestSuite {
-    dependsOn "fullRestartClusterTest"
-    dependsOn "rollingUpgradeClusterTest"
+    dependsOn "testRestartUpgrade"
+    dependsOn "testRollingUpgrade"
 }
