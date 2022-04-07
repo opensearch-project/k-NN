@@ -65,19 +65,19 @@ allprojects {
     }
 
     afterEvaluate {
-        if (name != "qa") {
-            dependencyLicenses.enabled = false
-            thirdPartyAudit.enabled = false
-            loggerUsageCheck.enabled = false
-            forbiddenApis.ignoreFailures = true
-            forbiddenPatterns {
+        if (project.name != "qa") {
+            project.dependencyLicenses.enabled = false
+            project.thirdPartyAudit.enabled = false
+            project.loggerUsageCheck.enabled = false
+            project.forbiddenApis.ignoreFailures = true
+            project.forbiddenPatterns {
                 setEnabled(false)
             }
-            testingConventions.enabled = false
-            validateNebulaPom.enabled = false
-            licenseFile = rootProject.file('LICENSE.txt')
-            noticeFile = rootProject.file('NOTICE.txt')
-            forbiddenApis.ignoreFailures = true
+            project.testingConventions.enabled = false
+            project.validateNebulaPom.enabled = false
+            project.licenseFile = rootProject.file('LICENSE.txt')
+            project.noticeFile = rootProject.file('NOTICE.txt')
+            project.forbiddenApis.ignoreFailures = true
         }
 
         if (project.path.contains(':qa:')) {
@@ -115,6 +115,8 @@ opensearchplugin {
     description 'OpenSearch k-NN plugin'
     classname 'org.opensearch.knn.plugin.KNNPlugin'
     extendedPlugins = ['lang-painless']
+    licenseFile = rootProject.file('LICENSE.txt')
+    noticeFile = rootProject.file('NOTICE.txt')
 }
 
 tasks.named("integTest").configure {
