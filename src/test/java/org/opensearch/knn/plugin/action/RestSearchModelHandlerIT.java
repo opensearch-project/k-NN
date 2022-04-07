@@ -36,7 +36,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.MODELS;
-
+import static org.opensearch.knn.common.KNNConstants.PARAM_SIZE;
+import static org.opensearch.knn.common.KNNConstants.SEARCH_MODEL_MAX_SIZE;
+import static org.opensearch.knn.common.KNNConstants.SEARCH_MODEL_MIN_SIZE;
 
 /**
  * Integration tests to check the correctness of {@link org.opensearch.knn.plugin.rest.RestSearchModelHandler}
@@ -45,30 +47,24 @@ import static org.opensearch.knn.common.KNNConstants.MODELS;
 public class RestSearchModelHandlerIT extends KNNRestTestCase {
 
     private ModelMetadata getModelMetadata() {
-        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED,
-            "2021-03-27", "test model", "");
+        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED, "2021-03-27", "test model", "");
     }
 
     public void testNotSupportedParams() throws IOException {
         createModelSystemIndex();
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
-        Map<String,String> invalidParams = new HashMap<>();
+        Map<String, String> invalidParams = new HashMap<>();
         invalidParams.put("index", "index-name");
         Request request = new Request("GET", restURI);
         request.addParameters(invalidParams);
         expectThrows(ResponseException.class, () -> client().performRequest(request));
     }
 
-
     public void testNoModelExists() throws IOException {
         createModelSystemIndex();
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
         Request request = new Request("GET", restURI);
-        request.setJsonEntity("{\n" +
-            "    \"query\": {\n" +
-            "        \"match_all\": {}\n" +
-            "    }\n" +
-            "}");
+        request.setJsonEntity("{\n" + "    \"query\": {\n" + "        \"match_all\": {}\n" + "    }\n" + "}");
 
         Response response = client().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -83,6 +79,23 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
 
     }
 
+    public void testSizeValidationFailsInvalidSize() throws IOException {
+        createModelSystemIndex();
+        for (Integer invalidSize : Arrays.asList(SEARCH_MODEL_MIN_SIZE - 1, SEARCH_MODEL_MAX_SIZE + 1)) {
+            String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search?" + PARAM_SIZE + "=" + invalidSize);
+            Request request = new Request("GET", restURI);
+
+            ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+            assertTrue(
+                ex.getMessage()
+                    .contains(
+                        String.format("%s must be between %d and %d inclusive", PARAM_SIZE, SEARCH_MODEL_MIN_SIZE, SEARCH_MODEL_MAX_SIZE)
+                    )
+            );
+        }
+
+    }
+
     public void testSearchModelExists() throws IOException {
         createModelSystemIndex();
         createIndex("irrelevant-index", Settings.EMPTY);
@@ -90,19 +103,15 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
         List<String> testModelID = Arrays.asList("test-modelid1", "test-modelid2");
         byte[] testModelBlob = "hello".getBytes();
         ModelMetadata testModelMetadata = getModelMetadata();
-        for(String modelID: testModelID){
+        for (String modelID : testModelID) {
             addModelToSystemIndex(modelID, testModelMetadata, testModelBlob);
         }
 
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
 
-        for(String method: Arrays.asList("GET", "POST")){
+        for (String method : Arrays.asList("GET", "POST")) {
             Request request = new Request(method, restURI);
-            request.setJsonEntity("{\n" +
-                "    \"query\": {\n" +
-                "        \"match_all\": {}\n" +
-                "    }\n" +
-                "}");
+            request.setJsonEntity("{\n" + "    \"query\": {\n" + "        \"match_all\": {}\n" + "    }\n" + "}");
             Response response = client().performRequest(request);
             assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
@@ -113,13 +122,13 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
 
-            //returns only model from ModelIndex
+            // returns only model from ModelIndex
             assertEquals(searchResponse.getHits().getHits().length, testModelID.size());
 
-            for(SearchHit hit: searchResponse.getHits().getHits()){
+            for (SearchHit hit : searchResponse.getHits().getHits()) {
                 assertTrue(testModelID.contains(hit.getId()));
                 Model model = Model.getModelFromSourceMap(hit.getSourceAsMap());
-                assertEquals(getModelMetadata(),model.getModelMetadata());
+                assertEquals(getModelMetadata(), model.getModelMetadata());
                 assertArrayEquals(testModelBlob, model.getModelBlob());
             }
         }
@@ -132,20 +141,17 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
         List<String> testModelID = Arrays.asList("test-modelid1", "test-modelid2");
         byte[] testModelBlob = "hello".getBytes();
         ModelMetadata testModelMetadata = getModelMetadata();
-        for(String modelID: testModelID){
+        for (String modelID : testModelID) {
             addModelToSystemIndex(modelID, testModelMetadata, testModelBlob);
         }
 
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
 
-        for(String method: Arrays.asList("GET", "POST")){
+        for (String method : Arrays.asList("GET", "POST")) {
             Request request = new Request(method, restURI);
-            request.setJsonEntity("{\n" +
-                "    \"_source\" : false,\n" +
-                "    \"query\": {\n" +
-                "        \"match_all\": {}\n" +
-                "    }\n" +
-                "}");
+            request.setJsonEntity(
+                "{\n" + "    \"_source\" : false,\n" + "    \"query\": {\n" + "        \"match_all\": {}\n" + "    }\n" + "}"
+            );
             Response response = client().performRequest(request);
             assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
@@ -156,10 +162,10 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
 
-            //returns only model from ModelIndex
+            // returns only model from ModelIndex
             assertEquals(searchResponse.getHits().getHits().length, testModelID.size());
 
-            for(SearchHit hit: searchResponse.getHits().getHits()){
+            for (SearchHit hit : searchResponse.getHits().getHits()) {
                 assertTrue(testModelID.contains(hit.getId()));
                 assertNull(hit.getSourceAsMap());
             }
@@ -173,22 +179,24 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
         List<String> testModelID = Arrays.asList("test-modelid1", "test-modelid2");
         byte[] testModelBlob = "hello".getBytes();
         ModelMetadata testModelMetadata = getModelMetadata();
-        for(String modelID: testModelID){
+        for (String modelID : testModelID) {
             addModelToSystemIndex(modelID, testModelMetadata, testModelBlob);
         }
 
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
 
-        for(String method: Arrays.asList("GET", "POST")){
+        for (String method : Arrays.asList("GET", "POST")) {
             Request request = new Request(method, restURI);
-            request.setJsonEntity("{\n" +
-                "    \"_source\": {\n" +
-                "        \"includes\": [ \"state\", \"description\" ]\n"+
-                "    }, " +
-                "    \"query\": {\n" +
-                "        \"match_all\": {}\n" +
-                "    }\n" +
-                "}");
+            request.setJsonEntity(
+                "{\n"
+                    + "    \"_source\": {\n"
+                    + "        \"includes\": [ \"state\", \"description\" ]\n"
+                    + "    }, "
+                    + "    \"query\": {\n"
+                    + "        \"match_all\": {}\n"
+                    + "    }\n"
+                    + "}"
+            );
             Response response = client().performRequest(request);
             assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
@@ -199,10 +207,10 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
 
-            //returns only model from ModelIndex
+            // returns only model from ModelIndex
             assertEquals(searchResponse.getHits().getHits().length, testModelID.size());
 
-            for(SearchHit hit: searchResponse.getHits().getHits()){
+            for (SearchHit hit : searchResponse.getHits().getHits()) {
                 assertTrue(testModelID.contains(hit.getId()));
                 Map<String, Object> sourceAsMap = hit.getSourceAsMap();
                 assertFalse(sourceAsMap.containsKey("model_blob"));
@@ -220,22 +228,24 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
         List<String> testModelID = Arrays.asList("test-modelid1", "test-modelid2");
         byte[] testModelBlob = "hello".getBytes();
         ModelMetadata testModelMetadata = getModelMetadata();
-        for(String modelID: testModelID){
+        for (String modelID : testModelID) {
             addModelToSystemIndex(modelID, testModelMetadata, testModelBlob);
         }
 
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
 
-        for(String method: Arrays.asList("GET", "POST")){
+        for (String method : Arrays.asList("GET", "POST")) {
             Request request = new Request(method, restURI);
-            request.setJsonEntity("{\n" +
-                "    \"_source\": {\n" +
-                "        \"excludes\": [\"model_blob\" ]\n"+
-                "    }, " +
-                "    \"query\": {\n" +
-                "        \"match_all\": {}\n" +
-                "    }\n" +
-                "}");
+            request.setJsonEntity(
+                "{\n"
+                    + "    \"_source\": {\n"
+                    + "        \"excludes\": [\"model_blob\" ]\n"
+                    + "    }, "
+                    + "    \"query\": {\n"
+                    + "        \"match_all\": {}\n"
+                    + "    }\n"
+                    + "}"
+            );
             Response response = client().performRequest(request);
             assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
@@ -246,10 +256,10 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
 
-            //returns only model from ModelIndex
+            // returns only model from ModelIndex
             assertEquals(searchResponse.getHits().getHits().length, testModelID.size());
 
-            for(SearchHit hit: searchResponse.getHits().getHits()){
+            for (SearchHit hit : searchResponse.getHits().getHits()) {
                 assertTrue(testModelID.contains(hit.getId()));
                 Map<String, Object> sourceAsMap = hit.getSourceAsMap();
                 assertFalse(sourceAsMap.containsKey("model_blob"));

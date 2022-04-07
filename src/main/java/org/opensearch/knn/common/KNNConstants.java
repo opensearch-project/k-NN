@@ -9,7 +9,7 @@ public class KNNConstants {
     // shared across library constants
     public static final String DIMENSION = "dimension";
     public static final String KNN_ENGINE = "engine";
-    public static final String KNN_METHOD= "method";
+    public static final String KNN_METHOD = "method";
     public static final String NAME = "name";
     public static final String PARAMETERS = "parameters";
     public static final String METHOD_HNSW = "hnsw";
@@ -35,6 +35,9 @@ public class KNNConstants {
     public static final String MODEL_TIMESTAMP = "timestamp";
     public static final String MODEL_DESCRIPTION = "description";
     public static final String MODEL_ERROR = "error";
+    public static final String PARAM_SIZE = "size";
+    public static final Integer SEARCH_MODEL_MIN_SIZE = 1;
+    public static final Integer SEARCH_MODEL_MAX_SIZE = 1000;
 
     public static final String KNN_THREAD_POOL_PREFIX = "knn";
     public static final String TRAIN_THREAD_POOL = "training";
