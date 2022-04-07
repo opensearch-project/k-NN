@@ -4,6 +4,7 @@
  */
 
 import org.opensearch.gradle.test.RestIntegTestTask
+import static org.opensearch.gradle.util.GradleUtils.maybeConfigure
 
 buildscript {
     ext {
@@ -34,7 +35,6 @@ buildscript {
 plugins {
     id 'java-library'
     id 'java-test-fixtures'
-    id 'nebula.ospackage' version "8.3.0" apply false
     id 'idea'
     id 'jacoco'
     id "com.diffplug.spotless" version "6.3.0" apply false
@@ -44,25 +44,13 @@ apply from: 'gradle/formatting.gradle'
 apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.rest-test'
 
-def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
-def usingMultiNode = project.properties.containsKey('numNodes')
-// Only apply jacoco test coverage if we are running a local single node cluster
-def integTestDependOnJniLib = false
-if (!usingRemoteCluster) {
-    integTestDependOnJniLib = true
-    if (!usingMultiNode) {
-        apply from: 'build-tools/knnplugin-coverage.gradle'
-    }
-}
-
 ext {
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
     projectSubstitutions = [:]
-    licenseFile = rootProject.file('LICENSE.TXT')
-    noticeFile = rootProject.file('NOTICE.TXT')
 }
 
 allprojects {
+
     group = 'org.opensearch'
     version = opensearch_version.tokenize('-')[0] + '.0'
     if (version_qualifier) {
@@ -75,8 +63,44 @@ allprojects {
     plugins.withId('java') {
         sourceCompatibility = targetCompatibility = "11"
     }
+
+    afterEvaluate {
+        if (name != "qa") {
+            dependencyLicenses.enabled = false
+            thirdPartyAudit.enabled = false
+            loggerUsageCheck.enabled = false
+            forbiddenApis.ignoreFailures = true
+            forbiddenPatterns {
+                setEnabled(false)
+            }
+            testingConventions.enabled = false
+            validateNebulaPom.enabled = false
+            licenseFile = rootProject.file('LICENSE.txt')
+            noticeFile = rootProject.file('NOTICE.txt')
+            forbiddenApis.ignoreFailures = true
+        }
+
+        if (project.path.contains(':qa:')) {
+            maybeConfigure(project.tasks, 'assemble') {
+                it.enabled = false
+            }
+            maybeConfigure(project.tasks, 'dependenciesInfo') {
+                it.enabled = false
+            }
+        }
+    }
 }
 
+def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
+def usingMultiNode = project.properties.containsKey('numNodes')
+// Only apply jacoco test coverage if we are running a local single node cluster
+def integTestDependOnJniLib = false
+if (!usingRemoteCluster) {
+    integTestDependOnJniLib = true
+    if (!usingMultiNode) {
+        apply from: 'build-tools/knnplugin-coverage.gradle'
+    }
+}
 
 jacoco {
     toolVersion = "0.8.5"
@@ -91,8 +115,6 @@ opensearchplugin {
     description 'OpenSearch k-NN plugin'
     classname 'org.opensearch.knn.plugin.KNNPlugin'
     extendedPlugins = ['lang-painless']
-    licenseFile = rootProject.file('LICENSE.txt')
-    noticeFile = rootProject.file('NOTICE.txt')
 }
 
 tasks.named("integTest").configure {
@@ -120,10 +142,6 @@ dependencies {
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
 }
 
-licenseHeaders.enabled = true
-dependencyLicenses.enabled = false
-thirdPartyAudit.enabled = false
-loggerUsageCheck.enabled = false
 
 def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absoluteFile
 opensearch_tmp_dir.mkdirs()
@@ -228,15 +246,3 @@ run {
     }
 }
 
-//TODO fix these
-forbiddenApis.ignoreFailures = true
-forbiddenPatterns {
-    setEnabled(false)
-}
-
-// We don't need to follow OpenSearch testing naming conventions.
-// see https://github.com/opensearch-project/OpenSearch/blob/main/buildSrc/src/main/java/org/opensearch/gradle/precommit/TestingConventionsTasks.java
-// enable testingConventions check will cause errors like:  "Classes ending with [Tests] must subclass [LuceneTestCase]"
-testingConventions.enabled = false
-validateNebulaPom.enabled = false
-apply plugin: 'nebula.ospackage'
