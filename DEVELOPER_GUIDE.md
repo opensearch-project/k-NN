@@ -251,14 +251,13 @@ The purpose of Backwards Compatibility Testing and different types of BWC tests 
 
 Use these commands to run BWC tests for k-NN:
 
-1. Mixed cluster test: `./gradlew knnBwcCluster#mixedClusterTask -Dtests.security.manager=false`
-2. Rolling upgrade tests: `./gradlew knnBwcCluster#rollingUpgradeClusterTask -Dtests.security.manager=false`
-3. Full restart upgrade tests: `./gradlew knnBwcCluster#fullRestartClusterTask -Dtests.security.manager=false`
-4. `./gradlew bwcTestSuite -Dtests.security.manager=false` is used to run all the above bwc tests together.
+1. Rolling upgrade tests: `./gradlew :qa:bwc:rollingUpgradeClusterTest`
+2. Full restart upgrade tests: `./gradlew :qa:bwc:fullRestartClusterTest`
+3. `./gradlew :qa:bwc:bwcTestSuite` is used to run all the above bwc tests together.
 
 Use this command to run BWC tests for a given Backwards Compatibility Version:
 ```
-./gradlew bwcTestSuite -Dbwc.version=1.0.0.0-SNAPSHOT
+./gradlew :qa:bwc:bwcTestSuite -Dbwc.version=1.0.0
 ```
 Here, we are testing BWC Tests with BWC version of plugin as 1.0.0.0. Make sure to add the binary file of that version in the bwc directory in resources.
 
