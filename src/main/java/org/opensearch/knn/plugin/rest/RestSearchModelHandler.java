@@ -30,6 +30,9 @@ import java.util.Locale;
 import java.util.function.IntConsumer;
 
 import static org.opensearch.knn.common.KNNConstants.MODELS;
+import static org.opensearch.knn.common.KNNConstants.PARAM_SIZE;
+import static org.opensearch.knn.common.KNNConstants.SEARCH_MODEL_MAX_SIZE;
+import static org.opensearch.knn.common.KNNConstants.SEARCH_MODEL_MIN_SIZE;
 
 /**
  * Rest Handler for search model api endpoint.
@@ -69,9 +72,30 @@ public class RestSearchModelHandler extends BaseRestHandler {
         throw new IllegalArgumentException(errorMessage);
     }
 
+    private void validateSizeParameter(RestRequest request) {
+        if (!request.hasParam(PARAM_SIZE)) {
+            return;
+        }
+        if (isSearchSizeValueValid(request.paramAsInt(PARAM_SIZE, 1))) {
+            return;
+        }
+        throw new IllegalArgumentException(
+            String.format("%s must be between %d and %d inclusive", PARAM_SIZE, SEARCH_MODEL_MIN_SIZE, SEARCH_MODEL_MAX_SIZE)
+        );
+    }
+
+    private boolean isSearchSizeValueValid(int searchSize) {
+        return (searchSize >= SEARCH_MODEL_MIN_SIZE) && (searchSize <= SEARCH_MODEL_MAX_SIZE);
+    }
+
+    private void validateRequest(RestRequest request) {
+        checkUnSupportedParamsExists(request);
+        validateSizeParameter(request);
+    }
+
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) throws IOException {
-        checkUnSupportedParamsExists(request);
+        validateRequest(request);
         SearchRequest searchRequest = new SearchRequest();
         IntConsumer setSize = size -> searchRequest.source().size(size);
         request.withContentOrSourceParamParserOrNull(
