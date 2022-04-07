@@ -162,7 +162,7 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
     dependsOn rootProject.tasks.assemble
     useCluster testClusters."${clusterNames[1]}"
     doFirst {
-        testClusters."${clusterNames[1]}".environment("java.library.path", "$rootDir/jni/release")
+        testClusters."${clusterNames[1]}".environment("LD_LIBRARY_PATH", "$rootDir/jni/release")
         testClusters."${clusterNames[1]}".systemProperty("java.library.path", "$rootDir/jni/release")
         testClusters."${clusterNames[1]}".upgradeAllNodesAndPluginsToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
     }
