@@ -35,32 +35,37 @@ String knn_bwc_version = System.getProperty("bwc.version")
 
 // Task to pull k-NN plugin from archive
 task pullBwcPlugin {
+    doFirst {
+        delete java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-*")
+    }
+
     doLast {
-        exec {
-            workingDir tmp_dir.absolutePath
-            commandLine "curl", "-O", "https://artifacts.opensearch.org/releases/bundle/opensearch/${knn_bwc_version}/opensearch-${knn_bwc_version}-linux-x64.tar.gz"
+        ant.get(
+                src: "https://artifacts.opensearch.org/releases/bundle/opensearch/${knn_bwc_version}/opensearch-${knn_bwc_version}-linux-x64.tar.gz",
+                dest: tmp_dir.absolutePath,
+                httpusecaches: false
+        )
+        copy {
+            from tarTree(java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version}-linux-x64.tar.gz"))
+            into tmp_dir.absolutePath
         }
-        exec {
-            workingDir tmp_dir.absolutePath
-            commandLine "tar", "-zxf", "opensearch-${knn_bwc_version}-linux-x64.tar.gz"
+        copy {
+            from(java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version}", "plugins", "opensearch-knn"))
+            into java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-knn")
         }
-        exec {
-            workingDir tmp_dir.absolutePath
-            commandLine "cp", "-r", "opensearch-${knn_bwc_version}/plugins/opensearch-knn", "./"
-        }
-        exec {
-            workingDir tmp_dir.absolutePath
-            commandLine "rm", "-rf", "opensearch-${knn_bwc_version}"
-        }
+        delete java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version}"), java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version}-linux-x64.tar.gz")
     }
 }
 
 // Task to zip plugin from archive
 task zipBwcPlugin(type: Zip) {
     dependsOn "pullBwcPlugin"
-    from(tmp_dir.absolutePath + "/opensearch-knn")
+    from(java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-knn"))
     destinationDirectory = tmp_dir
     archiveFileName = "opensearch-knn-${knn_bwc_version}.zip"
+    doLast {
+        delete java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-knn")
+    }
 }
 
 String baseName = "knnBwcCluster"
