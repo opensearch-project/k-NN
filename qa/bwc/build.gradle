@@ -85,7 +85,6 @@ def clusterNames = [baseName + "-rolling", baseName + "-restart"] as String[]
             systemProperty "java.library.path", "${buildDir}/testclusters/${clusterNames[i]}-0/distro/${knn_bwc_version}-ARCHIVE/plugins/opensearch-knn/knnlib"
         }
     }
-
 }
 
 // Creates 2 tasks to run BWC tests against the old clusters
