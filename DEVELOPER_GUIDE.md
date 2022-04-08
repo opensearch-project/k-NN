@@ -259,7 +259,7 @@ Use this command to run BWC tests for a given Backwards Compatibility Version:
 ```
 ./gradlew :qa:bwc:bwcTestSuite -Dbwc.version=1.0.0
 ```
-Here, we are testing BWC Tests with BWC version of plugin as 1.0.0.0. Make sure to add the binary file of that version in the bwc directory in resources.
+Here, we are testing BWC Tests with BWC version of plugin as 1.0.0.
 
 ### Adding new tests
 

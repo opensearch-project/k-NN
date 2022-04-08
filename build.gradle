@@ -4,7 +4,6 @@
  */
 
 import org.opensearch.gradle.test.RestIntegTestTask
-import static org.opensearch.gradle.util.GradleUtils.maybeConfigure
 
 buildscript {
     ext {
