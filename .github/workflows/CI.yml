@@ -40,7 +40,7 @@ jobs:
       - name: Run k-NN Backwards Compatibility Tests
         run: |
           echo "Running backwards compatibility tests ..."
-          ./gradlew :qa:bwc:bwcTestSuite
+          ./gradlew :qa:bwcTestSuite
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1

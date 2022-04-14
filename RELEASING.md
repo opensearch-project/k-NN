@@ -31,7 +31,7 @@ Repositories create consistent release labels, such as `v1.0.0`, `v1.1.0` and `v
 
 ## Backwards Compatibility
 
-[The backwards compatibility test suite](qa/bwc) is used to ensure upgrades to the current version are successful. 
+[The backwards compatibility test suite](qa) is used to ensure upgrades to the current version are successful. 
 When releasing a new version, update the `bwc.version` to the latest, previous minor version in [gradle.properties](gradle.properties). 
 
 ## Releasing
