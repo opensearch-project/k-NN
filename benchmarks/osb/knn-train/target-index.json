@@ -8,9 +8,9 @@
   },
   "mappings": {
     "properties": {
-      "target_field": {
+      "{{ target_field_name | default("target_field") }}": {
         "type": "knn_vector",
-        "model_id": {{ model_id }}
+        "model_id": "{{ model_id }}"
       }
     }
   }

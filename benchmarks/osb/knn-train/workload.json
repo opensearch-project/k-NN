@@ -12,9 +12,7 @@
             "body": "train-index.json"
         }
     ],
-    "operations": [
-        {{ benchmark.collect(parts="operations/*.json") }}
-    ],
+    "operations": {{ benchmark.collect(parts="operations/*.json") }},
     "schedule": [
         {
             "name": "delete-target-index",  
@@ -29,12 +27,21 @@
             "operation": "delete-index"
         },
         {
-            "name": "create-train-index",
-            "index": "{{ train_index_name | default("train_index") }}",
-            "operation": "create-index"
+            "operation": {
+                "operation-type": "delete-model",
+                "name": "delete-model",
+                "model_id": "{{ model_id | default("test-model") }}"
+            }
         },
         {
-            "name": "wait-for-cluster-to-be-green",
+            "operation": {
+                "name": "create-train-index",
+                "operation-type": "create-index",
+                "index": "{{ train_index_name | default("train_index") }}"
+            }
+        },
+        {
+            "name": "wait-for-train-index-to-be-green",
             "operation": "cluster-health",
             "request-params": {
                 "wait_for_status": "green"
@@ -50,7 +57,7 @@
                 "bulk_size": {{ train_bulk_size | default(200) }},
                 "data_set_format": "{{ train_index_data_set_format }}",
                 "data_set_path": "{{ train_index_data_set_path }}",
-                "vector_limit": {{ train_vector_limit | default(100000000000000000) }}
+                "num_vectors": {{ train_vector_limit | default(100000000000000000) }}
             },
             "clients": {{ train_bulk_index_clients | default(1) }}
         },
@@ -66,12 +73,14 @@
             "operation": "{{ model_method }}-train-model"
         },
         {
-            "name": "create-target-index",
-            "index": "{{ target_index_name | default("target_index") }}",
-            "operation": "create-index"
+            "operation": {
+                "name": "create-target-index",
+                "operation-type": "create-index",
+                "index": "{{ target_index_name | default("target_index") }}"
+            }
         },
         {
-            "name": "wait-for-cluster-to-be-green",
+            "name": "wait-for-target-index-to-be-green",
             "operation": "cluster-health",
             "request-params": {
                 "wait_for_status": "green"

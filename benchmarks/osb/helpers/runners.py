@@ -61,18 +61,17 @@ class TrainModelRunner:
 
     async def __call__(self, opensearch, params):
         # Train a model and wait for it training to complete
-        body = parse_string_parameter("body", params)
+        body = params["body"]
         timeout = parse_int_parameter("timeout", params)
         model_id = parse_string_parameter("model_id", params)
 
         method = "POST"
-        uri = "/_plugins/_knn/models/{}".format(model_id)
-
-        await opensearch.transport.perform_request(method, uri, params={"ignore": [400, 404]}, body=body)
+        model_uri = "/_plugins/_knn/models/{}".format(model_id)
+        await opensearch.transport.perform_request(method, "{}/_train".format(model_uri), body=body)
         i = 0
         while i < timeout:
             time.sleep(1)
-            model_response = await opensearch.transport.perform_request("GET", uri)
+            model_response = await opensearch.transport.perform_request("GET", model_uri)
 
             if 'state' not in model_response.keys():
                 continue

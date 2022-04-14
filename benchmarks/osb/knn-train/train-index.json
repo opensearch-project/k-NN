@@ -7,7 +7,7 @@
   },
   "mappings": {
     "properties": {
-      "{{ train_field_name | default("target_field") }}": {
+      "{{ train_field_name | default("train_field") }}": {
         "type": "knn_vector",
         "dimension": {{ target_index_dimension }}
       }
