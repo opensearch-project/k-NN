@@ -10,7 +10,7 @@ The tenets of these benchmarks:
 2. Reproducibility
 3. Extendability
 
-The [helpers](helpers) directory contains common code shared between workloads. Each 
+The [helpers](extensions) directory contains common code shared between workloads. Each 
 workload folder contains more details about what that particular workload is 
 meant to test.
 
@@ -95,7 +95,7 @@ the operations against OpenSearch.
 
 ### Custom Parameter Sources
 
-Custom parameter sources are defined in [helpers/param_sources.py](helpers/param_sources.py).
+Custom parameter sources are defined in [helpers/param_sources.py](extensions/param_sources.py).
 
 | Name               | Description                                                            | Parameters                                                                                                                                                                                                         |
 |--------------------|------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -104,7 +104,7 @@ Custom parameter sources are defined in [helpers/param_sources.py](helpers/param
 
 ### Custom Runners
 
-Custom runners are defined in [helpers/runners.py](helpers/param_sources.py).
+Custom runners are defined in [helpers/runners.py](extensions/param_sources.py).
 
 | Syntax             | Description                                         | Parameters                                                                                   |
 |--------------------|-----------------------------------------------------|:---------------------------------------------------------------------------------------------|

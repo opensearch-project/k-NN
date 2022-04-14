@@ -4,10 +4,8 @@
 # this file be licensed under the Apache-2.0 license or a
 # compatible open source license.
 
-from helpers.data_set import Context, HDF5DataSet, DataSet, \
-    BigANNVectorDataSet
-from helpers.util import bulk_transform, parse_string_parameter, \
-    parse_int_parameter
+from .data_set import Context, HDF5DataSet, DataSet, BigANNVectorDataSet
+from .util import bulk_transform, parse_string_parameter, parse_int_parameter
 
 
 def register(registry):

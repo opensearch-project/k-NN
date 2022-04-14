@@ -4,7 +4,7 @@
 # this file be licensed under the Apache-2.0 license or a
 # compatible open source license.
 
-from helpers.util import parse_int_parameter, parse_string_parameter
+from .util import parse_int_parameter, parse_string_parameter
 import time
 
 

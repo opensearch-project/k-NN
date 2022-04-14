@@ -9,16 +9,10 @@
 # is updated.
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
+sys.path.append(os.path.abspath(os.getcwd()))
 
-from helpers.registry import register as custom_register
+from extensions.registry import register as custom_register
 
-#TODO:
-# 1. Add support for training
-#   a. Custom runner to train model
-#   b. Custom runner to delete model
-#   c. Enhance bulk for setting limit on training data
-#   d. Refactor to use challenges instead of multiple workloads
 
 def register(registry):
     custom_register(registry)
