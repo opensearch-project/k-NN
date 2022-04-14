@@ -4,10 +4,12 @@
     "default": true,
     "schedule": [
         {
-            "name": "delete-target-index",
-            "index": "{{ target_index_name }}",
-            "only-if-exists": true,
-            "operation": "delete-index"
+            "operation": {
+                "name": "delete-target-index",
+                "operation-type": "delete-index",
+                "only-if-exists": true,
+                "index": "{{ target_index_name }}"
+            }
         },
         {
             "operation": {

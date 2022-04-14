@@ -2,7 +2,7 @@
     {
         "name": "ivfpq-train-model",
         "operation-type": "train-model",
-        "model_id": "{{ model_id }}",
+        "model_id": "{{ train_model_id }}",
         "timeout": {{ train_timeout }},
         "body": {
             "training_index": "{{ train_index_name }}",
@@ -31,7 +31,7 @@
     {
         "name": "ivf-train-model",
         "operation-type": "train-model",
-        "model_id": "{{ model_id }}",
+        "model_id": "{{ train_model_id }}",
         "timeout": {{ train_timeout | default(1000) }},
         "body": {
             "training_index": "{{ train_index_name }}",

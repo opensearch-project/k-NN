@@ -4,16 +4,20 @@
     "default": false,
     "schedule": [
         {
-            "name": "delete-target-index",
-            "index": "{{ target_index_name }}",
-            "only-if-exists": true,
-            "operation": "delete-index"
+            "operation": {
+                "name": "delete-target-index",
+                "operation-type": "delete-index",
+                "only-if-exists": true,
+                "index": "{{ target_index_name }}"
+            }
         },
         {
-            "name": "delete-train-index",
-            "index": "{{ train_index_name }}",
-            "only-if-exists": true,
-            "operation": "delete-index"
+            "operation": {
+                "name": "delete-train-index",
+                "operation-type": "delete-index",
+                "only-if-exists": true,
+                "index": "{{ train_index_name }}"
+            }
         },
         {
             "operation": {
