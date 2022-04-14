@@ -1,0 +1,51 @@
+[
+    {
+        "operation": {
+            "name": "ivfpq-train-model",
+            "operation-type": "train-model",
+            "body": {
+                "training_index": "{{ train_index_name | default("train_index") }}",
+                "training_field": "{{ train_field_name | default("train_field") }}",
+                "dimension": {{ target_index_dimension }},
+                "search_size": {{ train_search_size | default(500) }},
+                "max_training_vector_count": {{ train_vector_limit | default(100000000000000000)}},
+                "method": {
+                    "name":"ivf",
+                    "engine":"faiss",
+                    "parameters":{
+                        "nlists": {{ ivf_nlists | default(10) }},
+                        "nprobes": {{ ivf_nprobes | default(10) }},
+                        "encoder":{
+                            "name":"pq",
+                            "parameters":{
+                                "code_size": {{ pq_code_size | default(8) }},
+                                "m": {{ pq_m | default(8) }}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    {
+        "operation": {
+            "name": "ivf-train-model",
+            "operation-type": "train-model",
+            "body": {
+                "training_index": "{{ train_index_name | default("train_index") }}",
+                "training_field": "{{ train_field_name | default("train_field") }}",
+                "search_size": {{ train_search_size | default(500) }},
+                "dimension": {{ target_index_dimension }},
+                "max_training_vector_count": {{ train_vector_limit | default(100000000000000000)}},
+                "method": {
+                    "name":"ivf",
+                    "engine":"faiss",
+                    "parameters":{
+                        "nlists": {{ ivf_nlists | default(10) }},
+                        "nprobes": {{ ivf_nprobes | default(10) }}
+                    }
+                }
+            }
+        }
+    }
+]
