@@ -8,7 +8,7 @@
   "target_index_space_type": "l2",
   "target_index_bulk_size": 200,
   "target_index_bulk_index_data_set_format": "hdf5",
-  "target_index_bulk_index_data_set_path": "/home/ec2-user/data/sift-128-euclidean.hdf5",
+  "target_index_bulk_index_data_set_path": "<path to data>",
   "target_index_bulk_index_clients": 10,
   "ivf_nlists": 10,
   "ivf_nprobes": 1,
@@ -25,7 +25,7 @@
   "train_index_replica_shards": 0,
   "train_index_bulk_size": 200,
   "train_index_data_set_format": "hdf5",
-  "train_index_data_set_path": "/home/ec2-user/data/sift-128-euclidean.hdf5",
+  "train_index_data_set_path": "<path to data>",
   "train_index_num_vectors": 1000000,
   "train_index_bulk_index_clients": 10
 }
