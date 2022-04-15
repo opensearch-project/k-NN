@@ -26,14 +26,21 @@ def register(registry):
 class BulkVectorsFromDataSetRunner:
 
     async def __call__(self, opensearch, params):
+        size = parse_int_parameter("size", params)
+
         for _ in range(params["retries"] + 1):
             try:
-                return await opensearch.bulk(
+                await opensearch.bulk(
                     body=params["body"],
                     timeout='5m'
                 )
+
+                return size, "docs"
             except:
                 pass
+
+        raise TimeoutError('Failed to submit bulk request in specified number '
+                           'of retries')
 
     def __repr__(self, *args, **kwargs):
         return "custom-vector-bulk"
@@ -42,16 +49,20 @@ class BulkVectorsFromDataSetRunner:
 class CustomRefreshRunner:
 
     async def __call__(self, opensearch, params):
-        # Basically just keep calling it until it succeeds
-        attempts = parse_int_parameter("retries", params, 0) + 1
+        retries = parse_int_parameter("retries", params, 0) + 1
 
-        for _ in range(attempts):
+        for _ in range(retries):
             try:
-                return await opensearch.indices.refresh(
+                await opensearch.indices.refresh(
                     index=parse_string_parameter("index", params)
                 )
+
+                return
             except:
                 pass
+
+        raise TimeoutError('Failed to refresh the index in specified number '
+                           'of retries')
 
     def __repr__(self, *args, **kwargs):
         return "custom-refresh"
@@ -77,7 +88,8 @@ class TrainModelRunner:
                 continue
 
             if model_response['state'] == 'created':
-                return {}
+                #TODO: Return model size as well
+                return 1, "models_trained"
 
             if model_response['state'] == 'failed':
                 raise Error("Failed to create model: {}".format(model_response))
@@ -99,7 +111,7 @@ class DeleteModelRunner:
         uri = "/_plugins/_knn/models/{}".format(model_id)
 
         # Ignore if model doesnt exist
-        return await opensearch.transport.perform_request(method, uri, params={"ignore": [400, 404]})
+        await opensearch.transport.perform_request(method, uri, params={"ignore": [400, 404]})
 
     def __repr__(self, *args, **kwargs):
         return "delete-model"
