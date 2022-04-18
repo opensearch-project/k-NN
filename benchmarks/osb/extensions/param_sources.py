@@ -3,6 +3,7 @@
 # The OpenSearch Contributors require contributions made to
 # this file be licensed under the Apache-2.0 license or a
 # compatible open source license.
+import copy
 
 from .data_set import Context, HDF5DataSet, DataSet, BigANNVectorDataSet
 from .util import bulk_transform, parse_string_parameter, parse_int_parameter, \
@@ -47,12 +48,12 @@ class BulkVectorsFromDataSetParamSource:
         if self.data_set.size() % total_partitions != 0:
             raise Exception("Data set must be divisible by number of clients")
 
-        partition_x = self
+        partition_x = copy.copy(self)
         partition_x.num_vectors = int(self.num_vectors / total_partitions)
         partition_x.offset = int(partition_index * partition_x.num_vectors)
 
         # We need to create a new instance of the data set for each client
-        partition_x.data_set = self._read_data_set()
+        partition_x.data_set = partition_x._read_data_set()
         partition_x.data_set.seek(partition_x.offset)
         partition_x.current = partition_x.offset
         return partition_x
