@@ -173,7 +173,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         ActionListener<IndexResponse> docCreationListener = ActionListener.wrap(response -> {
             assertEquals(modelId, response.getId());
 
-            // We need to use executor service here so master thread does not block
+            // We need to use executor service here so main thread does not block
             modelGetterExecutor.submit(() -> {
                 try {
                     assertEquals(model, modelDao.get(modelId));
@@ -232,7 +232,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         ActionListener<IndexResponse> docCreationListener = ActionListener.wrap(response -> {
             assertEquals(modelId, response.getId());
 
-            // We need to use executor service here so master thread does not block
+            // We need to use executor service here so main thread does not block
             modelGetterExecutor.submit(() -> {
                 try {
                     assertEquals(model, modelDao.get(modelId));
@@ -327,7 +327,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         ActionListener<IndexResponse> docCreationListener = ActionListener.wrap(response -> {
             assertEquals(modelId, response.getId());
 
-            // We need to use executor service here so master thread does not block
+            // We need to use executor service here so main thread does not block
             modelGetterExecutor.submit(() -> {
                 try {
                     assertEquals(model, modelDao.get(modelId));
@@ -363,7 +363,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         ActionListener<IndexResponse> updateListener = ActionListener.wrap(response -> {
             assertEquals(modelId, response.getId());
 
-            // We need to use executor service here so master thread does not block
+            // We need to use executor service here so main thread does not block
             modelGetterExecutor.submit(() -> {
                 try {
                     assertEquals(updatedModel, modelDao.get(modelId));

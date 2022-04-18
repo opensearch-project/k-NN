@@ -43,7 +43,7 @@ import static org.opensearch.knn.common.KNNConstants.PLUGIN_NAME;
 import static org.opensearch.knn.common.KNNConstants.MODEL_METADATA_FIELD;
 
 /**
- * Transport action used to update metadata of model's on the master node.
+ * Transport action used to update metadata of model's on the cluster manager node.
  */
 public class UpdateModelMetadataTransportAction extends TransportMasterNodeAction<UpdateModelMetadataRequest, AcknowledgedResponse> {
 
@@ -87,7 +87,7 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
         ClusterState clusterState,
         ActionListener<AcknowledgedResponse> actionListener
     ) {
-        // Master updates model metadata based on request parameters
+        // ClusterManager updates model metadata based on request parameters
         clusterService.submitStateUpdateTask(
             PLUGIN_NAME,
             new UpdateModelMetaDataTask(request.getModelId(), request.getModelMetadata(), request.isRemoveRequest()),
