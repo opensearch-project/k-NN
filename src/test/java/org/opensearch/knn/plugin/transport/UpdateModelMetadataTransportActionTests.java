@@ -52,7 +52,7 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
         assertEquals(acknowledgedResponse, acknowledgedResponse1);
     }
 
-    public void testMasterOperation() throws InterruptedException {
+    public void testClusterManagerOperation() throws InterruptedException {
         // Setup the Model system index
         createIndex(MODEL_INDEX_NAME);
 
