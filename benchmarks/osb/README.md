@@ -83,7 +83,7 @@ export PROCEDURE={no-train-test | train-test}
 opensearch-benchmark execute_test \ 
     --target-hosts $URL:$PORT \ 
     --workload-path ./workload.json \ 
-    --track-params ${PARAMS_FILE} \
+    --workload-params ${PARAMS_FILE} \
     --test-procedure=${PROCEDURE} \
     --pipeline benchmark-only
 ```
