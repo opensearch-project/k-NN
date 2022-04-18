@@ -27,8 +27,9 @@ class BulkVectorsFromDataSetRunner:
 
     async def __call__(self, opensearch, params):
         size = parse_int_parameter("size", params)
+        retries = parse_int_parameter("retries", params, 0) + 1
 
-        for _ in range(params["retries"] + 1):
+        for _ in range(retries):
             try:
                 await opensearch.bulk(
                     body=params["body"],
