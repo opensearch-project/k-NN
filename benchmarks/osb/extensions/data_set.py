@@ -114,9 +114,10 @@ class BigANNVectorDataSet(DataSet):
 
         self.num_points = int.from_bytes(self.file.read(4), "little")
         self.dimension = int.from_bytes(self.file.read(4), "little")
-        bytes_per_num = self._get_data_size(dataset_path)
+        self.bytes_per_num = self._get_data_size(dataset_path)
 
-        if (num_bytes - 8) != self.num_points * self.dimension * bytes_per_num:
+        if (num_bytes - 8) != self.num_points * self.dimension * \
+                self.bytes_per_num:
             raise Exception("File is invalid")
 
         self.reader = self._value_reader(dataset_path)
@@ -139,7 +140,8 @@ class BigANNVectorDataSet(DataSet):
         if offset >= self.size():
             raise Exception("Offset is greater than the size")
 
-        self.file.seek(offset)
+        bytes_offset = 8 + self.dimension*self.bytes_per_num*offset
+        self.file.seek(bytes_offset)
         self.current = offset
 
     def _read_vector(self):
