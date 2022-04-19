@@ -36,7 +36,7 @@ jobs:
           path: OpenSearch
       - name: Build OpenSearch
         working-directory: ./OpenSearch
-        run: ./gradlew publishToMavenLocal
+        run: ./gradlew publishToMavenLocal -Dbuild.snapshot=true
 
       - name: Run build
         run: |
