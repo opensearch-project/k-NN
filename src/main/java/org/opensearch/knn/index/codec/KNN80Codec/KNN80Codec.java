@@ -11,6 +11,7 @@ import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.FieldInfosFormat;
+import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.LiveDocsFormat;
 import org.apache.lucene.codecs.NormsFormat;
 import org.apache.lucene.codecs.PointsFormat;
@@ -52,8 +53,7 @@ public final class KNN80Codec extends Codec {
      * This function returns the Lucene80 Codec.
      */
     public Codec getDelegatee() {
-        if (lucene80Codec == null)
-            lucene80Codec = Codec.forName(LUCENE_80);
+        if (lucene80Codec == null) lucene80Codec = Codec.forName(LUCENE_80);
         return lucene80Codec;
     }
 
@@ -111,5 +111,10 @@ public final class KNN80Codec extends Codec {
     @Override
     public PointsFormat pointsFormat() {
         return getDelegatee().pointsFormat();
+    }
+
+    @Override
+    public KnnVectorsFormat knnVectorsFormat() {
+        throw new UnsupportedOperationException("Codec does not support knn vector format");
     }
 }

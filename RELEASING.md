@@ -29,6 +29,11 @@ Do not creating branches in the upstream repo, use your fork, for the exception 
 
 Repositories create consistent release labels, such as `v1.0.0`, `v1.1.0` and `v2.0.0`, as well as `backport`. Use release labels to target an issue or a PR for a given release. See [MAINTAINERS](MAINTAINERS.md#triage-open-issues) for more information on triaging issues.
 
+## Backwards Compatibility
+
+[The backwards compatibility test suite](qa) is used to ensure upgrades to the current version are successful. 
+When releasing a new version, update the `bwc.version` to the latest, previous minor version in [gradle.properties](gradle.properties). 
+
 ## Releasing
 
 The release process is standard across repositories in this org and is run by a release manager volunteering from amongst [MAINTAINERS](MAINTAINERS.md).

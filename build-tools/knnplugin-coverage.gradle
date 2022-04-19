@@ -43,6 +43,7 @@ task dummyIntegTest(type: Test) {
 
 integTest {
     systemProperty 'jacoco.dir', "${jacocoDir}"
+    systemProperty 'jmx.serviceUrl', "service:jmx:rmi:///jndi/rmi://127.0.0.1:7777/jmxrmi"
 }
 
 jacocoTestReport {
@@ -58,19 +59,15 @@ jacocoTestReport {
     }
 }
 
+afterEvaluate {
+    jacocoTestReport.dependsOn integTest
 
-allprojects{
-    afterEvaluate {
-        jacocoTestReport.dependsOn integTest
-
-        testClusters.integTest {
-            jvmArgs " ${dummyIntegTest.jacoco.getAsJvmArg()}".replace('javaagent:','javaagent:/')
-            systemProperty 'com.sun.management.jmxremote', "true"
-            systemProperty 'com.sun.management.jmxremote.authenticate', "false"
-            systemProperty 'com.sun.management.jmxremote.port', "7777"
-            systemProperty 'com.sun.management.jmxremote.ssl', "false"
-            systemProperty 'java.rmi.server.hostname', "127.0.0.1"
-        }
+    testClusters.integTest {
+        jvmArgs " ${dummyIntegTest.jacoco.getAsJvmArg()}".replace('javaagent:','javaagent:/')
+        systemProperty 'com.sun.management.jmxremote', "true"
+        systemProperty 'com.sun.management.jmxremote.authenticate', "false"
+        systemProperty 'com.sun.management.jmxremote.port', "7777"
+        systemProperty 'com.sun.management.jmxremote.ssl', "false"
+        systemProperty 'java.rmi.server.hostname', "127.0.0.1"
     }
 }
-

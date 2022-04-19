@@ -15,7 +15,7 @@ jobs:
   Build-k-NN:
     strategy:
       matrix:
-        java: [11, 14, 17]
+        java: [11, 17]
 
     name: Build and Test k-NN Plugin
     runs-on: ubuntu-latest
@@ -35,12 +35,12 @@ jobs:
 
       - name: Run build
         run: |
-          ./gradlew build -Dopensearch.version=2.0.0-SNAPSHOT
+          ./gradlew build
 
       - name: Run k-NN Backwards Compatibility Tests
         run: |
           echo "Running backwards compatibility tests ..."
-          ./gradlew bwcTestSuite -Dtests.security.manager=false
+          ./gradlew :qa:bwcTestSuite
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1

@@ -37,99 +37,103 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
 
     public void testExecutor() {
         UpdateModelMetadataTransportAction updateModelMetadataTransportAction = node().injector()
-                .getInstance(UpdateModelMetadataTransportAction.class);
+            .getInstance(UpdateModelMetadataTransportAction.class);
         assertEquals(ThreadPool.Names.SAME, updateModelMetadataTransportAction.executor());
     }
 
     public void testRead() throws IOException {
         UpdateModelMetadataTransportAction updateModelMetadataTransportAction = node().injector()
-                .getInstance(UpdateModelMetadataTransportAction.class);
+            .getInstance(UpdateModelMetadataTransportAction.class);
         AcknowledgedResponse acknowledgedResponse = new AcknowledgedResponse(true);
         BytesStreamOutput streamOutput = new BytesStreamOutput();
         acknowledgedResponse.writeTo(streamOutput);
-        AcknowledgedResponse acknowledgedResponse1 = updateModelMetadataTransportAction.read(streamOutput.bytes()
-                .streamInput());
+        AcknowledgedResponse acknowledgedResponse1 = updateModelMetadataTransportAction.read(streamOutput.bytes().streamInput());
 
         assertEquals(acknowledgedResponse, acknowledgedResponse1);
     }
 
-    public void testMasterOperation() throws InterruptedException {
+    public void testClusterManagerOperation() throws InterruptedException {
         // Setup the Model system index
         createIndex(MODEL_INDEX_NAME);
 
         // Setup the model
         String modelId = "test-model";
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 128, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
+        ModelMetadata modelMetadata = new ModelMetadata(
+            KNNEngine.DEFAULT,
+            SpaceType.L2,
+            128,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            ""
+        );
 
-        // Get update  transport action
+        // Get update transport action
         UpdateModelMetadataTransportAction updateModelMetadataTransportAction = node().injector()
-                .getInstance(UpdateModelMetadataTransportAction.class);
+            .getInstance(UpdateModelMetadataTransportAction.class);
 
         // Generate update request
-        UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, false,
-                modelMetadata);
+        UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, false, modelMetadata);
 
         // Get cluster state, update metadata, check cluster state - all asynchronously
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
         client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
             ClusterState clusterState1 = stateResponse1.getState();
             updateModelMetadataTransportAction.masterOperation(
-                    updateModelMetadataRequest,
-                    clusterState1,
-                    ActionListener.wrap(acknowledgedResponse -> {
-                        assertTrue(acknowledgedResponse.isAcknowledged());
+                updateModelMetadataRequest,
+                clusterState1,
+                ActionListener.wrap(acknowledgedResponse -> {
+                    assertTrue(acknowledgedResponse.isAcknowledged());
 
-                        client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse2 -> {
-                            ClusterState updatedClusterState = stateResponse2.getState();
-                            IndexMetadata indexMetadata = updatedClusterState.metadata().index(MODEL_INDEX_NAME);
-                            assertNotNull(indexMetadata);
+                    client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse2 -> {
+                        ClusterState updatedClusterState = stateResponse2.getState();
+                        IndexMetadata indexMetadata = updatedClusterState.metadata().index(MODEL_INDEX_NAME);
+                        assertNotNull(indexMetadata);
 
-                            Map<String, String> modelMetadataMap = indexMetadata.getCustomData(MODEL_METADATA_FIELD);
-                            assertNotNull(modelMetadataMap);
+                        Map<String, String> modelMetadataMap = indexMetadata.getCustomData(MODEL_METADATA_FIELD);
+                        assertNotNull(modelMetadataMap);
 
-                            String modelAsString = modelMetadataMap.get(modelId);
-                            assertNotNull(modelAsString);
+                        String modelAsString = modelMetadataMap.get(modelId);
+                        assertNotNull(modelAsString);
 
-                            ModelMetadata modelMetadataCopy = ModelMetadata.fromString(modelAsString);
-                            assertEquals(modelMetadata, modelMetadataCopy);
+                        ModelMetadata modelMetadataCopy = ModelMetadata.fromString(modelAsString);
+                        assertEquals(modelMetadata, modelMetadataCopy);
 
-                            inProgressLatch1.countDown();
+                        inProgressLatch1.countDown();
 
-                        }, e -> fail("Update failed:" + e)));
-                    }, e -> fail("Update failed: " + e))
+                    }, e -> fail("Update failed:" + e)));
+                }, e -> fail("Update failed: " + e))
             );
-        }, e -> fail("Update failed: "  + e)));
+        }, e -> fail("Update failed: " + e)));
 
         assertTrue(inProgressLatch1.await(60, TimeUnit.SECONDS));
 
         // Generate remove request
-        UpdateModelMetadataRequest removeModelMetadataRequest = new UpdateModelMetadataRequest(modelId, true,
-                modelMetadata);
+        UpdateModelMetadataRequest removeModelMetadataRequest = new UpdateModelMetadataRequest(modelId, true, modelMetadata);
 
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
         client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
             ClusterState clusterState1 = stateResponse1.getState();
             updateModelMetadataTransportAction.masterOperation(
-                    removeModelMetadataRequest,
-                    clusterState1,
-                    ActionListener.wrap(acknowledgedResponse -> {
-                        assertTrue(acknowledgedResponse.isAcknowledged());
+                removeModelMetadataRequest,
+                clusterState1,
+                ActionListener.wrap(acknowledgedResponse -> {
+                    assertTrue(acknowledgedResponse.isAcknowledged());
 
-                        client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse2 -> {
-                            ClusterState updatedClusterState = stateResponse2.getState();
-                            IndexMetadata indexMetadata = updatedClusterState.metadata().index(MODEL_INDEX_NAME);
-                            assertNotNull(indexMetadata);
+                    client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse2 -> {
+                        ClusterState updatedClusterState = stateResponse2.getState();
+                        IndexMetadata indexMetadata = updatedClusterState.metadata().index(MODEL_INDEX_NAME);
+                        assertNotNull(indexMetadata);
 
-                            Map<String, String> modelMetadataMap = indexMetadata.getCustomData(MODEL_METADATA_FIELD);
-                            assertNotNull(modelMetadataMap);
+                        Map<String, String> modelMetadataMap = indexMetadata.getCustomData(MODEL_METADATA_FIELD);
+                        assertNotNull(modelMetadataMap);
 
-                            String modelAsString = modelMetadataMap.get(modelId);
-                            assertNull(modelAsString);
+                        String modelAsString = modelMetadataMap.get(modelId);
+                        assertNull(modelAsString);
 
-                            inProgressLatch2.countDown();
-                        }, e -> fail("Update failed")));
-                    }, e -> fail("Update failed"))
+                        inProgressLatch2.countDown();
+                    }, e -> fail("Update failed")));
+                }, e -> fail("Update failed"))
             );
         }, e -> fail("Update failed")));
 
@@ -138,7 +142,7 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
 
     public void testCheckBlock() {
         UpdateModelMetadataTransportAction updateModelMetadataTransportAction = node().injector()
-                .getInstance(UpdateModelMetadataTransportAction.class);
+            .getInstance(UpdateModelMetadataTransportAction.class);
         assertNull(updateModelMetadataTransportAction.checkBlock(null, null));
     }
 }

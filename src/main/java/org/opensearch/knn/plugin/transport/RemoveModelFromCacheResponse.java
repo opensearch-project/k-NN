@@ -32,9 +32,11 @@ public class RemoveModelFromCacheResponse extends BaseNodesResponse<RemoveModelF
      * @param nodes list of responses from each node
      * @param failures list of failures from each node.
      */
-    public RemoveModelFromCacheResponse(ClusterName clusterName,
-                                                List<RemoveModelFromCacheNodeResponse> nodes,
-                                                List<FailedNodeException> failures) {
+    public RemoveModelFromCacheResponse(
+        ClusterName clusterName,
+        List<RemoveModelFromCacheNodeResponse> nodes,
+        List<FailedNodeException> failures
+    ) {
         super(clusterName, nodes, failures);
     }
 
@@ -45,8 +47,7 @@ public class RemoveModelFromCacheResponse extends BaseNodesResponse<RemoveModelF
      * @throws IOException thrown when input stream cannot be read
      */
     public RemoveModelFromCacheResponse(StreamInput in) throws IOException {
-        super(new ClusterName(in), in.readList(RemoveModelFromCacheNodeResponse::new),
-                in.readList(FailedNodeException::new));
+        super(new ClusterName(in), in.readList(RemoveModelFromCacheNodeResponse::new), in.readList(FailedNodeException::new));
     }
 
     @Override

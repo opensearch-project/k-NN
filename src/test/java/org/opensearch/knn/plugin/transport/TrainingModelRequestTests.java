@@ -40,7 +40,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -56,13 +55,13 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String description = "some test description";
 
         TrainingModelRequest original1 = new TrainingModelRequest(
-                modelId,
-                knnMethodContext,
-                dimension,
-                trainingIndex,
-                trainingField,
-                preferredNode,
-                description
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            preferredNode,
+            description
         );
 
         BytesStreamOutput streamOutput = new BytesStreamOutput();
@@ -78,13 +77,13 @@ public class TrainingModelRequestTests extends KNNTestCase {
 
         // Also, check when preferred node and model id and description are null
         TrainingModelRequest original2 = new TrainingModelRequest(
-                null,
-                knnMethodContext,
-                dimension,
-                trainingIndex,
-                trainingField,
-                null,
-                null
+            null,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            null,
+            null
         );
 
         streamOutput = new BytesStreamOutput();
@@ -112,13 +111,13 @@ public class TrainingModelRequestTests extends KNNTestCase {
         int trainingSetSizeInKB = 102;
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
-                modelId,
-                knnMethodContext,
-                dimension,
-                trainingIndex,
-                trainingField,
-                preferredNode,
-                description
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            preferredNode,
+            description
         );
 
         trainingModelRequest.setMaximumVectorCount(maxVectorCount);
@@ -151,19 +150,26 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String trainingField = "test-training-field";
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
-                modelId,
-                knnMethodContext,
-                dimension,
-                trainingIndex,
-                trainingField,
-                null,
-                null
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            null,
+            null
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
         ModelDao modelDao = mock(ModelDao.class);
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 128,
-                ModelState.CREATED, ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
+        ModelMetadata modelMetadata = new ModelMetadata(
+            KNNEngine.DEFAULT,
+            SpaceType.L2,
+            128,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            ""
+        );
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
 
         // This cluster service will result in no validation exceptions
@@ -199,13 +205,13 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String trainingField = "test-training-field";
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
-                modelId,
-                knnMethodContext,
-                dimension,
-                trainingIndex,
-                trainingField,
-                null,
-                null
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            null,
+            null
         );
 
         // Mock the model dao to return null so that no exception is produced
@@ -242,13 +248,13 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String trainingField = "test-training-field";
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
-                modelId,
-                knnMethodContext,
-                dimension,
-                trainingIndex,
-                trainingField,
-                null,
-                null
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            null,
+            null
         );
 
         // Mock the model dao to return null so that no exception is produced
@@ -288,13 +294,13 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String trainingField = "test-training-field";
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
-                modelId,
-                knnMethodContext,
-                dimension,
-                trainingIndex,
-                trainingField,
-                null,
-                null
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            null,
+            null
         );
 
         // Mock the model dao to return null so that no exception is produced
@@ -339,27 +345,23 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String trainingField = "test-training-field";
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
-                modelId,
-                knnMethodContext,
-                dimension,
-                trainingIndex,
-                trainingField,
-                null,
-                null
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            null,
+            null
         );
 
         // Mock the model dao to return null so that no exception is produced
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.getMetadata(modelId)).thenReturn(null);
 
-        // Return  mapping with different type
+        // Return mapping with different type
         Map<String, Object> mappingMap = ImmutableMap.of(
-                "properties", ImmutableMap.of(
-                        trainingField, ImmutableMap.of(
-                                "type", "int",
-                                KNNConstants.DIMENSION, dimension
-                        )
-                )
+            "properties",
+            ImmutableMap.of(trainingField, ImmutableMap.of("type", "int", KNNConstants.DIMENSION, dimension))
         );
         MappingMetadata mappingMetadata = mock(MappingMetadata.class);
         when(mappingMetadata.getSourceAsMap()).thenReturn(mappingMap);
@@ -398,27 +400,26 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String trainingField = "test-training-field";
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
-                modelId,
-                knnMethodContext,
-                dimension,
-                trainingIndex,
-                trainingField,
-                null,
-                null
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            null,
+            null
         );
 
         // Mock the model dao to return null so that no exception is produced
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.getMetadata(modelId)).thenReturn(null);
 
-        // Return  mapping with different dimension
+        // Return mapping with different dimension
         Map<String, Object> mappingMap = ImmutableMap.of(
-                "properties", ImmutableMap.of(
-                        trainingField, ImmutableMap.of(
-                                "type", KNNVectorFieldMapper.CONTENT_TYPE,
-                                KNNConstants.DIMENSION, dimension + 1
-                        )
-                )
+            "properties",
+            ImmutableMap.of(
+                trainingField,
+                ImmutableMap.of("type", KNNVectorFieldMapper.CONTENT_TYPE, KNNConstants.DIMENSION, dimension + 1)
+            )
         );
         MappingMetadata mappingMetadata = mock(MappingMetadata.class);
         when(mappingMetadata.getSourceAsMap()).thenReturn(mappingMap);
@@ -456,13 +457,13 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String preferredNode = "preferred-node";
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
-                modelId,
-                knnMethodContext,
-                dimension,
-                trainingIndex,
-                trainingField,
-                preferredNode,
-                null
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            preferredNode,
+            null
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
@@ -471,12 +472,8 @@ public class TrainingModelRequestTests extends KNNTestCase {
 
         // This cluster service mocking should not produce exception
         Map<String, Object> mappingMap = ImmutableMap.of(
-                "properties", ImmutableMap.of(
-                        trainingField, ImmutableMap.of(
-                                "type", KNNVectorFieldMapper.CONTENT_TYPE,
-                                KNNConstants.DIMENSION, dimension
-                        )
-                )
+            "properties",
+            ImmutableMap.of(trainingField, ImmutableMap.of("type", KNNVectorFieldMapper.CONTENT_TYPE, KNNConstants.DIMENSION, dimension))
         );
 
         MappingMetadata mappingMetadata = mock(MappingMetadata.class);
@@ -525,13 +522,13 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String description = new String(chars);
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
-                modelId,
-                knnMethodContext,
-                dimension,
-                trainingIndex,
-                trainingField,
-                null,
-                description
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            null,
+            description
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
@@ -569,13 +566,13 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String trainingField = "test-training-field";
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
-                modelId,
-                knnMethodContext,
-                dimension,
-                trainingIndex,
-                trainingField,
-                null,
-                null
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            null,
+            null
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
@@ -606,13 +603,13 @@ public class TrainingModelRequestTests extends KNNTestCase {
         String trainingFieldModeId = "training-field-model-id";
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
-                modelId,
-                knnMethodContext,
-                dimension,
-                trainingIndex,
-                trainingField,
-                null,
-                null
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            null,
+            null
         );
 
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
@@ -622,15 +619,14 @@ public class TrainingModelRequestTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.getMetadata(modelId)).thenReturn(null);
         when(modelDao.getMetadata(trainingFieldModeId)).thenReturn(trainingFieldModelMetadata);
-        
+
         // Return model id instead of dimension directly
         Map<String, Object> mappingMap = ImmutableMap.of(
-                "properties", ImmutableMap.of(
-                        trainingField, ImmutableMap.of(
-                                "type", KNNVectorFieldMapper.CONTENT_TYPE,
-                                KNNConstants.MODEL_ID, trainingFieldModeId
-                        )
-                )
+            "properties",
+            ImmutableMap.of(
+                trainingField,
+                ImmutableMap.of("type", KNNVectorFieldMapper.CONTENT_TYPE, KNNConstants.MODEL_ID, trainingFieldModeId)
+            )
         );
         MappingMetadata mappingMetadata = mock(MappingMetadata.class);
         when(mappingMetadata.getSourceAsMap()).thenReturn(mappingMap);
@@ -656,7 +652,6 @@ public class TrainingModelRequestTests extends KNNTestCase {
         assertNull(exception);
     }
 
-
     /**
      * This method produces a cluster service that will mock so that there are no validation exceptions.
      *
@@ -667,12 +662,8 @@ public class TrainingModelRequestTests extends KNNTestCase {
      */
     private ClusterService getClusterServiceForValidReturns(String trainingIndex, String trainingField, int dimension) {
         Map<String, Object> mappingMap = ImmutableMap.of(
-                "properties", ImmutableMap.of(
-                        trainingField, ImmutableMap.of(
-                                "type", KNNVectorFieldMapper.CONTENT_TYPE,
-                                KNNConstants.DIMENSION, dimension
-                        )
-                )
+            "properties",
+            ImmutableMap.of(trainingField, ImmutableMap.of("type", KNNVectorFieldMapper.CONTENT_TYPE, KNNConstants.DIMENSION, dimension))
         );
         MappingMetadata mappingMetadata = mock(MappingMetadata.class);
         when(mappingMetadata.getSourceAsMap()).thenReturn(mappingMap);

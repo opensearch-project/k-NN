@@ -27,7 +27,6 @@ import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 import static org.opensearch.knn.common.KNNConstants.MODEL_CACHE_EXPIRE_AFTER_ACCESS_TIME_MINUTES;
 import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTING;
 
-
 public final class ModelCache {
 
     private static Logger logger = LogManager.getLogger(ModelCache.class);
@@ -82,12 +81,12 @@ public final class ModelCache {
 
     private void initCache() {
         CacheBuilder<String, Model> cacheBuilder = CacheBuilder.newBuilder()
-                .recordStats()
-                .concurrencyLevel(1)
-                .removalListener(this::onRemoval)
-                .maximumWeight(cacheSizeInKB)
-                .expireAfterAccess(MODEL_CACHE_EXPIRE_AFTER_ACCESS_TIME_MINUTES, TimeUnit.MINUTES)
-                .weigher((k, v) -> Math.toIntExact(getModelLengthInKB(v)));
+            .recordStats()
+            .concurrencyLevel(1)
+            .removalListener(this::onRemoval)
+            .maximumWeight(cacheSizeInKB)
+            .expireAfterAccess(MODEL_CACHE_EXPIRE_AFTER_ACCESS_TIME_MINUTES, TimeUnit.MINUTES)
+            .weigher((k, v) -> Math.toIntExact(getModelLengthInKB(v)));
 
         cache = cacheBuilder.build();
     }
@@ -97,8 +96,7 @@ public final class ModelCache {
             updateEvictedDueToSizeAt();
         }
 
-        logger.info("[KNN] Model Cache evicted. Key {}, Reason: {}", removalNotification.getKey(),
-            removalNotification.getCause());
+        logger.info("[KNN] Model Cache evicted. Key {}, Reason: {}", removalNotification.getKey(), removalNotification.getCause());
     }
 
     public Instant getEvictedDueToSizeAt() {
@@ -129,8 +127,7 @@ public final class ModelCache {
      * @return total weight
      */
     public long getTotalWeightInKB() {
-        return cache.asMap().values().stream().map(this::getModelLengthInKB)
-                .reduce(0L, Long::sum);
+        return cache.asMap().values().stream().map(this::getModelLengthInKB).reduce(0L, Long::sum);
     }
 
     /**

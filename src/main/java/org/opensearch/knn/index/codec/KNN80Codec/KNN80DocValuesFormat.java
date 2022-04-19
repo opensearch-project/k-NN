@@ -8,7 +8,7 @@ package org.opensearch.knn.index.codec.KNN80Codec;
 import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.DocValuesProducer;
-import org.apache.lucene.codecs.lucene80.Lucene80DocValuesFormat;
+import org.apache.lucene.backward_codecs.lucene80.Lucene80DocValuesFormat;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 

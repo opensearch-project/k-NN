@@ -11,6 +11,7 @@ import org.apache.lucene.search.TopDocs;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.codec.KNN910Codec.KNN910Codec;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.KNNQuery;
 import org.opensearch.knn.index.KNNSettings;
@@ -18,13 +19,12 @@ import org.opensearch.knn.index.KNNVectorFieldMapper;
 import org.opensearch.knn.index.KNNWeight;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorField;
-import org.opensearch.knn.index.codec.KNN87Codec.KNN87Codec;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.RandomIndexWriter;
+import org.apache.lucene.tests.index.RandomIndexWriter;
 import org.apache.lucene.index.SerialMergeScheduler;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.store.Directory;
@@ -61,6 +61,7 @@ import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTIN
  */
 public class KNNCodecTestCase extends KNNTestCase {
 
+    private static final KNN910Codec ACTUAL_CODEC = new KNN910Codec();
     private static FieldType sampleFieldType;
     static {
         sampleFieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
@@ -107,7 +108,7 @@ public class KNNCodecTestCase extends KNNTestCase {
          */
         IndexWriterConfig iwc1 = newIndexWriterConfig();
         iwc1.setMergeScheduler(new SerialMergeScheduler());
-        iwc1.setCodec(new KNN87Codec());
+        iwc1.setCodec(ACTUAL_CODEC);
         writer = new RandomIndexWriter(random(), dir, iwc1);
         float[] array1 = { 6.0f, 14.0f };
         VectorField vectorField1 = new VectorField("my_vector", array1, sampleFieldType);
@@ -228,6 +229,28 @@ public class KNNCodecTestCase extends KNNTestCase {
         reader.close();
         dir.close();
         resourceWatcherService.close();
+        NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
+    }
+
+    public void testWriteByOldCodec(Codec codec) throws IOException {
+        setUpMockClusterService();
+        Directory dir = newFSDirectory(createTempDir());
+        IndexWriterConfig iwc = newIndexWriterConfig();
+        iwc.setMergeScheduler(new SerialMergeScheduler());
+        iwc.setCodec(codec);
+
+        /**
+         * Add doc with field "test_vector", expect it to fail
+         */
+        float[] array = { 1.0f, 3.0f, 4.0f };
+        VectorField vectorField = new VectorField("test_vector", array, sampleFieldType);
+        try (RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc)) {
+            Document doc = new Document();
+            doc.add(vectorField);
+            expectThrows(UnsupportedOperationException.class, () -> writer.addDocument(doc));
+        }
+
+        dir.close();
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 }

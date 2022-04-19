@@ -6,7 +6,7 @@
 package org.opensearch.knn.index;
 
 import org.opensearch.knn.KNNTestCase;
-import org.apache.lucene.analysis.MockAnalyzer;
+import org.apache.lucene.tests.analysis.MockAnalyzer;
 import org.apache.lucene.document.BinaryDocValuesField;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.FieldType;
@@ -23,7 +23,7 @@ import java.io.IOException;
 public class KNNVectorScriptDocValuesTests extends KNNTestCase {
 
     private static final String MOCK_INDEX_FIELD_NAME = "test-index-field-name";
-    private static final float[] SAMPLE_VECTOR_DATA = new float[]{1.0f, 2.0f};
+    private static final float[] SAMPLE_VECTOR_DATA = new float[] { 1.0f, 2.0f };
     private KNNVectorScriptDocValues scriptDocValues;
     private Directory directory;
     private DirectoryReader reader;
@@ -36,7 +36,9 @@ public class KNNVectorScriptDocValuesTests extends KNNTestCase {
         reader = DirectoryReader.open(directory);
         LeafReaderContext leafReaderContext = reader.getContext().leaves().get(0);
         scriptDocValues = new KNNVectorScriptDocValues(
-                leafReaderContext.reader().getBinaryDocValues(MOCK_INDEX_FIELD_NAME), MOCK_INDEX_FIELD_NAME);
+            leafReaderContext.reader().getBinaryDocValues(MOCK_INDEX_FIELD_NAME),
+            MOCK_INDEX_FIELD_NAME
+        );
     }
 
     private void createKNNVectorDocument(Directory directory) throws IOException {
@@ -44,9 +46,11 @@ public class KNNVectorScriptDocValuesTests extends KNNTestCase {
         IndexWriter writer = new IndexWriter(directory, conf);
         Document knnDocument = new Document();
         knnDocument.add(
-                new BinaryDocValuesField(
-                        MOCK_INDEX_FIELD_NAME,
-                        new VectorField(MOCK_INDEX_FIELD_NAME, SAMPLE_VECTOR_DATA, new FieldType()).binaryValue()));
+            new BinaryDocValuesField(
+                MOCK_INDEX_FIELD_NAME,
+                new VectorField(MOCK_INDEX_FIELD_NAME, SAMPLE_VECTOR_DATA, new FieldType()).binaryValue()
+            )
+        );
         writer.addDocument(knnDocument);
         writer.commit();
         writer.close();
@@ -64,8 +68,7 @@ public class KNNVectorScriptDocValuesTests extends KNNTestCase {
         Assert.assertArrayEquals(SAMPLE_VECTOR_DATA, scriptDocValues.getValue(), 0.1f);
     }
 
-
-    //Test getValue without calling setNextDocId
+    // Test getValue without calling setNextDocId
     public void testGetValueFails() throws IOException {
         expectThrows(IllegalStateException.class, () -> scriptDocValues.getValue());
     }

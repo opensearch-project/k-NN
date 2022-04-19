@@ -58,8 +58,15 @@ public class VectorReader {
      * @param vectorConsumer consumer used to do something with the collected vectors after each search
      * @param listener ActionListener that should be called once all search operations complete
      */
-    public void read(ClusterService clusterService, String indexName, String fieldName, int maxVectorCount,
-                     int searchSize, Consumer<List<Float[]>> vectorConsumer, ActionListener<SearchResponse> listener) {
+    public void read(
+        ClusterService clusterService,
+        String indexName,
+        String fieldName,
+        int maxVectorCount,
+        int searchSize,
+        Consumer<List<Float[]>> vectorConsumer,
+        ActionListener<SearchResponse> listener
+    ) {
 
         ValidationException validationException = null;
 
@@ -94,11 +101,17 @@ public class VectorReader {
         // Start reading vectors from index
         SearchScrollRequestBuilder searchScrollRequestBuilder = createSearchScrollRequestBuilder();
 
-        ActionListener<SearchResponse> vectorReaderListener = new VectorReaderListener(client, fieldName,
-                maxVectorCount, 0, listener, vectorConsumer, searchScrollRequestBuilder);
+        ActionListener<SearchResponse> vectorReaderListener = new VectorReaderListener(
+            client,
+            fieldName,
+            maxVectorCount,
+            0,
+            listener,
+            vectorConsumer,
+            searchScrollRequestBuilder
+        );
 
-        createSearchRequestBuilder(indexName, fieldName, Integer.min(maxVectorCount, searchSize))
-                .execute(vectorReaderListener);
+        createSearchRequestBuilder(indexName, fieldName, Integer.min(maxVectorCount, searchSize)).execute(vectorReaderListener);
     }
 
     private SearchRequestBuilder createSearchRequestBuilder(String indexName, String fieldName, int resultSize) {
@@ -142,9 +155,15 @@ public class VectorReader {
          * @param vectorConsumer Consumer used to do something with the vectors
          * @param searchScrollRequestBuilder Search scroll request builder used to get next set of vectors
          */
-        public VectorReaderListener(Client client, String fieldName, int maxVectorCount, int collectedVectorCount,
-                                    ActionListener<SearchResponse> listener, Consumer<List<Float[]>> vectorConsumer,
-                                    SearchScrollRequestBuilder searchScrollRequestBuilder) {
+        public VectorReaderListener(
+            Client client,
+            String fieldName,
+            int maxVectorCount,
+            int collectedVectorCount,
+            ActionListener<SearchResponse> listener,
+            Consumer<List<Float[]>> vectorConsumer,
+            SearchScrollRequestBuilder searchScrollRequestBuilder
+        ) {
             this.client = client;
             this.fieldName = fieldName;
             this.maxVectorCount = maxVectorCount;
@@ -153,7 +172,6 @@ public class VectorReader {
             this.vectorConsumer = vectorConsumer;
             this.searchScrollRequestBuilder = searchScrollRequestBuilder;
         }
-
 
         @Override
         @SuppressWarnings("unchecked")
@@ -165,9 +183,9 @@ public class VectorReader {
             List<Float[]> trainingData = new ArrayList<>();
 
             for (int i = 0; i < vectorsToAdd; i++) {
-                trainingData.add(((List<Double>) hits[i].getSourceAsMap().get(fieldName)).stream()
-                        .map(Double::floatValue)
-                        .toArray(Float[]::new));
+                trainingData.add(
+                    ((List<Double>) hits[i].getSourceAsMap().get(fieldName)).stream().map(Double::floatValue).toArray(Float[]::new)
+                );
             }
 
             this.collectedVectorCount += trainingData.size();
@@ -180,10 +198,9 @@ public class VectorReader {
                 String scrollId = searchResponse.getScrollId();
 
                 if (scrollId != null) {
-                    client.prepareClearScroll().addScrollId(scrollId).execute(ActionListener.wrap(
-                            clearScrollResponse -> listener.onResponse(searchResponse),
-                            listener::onFailure)
-                    );
+                    client.prepareClearScroll()
+                        .addScrollId(scrollId)
+                        .execute(ActionListener.wrap(clearScrollResponse -> listener.onResponse(searchResponse), listener::onFailure));
                 } else {
                     listener.onResponse(searchResponse);
                 }
@@ -201,10 +218,9 @@ public class VectorReader {
             String scrollId = searchScrollRequestBuilder.request().scrollId();
 
             if (scrollId != null) {
-                client.prepareClearScroll().addScrollId(scrollId).execute(ActionListener.wrap(
-                        clearScrollResponse -> listener.onFailure(e),
-                        listener::onFailure)
-                );
+                client.prepareClearScroll()
+                    .addScrollId(scrollId)
+                    .execute(ActionListener.wrap(clearScrollResponse -> listener.onFailure(e), listener::onFailure));
             } else {
                 listener.onFailure(e);
             }

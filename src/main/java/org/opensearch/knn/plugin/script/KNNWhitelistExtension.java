@@ -17,8 +17,7 @@ import java.util.Map;
 
 public class KNNWhitelistExtension implements PainlessExtension {
 
-    private static final Whitelist WHITELIST =
-            WhitelistLoader.loadFromResourceFiles(KNNWhitelistExtension.class, "knn_whitelist.txt");
+    private static final Whitelist WHITELIST = WhitelistLoader.loadFromResourceFiles(KNNWhitelistExtension.class, "knn_whitelist.txt");
 
     @Override
     public Map<ScriptContext<?>, List<Whitelist>> getContextWhitelists() {

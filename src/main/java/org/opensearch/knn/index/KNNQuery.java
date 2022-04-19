@@ -7,6 +7,7 @@ package org.opensearch.knn.index;
 
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
 
@@ -41,7 +42,9 @@ public class KNNQuery extends Query {
         return this.k;
     }
 
-    public String getIndexName() { return this.indexName; }
+    public String getIndexName() {
+        return this.indexName;
+    }
 
     /**
      * Constructs Weight implementation for this query
@@ -60,6 +63,11 @@ public class KNNQuery extends Query {
     }
 
     @Override
+    public void visit(QueryVisitor visitor) {
+
+    }
+
+    @Override
     public String toString(String field) {
         return field;
     }
@@ -71,8 +79,7 @@ public class KNNQuery extends Query {
 
     @Override
     public boolean equals(Object other) {
-        return sameClassAs(other) &&
-                       equalsTo(getClass().cast(other));
+        return sameClassAs(other) && equalsTo(getClass().cast(other));
     }
 
     private boolean equalsTo(KNNQuery other) {

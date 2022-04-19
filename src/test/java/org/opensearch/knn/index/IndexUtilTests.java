@@ -47,9 +47,7 @@ public class IndexUtilTests extends KNNTestCase {
         int efSearchValue = 413;
 
         // We use the constant for the setting here as opposed to the identifier of efSearch in nmslib jni
-        Map<String, Object> indexSettings = ImmutableMap.of(
-                KNN_ALGO_PARAM_EF_SEARCH, efSearchValue
-        );
+        Map<String, Object> indexSettings = ImmutableMap.of(KNN_ALGO_PARAM_EF_SEARCH, efSearchValue);
 
         // Because ef search comes from an index setting, we need to mock the long line of calls to get those
         // index settings

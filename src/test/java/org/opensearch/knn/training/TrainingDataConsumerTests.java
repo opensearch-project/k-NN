@@ -29,7 +29,10 @@ public class TrainingDataConsumerTests extends KNNTestCase {
 
         // Mock the training data allocation
         int dimension = 128;
-        NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = mock(NativeMemoryAllocation.TrainingDataAllocation.class); // new NativeMemoryAllocation.TrainingDataAllocation(0, numVectors*dimension* Float.BYTES);
+        NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = mock(NativeMemoryAllocation.TrainingDataAllocation.class); // new
+                                                                                                                                          // NativeMemoryAllocation.TrainingDataAllocation(0,
+                                                                                                                                          // numVectors*dimension*
+                                                                                                                                          // Float.BYTES);
         when(trainingDataAllocation.getMemoryAddress()).thenReturn(0L);
 
         // Capture argument passed to set pointer

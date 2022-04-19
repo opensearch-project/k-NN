@@ -33,6 +33,7 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
 
     private class TestLibrary implements KNNLibrary {
         private Boolean initialized;
+
         TestLibrary() {
             this.initialized = false;
         }

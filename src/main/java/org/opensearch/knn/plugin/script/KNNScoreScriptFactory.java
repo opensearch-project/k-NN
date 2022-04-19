@@ -29,17 +29,19 @@ public class KNNScoreScriptFactory implements ScoreScript.LeafFactory {
         this.similaritySpace = getValue(params, "space_type").toString();
         this.query = getValue(params, "query_value");
 
-        this.knnScoringSpace = KNNScoringSpaceFactory.create(this.similaritySpace, this.query,
-                lookup.doc().mapperService().fieldType(this.field));
+        this.knnScoringSpace = KNNScoringSpaceFactory.create(
+            this.similaritySpace,
+            this.query,
+            lookup.doc().mapperService().fieldType(this.field)
+        );
     }
 
     private Object getValue(Map<String, Object> params, String fieldName) {
         final Object value = params.get(fieldName);
-        if (value != null)
-            return value;
+        if (value != null) return value;
 
         KNNCounter.SCRIPT_QUERY_ERRORS.increment();
-        throw new IllegalArgumentException("Missing parameter ["+ fieldName +"]");
+        throw new IllegalArgumentException("Missing parameter [" + fieldName + "]");
     }
 
     @Override

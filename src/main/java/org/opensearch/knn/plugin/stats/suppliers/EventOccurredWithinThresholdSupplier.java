@@ -40,10 +40,10 @@ public class EventOccurredWithinThresholdSupplier implements Supplier<Boolean> {
     public Boolean get() {
 
         Instant lastSeenAt = supplier.get();
-        if (lastSeenAt == null)  //Event never happened
+        if (lastSeenAt == null)  // Event never happened
             return false;
         Instant expiringAt = lastSeenAt.plus(threshold, unit);
-        //if expiration is greater than current instant, then event occurred
+        // if expiration is greater than current instant, then event occurred
         if (expiringAt.compareTo(Instant.now()) > 0) {
             return true;
         }

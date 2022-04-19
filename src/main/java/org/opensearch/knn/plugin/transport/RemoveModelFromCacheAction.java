@@ -20,8 +20,7 @@ import org.opensearch.common.io.stream.Writeable;
 public class RemoveModelFromCacheAction extends ActionType<RemoveModelFromCacheResponse> {
 
     public static final String NAME = "cluster:admin/knn_remove_model_from_cache_action";
-    public static final RemoveModelFromCacheAction INSTANCE = new RemoveModelFromCacheAction(NAME,
-            RemoveModelFromCacheResponse::new);
+    public static final RemoveModelFromCacheAction INSTANCE = new RemoveModelFromCacheAction(NAME, RemoveModelFromCacheResponse::new);
 
     /**
      * Constructor
@@ -29,8 +28,7 @@ public class RemoveModelFromCacheAction extends ActionType<RemoveModelFromCacheR
      * @param name name of action
      * @param responseReader reader for the RemoveModelFromCacheResponse response
      */
-    public RemoveModelFromCacheAction(String name,
-                                      Writeable.Reader<RemoveModelFromCacheResponse> responseReader) {
+    public RemoveModelFromCacheAction(String name, Writeable.Reader<RemoveModelFromCacheResponse> responseReader) {
         super(name, responseReader);
     }
 }

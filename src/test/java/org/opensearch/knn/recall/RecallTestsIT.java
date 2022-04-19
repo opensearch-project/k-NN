@@ -11,15 +11,9 @@
 
 package org.opensearch.knn.recall;
 
-import org.apache.http.util.EntityUtils;
-import org.opensearch.client.Response;
 import org.opensearch.knn.KNNRestTestCase;
-import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
-import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.SpaceType;
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import static org.opensearch.knn.index.KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY;

@@ -6,7 +6,7 @@
 package org.opensearch.knn.index;
 
 import org.opensearch.knn.KNNTestCase;
-import org.apache.lucene.analysis.MockAnalyzer;
+import org.apache.lucene.tests.analysis.MockAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
@@ -72,13 +72,14 @@ public class KNNVectorIndexFieldDataTests extends KNNTestCase {
 
     public void testSortField() {
 
-        expectThrows(UnsupportedOperationException.class,
-                () -> indexFieldData.sortField(null, null, null, false));
+        expectThrows(UnsupportedOperationException.class, () -> indexFieldData.sortField(null, null, null, false));
     }
 
     public void testNewBucketedSort() {
 
-        expectThrows(UnsupportedOperationException.class,
-                () -> indexFieldData.newBucketedSort(null, null, null, null, null, null, 0, null));
+        expectThrows(
+            UnsupportedOperationException.class,
+            () -> indexFieldData.newBucketedSort(null, null, null, null, null, null, 0, null)
+        );
     }
 }

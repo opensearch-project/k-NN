@@ -43,7 +43,7 @@ import static org.opensearch.knn.common.KNNConstants.PLUGIN_NAME;
 import static org.opensearch.knn.common.KNNConstants.MODEL_METADATA_FIELD;
 
 /**
- * Transport action used to update metadata of model's on the master node.
+ * Transport action used to update metadata of model's on the cluster manager node.
  */
 public class UpdateModelMetadataTransportAction extends TransportMasterNodeAction<UpdateModelMetadataRequest, AcknowledgedResponse> {
 
@@ -52,13 +52,22 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
     private UpdateModelMetadataExecutor updateModelMetadataExecutor;
 
     @Inject
-    public UpdateModelMetadataTransportAction(TransportService transportService,
-                                              ClusterService clusterService,
-                                              ThreadPool threadPool,
-                                              ActionFilters actionFilters,
-                                              IndexNameExpressionResolver indexNameExpressionResolver) {
-        super(UpdateModelMetadataAction.NAME, transportService, clusterService, threadPool, actionFilters,
-                UpdateModelMetadataRequest::new, indexNameExpressionResolver);
+    public UpdateModelMetadataTransportAction(
+        TransportService transportService,
+        ClusterService clusterService,
+        ThreadPool threadPool,
+        ActionFilters actionFilters,
+        IndexNameExpressionResolver indexNameExpressionResolver
+    ) {
+        super(
+            UpdateModelMetadataAction.NAME,
+            transportService,
+            clusterService,
+            threadPool,
+            actionFilters,
+            UpdateModelMetadataRequest::new,
+            indexNameExpressionResolver
+        );
         this.updateModelMetadataExecutor = new UpdateModelMetadataExecutor();
     }
 
@@ -73,25 +82,29 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
     }
 
     @Override
-    protected void masterOperation(UpdateModelMetadataRequest request, ClusterState clusterState,
-                                   ActionListener<AcknowledgedResponse> actionListener) {
-        // Master updates model metadata based on request parameters
+    protected void masterOperation(
+        UpdateModelMetadataRequest request,
+        ClusterState clusterState,
+        ActionListener<AcknowledgedResponse> actionListener
+    ) {
+        // ClusterManager updates model metadata based on request parameters
         clusterService.submitStateUpdateTask(
-                PLUGIN_NAME,
-                new UpdateModelMetaDataTask(request.getModelId(), request.getModelMetadata(), request.isRemoveRequest()),
-                ClusterStateTaskConfig.build(Priority.NORMAL),
-                updateModelMetadataExecutor,
-                new ClusterStateTaskListener() {
-                    @Override
-                    public void onFailure(String s, Exception e) {
-                        actionListener.onFailure(e);
-                    }
+            PLUGIN_NAME,
+            new UpdateModelMetaDataTask(request.getModelId(), request.getModelMetadata(), request.isRemoveRequest()),
+            ClusterStateTaskConfig.build(Priority.NORMAL),
+            updateModelMetadataExecutor,
+            new ClusterStateTaskListener() {
+                @Override
+                public void onFailure(String s, Exception e) {
+                    actionListener.onFailure(e);
+                }
 
-                    @Override
-                    public void clusterStateProcessed(String source, ClusterState oldState, ClusterState newState) {
-                        actionListener.onResponse(new AcknowledgedResponse(true));
-                    }
-                });
+                @Override
+                public void clusterStateProcessed(String source, ClusterState oldState, ClusterState newState) {
+                    actionListener.onResponse(new AcknowledgedResponse(true));
+                }
+            }
+        );
     }
 
     @Override
@@ -125,8 +138,7 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
     private static class UpdateModelMetadataExecutor implements ClusterStateTaskExecutor<UpdateModelMetaDataTask> {
 
         @Override
-        public ClusterTasksResult<UpdateModelMetaDataTask> execute(ClusterState clusterState,
-                                                                   List<UpdateModelMetaDataTask> list) {
+        public ClusterTasksResult<UpdateModelMetaDataTask> execute(ClusterState clusterState, List<UpdateModelMetaDataTask> list) {
             // Get the map of the models metadata
             IndexMetadata indexMetadata = clusterState.metadata().index(MODEL_INDEX_NAME);
 

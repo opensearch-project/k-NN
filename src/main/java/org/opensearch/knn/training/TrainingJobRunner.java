@@ -95,24 +95,17 @@ public class TrainingJobRunner {
         // Serialize model before training. The model should be in the training state and the model binary should be
         // null. This notifies users that their model is training, but not yet ready for use.
         try {
-            serializeModel(
-                    trainingJob,
-                    ActionListener.wrap(
-                            indexResponse -> {
-                                // Respond to the request with the initial index response
-                                listener.onResponse(indexResponse);
-                                train(trainingJob);
-                            },
-                            exception -> {
-                                // Serialization failed. Let listener handle the exception, but free up resources.
-                                jobCount.decrementAndGet();
-                                semaphore.release();
-                                logger.error("Unable to initialize model serialization: " + exception.getMessage());
-                                listener.onFailure(exception);
-                            }
-                    ),
-                    false
-            );
+            serializeModel(trainingJob, ActionListener.wrap(indexResponse -> {
+                // Respond to the request with the initial index response
+                listener.onResponse(indexResponse);
+                train(trainingJob);
+            }, exception -> {
+                // Serialization failed. Let listener handle the exception, but free up resources.
+                jobCount.decrementAndGet();
+                semaphore.release();
+                logger.error("Unable to initialize model serialization: " + exception.getMessage());
+                listener.onFailure(exception);
+            }), false);
         } catch (IOException ioe) {
             jobCount.decrementAndGet();
             semaphore.release();
@@ -125,13 +118,11 @@ public class TrainingJobRunner {
 
         // Listener for update model after training index action
         ActionListener<IndexResponse> loggingListener = ActionListener.wrap(
-                indexResponse -> logger.debug("[KNN] Model serialization update for \"" +
-                        trainingJob.getModelId() + "\" was successful"),
-                e -> {
-                    logger.error("[KNN] Model serialization update for \"" + trainingJob.getModelId()  +
-                            "\" failed: " + e.getMessage());
-                    KNNCounter.TRAINING_ERRORS.increment();
-                }
+            indexResponse -> logger.debug("[KNN] Model serialization update for \"" + trainingJob.getModelId() + "\" was successful"),
+            e -> {
+                logger.error("[KNN] Model serialization update for \"" + trainingJob.getModelId() + "\" failed: " + e.getMessage());
+                KNNCounter.TRAINING_ERRORS.increment();
+            }
         );
 
         try {
@@ -143,8 +134,7 @@ public class TrainingJobRunner {
                     logger.error("Unable to serialize model \"" + trainingJob.getModelId() + "\": " + e.getMessage());
                     KNNCounter.TRAINING_ERRORS.increment();
                 } catch (Exception e) {
-                    logger.error("Unable to complete training for \"" + trainingJob.getModelId() + "\": "
-                            + e.getMessage());
+                    logger.error("Unable to complete training for \"" + trainingJob.getModelId() + "\": " + e.getMessage());
                     KNNCounter.TRAINING_ERRORS.increment();
                 } finally {
                     jobCount.decrementAndGet();
@@ -170,8 +160,7 @@ public class TrainingJobRunner {
         }
     }
 
-    private void serializeModel(TrainingJob trainingJob, ActionListener<IndexResponse> listener, boolean update)
-            throws IOException {
+    private void serializeModel(TrainingJob trainingJob, ActionListener<IndexResponse> listener, boolean update) throws IOException {
         if (update) {
             modelDao.update(trainingJob.getModel(), listener);
         } else {

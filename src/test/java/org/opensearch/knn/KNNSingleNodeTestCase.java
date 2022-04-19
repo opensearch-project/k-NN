@@ -69,7 +69,7 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
      * Create a k-NN index with default settings
      */
     protected IndexService createKNNIndex(String indexName) {
-        return createIndex(indexName, getKNNDefaultIndexSettings(), null);
+        return createIndex(indexName, getKNNDefaultIndexSettings());
     }
 
     /**

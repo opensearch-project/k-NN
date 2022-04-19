@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.index.codec.KNN80Codec;
 
-import org.apache.lucene.codecs.lucene50.Lucene50CompoundFormat;
+import org.apache.lucene.backward_codecs.lucene50.Lucene50CompoundFormat;
 import org.opensearch.knn.common.KNNConstants;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;

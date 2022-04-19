@@ -14,6 +14,7 @@
   - [Debugging](#debugging)
   - [Backwards Compatibility Testing](#backwards-compatibility-testing)
     - [Adding new tests](#adding-new-tests)
+  - [Codec Versioning](#codec-versioning)
   - [Submitting Changes](#submitting-changes)
 
 # Developer Guide
@@ -96,11 +97,6 @@ Please follow these formatting guidelines:
 * If *absolutely* necessary, you can disable formatting for regions of code with the `// tag::NAME` and `// end::NAME` directives, but note that these are intended for use in documentation, so please make it clear what you have done, and only do this where the benefit clearly outweighs the decrease in consistency.
 * Note that JavaDoc and block comments i.e. `/* ... */` are not formatted, but line comments i.e `// ...` are.
 * There is an implicit rule that negative boolean expressions should use the form `foo == false` instead of `!foo` for better readability of the code. While this isn't strictly enforced, if might get called out in PR reviews as something to change.
-
-In order to gradually introduce the spotless formatting, we use the 
-[ratchetFrom](https://github.com/diffplug/spotless/tree/main/plugin-gradle#ratchet) spotless functionality. This makes 
-it so only files that are changed compared to the origin branch are inspected. Because of this, ensure that your 
-origin branch is up to date with the plugins upstream when testing locally.
 
 ## Build
 
@@ -254,21 +250,39 @@ Additionally, it is possible to attach one debugger to the cluster JVM and anoth
 The purpose of Backwards Compatibility Testing and different types of BWC tests are explained [here](https://github.com/opensearch-project/opensearch-plugins/blob/main/TESTING.md#backwards-compatibility-testing)
 
 Use these commands to run BWC tests for k-NN:
-
-1. Mixed cluster test: `./gradlew knnBwcCluster#mixedClusterTask -Dtests.security.manager=false`
-2. Rolling upgrade tests: `./gradlew knnBwcCluster#rollingUpgradeClusterTask -Dtests.security.manager=false`
-3. Full restart upgrade tests: `./gradlew knnBwcCluster#fullRestartClusterTask -Dtests.security.manager=false`
-4. `./gradlew bwcTestSuite -Dtests.security.manager=false` is used to run all the above bwc tests together.
+1. Rolling upgrade tests: `./gradlew :qa:rolling-upgrade:testRollingUpgrade`
+2. Full restart upgrade tests: `./gradlew :qa:restart-upgrade:testRestartUpgrade`
+3. `./gradlew :qa:bwcTestSuite` is used to run all the above bwc tests together.
 
 Use this command to run BWC tests for a given Backwards Compatibility Version:
 ```
-./gradlew bwcTestSuite -Dbwc.version=1.0.0.0-SNAPSHOT
+./gradlew :qa:bwcTestSuite -Dbwc.version=1.0.0
 ```
-Here, we are testing BWC Tests with BWC version of plugin as 1.0.0.0. Make sure to add the binary file of that version in the bwc directory in resources.
+Here, we are testing BWC Tests with BWC version of plugin as 1.0.0.
 
 ### Adding new tests
 
 Before adding any new tests to Backward Compatibility Tests, we should be aware that the tests in BWC are not independent. While creating an index, a test cannot use the same index name if it is already used in other tests. Also, adding extra operations to the existing test may impact other existing tests like graphCount. 
+
+## Codec Versioning
+
+Starting from 2.0 release the new versioning for codec has been introduced. Two positions will be used to define the version,
+in format 'X.Y', where 'X' corresponds to underlying version of Lucene and 'Y' is the version of the format. 
+
+Codec version is used in following classes and methods:
+- org.opensearch.knn.index.codec.KNNXYCodec.KNNXYCodec
+- org.opensearch.knn.index.codec.KNNFormatFactory.createKNNXYFormat
+
+These classes and methods are tied directly to Lucene version represented by 'X' part. 
+Other classes use the delegate pattern so no direct tie to Lucene version are related to format and represented by 'Y'
+
+- BinaryDocValues
+- CompoundFormat
+- DocValuesConsumer
+- DocValuesReader
+
+Version '910' is going to be the first such new version. It corresponds to Lucene 9.1 that is used by the underlying OpenSearch 2.0 and initial
+version of the format classes. If in future we need to adjust something in format logic, we only increment the 'Y' part and version became '911'.
 
 ## Submitting Changes
 
