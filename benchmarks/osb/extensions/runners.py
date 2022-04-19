@@ -40,8 +40,8 @@ class BulkVectorsFromDataSetRunner:
             except:
                 pass
 
-        raise TimeoutError('Failed to submit bulk request in specified number '
-                           'of retries')
+        raise TimeoutError("Failed to submit bulk request in specified number "
+                           "of retries: {}".format(retries))
 
     def __repr__(self, *args, **kwargs):
         return "custom-vector-bulk"
@@ -62,8 +62,8 @@ class CustomRefreshRunner:
             except:
                 pass
 
-        raise TimeoutError('Failed to refresh the index in specified number '
-                           'of retries')
+        raise TimeoutError("Failed to refresh the index in specified number "
+                           "of retries: {}".format(retries))
 
     def __repr__(self, *args, **kwargs):
         return "custom-refresh"

@@ -37,12 +37,10 @@ class BulkVectorsFromDataSetParamSource:
 
     def _read_data_set(self):
         if self.data_set_format == "hdf5":
-            data_set = HDF5DataSet(self.data_set_path, Context.INDEX)
-        elif self.data_set_format == "bigann":
-            data_set = BigANNVectorDataSet(self.data_set_path)
-        else:
-            raise ConfigurationError("Invalid data set format")
-        return data_set
+            return HDF5DataSet(self.data_set_path, Context.INDEX)
+        if self.data_set_format == "bigann":
+            return BigANNVectorDataSet(self.data_set_path)
+        raise ConfigurationError("Invalid data set format")
 
     def partition(self, partition_index, total_partitions):
         if self.data_set.size() % total_partitions != 0:
@@ -68,7 +66,7 @@ class BulkVectorsFromDataSetParamSource:
 
         partition = self.data_set.read(self.bulk_size)
         body = bulk_transform(partition, self.field_name, action, self.current)
-        size = int(len(body) / 2)
+        size = len(body) / 2
         self.current += size
         self.percent_completed = float(self.current)/self.total
 

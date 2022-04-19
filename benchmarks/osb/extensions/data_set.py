@@ -33,6 +33,8 @@ class DataSet(ABC):
     """
     __metaclass__ = ABCMeta
 
+    BEGINNING = 0
+
     @abstractmethod
     def read(self, chunk_size: int):
         pass
@@ -58,23 +60,27 @@ class HDF5DataSet(DataSet):
     def __init__(self, dataset_path: str, context: Context):
         file = h5py.File(dataset_path)
         self.data = cast(h5py.Dataset, file[self._parse_context(context)])
-        self.current = 0
+        self.current = self.BEGINNING
 
     def read(self, chunk_size: int):
         if self.current >= self.size():
             return None
 
-        end_i = self.current + chunk_size
-        if end_i > self.size():
-            end_i = self.size()
+        end_offset = self.current + chunk_size
+        if end_offset > self.size():
+            end_offset = self.size()
 
-        v = cast(np.ndarray, self.data[self.current:end_i])
-        self.current = end_i
+        v = cast(np.ndarray, self.data[self.current:end_offset])
+        self.current = end_offset
         return v
 
     def seek(self, offset: int):
+
+        if offset < self.BEGINNING:
+            raise Exception("Offset must be greater than or equal to 0")
+
         if offset >= self.size():
-            raise Exception("Offset is greater than the size")
+            raise Exception("Offset must be less than the data set size")
 
         self.current = offset
 
@@ -82,7 +88,7 @@ class HDF5DataSet(DataSet):
         return self.data.len()
 
     def reset(self):
-        self.current = 0
+        self.current = self.BEGINNING
 
     @staticmethod
     def _parse_context(context: Context) -> str:
@@ -103,44 +109,51 @@ class BigANNVectorDataSet(DataSet):
     <https://big-ann-benchmarks.com/index.html#bench-datasets>`_
     """
 
+    DATA_SET_HEADER_LENGTH = 8
+
     def __init__(self, dataset_path: str):
         self.file = open(dataset_path, 'rb')
-        self.file.seek(0, os.SEEK_END)
+        self.file.seek(self.BEGINNING, os.SEEK_END)
         num_bytes = self.file.tell()
-        self.file.seek(0)
+        self.file.seek(self.BEGINNING)
 
-        if num_bytes < 8:
+        if num_bytes < self.DATA_SET_HEADER_LENGTH:
             raise Exception("File is invalid")
 
         self.num_points = int.from_bytes(self.file.read(4), "little")
         self.dimension = int.from_bytes(self.file.read(4), "little")
         self.bytes_per_num = self._get_data_size(dataset_path)
 
-        if (num_bytes - 8) != self.num_points * self.dimension * \
-                self.bytes_per_num:
+        if (num_bytes - self.DATA_SET_HEADER_LENGTH) != self.num_points * \
+                self.dimension * self.bytes_per_num:
             raise Exception("File is invalid")
 
         self.reader = self._value_reader(dataset_path)
-        self.current = 0
+        self.current = self.BEGINNING
 
     def read(self, chunk_size: int):
         if self.current >= self.size():
             return None
 
-        end_i = self.current + chunk_size
-        if end_i > self.size():
-            end_i = self.size()
+        end_offset = self.current + chunk_size
+        if end_offset > self.size():
+            end_offset = self.size()
 
         v = np.asarray([self._read_vector() for _ in
-                        range(end_i - self.current)])
-        self.current = end_i
+                        range(end_offset - self.current)])
+        self.current = end_offset
         return v
 
     def seek(self, offset: int):
-        if offset >= self.size():
-            raise Exception("Offset is greater than the size")
 
-        bytes_offset = 8 + self.dimension*self.bytes_per_num*offset
+        if offset < self.BEGINNING:
+            raise Exception("Offset must be greater than or equal to 0")
+
+        if offset >= self.size():
+            raise Exception("Offset must be less than the data set size")
+
+        bytes_offset = self.DATA_SET_HEADER_LENGTH + self.dimension * \
+                       self.bytes_per_num * offset
         self.file.seek(bytes_offset)
         self.current = offset
 
@@ -152,8 +165,8 @@ class BigANNVectorDataSet(DataSet):
         return self.num_points
 
     def reset(self):
-        self.file.seek(8)  # Seek to 8 bytes to skip re-reading metadata
-        self.current = 0
+        self.file.seek(self.DATA_SET_HEADER_LENGTH)
+        self.current = self.BEGINNING
 
     @staticmethod
     def _get_data_size(file_name):
