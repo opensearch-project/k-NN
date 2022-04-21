@@ -57,6 +57,8 @@ class HDF5DataSet(DataSet):
     <https://github.com/erikbern/ann-benchmarks#data-sets>`_
     """
 
+    FORMAT_NAME = "hdf5"
+
     def __init__(self, dataset_path: str, context: Context):
         file = h5py.File(dataset_path)
         self.data = cast(h5py.Dataset, file[self._parse_context(context)])
@@ -110,26 +112,32 @@ class BigANNVectorDataSet(DataSet):
     """
 
     DATA_SET_HEADER_LENGTH = 8
+    U8BIN_EXTENSION = "u8bin"
+    FBIN_EXTENSION = "fbin"
+    FORMAT_NAME = "bigann"
+
+    BYTES_PER_U8INT = 1
+    BYTES_PER_FLOAT = 4
 
     def __init__(self, dataset_path: str):
         self.file = open(dataset_path, 'rb')
-        self.file.seek(self.BEGINNING, os.SEEK_END)
+        self.file.seek(BigANNVectorDataSet.BEGINNING, os.SEEK_END)
         num_bytes = self.file.tell()
-        self.file.seek(self.BEGINNING)
+        self.file.seek(BigANNVectorDataSet.BEGINNING)
 
-        if num_bytes < self.DATA_SET_HEADER_LENGTH:
+        if num_bytes < BigANNVectorDataSet.DATA_SET_HEADER_LENGTH:
             raise Exception("File is invalid")
 
         self.num_points = int.from_bytes(self.file.read(4), "little")
         self.dimension = int.from_bytes(self.file.read(4), "little")
         self.bytes_per_num = self._get_data_size(dataset_path)
 
-        if (num_bytes - self.DATA_SET_HEADER_LENGTH) != self.num_points * \
+        if (num_bytes - BigANNVectorDataSet.DATA_SET_HEADER_LENGTH) != self.num_points * \
                 self.dimension * self.bytes_per_num:
             raise Exception("File is invalid")
 
         self.reader = self._value_reader(dataset_path)
-        self.current = self.BEGINNING
+        self.current = BigANNVectorDataSet.BEGINNING
 
     def read(self, chunk_size: int):
         if self.current >= self.size():
@@ -152,8 +160,8 @@ class BigANNVectorDataSet(DataSet):
         if offset >= self.size():
             raise Exception("Offset must be less than the data set size")
 
-        bytes_offset = self.DATA_SET_HEADER_LENGTH + self.dimension * \
-                       self.bytes_per_num * offset
+        bytes_offset = BigANNVectorDataSet.DATA_SET_HEADER_LENGTH + \
+                       self.dimension * self.bytes_per_num * offset
         self.file.seek(bytes_offset)
         self.current = offset
 
@@ -165,27 +173,27 @@ class BigANNVectorDataSet(DataSet):
         return self.num_points
 
     def reset(self):
-        self.file.seek(self.DATA_SET_HEADER_LENGTH)
-        self.current = self.BEGINNING
+        self.file.seek(BigANNVectorDataSet.DATA_SET_HEADER_LENGTH)
+        self.current = BigANNVectorDataSet.BEGINNING
 
     @staticmethod
     def _get_data_size(file_name):
         ext = file_name.split('.')[-1]
-        if ext == "u8bin":
-            return 1
+        if ext == BigANNVectorDataSet.U8BIN_EXTENSION:
+            return BigANNVectorDataSet.BYTES_PER_U8INT
 
-        if ext == "fbin":
-            return 4
+        if ext == BigANNVectorDataSet.FBIN_EXTENSION:
+            return BigANNVectorDataSet.BYTES_PER_FLOAT
 
         raise Exception("Unknown extension")
 
     @staticmethod
     def _value_reader(file_name):
         ext = file_name.split('.')[-1]
-        if ext == "u8bin":
-            return lambda file: float(int.from_bytes(file.read(1), "little"))
+        if ext == BigANNVectorDataSet.U8BIN_EXTENSION:
+            return lambda file: float(int.from_bytes(file.read(BigANNVectorDataSet.BYTES_PER_U8INT), "little"))
 
-        if ext == "fbin":
-            return lambda file: struct.unpack('<f', file.read(4))
+        if ext == BigANNVectorDataSet.FBIN_EXTENSION:
+            return lambda file: struct.unpack('<f', file.read(BigANNVectorDataSet.BYTES_PER_FLOAT))
 
         raise Exception("Unknown extension")

@@ -36,9 +36,9 @@ class BulkVectorsFromDataSetParamSource:
         self.offset = 0
 
     def _read_data_set(self):
-        if self.data_set_format == "hdf5":
+        if self.data_set_format == HDF5DataSet.FORMAT_NAME:
             return HDF5DataSet(self.data_set_path, Context.INDEX)
-        if self.data_set_format == "bigann":
+        if self.data_set_format == BigANNVectorDataSet.FORMAT_NAME:
             return BigANNVectorDataSet(self.data_set_path)
         raise ConfigurationError("Invalid data set format")
 

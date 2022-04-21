@@ -29,19 +29,13 @@ class BulkVectorsFromDataSetRunner:
         size = parse_int_parameter("size", params)
         retries = parse_int_parameter("retries", params, 0) + 1
 
-        for _ in range(retries):
-            try:
-                await opensearch.bulk(
-                    body=params["body"],
-                    timeout='5m'
-                )
+        await opensearch.bulk(
+            body=params["body"],
+            timeout='5m',
+            max_retries=retries
+        )
 
-                return size, "docs"
-            except:
-                pass
-
-        raise TimeoutError("Failed to submit bulk request in specified number "
-                           "of retries: {}".format(retries))
+        return size, "docs"
 
     def __repr__(self, *args, **kwargs):
         return "custom-vector-bulk"
@@ -52,18 +46,12 @@ class CustomRefreshRunner:
     async def __call__(self, opensearch, params):
         retries = parse_int_parameter("retries", params, 0) + 1
 
-        for _ in range(retries):
-            try:
-                await opensearch.indices.refresh(
-                    index=parse_string_parameter("index", params)
-                )
+        await opensearch.indices.refresh(
+            index=parse_string_parameter("index", params),
+            max_retries=retries
+        )
 
-                return
-            except:
-                pass
-
-        raise TimeoutError("Failed to refresh the index in specified number "
-                           "of retries: {}".format(retries))
+        return
 
     def __repr__(self, *args, **kwargs):
         return "custom-refresh"
@@ -93,11 +81,12 @@ class TrainModelRunner:
                 return 1, "models_trained"
 
             if model_response['state'] == 'failed':
-                raise Error("Failed to create model: {}".format(model_response))
+                raise Exception("Failed to create model: {}".format(model_response))
 
             i += 1
 
-        raise TimeoutError('Failed to create model: {}'.format(model_id))
+        raise Exception('Failed to create model: {} within timeout {} seconds'
+                        .format(model_id, timeout))
 
     def __repr__(self, *args, **kwargs):
         return "train-model"
