@@ -44,7 +44,7 @@ class BulkVectorsFromDataSetParamSource:
 
     def partition(self, partition_index, total_partitions):
         if self.data_set.size() % total_partitions != 0:
-            raise Exception("Data set must be divisible by number of clients")
+            raise ValueError("Data set must be divisible by number of clients")
 
         partition_x = copy.copy(self)
         partition_x.num_vectors = int(self.num_vectors / total_partitions)
@@ -66,9 +66,9 @@ class BulkVectorsFromDataSetParamSource:
 
         partition = self.data_set.read(self.bulk_size)
         body = bulk_transform(partition, self.field_name, action, self.current)
-        size = len(body) / 2
+        size = len(body) // 2
         self.current += size
-        self.percent_completed = float(self.current)/self.total
+        self.percent_completed = self.current / self.total
 
         return {
             "body": body,

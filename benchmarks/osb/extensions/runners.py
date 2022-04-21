@@ -3,8 +3,9 @@
 # The OpenSearch Contributors require contributions made to
 # this file be licensed under the Apache-2.0 license or a
 # compatible open source license.
-
+from opensearchpy.exceptions import ConnectionTimeout
 from .util import parse_int_parameter, parse_string_parameter
+import logging
 import time
 
 
@@ -29,13 +30,20 @@ class BulkVectorsFromDataSetRunner:
         size = parse_int_parameter("size", params)
         retries = parse_int_parameter("retries", params, 0) + 1
 
-        await opensearch.bulk(
-            body=params["body"],
-            timeout='5m',
-            max_retries=retries
-        )
+        for _ in range(retries):
+            try:
+                await opensearch.bulk(
+                    body=params["body"],
+                    timeout='5m'
+                )
 
-        return size, "docs"
+                return size, "docs"
+            except ConnectionTimeout:
+                logging.getLogger(__name__)\
+                    .warning("Bulk vector ingestion timed out. Retrying")
+
+        raise TimeoutError("Failed to submit bulk request in specified number "
+                           "of retries: {}".format(retries))
 
     def __repr__(self, *args, **kwargs):
         return "custom-vector-bulk"
@@ -46,12 +54,19 @@ class CustomRefreshRunner:
     async def __call__(self, opensearch, params):
         retries = parse_int_parameter("retries", params, 0) + 1
 
-        await opensearch.indices.refresh(
-            index=parse_string_parameter("index", params),
-            max_retries=retries
-        )
+        for _ in range(retries):
+            try:
+                await opensearch.indices.refresh(
+                    index=parse_string_parameter("index", params)
+                )
 
-        return
+                return
+            except ConnectionTimeout:
+                logging.getLogger(__name__)\
+                    .warning("Custom refresh timed out. Retrying")
+
+        raise TimeoutError("Failed to refresh the index in specified number "
+                           "of retries: {}".format(retries))
 
     def __repr__(self, *args, **kwargs):
         return "custom-refresh"
@@ -68,8 +83,9 @@ class TrainModelRunner:
         method = "POST"
         model_uri = "/_plugins/_knn/models/{}".format(model_id)
         await opensearch.transport.perform_request(method, "{}/_train".format(model_uri), body=body)
-        i = 0
-        while i < timeout:
+
+        start_time = time.time()
+        while time.time() < start_time + timeout:
             time.sleep(1)
             model_response = await opensearch.transport.perform_request("GET", model_uri)
 
@@ -82,8 +98,6 @@ class TrainModelRunner:
 
             if model_response['state'] == 'failed':
                 raise Exception("Failed to create model: {}".format(model_response))
-
-            i += 1
 
         raise Exception('Failed to create model: {} within timeout {} seconds'
                         .format(model_id, timeout))

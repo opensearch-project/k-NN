@@ -47,7 +47,7 @@ def parse_string_parameter(key: str, params: dict, default: str = None) -> str:
 
 def parse_int_parameter(key: str, params: dict, default: int = None) -> int:
     if key not in params:
-        if default is not None:
+        if default:
             return default
         raise ConfigurationError(
             "Value cannot be None for param {}".format(key)
