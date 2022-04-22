@@ -68,7 +68,15 @@ public class TestUtils {
     public static final String OPENDISTRO_SECURITY = ".opendistro_security";
     public static final String BWCSUITE_CLUSTER = "tests.rest.bwcsuite_cluster";
     public static final String BWCSUITE_ROUND = "tests.rest.bwcsuite_round";
+    public static final String BWC_VERSION = "tests.plugin_bwc_version";
+    public static final String CLIENT_TIMEOUT_VALUE = "90s";
+    public static final String MIXED_CLUSTER = "mixed_cluster";
+    public static final String NODES_BWC_CLUSTER = "3";
+    public static final String OLD_CLUSTER = "old_cluster";
+    public static final String RESTART_UPGRADE_OLD_CLUSTER = "tests.is_old_cluster";
+    public static final String ROLLING_UPGRADE_FIRST_ROUND = "tests.rest.first_round";
     public static final String TEST_CLUSTER_NAME = "tests.clustername";
+    public static final String UPGRADED_CLUSTER = "upgraded_cluster";
 
     // Generating vectors using random function with a seed which makes these vectors standard and generate same vectors for each run.
     public static float[][] randomlyGenerateStandardVectors(int numVectors, int dimensions, int seed) {
