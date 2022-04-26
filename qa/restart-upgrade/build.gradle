@@ -25,11 +25,11 @@ testClusters {
 }
 
 // Task to run BWC tests against the old cluster
-task "testAgainstOldCluster"(type: StandaloneRestIntegTestTask) {
+task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
     dependsOn "zipBwcPlugin"
     useCluster testClusters."${baseName}"
     systemProperty 'tests.rest.bwcsuite_cluster', 'old_cluster'
-    systemProperty 'tests.rest.bwcsuite_round', 'old'
+    systemProperty 'tests.is_old_cluster', 'true'
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
@@ -48,7 +48,7 @@ task testRestartUpgrade(type: StandaloneRestIntegTestTask) {
         testClusters."${baseName}".upgradeAllNodesAndPluginsToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
     }
     systemProperty 'tests.rest.bwcsuite_cluster', 'upgraded_cluster'
-    systemProperty 'tests.rest.bwcsuite_round', 'fullrestart'
+    systemProperty 'tests.is_old_cluster', 'false'
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
