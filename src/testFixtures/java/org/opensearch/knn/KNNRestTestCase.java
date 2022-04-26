@@ -14,6 +14,7 @@ import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -52,8 +53,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -71,6 +74,22 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+
+import static org.opensearch.knn.TestUtils.NUMBER_OF_REPLICAS;
+import static org.opensearch.knn.TestUtils.NUMBER_OF_SHARDS;
+import static org.opensearch.knn.TestUtils.INDEX_KNN;
+import static org.opensearch.knn.TestUtils.PROPERTIES;
+import static org.opensearch.knn.TestUtils.VECTOR_TYPE;
+import static org.opensearch.knn.TestUtils.KNN_VECTOR;
+import static org.opensearch.knn.TestUtils.FIELD;
+import static org.opensearch.knn.TestUtils.QUERY_VALUE;
+import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
+
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 
@@ -799,6 +818,125 @@ public class KNNRestTestCase extends ODFERestTestCase {
         for (int i = 0; i < k; i++) {
             assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
         }
+    }
+
+    protected Settings getKNNIndexCustomLegacyFieldMappingSettings(SpaceType spaceType, Integer m, Integer ef_construction) {
+        return Settings.builder()
+            .put(NUMBER_OF_SHARDS, 1)
+            .put(NUMBER_OF_REPLICAS, 0)
+            .put(INDEX_KNN, true)
+            .put(KNNSettings.KNN_SPACE_TYPE, spaceType.getValue())
+            .put(KNNSettings.KNN_ALGO_PARAM_M, m)
+            .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, ef_construction)
+            .build();
+    }
+
+    public String createKnnIndexMethodFieldMapping(String fieldName, Integer dimensions) throws IOException {
+        return Strings.toString(
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(fieldName)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, dimensions.toString())
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+        );
+    }
+
+    public String createKnnIndexCustomMethodFieldMapping(
+        String fieldName,
+        Integer dimensions,
+        SpaceType spaceType,
+        String engine,
+        Integer m,
+        Integer ef_construction
+    ) throws IOException {
+        return Strings.toString(
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(fieldName)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, dimensions.toString())
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+                .field(KNN_ENGINE, engine)
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_EF_CONSTRUCTION, ef_construction)
+                .field(METHOD_PARAMETER_M, m)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+        );
+    }
+
+    // Default KNN script score settings
+    protected Settings getKNNScriptScoreSettings() {
+        return Settings.builder().put(NUMBER_OF_SHARDS, 1).put(NUMBER_OF_REPLICAS, 0).put(INDEX_KNN, false).build();
+    }
+
+    // Validate script score search for these space_types : {"l2", "l1", "linf"}
+    protected void validateKNNScriptScoreSearch(String testIndex, String testField, int dimension, int numDocs, int k, SpaceType spaceType)
+        throws Exception {
+        float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (float) numDocs);
+
+        QueryBuilder qb = new MatchAllQueryBuilder();
+        Map<String, Object> params = new HashMap<>();
+        params.put(FIELD, testField);
+        params.put(QUERY_VALUE, queryVector);
+        params.put(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
+
+        Request request = constructKNNScriptQueryRequest(testIndex, qb, params, k);
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), testField);
+        assertEquals(k, results.size());
+
+        PriorityQueue<DistVector> pq = computeGroundTruthValues(queryVector, numDocs, k, dimension, spaceType);
+
+        for (int i = k - 1; i >= 0; i--) {
+            assertEquals(pq.poll().getDocID(), results.get(i).getDocId());
+        }
+    }
+
+    // validate KNN painless script score search for the space_types : "l2", "l1"
+    protected void validateKNNPainlessScriptScoreSearch(String testIndex, String testField, String source, int numDocs, int k)
+        throws Exception {
+        QueryBuilder qb = new MatchAllQueryBuilder();
+        Request request = constructScriptQueryRequest(testIndex, qb, Collections.emptyMap(), Script.DEFAULT_SCRIPT_LANG, source, k);
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), testField);
+        assertEquals(k, results.size());
+
+        for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
+        }
+    }
+
+    // generate painless script score for space_type "l2" by creating query vector based on number of docs
+    protected String generateL2PainlessScriptSource(String testField, int dimension, int numDocs) {
+        float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (float) numDocs);
+        return String.format("1/(1 + l2Squared(" + Arrays.toString(queryVector) + ", doc['%s']))", testField);
+    }
+
+    // generate painless script score for space_type "l1" by creating query vector based on number of docs
+    protected String generateL1PainlessScriptSource(String testField, int dimension, int numDocs) {
+        float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (float) numDocs);
+        return String.format("1/(1 + l1Norm(" + Arrays.toString(queryVector) + ", doc['%s']))", testField);
     }
 
     /**

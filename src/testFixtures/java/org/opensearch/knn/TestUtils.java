@@ -21,6 +21,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Random;
 import java.util.Set;
@@ -64,18 +65,28 @@ class DistComparator implements Comparator<DistVector> {
 
 public class TestUtils {
     public static final String KNN_BWC_PREFIX = "knn-bwc-";
-    public static final String OS_KNN = "opensearch-knn";
     public static final String OPENDISTRO_SECURITY = ".opendistro_security";
     public static final String BWCSUITE_CLUSTER = "tests.rest.bwcsuite_cluster";
-    public static final String BWCSUITE_ROUND = "tests.rest.bwcsuite_round";
     public static final String BWC_VERSION = "tests.plugin_bwc_version";
     public static final String CLIENT_TIMEOUT_VALUE = "90s";
+    public static final String FIELD = "field";
+    public static final int KNN_ALGO_PARAM_M_MIN_VALUE = 2;
+    public static final int KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE = 2;
+    public static final String KNN_ENGINE_FAISS = "faiss";
     public static final String MIXED_CLUSTER = "mixed_cluster";
     public static final String NODES_BWC_CLUSTER = "3";
+    public static final String NUMBER_OF_SHARDS = "number_of_shards";
+    public static final String NUMBER_OF_REPLICAS = "number_of_replicas";
+    public static final String INDEX_KNN = "index.knn";
     public static final String OLD_CLUSTER = "old_cluster";
+    public static final String PROPERTIES = "properties";
+    public static final String VECTOR_TYPE = "type";
+    public static final String KNN_VECTOR = "knn_vector";
+    public static final String OPENSEARCH_KNN_MODELS_INDEX = ".opensearch-knn-models";
+    public static final String QUERY_VALUE = "query_value";
     public static final String RESTART_UPGRADE_OLD_CLUSTER = "tests.is_old_cluster";
     public static final String ROLLING_UPGRADE_FIRST_ROUND = "tests.rest.first_round";
-    public static final String TEST_CLUSTER_NAME = "tests.clustername";
+    public static final String SKIP_DELETE_MODEL_INDEX = "tests.skip_delete_model_index";
     public static final String UPGRADED_CLUSTER = "upgraded_cluster";
 
     // Generating vectors using random function with a seed which makes these vectors standard and generate same vectors for each run.
@@ -179,6 +190,36 @@ public class TestUtils {
 
         double sum = recalls.stream().reduce((a, b) -> a + b).get();
         return sum / recalls.size();
+    }
+
+    public static PriorityQueue<DistVector> computeGroundTruthValues(
+        float[] queryVector,
+        int numDocs,
+        int k,
+        int dimension,
+        SpaceType spaceType
+    ) {
+        PriorityQueue<DistVector> pq = new PriorityQueue<>(k, new DistComparator());
+        float dist = 0.0f;
+        for (int i = 0; i < numDocs; i++) {
+            float[] indexVector = new float[dimension];
+            Arrays.fill(indexVector, (float) i);
+            if (spaceType != null && SpaceType.L1.getValue().equals(spaceType.getValue())) {
+                dist = KNNScoringUtil.l1Norm(queryVector, indexVector);
+            } else if (spaceType != null && SpaceType.L2.getValue().equals(spaceType.getValue())) {
+                dist = KNNScoringUtil.l2Squared(queryVector, indexVector);
+            } else if (spaceType != null && SpaceType.LINF.getValue().equals(spaceType.getValue())) {
+                dist = KNNScoringUtil.lInfNorm(queryVector, indexVector);
+            }
+
+            if (pq.size() < k) {
+                pq.add(new DistVector(dist, String.valueOf(i)));
+            } else if (pq.peek().getDist() > dist) {
+                pq.poll();
+                pq.add(new DistVector(dist, String.valueOf(i)));
+            }
+        }
+        return pq;
     }
 
     /**
