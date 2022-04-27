@@ -725,7 +725,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             sb.append("{ \"index\" : { \"_index\" : \"")
                 .append(index)
                 .append("\", \"_id\" : \"")
-                .append(i + 1)
+                .append(i)
                 .append("\" } }\n")
                 .append("{ \"")
                 .append(fieldName)
@@ -820,7 +820,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
     }
 
-    protected Settings getKNNIndexCustomLegacyFieldMappingSettings(SpaceType spaceType, Integer m, Integer ef_construction) {
+    protected Settings createKNNIndexCustomLegacyFieldMappingSettings(SpaceType spaceType, Integer m, Integer ef_construction) {
         return Settings.builder()
             .put(NUMBER_OF_SHARDS, 1)
             .put(NUMBER_OF_REPLICAS, 0)
@@ -831,7 +831,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .build();
     }
 
-    public String createKnnIndexMethodFieldMapping(String fieldName, Integer dimensions) throws IOException {
+    public String createKNNIndexMethodFieldMapping(String fieldName, Integer dimensions) throws IOException {
         return Strings.toString(
             XContentFactory.jsonBuilder()
                 .startObject()
@@ -848,7 +848,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         );
     }
 
-    public String createKnnIndexCustomMethodFieldMapping(
+    public String createKNNIndexCustomMethodFieldMapping(
         String fieldName,
         Integer dimensions,
         SpaceType spaceType,
@@ -879,15 +879,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     // Default KNN script score settings
-    protected Settings getKNNScriptScoreSettings() {
+    protected Settings createKNNDefaultScriptScoreSettings() {
         return Settings.builder().put(NUMBER_OF_SHARDS, 1).put(NUMBER_OF_REPLICAS, 0).put(INDEX_KNN, false).build();
     }
 
     // Validate script score search for these space_types : {"l2", "l1", "linf"}
     protected void validateKNNScriptScoreSearch(String testIndex, String testField, int dimension, int numDocs, int k, SpaceType spaceType)
         throws Exception {
-        float[] queryVector = new float[dimension];
-        Arrays.fill(queryVector, (float) numDocs);
+
+        IDVectorProducer idVectorProducer = new IDVectorProducer(dimension, numDocs);
+        float[] queryVector = idVectorProducer.getVector(numDocs);
 
         QueryBuilder qb = new MatchAllQueryBuilder();
         Map<String, Object> params = new HashMap<>();
@@ -902,10 +903,12 @@ public class KNNRestTestCase extends ODFERestTestCase {
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), testField);
         assertEquals(k, results.size());
 
-        PriorityQueue<DistVector> pq = computeGroundTruthValues(queryVector, numDocs, k, dimension, spaceType);
+        PriorityQueue<DistVector> pq = computeGroundTruthValues(k, spaceType, idVectorProducer);
 
         for (int i = k - 1; i >= 0; i--) {
-            assertEquals(pq.poll().getDocID(), results.get(i).getDocId());
+            int expDocID = Integer.parseInt(pq.poll().getDocID());
+            int actualDocID = Integer.parseInt(results.get(i).getDocId());
+            assertEquals(expDocID, actualDocID);
         }
     }
 
@@ -921,21 +924,23 @@ public class KNNRestTestCase extends ODFERestTestCase {
         assertEquals(k, results.size());
 
         for (int i = 0; i < k; i++) {
-            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
+            int expDocID = numDocs - i - 1;
+            int actualDocID = Integer.parseInt(results.get(i).getDocId());
+            assertEquals(expDocID, actualDocID);
         }
     }
 
-    // generate painless script score for space_type "l2" by creating query vector based on number of docs
-    protected String generateL2PainlessScriptSource(String testField, int dimension, int numDocs) {
-        float[] queryVector = new float[dimension];
-        Arrays.fill(queryVector, (float) numDocs);
+    // create painless script source for space_type "l2" by creating query vector based on number of documents
+    protected String createL2PainlessScriptSource(String testField, int dimension, int numDocs) {
+        IDVectorProducer idVectorProducer = new IDVectorProducer(dimension, numDocs);
+        float[] queryVector = idVectorProducer.getVector(numDocs);
         return String.format("1/(1 + l2Squared(" + Arrays.toString(queryVector) + ", doc['%s']))", testField);
     }
 
-    // generate painless script score for space_type "l1" by creating query vector based on number of docs
-    protected String generateL1PainlessScriptSource(String testField, int dimension, int numDocs) {
-        float[] queryVector = new float[dimension];
-        Arrays.fill(queryVector, (float) numDocs);
+    // create painless script source for space_type "l1" by creating query vector based on number of documents
+    protected String createL1PainlessScriptSource(String testField, int dimension, int numDocs) {
+        IDVectorProducer idVectorProducer = new IDVectorProducer(dimension, numDocs);
+        float[] queryVector = idVectorProducer.getVector(numDocs);
         return String.format("1/(1 + l1Norm(" + Arrays.toString(queryVector) + ", doc['%s']))", testField);
     }
 

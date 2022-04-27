@@ -38,7 +38,7 @@ import org.junit.After;
 import static org.opensearch.knn.TestUtils.KNN_BWC_PREFIX;
 import static org.opensearch.knn.TestUtils.OPENDISTRO_SECURITY;
 import static org.opensearch.knn.TestUtils.SKIP_DELETE_MODEL_INDEX;
-import static org.opensearch.knn.TestUtils.OPENSEARCH_KNN_MODELS_INDEX;
+import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 
 /**
  * ODFE integration test base class to support both security disabled and enabled ODFE cluster.
@@ -153,17 +153,13 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
     }
 
     private boolean skipDeleteModelIndex(String indexName) {
-        if (OPENSEARCH_KNN_MODELS_INDEX.equals(indexName) && getSkipDeleteModelIndexFlag()) {
-            return true;
-        }
-
-        return false;
+        return (MODEL_INDEX_NAME.equals(indexName) && getSkipDeleteModelIndexFlag());
     }
 
     private boolean skipDeleteIndex(String indexName) {
         if (indexName != null
             && !OPENDISTRO_SECURITY.equals(indexName)
-            && !indexName.matches(KNN_BWC_PREFIX + "(.*)")
+            && !indexName.startsWith(KNN_BWC_PREFIX)
             && !skipDeleteModelIndex(indexName)) {
             return false;
         }

@@ -1,16 +1,11 @@
 /*
- * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
+ *  Copyright OpenSearch Contributors
+ *  SPDX-License-Identifier: Apache-2.0
  */
 
 package org.opensearch.knn;
 
+import com.google.common.collect.ImmutableMap;
 import org.opensearch.common.xcontent.DeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -21,7 +16,6 @@ import java.io.FileReader;
 import java.io.IOException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Random;
 import java.util.Set;
@@ -30,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.function.BiFunction;
 
 import static org.apache.lucene.tests.util.LuceneTestCase.random;
 
@@ -64,6 +59,16 @@ class DistComparator implements Comparator<DistVector> {
 }
 
 public class TestUtils {
+
+    public static Map<SpaceType, BiFunction<float[], float[], Float>> KNN_SCORING_SPACE_TYPE = ImmutableMap.of(
+        SpaceType.L1,
+        KNNScoringUtil::l1Norm,
+        SpaceType.L2,
+        KNNScoringUtil::l2Squared,
+        SpaceType.LINF,
+        KNNScoringUtil::lInfNorm
+    );
+
     public static final String KNN_BWC_PREFIX = "knn-bwc-";
     public static final String OPENDISTRO_SECURITY = ".opendistro_security";
     public static final String BWCSUITE_CLUSTER = "tests.rest.bwcsuite_cluster";
@@ -72,7 +77,6 @@ public class TestUtils {
     public static final String FIELD = "field";
     public static final int KNN_ALGO_PARAM_M_MIN_VALUE = 2;
     public static final int KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE = 2;
-    public static final String KNN_ENGINE_FAISS = "faiss";
     public static final String MIXED_CLUSTER = "mixed_cluster";
     public static final String NODES_BWC_CLUSTER = "3";
     public static final String NUMBER_OF_SHARDS = "number_of_shards";
@@ -82,7 +86,6 @@ public class TestUtils {
     public static final String PROPERTIES = "properties";
     public static final String VECTOR_TYPE = "type";
     public static final String KNN_VECTOR = "knn_vector";
-    public static final String OPENSEARCH_KNN_MODELS_INDEX = ".opensearch-knn-models";
     public static final String QUERY_VALUE = "query_value";
     public static final String RESTART_UPGRADE_OLD_CLUSTER = "tests.is_old_cluster";
     public static final String ROLLING_UPGRADE_FIRST_ROUND = "tests.rest.first_round";
@@ -126,21 +129,12 @@ public class TestUtils {
         ArrayList<Set<String>> groundTruthValues = new ArrayList<>();
         PriorityQueue<DistVector> pq;
         HashSet<String> docIds;
-        float dist = 0.0f;
 
         for (int i = 0; i < queryVectors.length; i++) {
             pq = new PriorityQueue<>(k, new DistComparator());
             for (int j = 0; j < indexVectors.length; j++) {
-                if (spaceType != null && "l2".equals(spaceType.getValue())) {
-                    dist = KNNScoringUtil.l2Squared(queryVectors[i], indexVectors[j]);
-                }
-
-                if (pq.size() < k) {
-                    pq.add(new DistVector(dist, String.valueOf(j + 1)));
-                } else if (pq.peek().getDist() > dist) {
-                    pq.poll();
-                    pq.add(new DistVector(dist, String.valueOf(j + 1)));
-                }
+                float dist = computeDistFromSpaceType(spaceType, indexVectors[j], queryVectors[i]);
+                pq = insertWithOverflow(pq, k, dist, j);
             }
 
             docIds = new HashSet<>();
@@ -192,32 +186,43 @@ public class TestUtils {
         return sum / recalls.size();
     }
 
-    public static PriorityQueue<DistVector> computeGroundTruthValues(
-        float[] queryVector,
-        int numDocs,
-        int k,
-        int dimension,
-        SpaceType spaceType
-    ) {
+    public static PriorityQueue<DistVector> computeGroundTruthValues(int k, SpaceType spaceType, IDVectorProducer idVectorProducer) {
         PriorityQueue<DistVector> pq = new PriorityQueue<>(k, new DistComparator());
-        float dist = 0.0f;
-        for (int i = 0; i < numDocs; i++) {
-            float[] indexVector = new float[dimension];
-            Arrays.fill(indexVector, (float) i);
-            if (spaceType != null && SpaceType.L1.getValue().equals(spaceType.getValue())) {
-                dist = KNNScoringUtil.l1Norm(queryVector, indexVector);
-            } else if (spaceType != null && SpaceType.L2.getValue().equals(spaceType.getValue())) {
-                dist = KNNScoringUtil.l2Squared(queryVector, indexVector);
-            } else if (spaceType != null && SpaceType.LINF.getValue().equals(spaceType.getValue())) {
-                dist = KNNScoringUtil.lInfNorm(queryVector, indexVector);
-            }
+        int numDocs = idVectorProducer.getVectorCount();
+        float[] queryVector = idVectorProducer.getVector(numDocs);
 
-            if (pq.size() < k) {
-                pq.add(new DistVector(dist, String.valueOf(i)));
-            } else if (pq.peek().getDist() > dist) {
-                pq.poll();
-                pq.add(new DistVector(dist, String.valueOf(i)));
-            }
+        for (int id = 0; id < numDocs; id++) {
+            float[] indexVector = idVectorProducer.getVector(id);
+            float dist = computeDistFromSpaceType(spaceType, indexVector, queryVector);
+            pq = insertWithOverflow(pq, k, dist, id);
+        }
+        return pq;
+    }
+
+    public static float computeDistFromSpaceType(SpaceType spaceType, float[] indexVector, float[] queryVector) {
+        float dist;
+        if (spaceType != null) {
+            dist = KNN_SCORING_SPACE_TYPE.getOrDefault(
+                spaceType,
+                (defaultQueryVector, defaultIndexVector) -> {
+                    throw new IllegalArgumentException(String.format("Invalid SpaceType function: \"%s\"", spaceType));
+                }
+            ).apply(queryVector, indexVector);
+        } else {
+            throw new NullPointerException("SpaceType is null. Provide a valid SpaceType.");
+        }
+        return dist;
+    }
+
+    // If the priority queue size is less than k, it adds a new DistVector(distance and vector id)
+    // If the priority queue size is full, then it compares the distance and replaces the top element
+    // with new DistVector if new dist is less than the dist of top element
+    public static PriorityQueue<DistVector> insertWithOverflow(PriorityQueue<DistVector> pq, int k, float dist, int id) {
+        if (pq.size() < k) {
+            pq.add(new DistVector(dist, String.valueOf(id)));
+        } else if (pq.peek().getDist() > dist) {
+            pq.poll();
+            pq.add(new DistVector(dist, String.valueOf(id)));
         }
         return pq;
     }

@@ -1,12 +1,6 @@
 /*
- * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
+ *  Copyright OpenSearch Contributors
+ *  SPDX-License-Identifier: Apache-2.0
  */
 
 package org.opensearch.knn.bwc;
@@ -32,7 +26,6 @@ import java.util.Map;
 
 import static org.opensearch.knn.TestUtils.KNN_BWC_PREFIX;
 import static org.opensearch.knn.TestUtils.KNN_VECTOR;
-import static org.opensearch.knn.TestUtils.OPENSEARCH_KNN_MODELS_INDEX;
 import static org.opensearch.knn.TestUtils.PROPERTIES;
 import static org.opensearch.knn.TestUtils.VECTOR_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODELS;
@@ -45,8 +38,9 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
+import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 
-public class ModelTestsIT extends AbstractRestartUpgradeTestCase {
+public class ModelIT extends AbstractRestartUpgradeTestCase {
     private static final String TEST_MODEL_INDEX = KNN_BWC_PREFIX + "test-model-index";
     private static final String TEST_MODEL_INDEX_DEFAULT = KNN_BWC_PREFIX + "test-model-index-default";
     private static final String TRAINING_INDEX = KNN_BWC_PREFIX + "train-index";
@@ -54,8 +48,19 @@ public class ModelTestsIT extends AbstractRestartUpgradeTestCase {
     private static final String TRAINING_FIELD = "train-field";
     private static final String TEST_FIELD = "test-field";
     private static final int DIMENSIONS = 5;
+    private static int DOC_ID = 0;
+    private static int DOC_ID_TEST_MODEL_INDEX = 0;
+    private static int DOC_ID_TEST_MODEL_INDEX_DEFAULT = 0;
+    private static final int DELAY_MILLI_SEC = 1000;
+    private static final int EXP_NUM_OF_MODELS = 2;
     private static final int K = 5;
-    private static final int ADD_DOCS_CNT = 10;
+    private static final int NUM_DOCS = 10;
+    private static final int NUM_DOCS_TEST_MODEL_INDEX = 100;
+    private static final int NUM_DOCS_TEST_MODEL_INDEX_DEFAULT = 100;
+    private static final int NUM_OF_ATTEMPTS = 30;
+    private static int QUERY_COUNT = 0;
+    private static int QUERY_COUNT_TEST_MODEL_INDEX = 0;
+    private static int QUERY_COUNT_TEST_MODEL_INDEX_DEFAULT = 0;
     private static final String TEST_MODEL_ID = "test-model-id";
     private static final String TEST_MODEL_ID_DEFAULT = "test-model-id-default";
     private static final String MODEL_DESCRIPTION = "Description for train model test";
@@ -66,22 +71,25 @@ public class ModelTestsIT extends AbstractRestartUpgradeTestCase {
 
             // Create a training index and randomly ingest data into it
             createBasicKnnIndex(TRAINING_INDEX, TRAINING_FIELD, DIMENSIONS);
-            bulkIngestRandomVectors(TRAINING_INDEX, TRAINING_FIELD, ADD_DOCS_CNT, DIMENSIONS);
+            bulkIngestRandomVectors(TRAINING_INDEX, TRAINING_FIELD, NUM_DOCS, DIMENSIONS);
 
             trainKNNModel(TEST_MODEL_ID, TRAINING_INDEX, TRAINING_FIELD, DIMENSIONS, MODEL_DESCRIPTION);
             validateModelCreated(TEST_MODEL_ID);
 
             createKnnIndex(testIndex, modelIndexMapping(TEST_FIELD, TEST_MODEL_ID));
-            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, ADD_DOCS_CNT);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
-            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 10, ADD_DOCS_CNT);
-            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 20, K);
+            DOC_ID = NUM_DOCS;
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            QUERY_COUNT = 2 * NUM_DOCS;
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K);
 
             searchKNNModel(TEST_MODEL_ID);
 
             createKnnIndex(TEST_MODEL_INDEX, modelIndexMapping(TEST_FIELD, TEST_MODEL_ID));
-            addKNNDocs(TEST_MODEL_INDEX, TEST_FIELD, DIMENSIONS, 0, 100);
-            validateKNNSearch(TEST_MODEL_INDEX, TEST_FIELD, DIMENSIONS, 100, K);
+            addKNNDocs(TEST_MODEL_INDEX, TEST_FIELD, DIMENSIONS, DOC_ID_TEST_MODEL_INDEX, NUM_DOCS_TEST_MODEL_INDEX);
+            QUERY_COUNT_TEST_MODEL_INDEX = NUM_DOCS_TEST_MODEL_INDEX;
+            validateKNNSearch(TEST_MODEL_INDEX, TEST_FIELD, DIMENSIONS, QUERY_COUNT_TEST_MODEL_INDEX, K);
 
             deleteKNNIndex(testIndex);
             deleteKNNIndex(TRAINING_INDEX);
@@ -95,22 +103,31 @@ public class ModelTestsIT extends AbstractRestartUpgradeTestCase {
 
             // Create a training index and randomly ingest data into it
             createBasicKnnIndex(TRAINING_INDEX_DEFAULT, TRAINING_FIELD, DIMENSIONS);
-            bulkIngestRandomVectors(TRAINING_INDEX_DEFAULT, TRAINING_FIELD, ADD_DOCS_CNT, DIMENSIONS);
+            bulkIngestRandomVectors(TRAINING_INDEX_DEFAULT, TRAINING_FIELD, NUM_DOCS, DIMENSIONS);
 
             trainKNNModel(TEST_MODEL_ID_DEFAULT, TRAINING_INDEX_DEFAULT, TRAINING_FIELD, DIMENSIONS, MODEL_DESCRIPTION);
             validateModelCreated(TEST_MODEL_ID_DEFAULT);
 
             createKnnIndex(testIndex, modelIndexMapping(TEST_FIELD, TEST_MODEL_ID_DEFAULT));
-            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 0, ADD_DOCS_CNT);
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
-            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, 10, ADD_DOCS_CNT);
-            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, 20, K);
+            DOC_ID = NUM_DOCS;
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
+            QUERY_COUNT = 2 * NUM_DOCS;
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K);
 
             searchKNNModel(TEST_MODEL_ID);
 
             createKnnIndex(TEST_MODEL_INDEX_DEFAULT, modelIndexMapping(TEST_FIELD, TEST_MODEL_ID_DEFAULT));
-            addKNNDocs(TEST_MODEL_INDEX_DEFAULT, TEST_FIELD, DIMENSIONS, 0, 100);
-            validateKNNSearch(TEST_MODEL_INDEX_DEFAULT, TEST_FIELD, DIMENSIONS, 100, K);
+            addKNNDocs(
+                TEST_MODEL_INDEX_DEFAULT,
+                TEST_FIELD,
+                DIMENSIONS,
+                DOC_ID_TEST_MODEL_INDEX_DEFAULT,
+                NUM_DOCS_TEST_MODEL_INDEX_DEFAULT
+            );
+            QUERY_COUNT_TEST_MODEL_INDEX_DEFAULT = NUM_DOCS_TEST_MODEL_INDEX_DEFAULT;
+            validateKNNSearch(TEST_MODEL_INDEX_DEFAULT, TEST_FIELD, DIMENSIONS, QUERY_COUNT_TEST_MODEL_INDEX_DEFAULT, K);
 
             deleteKNNIndex(testIndex);
             deleteKNNIndex(TRAINING_INDEX_DEFAULT);
@@ -118,15 +135,27 @@ public class ModelTestsIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
-    // Delete ".opensearch-knn-models" index to delete all models
+    // Delete Models and ".opensearch-knn-models" index to clear cluster metadata
     @AfterClass
-    public static void deleteKNNModelsIndex() throws IOException {
+    public static void wipeAllModels() throws IOException {
         if (!isRunningAgainstOldCluster()) {
-            Request request = new Request("DELETE", "/" + OPENSEARCH_KNN_MODELS_INDEX);
+            deleteKNNModel(TEST_MODEL_ID);
+            deleteKNNModel(TEST_MODEL_ID_DEFAULT);
+
+            Request request = new Request("DELETE", "/" + MODEL_INDEX_NAME);
 
             Response response = client().performRequest(request);
             assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
         }
+    }
+
+    // Delete model by taking modelId as input parameter
+    public static void deleteKNNModel(String modelId) throws IOException {
+        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
+        Request request = new Request("DELETE", restURI);
+
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
     public void searchKNNModel(String testModelID) throws IOException {
@@ -134,9 +163,7 @@ public class ModelTestsIT extends AbstractRestartUpgradeTestCase {
 
         for (String method : Arrays.asList("GET", "POST")) {
             Request request = new Request(method, restURI);
-            request.setJsonEntity(
-                "{\n" + "    \"_source\" : false,\n" + "    \"query\": {\n" + "        \"match_all\": {}\n" + "    }\n" + "}"
-            );
+            request.setJsonEntity("{\n" + "\"_source\" : false,\n" + "\"query\": {\n" + "\"match_all\": {}\n" + "}\n" + "}");
             Response response = client().performRequest(request);
             assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
@@ -146,7 +173,7 @@ public class ModelTestsIT extends AbstractRestartUpgradeTestCase {
             XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
-            assertEquals(2, searchResponse.getHits().getHits().length);
+            assertEquals(EXP_NUM_OF_MODELS, searchResponse.getHits().getHits().length);
 
             for (SearchHit hit : searchResponse.getHits().getHits()) {
                 assertTrue(hit.getId().startsWith(testModelID));
@@ -162,10 +189,10 @@ public class ModelTestsIT extends AbstractRestartUpgradeTestCase {
 
         Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
         assertEquals(modelId, responseMap.get(MODEL_ID));
-        assertTrainingSucceeds(modelId, 30, 1000);
+        assertTrainingSucceeds(modelId, NUM_OF_ATTEMPTS, DELAY_MILLI_SEC);
     }
 
-    // train kNN model
+    // train KNN model
     // method : "ivf", engine : "faiss", space_type : "l2", nlists : 1
     public void trainKNNModel(String modelId, String trainingIndexName, String trainingFieldName, int dimension, String description)
         throws IOException {
@@ -184,7 +211,7 @@ public class ModelTestsIT extends AbstractRestartUpgradeTestCase {
         assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
     }
 
-    // train kNN model Default Parameters
+    // train KNN model Default Parameters
     // method : "ivf", engine : "nmslib", space_type : "l2"
     public void trainKNNModelDefault(String modelId, String trainingIndexName, String trainingFieldName, int dimension, String description)
         throws IOException {
