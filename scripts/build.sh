@@ -70,7 +70,7 @@ work_dir=$PWD
 git submodule update --init -- jni/external/nmslib
 git submodule update --init -- jni/external/faiss
 
-# Build knnlib
+# Build knn libs
 cd jni
 
 # For x64, generalize arch so library is compatible for processors without simd instruction extensions
@@ -96,18 +96,18 @@ make opensearchknn_faiss opensearchknn_nmslib
 cd $work_dir
 ./gradlew assemble --no-daemon --refresh-dependencies -DskipTests=true -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
 
-# Add knnlib to zip
+# Add lib to zip
 zipPath=$(find "$(pwd)" -path \*build/distributions/*.zip)
 distributions="$(dirname "${zipPath}")"
-mkdir $distributions/knnlib
-cp ./jni/release/libopensearchknn* $distributions/knnlib
+mkdir $distributions/lib
+cp ./jni/release/libopensearchknn* $distributions/lib
 
-# Copy libomp to be packaged with the knnlib contents
+# Copy libomp to be packaged with the lib contents
 ompPath=$(ldconfig -p | grep libgomp | cut -d ' ' -f 4)
-cp $ompPath $distributions/knnlib
+cp $ompPath $distributions/lib
 
 cd $distributions
-zip -ur $zipPath knnlib
+zip -ur $zipPath lib
 cd $work_dir
 
 echo "COPY ${distributions}/*.zip"
