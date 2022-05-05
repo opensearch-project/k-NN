@@ -770,6 +770,37 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return searchResults;
     }
 
+    // Method that waits till the health of nodes in the cluster goes green
+    public void waitForClusterHealthGreen(String numOfNodes) throws IOException {
+        Request waitForGreen = new Request("GET", "/_cluster/health");
+        waitForGreen.addParameter("wait_for_nodes", numOfNodes);
+        waitForGreen.addParameter("wait_for_status", "green");
+        client().performRequest(waitForGreen);
+    }
+
+    // Add KNN docs into a KNN index by providing the initial documentID and number of documents
+    public void addKNNDocs(String testIndex, String testField, int dimension, int firstDocID, int numDocs) throws IOException {
+        for (int i = firstDocID; i < firstDocID + numDocs; i++) {
+            Float[] indexVector = new Float[dimension];
+            Arrays.fill(indexVector, (float) i);
+            addKnnDoc(testIndex, Integer.toString(i), testField, indexVector);
+        }
+    }
+
+    // Validate KNN search on a KNN index by generating the query vector from the number of documents in the index
+    public void validateKNNSearch(String testIndex, String testField, int dimension, int numDocs, int k) throws IOException {
+        float[] queryVector = new float[dimension];
+        Arrays.fill(queryVector, (float) numDocs);
+
+        Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(testField, queryVector, k), k);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), testField);
+
+        assertEquals(k, results.size());
+        for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
+        }
+    }
+
     /**
      * Method that call train api and produces a trained model
      *

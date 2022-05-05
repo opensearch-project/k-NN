@@ -30,7 +30,6 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
     dependsOn "zipBwcPlugin"
     useCluster testClusters."${baseName}"
     systemProperty 'tests.rest.bwcsuite_cluster', 'old_cluster'
-    systemProperty 'tests.rest.bwcsuite_round', 'old'
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
@@ -51,7 +50,7 @@ task testAgainstOneThirdUpgradedCluster(type: StandaloneRestIntegTestTask) {
         testClusters."${baseName}".upgradeNodeAndPluginToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
     }
     systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
-    systemProperty 'tests.rest.bwcsuite_round', 'first'
+    systemProperty 'tests.rest.first_round', 'true'
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
@@ -69,7 +68,7 @@ task testAgainstTwoThirdsUpgradedCluster(type: StandaloneRestIntegTestTask) {
         testClusters."${baseName}".upgradeNodeAndPluginToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
     }
     systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
-    systemProperty 'tests.rest.bwcsuite_round', 'second'
+    systemProperty 'tests.rest.first_round', 'false'
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
@@ -87,8 +86,7 @@ task testRollingUpgrade(type: StandaloneRestIntegTestTask) {
         testClusters."${baseName}".upgradeNodeAndPluginToNextVersion([rootProject.tasks.bundlePlugin.archiveFile])
     }
     mustRunAfter "testAgainstOneThirdUpgradedCluster"
-    systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
-    systemProperty 'tests.rest.bwcsuite_round', 'third'
+    systemProperty 'tests.rest.bwcsuite_cluster', 'upgraded_cluster'
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
