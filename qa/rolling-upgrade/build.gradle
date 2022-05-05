@@ -31,6 +31,7 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
     useCluster testClusters."${baseName}"
     systemProperty 'tests.rest.bwcsuite_cluster', 'old_cluster'
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+    systemProperty 'tests.skip_delete_model_index', 'true'
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
     systemProperty 'tests.security.manager', 'false'
@@ -51,6 +52,7 @@ task testAgainstOneThirdUpgradedCluster(type: StandaloneRestIntegTestTask) {
     }
     systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
     systemProperty 'tests.rest.first_round', 'true'
+    systemProperty 'tests.skip_delete_model_index', 'true'
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
@@ -69,6 +71,7 @@ task testAgainstTwoThirdsUpgradedCluster(type: StandaloneRestIntegTestTask) {
     }
     systemProperty 'tests.rest.bwcsuite_cluster', 'mixed_cluster'
     systemProperty 'tests.rest.first_round', 'false'
+    systemProperty 'tests.skip_delete_model_index', 'true'
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
@@ -87,6 +90,7 @@ task testRollingUpgrade(type: StandaloneRestIntegTestTask) {
     }
     mustRunAfter "testAgainstOneThirdUpgradedCluster"
     systemProperty 'tests.rest.bwcsuite_cluster', 'upgraded_cluster'
+    systemProperty 'tests.skip_delete_model_index', 'true'
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
