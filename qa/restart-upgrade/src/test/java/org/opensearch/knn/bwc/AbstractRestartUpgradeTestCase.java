@@ -51,7 +51,7 @@ public abstract class AbstractRestartUpgradeTestCase extends KNNRestTestCase {
             .build();
     }
 
-    protected final boolean isRunningAgainstOldCluster() {
+    protected static final boolean isRunningAgainstOldCluster() {
         return Boolean.parseBoolean(System.getProperty(RESTART_UPGRADE_OLD_CLUSTER));
     }
 
