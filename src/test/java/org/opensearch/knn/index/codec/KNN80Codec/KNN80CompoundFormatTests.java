@@ -65,7 +65,12 @@ public class KNN80CompoundFormatTests extends KNNTestCase {
             String.format("%s_faiss3%s", segmentName, KNNEngine.FAISS.getExtension())
         );
 
-        SegmentInfo segmentInfo = KNNCodecTestUtil.SegmentInfoBuilder.builder(directory, segmentName, segmentFiles.size(), codec).build();
+        SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
+            .directory(directory)
+            .segmentName(segmentName)
+            .docsInSegment(segmentFiles.size())
+            .codec(codec)
+            .build();
 
         for (String name : segmentFiles) {
             IndexOutput indexOutput = directory.createOutput(name, IOContext.DEFAULT);
