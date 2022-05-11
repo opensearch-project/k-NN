@@ -146,7 +146,12 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int dimension = 16;
 
-        SegmentInfo segmentInfo = KNNCodecTestUtil.SegmentInfoBuilder.builder(directory, segmentName, docsInSegment, codec).build();
+        SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
+            .directory(directory)
+            .segmentName(segmentName)
+            .docsInSegment(docsInSegment)
+            .codec(codec)
+            .build();
 
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
@@ -198,7 +203,12 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int dimension = 16;
 
-        SegmentInfo segmentInfo = KNNCodecTestUtil.SegmentInfoBuilder.builder(directory, segmentName, docsInSegment, codec).build();
+        SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
+            .directory(directory)
+            .segmentName(segmentName)
+            .docsInSegment(docsInSegment)
+            .codec(codec)
+            .build();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
             KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
@@ -241,7 +251,12 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
         int dimension = 16;
 
-        SegmentInfo segmentInfo = KNNCodecTestUtil.SegmentInfoBuilder.builder(directory, segmentName, docsInSegment, codec).build();
+        SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
+            .directory(directory)
+            .segmentName(segmentName)
+            .docsInSegment(docsInSegment)
+            .codec(codec)
+            .build();
 
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
@@ -327,7 +342,12 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         int docsInSegment = 100;
         String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
 
-        SegmentInfo segmentInfo = KNNCodecTestUtil.SegmentInfoBuilder.builder(directory, segmentName, docsInSegment, codec).build();
+        SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
+            .directory(directory)
+            .segmentName(segmentName)
+            .docsInSegment(docsInSegment)
+            .codec(codec)
+            .build();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
             KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)

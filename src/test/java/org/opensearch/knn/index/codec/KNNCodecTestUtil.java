@@ -7,6 +7,7 @@ package org.opensearch.knn.index.codec;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import lombok.Builder;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.DocValuesProducer;
@@ -51,86 +52,6 @@ import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.test.OpenSearchTestCase.randomByteArrayOfLength;
 
 public class KNNCodecTestUtil {
-
-    // Utility class to help build SegmentInfo with reasonable defaults
-    public static class SegmentInfoBuilder {
-
-        private final Directory directory;
-        private final String segmentName;
-        private final int docsInSegment;
-        private final Codec codec;
-
-        private Version version;
-        private Version minVersion;
-        private boolean isCompoundFile;
-        private byte[] segmentId;
-        private final Map<String, String> attributes;
-        private Sort indexSort;
-
-        public static SegmentInfoBuilder builder(Directory directory, String segmentName, int docsInSegment, Codec codec) {
-            return new SegmentInfoBuilder(directory, segmentName, docsInSegment, codec);
-        }
-
-        private SegmentInfoBuilder(Directory directory, String segmentName, int docsInSegment, Codec codec) {
-            this.directory = directory;
-            this.segmentName = segmentName;
-            this.docsInSegment = docsInSegment;
-            this.codec = codec;
-
-            this.version = Version.LATEST;
-            this.minVersion = Version.LATEST;
-            this.isCompoundFile = false;
-            this.segmentId = randomByteArrayOfLength(StringHelper.ID_LENGTH);
-            this.attributes = new HashMap<>();
-            this.indexSort = Sort.INDEXORDER;
-        }
-
-        public SegmentInfoBuilder version(Version version) {
-            this.version = version;
-            return this;
-        }
-
-        public SegmentInfoBuilder minVersion(Version minVersion) {
-            this.minVersion = minVersion;
-            return this;
-        }
-
-        public SegmentInfoBuilder isCompoundFile(boolean isCompoundFile) {
-            this.isCompoundFile = isCompoundFile;
-            return this;
-        }
-
-        public SegmentInfoBuilder segmentId(byte[] segmentId) {
-            this.segmentId = segmentId;
-            return this;
-        }
-
-        public SegmentInfoBuilder addAttribute(String key, String value) {
-            this.attributes.put(key, value);
-            return this;
-        }
-
-        public SegmentInfoBuilder indexSort(Sort indexSort) {
-            this.indexSort = indexSort;
-            return this;
-        }
-
-        public SegmentInfo build() {
-            return new SegmentInfo(
-                directory,
-                version,
-                minVersion,
-                segmentName,
-                docsInSegment,
-                isCompoundFile,
-                codec,
-                Collections.emptyMap(),
-                segmentId,
-                attributes,
-                indexSort
-            );
-        }
-    }
 
     // Utility class to help build FieldInfo
     public static class FieldInfoBuilder {
@@ -429,5 +350,22 @@ public class KNNCodecTestUtil {
             data[i] = randomFloat();
         }
         return data;
+    }
+
+    @Builder(builderMethodName = "segmentInfoBuilder")
+    public static SegmentInfo newSegmentInfo(final Directory directory, final String segmentName, int docsInSegment, final Codec codec) {
+        return new SegmentInfo(
+            directory,
+            Version.LATEST,
+            Version.LATEST,
+            segmentName,
+            docsInSegment,
+            false,
+            codec,
+            Collections.emptyMap(),
+            randomByteArrayOfLength(StringHelper.ID_LENGTH),
+            ImmutableMap.of(),
+            Sort.INDEXORDER
+        );
     }
 }
