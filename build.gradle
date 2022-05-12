@@ -37,6 +37,7 @@ plugins {
     id 'idea'
     id 'jacoco'
     id "com.diffplug.spotless" version "6.3.0" apply false
+    id 'io.freefair.lombok' version '6.4.3'
 }
 
 apply from: 'gradle/formatting.gradle'
@@ -77,6 +78,13 @@ allprojects {
         project.noticeFile = rootProject.file('NOTICE.txt')
         project.forbiddenApis.ignoreFailures = true
     }
+}
+
+compileJava {
+    options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+}
+compileTestJava {
+    options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
 }
 
 def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
