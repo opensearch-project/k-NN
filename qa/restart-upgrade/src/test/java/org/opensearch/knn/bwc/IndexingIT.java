@@ -9,8 +9,6 @@ import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.SpaceType;
 
-import java.util.Optional;
-
 import static org.opensearch.knn.TestUtils.KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE;
 import static org.opensearch.knn.TestUtils.KNN_ALGO_PARAM_M_MIN_VALUE;
 import static org.opensearch.knn.TestUtils.KNN_VECTOR;
@@ -97,12 +95,6 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
 
     // test null parameters
     public void testNullParametersOnUpgrade() throws Exception {
-
-        // Skip test if version is 1.2 or 1.3
-        Optional<String> bwcVersion = getBWCVersion();
-        if (bwcVersion.isEmpty() || bwcVersion.get().startsWith("1.2") || bwcVersion.get().startsWith("1.3")) {
-            return;
-        }
         if (isRunningAgainstOldCluster()) {
             String mapping = Strings.toString(
                 XContentFactory.jsonBuilder()
@@ -128,12 +120,6 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
 
     // test empty parameters
     public void testEmptyParametersOnUpgrade() throws Exception {
-
-        // Skip test if version is 1.2 or 1.3
-        Optional<String> bwcVersion = getBWCVersion();
-        if (bwcVersion.isEmpty() || bwcVersion.get().startsWith("1.2") || bwcVersion.get().startsWith("1.3")) {
-            return;
-        }
         if (isRunningAgainstOldCluster()) {
             String mapping = Strings.toString(
                 XContentFactory.jsonBuilder()

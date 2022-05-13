@@ -29,7 +29,8 @@ dependencies {
 
 def tmp_dir = project.file('build/private/artifact_tmp').absoluteFile
 tmp_dir.mkdirs()
-String knn_bwc_version = System.getProperty("bwc.version")
+String default_bwc_version = System.getProperty("bwc.version")
+String knn_bwc_version = System.getProperty("tests.bwc.version", default_bwc_version)
 
 // Task to pull k-NN plugin from archive
 task pullBwcPlugin {
