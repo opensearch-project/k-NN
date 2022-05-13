@@ -1,0 +1,38 @@
+/*
+ *  Copyright OpenSearch Contributors
+ *  SPDX-License-Identifier: Apache-2.0
+ */
+
+package org.opensearch.knn.bwc;
+
+import org.apache.http.util.EntityUtils;
+import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
+import org.opensearch.knn.plugin.stats.KNNStats;
+
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+import static org.opensearch.knn.plugin.stats.KNNStatsConfig.KNN_STATS;
+
+public class StatsIT extends AbstractRollingUpgradeTestCase {
+    private KNNStats knnStats = new KNNStats(KNN_STATS);
+
+    // Validate if all the KNN Stats metrics are returned
+    public void testAllMetricStatsReturned() throws IOException {
+        Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
+        String responseBody = EntityUtils.toString(response.getEntity());
+        Map<String, Object> clusterStats = parseClusterStatsResponse(responseBody);
+        assertEquals(knnStats.getClusterStats().keySet(), clusterStats.keySet());
+        List<Map<String, Object>> nodeStats = parseNodeStatsResponse(responseBody);
+        assertEquals(knnStats.getNodeStats().keySet(), nodeStats.get(0).keySet());
+    }
+
+    // Verify if it returns failure for invalid metric
+    public void testInvalidMetricsStats() {
+        expectThrows(ResponseException.class, () -> getKnnStats(Collections.emptyList(), Collections.singletonList("invalid_metric")));
+    }
+
+}
