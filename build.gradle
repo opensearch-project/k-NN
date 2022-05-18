@@ -43,6 +43,7 @@ plugins {
 apply from: 'gradle/formatting.gradle'
 apply plugin: 'opensearch.opensearchplugin'
 apply plugin: 'opensearch.rest-test'
+apply plugin: 'opensearch.pluginzip'
 
 ext {
     isSnapshot = "true" == System.getProperty("build.snapshot", "true")
@@ -77,6 +78,29 @@ allprojects {
         project.licenseFile = rootProject.file('LICENSE.txt')
         project.noticeFile = rootProject.file('NOTICE.txt')
         project.forbiddenApis.ignoreFailures = true
+    }
+}
+
+publishing {
+    publications {
+        pluginZip(MavenPublication) { publication ->
+            pom {
+                name = "opensearch-knn"
+                description = "OpenSearch k-NN plugin"
+                licenses {
+                    license {
+                        name = "The Apache License, Version 2.0"
+                        url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                    }
+                }
+                developers {
+                    developer {
+                        name = "OpenSearch"
+                        url = "https://github.com/opensearch-project/k-NN"
+                    }
+                }
+            }
+        }
     }
 }
 

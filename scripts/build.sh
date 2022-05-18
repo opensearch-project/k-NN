@@ -100,6 +100,7 @@ make opensearchknn_faiss opensearchknn_nmslib
 
 cd $work_dir
 ./gradlew assemble --no-daemon --refresh-dependencies -DskipTests=true -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
+./gradlew publishPluginZipPublicationToZipStagingRepository -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
 
 # Add lib to zip
 zipPath=$(find "$(pwd)" -path \*build/distributions/*.zip)
@@ -118,3 +119,6 @@ cd $work_dir
 echo "COPY ${distributions}/*.zip"
 mkdir -p $OUTPUT/plugins
 cp ${distributions}/*.zip $OUTPUT/plugins
+
+mkdir -p $OUTPUT/maven/org/opensearch
+cp -r ./build/local-staging-repo/org/opensearch/. $OUTPUT/maven/org/opensearch
