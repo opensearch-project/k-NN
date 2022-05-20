@@ -1,0 +1,21 @@
+name: Pull Request Notification
+on:
+  pull_request:
+
+jobs:
+  slackNotification:
+    name: Slack Notification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack Notification
+        id: slack
+        uses: slackapi/slack-github-action@v1.19.0
+        with:
+          payload: |
+            {
+              "SLACK_TITLE": "Please review this Pull Request",
+              "SLACK_MESSAGE": "${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
+            }
+
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
