@@ -5,6 +5,7 @@
 # compatible open source license.
 import copy
 import random
+from abc import ABC, abstractmethod
 
 from .data_set import Context, HDF5DataSet, DataSet, BigANNVectorDataSet
 from .util import bulk_transform, parse_string_parameter, parse_int_parameter, \
@@ -17,11 +18,15 @@ def register(registry):
     )
 
     registry.register_param_source(
-        "random-knn-query", RandomKNNQuerySource
+        "knn-query-from-data-set", QueryVectorsFromDataSetParamSource
+    )
+
+    registry.register_param_source(
+        "knn-query-from-random", RandomQuerySource
     )
 
 
-class RandomKNNQuerySource:
+class RandomQuerySource:
     """ Query parameter source for k-NN. Queries are randomly generated. Can be
     configured.
 
@@ -33,16 +38,21 @@ class RandomKNNQuerySource:
     """
     def __init__(self, workload, params, **kwargs):
         self.index_name = parse_string_parameter("index", params)
-        self.field_name = parse_string_parameter("field_name", params)
+        self.field_name = parse_string_parameter("field", params)
         self.k = parse_int_parameter("k", params)
         self.dimension = parse_int_parameter("dimension", params)
+
+    def partition(self, partition_index, total_partitions):
+        return self
 
     def params(self):
         vector = [random.random() for _ in range(self.dimension)]
         return {
             "index": self.index_name,
             "request-params": {
-                "exclude": [self.field_name]
+                "_source": {
+                    "exclude": [self.field_name]
+                }
             },
             "body": {
                 "size": self.k,
@@ -58,16 +68,34 @@ class RandomKNNQuerySource:
         }
 
 
-class BulkVectorsFromDataSetParamSource:
-    def __init__(self, workload, params, **kwargs):
+class VectorsFromDataSetParamSource(ABC):
+    """ Abstract class that can read vectors from a data set and partition the
+    vectors across multiple clients.
+
+    Attributes:
+        index_name: Name of the index to generate the query for
+        field_name: Name of the field to generate the query for
+        data_set_format: Format data set is serialized with. bigann or hdf5
+        data_set_path: Path to data set
+        context: Context the data set will be used in.
+        data_set: Structure containing meta data about data and ability to read
+        num_vectors: Number of vectors to use from the data set
+        total: Number of vectors for the partition
+        current: Current vector offset in data set
+        infinite: Property of param source signalling that it can be exhausted
+        percent_completed: Progress indicator for how exhausted data set is
+        offset: Offset into the data set to start at. Relevant when there are
+                multiple partitions
+    """
+    def __init__(self, params, context: Context):
+        self.index_name: str = parse_string_parameter("index", params)
+        self.field_name: str = parse_string_parameter("field", params)
+
+        self.context = context
         self.data_set_format = parse_string_parameter("data_set_format", params)
         self.data_set_path = parse_string_parameter("data_set_path", params)
         self.data_set: DataSet = self._read_data_set()
 
-        self.field_name: str = parse_string_parameter("field", params)
-        self.index_name: str = parse_string_parameter("index", params)
-        self.bulk_size: int = parse_int_parameter("bulk_size", params)
-        self.retries: int = parse_int_parameter("retries", params, 10)
         self.num_vectors: int = parse_int_parameter(
             "num_vectors", params, self.data_set.size()
         )
@@ -79,14 +107,15 @@ class BulkVectorsFromDataSetParamSource:
 
     def _read_data_set(self):
         if self.data_set_format == HDF5DataSet.FORMAT_NAME:
-            return HDF5DataSet(self.data_set_path, Context.INDEX)
+            return HDF5DataSet(self.data_set_path, self.context)
         if self.data_set_format == BigANNVectorDataSet.FORMAT_NAME:
             return BigANNVectorDataSet(self.data_set_path)
         raise ConfigurationError("Invalid data set format")
 
     def partition(self, partition_index, total_partitions):
-        if self.data_set.size() % total_partitions != 0:
-            raise ValueError("Data set must be divisible by number of clients")
+        if self.num_vectors % total_partitions != 0:
+            raise ValueError("Num vectors must be divisible by number of "
+                             "partitions")
 
         partition_x = copy.copy(self)
         partition_x.num_vectors = int(self.num_vectors / total_partitions)
@@ -97,6 +126,65 @@ class BulkVectorsFromDataSetParamSource:
         partition_x.data_set.seek(partition_x.offset)
         partition_x.current = partition_x.offset
         return partition_x
+
+    @abstractmethod
+    def params(self):
+        pass
+
+
+class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
+    """ Query parameter source for k-NN. Queries are created from data set
+    provided.
+
+    Attributes:
+        k: The number of results to return for the search
+    """
+    def __init__(self, workload, params, **kwargs):
+        super().__init__(params, Context.QUERY)
+        self.k = parse_int_parameter("k", params)
+
+    def params(self):
+        if self.current >= self.num_vectors + self.offset:
+            raise StopIteration
+
+        # TODO: We are going to want to fix this so we are not reading from
+        # disk every query
+        vector = self.data_set.read(1)[0]
+        self.current += 1
+        self.percent_completed = self.current / self.total
+
+        return {
+            "index": self.index_name,
+            "request-params": {
+                "_source": {
+                    "exclude": [self.field_name]
+                }
+            },
+            "body": {
+                "size": self.k,
+                "query": {
+                    "knn": {
+                        self.field_name: {
+                            "vector": vector,
+                            "k": self.k
+                        }
+                    }
+                }
+            }
+        }
+
+
+class BulkVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
+    """ Create bulk index requests from a data set of vectors.
+
+    Attributes:
+        bulk_size: number of vectors per request
+        retries: number of times to retry the request when it fails
+    """
+    def __init__(self, workload, params, **kwargs):
+        super().__init__(params, Context.INDEX)
+        self.bulk_size: int = parse_int_parameter("bulk_size", params)
+        self.retries: int = parse_int_parameter("retries", params, 10)
 
     def params(self):
 

@@ -102,17 +102,31 @@
         },
         {
             "operation": {
-                "name": "query-knn",
+                "name": "knn-query-from-random",
                 "operation-type": "search",
                 "index": "{{ target_index_name }}",
-                "param-source": "random-knn-query",
+                "param-source": "knn-query-from-random",
                 "k": {{ query_k }},
                 "dimension": {{ target_index_dimension }},
-                "field_name": "{{ target_field_name }}"
+                "field": "{{ target_field_name }}"
             },
             "clients": {{ query_clients }},
             "iterations": {{ queries_per_client }},
-            "warmup-iterations": {{ query_warmup_iterations }}
+            "warmup-iterations": {{ query_warmup_iterations }},
+            "target-throughput": {{ query_target_throughput }}
+        },
+        {
+            "operation": {
+                "name": "knn-query-from-data-set",
+                "operation-type": "search",
+                "index": "{{ target_index_name }}",
+                "param-source": "knn-query-from-data-set",
+                "k": {{ query_k }},
+                "field": "{{ target_field_name }}",
+                "data_set_format": "{{ query_data_set_format }}",
+                "data_set_path": "{{ query_data_set_path }}"
+            },
+            "clients": {{ query_clients }}
         }
     ]
 }

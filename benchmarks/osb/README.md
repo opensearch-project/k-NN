@@ -104,6 +104,7 @@ use an algorithm that requires training.
 4. Ingest data set into the cluster
 5. Refresh the index
 6. Run random queries against the cluster
+7. Run queries from data set against the cluster
 
 #### Parameters
 
@@ -128,6 +129,8 @@ use an algorithm that requires training.
 | queries_per_client                      | Number of queries to run per client                                              |
 | query_warmup_iterations                 | The number of iterations of queries to run before beginning to track the metrics |
 | query_target_throughput                 | The target QPS to use to generate the query workload                             |
+| query_data_set_format                   | Format of vector data set for queries                                            |
+| query_data_set_path                     | Path to vector data set for queries                                              |
 
 #### Metrics
 
@@ -221,6 +224,7 @@ algorithm that requires training.
 8. Ingest vectors into the target index
 9. Refresh the target index
 10. Run random queries against the cluster
+11. Run queries from a data set against the cluster
 
 #### Parameters
 
@@ -234,8 +238,8 @@ algorithm that requires training.
 | target_index_dimension                  | Dimension of target index                                                        |
 | target_index_space_type                 | Target index space type                                                          |
 | target_index_bulk_size                  | Target index bulk size                                                           |
-| target_index_bulk_index_data_set_format | Format of vector data set                                                        |
-| target_index_bulk_index_data_set_path   | Path to vector data set                                                          |
+| target_index_bulk_index_data_set_format | Format of vector data set for ingestion                                          |
+| target_index_bulk_index_data_set_path   | Path to vector data set for ingestion                                            |
 | target_index_bulk_index_clients         | Clients to be used for bulk ingestion (must be divisor of data set size)         |
 | ivf_nlists                              | IVF nlist parameter                                                              |
 | ivf_nprobes                             | IVF nprobe parameter                                                             |
@@ -251,8 +255,8 @@ algorithm that requires training.
 | train_index_primary_shards              | Train index primary shards                                                       |
 | train_index_replica_shards              | Train index replica shards                                                       |
 | train_index_bulk_size                   | Train index bulk size                                                            |
-| train_index_data_set_format             | Format of vector data set                                                        |
-| train_index_data_set_path               | Path to vector data set                                                          |
+| train_index_data_set_format             | Format of vector data set for training                                           |
+| train_index_data_set_path               | Path to vector data set for training                                             |
 | train_index_num_vectors                 | Number of vectors to use from vector data set for training                       |
 | train_index_bulk_index_clients          | Clients to be used for bulk ingestion (must be divisor of data set size)         |
 | query_k                                 | The number of neighbors to return for the search                                 |
@@ -260,7 +264,8 @@ algorithm that requires training.
 | queries_per_client                      | Number of queries to run per client                                              |
 | query_warmup_iterations                 | The number of iterations of queries to run before beginning to track the metrics |
 | query_target_throughput                 | The target QPS to use to generate the query workload                             |
-
+| query_data_set_format                   | Format of vector data set for queries                                            |
+| query_data_set_path                     | Path to vector data set for queries                                              |
 
 #### Metrics
 
@@ -396,10 +401,11 @@ the operations against OpenSearch.
 
 Custom parameter sources are defined in [extensions/param_sources.py](extensions/param_sources.py).
 
-| Name               | Description                                                            | Parameters                                                                                                                                                                                                         |
-|--------------------|------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| bulk-from-data-set | Provides bulk payloads containing vectors from a data set for indexing | 1. data_set_format - (hdf5, bigann)<br/>2. data_set_path - path to data set<br/>3. index - name of index for bulk ingestion<br/> 4. field - field to place vector in <br/> 5. bulk_size - vectors per bulk request |
-| random-knn-query   | Provides a randomly generated query                                    | 1. index - name of index to search against<br/>2. field_name - name of field to search against<br/>3. k - number of results to return<br/> 4. dimension - size of vectors to produce                               |
+| Name                    | Description                                                            | Parameters                                                                                                                                                                                                                                                                                                                                                |
+|-------------------------|------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| bulk-from-data-set      | Provides bulk payloads containing vectors from a data set for indexing | 1. data_set_format - (hdf5, bigann)<br/>2. data_set_path - path to data set<br/>3. index - name of index for bulk ingestion<br/> 4. field - field to place vector in <br/> 5. bulk_size - vectors per bulk request<br/> 6. num_vectors - number of vectors to use from the data set. Defaults to the whole data set.                                      |
+| knn-query-from-data-set | Provides a query generated from a data set                             | 1. data_set_format - (hdf5, bigann)<br/>2. data_set_path - path to data set<br/>3. index - name of index to query against<br/>4. field - field to to query against<br/>5. k - number of results to return<br/>6. dimension - size of vectors to produce<br/> 7. num_vectors - number of vectors to use from the data set. Defaults to the whole data set. |
+| knn-query-from-random   | Provides a randomly generated query                                    | 1. index - name of index to search against<br/>2. field - name of field to search against<br/>3. k - number of results to return<br/> 4. dimension - size of vectors to produce                                                                                                                                                                           |
 
 ### Custom Runners
 
