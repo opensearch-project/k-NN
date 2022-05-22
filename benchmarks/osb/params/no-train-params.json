@@ -14,7 +14,11 @@
   "hnsw_ef_construction": 512,
   "hnsw_m": 16,
 
-
+  "query_k": 10,
+  "query_clients": 10,
+  "queries_per_client": 100000,
+  "query_warmup_iterations": 100,
+  "query_target_throughput": 500,
 
   "ivf_nlists": 1,
   "ivf_nprobes": 1,

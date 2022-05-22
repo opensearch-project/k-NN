@@ -99,6 +99,20 @@
                 "index": "{{ target_index_name }}",
                 "retries": 100
             }
+        },
+        {
+            "operation": {
+                "name": "query-knn",
+                "operation-type": "search",
+                "index": "{{ target_index_name }}",
+                "param-source": "random-knn-query",
+                "k": {{ query_k }},
+                "dimension": {{ target_index_dimension }},
+                "field_name": "{{ target_field_name }}"
+            },
+            "clients": {{ query_clients }},
+            "iterations": {{ queries_per_client }},
+            "warmup-iterations": {{ query_warmup_iterations }}
         }
     ]
 }

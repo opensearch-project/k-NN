@@ -56,13 +56,14 @@ After all of this completes, you should be ready to run your first benchmark!
 ### Running a benchmark
 
 Before running a benchmark, make sure you have the endpoint of your cluster and
- and the machine you are running the benchmarks from can access it. 
+  the machine you are running the benchmarks from can access it. 
  Additionally, ensure that all data has been pulled to the client.
 
 Currently, we support 2 test procedures for the k-NN workload: train-test and 
 no-train-test. The train test has steps to train a model included in the 
 schedule, while no train does not. Both test procedures will index a data set 
-of vectors into an OpenSearch index. 
+of vectors into an OpenSearch index and then run a random query workload 
+against them. 
 
 Once you have decided which test procedure you want to use, open up 
 [params/train-params.json](params/train-params.json) or 
@@ -102,25 +103,31 @@ use an algorithm that requires training.
 3. Wait for cluster to be green
 4. Ingest data set into the cluster
 5. Refresh the index
+6. Run random queries against the cluster
 
 #### Parameters
 
-| Name                                    | Description                                                              |
-|-----------------------------------------|--------------------------------------------------------------------------|
-| target_index_name                       | Name of index to add vectors to                                          |
-| target_field_name                       | Name of field to add vectors to                                          |
-| target_index_body                       | Path to target index definition                                          |
-| target_index_primary_shards             | Target index primary shards                                              |
-| target_index_replica_shards             | Target index replica shards                                              |
-| target_index_dimension                  | Dimension of target index                                                |
-| target_index_space_type                 | Target index space type                                                  |
-| target_index_bulk_size                  | Target index bulk size                                                   |
-| target_index_bulk_index_data_set_format | Format of vector data set                                                |
-| target_index_bulk_index_data_set_path   | Path to vector data set                                                  |
-| target_index_bulk_index_clients         | Clients to be used for bulk ingestion (must be divisor of data set size) |
-| hnsw_ef_search                          | HNSW ef search parameter                                                 |
-| hnsw_ef_construction                    | HNSW ef construction parameter                                           |
-| hnsw_m                                  | HNSW m parameter                                                         |
+| Name                                    | Description                                                                      |
+|-----------------------------------------|----------------------------------------------------------------------------------|
+| target_index_name                       | Name of index to add vectors to                                                  |
+| target_field_name                       | Name of field to add vectors to                                                  |
+| target_index_body                       | Path to target index definition                                                  |
+| target_index_primary_shards             | Target index primary shards                                                      |
+| target_index_replica_shards             | Target index replica shards                                                      |
+| target_index_dimension                  | Dimension of target index                                                        |
+| target_index_space_type                 | Target index space type                                                          |
+| target_index_bulk_size                  | Target index bulk size                                                           |
+| target_index_bulk_index_data_set_format | Format of vector data set                                                        |
+| target_index_bulk_index_data_set_path   | Path to vector data set                                                          |
+| target_index_bulk_index_clients         | Clients to be used for bulk ingestion (must be divisor of data set size)         |
+| hnsw_ef_search                          | HNSW ef search parameter                                                         |
+| hnsw_ef_construction                    | HNSW ef construction parameter                                                   |
+| hnsw_m                                  | HNSW m parameter                                                                 |
+| query_k                                 | The number of neighbors to return for the search                                 |
+| query_clients                           | Number of clients to use for running queries                                     |
+| queries_per_client                      | Number of queries to run per client                                              |
+| query_warmup_iterations                 | The number of iterations of queries to run before beginning to track the metrics |
+| query_target_throughput                 | The target QPS to use to generate the query workload                             |
 
 #### Metrics
 
@@ -195,6 +202,7 @@ The result metrics of this procedure will look like:
 [INFO] SUCCESS (took 76 seconds)
 --------------------------------
 ```
+TODO: Update metrics with a good example
 
 ### Train Test
 
@@ -212,40 +220,46 @@ algorithm that requires training.
 7. Create an OpenSearch index with `knn_vector` configured to use the model
 8. Ingest vectors into the target index
 9. Refresh the target index
+10. Run random queries against the cluster
 
 #### Parameters
 
-| Name                                    | Description                                                              |
-|-----------------------------------------|--------------------------------------------------------------------------|
-| target_index_name                       | Name of index to add vectors to                                          |
-| target_field_name                       | Name of field to add vectors to                                          |
-| target_index_body                       | Path to target index definition                                          |
-| target_index_primary_shards             | Target index primary shards                                              |
-| target_index_replica_shards             | Target index replica shards                                              |
-| target_index_dimension                  | Dimension of target index                                                |
-| target_index_space_type                 | Target index space type                                                  |
-| target_index_bulk_size                  | Target index bulk size                                                   |
-| target_index_bulk_index_data_set_format | Format of vector data set                                                |
-| target_index_bulk_index_data_set_path   | Path to vector data set                                                  |
-| target_index_bulk_index_clients         | Clients to be used for bulk ingestion (must be divisor of data set size) |
-| ivf_nlists                              | IVF nlist parameter                                                      |
-| ivf_nprobes                             | IVF nprobe parameter                                                     |
-| pq_code_size                            | PQ code_size parameter                                                   |
-| pq_m                                    | PQ m parameter                                                           |
-| train_model_method                      | Method to be used for model (ivf or ivfpq)                               |
-| train_model_id                          | Model ID                                                                 |
-| train_index_name                        | Name of index to put training data into                                  |
-| train_field_name                        | Name of field to put training data into                                  |
-| train_index_body                        | Path to train index definition                                           |
-| train_search_size                       | Search size to use when pulling training data                            |
-| train_timeout                           | Timeout to wait for training to finish                                   |
-| train_index_primary_shards              | Train index primary shards                                               |
-| train_index_replica_shards              | Train index replica shards                                               |
-| train_index_bulk_size                   | Train index bulk size                                                    |
-| train_index_data_set_format             | Format of vector data set                                                |
-| train_index_data_set_path               | Path to vector data set                                                  |
-| train_index_num_vectors                 | Number of vectors to use from vector data set for training               |
-| train_index_bulk_index_clients          | Clients to be used for bulk ingestion (must be divisor of data set size) |
+| Name                                    | Description                                                                      |
+|-----------------------------------------|----------------------------------------------------------------------------------|
+| target_index_name                       | Name of index to add vectors to                                                  |
+| target_field_name                       | Name of field to add vectors to                                                  |
+| target_index_body                       | Path to target index definition                                                  |
+| target_index_primary_shards             | Target index primary shards                                                      |
+| target_index_replica_shards             | Target index replica shards                                                      |
+| target_index_dimension                  | Dimension of target index                                                        |
+| target_index_space_type                 | Target index space type                                                          |
+| target_index_bulk_size                  | Target index bulk size                                                           |
+| target_index_bulk_index_data_set_format | Format of vector data set                                                        |
+| target_index_bulk_index_data_set_path   | Path to vector data set                                                          |
+| target_index_bulk_index_clients         | Clients to be used for bulk ingestion (must be divisor of data set size)         |
+| ivf_nlists                              | IVF nlist parameter                                                              |
+| ivf_nprobes                             | IVF nprobe parameter                                                             |
+| pq_code_size                            | PQ code_size parameter                                                           |
+| pq_m                                    | PQ m parameter                                                                   |
+| train_model_method                      | Method to be used for model (ivf or ivfpq)                                       |
+| train_model_id                          | Model ID                                                                         |
+| train_index_name                        | Name of index to put training data into                                          |
+| train_field_name                        | Name of field to put training data into                                          |
+| train_index_body                        | Path to train index definition                                                   |
+| train_search_size                       | Search size to use when pulling training data                                    |
+| train_timeout                           | Timeout to wait for training to finish                                           |
+| train_index_primary_shards              | Train index primary shards                                                       |
+| train_index_replica_shards              | Train index replica shards                                                       |
+| train_index_bulk_size                   | Train index bulk size                                                            |
+| train_index_data_set_format             | Format of vector data set                                                        |
+| train_index_data_set_path               | Path to vector data set                                                          |
+| train_index_num_vectors                 | Number of vectors to use from vector data set for training                       |
+| train_index_bulk_index_clients          | Clients to be used for bulk ingestion (must be divisor of data set size)         |
+| query_k                                 | The number of neighbors to return for the search                                 |
+| query_clients                           | Number of clients to use for running queries                                     |
+| queries_per_client                      | Number of queries to run per client                                              |
+| query_warmup_iterations                 | The number of iterations of queries to run before beginning to track the metrics |
+| query_target_throughput                 | The target QPS to use to generate the query workload                             |
 
 
 #### Metrics
@@ -359,6 +373,7 @@ The result metrics of this procedure will look like:
 [INFO] SUCCESS (took 108 seconds)
 ---------------------------------
 ```
+TODO: Update metrics with a good example
 
 ## Adding a procedure
 
@@ -384,7 +399,7 @@ Custom parameter sources are defined in [extensions/param_sources.py](extensions
 | Name               | Description                                                            | Parameters                                                                                                                                                                                                         |
 |--------------------|------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | bulk-from-data-set | Provides bulk payloads containing vectors from a data set for indexing | 1. data_set_format - (hdf5, bigann)<br/>2. data_set_path - path to data set<br/>3. index - name of index for bulk ingestion<br/> 4. field - field to place vector in <br/> 5. bulk_size - vectors per bulk request |
-
+| random-knn-query   | Provides a randomly generated query                                    | 1. index - name of index to search against<br/>2. field_name - name of field to search against<br/>3. k - number of results to return<br/> 4. dimension - size of vectors to produce                               |
 
 ### Custom Runners
 

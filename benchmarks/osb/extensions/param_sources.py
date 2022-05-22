@@ -4,6 +4,7 @@
 # this file be licensed under the Apache-2.0 license or a
 # compatible open source license.
 import copy
+import random
 
 from .data_set import Context, HDF5DataSet, DataSet, BigANNVectorDataSet
 from .util import bulk_transform, parse_string_parameter, parse_int_parameter, \
@@ -14,6 +15,47 @@ def register(registry):
     registry.register_param_source(
         "bulk-from-data-set", BulkVectorsFromDataSetParamSource
     )
+
+    registry.register_param_source(
+        "random-knn-query", RandomKNNQuerySource
+    )
+
+
+class RandomKNNQuerySource:
+    """ Query parameter source for k-NN. Queries are randomly generated. Can be
+    configured.
+
+    Attributes:
+        index_name: Name of the index to generate the query for
+        field_name: Name of the field to generate the query for
+        k: The number of results to return for the search
+        dimension: Dimension of vectors to produce
+    """
+    def __init__(self, workload, params, **kwargs):
+        self.index_name = parse_string_parameter("index", params)
+        self.field_name = parse_string_parameter("field_name", params)
+        self.k = parse_int_parameter("k", params)
+        self.dimension = parse_int_parameter("dimension", params)
+
+    def params(self):
+        vector = [random.random() for _ in range(self.dimension)]
+        return {
+            "index": self.index_name,
+            "request-params": {
+                "exclude": [self.field_name]
+            },
+            "body": {
+                "size": self.k,
+                "query": {
+                    "knn": {
+                        self.field_name: {
+                            "vector": vector,
+                            "k": self.k
+                        }
+                    }
+                }
+            }
+        }
 
 
 class BulkVectorsFromDataSetParamSource:
