@@ -182,7 +182,7 @@ class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
         }
 
     def _batch_read(self):
-        return self.data_set.read(self.VECTOR_READ_BATCH_SIZE)
+        return list(self.data_set.read(self.VECTOR_READ_BATCH_SIZE))
 
 
 class BulkVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
