@@ -138,18 +138,26 @@ class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
 
     Attributes:
         k: The number of results to return for the search
+        batch: List of vectors to be read from data set
     """
+
+    VECTOR_READ_BATCH_SIZE = 100  # batch size to read vectors from data-set
+
     def __init__(self, workload, params, **kwargs):
         super().__init__(params, Context.QUERY)
         self.k = parse_int_parameter("k", params)
+        self.batch = None
 
     def params(self):
         if self.current >= self.num_vectors + self.offset:
             raise StopIteration
 
-        # TODO: We are going to want to fix this so we are not reading from
-        # disk every query
-        vector = self.data_set.read(1)[0]
+        if self.batch is None or len(self.batch) == 0:
+            self.batch = self._batch_read()
+            if self.batch is None:
+                raise StopIteration
+
+        vector = self.batch.pop(0)
         self.current += 1
         self.percent_completed = self.current / self.total
 
@@ -172,6 +180,9 @@ class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
                 }
             }
         }
+
+    def _batch_read(self):
+        return self.data_set.read(self.VECTOR_READ_BATCH_SIZE)
 
 
 class BulkVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
