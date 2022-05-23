@@ -16,6 +16,9 @@
 
   "query_k": 10,
   "query_clients": 10,
+  "queries_per_client": 100000,
+  "query_warmup_iterations": 100,
+  "query_target_throughput": 500,
   "query_data_set_format": "hdf5",
   "query_data_set_path": "/home/ec2-user/data/sift-128-euclidean.hdf5",
   "ground_truth_format": "hdf5",
