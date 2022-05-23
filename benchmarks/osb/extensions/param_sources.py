@@ -7,7 +7,8 @@ import copy
 import random
 from abc import ABC, abstractmethod
 
-from .data_set import Context, HDF5DataSet, DataSet, BigANNVectorDataSet
+from .data_set import Context, HDF5DataSet, DataSet, BigANNVectorDataSet, \
+    BigANNNeighborDataSet
 from .util import bulk_transform, parse_string_parameter, parse_int_parameter, \
     ConfigurationError
 
@@ -94,7 +95,9 @@ class VectorsFromDataSetParamSource(ABC):
         self.context = context
         self.data_set_format = parse_string_parameter("data_set_format", params)
         self.data_set_path = parse_string_parameter("data_set_path", params)
-        self.data_set: DataSet = self._read_data_set()
+        self.data_set: DataSet = self._read_data_set(self.data_set_format,
+                                                     self.data_set_path,
+                                                     self.context)
 
         self.num_vectors: int = parse_int_parameter(
             "num_vectors", params, self.data_set.size()
@@ -105,11 +108,15 @@ class VectorsFromDataSetParamSource(ABC):
         self.percent_completed = 0
         self.offset = 0
 
-    def _read_data_set(self):
-        if self.data_set_format == HDF5DataSet.FORMAT_NAME:
-            return HDF5DataSet(self.data_set_path, self.context)
-        if self.data_set_format == BigANNVectorDataSet.FORMAT_NAME:
-            return BigANNVectorDataSet(self.data_set_path)
+    def _read_data_set(self, data_set_format: str, data_set_path: str,
+                       data_set_context: Context):
+        if data_set_format == HDF5DataSet.FORMAT_NAME:
+            return HDF5DataSet(data_set_path, data_set_context)
+        if data_set_format == BigANNVectorDataSet.FORMAT_NAME and \
+                data_set_context == Context.NEIGHBORS:
+            return BigANNNeighborDataSet(data_set_path)
+        if data_set_format == BigANNVectorDataSet.FORMAT_NAME:
+            return BigANNVectorDataSet(data_set_path)
         raise ConfigurationError("Invalid data set format")
 
     def partition(self, partition_index, total_partitions):
@@ -122,7 +129,11 @@ class VectorsFromDataSetParamSource(ABC):
         partition_x.offset = int(partition_index * partition_x.num_vectors)
 
         # We need to create a new instance of the data set for each client
-        partition_x.data_set = partition_x._read_data_set()
+        partition_x.data_set = partition_x._read_data_set(
+            self.data_set_format,
+            self.data_set_path,
+            self.context
+        )
         partition_x.data_set.seek(partition_x.offset)
         partition_x.current = partition_x.offset
         return partition_x
@@ -138,26 +149,77 @@ class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
 
     Attributes:
         k: The number of results to return for the search
-        batch: List of vectors to be read from data set
+        vector_batch: List of vectors to be read from data set
+        neighbor_batch: List of neighbors to be read from data set
     """
 
     VECTOR_READ_BATCH_SIZE = 100  # batch size to read vectors from data-set
 
     def __init__(self, workload, params, **kwargs):
         super().__init__(params, Context.QUERY)
+
+        self.ground_truth_format = parse_string_parameter("ground_truth_format",
+                                                          params, "")
+        self.ground_truth_path = parse_string_parameter("ground_truth_path",
+                                                        params, "")
+        self.ground_truth_data_set = None
+
+        if len(self.ground_truth_path) == 0 and len(self.ground_truth_format) \
+                != 0:
+            raise ConfigurationError("Must specify ground truth path with "
+                                     "ground truth format")
+
+        if len(self.ground_truth_path) != 0 and len(self.ground_truth_format) \
+                == 0:
+            raise ConfigurationError("Must specify ground truth format with "
+                                     "ground truth path")
+
+        if len(self.ground_truth_path) != 0 and len(self.ground_truth_format) \
+                != 0:
+            self.ground_truth_data_set = self._read_data_set(
+                self.ground_truth_format,
+                self.ground_truth_path,
+                Context.NEIGHBORS
+            )
+
         self.k = parse_int_parameter("k", params)
-        self.batch = None
+        self.vector_batch = None
+        self.neighbor_batch = None
+
+    def partition(self, partition_index, total_partitions):
+        partition_x = super().partition(partition_index, total_partitions)
+
+        if self.ground_truth_data_set:
+            partition_x.ground_truth_data_set = partition_x._read_data_set(
+                self.ground_truth_format,
+                self.ground_truth_path,
+                Context.NEIGHBORS
+            )
+            partition_x.ground_truth_data_set.seek(partition_x.offset)
+        return partition_x
 
     def params(self):
         if self.current >= self.num_vectors + self.offset:
             raise StopIteration
 
-        if self.batch is None or len(self.batch) == 0:
-            self.batch = self._batch_read()
-            if self.batch is None:
+        if self.vector_batch is None or len(self.vector_batch) == 0:
+            self.vector_batch = self._batch_read(self.data_set)
+            if self.vector_batch is None:
                 raise StopIteration
 
-        vector = self.batch.pop(0)
+        if self.ground_truth_data_set and (self.neighbor_batch is None or
+                                           len(self.neighbor_batch) == 0):
+            self.neighbor_batch = self._batch_read(self.ground_truth_data_set)
+            if self.neighbor_batch is None:
+                raise ConfigurationError("Ground truth neighbor set must have "
+                                         "equal length to vector set")
+
+        vector = self.vector_batch.pop(0)
+
+        # The ground truth data set may have more ground truth neighbors than
+        # we need, so shorten it to self.k if necessary
+        ground_truth = self.neighbor_batch.pop(0)[:self.k] if \
+            self.neighbor_batch else None
         self.current += 1
         self.percent_completed = self.current / self.total
 
@@ -178,11 +240,12 @@ class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
                         }
                     }
                 }
-            }
+            },
+            "ground_truth": ground_truth
         }
 
-    def _batch_read(self):
-        return list(self.data_set.read(self.VECTOR_READ_BATCH_SIZE))
+    def _batch_read(self, data_set: DataSet):
+        return list(data_set.read(self.VECTOR_READ_BATCH_SIZE))
 
 
 class BulkVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):

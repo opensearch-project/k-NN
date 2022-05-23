@@ -59,6 +59,29 @@ def parse_int_parameter(key: str, params: dict, default: int = None) -> int:
     raise ConfigurationError("Value must be a int for param {}".format(key))
 
 
+def calculate_recall(results: list, ground_truth: list):
+    """
+    Calculates the recall for a set of queries against a ground truth nearest
+    neighbor set
+    Args:
+        results: list containing ids of results returned by OpenSearch.
+        ground_truth: list containing ids of the true nearest
+        neighbors for a set of queries
+    Returns:
+        Ratio of ground truth nearest neighbors returned in the search
+    """
+    if len(results) > len(ground_truth):
+        raise ConfigurationError("The number of results must be less than or "
+                                 "equal to the number of ground truth "
+                                 "neighbors")
+    correct = 0.0
+    for result in results:
+        if result in ground_truth:
+            correct += 1.0
+
+    return correct / len(ground_truth)
+
+
 class ConfigurationError(Exception):
     """Exception raised for errors configuration.
 

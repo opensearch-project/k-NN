@@ -8,7 +8,7 @@ from io import BytesIO
 
 from opensearchpy.exceptions import ConnectionTimeout
 from osbenchmark.worker_coordinator.runner import Query, parse
-from .util import parse_int_parameter, parse_string_parameter
+from .util import parse_int_parameter, parse_string_parameter, calculate_recall
 import logging
 import time
 
@@ -81,12 +81,7 @@ class QueryWithRecallRunner(Query):
         timed_out = props.get("timed_out", False)
         took = props.get("took", 0)
 
-        # TODO: Use this to compute recall
-        hits = [hit["_id"] for hit in response_dict["hits"]["hits"]]
-        recall = 0.5
-
-        # TODO: Debug why this isnt in the output results
-        return {
+        results = {
             "weight": 1,
             "unit": "ops",
             "success": True,
@@ -94,8 +89,15 @@ class QueryWithRecallRunner(Query):
             "hits_relation": hits_relation,
             "timed_out": timed_out,
             "took": took,
-            "recall": recall
         }
+
+        ground_truth = params["ground_truth"]
+        if ground_truth is not None:
+            # TODO: Debug why this isnt in the output results
+            hits = [int(hit["_id"]) for hit in response_dict["hits"]["hits"]]
+            results["recall"] = calculate_recall(hits, ground_truth)
+
+        return results
 
     def __repr__(self, *args, **kwargs):
         return "query-with-recall"

@@ -197,3 +197,73 @@ class BigANNVectorDataSet(DataSet):
             return lambda file: struct.unpack('<f', file.read(BigANNVectorDataSet.BYTES_PER_FLOAT))
 
         raise Exception("Unknown extension")
+
+
+class BigANNNeighborDataSet(DataSet):
+    """ Data-set format for neighbor data-sets for `Big ANN Benchmarks
+    <https://big-ann-benchmarks.com/index.html#bench-datasets>`_"""
+
+    DATA_SET_HEADER_LENGTH = 8
+    INT_32_SIZE = 4
+    FLOAT_32_SIZE = 4
+
+    def __init__(self, dataset_path: str):
+        self.file = open(dataset_path, 'rb')
+        self.file.seek(BigANNNeighborDataSet.BEGINNING, os.SEEK_END)
+        num_bytes = self.file.tell()
+        self.file.seek(BigANNNeighborDataSet.BEGINNING)
+
+        if num_bytes < BigANNNeighborDataSet.DATA_SET_HEADER_LENGTH:
+            raise Exception("File is invalid")
+
+        self.num_queries = int.from_bytes(
+            self.file.read(BigANNNeighborDataSet.INT_32_SIZE), "little")
+        self.k = int.from_bytes(
+            self.file.read(BigANNNeighborDataSet.INT_32_SIZE), "little")
+
+        # According to the website, the number of bytes that will follow will
+        # be:  num_queries X K x sizeof(uint32_t) bytes + num_queries X K x
+        # sizeof(float)
+        if (num_bytes - BigANNNeighborDataSet.DATA_SET_HEADER_LENGTH) != 2 * \
+                (self.num_queries * self.k *
+                 BigANNNeighborDataSet.FLOAT_32_SIZE):
+            raise Exception("File is invalid")
+
+        self.current = BigANNNeighborDataSet.BEGINNING
+
+    def read(self, chunk_size: int):
+        if self.current >= self.size():
+            return None
+
+        end_i = self.current + chunk_size
+        if end_i > self.size():
+            end_i = self.size()
+
+        v = [[int.from_bytes(
+                    self.file.read(BigANNNeighborDataSet.INT_32_SIZE), "little")
+                    for _ in range(self.k)] for _ in range(end_i - self.current)
+        ]
+
+        self.current = end_i
+        return v
+
+    def seek(self, offset: int):
+
+        if offset < BigANNNeighborDataSet.BEGINNING:
+            raise Exception("Offset must be greater than or equal to 0")
+
+        if offset >= self.size():
+            raise Exception("Offset must be less than the data set size")
+
+        # Go to the offset set of nearest neighbors
+        bytes_offset = BigANNNeighborDataSet.DATA_SET_HEADER_LENGTH + self.k * \
+                       BigANNNeighborDataSet.INT_32_SIZE * offset
+        self.file.seek(bytes_offset)
+        self.current = offset
+
+    def size(self):
+        return self.num_queries
+
+    def reset(self):
+        self.file.seek(BigANNNeighborDataSet.DATA_SET_HEADER_LENGTH)
+        self.current = BigANNNeighborDataSet.BEGINNING
