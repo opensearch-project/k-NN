@@ -248,6 +248,8 @@ task integTestRemote(type: RestIntegTestTask) {
 
     systemProperty 'cluster.number_of_nodes', "${_numNodes}"
 
+    systemProperty 'tests.security.manager', 'false'
+
     // Run tests with remote cluster only if rest case is defined
     if (System.getProperty("tests.rest.cluster") != null) {
         filter {
