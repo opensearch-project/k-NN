@@ -51,7 +51,7 @@ testClusters {
         }
 
         // Skip test if version is 1.0, 1.1, 1.2 or 1.3 as they are not supported in those versions
-        if (knn_bwc_version.startsWith("1.")) {
+        if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.0")) {
             filter {
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testEmptyParametersOnUpgrade"
             }
@@ -94,7 +94,7 @@ testClusters {
         }
 
         // Skip test if version is 1.0, 1.1, 1.2 or 1.3 as they are not supported in those versions
-        if (knn_bwc_version.startsWith("1.")) {
+        if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.0")) {
             filter {
                 excludeTestsMatching "org.opensearch.knn.bwc.IndexingIT.testEmptyParametersOnUpgrade"
             }

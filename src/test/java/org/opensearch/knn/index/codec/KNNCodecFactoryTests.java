@@ -6,7 +6,7 @@
 package org.opensearch.knn.index.codec;
 
 import org.apache.lucene.codecs.Codec;
-import org.apache.lucene.codecs.lucene91.Lucene91Codec;
+import org.apache.lucene.backward_codecs.lucene91.Lucene91Codec;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.KNN910Codec.KNN910Codec;
 
