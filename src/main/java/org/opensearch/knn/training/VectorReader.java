@@ -184,7 +184,7 @@ public class VectorReader {
 
             for (int i = 0; i < vectorsToAdd; i++) {
                 trainingData.add(
-                    ((List<Double>) hits[i].getSourceAsMap().get(fieldName)).stream().map(Double::floatValue).toArray(Float[]::new)
+                    ((List<Number>) hits[i].getSourceAsMap().get(fieldName)).stream().map(Number::floatValue).toArray(Float[]::new)
                 );
             }
 
