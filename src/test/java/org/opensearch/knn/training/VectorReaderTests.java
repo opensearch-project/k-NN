@@ -31,13 +31,13 @@ import java.util.stream.Collectors;
 
 public class VectorReaderTests extends KNNSingleNodeTestCase {
 
-    private final int DEFAULT_LATCH_TIMEOUT = 100;
-    private final String DEFAULT_INDEX_NAME = "test-index";
-    private final String DEFAULT_FIELD_NAME = "test-field";
-    private final int DEFAULT_DIMENSION = 16;
-    private final int DEFAULT_NUM_VECTORS = 100;
-    private final int DEFAULT_MAX_VECTOR_COUNT = 10000;
-    private final int DEFAULT_SEARCH_SIZE = 10;
+    private final static int DEFAULT_LATCH_TIMEOUT = 100;
+    private final static String DEFAULT_INDEX_NAME = "test-index";
+    private final static String DEFAULT_FIELD_NAME = "test-field";
+    private final static int DEFAULT_DIMENSION = 16;
+    private final static int DEFAULT_NUM_VECTORS = 100;
+    private final static int DEFAULT_MAX_VECTOR_COUNT = 10000;
+    private final static int DEFAULT_SEARCH_SIZE = 10;
 
     public void testRead_valid_completeIndex() throws InterruptedException, ExecutionException, IOException {
         createIndex(DEFAULT_INDEX_NAME);
@@ -47,14 +47,8 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         Random random = new Random();
         List<Float[]> vectors = new ArrayList<>();
         for (int i = 0; i < DEFAULT_NUM_VECTORS; i++) {
-            Float[] vector = new Float[DEFAULT_DIMENSION];
-
-            for (int j = 0; j < DEFAULT_DIMENSION; j++) {
-                vector[j] = random.nextFloat();
-            }
-
+            Float[] vector = random.doubles(DEFAULT_DIMENSION).boxed().map(Double::floatValue).toArray(Float[]::new);
             vectors.add(vector);
-
             addKnnDoc(DEFAULT_INDEX_NAME, Integer.toString(i), DEFAULT_FIELD_NAME, vector);
         }
 
@@ -93,12 +87,7 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         Random random = new Random();
         List<Integer[]> vectors = new ArrayList<>();
         for (int i = 0; i < DEFAULT_NUM_VECTORS; i++) {
-            Integer[] vector = new Integer[DEFAULT_DIMENSION];
-
-            for (int j = 0; j < DEFAULT_DIMENSION; j++) {
-                vector[j] = random.nextInt();
-            }
-
+            Integer[] vector = random.ints(DEFAULT_DIMENSION).boxed().toArray(Integer[]::new);
             vectors.add(vector);
             addKnnDoc(DEFAULT_INDEX_NAME, Integer.toString(i), DEFAULT_FIELD_NAME, vector);
         }
@@ -142,14 +131,8 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         Random random = new Random();
         List<Float[]> vectors = new ArrayList<>();
         for (int i = 0; i < DEFAULT_NUM_VECTORS; i++) {
-            Float[] vector = new Float[DEFAULT_DIMENSION];
-
-            for (int j = 0; j < DEFAULT_DIMENSION; j++) {
-                vector[j] = random.nextFloat();
-            }
-
+            Float[] vector = random.doubles(DEFAULT_DIMENSION).boxed().map(Double::floatValue).toArray(Float[]::new);
             vectors.add(vector);
-
             addKnnDoc(DEFAULT_INDEX_NAME, Integer.toString(i), DEFAULT_FIELD_NAME, vector);
         }
 
@@ -199,12 +182,7 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         // Create list of random vectors and ingest
         Random random = new Random();
         for (int i = 0; i < DEFAULT_NUM_VECTORS; i++) {
-            Float[] vector = new Float[DEFAULT_DIMENSION];
-
-            for (int j = 0; j < DEFAULT_DIMENSION; j++) {
-                vector[j] = random.nextFloat();
-            }
-
+            Float[] vector = random.doubles(DEFAULT_DIMENSION).boxed().map(Double::floatValue).toArray(Float[]::new);
             addKnnDoc(DEFAULT_INDEX_NAME, Integer.toString(i), DEFAULT_FIELD_NAME, vector);
         }
 
@@ -245,7 +223,15 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         int invalidMaxVectorCount = -10;
         expectThrows(
             ValidationException.class,
-            () -> vectorReader.read(clusterService, DEFAULT_INDEX_NAME, DEFAULT_FIELD_NAME, invalidMaxVectorCount, 10, null, null)
+            () -> vectorReader.read(
+                clusterService,
+                DEFAULT_INDEX_NAME,
+                DEFAULT_FIELD_NAME,
+                invalidMaxVectorCount,
+                DEFAULT_SEARCH_SIZE,
+                null,
+                null
+            )
         );
     }
 
