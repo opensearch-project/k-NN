@@ -21,8 +21,6 @@
   "query_target_throughput": 500,
   "query_data_set_format": "hdf5",
   "query_data_set_path": "/home/ec2-user/data/sift-128-euclidean.hdf5",
-  "ground_truth_format": "hdf5",
-  "ground_truth_path": "/home/ec2-user/data/sift-128-euclidean.hdf5",
 
   "ivf_nlists": 1,
   "ivf_nprobes": 1,

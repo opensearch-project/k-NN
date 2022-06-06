@@ -118,15 +118,13 @@
         {
             "operation": {
                 "name": "knn-query-from-data-set",
-                "operation-type": "query-with-recall",
+                "operation-type": "search",
                 "index": "{{ target_index_name }}",
                 "param-source": "knn-query-from-data-set",
                 "k": {{ query_k }},
                 "field": "{{ target_field_name }}",
                 "data_set_format": "{{ query_data_set_format }}",
-                "data_set_path": "{{ query_data_set_path }}",
-                "ground_truth_format": "{{ ground_truth_format }}",
-                "ground_truth_path": "{{ ground_truth_path }}"
+                "data_set_path": "{{ query_data_set_path }}"
           },
             "clients": {{ query_clients }}
         }

@@ -7,8 +7,7 @@ import copy
 import random
 from abc import ABC, abstractmethod
 
-from .data_set import Context, HDF5DataSet, DataSet, BigANNVectorDataSet, \
-    BigANNNeighborDataSet
+from .data_set import Context, HDF5DataSet, DataSet, BigANNVectorDataSet
 from .util import bulk_transform, parse_string_parameter, parse_int_parameter, \
     ConfigurationError
 
@@ -25,48 +24,6 @@ def register(registry):
     registry.register_param_source(
         "knn-query-from-random", RandomQuerySource
     )
-
-
-class RandomQuerySource:
-    """ Query parameter source for k-NN. Queries are randomly generated. Can be
-    configured.
-
-    Attributes:
-        index_name: Name of the index to generate the query for
-        field_name: Name of the field to generate the query for
-        k: The number of results to return for the search
-        dimension: Dimension of vectors to produce
-    """
-    def __init__(self, workload, params, **kwargs):
-        self.index_name = parse_string_parameter("index", params)
-        self.field_name = parse_string_parameter("field", params)
-        self.k = parse_int_parameter("k", params)
-        self.dimension = parse_int_parameter("dimension", params)
-
-    def partition(self, partition_index, total_partitions):
-        return self
-
-    def params(self):
-        vector = [random.random() for _ in range(self.dimension)]
-        return {
-            "index": self.index_name,
-            "request-params": {
-                "_source": {
-                    "exclude": [self.field_name]
-                }
-            },
-            "body": {
-                "size": self.k,
-                "query": {
-                    "knn": {
-                        self.field_name: {
-                            "vector": vector,
-                            "k": self.k
-                        }
-                    }
-                }
-            }
-        }
 
 
 class VectorsFromDataSetParamSource(ABC):
@@ -88,6 +45,7 @@ class VectorsFromDataSetParamSource(ABC):
         offset: Offset into the data set to start at. Relevant when there are
                 multiple partitions
     """
+
     def __init__(self, params, context: Context):
         self.index_name: str = parse_string_parameter("index", params)
         self.field_name: str = parse_string_parameter("field", params)
@@ -112,14 +70,21 @@ class VectorsFromDataSetParamSource(ABC):
                        data_set_context: Context):
         if data_set_format == HDF5DataSet.FORMAT_NAME:
             return HDF5DataSet(data_set_path, data_set_context)
-        if data_set_format == BigANNVectorDataSet.FORMAT_NAME and \
-                data_set_context == Context.NEIGHBORS:
-            return BigANNNeighborDataSet(data_set_path)
         if data_set_format == BigANNVectorDataSet.FORMAT_NAME:
             return BigANNVectorDataSet(data_set_path)
         raise ConfigurationError("Invalid data set format")
 
     def partition(self, partition_index, total_partitions):
+        """
+        Splits up the parameters source so that multiple clients can read data
+        from it.
+        Args:
+            partition_index: index of one particular partition
+            total_partitions: total number of partitions data set is split into
+
+        Returns:
+            The parameter source for this particular partion
+        """
         if self.num_vectors % total_partitions != 0:
             raise ValueError("Num vectors must be divisible by number of "
                              "partitions")
@@ -140,7 +105,39 @@ class VectorsFromDataSetParamSource(ABC):
 
     @abstractmethod
     def params(self):
+        """
+        Returns: A single parameter from this sourc
+        """
         pass
+
+
+class RandomQuerySource:
+    """ Query parameter source for k-NN. Queries are randomly generated. Can be
+    configured.
+
+    Attributes:
+        index_name: Name of the index to generate the query for
+        field_name: Name of the field to generate the query for
+        k: The number of results to return for the search
+        dimension: Dimension of vectors to produce
+    """
+
+    def __init__(self, workload, params, **kwargs):
+        self.index_name = parse_string_parameter("index", params)
+        self.field_name = parse_string_parameter("field", params)
+        self.k = parse_int_parameter("k", params)
+        self.dimension = parse_int_parameter("dimension", params)
+
+    def partition(self, partition_index, total_partitions):
+        return self
+
+    def params(self):
+        """
+        Returns: A query parameter with a randomly generated vector
+        """
+        vector = [random.random() for _ in range(self.dimension)]
+        return _build_query_body(self.index_name, self.field_name, self.k,
+                                 vector)
 
 
 class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
@@ -149,56 +146,21 @@ class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
 
     Attributes:
         k: The number of results to return for the search
-        vector_batch: List of vectors to be read from data set
-        neighbor_batch: List of neighbors to be read from data set
+        vector_batch: List of vectors to be read from data set. Read are batched
+                        so that we do not need to read from disk for each query
     """
 
     VECTOR_READ_BATCH_SIZE = 100  # batch size to read vectors from data-set
 
     def __init__(self, workload, params, **kwargs):
         super().__init__(params, Context.QUERY)
-
-        self.ground_truth_format = parse_string_parameter("ground_truth_format",
-                                                          params, "")
-        self.ground_truth_path = parse_string_parameter("ground_truth_path",
-                                                        params, "")
-        self.ground_truth_data_set = None
-
-        if len(self.ground_truth_path) == 0 and len(self.ground_truth_format) \
-                != 0:
-            raise ConfigurationError("Must specify ground truth path with "
-                                     "ground truth format")
-
-        if len(self.ground_truth_path) != 0 and len(self.ground_truth_format) \
-                == 0:
-            raise ConfigurationError("Must specify ground truth format with "
-                                     "ground truth path")
-
-        if len(self.ground_truth_path) != 0 and len(self.ground_truth_format) \
-                != 0:
-            self.ground_truth_data_set = self._read_data_set(
-                self.ground_truth_format,
-                self.ground_truth_path,
-                Context.NEIGHBORS
-            )
-
         self.k = parse_int_parameter("k", params)
         self.vector_batch = None
-        self.neighbor_batch = None
-
-    def partition(self, partition_index, total_partitions):
-        partition_x = super().partition(partition_index, total_partitions)
-
-        if self.ground_truth_data_set:
-            partition_x.ground_truth_data_set = partition_x._read_data_set(
-                self.ground_truth_format,
-                self.ground_truth_path,
-                Context.NEIGHBORS
-            )
-            partition_x.ground_truth_data_set.seek(partition_x.offset)
-        return partition_x
 
     def params(self):
+        """
+        Returns: A query parameter with a vector from a data set
+        """
         if self.current >= self.num_vectors + self.offset:
             raise StopIteration
 
@@ -207,45 +169,15 @@ class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
             if self.vector_batch is None:
                 raise StopIteration
 
-        if self.ground_truth_data_set and (self.neighbor_batch is None or
-                                           len(self.neighbor_batch) == 0):
-            self.neighbor_batch = self._batch_read(self.ground_truth_data_set)
-            if self.neighbor_batch is None:
-                raise ConfigurationError("Ground truth neighbor set must have "
-                                         "equal length to vector set")
-
         vector = self.vector_batch.pop(0)
-
-        # The ground truth data set may have more ground truth neighbors than
-        # we need, so shorten it to self.k if necessary
-        ground_truth = self.neighbor_batch.pop(0)[:self.k] if \
-            self.neighbor_batch else None
         self.current += 1
         self.percent_completed = self.current / self.total
 
-        return {
-            "index": self.index_name,
-            "request-params": {
-                "_source": {
-                    "exclude": [self.field_name]
-                }
-            },
-            "body": {
-                "size": self.k,
-                "query": {
-                    "knn": {
-                        self.field_name: {
-                            "vector": vector,
-                            "k": self.k
-                        }
-                    }
-                }
-            },
-            "ground_truth": ground_truth
-        }
+        return _build_query_body(self.index_name, self.field_name, self.k,
+                                 vector)
 
     def _batch_read(self, data_set: DataSet):
-        return list(data_set.read(self.VECTOR_READ_BATCH_SIZE))
+        return data_set.read(self.VECTOR_READ_BATCH_SIZE)
 
 
 class BulkVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
@@ -261,7 +193,9 @@ class BulkVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
         self.retries: int = parse_int_parameter("retries", params, 10)
 
     def params(self):
-
+        """
+        Returns: A bulk index parameter with vectors from a data set.
+        """
         if self.current >= self.num_vectors + self.offset:
             raise StopIteration
 
@@ -279,3 +213,36 @@ class BulkVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
             "retries": self.retries,
             "size": size
         }
+
+
+def _build_query_body(index_name: str, field_name: str, k: int, vector) -> dict:
+    """Builds a k-NN query that can be used to execute an approximate nearest
+    neighbor search against a k-NN plugin index
+    Args:
+        index_name: name of index to search
+        field_name: name of field to search
+        k: number of results to return
+        vector: vector used for query
+    Returns:
+        A dictionary containing the body used for search, a set of request
+        parameters to attach to the search and the name of the index.
+    """
+    return {
+        "index": index_name,
+        "request-params": {
+            "_source": {
+                "exclude": [field_name]
+            }
+        },
+        "body": {
+            "size": k,
+            "query": {
+                "knn": {
+                    field_name: {
+                        "vector": vector,
+                        "k": k
+                    }
+                }
+            }
+        }
+    }
