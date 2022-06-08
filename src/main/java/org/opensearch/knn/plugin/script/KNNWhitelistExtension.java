@@ -5,22 +5,35 @@
 
 package org.opensearch.knn.plugin.script;
 
+import com.google.common.collect.ImmutableMap;
 import org.opensearch.painless.spi.PainlessExtension;
 import org.opensearch.painless.spi.Whitelist;
 import org.opensearch.painless.spi.WhitelistLoader;
 import org.opensearch.script.ScoreScript;
 import org.opensearch.script.ScriptContext;
+import org.opensearch.script.ScriptedMetricAggContexts;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 public class KNNWhitelistExtension implements PainlessExtension {
 
-    private static final Whitelist WHITELIST = WhitelistLoader.loadFromResourceFiles(KNNWhitelistExtension.class, "knn_whitelist.txt");
+    private static final Whitelist ALLOW_LIST = WhitelistLoader.loadFromResourceFiles(KNNWhitelistExtension.class, "knn_whitelist.txt");
 
     @Override
     public Map<ScriptContext<?>, List<Whitelist>> getContextWhitelists() {
-        return Collections.singletonMap(ScoreScript.CONTEXT, Collections.singletonList(WHITELIST));
+        final List<Whitelist> allowLists = List.of(ALLOW_LIST);
+        return ImmutableMap.of(
+            ScoreScript.CONTEXT,
+            allowLists,
+            ScriptedMetricAggContexts.InitScript.CONTEXT,
+            allowLists,
+            ScriptedMetricAggContexts.MapScript.CONTEXT,
+            allowLists,
+            ScriptedMetricAggContexts.CombineScript.CONTEXT,
+            allowLists,
+            ScriptedMetricAggContexts.ReduceScript.CONTEXT,
+            allowLists
+        );
     }
 }
