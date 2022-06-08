@@ -28,8 +28,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public class PainlessScriptScoringIT extends KNNRestTestCase {
+public class PainlessScriptIT extends KNNRestTestCase {
 
+    public static final int AGGREGATION_FIELD_NAME_MIN_LENGTH = 2;
+    public static final int AGGREGATION_FIELD_NAME_MAX_LENGTH = 5;
     private static String NUMERIC_INDEX_FIELD_NAME = "price";
 
     /**
@@ -126,22 +128,42 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
 
     public void testL2ScriptScoreFails() throws Exception {
         String source = String.format("1/(1 + l2Squared([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getL2TestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getL2TestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         expectThrows(ResponseException.class, () -> client().performRequest(request));
         deleteKNNIndex(INDEX_NAME);
     }
 
-    private Request buildPainlessScriptRequest(String source, int size, Map<String, Float[]> documents) throws Exception {
+    private Request buildPainlessScoreScriptRequest(String source, int size, Map<String, Float[]> documents) throws Exception {
         buildTestIndex(documents);
         QueryBuilder qb = new MatchAllQueryBuilder();
-        return constructScriptQueryRequest(INDEX_NAME, qb, Collections.emptyMap(), Script.DEFAULT_SCRIPT_LANG, source, size);
+        return constructScriptScoreContextSearchRequest(INDEX_NAME, qb, Collections.emptyMap(), Script.DEFAULT_SCRIPT_LANG, source, size);
+    }
+
+    private Request buildPainlessScriptedMetricRequest(
+        String initScriptSource,
+        String mapScriptSource,
+        String combineScriptSource,
+        String reduceScriptSource,
+        Map<String, Float[]> documents,
+        String aggName
+    ) throws Exception {
+        buildTestIndex(documents);
+        return constructScriptedMetricAggregationSearchRequest(
+            aggName,
+            Script.DEFAULT_SCRIPT_LANG,
+            initScriptSource,
+            mapScriptSource,
+            combineScriptSource,
+            reduceScriptSource,
+            documents.size()
+        );
     }
 
     public void testL2ScriptScore() throws Exception {
 
         String source = String.format("1/(1 + l2Squared([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getL2TestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getL2TestData());
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -160,7 +182,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
 
         String source = String.format("doc['%s'].value[0]", FIELD_NAME);
         Map<String, Float[]> testData = getKnnVectorTestData();
-        Request request = buildPainlessScriptRequest(source, testData.size(), testData);
+        Request request = buildPainlessScoreScriptRequest(source, testData.size(), testData);
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -177,7 +199,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
 
     public void testGetValueScriptFailsWithMissingField() throws Exception {
         String source = String.format("doc['%s']", FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getKnnVectorTestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getKnnVectorTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         expectThrows(ResponseException.class, () -> client().performRequest(request));
         deleteKNNIndex(INDEX_NAME);
@@ -186,7 +208,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
     public void testGetValueScriptFailsWithOutOfBoundException() throws Exception {
         Map<String, Float[]> testData = getKnnVectorTestData();
         String source = String.format("doc['%s'].value[%d]", FIELD_NAME, testData.get("1").length);
-        Request request = buildPainlessScriptRequest(source, testData.size(), testData);
+        Request request = buildPainlessScoreScriptRequest(source, testData.size(), testData);
         expectThrows(ResponseException.class, () -> client().performRequest(request));
         deleteKNNIndex(INDEX_NAME);
     }
@@ -195,7 +217,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
 
         String source = String.format("doc['%s'].size() == 0 ? 0 : doc['%s'].value[0]", FIELD_NAME, FIELD_NAME);
         Map<String, Float[]> testData = getKnnVectorTestData();
-        Request request = buildPainlessScriptRequest(source, testData.size(), testData);
+        Request request = buildPainlessScoreScriptRequest(source, testData.size(), testData);
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -213,7 +235,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
     public void testL2ScriptScoreWithNumericField() throws Exception {
 
         String source = String.format("doc['%s'].size() == 0 ? 0 : 1/(1 + l2Squared([1.0f, 1.0f], doc['%s']))", FIELD_NAME, FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getL2TestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getL2TestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -230,7 +252,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
 
     public void testCosineSimilarityScriptScoreFails() throws Exception {
         String source = String.format("1 + cosineSimilarity([2.0f, -2.0f], doc['%s'])", FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getCosineTestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getCosineTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         expectThrows(ResponseException.class, () -> client().performRequest(request));
         deleteKNNIndex(INDEX_NAME);
@@ -238,7 +260,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
 
     public void testCosineSimilarityScriptScore() throws Exception {
         String source = String.format("1 + cosineSimilarity([2.0f, -2.0f], doc['%s'])", FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getCosineTestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getCosineTestData());
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
@@ -254,7 +276,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
 
     public void testCosineSimilarityScriptScoreWithNumericField() throws Exception {
         String source = String.format("doc['%s'].size() == 0 ? 0 : 1 + cosineSimilarity([2.0f, -2.0f], doc['%s'])", FIELD_NAME, FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getCosineTestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getCosineTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -272,7 +294,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
     // test fails without size check before executing method
     public void testCosineSimilarityNormalizedScriptScoreFails() throws Exception {
         String source = String.format("1 + cosineSimilarity([2.0f, -2.0f], doc['%s'], 3.0f)", FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getCosineTestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getCosineTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         expectThrows(ResponseException.class, () -> client().performRequest(request));
         deleteKNNIndex(INDEX_NAME);
@@ -280,7 +302,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
 
     public void testCosineSimilarityNormalizedScriptScore() throws Exception {
         String source = String.format("1 + cosineSimilarity([2.0f, -2.0f], doc['%s'], 3.0f)", FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getCosineTestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getCosineTestData());
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
@@ -300,7 +322,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
             FIELD_NAME,
             FIELD_NAME
         );
-        Request request = buildPainlessScriptRequest(source, 3, getCosineTestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getCosineTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -318,7 +340,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
     // L1 tests
     public void testL1ScriptScoreFails() throws Exception {
         String source = String.format("1/(1 + l1Norm([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getL1TestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getL1TestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         expectThrows(ResponseException.class, () -> client().performRequest(request));
         deleteKNNIndex(INDEX_NAME);
@@ -327,7 +349,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
     public void testL1ScriptScore() throws Exception {
 
         String source = String.format("1/(1 + l1Norm([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getL1TestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getL1TestData());
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -345,7 +367,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
     public void testL1ScriptScoreWithNumericField() throws Exception {
 
         String source = String.format("doc['%s'].size() == 0 ? 0 : 1/(1 + l1Norm([1.0f, 1.0f], doc['%s']))", FIELD_NAME, FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getL1TestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getL1TestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -363,7 +385,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
     // L-inf tests
     public void testLInfScriptScoreFails() throws Exception {
         String source = String.format("1/(1 + lInfNorm([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getLInfTestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getLInfTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         expectThrows(ResponseException.class, () -> client().performRequest(request));
         deleteKNNIndex(INDEX_NAME);
@@ -372,7 +394,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
     public void testLInfScriptScore() throws Exception {
 
         String source = String.format("1/(1 + lInfNorm([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getLInfTestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getLInfTestData());
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -390,7 +412,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
     public void testLInfScriptScoreWithNumericField() throws Exception {
 
         String source = String.format("doc['%s'].size() == 0 ? 0 : 1/(1 + lInfNorm([1.0f, 1.0f], doc['%s']))", FIELD_NAME, FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getLInfTestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getLInfTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -407,7 +429,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
 
     public void testInnerProdScriptScoreFails() throws Exception {
         String source = String.format("float x = innerProduct([1.0f, 1.0f], doc['%s']); return x >= 0? 2-1/(x+1):1/(1-x);", FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getInnerProdTestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getInnerProdTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         expectThrows(ResponseException.class, () -> client().performRequest(request));
         deleteKNNIndex(INDEX_NAME);
@@ -416,7 +438,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
     public void testInnerProdScriptScore() throws Exception {
 
         String source = String.format("float x = innerProduct([1.0f, 1.0f], doc['%s']); return x >= 0? 2-1/(x+1):1/(1-x);", FIELD_NAME);
-        Request request = buildPainlessScriptRequest(source, 3, getInnerProdTestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getInnerProdTestData());
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -441,7 +463,7 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
             FIELD_NAME,
             FIELD_NAME
         );
-        Request request = buildPainlessScriptRequest(source, 3, getInnerProdTestData());
+        Request request = buildPainlessScoreScriptRequest(source, 3, getInnerProdTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -453,6 +475,34 @@ public class PainlessScriptScoringIT extends KNNRestTestCase {
         for (int i = 0; i < results.size(); i++) {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    public void testScriptedMetricIsSupported() throws Exception {
+        Map<String, Float[]> testData = getKnnVectorTestData();
+        // sum of first value from each vector
+        String initScriptSource = "state.x = []";
+        String mapScriptSource = String.format("state.x.add(doc['%s'].value[0])", FIELD_NAME);
+        String combineScriptSource = "double sum = 0; for (t in state.x) { sum += t } return sum";
+        String reduceScriptSource = "double sum = 0; for (v in states) { sum += v } return sum";
+        String aggName = randomAlphaOfLengthBetween(AGGREGATION_FIELD_NAME_MIN_LENGTH, AGGREGATION_FIELD_NAME_MAX_LENGTH); // random agg
+                                                                                                                           // name for
+                                                                                                                           // context
+        Request request = buildPainlessScriptedMetricRequest(
+            initScriptSource,
+            mapScriptSource,
+            combineScriptSource,
+            reduceScriptSource,
+            testData,
+            aggName
+        );
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        final String entity = EntityUtils.toString(response.getEntity());
+        assertNotNull(entity);
+        final double actualValue = parseAggregationResponse(entity, aggName);
+        final double expectedSum = testData.values().stream().mapToDouble(vector -> vector[0]).sum();
+        assertEquals("Script didn't produce sum of first dimension from all vectors", expectedSum, actualValue, 0.1);
         deleteKNNIndex(INDEX_NAME);
     }
 
