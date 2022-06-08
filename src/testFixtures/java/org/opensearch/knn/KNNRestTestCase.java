@@ -36,6 +36,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.script.Script;
+import org.opensearch.search.aggregations.metrics.ScriptedMetricAggregationBuilder;
 
 import javax.management.MBeanServerInvocationHandler;
 import javax.management.MalformedObjectNameException;
@@ -55,6 +56,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.concurrent.TimeUnit;
@@ -238,6 +240,18 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .collect(Collectors.toList());
 
         return knnSearchResponses;
+    }
+
+    /**
+     * Parse the response of Aggregation to extract the value
+     */
+    protected Double parseAggregationResponse(String responseBody, String aggregationName) throws IOException {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> aggregations = ((Map<String, Object>) createParser(XContentType.JSON.xContent(), responseBody).map()
+            .get("aggregations"));
+
+        final Map<String, Object> values = (Map<String, Object>) aggregations.get(aggregationName);
+        return Double.valueOf(String.valueOf(values.get("value")));
     }
 
     /**
@@ -654,7 +668,62 @@ public class KNNRestTestCase extends ODFERestTestCase {
         updateClusterSettings("script.context.score.cache_expire", null);
     }
 
-    protected Request constructScriptQueryRequest(
+    private Script buildScript(String source, String language, Map<String, Object> params) {
+        return new Script(Script.DEFAULT_SCRIPT_TYPE, language, source, params);
+    }
+
+    private ScriptedMetricAggregationBuilder getScriptedMetricAggregationBuilder(
+        String initScriptSource,
+        String mapScriptSource,
+        String combineScriptSource,
+        String reduceScriptSource,
+        String language,
+        String aggName
+    ) {
+        String scriptLanguage = language != null ? language : Script.DEFAULT_SCRIPT_LANG;
+        Script initScript = buildScript(initScriptSource, scriptLanguage, Collections.emptyMap());
+        Script mapScript = buildScript(mapScriptSource, scriptLanguage, Collections.emptyMap());
+        Script combineScript = buildScript(combineScriptSource, scriptLanguage, Collections.emptyMap());
+        Script reduceScript = buildScript(reduceScriptSource, scriptLanguage, Collections.emptyMap());
+        return new ScriptedMetricAggregationBuilder(aggName).mapScript(mapScript)
+            .combineScript(combineScript)
+            .reduceScript(reduceScript)
+            .initScript(initScript);
+    }
+
+    protected Request constructScriptedMetricAggregationSearchRequest(
+        String aggName,
+        String language,
+        String initScriptSource,
+        String mapScriptSource,
+        String combineScriptSource,
+        String reduceScriptSource,
+        int size
+    ) throws Exception {
+
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field("size", size).startObject("query");
+        builder.startObject("match_all");
+        builder.endObject();
+        builder.endObject();
+        builder.startObject("aggs");
+        final ScriptedMetricAggregationBuilder scriptedMetricAggregationBuilder = getScriptedMetricAggregationBuilder(
+            initScriptSource,
+            mapScriptSource,
+            combineScriptSource,
+            reduceScriptSource,
+            language,
+            aggName
+        );
+        scriptedMetricAggregationBuilder.toXContent(builder, ToXContent.EMPTY_PARAMS);
+        builder.endObject();
+        builder.endObject();
+        String endpoint = String.format(Locale.getDefault(), "/%s/_search?size=0&filter_path=aggregations", INDEX_NAME);
+        Request request = new Request("POST", endpoint);
+        request.setJsonEntity(Strings.toString(builder));
+        return request;
+    }
+
+    protected Request constructScriptScoreContextSearchRequest(
         String indexName,
         QueryBuilder qb,
         Map<String, Object> params,
@@ -662,7 +731,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         String source,
         int size
     ) throws Exception {
-        Script script = new Script(Script.DEFAULT_SCRIPT_TYPE, language, source, params);
+        Script script = buildScript(source, language, params);
         ScriptScoreQueryBuilder sc = new ScriptScoreQueryBuilder(qb, script);
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field("size", size).startObject("query");
         builder.startObject("script_score");
@@ -695,7 +764,14 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     protected Request constructKNNScriptQueryRequest(String indexName, QueryBuilder qb, Map<String, Object> params, int size)
         throws Exception {
-        return constructScriptQueryRequest(indexName, qb, params, KNNScoringScriptEngine.NAME, KNNScoringScriptEngine.SCRIPT_SOURCE, size);
+        return constructScriptScoreContextSearchRequest(
+            indexName,
+            qb,
+            params,
+            KNNScoringScriptEngine.NAME,
+            KNNScoringScriptEngine.SCRIPT_SOURCE,
+            size
+        );
     }
 
     public Map<String, Object> xContentBuilderToMap(XContentBuilder xContentBuilder) {
@@ -916,7 +992,14 @@ public class KNNRestTestCase extends ODFERestTestCase {
     protected void validateKNNPainlessScriptScoreSearch(String testIndex, String testField, String source, int numDocs, int k)
         throws Exception {
         QueryBuilder qb = new MatchAllQueryBuilder();
-        Request request = constructScriptQueryRequest(testIndex, qb, Collections.emptyMap(), Script.DEFAULT_SCRIPT_LANG, source, k);
+        Request request = constructScriptScoreContextSearchRequest(
+            testIndex,
+            qb,
+            Collections.emptyMap(),
+            Script.DEFAULT_SCRIPT_LANG,
+            source,
+            k
+        );
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
