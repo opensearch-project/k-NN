@@ -17,10 +17,15 @@ import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.DocWriteResponse;
+import org.opensearch.action.StepListener;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
+import org.opensearch.action.delete.DeleteAction;
+import org.opensearch.action.delete.DeleteRequestBuilder;
+import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.IndexNotFoundException;
@@ -29,6 +34,14 @@ import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
+import org.opensearch.knn.plugin.transport.GetModelResponse;
+import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
+import org.opensearch.knn.plugin.transport.RemoveModelFromCacheRequest;
+import org.opensearch.knn.plugin.transport.RemoveModelFromCacheResponse;
+import org.opensearch.knn.plugin.transport.UpdateBlockedModelAction;
+import org.opensearch.knn.plugin.transport.UpdateBlockedModelRequest;
+import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
+import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
 import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
@@ -479,6 +492,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
     public void testDelete() throws IOException, InterruptedException {
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
         String modelId = "testDeleteModelID";
+        String modelId1 = "testDeleteModelID1";
         byte[] modelBlob = "hello".getBytes();
         int dimension = 2;
 
@@ -495,22 +509,89 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
         ActionListener<DeleteModelResponse> deleteModelDoesNotExistListener = ActionListener.wrap(response -> {
-            assertEquals(DocWriteResponse.Result.NOT_FOUND.getLowercase(), response.getResult());
+            assertEquals(modelId, response.getModelID());
+            assertEquals("failed", response.getResult());
+            assertNotNull(response.getErrorMessage());
             inProgressLatch1.countDown();
-        }, exception -> fail("Unable to delete the model: " + exception));
+        }, exception -> fail(exception.getMessage()));
 
         modelDao.delete(modelId, deleteModelDoesNotExistListener);
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
 
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
-        ActionListener<DeleteModelResponse> deleteModelExistsListener = ActionListener.wrap(response -> {
+        ActionListener<DeleteModelResponse> deleteModelTrainingListener = ActionListener.wrap(response -> {
             assertEquals(modelId, response.getModelID());
-            assertEquals(DocWriteResponse.Result.DELETED.getLowercase(), response.getResult());
-            assertNull(response.getErrorMessage());
+            assertEquals("failed", response.getResult());
+            String errorMessage = String.format("Cannot delete model \"%s\". Model is still in training", modelId);
+            assertEquals(errorMessage, response.getErrorMessage());
             inProgressLatch2.countDown();
         }, exception -> fail("Unable to delete model: " + exception));
 
+        // model id exists and model is still in Training
+        Model model = new Model(
+            new ModelMetadata(
+                KNNEngine.DEFAULT,
+                SpaceType.DEFAULT,
+                dimension,
+                ModelState.TRAINING,
+                ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
+                ""
+            ),
+            modelBlob,
+            modelId
+        );
+
+        ActionListener<IndexResponse> docCreationListener = ActionListener.wrap(response -> {
+            assertEquals(modelId, response.getId());
+            modelDao.delete(modelId, deleteModelTrainingListener);
+        }, exception -> fail("Unable to put the model: " + exception));
+
+        modelDao.put(model, docCreationListener);
+
+        assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
+
+        final CountDownLatch inProgressLatch3 = new CountDownLatch(1);
+        ActionListener<DeleteModelResponse> deleteModelExistsListener = ActionListener.wrap(response -> {
+            assertEquals(modelId1, response.getModelID());
+            assertEquals(DocWriteResponse.Result.DELETED.getLowercase(), response.getResult());
+            assertNull(response.getErrorMessage());
+            inProgressLatch3.countDown();
+        }, exception -> fail("Unable to delete model: " + exception));
+
         // model id exists
+        Model model1 = new Model(
+            new ModelMetadata(
+                KNNEngine.DEFAULT,
+                SpaceType.DEFAULT,
+                dimension,
+                ModelState.CREATED,
+                ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
+                ""
+            ),
+            modelBlob,
+            modelId1
+        );
+
+        ActionListener<IndexResponse> docCreationListener1 = ActionListener.wrap(response -> {
+            assertEquals(modelId1, response.getId());
+            modelDao.delete(modelId1, deleteModelExistsListener);
+        }, exception -> fail("Unable to put the model: " + exception));
+
+        // We use put so that we can confirm cluster metadata gets added
+        modelDao.put(model1, docCreationListener1);
+
+        assertTrue(inProgressLatch3.await(100, TimeUnit.SECONDS));
+    }
+
+    public void testDeleteWithStepListeners() throws IOException, InterruptedException, ExecutionException {
+        String modelId = "test-model-id-delete";
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
+        byte[] modelBlob = "deleteModel".getBytes();
+        int dimension = 2;
+        createIndex(MODEL_INDEX_NAME);
+
         Model model = new Model(
             new ModelMetadata(
                 KNNEngine.DEFAULT,
@@ -525,15 +606,191 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             modelId
         );
 
-        ActionListener<IndexResponse> docCreationListener = ActionListener.wrap(response -> {
-            assertEquals(modelId, response.getId());
-            modelDao.delete(modelId, deleteModelExistsListener);
-        }, exception -> fail("Unable to put the model: " + exception));
+        // created model and added it to index
+        addDoc(model);
 
-        // We use put so that we can confirm cluster metadata gets added
-        modelDao.put(model, docCreationListener);
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
 
-        assertTrue(inProgressLatch2.await(100, TimeUnit.SECONDS));
+        StepListener<GetModelResponse> getModelStep = new StepListener<>();
+        StepListener<AcknowledgedResponse> blockModelIdStep = new StepListener<>();
+        StepListener<AcknowledgedResponse> clearModelMetadataStep = new StepListener<>();
+        StepListener<DeleteResponse> deleteModelFromIndexStep = new StepListener<>();
+        StepListener<RemoveModelFromCacheResponse> clearModelFromCacheStep = new StepListener<>();
+        StepListener<AcknowledgedResponse> unblockModelIdStep = new StepListener<>();
+
+        modelDao.get(modelId, ActionListener.wrap(getModelStep::onResponse, getModelStep::onFailure));
+
+        // Asserting that model is in CREATED state
+        getModelStep.whenComplete(getModelResponse -> {
+            assertEquals(model.getModelMetadata().getState(), getModelResponse.getModel().getModelMetadata().getState());
+            assertNotEquals(ModelState.TRAINING.getName(), getModelResponse.getModel().getModelMetadata().getState().toString());
+
+            client().execute(
+                UpdateBlockedModelAction.INSTANCE,
+                new UpdateBlockedModelRequest(modelId, false),
+                ActionListener.wrap(blockModelIdStep::onResponse, blockModelIdStep::onFailure)
+            );
+        }, exception -> fail(exception.getMessage()));
+
+        blockModelIdStep.whenComplete(acknowledgedResponse -> {
+            // Asserting that modelId is in blocked list
+            assertTrue(modelDao.isModelBlocked(modelId));
+
+            client().execute(
+                UpdateModelMetadataAction.INSTANCE,
+                new UpdateModelMetadataRequest(modelId, true, null),
+                ActionListener.wrap(clearModelMetadataStep::onResponse, clearModelMetadataStep::onFailure)
+            );
+
+        }, exception -> fail(exception.getMessage()));
+
+        DeleteRequestBuilder deleteRequestBuilder = new DeleteRequestBuilder(client(), DeleteAction.INSTANCE, MODEL_INDEX_NAME);
+        deleteRequestBuilder.setId(modelId);
+        deleteRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+
+        clearModelMetadataStep.whenComplete(acknowledgedResponse -> {
+            // Asserting that metadata is cleared
+            assertNull(modelDao.getMetadata(modelId));
+
+            deleteRequestBuilder.execute(ActionListener.wrap(deleteModelFromIndexStep::onResponse, deleteModelFromIndexStep::onFailure));
+
+        }, exception -> fail(exception.getMessage()));
+
+        deleteModelFromIndexStep.whenComplete(deleteResponse -> {
+            // Asserting that model is deleted from index
+            assertEquals(DocWriteResponse.Result.DELETED, deleteResponse.getResult());
+            client().execute(
+                RemoveModelFromCacheAction.INSTANCE,
+                new RemoveModelFromCacheRequest(modelId),
+                ActionListener.wrap(clearModelFromCacheStep::onResponse, clearModelFromCacheStep::onFailure)
+            );
+
+        }, exception -> fail(exception.getMessage()));
+
+        clearModelFromCacheStep.whenComplete(removeModelFromCacheResponse -> {
+            client().execute(
+                UpdateBlockedModelAction.INSTANCE,
+                new UpdateBlockedModelRequest(modelId, true),
+                ActionListener.wrap(unblockModelIdStep::onResponse, unblockModelIdStep::onFailure)
+            );
+        }, exception -> fail(exception.getMessage()));
+
+        unblockModelIdStep.whenComplete(acknowledgedResponse -> {
+            // Asserting that model is unblocked
+            assertFalse(modelDao.isModelBlocked(modelId));
+            inProgressLatch.countDown();
+        }, exception -> fail(exception.getMessage()));
+
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
+
+    public void testDeleteWithStepListenersOnFailure() throws IOException, InterruptedException, ExecutionException {
+        String modelId = "test-model-id-delete1";
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
+        byte[] modelBlob = "deleteModel".getBytes();
+        int dimension = 2;
+        createIndex(MODEL_INDEX_NAME);
+        Model model = new Model(
+            new ModelMetadata(
+                KNNEngine.DEFAULT,
+                SpaceType.DEFAULT,
+                dimension,
+                ModelState.CREATED,
+                ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
+                ""
+            ),
+            modelBlob,
+            modelId
+        );
+
+        addDoc(model);
+
+        // We will validate if the modelId gets unblocked when some exception occurs
+        // during the process of deletion after adding that modelId to blocked list
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+
+        StepListener<AcknowledgedResponse> blockModelIdStep = new StepListener<>();
+        StepListener<AcknowledgedResponse> clearModelMetadataStep = new StepListener<>();
+
+        // Add modelId to blocked list
+        client().execute(
+            UpdateBlockedModelAction.INSTANCE,
+            new UpdateBlockedModelRequest(modelId, false),
+            ActionListener.wrap(blockModelIdStep::onResponse, blockModelIdStep::onFailure)
+        );
+
+        // Asserting that the modelId is blocked
+        blockModelIdStep.whenComplete(acknowledgedResponse -> {
+            assertTrue(modelDao.isModelBlocked(modelId));
+
+            // Sending empty string for modelId to fail the clear model metadata request
+            client().execute(
+                UpdateModelMetadataAction.INSTANCE,
+                new UpdateModelMetadataRequest("", true, null),
+                ActionListener.wrap(clearModelMetadataStep::onResponse, exp -> {
+                    // Asserting that modelId is still blocked and clearModelMetadata throws an exception
+                    assertNotNull(exp.getMessage());
+                    assertTrue(modelDao.isModelBlocked(modelId));
+                    client().execute(
+                        // OnFailure sending request to unblock modelId
+                        UpdateBlockedModelAction.INSTANCE,
+                        new UpdateBlockedModelRequest(modelId, true),
+                        ActionListener.wrap(ackResponse -> {
+                            // Asserting that model is unblocked
+                            assertFalse(modelDao.isModelBlocked(modelId));
+                            assertNotNull(exp.getMessage());
+                        }, exception -> fail(exception.getMessage()))
+                    );
+                })
+            );
+            inProgressLatch.countDown();
+        }, exception -> fail(exception.getMessage()));
+
+        assertTrue(inProgressLatch.await(50, TimeUnit.SECONDS));
+
+        // Some exception occurs during the process of deletion and unblocking model request also fails
+        final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
+
+        StepListener<AcknowledgedResponse> blockModelIdStep1 = new StepListener<>();
+        StepListener<AcknowledgedResponse> clearModelMetadataStep1 = new StepListener<>();
+
+        // Add modelId to blocked list
+        client().execute(
+            UpdateBlockedModelAction.INSTANCE,
+            new UpdateBlockedModelRequest(modelId, false),
+            ActionListener.wrap(blockModelIdStep1::onResponse, blockModelIdStep1::onFailure)
+        );
+
+        // Asserting that the modelId is blocked
+        blockModelIdStep1.whenComplete(acknowledgedResponse -> {
+            assertTrue(modelDao.isModelBlocked(modelId));
+
+            // Sending empty string for modelId to fail the clear model metadata request
+            client().execute(
+                UpdateModelMetadataAction.INSTANCE,
+                new UpdateModelMetadataRequest("", true, null),
+                ActionListener.wrap(clearModelMetadataStep1::onResponse, exp -> {
+                    assertNotNull(exp.getMessage());
+                    assertTrue(modelDao.isModelBlocked(modelId));
+
+                    // Failing unblock modelId request by sending modelId as an empty string
+                    client().execute(
+                        UpdateBlockedModelAction.INSTANCE,
+                        new UpdateBlockedModelRequest("", true),
+                        ActionListener.wrap(ackResponse -> {}, unblockingFailedException -> {
+                            // Asserting that model is still blocked and returns both exceptions in response
+                            assertTrue(modelDao.isModelBlocked(modelId));
+                            assertNotNull(exp.getMessage());
+                            assertNotNull(unblockingFailedException.getMessage());
+                        })
+                    );
+                })
+            );
+            inProgressLatch1.countDown();
+        }, exception -> fail(exception.getMessage()));
+
+        assertTrue(inProgressLatch1.await(50, TimeUnit.SECONDS));
     }
 
     public void addDoc(Model model) throws IOException, ExecutionException, InterruptedException {
@@ -564,4 +821,5 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         IndexResponse response = client().index(indexRequest).get();
         assertTrue(response.status() == RestStatus.CREATED || response.status() == RestStatus.OK);
     }
+
 }

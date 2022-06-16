@@ -367,7 +367,6 @@ public interface ModelDao {
          *
          * @param modelId  to retrieve
          * @param actionListener handles get model response
-         * @throws IOException thrown on search
          */
         @Override
         public void get(String modelId, ActionListener<GetModelResponse> actionListener) {
