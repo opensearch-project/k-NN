@@ -12,7 +12,6 @@
 package org.opensearch.knn.plugin.action;
 
 import org.apache.http.util.EntityUtils;
-import org.opensearch.action.DocWriteResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.xcontent.XContentType;
@@ -28,8 +27,8 @@ import org.opensearch.rest.RestStatus;
 import java.io.IOException;
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.MODELS;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.MODELS;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 
 /**
@@ -57,7 +56,37 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
-        assertEquals(getDocCount(MODEL_INDEX_NAME), 0);
+        assertEquals(0, getDocCount(MODEL_INDEX_NAME));
+    }
+
+    public void testDeleteTrainingModel() throws IOException {
+        createModelSystemIndex();
+        String testModelID = "test-model-id";
+        byte[] testModelBlob = "hello".getBytes();
+        ModelMetadata testModelMetadata = getModelMetadata();
+        testModelMetadata.setState(ModelState.TRAINING);
+
+        addModelToSystemIndex(testModelID, testModelMetadata, testModelBlob);
+        assertEquals(1, getDocCount(MODEL_INDEX_NAME));
+
+        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, testModelID);
+        Request request = new Request("DELETE", restURI);
+
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        assertEquals(1, getDocCount(MODEL_INDEX_NAME));
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        assertNotNull(responseBody);
+
+        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+
+        assertEquals(testModelID, responseMap.get(MODEL_ID));
+        assertEquals("failed", responseMap.get(DeleteModelResponse.RESULT));
+
+        String errorMessage = String.format("Cannot delete model \"%s\". Model is still in training", testModelID);
+        assertEquals(errorMessage, responseMap.get(DeleteModelResponse.ERROR_MSG));
     }
 
     public void testDeleteModelFailsInvalid() throws IOException {
@@ -73,7 +102,8 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
 
         assertEquals("invalid-model-id", responseMap.get(MODEL_ID));
-        assertEquals(DocWriteResponse.Result.NOT_FOUND.getLowercase(), responseMap.get(DeleteModelResponse.RESULT));
+        assertEquals("failed", responseMap.get(DeleteModelResponse.RESULT));
         assertNotNull(responseMap.get(DeleteModelResponse.ERROR_MSG));
     }
+
 }

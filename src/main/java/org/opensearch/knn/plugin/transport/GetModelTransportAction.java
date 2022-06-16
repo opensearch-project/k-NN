@@ -20,8 +20,6 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
-import java.io.IOException;
-
 /**
  * Transport Action for {@link GetModelAction}
  */
@@ -38,10 +36,8 @@ public class GetModelTransportAction extends HandledTransportAction<GetModelRequ
     @Override
     protected void doExecute(Task task, GetModelRequest request, ActionListener<GetModelResponse> actionListener) {
         String modelID = request.getModelID();
-        try {
-            modelDao.get(modelID, actionListener);
-        } catch (IOException e) {
-            actionListener.onFailure(e);
-        }
+
+        modelDao.get(modelID, actionListener);
+
     }
 }

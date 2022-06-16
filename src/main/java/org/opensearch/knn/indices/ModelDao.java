@@ -20,6 +20,7 @@ import org.opensearch.action.ActionListener;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.DocWriteResponse;
 import org.opensearch.action.FailedNodeException;
+import org.opensearch.action.StepListener;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.delete.DeleteAction;
@@ -42,11 +43,14 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.plugin.BlockedModelIds;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheRequest;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheResponse;
+import org.opensearch.knn.plugin.transport.UpdateBlockedModelAction;
+import org.opensearch.knn.plugin.transport.UpdateBlockedModelRequest;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
 
@@ -122,9 +126,8 @@ public interface ModelDao {
      *
      * @param modelId to retrieve
      * @param listener  handles get model response
-     * @throws IOException   thrown on search
      */
-    void get(String modelId, ActionListener<GetModelResponse> listener) throws IOException;
+    void get(String modelId, ActionListener<GetModelResponse> listener);
 
     /**
      * searches model from the system index.  Non-blocking.
@@ -150,6 +153,14 @@ public interface ModelDao {
      * @param listener handles delete response
      */
     void delete(String modelId, ActionListener<DeleteModelResponse> listener);
+
+    /**
+     * Check if modelId is in blocked modelIds list. Non-blocking.
+     *
+     * @param modelId to retrieve
+     * @return true if modelId is in blocked list, otherwise return false
+     */
+    boolean isModelBlocked(String modelId);
 
     /**
      * Implementation of ModelDao for k-NN model index
@@ -359,7 +370,7 @@ public interface ModelDao {
          * @throws IOException thrown on search
          */
         @Override
-        public void get(String modelId, ActionListener<GetModelResponse> actionListener) throws IOException {
+        public void get(String modelId, ActionListener<GetModelResponse> actionListener) {
             /*
                 GET /<model_index>/<modelId>?_local
             */
@@ -427,6 +438,16 @@ public interface ModelDao {
             return Resources.toString(url, Charsets.UTF_8);
         }
 
+        // Check if the modelId is added to blocked list or not
+        public boolean isModelBlocked(String modelId) {
+            BlockedModelIds blockedModelIds = clusterService.state().metadata().custom(BlockedModelIds.TYPE);
+            if (blockedModelIds == null) {
+                return false;
+            }
+
+            return blockedModelIds.contains(modelId);
+        }
+
         @Override
         public void delete(String modelId, ActionListener<DeleteModelResponse> listener) {
             // If the index is not created, there is no need to delete the model
@@ -437,13 +458,69 @@ public interface ModelDao {
                 return;
             }
 
+            StepListener<GetModelResponse> getModelStep = new StepListener<>();
+            StepListener<AcknowledgedResponse> blockModelIdStep = new StepListener<>();
+            StepListener<AcknowledgedResponse> clearModelMetadataStep = new StepListener<>();
+            StepListener<DeleteResponse> deleteModelFromIndexStep = new StepListener<>();
+            StepListener<RemoveModelFromCacheResponse> clearModelFromCacheStep = new StepListener<>();
+            StepListener<AcknowledgedResponse> unblockModelIdStep = new StepListener<>();
+
+            // Get Model to check if model is in TRAINING
+            get(modelId, ActionListener.wrap(getModelStep::onResponse, exception -> {
+                if (exception instanceof ResourceNotFoundException) {
+                    listener.onResponse(new DeleteModelResponse(modelId, "failed", exception.getMessage()));
+                    return;
+                }
+                listener.onFailure(exception);
+            }));
+
+            getModelStep.whenComplete(getModelResponse -> {
+                // If model is in Training state, fail delete model request
+                if (ModelState.TRAINING.equals(getModelResponse.getModel().getModelMetadata().getState())) {
+                    logger.error("Cannot delete model \"" + modelId + "\". Model is still in training.");
+                    String errorMessage = String.format("Cannot delete model \"%s\". Model is still in training", modelId);
+                    listener.onResponse(new DeleteModelResponse(modelId, "failed", errorMessage));
+                    return;
+                }
+
+                // Add modelId to blocked list until delete model request is processed
+                client.execute(
+                    UpdateBlockedModelAction.INSTANCE,
+                    new UpdateBlockedModelRequest(modelId, false),
+                    ActionListener.wrap(blockModelIdStep::onResponse, blockModelIdStep::onFailure)
+                );
+
+            }, listener::onFailure);
+
+            // Remove the metadata asynchronously
+            blockModelIdStep.whenComplete(acknowledgedResponse -> {
+                client.execute(
+                    UpdateModelMetadataAction.INSTANCE,
+                    new UpdateModelMetadataRequest(modelId, true, null),
+                    ActionListener.wrap(
+                        clearModelMetadataStep::onResponse,
+                        exception -> unblockModelIdOnFailure(modelId, exception, clearModelMetadataStep)
+                    )
+                );
+            }, listener::onFailure);
+
             // Setup delete model request
             DeleteRequestBuilder deleteRequestBuilder = new DeleteRequestBuilder(client, DeleteAction.INSTANCE, MODEL_INDEX_NAME);
             deleteRequestBuilder.setId(modelId);
             deleteRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
-            // On model deletion from the index, remove the model from all nodes' model cache
-            ActionListener<DeleteResponse> onModelDeleteListener = ActionListener.wrap(deleteResponse -> {
+            // On model metadata removal, delete the model from the index
+            clearModelMetadataStep.whenComplete(
+                acknowledgedResponse -> deleteRequestBuilder.execute(
+                    ActionListener.wrap(
+                        deleteModelFromIndexStep::onResponse,
+                        exception -> unblockModelIdOnFailure(modelId, exception, deleteModelFromIndexStep)
+                    )
+                ),
+                listener::onFailure
+            );
+
+            deleteModelFromIndexStep.whenComplete(deleteResponse -> {
                 // If model is not deleted, return with error message
                 if (deleteResponse.getResult() != DocWriteResponse.Result.DELETED) {
                     String errorMessage = String.format("Model \" %s \" does not exist", modelId);
@@ -451,37 +528,51 @@ public interface ModelDao {
                     return;
                 }
 
-                // After model is deleted from the index, make sure the model is evicted from every cache in the
-                // cluster
+                // After model is deleted from the index, make sure the model is evicted from every cache in the cluster
                 client.execute(
                     RemoveModelFromCacheAction.INSTANCE,
                     new RemoveModelFromCacheRequest(modelId),
-                    ActionListener.wrap(removeModelFromCacheResponse -> {
-
-                        if (!removeModelFromCacheResponse.hasFailures()) {
-                            listener.onResponse(new DeleteModelResponse(modelId, deleteResponse.getResult().getLowercase(), null));
-                            return;
-                        }
-
-                        String failureMessage = buildRemoveModelErrorMessage(modelId, removeModelFromCacheResponse);
-
-                        listener.onResponse(new DeleteModelResponse(modelId, "failed", failureMessage));
-
-                    }, e -> listener.onResponse(new DeleteModelResponse(modelId, "failed", e.getMessage())))
+                    ActionListener.wrap(
+                        clearModelFromCacheStep::onResponse,
+                        exception -> unblockModelIdOnFailure(modelId, exception, clearModelFromCacheStep)
+                    )
                 );
             }, e -> listener.onResponse(new DeleteModelResponse(modelId, "failed", e.getMessage())));
 
-            // On model metadata removal, delete the model from the index
-            ActionListener<AcknowledgedResponse> onMetadataUpdateListener = ActionListener.wrap(
-                acknowledgedResponse -> deleteRequestBuilder.execute(onModelDeleteListener),
-                listener::onFailure
-            );
+            clearModelFromCacheStep.whenComplete(removeModelFromCacheResponse -> {
+                // After clearing the cache, if there are no errors remove modelId from blocked list
+                if (!removeModelFromCacheResponse.hasFailures()) {
+                    client.execute(
+                        UpdateBlockedModelAction.INSTANCE,
+                        new UpdateBlockedModelRequest(modelId, true),
+                        ActionListener.wrap(unblockModelIdStep::onResponse, unblockModelIdStep::onFailure)
+                    );
+                } else {
+                    String failureMessage = buildRemoveModelErrorMessage(modelId, removeModelFromCacheResponse);
+                    listener.onResponse(new DeleteModelResponse(modelId, "failed", failureMessage));
+                }
+            }, e -> listener.onResponse(new DeleteModelResponse(modelId, "failed", e.getMessage())));
 
-            // Remove the metadata asynchronously
+            // After unblocking modelId return the response
+            unblockModelIdStep.whenComplete(acknowledgedResponse -> {
+                listener.onResponse(new DeleteModelResponse(modelId, "deleted", null));
+                return;
+            }, listener::onFailure);
+        }
+
+        // This function helps to remove the model from blocked list when the delete request fails
+        // while executing after adding modelId to blocked list
+        private void unblockModelIdOnFailure(String modelId, Exception exceptionFromPreviousStep, StepListener<?> step) {
+            // If modelId is unblocked successfully, then we will just return the exception received from failed stepListener
+            // If unblocking modelId request fails, then we will return this exception along with the one received from failed stepListener
             client.execute(
-                UpdateModelMetadataAction.INSTANCE,
-                new UpdateModelMetadataRequest(modelId, true, null),
-                onMetadataUpdateListener
+                UpdateBlockedModelAction.INSTANCE,
+                new UpdateBlockedModelRequest(modelId, true),
+                ActionListener.wrap(acknowledgedResponse -> step.onFailure(exceptionFromPreviousStep), unblockingFailedException -> {
+                    String errorMsg = exceptionFromPreviousStep.getMessage();
+                    errorMsg = errorMsg + "\n" + unblockingFailedException.getMessage();
+                    step.onFailure(new Exception(errorMsg));
+                })
             );
         }
 
