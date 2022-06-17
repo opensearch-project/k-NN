@@ -186,6 +186,47 @@ public class TrainingModelRequestTests extends KNNTestCase {
         assertTrue(validationErrors.get(0).contains("already exists"));
     }
 
+    // Check that the validation produces an exception when we are
+    // training a model with modelId that is in blocked list
+    public void testValidation_blocked_modelId() {
+
+        // Setup the training request
+        String modelId = "test-model-id";
+        KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
+        when(knnMethodContext.validate()).thenReturn(null);
+        when(knnMethodContext.isTrainingRequired()).thenReturn(true);
+        int dimension = 10;
+        String trainingIndex = "test-training-index";
+        String trainingField = "test-training-field";
+
+        TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            null,
+            null
+        );
+
+        // Mock the model dao to return true to recognize that the modelId is blocked
+        ModelDao modelDao = mock(ModelDao.class);
+        when(modelDao.isModelBlocked(modelId)).thenReturn(true);
+
+        // This cluster service will result in no validation exceptions
+        ClusterService clusterService = getClusterServiceForValidReturns(trainingIndex, trainingField, dimension);
+
+        // Initialize static components with the mocks
+        TrainingModelRequest.initialize(modelDao, clusterService);
+
+        // Test that validation produces an error message that modelId is in blocked list
+        ActionRequestValidationException exception = trainingModelRequest.validate();
+        assertNotNull(exception);
+        List<String> validationErrors = exception.validationErrors();
+        assertEquals(1, validationErrors.size());
+        assertTrue(validationErrors.get(0).contains("in blocked list"));
+    }
+
     public void testValidation_invalid_invalidMethodContext() {
         // Check that validation produces exception when the method is invalid and does not require training
 

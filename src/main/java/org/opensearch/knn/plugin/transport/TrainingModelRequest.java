@@ -260,6 +260,19 @@ public class TrainingModelRequest extends ActionRequest {
             return exception;
         }
 
+        // Check if modelId is in blocked list
+        // ModelId is added to blocked list if that model is undergoing deletion
+        // and will be removed from blocked list after model is deleted
+        if (modelDao.isModelBlocked(modelId)) {
+            exception = new ActionRequestValidationException();
+            String errorMessage = String.format(
+                "\"%s\" is in blocked list. Cannot create a model with same modelID until that model is deleted",
+                modelId
+            );
+            exception.addValidationError(errorMessage);
+            return exception;
+        }
+
         // Confirm that the passed in knnMethodContext is valid and requires training
         ValidationException validationException = this.knnMethodContext.validate();
         if (validationException != null) {
