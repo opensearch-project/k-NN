@@ -747,7 +747,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             inProgressLatch.countDown();
         }, exception -> fail(exception.getMessage()));
 
-        assertTrue(inProgressLatch.await(50, TimeUnit.SECONDS));
+        assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
 
         // Some exception occurs during the process of deletion and unblocking model request also fails
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
@@ -790,7 +790,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             inProgressLatch1.countDown();
         }, exception -> fail(exception.getMessage()));
 
-        assertTrue(inProgressLatch1.await(50, TimeUnit.SECONDS));
+        assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
     }
 
     public void addDoc(Model model) throws IOException, ExecutionException, InterruptedException {

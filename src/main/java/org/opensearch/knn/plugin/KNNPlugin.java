@@ -321,20 +321,20 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
     }
 
     private static <T extends Metadata.Custom> void registerMetadataCustom(
-            List<NamedWriteableRegistry.Entry> entries,
-            String name,
-            Writeable.Reader<? extends T> reader,
-            Writeable.Reader<NamedDiff> diffReader
+        List<NamedWriteableRegistry.Entry> entries,
+        String name,
+        Writeable.Reader<? extends T> reader,
+        Writeable.Reader<NamedDiff> diffReader
     ) {
         registerCustom(entries, Metadata.Custom.class, name, reader, diffReader);
     }
 
     private static <T extends NamedWriteable> void registerCustom(
-            List<NamedWriteableRegistry.Entry> entries,
-            Class<T> category,
-            String name,
-            Writeable.Reader<? extends T> reader,
-            Writeable.Reader<NamedDiff> diffReader
+        List<NamedWriteableRegistry.Entry> entries,
+        Class<T> category,
+        String name,
+        Writeable.Reader<? extends T> reader,
+        Writeable.Reader<NamedDiff> diffReader
     ) {
         entries.add(new NamedWriteableRegistry.Entry(category, name, reader));
         entries.add(new NamedWriteableRegistry.Entry(NamedDiff.class, name, diffReader));
