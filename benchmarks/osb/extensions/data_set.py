@@ -61,7 +61,7 @@ class HDF5DataSet(DataSet):
 
     def __init__(self, dataset_path: str, context: Context):
         file = h5py.File(dataset_path)
-        self.data = cast(h5py.Dataset, file[self._parse_context(context)])
+        self.data = cast(h5py.Dataset, file[self.parse_context(context)])
         self.current = self.BEGINNING
 
     def read(self, chunk_size: int):
@@ -93,7 +93,7 @@ class HDF5DataSet(DataSet):
         self.current = self.BEGINNING
 
     @staticmethod
-    def _parse_context(context: Context) -> str:
+    def parse_context(context: Context) -> str:
         if context == Context.NEIGHBORS:
             return "neighbors"
 
@@ -175,6 +175,9 @@ class BigANNVectorDataSet(DataSet):
     def reset(self):
         self.file.seek(BigANNVectorDataSet.DATA_SET_HEADER_LENGTH)
         self.current = BigANNVectorDataSet.BEGINNING
+
+    def __del__(self):
+        self.file.close()
 
     @staticmethod
     def _get_data_size(file_name):
