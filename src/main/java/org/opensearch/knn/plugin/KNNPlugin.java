@@ -20,6 +20,7 @@ import org.opensearch.knn.index.KNNVectorFieldMapper;
 import org.opensearch.knn.index.KNNWeight;
 import org.opensearch.knn.index.codec.KNNCodecService;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.indices.ModelGraveyard;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.plugin.rest.RestDeleteModelHandler;
@@ -306,7 +307,7 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
     @Override
     public List<NamedWriteableRegistry.Entry> getNamedWriteables() {
         List<NamedWriteableRegistry.Entry> entries = new ArrayList<>();
-        registerMetadataCustom(entries, BlockedModelIds.TYPE, BlockedModelIds::new, BlockedModelIds::readDiffFrom);
+        registerMetadataCustom(entries, ModelGraveyard.TYPE, ModelGraveyard::new, ModelGraveyard::readDiffFrom);
         return entries;
     }
 
@@ -315,7 +316,7 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
         List<NamedXContentRegistry.Entry> entries = new ArrayList<>();
 
         entries.add(
-            new NamedXContentRegistry.Entry(Metadata.Custom.class, new ParseField(BlockedModelIds.TYPE), BlockedModelIds::fromXContent)
+            new NamedXContentRegistry.Entry(Metadata.Custom.class, new ParseField(ModelGraveyard.TYPE), ModelGraveyard::fromXContent)
         );
         return entries;
     }

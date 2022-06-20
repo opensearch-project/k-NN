@@ -187,7 +187,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
     }
 
     // Check that the validation produces an exception when we are
-    // training a model with modelId that is in blocked list
+    // training a model with modelId that is in blocked set
     public void testValidation_blocked_modelId() {
 
         // Setup the training request
@@ -211,7 +211,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
 
         // Mock the model dao to return true to recognize that the modelId is blocked
         ModelDao modelDao = mock(ModelDao.class);
-        when(modelDao.isModelBlocked(modelId)).thenReturn(true);
+        when(modelDao.isModelBlockedForDelete(modelId)).thenReturn(true);
 
         // This cluster service will result in no validation exceptions
         ClusterService clusterService = getClusterServiceForValidReturns(trainingIndex, trainingField, dimension);
@@ -219,12 +219,12 @@ public class TrainingModelRequestTests extends KNNTestCase {
         // Initialize static components with the mocks
         TrainingModelRequest.initialize(modelDao, clusterService);
 
-        // Test that validation produces an error message that modelId is in blocked list
+        // Test that validation produces an error message that modelId is blocked
         ActionRequestValidationException exception = trainingModelRequest.validate();
         assertNotNull(exception);
         List<String> validationErrors = exception.validationErrors();
         assertEquals(1, validationErrors.size());
-        assertTrue(validationErrors.get(0).contains("in blocked list"));
+        assertTrue(validationErrors.get(0).contains("is blocked"));
     }
 
     public void testValidation_invalid_invalidMethodContext() {

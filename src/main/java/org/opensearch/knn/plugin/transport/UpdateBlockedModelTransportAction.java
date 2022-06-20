@@ -5,8 +5,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.master.AcknowledgedResponse;
@@ -22,23 +21,22 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Priority;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.common.io.stream.StreamInput;
-import org.opensearch.knn.plugin.BlockedModelIds;
+import org.opensearch.knn.indices.ModelGraveyard;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import lombok.AllArgsConstructor;
 
 import static org.opensearch.knn.common.KNNConstants.PLUGIN_NAME;
 
 /**
- * Transport action used to update blocked modelIds list on the cluster manager node.
+ * Transport action used to update blocked modelIds (ModelGraveyard) on the cluster manager node.
  */
+@Log4j2
 public class UpdateBlockedModelTransportAction extends TransportMasterNodeAction<UpdateBlockedModelRequest, AcknowledgedResponse> {
-
-    public static Logger logger = LogManager.getLogger(UpdateBlockedModelTransportAction.class);
-
     private UpdateBlockedModelExecutor updateBlockedModelExecutor;
 
     @Inject
@@ -105,49 +103,46 @@ public class UpdateBlockedModelTransportAction extends TransportMasterNodeAction
     /**
      * UpdateBlockedModelTask is used to provide the executor with the information it needs to perform its task
      */
+    @AllArgsConstructor
     private static class UpdateBlockedModelTask {
-
         private String modelId;
         private boolean isRemoveRequest;
-
-        /**
-         * Constructor
-         *
-         * @param modelId id of model
-         * @param isRemoveRequest should this modelId be removed
-         */
-        UpdateBlockedModelTask(String modelId, boolean isRemoveRequest) {
-            this.modelId = modelId;
-            this.isRemoveRequest = isRemoveRequest;
-        }
     }
 
+    /**
+     * Updates the cluster state based on the UpdateBlockedModelTask
+     */
     private static class UpdateBlockedModelExecutor implements ClusterStateTaskExecutor<UpdateBlockedModelTask> {
+        /**
+         * @param clusterState ClusterState
+         * @param taskList contains the list of UpdateBlockedModelTask request parameters (modelId and isRemoveRequest)
+         * @return Represents the result of a batched execution of cluster state update tasks (UpdateBlockedModelTasks)
+         */
         @Override
-        public ClusterTasksResult<UpdateBlockedModelTask> execute(ClusterState clusterState, List<UpdateBlockedModelTask> list) {
+        public ClusterTasksResult<UpdateBlockedModelTask> execute(ClusterState clusterState, List<UpdateBlockedModelTask> taskList) {
 
-            BlockedModelIds immutableBlockedModelIds = clusterState.metadata().custom(BlockedModelIds.TYPE);
-            BlockedModelIds blockedModelIds;
+            // Check if the objects are not null and throw a customized NullPointerException
+            Objects.requireNonNull(clusterState, "Cluster state must not be null");
+            Objects.requireNonNull(clusterState.metadata(), "Cluster metadata must not be null");
+            ModelGraveyard modelGraveyard = clusterState.metadata().custom(ModelGraveyard.TYPE);
 
-            if (immutableBlockedModelIds == null) {
-                blockedModelIds = new BlockedModelIds(new ArrayList<>());
-            } else {
-                blockedModelIds = immutableBlockedModelIds;
+            if (modelGraveyard == null) {
+                modelGraveyard = new ModelGraveyard();
             }
 
-            for (UpdateBlockedModelTask task : list) {
+            for (UpdateBlockedModelTask task : taskList) {
                 if (task.isRemoveRequest) {
-                    blockedModelIds.remove(task.modelId);
-                } else {
-                    blockedModelIds.add(task.modelId);
+                    modelGraveyard.remove(task.modelId);
+                    continue;
                 }
+                modelGraveyard.add(task.modelId);
             }
 
             Metadata.Builder metaDataBuilder = Metadata.builder(clusterState.metadata());
-            metaDataBuilder.putCustom(BlockedModelIds.TYPE, blockedModelIds);
+            metaDataBuilder.putCustom(ModelGraveyard.TYPE, modelGraveyard);
 
             ClusterState updatedClusterState = ClusterState.builder(clusterState).metadata(metaDataBuilder).build();
-            return new ClusterTasksResult.Builder<UpdateBlockedModelTask>().successes(list).build(updatedClusterState);
+            return new ClusterTasksResult.Builder<UpdateBlockedModelTask>().successes(taskList).build(updatedClusterState);
         }
     }
 }

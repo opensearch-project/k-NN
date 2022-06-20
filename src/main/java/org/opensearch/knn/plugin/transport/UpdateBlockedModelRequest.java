@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import lombok.Getter;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.action.support.master.AcknowledgedRequest;
 import org.opensearch.common.io.stream.StreamInput;
@@ -19,8 +20,10 @@ import static org.opensearch.action.ValidateActions.addValidationError;
  */
 public class UpdateBlockedModelRequest extends AcknowledgedRequest<UpdateBlockedModelRequest> {
 
-    private String modelId;
-    private boolean isRemoveRequest;
+    @Getter
+    private final String modelId;
+    @Getter
+    private final boolean isRemoveRequest;
 
     /**
      * Constructor
@@ -55,24 +58,6 @@ public class UpdateBlockedModelRequest extends AcknowledgedRequest<UpdateBlocked
         }
 
         return validationException;
-    }
-
-    /**
-     * Getter for modelId
-     *
-     * @return modelId
-     */
-    public String getModelId() {
-        return modelId;
-    }
-
-    /**
-     * Getter for isRemoveRequest
-     *
-     * @return isRemoveRequest
-     */
-    public boolean isRemoveRequest() {
-        return isRemoveRequest;
     }
 
     @Override

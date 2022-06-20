@@ -260,13 +260,13 @@ public class TrainingModelRequest extends ActionRequest {
             return exception;
         }
 
-        // Check if modelId is in blocked list
-        // ModelId is added to blocked list if that model is undergoing deletion
-        // and will be removed from blocked list after model is deleted
-        if (modelDao.isModelBlocked(modelId)) {
+        // Check if modelId is in blocked model set
+        // ModelId is added to blocked set if that model is undergoing deletion
+        // and will be removed from blocked set after model is deleted
+        if (modelDao.isModelBlockedForDelete(modelId)) {
             exception = new ActionRequestValidationException();
             String errorMessage = String.format(
-                "\"%s\" is in blocked list. Cannot create a model with same modelID until that model is deleted",
+                "\"%s\" is blocked. Cannot create a model with same modelID until that model is deleted",
                 modelId
             );
             exception.addValidationError(errorMessage);

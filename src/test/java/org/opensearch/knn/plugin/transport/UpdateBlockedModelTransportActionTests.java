@@ -10,7 +10,7 @@ import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.knn.KNNSingleNodeTestCase;
-import org.opensearch.knn.plugin.BlockedModelIds;
+import org.opensearch.knn.indices.ModelGraveyard;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
@@ -44,7 +44,7 @@ public class UpdateBlockedModelTransportActionTests extends KNNSingleNodeTestCas
         UpdateBlockedModelTransportAction updateBlockedModelTransportAction = node().injector()
             .getInstance(UpdateBlockedModelTransportAction.class);
 
-        // Generate update request to add modelId to blocked list
+        // Generate update request to add modelId to blocked set (ModelGraveyard)
         UpdateBlockedModelRequest addBlockedModelRequest = new UpdateBlockedModelRequest(modelId, false);
 
         // Get cluster state, update metadata, check cluster state - all asynchronously
@@ -59,11 +59,11 @@ public class UpdateBlockedModelTransportActionTests extends KNNSingleNodeTestCas
 
                     client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse2 -> {
                         ClusterState updatedClusterState = stateResponse2.getState();
-                        BlockedModelIds blockedModelIds = updatedClusterState.metadata().custom(BlockedModelIds.TYPE);
+                        ModelGraveyard modelGraveyard = updatedClusterState.metadata().custom(ModelGraveyard.TYPE);
 
-                        assertNotNull(blockedModelIds);
-                        assertEquals(1, blockedModelIds.size());
-                        assertTrue(blockedModelIds.contains(modelId));
+                        assertNotNull(modelGraveyard);
+                        assertEquals(1, modelGraveyard.size());
+                        assertTrue(modelGraveyard.contains(modelId));
 
                         inProgressLatch1.countDown();
 
@@ -74,7 +74,7 @@ public class UpdateBlockedModelTransportActionTests extends KNNSingleNodeTestCas
 
         assertTrue(inProgressLatch1.await(60, TimeUnit.SECONDS));
 
-        // Generate remove request to remove the modelId from blocked list
+        // Generate remove request to remove the modelId from blocked set (ModelGraveyard)
         UpdateBlockedModelRequest removeBlockedModelRequest = new UpdateBlockedModelRequest(modelId, true);
 
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
@@ -88,11 +88,11 @@ public class UpdateBlockedModelTransportActionTests extends KNNSingleNodeTestCas
 
                     client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse2 -> {
                         ClusterState updatedClusterState = stateResponse2.getState();
-                        BlockedModelIds blockedModelIds = updatedClusterState.metadata().custom(BlockedModelIds.TYPE);
+                        ModelGraveyard modelGraveyard = updatedClusterState.metadata().custom(ModelGraveyard.TYPE);
 
-                        assertNotNull(blockedModelIds);
-                        assertEquals(0, blockedModelIds.size());
-                        assertFalse(blockedModelIds.contains(modelId));
+                        assertNotNull(modelGraveyard);
+                        assertEquals(0, modelGraveyard.size());
+                        assertFalse(modelGraveyard.contains(modelId));
 
                         inProgressLatch2.countDown();
                     }, e -> fail("Update failed")));
