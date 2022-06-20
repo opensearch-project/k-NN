@@ -3,6 +3,7 @@
 # The OpenSearch Contributors require contributions made to
 # this file be licensed under the Apache-2.0 license or a
 # compatible open source license.
+
 import os
 import random
 import shutil
@@ -25,6 +26,9 @@ DEFAULT_INDEX_NAME = "test-index"
 DEFAULT_FIELD_NAME = "test-field"
 DEFAULT_CONTEXT = Context.INDEX
 DEFAULT_TYPE = HDF5DataSet.FORMAT_NAME
+DEFAULT_NUM_VECTORS = 10
+DEFAULT_DIMENSION = 10
+DEFAULT_RANDOM_STRING_LENGTH = 8
 
 
 class VectorsFromDataSetParamSourceTestCase(unittest.TestCase):
@@ -34,8 +38,8 @@ class VectorsFromDataSetParamSourceTestCase(unittest.TestCase):
 
         # Create a data set we know to be valid for convenience
         self.valid_data_set_path = _create_data_set(
-            10,
-            10,
+            DEFAULT_NUM_VECTORS,
+            DEFAULT_DIMENSION,
             DEFAULT_TYPE,
             DEFAULT_CONTEXT,
             self.data_set_dir
@@ -86,10 +90,11 @@ class VectorsFromDataSetParamSourceTestCase(unittest.TestCase):
         )
 
     def test_partition_hdf5(self):
+        num_vectors = 100
 
         hdf5_data_set_path = _create_data_set(
-            100,
-            10,
+            num_vectors,
+            DEFAULT_DIMENSION,
             HDF5DataSet.FORMAT_NAME,
             DEFAULT_CONTEXT,
             self.data_set_dir
@@ -116,11 +121,13 @@ class VectorsFromDataSetParamSourceTestCase(unittest.TestCase):
         )
 
     def test_partition_bigann(self):
+        num_vectors = 100
+        float_extension = "fbin"
 
         bigann_data_set_path = _create_data_set(
-            100,
-            10,
-            "fbin",
+            num_vectors,
+            DEFAULT_DIMENSION,
+            float_extension,
             DEFAULT_CONTEXT,
             self.data_set_dir
         )
@@ -176,13 +183,10 @@ class QueryVectorsFromDataSetParamSourceTestCase(unittest.TestCase):
 
     def test_params(self):
         # Create a data set
-        num_vectors = 10
-        dimension = 10
         k = 12
-
         data_set_path = _create_data_set(
-            num_vectors,
-            dimension,
+            DEFAULT_NUM_VECTORS,
+            DEFAULT_DIMENSION,
             DEFAULT_TYPE,
             Context.QUERY,
             self.data_set_dir
@@ -201,12 +205,12 @@ class QueryVectorsFromDataSetParamSourceTestCase(unittest.TestCase):
         )
 
         # Check each
-        for i in range(num_vectors):
+        for i in range(DEFAULT_NUM_VECTORS):
             self._check_params(
                 query_param_source.params(),
                 DEFAULT_INDEX_NAME,
                 DEFAULT_FIELD_NAME,
-                dimension,
+                DEFAULT_DIMENSION,
                 k
             )
 
@@ -252,10 +256,9 @@ class BulkVectorsFromDataSetParamSourceTestCase(unittest.TestCase):
     def test_params(self):
         num_vectors = 49
         bulk_size = 10
-        dimension = 10
         data_set_path = _create_data_set(
             num_vectors,
-            dimension,
+            DEFAULT_DIMENSION,
             DEFAULT_TYPE,
             Context.INDEX,
             self.data_set_dir
@@ -280,7 +283,7 @@ class BulkVectorsFromDataSetParamSourceTestCase(unittest.TestCase):
                 bulk_param_source.params(),
                 DEFAULT_INDEX_NAME,
                 DEFAULT_FIELD_NAME,
-                dimension,
+                DEFAULT_DIMENSION,
                 expected_num_vectors
             )
             vectors_consumed += expected_num_vectors
@@ -326,8 +329,9 @@ def _create_data_set(
         data_set_context: Context,
         data_set_dir
 ) -> str:
+
     file_name_base = ''.join(random.choice(string.ascii_letters) for _ in
-                             range(8))
+                             range(DEFAULT_RANDOM_STRING_LENGTH))
     data_set_file_name = "{}.{}".format(file_name_base, extension)
     data_set_path = os.path.join(data_set_dir, data_set_file_name)
     context = DataSetBuildContext(

@@ -3,7 +3,6 @@
 # The OpenSearch Contributors require contributions made to
 # this file be licensed under the Apache-2.0 license or a
 # compatible open source license.
-
 from opensearchpy.exceptions import ConnectionTimeout
 from .util import parse_int_parameter, parse_string_parameter
 import logging

@@ -134,16 +134,48 @@ class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
             self.vector_batch = self._batch_read(self.data_set)
             if self.vector_batch is None:
                 raise StopIteration
-
         vector = self.vector_batch.pop(0)
         self.current += 1
         self.percent_completed = self.current / self.total
 
-        return _build_query_body(self.index_name, self.field_name, self.k,
-                                 vector)
+        return self._build_query_body(self.index_name, self.field_name, self.k,
+                                      vector)
 
     def _batch_read(self, data_set: DataSet):
-        return data_set.read(self.VECTOR_READ_BATCH_SIZE).tolist()
+        return list(data_set.read(self.VECTOR_READ_BATCH_SIZE))
+
+    def _build_query_body(self, index_name: str, field_name: str, k: int,
+                          vector) -> dict:
+        """Builds a k-NN query that can be used to execute an approximate nearest
+        neighbor search against a k-NN plugin index
+        Args:
+            index_name: name of index to search
+            field_name: name of field to search
+            k: number of results to return
+            vector: vector used for query
+        Returns:
+            A dictionary containing the body used for search, a set of request
+            parameters to attach to the search and the name of the index.
+        """
+        return {
+            "index": index_name,
+            "request-params": {
+                "_source": {
+                    "exclude": [field_name]
+                }
+            },
+            "body": {
+                "size": k,
+                "query": {
+                    "knn": {
+                        field_name: {
+                            "vector": vector,
+                            "k": k
+                        }
+                    }
+                }
+            }
+        }
 
 
 class BulkVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
@@ -153,10 +185,14 @@ class BulkVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
         bulk_size: number of vectors per request
         retries: number of times to retry the request when it fails
     """
+
+    DEFAULT_RETRIES = 10
+
     def __init__(self, workload, params, **kwargs):
         super().__init__(params, Context.INDEX)
         self.bulk_size: int = parse_int_parameter("bulk_size", params)
-        self.retries: int = parse_int_parameter("retries", params, 10)
+        self.retries: int = parse_int_parameter("retries", params,
+                                                self.DEFAULT_RETRIES)
 
     def params(self):
         """
@@ -179,36 +215,3 @@ class BulkVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
             "retries": self.retries,
             "size": size
         }
-
-
-def _build_query_body(index_name: str, field_name: str, k: int, vector) -> dict:
-    """Builds a k-NN query that can be used to execute an approximate nearest
-    neighbor search against a k-NN plugin index
-    Args:
-        index_name: name of index to search
-        field_name: name of field to search
-        k: number of results to return
-        vector: vector used for query
-    Returns:
-        A dictionary containing the body used for search, a set of request
-        parameters to attach to the search and the name of the index.
-    """
-    return {
-        "index": index_name,
-        "request-params": {
-            "_source": {
-                "exclude": [field_name]
-            }
-        },
-        "body": {
-            "size": k,
-            "query": {
-                "knn": {
-                    field_name: {
-                        "vector": vector,
-                        "k": k
-                    }
-                }
-            }
-        }
-    }
