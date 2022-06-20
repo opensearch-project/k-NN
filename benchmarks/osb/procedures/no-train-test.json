@@ -48,21 +48,6 @@
         },
         {
             "operation": {
-                "name": "knn-query-from-random",
-                "operation-type": "search",
-                "index": "{{ target_index_name }}",
-                "param-source": "knn-query-from-random",
-                "k": {{ query_k }},
-                "dimension": {{ target_index_dimension }},
-                "field": "{{ target_field_name }}"
-            },
-            "clients": {{ query_clients }},
-            "iterations": {{ queries_per_client }},
-            "warmup-iterations": {{ query_warmup_iterations }},
-            "target-throughput": {{ query_target_throughput }}
-        },
-        {
-            "operation": {
                 "name": "knn-query-from-data-set",
                 "operation-type": "search",
                 "index": "{{ target_index_name }}",

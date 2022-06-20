@@ -4,7 +4,6 @@
 # this file be licensed under the Apache-2.0 license or a
 # compatible open source license.
 import copy
-import random
 from abc import ABC, abstractmethod
 
 from .data_set import Context, HDF5DataSet, DataSet, BigANNVectorDataSet
@@ -19,10 +18,6 @@ def register(registry):
 
     registry.register_param_source(
         "knn-query-from-data-set", QueryVectorsFromDataSetParamSource
-    )
-
-    registry.register_param_source(
-        "knn-query-from-random", RandomQuerySource
     )
 
 
@@ -111,35 +106,6 @@ class VectorsFromDataSetParamSource(ABC):
         pass
 
 
-class RandomQuerySource:
-    """ Query parameter source for k-NN. Queries are randomly generated. Can be
-    configured.
-
-    Attributes:
-        index_name: Name of the index to generate the query for
-        field_name: Name of the field to generate the query for
-        k: The number of results to return for the search
-        dimension: Dimension of vectors to produce
-    """
-
-    def __init__(self, workload, params, **kwargs):
-        self.index_name = parse_string_parameter("index", params)
-        self.field_name = parse_string_parameter("field", params)
-        self.k = parse_int_parameter("k", params)
-        self.dimension = parse_int_parameter("dimension", params)
-
-    def partition(self, partition_index, total_partitions):
-        return self
-
-    def params(self):
-        """
-        Returns: A query parameter with a randomly generated vector
-        """
-        vector = [random.random() for _ in range(self.dimension)]
-        return _build_query_body(self.index_name, self.field_name, self.k,
-                                 vector)
-
-
 class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
     """ Query parameter source for k-NN. Queries are created from data set
     provided.
@@ -177,7 +143,7 @@ class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
                                  vector)
 
     def _batch_read(self, data_set: DataSet):
-        return data_set.read(self.VECTOR_READ_BATCH_SIZE)
+        return data_set.read(self.VECTOR_READ_BATCH_SIZE).tolist()
 
 
 class BulkVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):

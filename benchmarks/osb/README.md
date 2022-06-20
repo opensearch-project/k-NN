@@ -62,8 +62,7 @@ Before running a benchmark, make sure you have the endpoint of your cluster and
 Currently, we support 2 test procedures for the k-NN workload: train-test and 
 no-train-test. The train test has steps to train a model included in the 
 schedule, while no train does not. Both test procedures will index a data set 
-of vectors into an OpenSearch index and then run a random query workload 
-against them. 
+of vectors into an OpenSearch index and then run a set of queries against them. 
 
 Once you have decided which test procedure you want to use, open up 
 [params/train-params.json](params/train-params.json) or 
@@ -103,8 +102,7 @@ use an algorithm that requires training.
 3. Wait for cluster to be green
 4. Ingest data set into the cluster
 5. Refresh the index
-6. Run random queries against the cluster
-7. Run queries from data set against the cluster
+6Run queries from data set against the cluster
 
 #### Parameters
 
@@ -223,8 +221,7 @@ algorithm that requires training.
 7. Create an OpenSearch index with `knn_vector` configured to use the model
 8. Ingest vectors into the target index
 9. Refresh the target index
-10. Run random queries against the cluster
-11. Run queries from data set against the cluster
+10. Run queries from data set against the cluster
 
 #### Parameters
 
@@ -405,7 +402,6 @@ Custom parameter sources are defined in [extensions/param_sources.py](extensions
 |-------------------------|------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | bulk-from-data-set      | Provides bulk payloads containing vectors from a data set for indexing | 1. data_set_format - (hdf5, bigann)<br/>2. data_set_path - path to data set<br/>3. index - name of index for bulk ingestion<br/> 4. field - field to place vector in <br/> 5. bulk_size - vectors per bulk request<br/> 6. num_vectors - number of vectors to use from the data set. Defaults to the whole data set.                                      |
 | knn-query-from-data-set | Provides a query generated from a data set                             | 1. data_set_format - (hdf5, bigann)<br/>2. data_set_path - path to data set<br/>3. index - name of index to query against<br/>4. field - field to to query against<br/>5. k - number of results to return<br/>6. dimension - size of vectors to produce<br/> 7. num_vectors - number of vectors to use from the data set. Defaults to the whole data set. |
-| knn-query-from-random   | Provides a randomly generated query                                    | 1. index - name of index to search against<br/>2. field - name of field to search against<br/>3. k - number of results to return<br/> 4. dimension - size of vectors to produce                                                                                                                                                                           |
 
 
 ### Custom Runners
@@ -418,3 +414,18 @@ Custom runners are defined in [extensions/runners.py](extensions/runners.py).
 | custom-refresh     | Run refresh with retry capabilities.                | 1. index - name of index to refresh<br/> 2. retries - number of times to retry the operation                 |
 | train-model        | Trains a model.                                     | 1. body - model definition<br/> 2. timeout - time to wait for model to finish<br/> 3. model_id - ID of model |
 | delete-model       | Deletes a model if it exists.                       | 1. model_id - ID of model                                                                                    |
+
+### Testing
+
+We have a set of unit tests for our extensions in 
+[tests](tests). To run all the tests, run the following 
+command:
+
+```commandline
+python -m unittest discover ./tests
+```
+
+To run an individual test:
+```commandline
+python -m unittest tests.test_param_sources.VectorsFromDataSetParamSourceTestCase.test_partition_hdf5
+```
