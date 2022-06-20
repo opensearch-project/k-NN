@@ -13,6 +13,8 @@ import tempfile
 import unittest
 
 # Add parent directory to path
+import numpy as np
+
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
 
 from osb.tests.data_set_helper import HDF5Builder, create_random_2d_array, \
@@ -239,8 +241,8 @@ class QueryVectorsFromDataSetParamSourceTestCase(unittest.TestCase):
         field = query_knn.get(expected_field)
         self.assertIsInstance(field, dict)
         vector = field.get("vector")
-        self.assertIsInstance(vector, list)
-        self.assertEqual(len(vector), expected_dimension)
+        self.assertIsInstance(vector, np.ndarray)
+        self.assertEqual(len(list(vector)), expected_dimension)
         k = field.get("k")
         self.assertEqual(k, expected_k)
 
