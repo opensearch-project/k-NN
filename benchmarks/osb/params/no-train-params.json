@@ -14,7 +14,10 @@
   "hnsw_ef_construction": 512,
   "hnsw_m": 16,
 
-
+  "query_k": 10,
+  "query_clients": 10,
+  "query_data_set_format": "hdf5",
+  "query_data_set_path": "<path to data>",
 
   "ivf_nlists": 1,
   "ivf_nprobes": 1,

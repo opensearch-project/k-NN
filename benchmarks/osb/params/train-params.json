@@ -27,5 +27,10 @@
   "train_index_data_set_format": "hdf5",
   "train_index_data_set_path": "<path to data>",
   "train_index_num_vectors": 1000000,
-  "train_index_bulk_index_clients": 10
+  "train_index_bulk_index_clients": 10,
+
+  "query_k": 10,
+  "query_clients": 10,
+  "query_data_set_format": "hdf5",
+  "query_data_set_path": "<path to data>"
 }
