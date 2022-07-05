@@ -9,7 +9,7 @@ import org.opensearch.gradle.test.RestIntegTestTask
 
 buildscript {
     ext {
-        opensearch_version = System.getProperty("opensearch.version", "1.3.3-SNAPSHOT")
+        opensearch_version = project.property('opensearch.version')
         knn_bwc_version = System.getProperty("bwc.version", "1.2.0.0-SNAPSHOT")
         opensearch_bwc_version = "${knn_bwc_version}" - ".0-SNAPSHOT"
         opensearch_group = "org.opensearch"
@@ -63,7 +63,7 @@ if (!usingRemoteCluster) {
 }
 
 ext {
-    isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+    isSnapshot = project.property('build.snapshot')
     projectSubstitutions = [:]
     licenseFile = rootProject.file('LICENSE.TXT')
     noticeFile = rootProject.file('NOTICE.TXT')
@@ -221,6 +221,28 @@ task integTestRemote(type: RestIntegTestTask) {
         filter {
             includeTestsMatching "org.opensearch.knn.*IT"
             excludeTestsMatching "org.opensearch.knn.bwc.*IT"
+        }
+    }
+}
+
+task versionIncrement {
+    final String workingDir = project.buildDir.toString() + "/../"
+    if(project.hasProperty('newVersion')) {
+         println 'Set Project to new Version '+newVersion.tokenize('-')[0]
+        ant.replaceregexp(match: opensearch_version.tokenize('-')[0], replace: newVersion.tokenize('-')[0], flags:'g', byline:true) {
+            fileset(dir: workingDir) {
+                include(name: "jni/CMakeLists.txt")
+                include(name: "build.gradle")
+            }
+        }
+    }
+}
+
+task setVersion(dependsOn: versionIncrement) {
+    if(project.hasProperty('newVersion')) {
+        ant.propertyfile(
+            file: "gradle.properties") {
+            entry( key: "opensearch.version", value: "${newVersion}")
         }
     }
 }
