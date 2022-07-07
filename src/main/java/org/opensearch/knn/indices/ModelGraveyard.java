@@ -103,6 +103,13 @@ public class ModelGraveyard implements Metadata.Custom {
     }
 
     /**
+     * @return Set of modelIds in modelGraveyard
+     */
+    public Set<String> getModelGraveyard() {
+        return modelGraveyard;
+    }
+
+    /**
      * @return number of modelIds in modelGraveyard set
      */
     public int size() {
@@ -149,7 +156,7 @@ public class ModelGraveyard implements Metadata.Custom {
      * and returns only the diff of those 2 objects. So that, whenever there is a change in cluster state, master node only
      * sends the diff to all the data nodes instead of the full cluster state
      */
-    static class ModelGraveyardDiff implements NamedDiff<Metadata.Custom> {
+    public static class ModelGraveyardDiff implements NamedDiff<Metadata.Custom> {
         private final Set<String> added;
         private final Set<String> removed;
 

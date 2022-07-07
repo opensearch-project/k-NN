@@ -26,8 +26,11 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+
 import lombok.AllArgsConstructor;
 
 import static org.opensearch.knn.common.KNNConstants.PLUGIN_NAME;
@@ -124,10 +127,17 @@ public class UpdateBlockedModelTransportAction extends TransportMasterNodeAction
             // Check if the objects are not null and throw a customized NullPointerException
             Objects.requireNonNull(clusterState, "Cluster state must not be null");
             Objects.requireNonNull(clusterState.metadata(), "Cluster metadata must not be null");
-            ModelGraveyard modelGraveyard = clusterState.metadata().custom(ModelGraveyard.TYPE);
+            ModelGraveyard immutableModelGraveyard = clusterState.metadata().custom(ModelGraveyard.TYPE);
+            ModelGraveyard modelGraveyard;
+            Set<String> copySet;
 
-            if (modelGraveyard == null) {
+            if (immutableModelGraveyard == null) {
                 modelGraveyard = new ModelGraveyard();
+            } else {
+                // Deep Copy to copy all the modelIds in ModelGraveyard to local object
+                // to avoid copying the reference
+                copySet = new HashSet<>(immutableModelGraveyard.getModelGraveyard());
+                modelGraveyard = new ModelGraveyard(copySet);
             }
 
             for (UpdateBlockedModelTask task : taskList) {

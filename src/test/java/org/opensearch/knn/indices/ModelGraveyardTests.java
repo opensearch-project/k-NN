@@ -96,9 +96,8 @@ public class ModelGraveyardTests extends OpenSearchTestCase {
         ModelGraveyard modelGraveyard2 = new ModelGraveyard(modelIds);
 
         ModelGraveyard.ModelGraveyardDiff diff1 = new ModelGraveyard.ModelGraveyardDiff(modelGraveyard1, modelGraveyard2);
-        Set<String> added1 = diff1.getAdded();
         assertEquals(0, diff1.getRemoved().size());
-        assertEquals(2, added1.size());
+        assertEquals(2, diff1.getAdded().size());
 
         ModelGraveyard updatedGraveyard1 = diff1.apply(modelGraveyard1);
         assertEquals(2, updatedGraveyard1.size());
@@ -108,9 +107,8 @@ public class ModelGraveyardTests extends OpenSearchTestCase {
         // nothing will have been added to current object, and all entries in previous object are removed
         ModelGraveyard modelGraveyard3 = new ModelGraveyard();
         ModelGraveyard.ModelGraveyardDiff diff2 = new ModelGraveyard.ModelGraveyardDiff(modelGraveyard2, modelGraveyard3);
-        Set<String> added2 = diff2.getAdded();
         assertEquals(2, diff2.getRemoved().size());
-        assertEquals(0, added2.size());
+        assertEquals(0, diff2.getAdded().size());
 
         ModelGraveyard updatedGraveyard2 = diff2.apply(modelGraveyard2);
         assertEquals(0, updatedGraveyard2.size());
@@ -123,9 +121,8 @@ public class ModelGraveyardTests extends OpenSearchTestCase {
         ModelGraveyard modelGraveyard4 = new ModelGraveyard(modelIds);
 
         ModelGraveyard.ModelGraveyardDiff diff3 = new ModelGraveyard.ModelGraveyardDiff(modelGraveyard2, modelGraveyard4);
-        Set<String> added3 = diff3.getAdded();
         assertEquals(1, diff3.getRemoved().size());
-        assertEquals(2, added3.size());
+        assertEquals(2, diff3.getAdded().size());
 
         ModelGraveyard updatedGraveyard3 = diff3.apply(modelGraveyard2);
         assertEquals(3, updatedGraveyard3.size());
