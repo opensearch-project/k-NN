@@ -74,10 +74,53 @@ public class UpdateBlockedModelTransportActionTests extends KNNSingleNodeTestCas
 
         assertTrue(inProgressLatch1.await(60, TimeUnit.SECONDS));
 
+        String modelId1 = "test-model-id-1";
+        // Generate update request to add modelId1 to blocked set (ModelGraveyard)
+        UpdateBlockedModelRequest addBlockedModelRequest1 = new UpdateBlockedModelRequest(modelId1, false);
+
+        final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
+        client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
+            ClusterState clusterState1 = stateResponse1.getState();
+            updateBlockedModelTransportAction.masterOperation(
+                addBlockedModelRequest1,
+                clusterState1,
+                ActionListener.wrap(acknowledgedResponse -> {
+                    assertTrue(acknowledgedResponse.isAcknowledged());
+
+                    client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse2 -> {
+                        ClusterState updatedClusterState = stateResponse2.getState();
+                        ModelGraveyard modelGraveyard = updatedClusterState.metadata().custom(ModelGraveyard.TYPE);
+
+                        assertNotNull(modelGraveyard);
+                        assertEquals(2, modelGraveyard.size());
+                        assertTrue(modelGraveyard.contains(modelId1));
+
+                        ModelGraveyard modelGraveyardPrev = clusterState1.metadata().custom(ModelGraveyard.TYPE);
+                        assertFalse(modelGraveyardPrev.contains(modelId1));
+
+                        // Assertions to validate ModelGraveyard Diff
+                        ModelGraveyard.ModelGraveyardDiff diff = new ModelGraveyard.ModelGraveyardDiff(modelGraveyardPrev, modelGraveyard);
+                        assertEquals(0, diff.getRemoved().size());
+                        assertEquals(1, diff.getAdded().size());
+                        assertTrue(diff.getAdded().contains(modelId1));
+
+                        ModelGraveyard updatedModelGraveyard = diff.apply(modelGraveyardPrev);
+                        assertEquals(2, updatedModelGraveyard.size());
+                        assertTrue(updatedModelGraveyard.contains(modelId));
+                        assertTrue(updatedModelGraveyard.contains(modelId1));
+
+                        inProgressLatch2.countDown();
+                    }, e -> fail("Update failed")));
+                }, e -> fail("Update failed"))
+            );
+        }, e -> fail("Update failed")));
+
+        assertTrue(inProgressLatch2.await(60, TimeUnit.SECONDS));
+
         // Generate remove request to remove the modelId from blocked set (ModelGraveyard)
         UpdateBlockedModelRequest removeBlockedModelRequest = new UpdateBlockedModelRequest(modelId, true);
 
-        final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
+        final CountDownLatch inProgressLatch3 = new CountDownLatch(1);
         client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
             ClusterState clusterState1 = stateResponse1.getState();
             updateBlockedModelTransportAction.masterOperation(
@@ -91,16 +134,30 @@ public class UpdateBlockedModelTransportActionTests extends KNNSingleNodeTestCas
                         ModelGraveyard modelGraveyard = updatedClusterState.metadata().custom(ModelGraveyard.TYPE);
 
                         assertNotNull(modelGraveyard);
-                        assertEquals(0, modelGraveyard.size());
+                        assertEquals(1, modelGraveyard.size());
                         assertFalse(modelGraveyard.contains(modelId));
 
-                        inProgressLatch2.countDown();
+                        ModelGraveyard modelGraveyardPrev = clusterState1.metadata().custom(ModelGraveyard.TYPE);
+                        assertTrue(modelGraveyardPrev.contains(modelId));
+
+                        // Assertions to validate ModelGraveyard Diff
+                        ModelGraveyard.ModelGraveyardDiff diff = new ModelGraveyard.ModelGraveyardDiff(modelGraveyardPrev, modelGraveyard);
+                        assertEquals(1, diff.getRemoved().size());
+                        assertEquals(0, diff.getAdded().size());
+                        assertTrue(diff.getRemoved().contains(modelId));
+
+                        ModelGraveyard updatedModelGraveyard = diff.apply(modelGraveyardPrev);
+                        assertEquals(1, updatedModelGraveyard.size());
+                        assertFalse(updatedModelGraveyard.contains(modelId));
+                        assertTrue(updatedModelGraveyard.contains(modelId1));
+
+                        inProgressLatch3.countDown();
                     }, e -> fail("Update failed")));
                 }, e -> fail("Update failed"))
             );
         }, e -> fail("Update failed")));
 
-        assertTrue(inProgressLatch2.await(60, TimeUnit.SECONDS));
+        assertTrue(inProgressLatch3.await(60, TimeUnit.SECONDS));
     }
 
     public void testCheckBlock() {
