@@ -19,7 +19,7 @@ public class KNNEngineTests extends KNNTestCase {
      * Get latest build version from library
      */
     public void testDelegateLibraryFunctions() {
-        assertEquals(KNNLibrary.Nmslib.INSTANCE.getLatestLibVersion(), KNNEngine.NMSLIB.getLatestLibVersion());
+        assertEquals(Nmslib.INSTANCE.getLatestLibVersion(), KNNEngine.NMSLIB.getLatestLibVersion());
     }
 
     /**
@@ -38,9 +38,9 @@ public class KNNEngineTests extends KNNTestCase {
     }
 
     public void testGetEngineFromPath() {
-        String hnswPath1 = "test" + KNNLibrary.Nmslib.EXTENSION;
+        String hnswPath1 = "test" + Nmslib.EXTENSION;
         assertEquals(KNNEngine.NMSLIB, KNNEngine.getEngineNameFromPath(hnswPath1));
-        String hnswPath2 = "test" + KNNLibrary.Nmslib.EXTENSION + KNNConstants.COMPOUND_EXTENSION;
+        String hnswPath2 = "test" + Nmslib.EXTENSION + KNNConstants.COMPOUND_EXTENSION;
         assertEquals(KNNEngine.NMSLIB, KNNEngine.getEngineNameFromPath(hnswPath2));
 
         String faissPath1 = "test" + KNNConstants.FAISS_EXTENSION;

@@ -42,8 +42,8 @@ public enum KNNEngine implements KNNLibrary {
         this.knnLibrary = knnLibrary;
     }
 
-    private String name;
-    private KNNLibrary knnLibrary;
+    private final String name;
+    private final KNNLibrary knnLibrary;
 
     /**
      * Get the engine
