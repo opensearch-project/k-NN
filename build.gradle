@@ -482,9 +482,9 @@ task versionIncrement {
     doLast {
         ext.newVersion = System.getProperty('newVersion')
         println "Setting version to ${newVersion}."
-        final String workingDir = project.buildDir.toString() + "/../"
+        // String tokenization to support -SNAPSHOT
         ant.replaceregexp(match: opensearch_version.tokenize('-')[0], replace: newVersion.tokenize('-')[0], flags:'g', byline:true) {
-            fileset(dir: workingDir) {
+            fileset(dir: projectDir) {
                 include(name: "jni/CMakeLists.txt")
                 include(name: "build.gradle")
             }
