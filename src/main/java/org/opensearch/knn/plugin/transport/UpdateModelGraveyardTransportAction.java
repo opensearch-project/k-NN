@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import lombok.Value;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
@@ -31,19 +32,17 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import lombok.AllArgsConstructor;
-
 import static org.opensearch.knn.common.KNNConstants.PLUGIN_NAME;
 
 /**
- * Transport action used to update blocked modelIds (ModelGraveyard) on the cluster manager node.
+ * Transport action used to update model graveyard on the cluster manager node.
  */
 @Log4j2
-public class UpdateBlockedModelTransportAction extends TransportMasterNodeAction<UpdateBlockedModelRequest, AcknowledgedResponse> {
-    private UpdateBlockedModelExecutor updateBlockedModelExecutor;
+public class UpdateModelGraveyardTransportAction extends TransportMasterNodeAction<UpdateModelGraveyardRequest, AcknowledgedResponse> {
+    private UpdateModelGraveyardExecutor updateModelGraveyardExecutor;
 
     @Inject
-    public UpdateBlockedModelTransportAction(
+    public UpdateModelGraveyardTransportAction(
         TransportService transportService,
         ClusterService clusterService,
         ThreadPool threadPool,
@@ -51,15 +50,15 @@ public class UpdateBlockedModelTransportAction extends TransportMasterNodeAction
         IndexNameExpressionResolver indexNameExpressionResolver
     ) {
         super(
-            UpdateBlockedModelAction.NAME,
+            UpdateModelGraveyardAction.NAME,
             transportService,
             clusterService,
             threadPool,
             actionFilters,
-            UpdateBlockedModelRequest::new,
+            UpdateModelGraveyardRequest::new,
             indexNameExpressionResolver
         );
-        this.updateBlockedModelExecutor = new UpdateBlockedModelExecutor();
+        this.updateModelGraveyardExecutor = new UpdateModelGraveyardExecutor();
     }
 
     @Override
@@ -74,16 +73,16 @@ public class UpdateBlockedModelTransportAction extends TransportMasterNodeAction
 
     @Override
     protected void masterOperation(
-        UpdateBlockedModelRequest request,
+        UpdateModelGraveyardRequest request,
         ClusterState clusterState,
         ActionListener<AcknowledgedResponse> actionListener
     ) {
-        // ClusterManager updates blocked modelIds list based on request parameters
+        // ClusterManager updates model graveyard based on request parameters
         clusterService.submitStateUpdateTask(
             PLUGIN_NAME,
-            new UpdateBlockedModelTask(request.getModelId(), request.isRemoveRequest()),
+            new UpdateModelGraveyardTask(request.getModelId(), request.isRemoveRequest()),
             ClusterStateTaskConfig.build(Priority.NORMAL),
-            updateBlockedModelExecutor,
+            updateModelGraveyardExecutor,
             new ClusterStateTaskListener() {
                 @Override
                 public void onFailure(String s, Exception e) {
@@ -99,30 +98,30 @@ public class UpdateBlockedModelTransportAction extends TransportMasterNodeAction
     }
 
     @Override
-    protected ClusterBlockException checkBlock(UpdateBlockedModelRequest request, ClusterState clusterState) {
+    protected ClusterBlockException checkBlock(UpdateModelGraveyardRequest request, ClusterState clusterState) {
         return null;
     }
 
     /**
-     * UpdateBlockedModelTask is used to provide the executor with the information it needs to perform its task
+     * UpdateModelGraveyardTask is used to provide the executor with the information it needs to perform its task
      */
-    @AllArgsConstructor
-    private static class UpdateBlockedModelTask {
-        private String modelId;
-        private boolean isRemoveRequest;
+    @Value
+    private static class UpdateModelGraveyardTask {
+        String modelId;
+        boolean isRemoveRequest;
     }
 
     /**
-     * Updates the cluster state based on the UpdateBlockedModelTask
+     * Updates the cluster state based on the UpdateModelGraveyardTask
      */
-    private static class UpdateBlockedModelExecutor implements ClusterStateTaskExecutor<UpdateBlockedModelTask> {
+    private static class UpdateModelGraveyardExecutor implements ClusterStateTaskExecutor<UpdateModelGraveyardTask> {
         /**
          * @param clusterState ClusterState
-         * @param taskList contains the list of UpdateBlockedModelTask request parameters (modelId and isRemoveRequest)
-         * @return Represents the result of a batched execution of cluster state update tasks (UpdateBlockedModelTasks)
+         * @param taskList contains the list of UpdateModelGraveyardTask request parameters (modelId and isRemoveRequest)
+         * @return Represents the result of a batched execution of cluster state update tasks (UpdateModelGraveyardTasks)
          */
         @Override
-        public ClusterTasksResult<UpdateBlockedModelTask> execute(ClusterState clusterState, List<UpdateBlockedModelTask> taskList) {
+        public ClusterTasksResult<UpdateModelGraveyardTask> execute(ClusterState clusterState, List<UpdateModelGraveyardTask> taskList) {
 
             // Check if the objects are not null and throw a customized NullPointerException
             Objects.requireNonNull(clusterState, "Cluster state must not be null");
@@ -136,23 +135,23 @@ public class UpdateBlockedModelTransportAction extends TransportMasterNodeAction
             } else {
                 // Deep Copy to copy all the modelIds in ModelGraveyard to local object
                 // to avoid copying the reference
-                copySet = new HashSet<>(immutableModelGraveyard.getModelGraveyard());
+                copySet = new HashSet<>(immutableModelGraveyard.getModelIds());
                 modelGraveyard = new ModelGraveyard(copySet);
             }
 
-            for (UpdateBlockedModelTask task : taskList) {
-                if (task.isRemoveRequest) {
-                    modelGraveyard.remove(task.modelId);
+            for (UpdateModelGraveyardTask task : taskList) {
+                if (task.isRemoveRequest()) {
+                    modelGraveyard.remove(task.getModelId());
                     continue;
                 }
-                modelGraveyard.add(task.modelId);
+                modelGraveyard.add(task.getModelId());
             }
 
             Metadata.Builder metaDataBuilder = Metadata.builder(clusterState.metadata());
             metaDataBuilder.putCustom(ModelGraveyard.TYPE, modelGraveyard);
 
             ClusterState updatedClusterState = ClusterState.builder(clusterState).metadata(metaDataBuilder).build();
-            return new ClusterTasksResult.Builder<UpdateBlockedModelTask>().successes(taskList).build(updatedClusterState);
+            return new ClusterTasksResult.Builder<UpdateModelGraveyardTask>().successes(taskList).build(updatedClusterState);
         }
     }
 }

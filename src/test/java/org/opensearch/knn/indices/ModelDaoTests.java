@@ -12,6 +12,7 @@
 package org.opensearch.knn.indices;
 
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
@@ -38,10 +39,10 @@ import org.opensearch.knn.plugin.transport.GetModelResponse;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheRequest;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheResponse;
-import org.opensearch.knn.plugin.transport.UpdateBlockedModelAction;
-import org.opensearch.knn.plugin.transport.UpdateBlockedModelRequest;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
+import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
+import org.opensearch.knn.plugin.transport.UpdateModelGraveyardRequest;
 import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
@@ -69,6 +70,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 public class ModelDaoTests extends KNNSingleNodeTestCase {
 
     private static ExecutorService modelGetterExecutor;
+    private static final String FAILED = "failed";
 
     @BeforeClass
     public static void setup() {
@@ -499,7 +501,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         ActionListener<DeleteModelResponse> deleteModelIndexDoesNotExistListener = ActionListener.wrap(response -> {
-            assertEquals("failed", response.getResult());
+            assertEquals(FAILED, response.getResult());
             inProgressLatch.countDown();
         }, exception -> fail("Unable to delete the model: " + exception));
         // model index doesnt exist
@@ -508,21 +510,22 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         createIndex(MODEL_INDEX_NAME);
 
+        // Model does not exist
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
-        ActionListener<DeleteModelResponse> deleteModelDoesNotExistListener = ActionListener.wrap(response -> {
-            assertEquals(modelId, response.getModelID());
-            assertEquals("failed", response.getResult());
-            assertNotNull(response.getErrorMessage());
+        ActionListener<DeleteModelResponse> deleteModelDoesNotExistListener = ActionListener.wrap(Assert::assertNull, exception -> {
+            assertNotNull(exception);
+            assertTrue(exception.getMessage().contains(modelId));
+            assertTrue(exception.getMessage().contains("Model does not exist"));
             inProgressLatch1.countDown();
-        }, exception -> fail(exception.getMessage()));
+        });
 
         modelDao.delete(modelId, deleteModelDoesNotExistListener);
-        assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
+        assertTrue(inProgressLatch1.await(60, TimeUnit.SECONDS));
 
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
         ActionListener<DeleteModelResponse> deleteModelTrainingListener = ActionListener.wrap(response -> {
             assertEquals(modelId, response.getModelID());
-            assertEquals("failed", response.getResult());
+            assertEquals(FAILED, response.getResult());
             String errorMessage = String.format("Cannot delete model \"%s\". Model is still in training", modelId);
             assertEquals(errorMessage, response.getErrorMessage());
             inProgressLatch2.countDown();
@@ -667,15 +670,15 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             assertNotEquals(ModelState.TRAINING.getName(), getModelResponse.getModel().getModelMetadata().getState().toString());
 
             client().execute(
-                UpdateBlockedModelAction.INSTANCE,
-                new UpdateBlockedModelRequest(modelId, false),
+                UpdateModelGraveyardAction.INSTANCE,
+                new UpdateModelGraveyardRequest(modelId, false),
                 ActionListener.wrap(blockModelIdStep::onResponse, blockModelIdStep::onFailure)
             );
         }, exception -> fail(exception.getMessage()));
 
         blockModelIdStep.whenComplete(acknowledgedResponse -> {
             // Asserting that modelId is in blocked list
-            assertTrue(modelDao.isModelBlockedForDelete(modelId));
+            assertTrue(modelDao.isModelInGraveyard(modelId));
 
             client().execute(
                 UpdateModelMetadataAction.INSTANCE,
@@ -709,16 +712,17 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         }, exception -> fail(exception.getMessage()));
 
         clearModelFromCacheStep.whenComplete(removeModelFromCacheResponse -> {
+            assertFalse(removeModelFromCacheResponse.hasFailures());
+
             client().execute(
-                UpdateBlockedModelAction.INSTANCE,
-                new UpdateBlockedModelRequest(modelId, true),
+                UpdateModelGraveyardAction.INSTANCE,
+                new UpdateModelGraveyardRequest(modelId, true),
                 ActionListener.wrap(unblockModelIdStep::onResponse, unblockModelIdStep::onFailure)
             );
 
             unblockModelIdStep.whenComplete(acknowledgedResponse -> {
                 // Asserting that model is unblocked
-                assertFalse(modelDao.isModelBlockedForDelete(modelId));
-                assertFalse(removeModelFromCacheResponse.hasFailures());
+                assertFalse(modelDao.isModelInGraveyard(modelId));
                 inProgressLatch.countDown();
             }, exception -> fail(exception.getMessage()));
         }, exception -> fail(exception.getMessage()));
@@ -757,14 +761,14 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         // Add modelId to blocked list
         client().execute(
-            UpdateBlockedModelAction.INSTANCE,
-            new UpdateBlockedModelRequest(modelId, false),
+            UpdateModelGraveyardAction.INSTANCE,
+            new UpdateModelGraveyardRequest(modelId, false),
             ActionListener.wrap(blockModelIdStep::onResponse, blockModelIdStep::onFailure)
         );
 
         // Asserting that the modelId is blocked
         blockModelIdStep.whenComplete(acknowledgedResponse -> {
-            assertTrue(modelDao.isModelBlockedForDelete(modelId));
+            assertTrue(modelDao.isModelInGraveyard(modelId));
 
             // Sending empty string for modelId to fail the clear model metadata request
             client().execute(
@@ -773,14 +777,14 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ActionListener.wrap(clearModelMetadataStep::onResponse, exp -> {
                     // Asserting that modelId is still blocked and clearModelMetadata throws an exception
                     assertNotNull(exp.getMessage());
-                    assertTrue(modelDao.isModelBlockedForDelete(modelId));
+                    assertTrue(modelDao.isModelInGraveyard(modelId));
                     client().execute(
                         // OnFailure sending request to unblock modelId
-                        UpdateBlockedModelAction.INSTANCE,
-                        new UpdateBlockedModelRequest(modelId, true),
+                        UpdateModelGraveyardAction.INSTANCE,
+                        new UpdateModelGraveyardRequest(modelId, true),
                         ActionListener.wrap(ackResponse -> {
                             // Asserting that model is unblocked
-                            assertFalse(modelDao.isModelBlockedForDelete(modelId));
+                            assertFalse(modelDao.isModelInGraveyard(modelId));
                             assertNotNull(exp.getMessage());
                         }, exception -> fail(exception.getMessage()))
                     );
@@ -799,14 +803,14 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         // Add modelId to blocked list
         client().execute(
-            UpdateBlockedModelAction.INSTANCE,
-            new UpdateBlockedModelRequest(modelId, false),
+            UpdateModelGraveyardAction.INSTANCE,
+            new UpdateModelGraveyardRequest(modelId, false),
             ActionListener.wrap(blockModelIdStep1::onResponse, blockModelIdStep1::onFailure)
         );
 
         // Asserting that the modelId is blocked
         blockModelIdStep1.whenComplete(acknowledgedResponse -> {
-            assertTrue(modelDao.isModelBlockedForDelete(modelId));
+            assertTrue(modelDao.isModelInGraveyard(modelId));
 
             // Sending empty string for modelId to fail the clear model metadata request
             client().execute(
@@ -814,15 +818,15 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 new UpdateModelMetadataRequest("", true, null),
                 ActionListener.wrap(clearModelMetadataStep1::onResponse, exp -> {
                     assertNotNull(exp.getMessage());
-                    assertTrue(modelDao.isModelBlockedForDelete(modelId));
+                    assertTrue(modelDao.isModelInGraveyard(modelId));
 
                     // Failing unblock modelId request by sending modelId as an empty string
                     client().execute(
-                        UpdateBlockedModelAction.INSTANCE,
-                        new UpdateBlockedModelRequest("", true),
+                        UpdateModelGraveyardAction.INSTANCE,
+                        new UpdateModelGraveyardRequest("", true),
                         ActionListener.wrap(ackResponse -> {}, unblockingFailedException -> {
                             // Asserting that model is still blocked and returns both exceptions in response
-                            assertTrue(modelDao.isModelBlockedForDelete(modelId));
+                            assertTrue(modelDao.isModelInGraveyard(modelId));
                             assertNotNull(exp.getMessage());
                             assertNotNull(unblockingFailedException.getMessage());
                         })

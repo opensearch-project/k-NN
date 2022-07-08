@@ -15,6 +15,7 @@ import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.OpenSearchException;
 import org.opensearch.ResourceNotFoundException;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.DocWriteRequest;
@@ -48,10 +49,10 @@ import org.opensearch.knn.plugin.transport.GetModelResponse;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheRequest;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheResponse;
-import org.opensearch.knn.plugin.transport.UpdateBlockedModelAction;
-import org.opensearch.knn.plugin.transport.UpdateBlockedModelRequest;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
+import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
+import org.opensearch.knn.plugin.transport.UpdateModelGraveyardRequest;
 
 import java.io.IOException;
 import java.net.URL;
@@ -156,14 +157,14 @@ public interface ModelDao {
     void delete(String modelId, ActionListener<DeleteModelResponse> listener);
 
     /**
-     * Check if modelId is in blocked model set (ModelGraveyard) or not. Non-blocking.
-     * A modelId is added to blocked model set before deleting that
-     * model and removed from the set after deleting the model
+     * Check if modelId is in model graveyard or not. Non-blocking.
+     * A modelId is added to model graveyard before deleting that
+     * model and removed from it after deleting the model
      *
      * @param modelId to retrieve
-     * @return true if modelId is in blocked model set, otherwise return false
+     * @return true if modelId is in model graveyard, otherwise return false
      */
-    boolean isModelBlockedForDelete(String modelId);
+    boolean isModelInGraveyard(String modelId);
 
     /**
      * Implementation of ModelDao for k-NN model index
@@ -171,6 +172,8 @@ public interface ModelDao {
     final class OpenSearchKNNModelDao implements ModelDao {
 
         public static Logger logger = LogManager.getLogger(ModelDao.class);
+        private static final String DELETED = "deleted";
+        private static final String FAILED = "failed";
 
         private int numberOfShards;
         private int numberOfReplicas;
@@ -441,7 +444,7 @@ public interface ModelDao {
         }
 
         @Override
-        public boolean isModelBlockedForDelete(String modelId) {
+        public boolean isModelInGraveyard(String modelId) {
             // Check if the objects are not null and throw a customized NullPointerException
             Objects.requireNonNull(clusterService.state(), "Cluster state must not be null");
             Objects.requireNonNull(clusterService.state().metadata(), "Cluster metadata must not be null");
@@ -460,7 +463,7 @@ public interface ModelDao {
             if (!isCreated()) {
                 logger.error("Cannot delete model \"" + modelId + "\". Model index " + MODEL_INDEX_NAME + "does not exist.");
                 String errorMessage = String.format("Cannot delete model \"%s\". Model index does not exist", modelId);
-                listener.onResponse(new DeleteModelResponse(modelId, "failed", errorMessage));
+                listener.onResponse(new DeleteModelResponse(modelId, FAILED, errorMessage));
                 return;
             }
 
@@ -475,7 +478,7 @@ public interface ModelDao {
             get(modelId, ActionListener.wrap(getModelStep::onResponse, exception -> {
                 if (exception instanceof ResourceNotFoundException) {
                     String errorMessage = String.format("Unable to delete model \"%s\". Model does not exist", modelId);
-                    listener.onResponse(new DeleteModelResponse(modelId, "failed", errorMessage));
+                    listener.onFailure(new ResourceNotFoundException(errorMessage));
                     return;
                 }
                 listener.onFailure(exception);
@@ -483,15 +486,14 @@ public interface ModelDao {
 
             getModelStep.whenComplete(getModelResponse -> {
                 // If model is in Training state, fail delete model request
-                if (ModelState.TRAINING.equals(getModelResponse.getModel().getModelMetadata().getState())) {
+                if (ModelState.TRAINING == getModelResponse.getModel().getModelMetadata().getState()) {
                     String errorMessage = String.format("Cannot delete model \"%s\". Model is still in training", modelId);
-                    logger.error(errorMessage);
-                    listener.onResponse(new DeleteModelResponse(modelId, "failed", errorMessage));
+                    listener.onResponse(new DeleteModelResponse(modelId, FAILED, errorMessage));
                     return;
                 }
 
-                // Add modelId to blocked set until delete model request is processed
-                updateBlockedModelToDelete(modelId, false, blockModelIdStep);
+                // Add modelId to model graveyard until delete model request is processed
+                updateModelGraveyardToDelete(modelId, false, blockModelIdStep, null);
             }, listener::onFailure);
 
             // Remove the metadata asynchronously
@@ -512,9 +514,9 @@ public interface ModelDao {
             );
 
             deleteModelFromIndexStep.whenComplete(deleteResponse -> {
-                // If model is not deleted, unblock modelId and return with error message
+                // If model is not deleted, remove modelId from model graveyard and return with error message
                 if (deleteResponse.getResult() != DocWriteResponse.Result.DELETED) {
-                    updateBlockedModelToDelete(modelId, true, unblockModelIdStep);
+                    updateModelGraveyardToDelete(modelId, true, unblockModelIdStep, null);
                     String errorMessage = String.format("Model \" %s \" does not exist", modelId);
                     listener.onResponse(new DeleteModelResponse(modelId, deleteResponse.getResult().getLowercase(), errorMessage));
                     return;
@@ -522,26 +524,28 @@ public interface ModelDao {
 
                 // After model is deleted from the index, make sure the model is evicted from every cache in the cluster
                 removeModelFromCache(modelId, clearModelFromCacheStep);
-            }, e -> listener.onResponse(new DeleteModelResponse(modelId, "failed", e.getMessage())));
+            }, e -> listener.onFailure(new OpenSearchException(e)));
 
             clearModelFromCacheStep.whenComplete(removeModelFromCacheResponse -> {
-                // Remove modelId from blocked set
-                updateBlockedModelToDelete(modelId, true, unblockModelIdStep);
 
-                unblockModelIdStep.whenComplete(acknowledgedResponse -> {
-
-                    // After clearing the cache, if there are no errors return the response
-                    if (!removeModelFromCacheResponse.hasFailures()) {
-                        listener.onResponse(new DeleteModelResponse(modelId, "deleted", null));
-                        return;
-                    }
-
-                    // Build the error message if there are any failures in model cache response and return response
+                // If there are any failures while removing model from the cache build the error message
+                OpenSearchException exception = null;
+                if (removeModelFromCacheResponse.hasFailures()) {
                     String failureMessage = buildRemoveModelErrorMessage(modelId, removeModelFromCacheResponse);
-                    listener.onResponse(new DeleteModelResponse(modelId, "failed", failureMessage));
-                    return;
-                }, listener::onFailure);
-            }, e -> listener.onResponse(new DeleteModelResponse(modelId, "failed", e.getMessage())));
+                    exception = new OpenSearchException(failureMessage);
+                }
+
+                // Remove modelId from model graveyard
+                updateModelGraveyardToDelete(modelId, true, unblockModelIdStep, exception);
+
+            }, e -> listener.onFailure(new OpenSearchException(e)));
+
+            unblockModelIdStep.whenComplete(acknowledgedResponse -> {
+                // After clearing the cache, if there are no errors return the response
+                listener.onResponse(new DeleteModelResponse(modelId, DELETED, null));
+
+            }, listener::onFailure);
+
         }
 
         // Remove model from cache in the cluster
@@ -551,7 +555,7 @@ public interface ModelDao {
                 new RemoveModelFromCacheRequest(modelId),
                 ActionListener.wrap(
                     clearModelFromCacheStep::onResponse,
-                    exception -> unblockModelIdOnFailure(modelId, exception, clearModelFromCacheStep)
+                    exception -> removeModelIdFromGraveyardOnFailure(modelId, exception, clearModelFromCacheStep)
                 )
             );
         }
@@ -565,17 +569,36 @@ public interface ModelDao {
             deleteRequestBuilder.execute(
                 ActionListener.wrap(
                     deleteModelFromIndexStep::onResponse,
-                    exception -> unblockModelIdOnFailure(modelId, exception, deleteModelFromIndexStep)
+                    exception -> removeModelIdFromGraveyardOnFailure(modelId, exception, deleteModelFromIndexStep)
                 )
             );
         }
 
-        // Update blocked model set to add/remove modelId from that set
-        private void updateBlockedModelToDelete(String modelId, boolean isRemoveRequest, StepListener<AcknowledgedResponse> step) {
+        // Update model graveyard to add/remove modelId
+        private void updateModelGraveyardToDelete(
+            String modelId,
+            boolean isRemoveRequest,
+            StepListener<AcknowledgedResponse> step,
+            Exception exception
+        ) {
+
             client.execute(
-                UpdateBlockedModelAction.INSTANCE,
-                new UpdateBlockedModelRequest(modelId, isRemoveRequest),
-                ActionListener.wrap(step::onResponse, step::onFailure)
+                UpdateModelGraveyardAction.INSTANCE,
+                new UpdateModelGraveyardRequest(modelId, isRemoveRequest),
+                ActionListener.wrap(acknowledgedResponse -> {
+                    if (exception == null) {
+                        step.onResponse(acknowledgedResponse);
+                        return;
+                    }
+                    throw exception;
+
+                }, e -> {
+                    if (exception == null) {
+                        step.onFailure(e);
+                        return;
+                    }
+                    step.onFailure(exception);
+                })
             );
         }
 
@@ -586,21 +609,19 @@ public interface ModelDao {
                 new UpdateModelMetadataRequest(modelId, true, null),
                 ActionListener.wrap(
                     clearModelMetadataStep::onResponse,
-                    exception -> unblockModelIdOnFailure(modelId, exception, clearModelMetadataStep)
+                    exception -> removeModelIdFromGraveyardOnFailure(modelId, exception, clearModelMetadataStep)
                 )
             );
         }
 
-        // This function helps to remove the model from blocked list when the delete request fails
-        // while executing after adding modelId to blocked list
-        private void unblockModelIdOnFailure(String modelId, Exception exceptionFromPreviousStep, StepListener<?> step) {
-            // If modelId is unblocked successfully, then we will just return the exception received from failed stepListener
-            // If unblocking modelId request fails, then we will return this exception along with the one received from failed stepListener
+        // This function helps to remove the model from model graveyard and return the exception from previous step
+        // when the delete request fails while executing after adding modelId to model graveyard
+        private void removeModelIdFromGraveyardOnFailure(String modelId, Exception exceptionFromPreviousStep, StepListener<?> step) {
             client.execute(
-                UpdateBlockedModelAction.INSTANCE,
-                new UpdateBlockedModelRequest(modelId, true),
+                UpdateModelGraveyardAction.INSTANCE,
+                new UpdateModelGraveyardRequest(modelId, true),
                 ActionListener.wrap(
-                    acknowledgedResponse -> step.onFailure(exceptionFromPreviousStep),
+                    acknowledgedResponse -> { throw exceptionFromPreviousStep; },
                     unblockingFailedException -> step.onFailure(exceptionFromPreviousStep)
                 )
             );

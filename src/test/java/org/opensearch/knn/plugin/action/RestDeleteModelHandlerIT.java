@@ -14,6 +14,7 @@ package org.opensearch.knn.plugin.action;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.SpaceType;
@@ -90,20 +91,13 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
     }
 
     public void testDeleteModelFailsInvalid() throws IOException {
+        String modelId = "invalid-model-id";
         createModelSystemIndex();
-        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "invalid-model-id");
+        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
         Request request = new Request("DELETE", restURI);
 
-        Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-        String responseBody = EntityUtils.toString(response.getEntity());
-        assertNotNull(responseBody);
-
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
-
-        assertEquals("invalid-model-id", responseMap.get(MODEL_ID));
-        assertEquals("failed", responseMap.get(DeleteModelResponse.RESULT));
-        assertNotNull(responseMap.get(DeleteModelResponse.ERROR_MSG));
+        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+        assertTrue(ex.getMessage().contains(modelId));
     }
 
 }

@@ -16,9 +16,9 @@ import java.io.IOException;
 import static org.opensearch.action.ValidateActions.addValidationError;
 
 /**
- * Request for updating blocked modelIds list while processing delete model request
+ * Request for updating model graveyard while processing delete model request
  */
-public class UpdateBlockedModelRequest extends AcknowledgedRequest<UpdateBlockedModelRequest> {
+public class UpdateModelGraveyardRequest extends AcknowledgedRequest<UpdateModelGraveyardRequest> {
 
     @Getter
     private final String modelId;
@@ -31,7 +31,7 @@ public class UpdateBlockedModelRequest extends AcknowledgedRequest<UpdateBlocked
      * @param in input stream
      * @throws IOException if read from stream fails
      */
-    public UpdateBlockedModelRequest(StreamInput in) throws IOException {
+    public UpdateModelGraveyardRequest(StreamInput in) throws IOException {
         super(in);
         this.modelId = in.readString();
         this.isRemoveRequest = in.readBoolean();
@@ -43,7 +43,7 @@ public class UpdateBlockedModelRequest extends AcknowledgedRequest<UpdateBlocked
      * @param modelId Id of model
      * @param isRemoveRequest should this model id be removed
      */
-    public UpdateBlockedModelRequest(String modelId, boolean isRemoveRequest) {
+    public UpdateModelGraveyardRequest(String modelId, boolean isRemoveRequest) {
         super();
         this.modelId = modelId;
         this.isRemoveRequest = isRemoveRequest;

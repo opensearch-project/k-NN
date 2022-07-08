@@ -8,8 +8,6 @@ package org.opensearch.knn.plugin;
 import org.opensearch.cluster.NamedDiff;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.common.ParseField;
-import org.opensearch.common.io.stream.NamedWriteable;
-import org.opensearch.common.io.stream.Writeable;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.knn.index.KNNCircuitBreaker;
@@ -71,10 +69,10 @@ import org.opensearch.knn.plugin.transport.TrainingJobRouterTransportAction;
 import org.opensearch.knn.plugin.transport.TrainingModelAction;
 import org.opensearch.knn.plugin.transport.TrainingModelRequest;
 import org.opensearch.knn.plugin.transport.TrainingModelTransportAction;
-import org.opensearch.knn.plugin.transport.UpdateBlockedModelAction;
-import org.opensearch.knn.plugin.transport.UpdateBlockedModelTransportAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
+import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
+import org.opensearch.knn.plugin.transport.UpdateModelGraveyardTransportAction;
 import org.opensearch.knn.training.TrainingJobRunner;
 import org.opensearch.knn.training.VectorReader;
 import org.opensearch.plugins.ActionPlugin;
@@ -245,7 +243,7 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
             new ActionHandler<>(TrainingModelAction.INSTANCE, TrainingModelTransportAction.class),
             new ActionHandler<>(RemoveModelFromCacheAction.INSTANCE, RemoveModelFromCacheTransportAction.class),
             new ActionHandler<>(SearchModelAction.INSTANCE, SearchModelTransportAction.class),
-            new ActionHandler<>(UpdateBlockedModelAction.INSTANCE, UpdateBlockedModelTransportAction.class)
+            new ActionHandler<>(UpdateModelGraveyardAction.INSTANCE, UpdateModelGraveyardTransportAction.class)
         );
     }
 
@@ -307,7 +305,9 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
     @Override
     public List<NamedWriteableRegistry.Entry> getNamedWriteables() {
         List<NamedWriteableRegistry.Entry> entries = new ArrayList<>();
-        registerMetadataCustom(entries, ModelGraveyard.TYPE, ModelGraveyard::new, ModelGraveyard::readDiffFrom);
+
+        entries.add(new NamedWriteableRegistry.Entry(Metadata.Custom.class, ModelGraveyard.TYPE, ModelGraveyard::new));
+        entries.add(new NamedWriteableRegistry.Entry(NamedDiff.class, ModelGraveyard.TYPE, ModelGraveyard::readDiffFrom));
         return entries;
     }
 
@@ -321,23 +321,4 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
         return entries;
     }
 
-    private static <T extends Metadata.Custom> void registerMetadataCustom(
-        List<NamedWriteableRegistry.Entry> entries,
-        String name,
-        Writeable.Reader<? extends T> reader,
-        Writeable.Reader<NamedDiff> diffReader
-    ) {
-        registerCustom(entries, Metadata.Custom.class, name, reader, diffReader);
-    }
-
-    private static <T extends NamedWriteable> void registerCustom(
-        List<NamedWriteableRegistry.Entry> entries,
-        Class<T> category,
-        String name,
-        Writeable.Reader<? extends T> reader,
-        Writeable.Reader<NamedDiff> diffReader
-    ) {
-        entries.add(new NamedWriteableRegistry.Entry(category, name, reader));
-        entries.add(new NamedWriteableRegistry.Entry(NamedDiff.class, name, diffReader));
-    }
 }

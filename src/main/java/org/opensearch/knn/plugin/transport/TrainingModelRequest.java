@@ -254,19 +254,20 @@ public class TrainingModelRequest extends ActionRequest {
         ActionRequestValidationException exception = null;
 
         // Check if model id exists via model metadata
-        if (modelDao.getMetadata(modelId) != null) {
+        // Also, check if model is not in model graveyard to make sure it is not being deleted
+        if (modelDao.getMetadata(modelId) != null && !modelDao.isModelInGraveyard(modelId)) {
             exception = new ActionRequestValidationException();
             exception.addValidationError("Model with id=\"" + modelId + "\" already exists");
             return exception;
         }
 
-        // Check if modelId is in blocked model set
-        // ModelId is added to blocked set if that model is undergoing deletion
-        // and will be removed from blocked set after model is deleted
-        if (modelDao.isModelBlockedForDelete(modelId)) {
+        // Check if modelId is in model graveyard
+        // ModelId is added to model graveyard if that model is undergoing deletion
+        // and will be removed from it after model is deleted
+        if (modelDao.isModelInGraveyard(modelId)) {
             exception = new ActionRequestValidationException();
             String errorMessage = String.format(
-                "\"%s\" is blocked. Cannot create a model with same modelID until that model is deleted",
+                "Model with id = \"%s\" is being deleted. Cannot create a model with same modelID until that model is deleted",
                 modelId
             );
             exception.addValidationError(errorMessage);

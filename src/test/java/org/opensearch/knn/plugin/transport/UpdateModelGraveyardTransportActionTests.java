@@ -17,21 +17,21 @@ import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-public class UpdateBlockedModelTransportActionTests extends KNNSingleNodeTestCase {
+public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestCase {
 
     public void testExecutor() {
-        UpdateBlockedModelTransportAction updateBlockedModelTransportAction = node().injector()
-            .getInstance(UpdateBlockedModelTransportAction.class);
-        assertEquals(ThreadPool.Names.SAME, updateBlockedModelTransportAction.executor());
+        UpdateModelGraveyardTransportAction updateModelGraveyardTransportAction = node().injector()
+            .getInstance(UpdateModelGraveyardTransportAction.class);
+        assertEquals(ThreadPool.Names.SAME, updateModelGraveyardTransportAction.executor());
     }
 
     public void testRead() throws IOException {
-        UpdateBlockedModelTransportAction updateBlockedModelTransportAction = node().injector()
-            .getInstance(UpdateBlockedModelTransportAction.class);
+        UpdateModelGraveyardTransportAction updateModelGraveyardTransportAction = node().injector()
+            .getInstance(UpdateModelGraveyardTransportAction.class);
         AcknowledgedResponse acknowledgedResponse = new AcknowledgedResponse(true);
         BytesStreamOutput streamOutput = new BytesStreamOutput();
         acknowledgedResponse.writeTo(streamOutput);
-        AcknowledgedResponse acknowledgedResponse1 = updateBlockedModelTransportAction.read(streamOutput.bytes().streamInput());
+        AcknowledgedResponse acknowledgedResponse1 = updateModelGraveyardTransportAction.read(streamOutput.bytes().streamInput());
 
         assertEquals(acknowledgedResponse, acknowledgedResponse1);
     }
@@ -41,18 +41,18 @@ public class UpdateBlockedModelTransportActionTests extends KNNSingleNodeTestCas
         String modelId = "test-model-id";
 
         // Get update transport action
-        UpdateBlockedModelTransportAction updateBlockedModelTransportAction = node().injector()
-            .getInstance(UpdateBlockedModelTransportAction.class);
+        UpdateModelGraveyardTransportAction updateModelGraveyardTransportAction = node().injector()
+            .getInstance(UpdateModelGraveyardTransportAction.class);
 
-        // Generate update request to add modelId to blocked set (ModelGraveyard)
-        UpdateBlockedModelRequest addBlockedModelRequest = new UpdateBlockedModelRequest(modelId, false);
+        // Generate update request to add modelId to model graveyard
+        UpdateModelGraveyardRequest addModelGraveyardRequest = new UpdateModelGraveyardRequest(modelId, false);
 
         // Get cluster state, update metadata, check cluster state - all asynchronously
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
         client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
             ClusterState clusterState1 = stateResponse1.getState();
-            updateBlockedModelTransportAction.masterOperation(
-                addBlockedModelRequest,
+            updateModelGraveyardTransportAction.masterOperation(
+                addModelGraveyardRequest,
                 clusterState1,
                 ActionListener.wrap(acknowledgedResponse -> {
                     assertTrue(acknowledgedResponse.isAcknowledged());
@@ -75,14 +75,14 @@ public class UpdateBlockedModelTransportActionTests extends KNNSingleNodeTestCas
         assertTrue(inProgressLatch1.await(60, TimeUnit.SECONDS));
 
         String modelId1 = "test-model-id-1";
-        // Generate update request to add modelId1 to blocked set (ModelGraveyard)
-        UpdateBlockedModelRequest addBlockedModelRequest1 = new UpdateBlockedModelRequest(modelId1, false);
+        // Generate update request to add modelId1 to model graveyard
+        UpdateModelGraveyardRequest addModelGraveyardRequest1 = new UpdateModelGraveyardRequest(modelId1, false);
 
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
         client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
             ClusterState clusterState1 = stateResponse1.getState();
-            updateBlockedModelTransportAction.masterOperation(
-                addBlockedModelRequest1,
+            updateModelGraveyardTransportAction.masterOperation(
+                addModelGraveyardRequest1,
                 clusterState1,
                 ActionListener.wrap(acknowledgedResponse -> {
                     assertTrue(acknowledgedResponse.isAcknowledged());
@@ -117,14 +117,14 @@ public class UpdateBlockedModelTransportActionTests extends KNNSingleNodeTestCas
 
         assertTrue(inProgressLatch2.await(60, TimeUnit.SECONDS));
 
-        // Generate remove request to remove the modelId from blocked set (ModelGraveyard)
-        UpdateBlockedModelRequest removeBlockedModelRequest = new UpdateBlockedModelRequest(modelId, true);
+        // Generate remove request to remove the modelId from model graveyard
+        UpdateModelGraveyardRequest removeModelGraveyardRequest = new UpdateModelGraveyardRequest(modelId, true);
 
         final CountDownLatch inProgressLatch3 = new CountDownLatch(1);
         client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
             ClusterState clusterState1 = stateResponse1.getState();
-            updateBlockedModelTransportAction.masterOperation(
-                removeBlockedModelRequest,
+            updateModelGraveyardTransportAction.masterOperation(
+                removeModelGraveyardRequest,
                 clusterState1,
                 ActionListener.wrap(acknowledgedResponse -> {
                     assertTrue(acknowledgedResponse.isAcknowledged());
@@ -161,8 +161,8 @@ public class UpdateBlockedModelTransportActionTests extends KNNSingleNodeTestCas
     }
 
     public void testCheckBlock() {
-        UpdateBlockedModelTransportAction updateBlockedModelTransportAction = node().injector()
-            .getInstance(UpdateBlockedModelTransportAction.class);
-        assertNull(updateBlockedModelTransportAction.checkBlock(null, null));
+        UpdateModelGraveyardTransportAction updateModelGraveyardTransportAction = node().injector()
+            .getInstance(UpdateModelGraveyardTransportAction.class);
+        assertNull(updateModelGraveyardTransportAction.checkBlock(null, null));
     }
 }

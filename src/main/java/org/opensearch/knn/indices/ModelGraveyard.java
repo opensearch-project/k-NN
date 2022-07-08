@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.indices;
 
+import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.Version;
 import org.opensearch.cluster.Diff;
@@ -28,24 +29,18 @@ import com.google.common.collect.Sets;
  * The modelIds of the models that are under deletion are added to this set and later removed from this set after deletion.
  * Also, this class implements the methods to perform operations on this set (like add, remove, contains)
  */
+
+@AllArgsConstructor
 @Log4j2
 public class ModelGraveyard implements Metadata.Custom {
     public static final String TYPE = "opensearch-knn-blocked-models";
-    private final Set<String> modelGraveyard;
-
-    /**
-     * Constructor
-     * @param modelGraveyard Set which contains blocked model Ids
-     */
-    public ModelGraveyard(Set<String> modelGraveyard) {
-        this.modelGraveyard = modelGraveyard;
-    }
+    private final Set<String> modelIds;
 
     /**
      * Default Constructor to initialize object when it is null
      */
     public ModelGraveyard() {
-        this.modelGraveyard = new HashSet<>();
+        this.modelIds = new HashSet<>();
     }
 
     /**
@@ -53,7 +48,7 @@ public class ModelGraveyard implements Metadata.Custom {
      * @throws IOException if read from stream fails
      */
     public ModelGraveyard(StreamInput in) throws IOException {
-        this.modelGraveyard = new HashSet<>(in.readStringList());
+        this.modelIds = new HashSet<>(in.readStringList());
     }
 
     @Override
@@ -80,7 +75,7 @@ public class ModelGraveyard implements Metadata.Custom {
      */
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        out.writeStringCollection(modelGraveyard);
+        out.writeStringCollection(modelIds);
     }
 
     @Override
@@ -89,39 +84,39 @@ public class ModelGraveyard implements Metadata.Custom {
     }
 
     /**
-     * @param modelId id of the model that needs to be removed from modelGraveyard set
+     * @param modelId id of the model that needs to be removed from modelIds set
      */
     public void remove(String modelId) {
-        modelGraveyard.remove(modelId);
+        modelIds.remove(modelId);
     }
 
     /**
-     * @param modelId id of the model that needs to be added to modelGraveyard set
+     * @param modelId id of the model that needs to be added to modelIds set
      */
     public void add(String modelId) {
-        modelGraveyard.add(modelId);
+        modelIds.add(modelId);
     }
 
     /**
      * @return Set of modelIds in modelGraveyard
      */
-    public Set<String> getModelGraveyard() {
-        return modelGraveyard;
+    public Set<String> getModelIds() {
+        return modelIds;
     }
 
     /**
-     * @return number of modelIds in modelGraveyard set
+     * @return number of modelIds in modelGraveyard
      */
     public int size() {
-        return modelGraveyard.size();
+        return modelIds.size();
     }
 
     /**
-     * @param modelId to check if the id of given model is there in modelGraveyard set
-     * @return true if the modelId is in the modelGraveyard set, otherwise false
+     * @param modelId to check if the id of given model is there in modelIds set
+     * @return true if the modelId is in the modelIds set, otherwise false
      */
     public boolean contains(String modelId) {
-        return modelGraveyard.contains(modelId);
+        return modelIds.contains(modelId);
     }
 
     /**
@@ -177,21 +172,21 @@ public class ModelGraveyard implements Metadata.Custom {
          * entries that are deleted from previous object and the deleted entries count
          */
         public ModelGraveyardDiff(ModelGraveyard previous, ModelGraveyard current) {
-            final Set<String> previousModelGraveyard = previous.modelGraveyard;
-            final Set<String> currentModelGraveyard = current.modelGraveyard;
+            final Set<String> previousModelIdsSet = previous.modelIds;
+            final Set<String> currentModelIdsSet = current.modelIds;
             final Set<String> added, removed;
-            if (previousModelGraveyard.isEmpty()) {
+            if (previousModelIdsSet.isEmpty()) {
                 // nothing will have been removed in previous object, and all entries in current object are new
-                added = new HashSet<>(currentModelGraveyard);
+                added = new HashSet<>(currentModelIdsSet);
                 removed = new HashSet<>();
-            } else if (currentModelGraveyard.isEmpty()) {
+            } else if (currentModelIdsSet.isEmpty()) {
                 // nothing will have been added to current object, and all entries in previous object are removed
                 added = new HashSet<>();
-                removed = new HashSet<>(previousModelGraveyard);
+                removed = new HashSet<>(previousModelIdsSet);
             } else {
                 // some entries in previous object are removed and few entries are added to current object
-                removed = Sets.difference(previousModelGraveyard, currentModelGraveyard);
-                added = Sets.difference(currentModelGraveyard, previousModelGraveyard);
+                removed = Sets.difference(previousModelIdsSet, currentModelIdsSet);
+                added = Sets.difference(currentModelIdsSet, previousModelIdsSet);
             }
             this.added = Collections.unmodifiableSet(added);
             this.removed = Collections.unmodifiableSet(removed);
@@ -210,7 +205,7 @@ public class ModelGraveyard implements Metadata.Custom {
                     "ModelGraveyardDiff cannot remove [" + removedCount + "] entries from [" + old.size() + "] modelIds."
                 );
             }
-            Set<String> updatedOldGraveyardSet = Sets.difference(old.modelGraveyard, removed);
+            Set<String> updatedOldGraveyardSet = Sets.difference(old.modelIds, removed);
             Set<String> modelGraveyardDiffSet = new HashSet<>();
             modelGraveyardDiffSet.addAll(added);
             modelGraveyardDiffSet.addAll(updatedOldGraveyardSet);

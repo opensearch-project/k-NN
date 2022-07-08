@@ -10,12 +10,12 @@ import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.common.io.stream.Writeable;
 
 /**
- * Action to update blocked modelIds list
+ * Action to update model graveyard
  */
-public class UpdateBlockedModelAction extends ActionType<AcknowledgedResponse> {
+public class UpdateModelGraveyardAction extends ActionType<AcknowledgedResponse> {
 
-    public static final String NAME = "cluster:admin/knn_update_blocked_model_action";
-    public static final UpdateBlockedModelAction INSTANCE = new UpdateBlockedModelAction(NAME, AcknowledgedResponse::new);
+    public static final String NAME = "cluster:admin/knn_update_model_graveyard_action";
+    public static final UpdateModelGraveyardAction INSTANCE = new UpdateModelGraveyardAction(NAME, AcknowledgedResponse::new);
 
     /**
      * Constructor.
@@ -23,7 +23,7 @@ public class UpdateBlockedModelAction extends ActionType<AcknowledgedResponse> {
      * @param name name of action
      * @param acknowledgedResponseReader reader for acknowledged response
      */
-    public UpdateBlockedModelAction(String name, Writeable.Reader<AcknowledgedResponse> acknowledgedResponseReader) {
+    public UpdateModelGraveyardAction(String name, Writeable.Reader<AcknowledgedResponse> acknowledgedResponseReader) {
         super(name, acknowledgedResponseReader);
     }
 }
