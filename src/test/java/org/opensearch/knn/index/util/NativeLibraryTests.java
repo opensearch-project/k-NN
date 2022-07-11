@@ -37,12 +37,7 @@ public class NativeLibraryTests extends KNNTestCase {
      */
     public void testGetCurrentVersion() {
         String latestBuildVersion = "test-build-version";
-        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(
-            Collections.emptyMap(),
-            Collections.emptyMap(),
-            latestBuildVersion,
-            ""
-        );
+        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), Collections.emptyMap(), latestBuildVersion, "");
         assertEquals(latestBuildVersion, testNativeLibrary.getCurrentVersion());
     }
 
@@ -137,12 +132,7 @@ public class NativeLibraryTests extends KNNTestCase {
             .build();
         KNNMethod knnMethod = KNNMethod.Builder.builder(methodComponent).build();
 
-        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(
-            ImmutableMap.of(methodName, knnMethod),
-            Collections.emptyMap(),
-            "",
-            ""
-        );
+        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(ImmutableMap.of(methodName, knnMethod), Collections.emptyMap(), "", "");
 
         // Check that map is expected
         Map<String, Object> expectedMap = new HashMap<>(generatedMap);

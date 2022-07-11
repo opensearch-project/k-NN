@@ -55,12 +55,7 @@ class Nmslib extends NativeLibrary {
         ).addSpaces(SpaceType.L2, SpaceType.L1, SpaceType.LINF, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT).build()
     );
 
-    final static Nmslib INSTANCE = new Nmslib(
-        METHODS,
-        Collections.emptyMap(),
-        CURRENT_VERSION,
-        EXTENSION
-    );
+    final static Nmslib INSTANCE = new Nmslib(METHODS, Collections.emptyMap(), CURRENT_VERSION, EXTENSION);
 
     /**
      * Constructor for Nmslib

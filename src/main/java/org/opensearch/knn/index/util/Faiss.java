@@ -230,12 +230,7 @@ class Faiss extends NativeLibrary {
         ).addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build()
     );
 
-    final static Faiss INSTANCE = new Faiss(
-        METHODS,
-        SCORE_TRANSLATIONS,
-        CURRENT_VERSION,
-        KNNConstants.FAISS_EXTENSION
-    );
+    final static Faiss INSTANCE = new Faiss(METHODS, SCORE_TRANSLATIONS, CURRENT_VERSION, KNNConstants.FAISS_EXTENSION);
 
     /**
      * Constructor for Faiss
