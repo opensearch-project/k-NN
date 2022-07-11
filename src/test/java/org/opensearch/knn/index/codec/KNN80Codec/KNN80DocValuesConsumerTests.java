@@ -180,7 +180,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         // The document should be created in the correct location
         String expectedFile = KNNCodecUtil.buildEngineFileName(
             segmentName,
-            knnEngine.getLatestBuildVersion(),
+            knnEngine.getCurrentVersion(),
             fieldName,
             knnEngine.getExtension()
         );
@@ -229,7 +229,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         // The document should be created in the correct location
         String expectedFile = KNNCodecUtil.buildEngineFileName(
             segmentName,
-            knnEngine.getLatestBuildVersion(),
+            knnEngine.getCurrentVersion(),
             fieldName,
             knnEngine.getExtension()
         );
@@ -285,7 +285,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         // The document should be created in the correct location
         String expectedFile = KNNCodecUtil.buildEngineFileName(
             segmentName,
-            knnEngine.getLatestBuildVersion(),
+            knnEngine.getCurrentVersion(),
             fieldName,
             knnEngine.getExtension()
         );
@@ -366,7 +366,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         // The document should be created in the correct location
         String expectedFile = KNNCodecUtil.buildEngineFileName(
             segmentName,
-            knnEngine.getLatestBuildVersion(),
+            knnEngine.getCurrentVersion(),
             fieldName,
             knnEngine.getExtension()
         );

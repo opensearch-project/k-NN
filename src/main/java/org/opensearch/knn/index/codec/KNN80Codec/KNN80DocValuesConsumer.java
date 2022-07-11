@@ -101,7 +101,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
             engineFileName = buildEngineFileName(
                 state.segmentInfo.name,
-                knnEngine.getLatestBuildVersion(),
+                knnEngine.getCurrentVersion(),
                 field.name,
                 knnEngine.getExtension()
             );
@@ -121,7 +121,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
             engineFileName = buildEngineFileName(
                 state.segmentInfo.name,
-                knnEngine.getLatestBuildVersion(),
+                knnEngine.getCurrentVersion(),
                 field.name,
                 knnEngine.getExtension()
             );

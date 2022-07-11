@@ -31,7 +31,7 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
         assertTrue(libraryInitializedSupplier.get());
     }
 
-    private class TestLibrary implements KNNLibrary {
+    private static class TestLibrary implements KNNLibrary {
         private Boolean initialized;
 
         TestLibrary() {
@@ -39,12 +39,7 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
         }
 
         @Override
-        public String getLatestBuildVersion() {
-            return null;
-        }
-
-        @Override
-        public String getLatestLibVersion() {
+        public String getCurrentVersion() {
             return null;
         }
 

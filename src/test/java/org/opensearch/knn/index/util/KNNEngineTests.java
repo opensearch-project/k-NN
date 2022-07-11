@@ -19,7 +19,7 @@ public class KNNEngineTests extends KNNTestCase {
      * Get latest build version from library
      */
     public void testDelegateLibraryFunctions() {
-        assertEquals(Nmslib.INSTANCE.getLatestLibVersion(), KNNEngine.NMSLIB.getLatestLibVersion());
+        assertEquals(Nmslib.INSTANCE.getCurrentVersion(), KNNEngine.NMSLIB.getCurrentVersion());
     }
 
     /**

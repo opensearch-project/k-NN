@@ -24,18 +24,11 @@ import java.util.Map;
 public interface KNNLibrary {
 
     /**
-     * Gets the library's latest build version
+     * Gets the library's current version
      *
      * @return the string representing the library's latest build version
      */
-    String getLatestBuildVersion();
-
-    /**
-     * Gets the library's latest version
-     *
-     * @return the string representing the library's latest version
-     */
-    String getLatestLibVersion();
+    String getCurrentVersion();
 
     /**
      * Gets the extension that files written with this library should have

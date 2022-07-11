@@ -35,25 +35,15 @@ public class NativeLibraryTests extends KNNTestCase {
     /**
      * Test native library build version getter
      */
-    public void testGetLatestBuildVersion() {
+    public void testGetCurrentVersion() {
         String latestBuildVersion = "test-build-version";
         TestNativeLibrary testNativeLibrary = new TestNativeLibrary(
             Collections.emptyMap(),
             Collections.emptyMap(),
             latestBuildVersion,
-            "",
             ""
         );
-        assertEquals(latestBuildVersion, testNativeLibrary.getLatestBuildVersion());
-    }
-
-    /**
-     * Test native library version getter
-     */
-    public void testGetLatestLibVersion() {
-        String latestVersion = "test-lib-version";
-        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), Collections.emptyMap(), "", latestVersion, "");
-        assertEquals(latestVersion, testNativeLibrary.getLatestLibVersion());
+        assertEquals(latestBuildVersion, testNativeLibrary.getCurrentVersion());
     }
 
     /**
@@ -61,7 +51,7 @@ public class NativeLibraryTests extends KNNTestCase {
      */
     public void testGetExtension() {
         String extension = ".extension";
-        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), Collections.emptyMap(), "", "", extension);
+        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), Collections.emptyMap(), "", extension);
         assertEquals(extension, testNativeLibrary.getExtension());
     }
 
@@ -70,7 +60,7 @@ public class NativeLibraryTests extends KNNTestCase {
      */
     public void testGetCompoundExtension() {
         String extension = ".extension";
-        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), Collections.emptyMap(), "", "", extension);
+        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), Collections.emptyMap(), "", extension);
         assertEquals(extension + "c", testNativeLibrary.getCompoundExtension());
     }
 
@@ -86,7 +76,7 @@ public class NativeLibraryTests extends KNNTestCase {
 
         Map<String, KNNMethod> knnMethodMap = ImmutableMap.of(methodName1, knnMethod1, methodName2, knnMethod2);
 
-        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(knnMethodMap, Collections.emptyMap(), "", "", "");
+        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(knnMethodMap, Collections.emptyMap(), "", "");
         assertEquals(knnMethod1, testNativeLibrary.getMethod(methodName1));
         assertEquals(knnMethod2, testNativeLibrary.getMethod(methodName2));
         expectThrows(IllegalArgumentException.class, () -> testNativeLibrary.getMethod("invalid"));
@@ -97,7 +87,7 @@ public class NativeLibraryTests extends KNNTestCase {
      */
     public void testScore() {
         Map<SpaceType, Function<Float, Float>> translationMap = ImmutableMap.of(SpaceType.L2, s -> s * 2);
-        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), translationMap, "", "", "");
+        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), translationMap, "", "");
         // Test override
         assertEquals(2f, testNativeLibrary.score(1f, SpaceType.L2), 0.0001);
 
@@ -114,7 +104,7 @@ public class NativeLibraryTests extends KNNTestCase {
         KNNMethod knnMethod1 = KNNMethod.Builder.builder(MethodComponent.Builder.builder(methodName1).build()).build();
 
         Map<String, KNNMethod> methodMap = ImmutableMap.of(methodName1, knnMethod1);
-        TestNativeLibrary testNativeLibrary1 = new TestNativeLibrary(methodMap, Collections.emptyMap(), "", "", "");
+        TestNativeLibrary testNativeLibrary1 = new TestNativeLibrary(methodMap, Collections.emptyMap(), "", "");
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject().field(NAME, "invalid").endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
@@ -131,7 +121,7 @@ public class NativeLibraryTests extends KNNTestCase {
         };
 
         methodMap = ImmutableMap.of(methodName2, knnMethod2);
-        TestNativeLibrary testNativeLibrary2 = new TestNativeLibrary(methodMap, Collections.emptyMap(), "", "", "");
+        TestNativeLibrary testNativeLibrary2 = new TestNativeLibrary(methodMap, Collections.emptyMap(), "", "");
         xContentBuilder = XContentFactory.jsonBuilder().startObject().field(NAME, methodName2).endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext2 = KNNMethodContext.parse(in);
@@ -150,7 +140,6 @@ public class NativeLibraryTests extends KNNTestCase {
         TestNativeLibrary testNativeLibrary = new TestNativeLibrary(
             ImmutableMap.of(methodName, knnMethod),
             Collections.emptyMap(),
-            "",
             "",
             ""
         );
@@ -180,18 +169,16 @@ public class NativeLibraryTests extends KNNTestCase {
          *
          * @param methods map of methods the native library supports
          * @param scoreTranslation Map of translation of space type to scores returned by the library
-         * @param latestLibraryBuildVersion String representation of latest build version of the library
-         * @param latestLibraryVersion String representation of latest version of the library
+         * @param currentVersion String representation of current version of the library
          * @param extension String representing the extension that library files should use
          */
         public TestNativeLibrary(
             Map<String, KNNMethod> methods,
             Map<SpaceType, Function<Float, Float>> scoreTranslation,
-            String latestLibraryBuildVersion,
-            String latestLibraryVersion,
+            String currentVersion,
             String extension
         ) {
-            super(methods, scoreTranslation, latestLibraryBuildVersion, latestLibraryVersion, extension);
+            super(methods, scoreTranslation, currentVersion, extension);
         }
     }
 }

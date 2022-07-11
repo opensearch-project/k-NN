@@ -28,8 +28,7 @@ import java.util.function.Function;
 abstract class NativeLibrary implements KNNLibrary {
     protected Map<String, KNNMethod> methods;
     private final Map<SpaceType, Function<Float, Float>> scoreTranslation;
-    private final String latestLibraryBuildVersion;
-    private final String latestLibraryVersion;
+    private final String currentVersion;
     private final String extension;
     private final AtomicBoolean initialized;
 
@@ -38,33 +37,25 @@ abstract class NativeLibrary implements KNNLibrary {
      *
      * @param methods map of methods the native library supports
      * @param scoreTranslation Map of translation of space type to scores returned by the library
-     * @param latestLibraryBuildVersion String representation of latest build version of the library
-     * @param latestLibraryVersion String representation of latest version of the library
+     * @param currentVersion String representation of current version of the library
      * @param extension String representing the extension that library files should use
      */
     public NativeLibrary(
         Map<String, KNNMethod> methods,
         Map<SpaceType, Function<Float, Float>> scoreTranslation,
-        String latestLibraryBuildVersion,
-        String latestLibraryVersion,
+        String currentVersion,
         String extension
     ) {
         this.methods = methods;
         this.scoreTranslation = scoreTranslation;
-        this.latestLibraryBuildVersion = latestLibraryBuildVersion;
-        this.latestLibraryVersion = latestLibraryVersion;
+        this.currentVersion = currentVersion;
         this.extension = extension;
         this.initialized = new AtomicBoolean(false);
     }
 
     @Override
-    public String getLatestBuildVersion() {
-        return this.latestLibraryBuildVersion;
-    }
-
-    @Override
-    public String getLatestLibVersion() {
-        return this.latestLibraryVersion;
+    public String getCurrentVersion() {
+        return this.currentVersion;
     }
 
     @Override

@@ -91,13 +91,8 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public String getLatestBuildVersion() {
-        return knnLibrary.getLatestBuildVersion();
-    }
-
-    @Override
-    public String getLatestLibVersion() {
-        return knnLibrary.getLatestLibVersion();
+    public String getCurrentVersion() {
+        return knnLibrary.getCurrentVersion();
     }
 
     @Override

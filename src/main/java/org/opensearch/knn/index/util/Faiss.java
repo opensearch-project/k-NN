@@ -55,6 +55,8 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  */
 class Faiss extends NativeLibrary {
 
+    private final static String CURRENT_VERSION = "165";
+
     // Map that overrides OpenSearch score translation by space type of scores returned by faiss
     private final static Map<SpaceType, Function<Float, Float>> SCORE_TRANSLATIONS = ImmutableMap.of(
         SpaceType.INNER_PRODUCT,
@@ -228,11 +230,10 @@ class Faiss extends NativeLibrary {
         ).addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build()
     );
 
-    public final static Faiss INSTANCE = new Faiss(
+    final static Faiss INSTANCE = new Faiss(
         METHODS,
         SCORE_TRANSLATIONS,
-        Version.LATEST.getBuildVersion(),
-        Version.LATEST.indexLibraryVersion(),
+        CURRENT_VERSION,
         KNNConstants.FAISS_EXTENSION
     );
 
@@ -241,18 +242,16 @@ class Faiss extends NativeLibrary {
      *
      * @param methods                   map of methods the native library supports
      * @param scoreTranslation          Map of translation of space type to scores returned by the library
-     * @param latestLibraryBuildVersion String representation of latest build version of the library
-     * @param latestLibraryVersion      String representation of latest version of the library
+     * @param currentVersion            String representation of current version of the library
      * @param extension                 String representing the extension that library files should use
      */
     private Faiss(
         Map<String, KNNMethod> methods,
         Map<SpaceType, Function<Float, Float>> scoreTranslation,
-        String latestLibraryBuildVersion,
-        String latestLibraryVersion,
+        String currentVersion,
         String extension
     ) {
-        super(methods, scoreTranslation, latestLibraryBuildVersion, latestLibraryVersion, extension);
+        super(methods, scoreTranslation, currentVersion, extension);
     }
 
     /**
@@ -341,26 +340,6 @@ class Faiss extends NativeLibrary {
             initialMap.put(NAME, methodComponent.getName());
             initialMap.put(PARAMETERS, MethodComponent.getParameterMapWithDefaultsAdded(methodComponentContext, methodComponent));
             return new MethodAsMapBuilder(baseDescription, methodComponent, initialMap);
-        }
-    }
-
-    private enum Version implements LibVersion {
-        V165("165");
-
-        public static final Version LATEST = V165;
-
-        private final String buildVersion;
-
-        Version(String buildVersion) {
-            this.buildVersion = buildVersion;
-        }
-
-        public String indexLibraryVersion() {
-            return KNNConstants.FAISS_JNI_LIBRARY_NAME;
-        }
-
-        public String getBuildVersion() {
-            return buildVersion;
         }
     }
 }
