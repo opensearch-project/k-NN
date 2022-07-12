@@ -11,8 +11,8 @@
 
 package org.opensearch.knn.index;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -40,9 +40,9 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  * KNNMethodContext will contain the information necessary to produce a library index from an Opensearch mapping.
  * It will encompass all parameters necessary to build the index.
  */
+@AllArgsConstructor
+@Getter
 public class KNNMethodContext implements ToXContentFragment, Writeable {
-
-    private static final Logger logger = LogManager.getLogger(KNNMethodContext.class);
 
     private static KNNMethodContext defaultInstance = null;
 
@@ -62,19 +62,6 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     private final MethodComponentContext methodComponent;
 
     /**
-     * Constructor
-     *
-     * @param knnEngine engine that this method uses
-     * @param spaceType space type that this method uses
-     * @param methodComponent MethodComponent describing the main index
-     */
-    public KNNMethodContext(KNNEngine knnEngine, SpaceType spaceType, MethodComponentContext methodComponent) {
-        this.knnEngine = knnEngine;
-        this.spaceType = spaceType;
-        this.methodComponent = methodComponent;
-    }
-
-    /**
      * Constructor from stream.
      *
      * @param in StreamInput
@@ -84,33 +71,6 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         this.knnEngine = KNNEngine.getEngine(in.readString());
         this.spaceType = SpaceType.getSpace(in.readString());
         this.methodComponent = new MethodComponentContext(in);
-    }
-
-    /**
-     * Gets the main method component
-     *
-     * @return methodComponent
-     */
-    public MethodComponentContext getMethodComponent() {
-        return methodComponent;
-    }
-
-    /**
-     * Gets the engine to be used for this context
-     *
-     * @return knnEngine
-     */
-    public KNNEngine getEngine() {
-        return knnEngine;
-    }
-
-    /**
-     * Gets the space type for this context
-     *
-     * @return spaceType
-     */
-    public SpaceType getSpaceType() {
-        return spaceType;
     }
 
     /**
