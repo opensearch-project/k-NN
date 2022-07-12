@@ -11,6 +11,8 @@
 
 package org.opensearch.knn.index;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.opensearch.common.TriFunction;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
@@ -26,7 +28,9 @@ import java.util.function.BiFunction;
  */
 public class MethodComponent {
 
+    @Getter
     private String name;
+    @Getter
     private Map<String, Parameter<?>> parameters;
     private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
     private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
@@ -43,24 +47,6 @@ public class MethodComponent {
         this.mapGenerator = builder.mapGenerator;
         this.overheadInKBEstimator = builder.overheadInKBEstimator;
         this.requiresTraining = builder.requiresTraining;
-    }
-
-    /**
-     * Get the name of the component
-     *
-     * @return name
-     */
-    public String getName() {
-        return name;
-    }
-
-    /**
-     * Get the parameters for the component
-     *
-     * @return parameters
-     */
-    public Map<String, Parameter<?>> getParameters() {
-        return parameters;
     }
 
     /**
@@ -223,6 +209,7 @@ public class MethodComponent {
 
         private String name;
         private Map<String, Parameter<?>> parameters;
+        @Setter
         private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
         private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
         private boolean requiresTraining;

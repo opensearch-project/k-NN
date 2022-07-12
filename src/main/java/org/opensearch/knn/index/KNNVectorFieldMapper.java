@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index;
 
+import lombok.Getter;
 import org.opensearch.common.Strings;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -206,7 +207,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             if (knnMethodContext != null) {
                 return new MethodFieldMapper(
                     name,
-                    new KNNVectorFieldType(buildFullName(context), meta.getValue(), dimension.getValue()),
+                    new KNNVectorFieldType(buildFullName(context), meta.getValue(), dimension.getValue(), knnMethodContext),
                     multiFieldsBuilder.build(this, context),
                     copyTo.build(),
                     ignoreMalformed(context),
@@ -225,7 +226,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
                 return new ModelFieldMapper(
                     name,
-                    new KNNVectorFieldType(buildFullName(context), meta.getValue(), -1, modelIdAsString),
+                    new KNNVectorFieldType(buildFullName(context), meta.getValue(), -1, knnMethodContext, modelIdAsString),
                     multiFieldsBuilder.build(this, context),
                     copyTo.build(),
                     ignoreMalformed(context),
@@ -297,18 +298,26 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     }
 
     public static class KNNVectorFieldType extends MappedFieldType {
-
+        @Getter
         int dimension;
+        @Getter
         String modelId;
+        @Getter
+        KNNMethodContext knnMethodContext;
 
         public KNNVectorFieldType(String name, Map<String, String> meta, int dimension) {
-            this(name, meta, dimension, null);
+            this(name, meta, dimension, null, null);
         }
 
-        public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, String modelId) {
+        public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, KNNMethodContext knnMethodContext) {
+            this(name, meta, dimension, knnMethodContext, null);
+        }
+
+        public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, KNNMethodContext knnMethodContext, String modelId) {
             super(name, false, false, true, TextSearchInfo.NONE, meta);
             this.dimension = dimension;
             this.modelId = modelId;
+            this.knnMethodContext = knnMethodContext;
         }
 
         @Override
@@ -332,14 +341,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 context,
                 "KNN vector do not support exact searching, use KNN queries " + "instead: [" + name() + "]"
             );
-        }
-
-        public int getDimension() {
-            return dimension;
-        }
-
-        public String getModelId() {
-            return modelId;
         }
 
         @Override
@@ -623,7 +624,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             this.fieldType.putAttribute(DIMENSION, String.valueOf(dimension));
             this.fieldType.putAttribute(SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
 
-            KNNEngine knnEngine = knnMethodContext.getEngine();
+            KNNEngine knnEngine = knnMethodContext.getKnnEngine();
             this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
 
             try {

@@ -11,6 +11,8 @@
 
 package org.opensearch.knn.index;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 
@@ -26,30 +28,13 @@ import java.util.Set;
  * KNNMethod is used to define the structure of a method supported by a particular k-NN library. It is used to validate
  * the KNNMethodContext passed in by the user. It is also used to provide superficial string translations.
  */
+@AllArgsConstructor
 public class KNNMethod {
 
+    @Getter
     private final MethodComponent methodComponent;
+    @Getter
     private final Set<SpaceType> spaces;
-
-    /**
-     * KNNMethod Constructor
-     *
-     * @param methodComponent top level method component that is compatible with the underlying library
-     * @param spaces set of valid space types that the method supports
-     */
-    public KNNMethod(MethodComponent methodComponent, Set<SpaceType> spaces) {
-        this.methodComponent = methodComponent;
-        this.spaces = spaces;
-    }
-
-    /**
-     * getMainMethodComponent
-     *
-     * @return mainMethodComponent
-     */
-    public MethodComponent getMethodComponent() {
-        return methodComponent;
-    }
 
     /**
      * Determines whether the provided space is supported for this method
@@ -59,15 +44,6 @@ public class KNNMethod {
      */
     public boolean containsSpace(SpaceType space) {
         return spaces.contains(space);
-    }
-
-    /**
-     * Get all valid spaces for this method
-     *
-     * @return spaces that can be used with this method
-     */
-    public Set<SpaceType> getSpaces() {
-        return spaces;
     }
 
     /**

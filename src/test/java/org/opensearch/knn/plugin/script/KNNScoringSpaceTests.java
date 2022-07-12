@@ -6,6 +6,7 @@
 package org.opensearch.knn.plugin.script;
 
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.KNNVectorFieldMapper;
 import org.opensearch.index.mapper.BinaryFieldMapper;
 import org.opensearch.index.mapper.NumberFieldMapper;
@@ -25,7 +26,13 @@ public class KNNScoringSpaceTests extends KNNTestCase {
     public void testL2() {
         float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
         List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
-        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType("test", Collections.emptyMap(), 3);
+        KNNMethodContext knnMethodContext = KNNMethodContext.getDefault();
+        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
+            "test",
+            Collections.emptyMap(),
+            3,
+            knnMethodContext
+        );
         KNNScoringSpace.L2 l2 = new KNNScoringSpace.L2(arrayListQueryObject, fieldType);
         assertEquals(1F, l2.scoringMethod.apply(arrayFloat, arrayFloat), 0.1F);
 
@@ -40,8 +47,14 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
         List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
         float[] arrayFloat2 = new float[] { 2.0f, 4.0f, 6.0f };
+        KNNMethodContext knnMethodContext = KNNMethodContext.getDefault();
 
-        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType("test", Collections.emptyMap(), 3);
+        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
+            "test",
+            Collections.emptyMap(),
+            3,
+            knnMethodContext
+        );
         KNNScoringSpace.CosineSimilarity cosineSimilarity = new KNNScoringSpace.CosineSimilarity(arrayListQueryObject, fieldType);
 
         assertEquals(3F, cosineSimilarity.scoringMethod.apply(arrayFloat2, arrayFloat), 0.1F);
@@ -57,8 +70,14 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         float[] arrayFloat_case1 = new float[] { 1.0f, 2.0f, 3.0f };
         List<Double> arrayListQueryObject_case1 = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
         float[] arrayFloat2_case1 = new float[] { 1.0f, 1.0f, 1.0f };
+        KNNMethodContext knnMethodContext = KNNMethodContext.getDefault();
 
-        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType("test", Collections.emptyMap(), 3);
+        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
+            "test",
+            Collections.emptyMap(),
+            3,
+            knnMethodContext
+        );
         KNNScoringSpace.InnerProd innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case1, fieldType);
 
         assertEquals(7.0F, innerProd.scoringMethod.apply(arrayFloat_case1, arrayFloat2_case1), 0.001F);
