@@ -41,6 +41,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  * It will encompass all parameters necessary to build the index.
  */
 @AllArgsConstructor
+@Getter
 public class KNNMethodContext implements ToXContentFragment, Writeable {
 
     private static KNNMethodContext defaultInstance = null;
@@ -56,11 +57,8 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         return defaultInstance;
     }
 
-    @Getter
     private final KNNEngine knnEngine;
-    @Getter
     private final SpaceType spaceType;
-    @Getter
     private final MethodComponentContext methodComponent;
 
     /**

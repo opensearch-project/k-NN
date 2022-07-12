@@ -10,7 +10,9 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.KNN910Codec.KNN910Codec;
 
 /**
- * Abstracts builder logic for plugin codecs
+ * Abstracts builder logic for plugin codecs. For each codec we need to set delegate that is typically
+ * Lucene codec implementation and this is made part of the base class. Exact builder implementation may add
+ * additional parameters required to build a codec.
  */
 public abstract class CodecBuilder {
     Codec userCodec;
@@ -27,12 +29,13 @@ public abstract class CodecBuilder {
 
     /**
      * Builds instance of codec, implementation is specific for each codec version
-     * @return
+     * @return instance of codec
      */
     public abstract Codec build();
 
     /**
-     * Implements builder abstraction for KNN91Codec
+     * Implements builder abstraction for KNN91Codec, adds MapperService that may be required to build
+     * per field format based on field mapper type
      */
     @AllArgsConstructor
     public static class KNN91CodecBuilder extends CodecBuilder {

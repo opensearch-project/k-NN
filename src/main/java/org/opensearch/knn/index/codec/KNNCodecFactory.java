@@ -35,8 +35,8 @@ public class KNNCodecFactory {
 
     private Codec getCodec(final KNNCodecVersion knnCodecVersion, final Codec userCodec) {
         try {
-            CodecBuilder constructor = codecByVersion.getOrDefault(knnCodecVersion, codecByVersion.get(LATEST_KNN_CODEC_VERSION));
-            return constructor.userCodec(userCodec).build();
+            final CodecBuilder codecBuilder = codecByVersion.getOrDefault(knnCodecVersion, codecByVersion.get(LATEST_KNN_CODEC_VERSION));
+            return codecBuilder.userCodec(userCodec).build();
         } catch (Exception ex) {
             throw new RuntimeException("Cannot create instance of KNN codec", ex);
         }

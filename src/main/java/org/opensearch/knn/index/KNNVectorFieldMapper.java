@@ -297,12 +297,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }
     }
 
+    @Getter
     public static class KNNVectorFieldType extends MappedFieldType {
-        @Getter
         int dimension;
-        @Getter
         String modelId;
-        @Getter
         KNNMethodContext knnMethodContext;
 
         public KNNVectorFieldType(String name, Map<String, String> meta, int dimension) {

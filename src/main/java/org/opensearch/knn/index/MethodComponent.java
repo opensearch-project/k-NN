@@ -12,7 +12,6 @@
 package org.opensearch.knn.index;
 
 import lombok.Getter;
-import lombok.Setter;
 import org.opensearch.common.TriFunction;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
@@ -209,7 +208,6 @@ public class MethodComponent {
 
         private String name;
         private Map<String, Parameter<?>> parameters;
-        @Setter
         private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
         private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
         private boolean requiresTraining;

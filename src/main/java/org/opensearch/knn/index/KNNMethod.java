@@ -29,11 +29,10 @@ import java.util.Set;
  * the KNNMethodContext passed in by the user. It is also used to provide superficial string translations.
  */
 @AllArgsConstructor
+@Getter
 public class KNNMethod {
 
-    @Getter
     private final MethodComponent methodComponent;
-    @Getter
     private final Set<SpaceType> spaces;
 
     /**
