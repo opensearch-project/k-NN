@@ -11,8 +11,8 @@
 
 package org.opensearch.knn.index;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.common.io.stream.Writeable;
@@ -36,23 +36,12 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  *
  * Each component is composed of a name and a map of parameters.
  */
+@AllArgsConstructor
 public class MethodComponentContext implements ToXContentFragment, Writeable {
 
-    private static final Logger logger = LogManager.getLogger(MethodComponentContext.class);
-
+    @Getter
     private final String name;
     private final Map<String, Object> parameters;
-
-    /**
-     * Constructor
-     *
-     * @param name component name
-     * @param parameters component parameters
-     */
-    public MethodComponentContext(String name, Map<String, Object> parameters) {
-        this.name = name;
-        this.parameters = parameters;
-    }
 
     /**
      * Constructor from stream.
@@ -181,15 +170,6 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
     @Override
     public int hashCode() {
         return new HashCodeBuilder().append(name).append(parameters).toHashCode();
-    }
-
-    /**
-     * Gets the name of the component
-     *
-     * @return name
-     */
-    public String getName() {
-        return name;
     }
 
     /**

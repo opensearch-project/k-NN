@@ -7,8 +7,11 @@ package org.opensearch.knn.index.codec;
 
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.backward_codecs.lucene91.Lucene91Codec;
+import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.KNN910Codec.KNN910Codec;
+
+import static org.mockito.Mockito.mock;
 
 public class KNNCodecFactoryTests extends KNNTestCase {
 
@@ -20,14 +23,18 @@ public class KNNCodecFactoryTests extends KNNTestCase {
 
     public void testKNN91DefaultCodec() {
         Lucene91Codec lucene91CodecDelegate = new Lucene91Codec();
-        Codec knnCodec = KNNCodecFactory.createKNNCodec(lucene91CodecDelegate);
+        MapperService mapperService = mock(MapperService.class);
+        KNNCodecFactory knnCodecFactory = new KNNCodecFactory(mapperService);
+        Codec knnCodec = knnCodecFactory.createKNNCodec(lucene91CodecDelegate);
         assertNotNull(knnCodec);
         assertTrue(knnCodec instanceof KNN910Codec);
     }
 
     public void testKNN91CodecByVersion() {
         Lucene91Codec lucene91CodecDelegate = new Lucene91Codec();
-        Codec knnCodec = KNNCodecFactory.createKNNCodec(KNNCodecFactory.KNNCodecVersion.KNN910, lucene91CodecDelegate);
+        MapperService mapperService = mock(MapperService.class);
+        KNNCodecFactory knnCodecFactory = new KNNCodecFactory(mapperService);
+        Codec knnCodec = knnCodecFactory.createKNNCodec(KNNCodecFactory.KNNCodecVersion.KNN910, lucene91CodecDelegate);
         assertNotNull(knnCodec);
         assertTrue(knnCodec instanceof KNN910Codec);
     }

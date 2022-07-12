@@ -7,9 +7,9 @@ package org.opensearch.knn.index.codec;
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.backward_codecs.lucene91.Lucene91Codec;
-import org.opensearch.knn.index.codec.KNN910Codec.KNN910Codec;
+import org.opensearch.index.mapper.MapperService;
+import org.opensearch.knn.index.codec.util.CodecBuilder;
 
-import java.lang.reflect.Constructor;
 import java.util.Map;
 
 /**
@@ -17,23 +17,26 @@ import java.util.Map;
  */
 public class KNNCodecFactory {
 
-    private static Map<KNNCodecVersion, Class> CODEC_BY_VERSION = ImmutableMap.of(KNNCodecVersion.KNN910, KNN910Codec.class);
+    private final Map<KNNCodecVersion, CodecBuilder> codecByVersion;
 
-    private static KNNCodecVersion LATEST_KNN_CODEC_VERSION = KNNCodecVersion.KNN910;
+    private static final KNNCodecVersion LATEST_KNN_CODEC_VERSION = KNNCodecVersion.KNN910;
 
-    public static Codec createKNNCodec(final Codec userCodec) {
+    public KNNCodecFactory(MapperService mapperService) {
+        codecByVersion = ImmutableMap.of(KNNCodecVersion.KNN910, new CodecBuilder.KNN91CodecBuilder(mapperService));
+    }
+
+    public Codec createKNNCodec(final Codec userCodec) {
         return getCodec(LATEST_KNN_CODEC_VERSION, userCodec);
     }
 
-    public static Codec createKNNCodec(final KNNCodecVersion knnCodecVersion, final Codec userCodec) {
+    public Codec createKNNCodec(final KNNCodecVersion knnCodecVersion, final Codec userCodec) {
         return getCodec(knnCodecVersion, userCodec);
     }
 
-    private static Codec getCodec(final KNNCodecVersion knnCodecVersion, final Codec userCodec) {
+    private Codec getCodec(final KNNCodecVersion knnCodecVersion, final Codec userCodec) {
         try {
-            Constructor<?> constructor = CODEC_BY_VERSION.getOrDefault(knnCodecVersion, CODEC_BY_VERSION.get(LATEST_KNN_CODEC_VERSION))
-                .getConstructor(Codec.class);
-            return (Codec) constructor.newInstance(userCodec);
+            final CodecBuilder codecBuilder = codecByVersion.getOrDefault(knnCodecVersion, codecByVersion.get(LATEST_KNN_CODEC_VERSION));
+            return codecBuilder.userCodec(userCodec).build();
         } catch (Exception ex) {
             throw new RuntimeException("Cannot create instance of KNN codec", ex);
         }

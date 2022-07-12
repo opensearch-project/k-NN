@@ -809,7 +809,7 @@ public class JNIServiceTests extends KNNTestCase {
             )
         );
 
-        String description = knnMethodContext.getEngine().getMethodAsMap(knnMethodContext).get(INDEX_DESCRIPTION_PARAMETER).toString();
+        String description = knnMethodContext.getKnnEngine().getMethodAsMap(knnMethodContext).get(INDEX_DESCRIPTION_PARAMETER).toString();
         assertEquals("IVF16,PQ16x8", description);
 
         Map<String, Object> parameters = ImmutableMap.of(

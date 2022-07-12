@@ -74,7 +74,7 @@ public class KNNMethodContextTests extends KNNTestCase {
     public void testGetEngine() {
         MethodComponentContext methodComponent = new MethodComponentContext("test-method", Collections.emptyMap());
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponent);
-        assertEquals(KNNEngine.DEFAULT, knnMethodContext.getEngine());
+        assertEquals(KNNEngine.DEFAULT, knnMethodContext.getKnnEngine());
     }
 
     /**
@@ -265,7 +265,7 @@ public class KNNMethodContextTests extends KNNTestCase {
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
 
-        assertEquals(KNNEngine.DEFAULT, knnMethodContext.getEngine());
+        assertEquals(KNNEngine.DEFAULT, knnMethodContext.getKnnEngine());
         assertEquals(SpaceType.DEFAULT, knnMethodContext.getSpaceType());
         assertEquals(methodName, knnMethodContext.getMethodComponent().getName());
         assertTrue(knnMethodContext.getMethodComponent().getParameters().isEmpty());

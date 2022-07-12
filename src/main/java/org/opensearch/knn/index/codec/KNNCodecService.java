@@ -14,8 +14,11 @@ import org.opensearch.index.codec.CodecService;
  */
 public class KNNCodecService extends CodecService {
 
+    private final KNNCodecFactory knnCodecFactory;
+
     public KNNCodecService(CodecServiceConfig codecServiceConfig) {
         super(codecServiceConfig.getMapperService(), codecServiceConfig.getLogger());
+        knnCodecFactory = new KNNCodecFactory(codecServiceConfig.getMapperService());
     }
 
     /**
@@ -26,6 +29,6 @@ public class KNNCodecService extends CodecService {
      */
     @Override
     public Codec codec(String name) {
-        return KNNCodecFactory.createKNNCodec(super.codec(name));
+        return knnCodecFactory.createKNNCodec(super.codec(name));
     }
 }
