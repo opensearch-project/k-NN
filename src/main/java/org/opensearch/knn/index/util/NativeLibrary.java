@@ -1,12 +1,6 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.knn.index.util;
@@ -18,6 +12,7 @@ import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
@@ -40,7 +35,7 @@ abstract class NativeLibrary implements KNNLibrary {
      * @param currentVersion String representation of current version of the library
      * @param extension String representing the extension that library files should use
      */
-    public NativeLibrary(
+    NativeLibrary(
         Map<String, KNNMethod> methods,
         Map<SpaceType, Function<Float, Float>> scoreTranslation,
         String currentVersion,
@@ -74,7 +69,7 @@ abstract class NativeLibrary implements KNNLibrary {
         if (method != null) {
             return method;
         }
-        throw new IllegalArgumentException("Invalid method name: " + methodName);
+        throw new IllegalArgumentException(String.format("Invalid method name: %s", methodName));
     }
 
     @Override
@@ -109,7 +104,7 @@ abstract class NativeLibrary implements KNNLibrary {
         KNNMethod knnMethod = methods.get(knnMethodContext.getMethodComponent().getName());
 
         if (knnMethod == null) {
-            throw new IllegalArgumentException("Invalid method name: " + knnMethodContext.getMethodComponent().getName());
+            throw new IllegalArgumentException(String.format("Invalid method name: %s", knnMethodContext.getMethodComponent().getName()));
         }
 
         return knnMethod.getAsMap(knnMethodContext);
@@ -122,6 +117,7 @@ abstract class NativeLibrary implements KNNLibrary {
 
     @Override
     public void setInitialized(Boolean isInitialized) {
+        Objects.requireNonNull(isInitialized, "isInitialized must not be null");
         initialized.set(isInitialized);
     }
 }

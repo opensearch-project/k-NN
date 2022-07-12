@@ -1,12 +1,6 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.knn.index.util;
@@ -22,15 +16,16 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.function.Function;
 
-import static org.opensearch.knn.common.KNNConstants.*;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 
 /**
  * Implements NativeLibrary for the nmslib native library
  */
 class Nmslib extends NativeLibrary {
 
-    final static String HNSW_LIB_NAME = "hnsw";
+    // Extension to be used for Nmslib files. It is ".hnsw" and not ".nmslib" for legacy purposes.
     final static String EXTENSION = ".hnsw";
 
     final static String CURRENT_VERSION = "2011";
@@ -38,7 +33,7 @@ class Nmslib extends NativeLibrary {
     final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
         METHOD_HNSW,
         KNNMethod.Builder.builder(
-            MethodComponent.Builder.builder(HNSW_LIB_NAME)
+            MethodComponent.Builder.builder(METHOD_HNSW)
                 .addParameter(
                     METHOD_PARAMETER_M,
                     new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0)

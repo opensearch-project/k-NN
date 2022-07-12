@@ -1,17 +1,12 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.knn.index.util;
 
 import com.google.common.collect.ImmutableMap;
+import lombok.AllArgsConstructor;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNSettings;
@@ -118,14 +113,16 @@ class Faiss extends NativeLibrary {
                 if (codeSizeObject == null) {
                     Parameter<?> codeSizeParameter = methodComponent.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
                     if (codeSizeParameter == null) {
-                        throw new IllegalStateException(ENCODER_PARAMETER_PQ_CODE_SIZE + " is not a valid " + " parameter. This is a bug.");
+                        throw new IllegalStateException(
+                            String.format("%s  is not a valid parameter. This is a bug.", ENCODER_PARAMETER_PQ_CODE_SIZE)
+                        );
                     }
 
                     codeSizeObject = codeSizeParameter.getDefaultValue();
                 }
 
                 if (!(codeSizeObject instanceof Integer)) {
-                    throw new IllegalStateException(ENCODER_PARAMETER_PQ_CODE_SIZE + " must be " + "an integer.");
+                    throw new IllegalStateException(String.format("%s must be an integer.", ENCODER_PARAMETER_PQ_CODE_SIZE));
                 }
 
                 int codeSize = (Integer) codeSizeObject;
@@ -213,14 +210,16 @@ class Faiss extends NativeLibrary {
                     if (nlistObject == null) {
                         Parameter<?> nlistParameter = methodComponent.getParameters().get(METHOD_PARAMETER_NLIST);
                         if (nlistParameter == null) {
-                            throw new IllegalStateException(METHOD_PARAMETER_NLIST + " is not a valid " + " parameter. This is a bug.");
+                            throw new IllegalStateException(
+                                String.format("%s  is not a valid parameter. This is a bug.", METHOD_PARAMETER_NLIST)
+                            );
                         }
 
                         nlistObject = nlistParameter.getDefaultValue();
                     }
 
                     if (!(nlistObject instanceof Integer)) {
-                        throw new IllegalStateException(METHOD_PARAMETER_NLIST + " must be " + "an integer.");
+                        throw new IllegalStateException(String.format("%s must be an integer.", METHOD_PARAMETER_NLIST));
                     }
 
                     int centroids = (Integer) nlistObject;
@@ -256,23 +255,11 @@ class Faiss extends NativeLibrary {
      * the index description from a set of parameters and removes them from the map. On build, it sets the index
      * description in the map and returns the processed map
      */
+    @AllArgsConstructor
     static class MethodAsMapBuilder {
         String indexDescription;
         MethodComponent methodComponent;
         Map<String, Object> methodAsMap;
-
-        /**
-         * Constructor
-         *
-         * @param baseDescription the basic description this component should start with
-         * @param methodComponent the method component that maps to this builder
-         * @param initialMap the initial parameter map that will be modified
-         */
-        MethodAsMapBuilder(String baseDescription, MethodComponent methodComponent, Map<String, Object> initialMap) {
-            this.indexDescription = baseDescription;
-            this.methodComponent = methodComponent;
-            this.methodAsMap = initialMap;
-        }
 
         /**
          * Add a parameter that will be used in the index description for the given method component
