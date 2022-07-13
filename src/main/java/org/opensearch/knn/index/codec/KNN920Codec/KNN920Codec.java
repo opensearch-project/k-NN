@@ -4,6 +4,7 @@
  */
 package org.opensearch.knn.index.codec.KNN920Codec;
 
+import lombok.Builder;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.DocValuesFormat;
@@ -33,6 +34,7 @@ public final class KNN920Codec extends FilterCodec {
      *
      * @param delegate codec that will perform all operations this codec does not override
      */
+    @Builder
     public KNN920Codec(Codec delegate) {
         super(KNN920, delegate);
         knnFormatFacade = KNNFormatFactory.createKNN920Format(delegate);
