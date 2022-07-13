@@ -178,12 +178,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer);
 
         // The document should be created in the correct location
-        String expectedFile = KNNCodecUtil.buildEngineFileName(
-            segmentName,
-            knnEngine.getLatestBuildVersion(),
-            fieldName,
-            knnEngine.getExtension()
-        );
+        String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
         assertFileInCorrectLocation(state, expectedFile);
 
         // The footer should be valid
@@ -227,12 +222,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer);
 
         // The document should be created in the correct location
-        String expectedFile = KNNCodecUtil.buildEngineFileName(
-            segmentName,
-            knnEngine.getLatestBuildVersion(),
-            fieldName,
-            knnEngine.getExtension()
-        );
+        String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
         assertFileInCorrectLocation(state, expectedFile);
 
         // The footer should be valid
@@ -283,12 +273,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer);
 
         // The document should be created in the correct location
-        String expectedFile = KNNCodecUtil.buildEngineFileName(
-            segmentName,
-            knnEngine.getLatestBuildVersion(),
-            fieldName,
-            knnEngine.getExtension()
-        );
+        String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
         assertFileInCorrectLocation(state, expectedFile);
 
         // The footer should be valid
@@ -364,12 +349,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer);
 
         // The document should be created in the correct location
-        String expectedFile = KNNCodecUtil.buildEngineFileName(
-            segmentName,
-            knnEngine.getLatestBuildVersion(),
-            fieldName,
-            knnEngine.getExtension()
-        );
+        String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
         assertFileInCorrectLocation(state, expectedFile);
 
         // The footer should be valid

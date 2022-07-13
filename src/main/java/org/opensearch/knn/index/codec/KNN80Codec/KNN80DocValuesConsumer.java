@@ -99,12 +99,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
             KNNEngine knnEngine = model.getModelMetadata().getKnnEngine();
 
-            engineFileName = buildEngineFileName(
-                state.segmentInfo.name,
-                knnEngine.getLatestBuildVersion(),
-                field.name,
-                knnEngine.getExtension()
-            );
+            engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getVersion(), field.name, knnEngine.getExtension());
             indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(), engineFileName)
                 .toString();
 
@@ -119,12 +114,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
             KNNEngine knnEngine = KNNEngine.getEngine(engineName);
 
-            engineFileName = buildEngineFileName(
-                state.segmentInfo.name,
-                knnEngine.getLatestBuildVersion(),
-                field.name,
-                knnEngine.getExtension()
-            );
+            engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getVersion(), field.name, knnEngine.getExtension());
             indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(), engineFileName)
                 .toString();
 

@@ -1,29 +1,21 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.knn.index.util;
 
+import com.google.common.collect.ImmutableMap;
+import org.opensearch.common.ValidationException;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.MethodComponent;
 import org.opensearch.knn.index.MethodComponentContext;
-import org.opensearch.knn.index.Parameter;
 import org.opensearch.knn.index.SpaceType;
-import com.google.common.collect.ImmutableMap;
-import org.opensearch.common.ValidationException;
-import org.opensearch.common.xcontent.XContentBuilder;
-import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.knn.index.util.KNNLibrary.Faiss.MethodAsMapBuilder;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -31,57 +23,40 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
-public class KNNLibraryTests extends KNNTestCase {
-    /**
-     * Test native library build version getter
-     */
-    public void testNativeLibrary_getLatestBuildVersion() {
-        String latestBuildVersion = "test-build-version";
-        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(
-            Collections.emptyMap(),
-            Collections.emptyMap(),
-            latestBuildVersion,
-            "",
-            ""
-        );
-        assertEquals(latestBuildVersion, testNativeLibrary.getLatestBuildVersion());
-    }
-
+public class NativeLibraryTests extends KNNTestCase {
     /**
      * Test native library version getter
      */
-    public void testNativeLibrary_getLatestLibVersion() {
-        String latestVersion = "test-lib-version";
-        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), Collections.emptyMap(), "", latestVersion, "");
-        assertEquals(latestVersion, testNativeLibrary.getLatestLibVersion());
+    public void testGetVersion() {
+        String latestBuildVersion = "test-build-version";
+        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), Collections.emptyMap(), latestBuildVersion, "");
+        assertEquals(latestBuildVersion, testNativeLibrary.getVersion());
     }
 
     /**
      * Test native library extension getter
      */
-    public void testNativeLibrary_getExtension() {
+    public void testGetExtension() {
         String extension = ".extension";
-        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), Collections.emptyMap(), "", "", extension);
+        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), Collections.emptyMap(), "", extension);
         assertEquals(extension, testNativeLibrary.getExtension());
     }
 
     /**
      * Test native library compound extension getter
      */
-    public void testNativeLibrary_getCompoundExtension() {
+    public void testGetCompoundExtension() {
         String extension = ".extension";
-        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), Collections.emptyMap(), "", "", extension);
+        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), Collections.emptyMap(), "", extension);
         assertEquals(extension + "c", testNativeLibrary.getCompoundExtension());
     }
 
     /**
      * Test native library compound extension getter
      */
-    public void testNativeLibrary_getMethod() {
+    public void testGetMethod() {
         String methodName1 = "test-method-1";
         KNNMethod knnMethod1 = KNNMethod.Builder.builder(MethodComponent.Builder.builder(methodName1).build()).build();
 
@@ -90,7 +65,7 @@ public class KNNLibraryTests extends KNNTestCase {
 
         Map<String, KNNMethod> knnMethodMap = ImmutableMap.of(methodName1, knnMethod1, methodName2, knnMethod2);
 
-        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(knnMethodMap, Collections.emptyMap(), "", "", "");
+        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(knnMethodMap, Collections.emptyMap(), "", "");
         assertEquals(knnMethod1, testNativeLibrary.getMethod(methodName1));
         assertEquals(knnMethod2, testNativeLibrary.getMethod(methodName2));
         expectThrows(IllegalArgumentException.class, () -> testNativeLibrary.getMethod("invalid"));
@@ -99,9 +74,9 @@ public class KNNLibraryTests extends KNNTestCase {
     /**
      * Test native library scoring override
      */
-    public void testNativeLibrary_score() {
+    public void testScore() {
         Map<SpaceType, Function<Float, Float>> translationMap = ImmutableMap.of(SpaceType.L2, s -> s * 2);
-        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), translationMap, "", "", "");
+        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), translationMap, "", "");
         // Test override
         assertEquals(2f, testNativeLibrary.score(1f, SpaceType.L2), 0.0001);
 
@@ -112,13 +87,13 @@ public class KNNLibraryTests extends KNNTestCase {
     /**
      * Test native library method validation
      */
-    public void testNativeLibrary_validateMethod() throws IOException {
+    public void testValidateMethod() throws IOException {
         // Invalid - method not supported
         String methodName1 = "test-method-1";
         KNNMethod knnMethod1 = KNNMethod.Builder.builder(MethodComponent.Builder.builder(methodName1).build()).build();
 
         Map<String, KNNMethod> methodMap = ImmutableMap.of(methodName1, knnMethod1);
-        TestNativeLibrary testNativeLibrary1 = new TestNativeLibrary(methodMap, Collections.emptyMap(), "", "", "");
+        TestNativeLibrary testNativeLibrary1 = new TestNativeLibrary(methodMap, Collections.emptyMap(), "", "");
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject().field(NAME, "invalid").endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
@@ -135,14 +110,14 @@ public class KNNLibraryTests extends KNNTestCase {
         };
 
         methodMap = ImmutableMap.of(methodName2, knnMethod2);
-        TestNativeLibrary testNativeLibrary2 = new TestNativeLibrary(methodMap, Collections.emptyMap(), "", "", "");
+        TestNativeLibrary testNativeLibrary2 = new TestNativeLibrary(methodMap, Collections.emptyMap(), "", "");
         xContentBuilder = XContentFactory.jsonBuilder().startObject().field(NAME, methodName2).endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext2 = KNNMethodContext.parse(in);
         assertNotNull(testNativeLibrary2.validateMethod(knnMethodContext2));
     }
 
-    public void testNativeLibrary_getMethodAsMap() {
+    public void testGetMethodAsMap() {
         String methodName = "test-method-1";
         SpaceType spaceType = SpaceType.DEFAULT;
         Map<String, Object> generatedMap = ImmutableMap.of("test-key", "test-param");
@@ -151,13 +126,7 @@ public class KNNLibraryTests extends KNNTestCase {
             .build();
         KNNMethod knnMethod = KNNMethod.Builder.builder(methodComponent).build();
 
-        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(
-            ImmutableMap.of(methodName, knnMethod),
-            Collections.emptyMap(),
-            "",
-            "",
-            ""
-        );
+        TestNativeLibrary testNativeLibrary = new TestNativeLibrary(ImmutableMap.of(methodName, knnMethod), Collections.emptyMap(), "", "");
 
         // Check that map is expected
         Map<String, Object> expectedMap = new HashMap<>(generatedMap);
@@ -178,67 +147,22 @@ public class KNNLibraryTests extends KNNTestCase {
         expectThrows(IllegalArgumentException.class, () -> testNativeLibrary.getMethodAsMap(invalidKnnMethodContext));
     }
 
-    public void testFaiss_methodAsMapBuilder() throws IOException {
-        String methodName = "test-method";
-        String methodDescription = "test-description";
-        String parameter1 = "test-parameter-1";
-        Integer value1 = 10;
-        Integer defaultValue1 = 1;
-        String parameter2 = "test-parameter-2";
-        Integer value2 = 15;
-        Integer defaultValue2 = 2;
-        String parameter3 = "test-parameter-3";
-        Integer defaultValue3 = 3;
-        MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
-            .addParameter(parameter1, new Parameter.IntegerParameter(parameter1, defaultValue1, value -> value > 0))
-            .addParameter(parameter2, new Parameter.IntegerParameter(parameter2, defaultValue2, value -> value > 0))
-            .addParameter(parameter3, new Parameter.IntegerParameter(parameter3, defaultValue3, value -> value > 0))
-            .build();
-
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, methodName)
-            .startObject(PARAMETERS)
-            .field(parameter1, value1)
-            .field(parameter2, value2)
-            .endObject()
-            .endObject();
-        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
-        MethodComponentContext methodComponentContext = MethodComponentContext.parse(in);
-
-        Map<String, Object> expectedParametersMap = new HashMap<>(methodComponentContext.getParameters());
-        expectedParametersMap.put(parameter3, defaultValue3);
-        expectedParametersMap.remove(parameter1);
-        Map<String, Object> expectedMap = new HashMap<>();
-        expectedMap.put(PARAMETERS, expectedParametersMap);
-        expectedMap.put(NAME, methodName);
-        expectedMap.put(INDEX_DESCRIPTION_PARAMETER, methodDescription + value1);
-
-        Map<String, Object> methodAsMap = MethodAsMapBuilder.builder(methodDescription, methodComponent, methodComponentContext)
-            .addParameter(parameter1, "", "")
-            .build();
-
-        assertEquals(expectedMap, methodAsMap);
-    }
-
-    static class TestNativeLibrary extends KNNLibrary.NativeLibrary {
+    static class TestNativeLibrary extends NativeLibrary {
         /**
          * Constructor for TestNativeLibrary
          *
          * @param methods map of methods the native library supports
          * @param scoreTranslation Map of translation of space type to scores returned by the library
-         * @param latestLibraryBuildVersion String representation of latest build version of the library
-         * @param latestLibraryVersion String representation of latest version of the library
+         * @param currentVersion String representation of current version of the library
          * @param extension String representing the extension that library files should use
          */
         public TestNativeLibrary(
             Map<String, KNNMethod> methods,
             Map<SpaceType, Function<Float, Float>> scoreTranslation,
-            String latestLibraryBuildVersion,
-            String latestLibraryVersion,
+            String currentVersion,
             String extension
         ) {
-            super(methods, scoreTranslation, latestLibraryBuildVersion, latestLibraryVersion, extension);
+            super(methods, scoreTranslation, currentVersion, extension);
         }
     }
 }
