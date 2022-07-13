@@ -13,7 +13,25 @@ import org.opensearch.knn.index.codec.KNN80Codec.KNN80DocValuesFormat;
  */
 public class KNNFormatFactory {
 
+    /**
+     * Return facade class that abstracts format specific to KNN910 codec
+     * @param delegate delegate codec that is wrapped by KNN codec
+     * @return
+     */
     public static KNNFormatFacade createKNN910Format(final Codec delegate) {
+        final KNNFormatFacade knnFormatFacade = new KNNFormatFacade(
+            new KNN80DocValuesFormat(delegate.docValuesFormat()),
+            new KNN80CompoundFormat(delegate.compoundFormat())
+        );
+        return knnFormatFacade;
+    }
+
+    /**
+     * Return facade class that abstracts format specific to KNN920 codec
+     * @param delegate delegate codec that is wrapped by KNN codec
+     * @return
+     */
+    public static KNNFormatFacade createKNN920Format(final Codec delegate) {
         final KNNFormatFacade knnFormatFacade = new KNNFormatFacade(
             new KNN80DocValuesFormat(delegate.docValuesFormat()),
             new KNN80CompoundFormat(delegate.compoundFormat())

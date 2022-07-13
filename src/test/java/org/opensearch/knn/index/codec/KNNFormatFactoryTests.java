@@ -24,4 +24,16 @@ public class KNNFormatFactoryTests extends KNNTestCase {
         assertNotNull(knnFormatFacade.compoundFormat());
         assertNotNull(knnFormatFacade.docValuesFormat());
     }
+
+    public void testKNN92Format() {
+        final Codec lucene92CodecDelegate = KNNCodecFactory.CodecDelegateFactory.createKNN92DefaultDelegate();
+        MapperService mapperService = mock(MapperService.class);
+        KNNCodecFactory knnCodecFactory = new KNNCodecFactory(mapperService);
+        final Codec knnCodec = knnCodecFactory.createKNNCodec(lucene92CodecDelegate);
+        KNNFormatFacade knnFormatFacade = KNNFormatFactory.createKNN920Format(knnCodec);
+
+        assertNotNull(knnFormatFacade);
+        assertNotNull(knnFormatFacade.compoundFormat());
+        assertNotNull(knnFormatFacade.docValuesFormat());
+    }
 }
