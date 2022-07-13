@@ -1,12 +1,6 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.knn.index.util;
@@ -16,10 +10,10 @@ import org.opensearch.knn.common.KNNConstants;
 
 public class KNNEngineTests extends KNNTestCase {
     /**
-     * Get latest build version from library
+     * Check that version from engine and library match
      */
     public void testDelegateLibraryFunctions() {
-        assertEquals(KNNLibrary.Nmslib.INSTANCE.getLatestLibVersion(), KNNEngine.NMSLIB.getLatestLibVersion());
+        assertEquals(Nmslib.INSTANCE.getVersion(), KNNEngine.NMSLIB.getVersion());
     }
 
     /**
@@ -38,9 +32,9 @@ public class KNNEngineTests extends KNNTestCase {
     }
 
     public void testGetEngineFromPath() {
-        String hnswPath1 = "test" + KNNLibrary.Nmslib.EXTENSION;
+        String hnswPath1 = "test" + Nmslib.EXTENSION;
         assertEquals(KNNEngine.NMSLIB, KNNEngine.getEngineNameFromPath(hnswPath1));
-        String hnswPath2 = "test" + KNNLibrary.Nmslib.EXTENSION + KNNConstants.COMPOUND_EXTENSION;
+        String hnswPath2 = "test" + Nmslib.EXTENSION + KNNConstants.COMPOUND_EXTENSION;
         assertEquals(KNNEngine.NMSLIB, KNNEngine.getEngineNameFromPath(hnswPath2));
 
         String faissPath1 = "test" + KNNConstants.FAISS_EXTENSION;

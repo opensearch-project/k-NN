@@ -1,12 +1,6 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.knn.index.util;
@@ -42,8 +36,8 @@ public enum KNNEngine implements KNNLibrary {
         this.knnLibrary = knnLibrary;
     }
 
-    private String name;
-    private KNNLibrary knnLibrary;
+    private final String name;
+    private final KNNLibrary knnLibrary;
 
     /**
      * Get the engine
@@ -60,7 +54,7 @@ public enum KNNEngine implements KNNLibrary {
             return FAISS;
         }
 
-        throw new IllegalArgumentException("Invalid engine type: " + name);
+        throw new IllegalArgumentException(String.format("Invalid engine type: %s", name));
     }
 
     /**
@@ -91,13 +85,8 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public String getLatestBuildVersion() {
-        return knnLibrary.getLatestBuildVersion();
-    }
-
-    @Override
-    public String getLatestLibVersion() {
-        return knnLibrary.getLatestLibVersion();
+    public String getVersion() {
+        return knnLibrary.getVersion();
     }
 
     @Override
