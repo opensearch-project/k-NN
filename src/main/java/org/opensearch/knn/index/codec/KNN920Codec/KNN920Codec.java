@@ -35,7 +35,7 @@ public final class KNN920Codec extends FilterCodec {
      */
     public KNN920Codec(Codec delegate) {
         super(KNN920, delegate);
-        knnFormatFacade = KNNFormatFactory.createKNN910Format(delegate);
+        knnFormatFacade = KNNFormatFactory.createKNN920Format(delegate);
     }
 
     @Override
