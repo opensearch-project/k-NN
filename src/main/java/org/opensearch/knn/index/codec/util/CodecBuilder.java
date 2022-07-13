@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import org.apache.lucene.codecs.Codec;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.KNN910Codec.KNN910Codec;
+import org.opensearch.knn.index.codec.KNN920Codec.KNN920Codec;
 
 /**
  * Abstracts builder logic for plugin codecs. For each codec we need to set delegate that is typically
@@ -44,6 +45,20 @@ public abstract class CodecBuilder {
         @Override
         public Codec build() {
             return new KNN910Codec(userCodec);
+        }
+    }
+
+    /**
+     * Implements builder abstraction for KNN91Codec, adds MapperService that may be required to build
+     * per field format based on field mapper type
+     */
+    @AllArgsConstructor
+    public static class KNN92CodecBuilder extends CodecBuilder {
+        private final MapperService mapperService;
+
+        @Override
+        public Codec build() {
+            return new KNN920Codec(userCodec);
         }
     }
 }
