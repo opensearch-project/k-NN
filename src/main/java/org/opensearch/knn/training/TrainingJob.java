@@ -75,7 +75,7 @@ public class TrainingJob implements Runnable {
         this.modelAnonymousEntryContext = Objects.requireNonNull(modelAnonymousEntryContext, "AnonymousEntryContext cannot be null.");
         this.model = new Model(
             new ModelMetadata(
-                knnMethodContext.getEngine(),
+                knnMethodContext.getKnnEngine(),
                 knnMethodContext.getSpaceType(),
                 dimension,
                 ModelState.TRAINING,
