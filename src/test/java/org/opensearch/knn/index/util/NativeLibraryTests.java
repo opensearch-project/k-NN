@@ -27,12 +27,12 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
 
 public class NativeLibraryTests extends KNNTestCase {
     /**
-     * Test native library build version getter
+     * Test native library version getter
      */
-    public void testGetCurrentVersion() {
+    public void testGetVersion() {
         String latestBuildVersion = "test-build-version";
         TestNativeLibrary testNativeLibrary = new TestNativeLibrary(Collections.emptyMap(), Collections.emptyMap(), latestBuildVersion, "");
-        assertEquals(latestBuildVersion, testNativeLibrary.getCurrentVersion());
+        assertEquals(latestBuildVersion, testNativeLibrary.getVersion());
     }
 
     /**

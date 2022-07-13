@@ -49,7 +49,7 @@ abstract class NativeLibrary implements KNNLibrary {
     }
 
     @Override
-    public String getCurrentVersion() {
+    public String getVersion() {
         return this.currentVersion;
     }
 

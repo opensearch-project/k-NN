@@ -24,11 +24,13 @@ import java.util.Map;
 public interface KNNLibrary {
 
     /**
-     * Gets the library's current version
+     * Gets the version of the library that is being used. In general, this can be used for ensuring compatibility of
+     * serialized artifacts. For instance, this can be used to check if a given file that was created on a different
+     * cluster is compatible with this instance of the library.
      *
-     * @return the string representing the library's latest build version
+     * @return the string representing the library's version
      */
-    String getCurrentVersion();
+    String getVersion();
 
     /**
      * Gets the extension that files written with this library should have

@@ -39,7 +39,7 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
         }
 
         @Override
-        public String getCurrentVersion() {
+        public String getVersion() {
             return null;
         }
 

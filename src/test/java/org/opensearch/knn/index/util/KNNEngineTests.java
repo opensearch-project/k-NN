@@ -10,10 +10,10 @@ import org.opensearch.knn.common.KNNConstants;
 
 public class KNNEngineTests extends KNNTestCase {
     /**
-     * Get latest build version from library
+     * Check that version from engine and library match
      */
     public void testDelegateLibraryFunctions() {
-        assertEquals(Nmslib.INSTANCE.getCurrentVersion(), KNNEngine.NMSLIB.getCurrentVersion());
+        assertEquals(Nmslib.INSTANCE.getVersion(), KNNEngine.NMSLIB.getVersion());
     }
 
     /**
