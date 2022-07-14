@@ -21,7 +21,7 @@ import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.opensearch.knn.index.KNNVectorFieldMapper.MAX_DIMENSION;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.MAX_DIMENSION;
 
 public class ModelTests extends KNNTestCase {
 

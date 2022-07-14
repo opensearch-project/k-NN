@@ -34,7 +34,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
-import static org.opensearch.knn.index.KNNVectorFieldMapper.MAX_DIMENSION;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.MAX_DIMENSION;
 
 public class ModelMetadata implements Writeable, ToXContentObject {
 
