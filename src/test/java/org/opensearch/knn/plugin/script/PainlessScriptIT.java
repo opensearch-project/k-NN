@@ -7,7 +7,7 @@ package org.opensearch.knn.plugin.script;
 
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
-import org.opensearch.knn.index.KNNVectorFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;

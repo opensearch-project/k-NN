@@ -10,7 +10,7 @@ import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.KNNVectorFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 
 import org.opensearch.knn.index.KNNWeight;
 import org.opensearch.knn.index.codec.KNNCodecService;

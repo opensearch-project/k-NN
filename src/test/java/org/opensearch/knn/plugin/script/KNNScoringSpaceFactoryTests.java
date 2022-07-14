@@ -6,7 +6,7 @@
 package org.opensearch.knn.plugin.script;
 
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.KNNVectorFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.index.mapper.NumberFieldMapper;
 

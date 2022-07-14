@@ -1,9 +1,15 @@
 /*
- * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
  */
 
-package org.opensearch.knn.index;
+package org.opensearch.knn.index.mapper;
 
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.KNNTestCase;
@@ -17,6 +23,10 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.ContentPath;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.mapper.MapperService;
+import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -79,7 +89,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
-        assertTrue(knnVectorFieldMapper instanceof KNNVectorFieldMapper.MethodFieldMapper);
+        assertTrue(knnVectorFieldMapper instanceof MethodFieldMapper);
         assertNotNull(knnVectorFieldMapper.knnMethod);
         assertNull(knnVectorFieldMapper.modelId);
     }
@@ -116,7 +126,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         when(modelDao.getMetadata(modelId)).thenReturn(mockedModelMetadata);
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
-        assertTrue(knnVectorFieldMapper instanceof KNNVectorFieldMapper.ModelFieldMapper);
+        assertTrue(knnVectorFieldMapper instanceof ModelFieldMapper);
         assertNotNull(knnVectorFieldMapper.modelId);
         assertNull(knnVectorFieldMapper.knnMethod);
     }
@@ -140,7 +150,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
-        assertTrue(knnVectorFieldMapper instanceof KNNVectorFieldMapper.LegacyFieldMapper);
+        assertTrue(knnVectorFieldMapper instanceof LegacyFieldMapper);
 
         assertNull(knnVectorFieldMapper.modelId);
         assertNull(knnVectorFieldMapper.knnMethod);
