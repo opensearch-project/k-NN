@@ -16,7 +16,11 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
+import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 
@@ -52,7 +56,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
     private static int DOC_ID_TEST_MODEL_INDEX = 0;
     private static int DOC_ID_TEST_MODEL_INDEX_DEFAULT = 0;
     private static final int DELAY_MILLI_SEC = 1000;
-    private static final int EXP_NUM_OF_MODELS = 2;
+    private static final int EXP_NUM_OF_MODELS = 3;
     private static final int K = 5;
     private static final int NUM_DOCS = 10;
     private static final int NUM_DOCS_TEST_MODEL_INDEX = 100;
@@ -63,6 +67,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
     private static int QUERY_COUNT_TEST_MODEL_INDEX_DEFAULT = 0;
     private static final String TEST_MODEL_ID = "test-model-id";
     private static final String TEST_MODEL_ID_DEFAULT = "test-model-id-default";
+    private static final String TEST_MODEL_ID_TRAINING = "test-model-id-training";
     private static final String MODEL_DESCRIPTION = "Description for train model test";
 
     // KNN model test
@@ -135,12 +140,42 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    // KNN Delete Model test for model in Training State
+    public void testDeleteTrainingModel() throws IOException, InterruptedException {
+        byte[] testModelBlob = "hello".getBytes();
+        ModelMetadata testModelMetadata = getModelMetadata();
+        testModelMetadata.setState(ModelState.TRAINING);
+        if (isRunningAgainstOldCluster()) {
+            addModelToSystemIndex(TEST_MODEL_ID_TRAINING, testModelMetadata, testModelBlob);
+        } else {
+            String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, TEST_MODEL_ID_TRAINING);
+            Request request = new Request("DELETE", restURI);
+
+            Response response = client().performRequest(request);
+            assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+            assertEquals(3, getDocCount(MODEL_INDEX_NAME));
+
+            String responseBody = EntityUtils.toString(response.getEntity());
+            assertNotNull(responseBody);
+
+            Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+
+            assertEquals(TEST_MODEL_ID_TRAINING, responseMap.get(MODEL_ID));
+            assertEquals("failed", responseMap.get(DeleteModelResponse.RESULT));
+
+            String errorMessage = String.format("Cannot delete model \"%s\". Model is still in training", TEST_MODEL_ID_TRAINING);
+            assertEquals(errorMessage, responseMap.get(DeleteModelResponse.ERROR_MSG));
+        }
+    }
+
     // Delete Models and ".opensearch-knn-models" index to clear cluster metadata
     @AfterClass
     public static void wipeAllModels() throws IOException {
         if (!isRunningAgainstOldCluster()) {
             deleteKNNModel(TEST_MODEL_ID);
             deleteKNNModel(TEST_MODEL_ID_DEFAULT);
+            deleteKNNModel(TEST_MODEL_ID_TRAINING);
 
             Request request = new Request("DELETE", "/" + MODEL_INDEX_NAME);
 
@@ -240,5 +275,9 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
                 .endObject()
                 .endObject()
         );
+    }
+
+    private ModelMetadata getModelMetadata() {
+        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED, "2021-03-27", "test model", "");
     }
 }
