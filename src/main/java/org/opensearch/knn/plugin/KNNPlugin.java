@@ -5,6 +5,9 @@
 
 package org.opensearch.knn.plugin;
 
+import org.opensearch.cluster.NamedDiff;
+import org.opensearch.cluster.metadata.Metadata;
+import org.opensearch.common.ParseField;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.knn.index.KNNCircuitBreaker;
@@ -15,6 +18,7 @@ import org.opensearch.knn.index.KNNVectorFieldMapper;
 import org.opensearch.knn.index.KNNWeight;
 import org.opensearch.knn.index.codec.KNNCodecService;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.indices.ModelGraveyard;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.plugin.rest.RestDeleteModelHandler;
@@ -67,6 +71,8 @@ import org.opensearch.knn.plugin.transport.TrainingModelRequest;
 import org.opensearch.knn.plugin.transport.TrainingModelTransportAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
+import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
+import org.opensearch.knn.plugin.transport.UpdateModelGraveyardTransportAction;
 import org.opensearch.knn.training.TrainingJobRunner;
 import org.opensearch.knn.training.VectorReader;
 import org.opensearch.plugins.ActionPlugin;
@@ -88,6 +94,7 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.watcher.ResourceWatcherService;
 
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -235,7 +242,8 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
             new ActionHandler<>(TrainingJobRouterAction.INSTANCE, TrainingJobRouterTransportAction.class),
             new ActionHandler<>(TrainingModelAction.INSTANCE, TrainingModelTransportAction.class),
             new ActionHandler<>(RemoveModelFromCacheAction.INSTANCE, RemoveModelFromCacheTransportAction.class),
-            new ActionHandler<>(SearchModelAction.INSTANCE, SearchModelTransportAction.class)
+            new ActionHandler<>(SearchModelAction.INSTANCE, SearchModelTransportAction.class),
+            new ActionHandler<>(UpdateModelGraveyardAction.INSTANCE, UpdateModelGraveyardTransportAction.class)
         );
     }
 
@@ -293,4 +301,24 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
     public List<ExecutorBuilder<?>> getExecutorBuilders(Settings settings) {
         return ImmutableList.of(new FixedExecutorBuilder(settings, TRAIN_THREAD_POOL, 1, 1, KNN_THREAD_POOL_PREFIX, false));
     }
+
+    @Override
+    public List<NamedWriteableRegistry.Entry> getNamedWriteables() {
+        List<NamedWriteableRegistry.Entry> entries = new ArrayList<>();
+
+        entries.add(new NamedWriteableRegistry.Entry(Metadata.Custom.class, ModelGraveyard.TYPE, ModelGraveyard::new));
+        entries.add(new NamedWriteableRegistry.Entry(NamedDiff.class, ModelGraveyard.TYPE, ModelGraveyard::readDiffFrom));
+        return entries;
+    }
+
+    @Override
+    public List<NamedXContentRegistry.Entry> getNamedXContent() {
+        List<NamedXContentRegistry.Entry> entries = new ArrayList<>();
+
+        entries.add(
+            new NamedXContentRegistry.Entry(Metadata.Custom.class, new ParseField(ModelGraveyard.TYPE), ModelGraveyard::fromXContent)
+        );
+        return entries;
+    }
+
 }
