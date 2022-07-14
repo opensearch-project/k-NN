@@ -87,11 +87,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             int value = XContentMapValues.nodeIntegerValue(o);
             if (value > MAX_DIMENSION) {
-                throw new IllegalArgumentException("Dimension value cannot be greater than " + MAX_DIMENSION + " for vector: " + name);
+                throw new IllegalArgumentException(
+                    String.format("Dimension value cannot be greater than %s for vector: %s", MAX_DIMENSION, name)
+                );
             }
 
             if (value <= 0) {
-                throw new IllegalArgumentException("Dimension value must be greater than 0 " + "for vector: " + name);
+                throw new IllegalArgumentException(String.format("Dimension value must be greater than 0 for vector: %s", name));
             }
             return value;
         }, m -> toType(m).dimension);
@@ -273,12 +275,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             // is done before any mappers are built. Therefore, validation should be done during parsing
             // so that it can fail early.
             if (builder.knnMethodContext.get() != null && builder.modelId.get() != null) {
-                throw new IllegalArgumentException("Method and model can not be both specified in the mapping: " + name);
+                throw new IllegalArgumentException(String.format("Method and model can not be both specified in the mapping: %s", name));
             }
 
             // Dimension should not be null unless modelId is used
             if (builder.dimension.getValue() == -1 && builder.modelId.get() == null) {
-                throw new IllegalArgumentException("Dimension value missing for vector: " + name);
+                throw new IllegalArgumentException(String.format("Dimension value missing for vector: %s", name));
             }
 
             return builder;
@@ -325,7 +327,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         public Query termQuery(Object value, QueryShardContext context) {
             throw new QueryShardException(
                 context,
-                "KNN vector do not support exact searching, use KNN queries " + "instead: [" + name() + "]"
+                String.format("KNN vector do not support exact searching, use KNN queries instead: [%s]", name())
             );
         }
 
@@ -401,14 +403,14 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     void validateIfCircuitBreakerIsNotTriggered() {
         if (KNNSettings.isCircuitBreakerTriggered()) {
             throw new IllegalStateException(
-                "Indexing knn vector fields is rejected as circuit breaker triggered." + " Check _opendistro/_knn/stats for detailed state"
+                "Indexing knn vector fields is rejected as circuit breaker triggered. Check _opendistro/_knn/stats for detailed state"
             );
         }
     }
 
     void validateIfKNNPluginEnabled() {
         if (!KNNSettings.isKNNPluginEnabled()) {
-            throw new IllegalStateException("KNN plugin is disabled. To enable " + "update knn.plugin.enabled setting to true");
+            throw new IllegalStateException("KNN plugin is disabled. To enable update knn.plugin.enabled setting to true");
         }
     }
 

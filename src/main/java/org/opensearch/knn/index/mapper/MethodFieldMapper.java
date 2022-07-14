@@ -53,7 +53,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
                 Strings.toString(XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)))
             );
         } catch (IOException ioe) {
-            throw new RuntimeException("Unable to create KNNVectorFieldMapper: " + ioe);
+            throw new RuntimeException(String.format("Unable to create KNNVectorFieldMapper: %s", ioe));
         }
 
         this.fieldType.freeze();

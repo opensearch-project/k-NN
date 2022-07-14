@@ -21,7 +21,14 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 /**
- * Field mapper for original implementation
+ * Field mapper for original implementation. It defaults to using nmslib as the engine and retrieves parameters from index settings.
+ *
+ * Example of this mapper output:
+ *
+ *   {
+ *    "type": "knn_vector",
+ *    "dimension": 128
+ *   }
  */
 @Log4j2
 public class LegacyFieldMapper extends KNNVectorFieldMapper {
@@ -70,11 +77,11 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
         String spaceType = indexSettings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey());
         if (spaceType == null) {
             log.info(
-                "[KNN] The setting \""
-                    + METHOD_PARAMETER_SPACE_TYPE
-                    + "\" was not set for the index. "
-                    + "Likely caused by recent version upgrade. Setting the setting to the default value="
-                    + KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE
+                String.format(
+                    "[KNN] The setting \"%s\" was not set for the index. Likely caused by recent version upgrade. Setting the setting to the default value=%s",
+                    METHOD_PARAMETER_SPACE_TYPE,
+                    KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE
+                )
             );
             return KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE;
         }
@@ -85,11 +92,11 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
         String m = indexSettings.get(KNNSettings.INDEX_KNN_ALGO_PARAM_M_SETTING.getKey());
         if (m == null) {
             log.info(
-                "[KNN] The setting \""
-                    + HNSW_ALGO_M
-                    + "\" was not set for the index. "
-                    + "Likely caused by recent version upgrade. Setting the setting to the default value="
-                    + KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M
+                String.format(
+                    "[KNN] The setting \"%s\" was not set for the index. Likely caused by recent version upgrade. Setting the setting to the default value=%s",
+                    HNSW_ALGO_M,
+                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M
+                )
             );
             return String.valueOf(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M);
         }
@@ -100,11 +107,11 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
         String efConstruction = indexSettings.get(KNNSettings.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING.getKey());
         if (efConstruction == null) {
             log.info(
-                "[KNN] The setting \""
-                    + HNSW_ALGO_EF_CONSTRUCTION
-                    + "\" was not set for"
-                    + " the index. Likely caused by recent version upgrade. Setting the setting to the default value="
-                    + KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION
+                String.format(
+                    "[KNN] The setting \"%s\" was not set for the index. Likely caused by recent version upgrade. Setting the setting to the default value=%s",
+                    HNSW_ALGO_EF_CONSTRUCTION,
+                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION
+                )
             );
             return String.valueOf(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION);
         }
