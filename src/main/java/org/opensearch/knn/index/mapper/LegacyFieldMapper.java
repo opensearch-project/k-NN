@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.mapper;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.FieldType;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.settings.Settings;
@@ -22,6 +23,7 @@ import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 /**
  * Field mapper for original implementation
  */
+@Log4j2
 public class LegacyFieldMapper extends KNNVectorFieldMapper {
 
     protected String spaceType;
@@ -67,7 +69,7 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
     static String getSpaceType(Settings indexSettings) {
         String spaceType = indexSettings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey());
         if (spaceType == null) {
-            logger.info(
+            log.info(
                 "[KNN] The setting \""
                     + METHOD_PARAMETER_SPACE_TYPE
                     + "\" was not set for the index. "
@@ -82,7 +84,7 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
     static String getM(Settings indexSettings) {
         String m = indexSettings.get(KNNSettings.INDEX_KNN_ALGO_PARAM_M_SETTING.getKey());
         if (m == null) {
-            logger.info(
+            log.info(
                 "[KNN] The setting \""
                     + HNSW_ALGO_M
                     + "\" was not set for the index. "
@@ -97,7 +99,7 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
     static String getEfConstruction(Settings indexSettings) {
         String efConstruction = indexSettings.get(KNNSettings.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING.getKey());
         if (efConstruction == null) {
-            logger.info(
+            log.info(
                 "[KNN] The setting \""
                     + HNSW_ALGO_EF_CONSTRUCTION
                     + "\" was not set for"

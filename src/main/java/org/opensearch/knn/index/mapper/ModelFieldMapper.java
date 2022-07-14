@@ -50,15 +50,12 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
 
         if (modelMetadata == null) {
             throw new IllegalStateException(
-                "Model \""
-                    + modelId
-                    + "\" from "
-                    + context.mapperService().index().getName()
-                    + "'s mapping does not exist. Because the "
-                    + "\""
-                    + MODEL_ID
-                    + "\" parameter is not updateable, this index will need to "
-                    + "be recreated with a valid model."
+                String.format(
+                    "Model \"%s\" from %s's mapping does not exist. Because the \"%s\" parameter is not updatable, this index will need to be recreated with a valid model.",
+                    modelId,
+                    context.mapperService().index().getName(),
+                    MODEL_ID
+                )
             );
         }
 

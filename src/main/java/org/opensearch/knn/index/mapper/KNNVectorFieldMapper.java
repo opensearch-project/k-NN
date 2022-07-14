@@ -9,8 +9,6 @@ import lombok.Getter;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.DocValuesType;
@@ -60,8 +58,6 @@ import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
  * alternative mappings for the same field type.
  */
 public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
-
-    static Logger logger = LogManager.getLogger(KNNVectorFieldMapper.class);
 
     public static final String CONTENT_TYPE = "knn_vector";
     public static final String KNN_FIELD = "knn_field";
@@ -385,7 +381,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected void parseCreateField(ParseContext context, int dimension) throws IOException {
 
         validateIfKNNPluginEnabled();
-        validateIfCircuitBreakerTriggered();
+        validateIfCircuitBreakerIsNotTriggered();
 
         Optional<float[]> arrayOptional = getFloatsFromContext(context, dimension);
 
@@ -402,7 +398,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         context.path().remove();
     }
 
-    void validateIfCircuitBreakerTriggered() {
+    void validateIfCircuitBreakerIsNotTriggered() {
         if (KNNSettings.isCircuitBreakerTriggered()) {
             throw new IllegalStateException(
                 "Indexing knn vector fields is rejected as circuit breaker triggered." + " Check _opendistro/_knn/stats for detailed state"
