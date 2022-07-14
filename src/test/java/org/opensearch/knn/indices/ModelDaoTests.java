@@ -516,6 +516,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             assertNotNull(exception);
             assertTrue(exception.getMessage().contains(modelId));
             assertTrue(exception.getMessage().contains("Model does not exist"));
+            assertFalse(modelDao.isModelInGraveyard(modelId));
             inProgressLatch1.countDown();
         });
 
@@ -587,6 +588,40 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         modelDao.put(model1, docCreationListener1);
 
         assertTrue(inProgressLatch3.await(100, TimeUnit.SECONDS));
+    }
+
+    // Test Delete Model when modelId is in Model Graveyard (previous delete model request which failed to
+    // remove modelId from model graveyard). But, the model does not exist
+    public void testDeleteModelWithModelInGraveyardModelDoesNotExist() throws InterruptedException {
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
+        String modelId = "test-model-in-graveyard";
+        createIndex(MODEL_INDEX_NAME);
+
+        // Model does not exist
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        StepListener<AcknowledgedResponse> blockModelIdStep = new StepListener<>();
+        ActionListener<DeleteModelResponse> deleteModelDoesNotExistListener1 = ActionListener.wrap(Assert::assertNull, exception -> {
+            assertNotNull(exception);
+            assertTrue(exception.getMessage().contains(modelId));
+            assertTrue(exception.getMessage().contains("Model does not exist"));
+            // Assert that modelId is removed from graveyard even when the model does not exist
+            assertFalse(modelDao.isModelInGraveyard(modelId));
+            inProgressLatch.countDown();
+        });
+
+        // Adding the modelId to model graveyard
+        client().execute(
+            UpdateModelGraveyardAction.INSTANCE,
+            new UpdateModelGraveyardRequest(modelId, false),
+            ActionListener.wrap(blockModelIdStep::onResponse, blockModelIdStep::onFailure)
+        );
+
+        blockModelIdStep.whenComplete(acknowledgedResponse -> {
+            // Assert that model is in graveyard
+            assertTrue(modelDao.isModelInGraveyard(modelId));
+            modelDao.delete(modelId, deleteModelDoesNotExistListener1);
+        }, exception -> fail(exception.getMessage()));
+        assertTrue(inProgressLatch.await(60, TimeUnit.SECONDS));
     }
 
     public void testDeleteModelInTrainingWithStepListeners() throws IOException, ExecutionException, InterruptedException {

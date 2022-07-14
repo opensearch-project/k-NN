@@ -60,6 +60,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static java.util.Objects.isNull;
@@ -478,10 +479,11 @@ public interface ModelDao {
             get(modelId, ActionListener.wrap(getModelStep::onResponse, exception -> {
                 if (exception instanceof ResourceNotFoundException) {
                     String errorMessage = String.format("Unable to delete model \"%s\". Model does not exist", modelId);
-                    listener.onFailure(new ResourceNotFoundException(errorMessage));
-                    return;
+                    ResourceNotFoundException resourceNotFoundException = new ResourceNotFoundException(errorMessage);
+                    removeModelIdFromGraveyardOnFailure(modelId, resourceNotFoundException, getModelStep);
+                } else {
+                    removeModelIdFromGraveyardOnFailure(modelId, exception, getModelStep);
                 }
-                listener.onFailure(exception);
             }));
 
             getModelStep.whenComplete(getModelResponse -> {
@@ -493,7 +495,7 @@ public interface ModelDao {
                 }
 
                 // Add modelId to model graveyard until delete model request is processed
-                updateModelGraveyardToDelete(modelId, false, blockModelIdStep, null);
+                updateModelGraveyardToDelete(modelId, false, blockModelIdStep, Optional.empty());
             }, listener::onFailure);
 
             // Remove the metadata asynchronously
@@ -516,7 +518,7 @@ public interface ModelDao {
             deleteModelFromIndexStep.whenComplete(deleteResponse -> {
                 // If model is not deleted, remove modelId from model graveyard and return with error message
                 if (deleteResponse.getResult() != DocWriteResponse.Result.DELETED) {
-                    updateModelGraveyardToDelete(modelId, true, unblockModelIdStep, null);
+                    updateModelGraveyardToDelete(modelId, true, unblockModelIdStep, Optional.empty());
                     String errorMessage = String.format("Model \" %s \" does not exist", modelId);
                     listener.onResponse(new DeleteModelResponse(modelId, deleteResponse.getResult().getLowercase(), errorMessage));
                     return;
@@ -536,7 +538,7 @@ public interface ModelDao {
                 }
 
                 // Remove modelId from model graveyard
-                updateModelGraveyardToDelete(modelId, true, unblockModelIdStep, exception);
+                updateModelGraveyardToDelete(modelId, true, unblockModelIdStep, Optional.ofNullable(exception));
 
             }, e -> listener.onFailure(new OpenSearchException(e)));
 
@@ -579,25 +581,30 @@ public interface ModelDao {
             String modelId,
             boolean isRemoveRequest,
             StepListener<AcknowledgedResponse> step,
-            Exception exception
+            Optional<Exception> exception
         ) {
 
             client.execute(
                 UpdateModelGraveyardAction.INSTANCE,
                 new UpdateModelGraveyardRequest(modelId, isRemoveRequest),
                 ActionListener.wrap(acknowledgedResponse -> {
-                    if (exception == null) {
+                    if (exception.isEmpty()) {
                         step.onResponse(acknowledgedResponse);
                         return;
                     }
-                    throw exception;
+                    throw exception.get();
 
                 }, e -> {
-                    if (exception == null) {
+                    // If it fails to remove the modelId from Model Graveyard, then log the error message
+                    String errorMessage = String.format("Failed to remove \" %s \" from Model Graveyard", modelId);
+                    String failureMessage = String.format("%s%s%s", errorMessage, "\n", e.getMessage());
+                    logger.error(failureMessage);
+
+                    if (exception.isEmpty()) {
                         step.onFailure(e);
                         return;
                     }
-                    step.onFailure(exception);
+                    step.onFailure(exception.get());
                 })
             );
         }
@@ -620,10 +627,14 @@ public interface ModelDao {
             client.execute(
                 UpdateModelGraveyardAction.INSTANCE,
                 new UpdateModelGraveyardRequest(modelId, true),
-                ActionListener.wrap(
-                    acknowledgedResponse -> { throw exceptionFromPreviousStep; },
-                    unblockingFailedException -> step.onFailure(exceptionFromPreviousStep)
-                )
+                ActionListener.wrap(acknowledgedResponse -> { throw exceptionFromPreviousStep; }, unblockingFailedException -> {
+                    // If it fails to remove the modelId from Model Graveyard, then log the error message and
+                    // throw the exception that was passed as a parameter from previous step
+                    String errorMessage = String.format("Failed to remove \" %s \" from Model Graveyard", modelId);
+                    String failureMessage = String.format("%s%s%s", errorMessage, "\n", unblockingFailedException.getMessage());
+                    logger.error(failureMessage);
+                    step.onFailure(exceptionFromPreviousStep);
+                })
             );
         }
 
