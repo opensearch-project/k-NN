@@ -15,7 +15,7 @@ import org.opensearch.knn.index.codec.KNN920Codec.KNN920Codec;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.KNNQuery;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.KNNVectorFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.KNNWeight;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorField;

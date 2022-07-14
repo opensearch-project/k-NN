@@ -6,6 +6,7 @@
 package org.opensearch.knn.index;
 
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.plugin.stats.KNNCounter;
