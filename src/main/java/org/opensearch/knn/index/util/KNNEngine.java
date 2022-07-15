@@ -13,6 +13,7 @@ import org.opensearch.knn.index.SpaceType;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 
 /**
@@ -21,7 +22,8 @@ import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
  */
 public enum KNNEngine implements KNNLibrary {
     NMSLIB(NMSLIB_NAME, Nmslib.INSTANCE),
-    FAISS(FAISS_NAME, Faiss.INSTANCE);
+    FAISS(FAISS_NAME, Faiss.INSTANCE),
+    LUCENE(LUCENE_NAME, Lucene.INSTANCE);
 
     public static final KNNEngine DEFAULT = NMSLIB;
 
@@ -52,6 +54,10 @@ public enum KNNEngine implements KNNLibrary {
 
         if (FAISS.getName().equals(name)) {
             return FAISS;
+        }
+
+        if (LUCENE.getName().equals(name)) {
+            return LUCENE;
         }
 
         throw new IllegalArgumentException(String.format("Invalid engine type: %s", name));

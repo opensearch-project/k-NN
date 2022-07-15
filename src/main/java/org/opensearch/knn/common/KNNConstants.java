@@ -50,6 +50,9 @@ public class KNNConstants {
     public static final String MAX_VECTOR_COUNT_PARAMETER = "max_training_vector_count";
     public static final String SEARCH_SIZE_PARAMETER = "search_size";
 
+    // Lucene specific constants
+    public static final String LUCENE_NAME = "lucene";
+
     // nmslib specific constants
     public static final String NMSLIB_NAME = "nmslib";
     public static final String SPACE_TYPE = "spaceType"; // used as field info key
