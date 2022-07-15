@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.util;
 
+import lombok.Getter;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
@@ -21,6 +22,7 @@ import java.util.function.Function;
  */
 abstract class NativeLibrary extends AbstractKNNLibrary {
     private final Map<SpaceType, Function<Float, Float>> scoreTranslation;
+    @Getter
     private final String extension;
     private final AtomicBoolean initialized;
 
@@ -42,11 +44,6 @@ abstract class NativeLibrary extends AbstractKNNLibrary {
         this.scoreTranslation = scoreTranslation;
         this.extension = extension;
         this.initialized = new AtomicBoolean(false);
-    }
-
-    @Override
-    public String getExtension() {
-        return this.extension;
     }
 
     @Override

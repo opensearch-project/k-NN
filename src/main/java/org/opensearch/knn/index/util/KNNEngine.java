@@ -10,7 +10,10 @@ import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
@@ -79,6 +82,15 @@ public enum KNNEngine implements KNNLibrary {
         }
 
         throw new IllegalArgumentException("No engine matches the path's suffix");
+    }
+
+    /**
+     * Returns all engines that create custom segment files. This will be all engines except for Lucene
+     *
+     * @return List of all engines that create custom segment files.
+     */
+    public static List<KNNEngine> getEnginesThatCreateCustomSegmentFiles() {
+        return Arrays.stream(KNNEngine.values()).filter(knnEngine -> knnEngine != KNNEngine.LUCENE).collect(Collectors.toList());
     }
 
     /**

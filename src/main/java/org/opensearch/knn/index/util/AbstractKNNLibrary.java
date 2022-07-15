@@ -5,6 +5,9 @@
 
 package org.opensearch.knn.index.util;
 
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
@@ -14,26 +17,12 @@ import java.util.Map;
 /**
  * AbstractKNNLibrary implements common functionality shared between libraries
  */
+@AllArgsConstructor(access = AccessLevel.PACKAGE)
 public abstract class AbstractKNNLibrary implements KNNLibrary {
 
     protected final Map<String, KNNMethod> methods;
+    @Getter
     protected final String version;
-
-    /**
-     * Constructor
-     *
-     * @param methods Map of k-NN methods that the library supports
-     * @param version String representing version of library
-     */
-    AbstractKNNLibrary(Map<String, KNNMethod> methods, String version) {
-        this.methods = methods;
-        this.version = version;
-    }
-
-    @Override
-    public String getVersion() {
-        return this.version;
-    }
 
     @Override
     public KNNMethod getMethod(String methodName) {
