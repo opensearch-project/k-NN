@@ -26,7 +26,11 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
 
     @Override
     public KNNMethod getMethod(String methodName) {
-        return this.methods.get(methodName);
+        KNNMethod method = methods.get(methodName);
+        if (method == null) {
+            throw new IllegalArgumentException(String.format("Invalid method name: %s", methodName));
+        }
+        return method;
     }
 
     @Override
