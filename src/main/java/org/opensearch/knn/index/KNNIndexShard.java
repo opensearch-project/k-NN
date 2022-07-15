@@ -109,7 +109,7 @@ public class KNNIndexShard {
      */
     public Map<String, SpaceType> getAllEnginePaths(IndexReader indexReader) throws IOException {
         Map<String, SpaceType> engineFiles = new HashMap<>();
-        for (KNNEngine knnEngine : KNNEngine.values()) {
+        for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
             engineFiles.putAll(getEnginePaths(indexReader, knnEngine));
         }
         return engineFiles;
