@@ -46,7 +46,7 @@ public class KNN80CompoundFormat extends CompoundFormat {
 
     @Override
     public void write(Directory dir, SegmentInfo si, IOContext context) throws IOException {
-        for (KNNEngine knnEngine : KNNEngine.values()) {
+        for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
             writeEngineFiles(dir, si, context, knnEngine.getExtension());
         }
         delegate.write(dir, si, context);
