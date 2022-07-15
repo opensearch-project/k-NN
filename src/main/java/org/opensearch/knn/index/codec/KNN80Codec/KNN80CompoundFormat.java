@@ -47,7 +47,10 @@ public class KNN80CompoundFormat extends CompoundFormat {
     @Override
     public void write(Directory dir, SegmentInfo si, IOContext context) throws IOException {
         for (KNNEngine knnEngine : KNNEngine.values()) {
-            writeEngineFiles(dir, si, context, knnEngine.getExtension());
+            // Lucene is a special case. All engine writes are completely handled by it so we can skip it.
+            if (knnEngine != KNNEngine.LUCENE) {
+                writeEngineFiles(dir, si, context, knnEngine.getExtension());
+            }
         }
         delegate.write(dir, si, context);
     }

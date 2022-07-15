@@ -52,11 +52,11 @@ public enum KNNEngine implements KNNLibrary {
             return NMSLIB;
         }
 
-        if (FAISS.getName().equals(name)) {
+        if (FAISS.getName().equalsIgnoreCase(name)) {
             return FAISS;
         }
 
-        if (LUCENE.getName().equals(name)) {
+        if (LUCENE.getName().equalsIgnoreCase(name)) {
             return LUCENE;
         }
 
