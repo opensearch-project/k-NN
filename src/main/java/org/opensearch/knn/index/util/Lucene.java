@@ -58,12 +58,12 @@ public class Lucene extends JVMLibrary {
 
     @Override
     public String getExtension() {
-        throw new UnsupportedOperationException("Unable to get extension for Lucene.");
+        throw new UnsupportedOperationException("Getting extension for Lucene is not supported");
     }
 
     @Override
     public String getCompoundExtension() {
-        throw new UnsupportedOperationException("Unable to get compound extension for Lucene.");
+        throw new UnsupportedOperationException("Getting compound extension for Lucene is not supported");
     }
 
     @Override
@@ -81,6 +81,6 @@ public class Lucene extends JVMLibrary {
 
     @Override
     public void setInitialized(Boolean isInitialized) {
-        throw new UnsupportedOperationException("Lucene is automatically initialized.");
+        throw new UnsupportedOperationException("Setting Lucene as initialized is not supported");
     }
 }
