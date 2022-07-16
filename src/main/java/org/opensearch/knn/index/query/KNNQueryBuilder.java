@@ -1,17 +1,22 @@
 /*
- * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
  */
 
-package org.opensearch.knn.index;
+package org.opensearch.knn.index.query;
 
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.plugin.stats.KNNCounter;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.Query;
 import org.opensearch.common.ParseField;
 import org.opensearch.common.ParsingException;
@@ -31,8 +36,8 @@ import java.util.Objects;
 /**
  * Helper class to build the KNN query
  */
+@Log4j2
 public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
-    private static Logger logger = LogManager.getLogger(KNNQueryBuilder.class);
     private static ModelDao modelDao;
 
     public static final ParseField VECTOR_FIELD = new ParseField("vector");
