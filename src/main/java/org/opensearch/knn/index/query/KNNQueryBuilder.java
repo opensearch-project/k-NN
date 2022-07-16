@@ -14,6 +14,7 @@ package org.opensearch.knn.index.query;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.plugin.stats.KNNCounter;
@@ -157,10 +158,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
         }
 
-        KNNQueryBuilder knnQuery = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector), k);
-        knnQuery.queryName(queryName);
-        knnQuery.boost(boost);
-        return knnQuery;
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector), k);
+        knnQueryBuilder.queryName(queryName);
+        knnQueryBuilder.boost(boost);
+        return knnQueryBuilder;
     }
 
     @Override
@@ -202,23 +203,23 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
     @Override
     protected Query doToQuery(QueryShardContext context) {
-
         MappedFieldType mappedFieldType = context.fieldMapper(this.fieldName);
 
         if (!(mappedFieldType instanceof KNNVectorFieldMapper.KNNVectorFieldType)) {
-            throw new IllegalArgumentException("Field '" + this.fieldName + "' is not knn_vector type.");
+            throw new IllegalArgumentException(String.format("Field '%s' is not knn_vector type.", this.fieldName));
         }
+        validateQueryVectorDimension((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType, vector.length);
 
-        validateDimension((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType);
-
-        return new CustomKNNQuery(this.fieldName, vector, k, context.index().getName());
+        KNNEngine knnEngine = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getKnnMethodContext().getKnnEngine();
+        String indexName = context.index().getName();
+        return KNNQueryFactory.create(knnEngine, indexName, this.fieldName, this.vector, this.k);
     }
 
-    private void validateDimension(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
-        int dimension = knnVectorField.getDimension();
+    private void validateQueryVectorDimension(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField, int queryVectorDimension) {
+        int fieldDimension = knnVectorField.getDimension();
 
         // If the dimension is not set, then the only valid route forward is if the field uses a model
-        if (dimension == -1) {
+        if (fieldDimension == -1) {
             String modelId = knnVectorField.getModelId();
 
             if (modelId == null) {
@@ -230,12 +231,12 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             if (modelMetadata == null) {
                 throw new IllegalArgumentException("Model ID \"" + modelId + "\" does not exist.");
             }
-            dimension = modelMetadata.getDimension();
+            fieldDimension = modelMetadata.getDimension();
         }
 
-        if (dimension != vector.length) {
+        if (fieldDimension != queryVectorDimension) {
             throw new IllegalArgumentException(
-                    "Query vector has invalid dimension: " + vector.length + ". Dimension should be: " + dimension
+                    String.format("Query vector has invalid dimension: %d. Dimension should be: %d", queryVectorDimension, fieldDimension)
             );
         }
     }
