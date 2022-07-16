@@ -32,7 +32,7 @@ import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
 import org.opensearch.common.collect.Set;
-import org.opensearch.knn.index.query.KNNQueryResult;
+import org.opensearch.knn.index.query.CustomKNNQueryResult;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
@@ -331,7 +331,7 @@ public class KNNCodecTestUtil {
         );
         int k = 2;
         float[] queryVector = new float[dimension];
-        KNNQueryResult[] results = JNIService.queryIndex(indexPtr, queryVector, k, knnEngine.getName());
+        CustomKNNQueryResult[] results = JNIService.queryIndex(indexPtr, queryVector, k, knnEngine.getName());
         assertTrue(results.length > 0);
         JNIService.free(indexPtr, knnEngine.getName());
     }

@@ -23,14 +23,14 @@ import java.io.IOException;
 /**
  * Class for representing the KNN query
  */
-public class KNNQuery extends Query {
+public class CustomKNNQuery extends Query {
 
     private final String field;
     private final float[] queryVector;
     private final int k;
     private final String indexName;
 
-    public KNNQuery(String field, float[] queryVector, int k, String indexName) {
+    public CustomKNNQuery(String field, float[] queryVector, int k, String indexName) {
         this.field = field;
         this.queryVector = queryVector;
         this.k = k;
@@ -66,7 +66,7 @@ public class KNNQuery extends Query {
         if (!KNNSettings.isKNNPluginEnabled()) {
             throw new IllegalStateException("KNN plugin is disabled. To enable update knn.plugin.enabled to true");
         }
-        return new KNNWeight(this, boost);
+        return new CustomKNNWeight(this, boost);
     }
 
     @Override
@@ -89,7 +89,7 @@ public class KNNQuery extends Query {
         return sameClassAs(other) && equalsTo(getClass().cast(other));
     }
 
-    private boolean equalsTo(KNNQuery other) {
+    private boolean equalsTo(CustomKNNQuery other) {
         return this.field.equals(other.getField()) && this.queryVector.equals(other.getQueryVector()) && this.k == other.getK();
     }
 };

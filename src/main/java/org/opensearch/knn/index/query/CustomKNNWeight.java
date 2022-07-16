@@ -55,16 +55,16 @@ import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 /**
  * Calculate query weights and build query scorers.
  */
-public class KNNWeight extends Weight {
-    private static Logger logger = LogManager.getLogger(KNNWeight.class);
+public class CustomKNNWeight extends Weight {
+    private static Logger logger = LogManager.getLogger(CustomKNNWeight.class);
     private static ModelDao modelDao;
 
-    private final KNNQuery knnQuery;
+    private final CustomKNNQuery knnQuery;
     private final float boost;
 
     private NativeMemoryCacheManager nativeMemoryCacheManager;
 
-    public KNNWeight(KNNQuery query, float boost) {
+    public CustomKNNWeight(CustomKNNQuery query, float boost) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
@@ -72,7 +72,7 @@ public class KNNWeight extends Weight {
     }
 
     public static void initialize(ModelDao modelDao) {
-        KNNWeight.modelDao = modelDao;
+        CustomKNNWeight.modelDao = modelDao;
     }
 
     @Override
@@ -132,7 +132,7 @@ public class KNNWeight extends Weight {
         }
 
         Path indexPath = PathUtils.get(directory, engineFiles.get(0));
-        final KNNQueryResult[] results;
+        final CustomKNNQueryResult[] results;
         KNNCounter.GRAPH_QUERY_REQUESTS.increment();
 
         // We need to first get index allocation
@@ -185,13 +185,13 @@ public class KNNWeight extends Weight {
         }
 
         Map<Integer, Float> scores = Arrays.stream(results)
-            .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
+            .collect(Collectors.toMap(CustomKNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
         int maxDoc = Collections.max(scores.keySet()) + 1;
         DocIdSetBuilder docIdSetBuilder = new DocIdSetBuilder(maxDoc);
         DocIdSetBuilder.BulkAdder setAdder = docIdSetBuilder.grow(maxDoc);
         Arrays.stream(results).forEach(result -> setAdder.add(result.getId()));
         DocIdSetIterator docIdSetIter = docIdSetBuilder.build().iterator();
-        return new KNNScorer(this, docIdSetIter, scores, boost);
+        return new CustomKNNScorer(this, docIdSetIter, scores, boost);
     }
 
     @Override

@@ -27,13 +27,13 @@ import java.util.Map;
  * Document scores are computed using nmslib via JNI implementation.
  * </p>
  */
-public class KNNScorer extends Scorer {
+public class CustomKNNScorer extends Scorer {
 
     private final DocIdSetIterator docIdsIter;
     private final Map<Integer, Float> scores;
     private final float boost;
 
-    public KNNScorer(Weight weight, DocIdSetIterator docIdsIter, Map<Integer, Float> scores, float boost) {
+    public CustomKNNScorer(Weight weight, DocIdSetIterator docIdsIter, Map<Integer, Float> scores, float boost) {
         super(weight);
         this.docIdsIter = docIdsIter;
         this.scores = scores;

@@ -18,7 +18,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethodContext;
-import org.opensearch.knn.index.query.KNNQueryResult;
+import org.opensearch.knn.index.query.CustomKNNQueryResult;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -637,7 +637,7 @@ public class JNIServiceTests extends KNNTestCase {
             assertNotEquals(0, pointer);
 
             for (float[] query : testData.queries) {
-                KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, KNNEngine.NMSLIB.getName());
+                CustomKNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, KNNEngine.NMSLIB.getName());
                 assertEquals(k, results.length);
             }
         }
@@ -693,7 +693,7 @@ public class JNIServiceTests extends KNNTestCase {
                 assertNotEquals(0, pointer);
 
                 for (float[] query : testData.queries) {
-                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME);
+                    CustomKNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME);
                     assertEquals(k, results.length);
                 }
             }

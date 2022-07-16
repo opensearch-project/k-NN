@@ -12,7 +12,7 @@
 package org.opensearch.knn.index.memory;
 
 import org.apache.lucene.index.LeafReaderContext;
-import org.opensearch.knn.index.query.KNNWeight;
+import org.opensearch.knn.index.query.CustomKNNWeight;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.watcher.FileWatcher;
@@ -159,7 +159,7 @@ public interface NativeMemoryAllocation {
 
         /**
          * The read lock will be obtained in the
-         * {@link KNNWeight#scorer(LeafReaderContext context) scorer} when a native index needs
+         * {@link CustomKNNWeight#scorer(LeafReaderContext context) scorer} when a native index needs
          * to be queried.
          */
         @Override

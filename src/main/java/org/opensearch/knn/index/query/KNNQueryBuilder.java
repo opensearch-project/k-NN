@@ -201,7 +201,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     }
 
     @Override
-    protected Query doToQuery(QueryShardContext context) throws IOException {
+    protected Query doToQuery(QueryShardContext context) {
 
         MappedFieldType mappedFieldType = context.fieldMapper(this.fieldName);
 
@@ -209,11 +209,17 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             throw new IllegalArgumentException("Field '" + this.fieldName + "' is not knn_vector type.");
         }
 
-        int dimension = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getDimension();
+        validateDimension((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType);
+
+        return new CustomKNNQuery(this.fieldName, vector, k, context.index().getName());
+    }
+
+    private void validateDimension(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
+        int dimension = knnVectorField.getDimension();
 
         // If the dimension is not set, then the only valid route forward is if the field uses a model
         if (dimension == -1) {
-            String modelId = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getModelId();
+            String modelId = knnVectorField.getModelId();
 
             if (modelId == null) {
                 throw new IllegalArgumentException("Field '" + this.fieldName + "' does not have dimension set.");
@@ -229,11 +235,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
         if (dimension != vector.length) {
             throw new IllegalArgumentException(
-                "Query vector has invalid dimension: " + vector.length + ". Dimension should be: " + dimension
+                    "Query vector has invalid dimension: " + vector.length + ". Dimension should be: " + dimension
             );
         }
-
-        return new KNNQuery(this.fieldName, vector, k, context.index().getName());
     }
 
     @Override

@@ -6,7 +6,7 @@
 package org.opensearch.knn.plugin.script;
 
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
-import org.opensearch.knn.index.query.KNNWeight;
+import org.opensearch.knn.index.query.CustomKNNWeight;
 import org.apache.lucene.index.LeafReaderContext;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.script.ScoreScript;
@@ -214,7 +214,7 @@ public interface KNNScoringSpace {
             }
 
             this.processedQuery = parseToFloatArray(query, ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
-            this.scoringMethod = (float[] q, float[] v) -> KNNWeight.normalizeScore(-KNNScoringUtil.innerProduct(q, v));
+            this.scoringMethod = (float[] q, float[] v) -> CustomKNNWeight.normalizeScore(-KNNScoringUtil.innerProduct(q, v));
         }
 
         @Override

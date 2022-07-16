@@ -19,8 +19,6 @@ import org.opensearch.index.Index;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
-import org.opensearch.knn.index.query.KNNQuery;
-import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 
@@ -90,7 +88,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+        CustomKNNQuery query = (CustomKNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertEquals(knnQueryBuilder.getK(), query.getK());
         assertEquals(knnQueryBuilder.fieldName(), query.getField());
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
@@ -117,7 +115,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         KNNQueryBuilder.initialize(modelDao);
 
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+        CustomKNNQuery query = (CustomKNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertEquals(knnQueryBuilder.getK(), query.getK());
         assertEquals(knnQueryBuilder.fieldName(), query.getField());
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
