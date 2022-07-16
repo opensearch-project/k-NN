@@ -128,7 +128,10 @@ public class KNNCodecTestCase extends KNNTestCase {
 
         // query to verify distance for each of the field
         IndexSearcher searcher = new IndexSearcher(reader);
-        float score = searcher.search(new CustomKNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy"), 10).scoreDocs[0].score;
+        float score = searcher.search(
+            new CustomKNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy"),
+            10
+        ).scoreDocs[0].score;
         float score1 = searcher.search(new CustomKNNQuery("my_vector", new float[] { 1.0f, 2.0f }, 1, "dummy"), 10).scoreDocs[0].score;
         assertEquals(1.0f / (1 + 25), score, 0.01f);
         assertEquals(1.0f / (1 + 169), score1, 0.01f);

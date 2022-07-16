@@ -1,13 +1,8 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
+
 
 package org.opensearch.knn.index.query;
 
@@ -41,8 +36,8 @@ public class KNNQueryFactoryTests extends KNNTestCase {
 
     public void testCreateLuceneDefaultQuery() {
         List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
-                .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
-                .collect(Collectors.toList());
+            .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
+            .collect(Collectors.toList());
         for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
             Query query = KNNQueryFactory.create(knnEngine, testIndexName, testFieldName, testQueryVector, testK);
             assertTrue(query instanceof KnnVectorQuery);

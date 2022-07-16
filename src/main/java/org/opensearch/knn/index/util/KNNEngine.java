@@ -29,10 +29,7 @@ public enum KNNEngine implements KNNLibrary {
 
     public static final KNNEngine DEFAULT = NMSLIB;
 
-    private static final Set<KNNEngine> CUSTOM_SEGMENT_FILE_ENGINES = ImmutableSet.of(
-            KNNEngine.NMSLIB,
-            KNNEngine.FAISS
-    );
+    private static final Set<KNNEngine> CUSTOM_SEGMENT_FILE_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB, KNNEngine.FAISS);
 
     /**
      * Constructor for KNNEngine
