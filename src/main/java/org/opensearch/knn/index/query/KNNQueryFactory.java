@@ -25,6 +25,8 @@ public class KNNQueryFactory {
      * @return Lucene Query
      */
     public static Query create(KNNEngine knnEngine, String indexName, String fieldName, float[] vector, int k) {
+        // Engines that create their own custom segment files cannot use the Lucene's KnnVectorQuery. They need to
+        // use the custom query type created by the plugin
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine)) {
             return new CustomKNNQuery(fieldName, vector, k, indexName);
         }

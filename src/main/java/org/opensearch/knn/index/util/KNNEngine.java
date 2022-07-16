@@ -86,7 +86,7 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     /**
-     * Returns all engines that create custom segment files. This will be all engines except for Lucene
+     * Returns all engines that create custom segment files.
      *
      * @return Set of all engines that create custom segment files.
      */

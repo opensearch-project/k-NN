@@ -15,7 +15,8 @@ import org.opensearch.knn.index.KNNSettings;
 import java.io.IOException;
 
 /**
- * Class for representing the KNN query
+ * Custom KNN query. Query is used for KNNEngine's that create their own custom segment files. These files need to be
+ * loaded and queried in a custom manner throughout the query path.
  */
 public class CustomKNNQuery extends Query {
 
