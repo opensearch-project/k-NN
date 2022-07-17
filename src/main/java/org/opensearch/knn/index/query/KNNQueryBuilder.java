@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query;
 
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
@@ -202,37 +203,43 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (!(mappedFieldType instanceof KNNVectorFieldMapper.KNNVectorFieldType)) {
             throw new IllegalArgumentException(String.format("Field '%s' is not knn_vector type.", this.fieldName));
         }
-        validateQueryVectorDimension((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType, vector.length);
 
-        KNNEngine knnEngine = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getKnnMethodContext().getKnnEngine();
+        int fieldDimension = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getDimension();
+        KNNMethodContext knnMethodContext = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getKnnMethodContext();
+        KNNEngine knnEngine = KNNEngine.DEFAULT;
+
+        if (fieldDimension == -1) {
+            // If dimension is not set, the field uses a model and the information needs to be retrieved from there
+            ModelMetadata modelMetadata = getModelMetadataForField((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType);
+            fieldDimension = modelMetadata.getDimension();
+            knnEngine = modelMetadata.getKnnEngine();
+        } else if (knnMethodContext != null) {
+            // If the dimension is set but the knnMethodContext is not then the field is using the legacy mapping
+            knnEngine = knnMethodContext.getKnnEngine();
+        }
+
+        if (fieldDimension != vector.length) {
+            throw new IllegalArgumentException(
+                String.format("Query vector has invalid dimension: %d. Dimension should be: %d", vector.length, fieldDimension)
+            );
+        }
+
         String indexName = context.index().getName();
         return KNNQueryFactory.create(knnEngine, indexName, this.fieldName, this.vector, this.k);
     }
 
-    private void validateQueryVectorDimension(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField, int queryVectorDimension) {
-        int fieldDimension = knnVectorField.getDimension();
+    private ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
+        String modelId = knnVectorField.getModelId();
 
-        // If the dimension is not set, then the only valid route forward is if the field uses a model
-        if (fieldDimension == -1) {
-            String modelId = knnVectorField.getModelId();
-
-            if (modelId == null) {
-                throw new IllegalArgumentException("Field '" + this.fieldName + "' does not have dimension set.");
-            }
-
-            ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
-
-            if (modelMetadata == null) {
-                throw new IllegalArgumentException("Model ID \"" + modelId + "\" does not exist.");
-            }
-            fieldDimension = modelMetadata.getDimension();
+        if (modelId == null) {
+            throw new IllegalArgumentException(String.format("Field '%s' does not have model.", this.fieldName));
         }
 
-        if (fieldDimension != queryVectorDimension) {
-            throw new IllegalArgumentException(
-                String.format("Query vector has invalid dimension: %d. Dimension should be: %d", queryVectorDimension, fieldDimension)
-            );
+        ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+        if (modelMetadata == null) {
+            throw new IllegalArgumentException(String.format("Model ID '%s' does not exist.", modelId));
         }
+        return modelMetadata;
     }
 
     @Override
