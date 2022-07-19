@@ -52,24 +52,21 @@ public class KNN920CodecTests extends KNNCodecTestCase {
         final String field1Name = "my_vector";
         final MapperService mapperService = mock(MapperService.class);
         final KNNMethodContext knnMethodContext = new KNNMethodContext(
-                KNNEngine.LUCENE,
-                SpaceType.L2,
-                new MethodComponentContext(METHOD_HNSW, Map.of(
-                        HNSW_ALGO_M, 16,
-                        HNSW_ALGO_EF_CONSTRUCTION, 256
-                ))
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256))
         );
         final KNNVectorFieldMapper.KNNVectorFieldType mappedFieldType1 = new KNNVectorFieldMapper.KNNVectorFieldType(
-                fieldName,
-                Map.of(),
-                3,
-                knnMethodContext
+            fieldName,
+            Map.of(),
+            3,
+            knnMethodContext
         );
         final KNNVectorFieldMapper.KNNVectorFieldType mappedFieldType2 = new KNNVectorFieldMapper.KNNVectorFieldType(
-                field1Name,
-                Map.of(),
-                2,
-                knnMethodContext
+            field1Name,
+            Map.of(),
+            2,
+            knnMethodContext
         );
         when(mapperService.fieldType(eq(fieldName))).thenReturn(mappedFieldType1);
         when(mapperService.fieldType(eq(field1Name))).thenReturn(mappedFieldType2);

@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec.KNN80Codec;
 
 import com.google.common.collect.ImmutableMap;
+import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.opensearch.common.xcontent.DeprecationHandler;
@@ -85,17 +86,14 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             && KNNEngine.getEnginesThatCreateCustomSegmentFiles().stream().anyMatch(engine -> engine == knnEngine);
     }
 
-    private KNNEngine getKNNEngine(FieldInfo field) {
-        final KNNEngine knnEngine;
-        if (field.attributes().containsKey(MODEL_ID)) {
-            String modelId = field.attributes().get(MODEL_ID);
-            Model model = ModelCache.getInstance().get(modelId);
-            knnEngine = model.getModelMetadata().getKnnEngine();
-        } else {
-            final String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
-            knnEngine = KNNEngine.getEngine(engineName);
+    private KNNEngine getKNNEngine(@NonNull FieldInfo field) {
+        final String modelId = field.attributes().get(MODEL_ID);
+        if (modelId != null) {
+            var model = ModelCache.getInstance().get(modelId);
+            return model.getModelMetadata().getKnnEngine();
         }
-        return knnEngine;
+        final String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
+        return KNNEngine.getEngine(engineName);
     }
 
     public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer) throws IOException {

@@ -5,7 +5,6 @@
 package org.opensearch.knn.index.codec.KNN920Codec;
 
 import lombok.Builder;
-import lombok.NoArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;
@@ -90,8 +89,11 @@ public final class KNN920Codec extends FilterCodec {
                 );
                 return new Lucene92HnswVectorsFormat();
             }
-            final KNNVectorFieldMapper.KNNVectorFieldType type = (KNNVectorFieldMapper.KNNVectorFieldType) mapperService.get()
-                .fieldType(field);
+            final KNNVectorFieldMapper.KNNVectorFieldType type = (KNNVectorFieldMapper.KNNVectorFieldType) mapperService.orElseThrow(
+                () -> new IllegalStateException(
+                    String.format("Cannot read field type for field [%s] because mapper service is not available", field)
+                )
+            ).fieldType(field);
             final Map<String, Object> params = type.getKnnMethodContext().getMethodComponent().getParameters();
             int maxConnections = getMaxConnections(params);
             int beamWidth = getBeamWidth(params);
@@ -103,26 +105,26 @@ public final class KNN920Codec extends FilterCodec {
                     beamWidth
                 )
             );
-            final KnnVectorsFormat luceneHnswVectorsFormat = new Lucene92HnswVectorsFormat(maxConnections, beamWidth);
+            var luceneHnswVectorsFormat = new Lucene92HnswVectorsFormat(maxConnections, beamWidth);
             return luceneHnswVectorsFormat;
         }
 
         private boolean isNotKnnVectorFieldType(final String field) {
-            return !(mapperService.isPresent() && mapperService.get().fieldType(field) instanceof KNNVectorFieldMapper.KNNVectorFieldType);
+            return !mapperService.isPresent() || !(mapperService.get().fieldType(field) instanceof KNNVectorFieldMapper.KNNVectorFieldType);
         }
 
         private int getMaxConnections(final Map<String, Object> params) {
-            if (params == null || !params.containsKey(KNNConstants.METHOD_PARAMETER_M)) {
-                return Lucene92HnswVectorsFormat.DEFAULT_MAX_CONN;
+            if (params != null && params.containsKey(KNNConstants.METHOD_PARAMETER_M)) {
+                return (int) params.get(KNNConstants.METHOD_PARAMETER_M);
             }
-            return (int) params.get(KNNConstants.METHOD_PARAMETER_M);
+            return Lucene92HnswVectorsFormat.DEFAULT_MAX_CONN;
         }
 
         private int getBeamWidth(final Map<String, Object> params) {
-            if (params == null || !params.containsKey(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION)) {
-                return Lucene92HnswVectorsFormat.DEFAULT_BEAM_WIDTH;
+            if (params != null && params.containsKey(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION)) {
+                return (int) params.get(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION);
             }
-            return (int) params.get(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION);
+            return Lucene92HnswVectorsFormat.DEFAULT_BEAM_WIDTH;
         }
     }
 }

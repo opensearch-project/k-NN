@@ -22,7 +22,7 @@ public class KNNCodecFactory {
     private final MapperService mapperService;
 
     public Codec createKNNCodec(final Codec userCodec) {
-        Codec codec = KNN920Codec.builder().delegate(userCodec).mapperService(Optional.of(mapperService)).build();
+        var codec = KNN920Codec.builder().delegate(userCodec).mapperService(Optional.of(mapperService)).build();
         return codec;
     }
 
