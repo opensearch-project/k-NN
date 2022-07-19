@@ -5,6 +5,7 @@
 package org.opensearch.knn.index.codec.KNN920Codec;
 
 import lombok.Builder;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.DocValuesFormat;
@@ -26,6 +27,7 @@ import static org.opensearch.knn.index.codec.KNNCodecFactory.CodecDelegateFactor
 /**
  * KNN codec that is based on Lucene92 codec
  */
+@Log4j2
 public final class KNN920Codec extends FilterCodec {
 
     private static final String KNN920 = "KNN920Codec";
@@ -75,21 +77,36 @@ public final class KNN920Codec extends FilterCodec {
     class KNN920PerFieldKnnVectorsFormat extends PerFieldKnnVectorsFormat {
 
         @Override
-        public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
-            if (isKnnVectorFieldType(field)) {
-                final KNNVectorFieldMapper.KNNVectorFieldType type = (KNNVectorFieldMapper.KNNVectorFieldType) mapperService.get()
-                    .fieldType(field);
-                final Map<String, Object> params = type.getKnnMethodContext().getMethodComponent().getParameters();
-                final KnnVectorsFormat luceneHnswVectorsFormat = new Lucene92HnswVectorsFormat(
-                    getMaxConnections(params),
-                    getBeamWidth(params)
+        public KnnVectorsFormat getKnnVectorsFormatForField(final String field) {
+            if (isNotKnnVectorFieldType(field)) {
+                log.info(
+                    String.format(
+                        "Initialize KNN vector format for field [%s] with default params [max_connections] = \"%d\" and [beam_width] = \"%d\"",
+                        field,
+                        Lucene92HnswVectorsFormat.DEFAULT_MAX_CONN,
+                        Lucene92HnswVectorsFormat.DEFAULT_BEAM_WIDTH
+                    )
                 );
-                return luceneHnswVectorsFormat;
+                return new Lucene92HnswVectorsFormat();
             }
-            return new Lucene92HnswVectorsFormat();
+            final KNNVectorFieldMapper.KNNVectorFieldType type = (KNNVectorFieldMapper.KNNVectorFieldType) mapperService.get()
+                .fieldType(field);
+            final Map<String, Object> params = type.getKnnMethodContext().getMethodComponent().getParameters();
+            int maxConnections = getMaxConnections(params);
+            int beamWidth = getBeamWidth(params);
+            log.info(
+                String.format(
+                    "Initialize KNN vector format for field [%s] with params [max_connections] = \"%d\" and [beam_width] = \"%d\"",
+                    field,
+                    maxConnections,
+                    beamWidth
+                )
+            );
+            final KnnVectorsFormat luceneHnswVectorsFormat = new Lucene92HnswVectorsFormat(maxConnections, beamWidth);
+            return luceneHnswVectorsFormat;
         }
 
-        private boolean isKnnVectorFieldType(final String field) {
+        private boolean isNotKnnVectorFieldType(final String field) {
             return mapperService.isPresent() && mapperService.get().fieldType(field) instanceof KNNVectorFieldMapper.KNNVectorFieldType;
         }
 

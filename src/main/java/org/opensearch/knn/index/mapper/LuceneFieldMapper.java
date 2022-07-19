@@ -14,6 +14,7 @@ import org.apache.lucene.document.KnnVectorField;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.index.VectorValues;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.index.KNNMethodContext;
@@ -32,7 +33,7 @@ import static org.opensearch.knn.index.SpaceType.L2;
  */
 public class LuceneFieldMapper extends KNNVectorFieldMapper {
 
-    private static final int MAX_DIMENSION = 1024;
+    private static final int MAX_DIMENSION = VectorValues.MAX_DIMENSIONS;
 
     private static final Map<SpaceType, VectorSimilarityFunction> SPACE_TYPE_TO_VECTOR_SIMILARITY_FUNCTION = ImmutableMap.of(
         L2,

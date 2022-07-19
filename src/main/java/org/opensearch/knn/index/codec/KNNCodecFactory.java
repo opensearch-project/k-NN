@@ -19,7 +19,7 @@ import java.util.Optional;
 @AllArgsConstructor
 public class KNNCodecFactory {
 
-    private MapperService mapperService;
+    private final MapperService mapperService;
 
     public Codec createKNNCodec(final Codec userCodec) {
         Codec codec = KNN920Codec.builder().delegate(userCodec).mapperService(Optional.of(mapperService)).build();
