@@ -17,7 +17,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.knn.index.query.CustomKNNQueryResult;
+import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.training.TrainingDataConsumer;
@@ -74,7 +74,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         // Confirm that the file was loaded by querying
         float[] query = new float[dimension];
         Arrays.fill(query, numVectors + 1);
-        CustomKNNQueryResult[] results = JNIService.queryIndex(indexAllocation.getMemoryAddress(), query, 2, knnEngine.getName());
+        KNNQueryResult[] results = JNIService.queryIndex(indexAllocation.getMemoryAddress(), query, 2, knnEngine.getName());
         assertTrue(results.length > 0);
     }
 

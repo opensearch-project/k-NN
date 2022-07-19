@@ -18,14 +18,14 @@ import java.io.IOException;
  * Custom KNN query. Query is used for KNNEngine's that create their own custom segment files. These files need to be
  * loaded and queried in a custom manner throughout the query path.
  */
-public class CustomKNNQuery extends Query {
+public class KNNQuery extends Query {
 
     private final String field;
     private final float[] queryVector;
     private final int k;
     private final String indexName;
 
-    public CustomKNNQuery(String field, float[] queryVector, int k, String indexName) {
+    public KNNQuery(String field, float[] queryVector, int k, String indexName) {
         this.field = field;
         this.queryVector = queryVector;
         this.k = k;
@@ -61,7 +61,7 @@ public class CustomKNNQuery extends Query {
         if (!KNNSettings.isKNNPluginEnabled()) {
             throw new IllegalStateException("KNN plugin is disabled. To enable update knn.plugin.enabled to true");
         }
-        return new CustomKNNWeight(this, boost);
+        return new KNNWeight(this, boost);
     }
 
     @Override
@@ -84,7 +84,7 @@ public class CustomKNNQuery extends Query {
         return sameClassAs(other) && equalsTo(getClass().cast(other));
     }
 
-    private boolean equalsTo(CustomKNNQuery other) {
+    private boolean equalsTo(KNNQuery other) {
         return this.field.equals(other.getField()) && this.queryVector.equals(other.getQueryVector()) && this.k == other.getK();
     }
 };

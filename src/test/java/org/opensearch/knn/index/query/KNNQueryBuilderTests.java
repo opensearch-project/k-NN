@@ -83,7 +83,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        CustomKNNQuery query = (CustomKNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertEquals(knnQueryBuilder.getK(), query.getK());
         assertEquals(knnQueryBuilder.fieldName(), query.getField());
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
@@ -112,7 +112,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         KNNQueryBuilder.initialize(modelDao);
 
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        CustomKNNQuery query = (CustomKNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertEquals(knnQueryBuilder.getK(), query.getK());
         assertEquals(knnQueryBuilder.fieldName(), query.getField());
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());

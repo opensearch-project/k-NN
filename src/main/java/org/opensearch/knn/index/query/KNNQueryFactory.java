@@ -28,7 +28,7 @@ public class KNNQueryFactory {
         // Engines that create their own custom segment files cannot use the Lucene's KnnVectorQuery. They need to
         // use the custom query type created by the plugin
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine)) {
-            return new CustomKNNQuery(fieldName, vector, k, indexName);
+            return new KNNQuery(fieldName, vector, k, indexName);
         }
 
         return new KnnVectorQuery(fieldName, vector, k);

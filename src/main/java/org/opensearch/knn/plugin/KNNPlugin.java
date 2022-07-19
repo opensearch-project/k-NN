@@ -15,7 +15,7 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 
-import org.opensearch.knn.index.query.CustomKNNWeight;
+import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.codec.KNNCodecService;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.indices.ModelGraveyard;
@@ -184,7 +184,7 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
         TrainingJobRunner.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService, client);
         KNNQueryBuilder.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
-        CustomKNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
+        KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
         knnStats = new KNNStats(KNNStatsConfig.KNN_STATS);
         return ImmutableList.of(knnStats);

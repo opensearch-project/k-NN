@@ -11,7 +11,7 @@
 
 package org.opensearch.knn.jni;
 
-import org.opensearch.knn.index.query.CustomKNNQueryResult;
+import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Map;
@@ -99,7 +99,7 @@ public class JNIService {
      * @param engineName name of engine to query index
      * @return KNNQueryResult array of k neighbors
      */
-    public static CustomKNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k, String engineName) {
+    public static KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k, String engineName) {
         if (KNNEngine.NMSLIB.getName().equals(engineName)) {
             return NmslibService.queryIndex(indexPointer, queryVector, k);
         }

@@ -13,10 +13,10 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.codec.KNN920Codec.KNN920Codec;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.knn.index.query.CustomKNNQuery;
+import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
-import org.opensearch.knn.index.query.CustomKNNWeight;
+import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorField;
 import org.apache.lucene.codecs.Codec;
@@ -129,16 +129,16 @@ public class KNNCodecTestCase extends KNNTestCase {
         // query to verify distance for each of the field
         IndexSearcher searcher = new IndexSearcher(reader);
         float score = searcher.search(
-            new CustomKNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy"),
+            new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy"),
             10
         ).scoreDocs[0].score;
-        float score1 = searcher.search(new CustomKNNQuery("my_vector", new float[] { 1.0f, 2.0f }, 1, "dummy"), 10).scoreDocs[0].score;
+        float score1 = searcher.search(new KNNQuery("my_vector", new float[] { 1.0f, 2.0f }, 1, "dummy"), 10).scoreDocs[0].score;
         assertEquals(1.0f / (1 + 25), score, 0.01f);
         assertEquals(1.0f / (1 + 169), score1, 0.01f);
 
         // query to determine the hits
-        assertEquals(1, searcher.count(new CustomKNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy")));
-        assertEquals(1, searcher.count(new CustomKNNQuery("my_vector", new float[] { 1.0f, 1.0f }, 1, "dummy")));
+        assertEquals(1, searcher.count(new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy")));
+        assertEquals(1, searcher.count(new KNNQuery("my_vector", new float[] { 1.0f, 1.0f }, 1, "dummy")));
 
         reader.close();
         dir.close();
@@ -217,12 +217,12 @@ public class KNNCodecTestCase extends KNNTestCase {
         writer.close();
 
         // Make sure that search returns the correct results
-        CustomKNNWeight.initialize(modelDao);
+        KNNWeight.initialize(modelDao);
         ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
         NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
         float[] query = { 10.0f, 10.0f, 10.0f };
         IndexSearcher searcher = new IndexSearcher(reader);
-        TopDocs topDocs = searcher.search(new CustomKNNQuery(fieldName, query, 4, "dummy"), 10);
+        TopDocs topDocs = searcher.search(new KNNQuery(fieldName, query, 4, "dummy"), 10);
 
         assertEquals(3, topDocs.scoreDocs[0].doc);
         assertEquals(2, topDocs.scoreDocs[1].doc);

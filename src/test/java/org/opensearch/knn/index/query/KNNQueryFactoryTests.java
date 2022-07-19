@@ -24,12 +24,12 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     public void testCreateCustomKNNQuery() {
         for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
             Query query = KNNQueryFactory.create(knnEngine, testIndexName, testFieldName, testQueryVector, testK);
-            assertTrue(query instanceof CustomKNNQuery);
+            assertTrue(query instanceof KNNQuery);
 
-            assertEquals(testIndexName, ((CustomKNNQuery) query).getIndexName());
-            assertEquals(testFieldName, ((CustomKNNQuery) query).getField());
-            assertEquals(testQueryVector, ((CustomKNNQuery) query).getQueryVector());
-            assertEquals(testK, ((CustomKNNQuery) query).getK());
+            assertEquals(testIndexName, ((KNNQuery) query).getIndexName());
+            assertEquals(testFieldName, ((KNNQuery) query).getField());
+            assertEquals(testQueryVector, ((KNNQuery) query).getQueryVector());
+            assertEquals(testK, ((KNNQuery) query).getK());
         }
     }
 

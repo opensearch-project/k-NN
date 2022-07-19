@@ -12,7 +12,7 @@
 package org.opensearch.knn.jni;
 
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.query.CustomKNNQueryResult;
+import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.security.AccessController;
@@ -85,7 +85,7 @@ class FaissService {
      * @param k neighbors to be returned
      * @return KNNQueryResult array of k neighbors
      */
-    public static native CustomKNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k);
+    public static native KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k);
 
     /**
      * Free native memory pointer

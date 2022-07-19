@@ -8,11 +8,11 @@ package org.opensearch.knn.index.query;
 /**
  * Place holder for the score of the document
  */
-public class CustomKNNQueryResult {
+public class KNNQueryResult {
     private final int id;
     private final float score;
 
-    public CustomKNNQueryResult(final int id, final float score) {
+    public KNNQueryResult(final int id, final float score) {
         this.id = id;
         this.score = score;
     }
