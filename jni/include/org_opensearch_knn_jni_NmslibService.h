@@ -37,7 +37,7 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_NmslibService_loadIndex
 /*
  * Class:     org_opensearch_knn_jni_NmslibService
  * Method:    queryIndex
- * Signature: (J[FI)[Lorg/opensearch/knn/index/KNNQueryResult;
+ * Signature: (J[FI)[Lorg/opensearch/knn/index/query/KNNQueryResult;
  */
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_NmslibService_queryIndex
   (JNIEnv *, jclass, jlong, jfloatArray, jint);
