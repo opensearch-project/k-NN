@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 package org.opensearch.knn.index.query;
 
 import org.opensearch.knn.KNNTestCase;
