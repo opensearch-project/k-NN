@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.KnnVectorQuery;
 import org.apache.lucene.search.Query;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -12,6 +13,7 @@ import org.opensearch.knn.index.util.KNNEngine;
 /**
  * Creates the Lucene k-NN queries
  */
+@Log4j2
 public class KNNQueryFactory {
 
     /**
@@ -28,9 +30,11 @@ public class KNNQueryFactory {
         // Engines that create their own custom segment files cannot use the Lucene's KnnVectorQuery. They need to
         // use the custom query type created by the plugin
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine)) {
+            log.debug(String.format("Creating custom k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
             return new KNNQuery(fieldName, vector, k, indexName);
         }
 
+        log.debug(String.format("Creating Lucene k-NN query for index: \"%s\", field: \"%s\", k: %d", indexName, fieldName, k));
         return new KnnVectorQuery(fieldName, vector, k);
     }
 }
