@@ -34,7 +34,7 @@ public class KNNQueryFactory {
             return new KNNQuery(fieldName, vector, k, indexName);
         }
 
-        log.debug(String.format("Creating Lucene k-NN query for index: \"%s\", field: \"%s\", k: %d", indexName, fieldName, k));
+        log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
         return new KnnVectorQuery(fieldName, vector, k);
     }
 }
