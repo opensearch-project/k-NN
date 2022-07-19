@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.mapper;
 
 import lombok.Getter;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 
@@ -58,6 +59,7 @@ import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
  * Implementations of this class define what needs to be stored in Lucene's fieldType. This allows us to have
  * alternative mappings for the same field type.
  */
+@Log4j2
 public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     public static final String CONTENT_TYPE = "knn_vector";
@@ -207,6 +209,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     knnMethodContext
                 );
                 if (knnMethodContext.getKnnEngine() == KNNEngine.LUCENE) {
+                    log.debug(String.format("Use [LuceneFieldMapper] mapper for field [%s]", name));
                     LuceneFieldMapper.CreateLuceneFieldMapperInput createLuceneFieldMapperInput =
                         LuceneFieldMapper.CreateLuceneFieldMapperInput.builder()
                             .name(name)

@@ -79,7 +79,7 @@ public final class KNN920Codec extends FilterCodec {
         @Override
         public KnnVectorsFormat getKnnVectorsFormatForField(final String field) {
             if (isNotKnnVectorFieldType(field)) {
-                log.info(
+                log.debug(
                     String.format(
                         "Initialize KNN vector format for field [%s] with default params [max_connections] = \"%d\" and [beam_width] = \"%d\"",
                         field,
@@ -94,7 +94,7 @@ public final class KNN920Codec extends FilterCodec {
             final Map<String, Object> params = type.getKnnMethodContext().getMethodComponent().getParameters();
             int maxConnections = getMaxConnections(params);
             int beamWidth = getBeamWidth(params);
-            log.info(
+            log.debug(
                 String.format(
                     "Initialize KNN vector format for field [%s] with params [max_connections] = \"%d\" and [beam_width] = \"%d\"",
                     field,
