@@ -13,17 +13,28 @@ This document explains the release strategy for artifacts in this organization.
 
 ### Release Branching
 
-Given the current major release of 1.0, projects in this organization maintain the following active branches.
+Given the current major release of 2.0, this project maintains the following active branches.
 
-* **main**: The next _major_ release. This is the branch where all merges take place and code moves fast.
-* **1.x**: The next _minor_ release. Once a change is merged into `main`, decide whether to backport it to `1.x`.
-* **1.0**: The _current_ release. In between minor releases, only hotfixes (e.g. security) are backported to `1.0`.
+* **main**: The next _minor_ release. This is the branch where all merges take place and code moves fast.
+* **2.0**: The _current_ release. In between minor releases, only hotfixes (e.g. security) are backported to `2.0`.
+* **1.3**: The previous _major_ release. Only hotfixes (e.g. security) are backported to `1.3`.
 
-Label PRs with the next major version label (e.g. `2.0.0`) and merge changes into `main`. Label PRs that you believe need to be backported as `1.x` and `1.0`. Backport PRs by checking out the versioned branch, cherry-pick changes and open a PR against each target backport branch.
+
+Label PRs with the next minor version label (e.g. `2.1.0`) and merge changes into `main`. Label PRs that you believe need to be backported as `backport 2.0` and `backport 1.3`. This will automatically create a pull request to backport previously merged PR into corresponding branch.
 
 ### Feature Branches
 
-Do not creating branches in the upstream repo, use your fork, for the exception of long lasting feature branches that require active collaboration from multiple developers. Name feature branches `feature/<thing>`. Once the work is merged to `main`, please make sure to delete the feature branch.
+Do not create branches in the upstream repo, instead, use your fork to raise pull request.
+
+With feature branching, developers can open a branch when they begin to work on a long-lasting features and requires an active collaboration from multiple developers.
+
+Feature branch should be named as `feature/<thing>`. Once the work is merged to `main`, please make sure to delete the feature branch.
+
+#### When will you create a feature branch
+1. If a feature development spans across more than one releases.
+2. If a new feature depends on another feature branch.
+3. If you are not certain when will this feature be released.
+4. If you have a breaking change
 
 ## Release Labels
 
