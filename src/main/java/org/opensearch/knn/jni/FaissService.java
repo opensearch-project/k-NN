@@ -24,12 +24,8 @@ import java.util.Map;
  *
  * In order to compile C++ header file, run:
  * javac -h jni/include src/main/java/org/opensearch/knn/jni/FaissService.java
- *      src/main/java/org/opensearch/knn/index/query/CustomKNNQueryResult.java
+ *      src/main/java/org/opensearch/knn/index/KNNQueryResult.java
  *      src/main/java/org/opensearch/knn/common/KNNConstants.java
- *
- * TODO: This needs to be fixed. Currently, in order to get the command to compile, we need to comment out the
- * KNNEngine related code. We need to remove the dependency of this class on KNNEngine. Related issue:
- *  * <a href="https://github.com/opensearch-project/k-NN/issues/453">...</a>
  */
 class FaissService {
 

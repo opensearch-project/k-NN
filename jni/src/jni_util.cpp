@@ -61,9 +61,9 @@ void knn_jni::JNIUtil::Initialize(JNIEnv *env) {
     this->cachedMethods["java/lang/Integer:intValue"] = env->GetMethodID(tempLocalClassRef, "intValue", "()I");
     env->DeleteLocalRef(tempLocalClassRef);
 
-    tempLocalClassRef = env->FindClass("org/opensearch/knn/index/query/CustomKNNQueryResult");
-    this->cachedClasses["org/opensearch/knn/index/query/CustomKNNQueryResult"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
-    this->cachedMethods["org/opensearch/knn/index/query/CustomKNNQueryResult:<init>"] = env->GetMethodID(tempLocalClassRef, "<init>", "(IF)V");
+    tempLocalClassRef = env->FindClass("org/opensearch/knn/index/KNNQueryResult");
+    this->cachedClasses["org/opensearch/knn/index/KNNQueryResult"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
+    this->cachedMethods["org/opensearch/knn/index/KNNQueryResult:<init>"] = env->GetMethodID(tempLocalClassRef, "<init>", "(IF)V");
     env->DeleteLocalRef(tempLocalClassRef);
 }
 
