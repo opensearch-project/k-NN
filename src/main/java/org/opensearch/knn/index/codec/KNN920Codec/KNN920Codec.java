@@ -5,6 +5,7 @@
 package org.opensearch.knn.index.codec.KNN920Codec;
 
 import lombok.Builder;
+import lombok.NoArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;
@@ -107,7 +108,7 @@ public final class KNN920Codec extends FilterCodec {
         }
 
         private boolean isNotKnnVectorFieldType(final String field) {
-            return mapperService.isPresent() && mapperService.get().fieldType(field) instanceof KNNVectorFieldMapper.KNNVectorFieldType;
+            return !(mapperService.isPresent() && mapperService.get().fieldType(field) instanceof KNNVectorFieldMapper.KNNVectorFieldType);
         }
 
         private int getMaxConnections(final Map<String, Object> params) {
