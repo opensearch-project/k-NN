@@ -29,11 +29,11 @@ public class KNNCodecFactoryTests extends KNNTestCase {
     }
 
     public void testKNNDefaultCodec() {
-        Lucene91Codec lucene91CodecDelegate = new Lucene91Codec();
         MapperService mapperService = mock(MapperService.class);
         KNNCodecFactory knnCodecFactory = new KNNCodecFactory(mapperService);
-        Codec knnCodec = knnCodecFactory.createKNNCodec(lucene91CodecDelegate);
+        Codec knnCodec = knnCodecFactory.createKNNCodec(KNNCodecFactory.CodecDelegateFactory.createKNN92DefaultDelegate());
         assertNotNull(knnCodec);
         assertTrue(knnCodec instanceof KNN920Codec);
+        assertEquals("KNN920Codec", knnCodec.getName());
     }
 }

@@ -77,12 +77,15 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     }
 
     public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer) throws IOException {
-
         // Get values to be indexed
         BinaryDocValues values = valuesProducer.getBinary(field);
         KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
         if (pair.vectors.length == 0 || pair.docs.length == 0) {
             logger.info("Skipping engine index creation as there are no vectors or docs in the documents");
+            return;
+        }
+        // for Lucene engine the creation of index is done by code delegate, no need in additional native data structures
+        if (isLuceneEngine(field)) {
             return;
         }
 
@@ -127,6 +130,19 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         state.directory.createOutput(engineFileName, state.context).close();
         indexCreator.createIndex();
         writeFooter(indexPath, engineFileName);
+    }
+
+    private boolean isLuceneEngine(FieldInfo field) {
+        final KNNEngine knnEngine;
+        if (field.attributes().containsKey(MODEL_ID)) {
+            String modelId = field.attributes().get(MODEL_ID);
+            Model model = ModelCache.getInstance().get(modelId);
+            knnEngine = model.getModelMetadata().getKnnEngine();
+        } else {
+            final String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
+            knnEngine = KNNEngine.getEngine(engineName);
+        }
+        return KNNEngine.LUCENE == knnEngine;
     }
 
     private void createKNNIndexFromTemplate(byte[] model, KNNCodecUtil.Pair pair, KNNEngine knnEngine, String indexPath) {

@@ -35,6 +35,7 @@ import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.VectorField;
+import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.opensearch.search.lookup.SearchLookup;
@@ -193,14 +194,38 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             // set. If not, we fall back to the parameters set in the index settings. This means that if a user sets
             // the mappings, setting the index settings will have no impact.
 
-            KNNMethodContext knnMethodContext = this.knnMethodContext.getValue();
+            final KNNMethodContext knnMethodContext = this.knnMethodContext.getValue();
+            final MultiFields multiFieldsBuilder = this.multiFieldsBuilder.build(this, context);
+            final CopyTo copyToBuilder = copyTo.build();
+            final Explicit<Boolean> ignoreMalformed = ignoreMalformed(context);
+            final Map<String, String> metaValue = meta.getValue();
             if (knnMethodContext != null) {
+                final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
+                    buildFullName(context),
+                    metaValue,
+                    dimension.getValue(),
+                    knnMethodContext
+                );
+                if (knnMethodContext.getKnnEngine() == KNNEngine.LUCENE) {
+                    LuceneFieldMapper.CreateLuceneFieldMapperInput createLuceneFieldMapperInput =
+                        LuceneFieldMapper.CreateLuceneFieldMapperInput.builder()
+                            .name(name)
+                            .mappedFieldType(mappedFieldType)
+                            .multiFields(multiFieldsBuilder)
+                            .copyTo(copyToBuilder)
+                            .ignoreMalformed(ignoreMalformed)
+                            .stored(stored.get())
+                            .hasDocValues(hasDocValues.get())
+                            .knnMethodContext(knnMethodContext)
+                            .build();
+                    return new LuceneFieldMapper(createLuceneFieldMapperInput);
+                }
                 return new MethodFieldMapper(
                     name,
-                    new KNNVectorFieldType(buildFullName(context), meta.getValue(), dimension.getValue(), knnMethodContext),
-                    multiFieldsBuilder.build(this, context),
-                    copyTo.build(),
-                    ignoreMalformed(context),
+                    mappedFieldType,
+                    multiFieldsBuilder,
+                    copyToBuilder,
+                    ignoreMalformed,
                     stored.get(),
                     hasDocValues.get(),
                     knnMethodContext
@@ -216,10 +241,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
                 return new ModelFieldMapper(
                     name,
-                    new KNNVectorFieldType(buildFullName(context), meta.getValue(), -1, knnMethodContext, modelIdAsString),
-                    multiFieldsBuilder.build(this, context),
-                    copyTo.build(),
-                    ignoreMalformed(context),
+                    new KNNVectorFieldType(buildFullName(context), metaValue, -1, knnMethodContext, modelIdAsString),
+                    multiFieldsBuilder,
+                    copyToBuilder,
+                    ignoreMalformed,
                     stored.get(),
                     hasDocValues.get(),
                     modelDao,
@@ -242,10 +267,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             return new LegacyFieldMapper(
                 name,
-                new KNNVectorFieldType(buildFullName(context), meta.getValue(), dimension.getValue()),
-                multiFieldsBuilder.build(this, context),
-                copyTo.build(),
-                ignoreMalformed(context),
+                new KNNVectorFieldType(buildFullName(context), metaValue, dimension.getValue()),
+                multiFieldsBuilder,
+                copyToBuilder,
+                ignoreMalformed,
                 stored.get(),
                 hasDocValues.get(),
                 spaceType,

@@ -26,8 +26,8 @@ public class KNNFormatFactoryTests extends KNNTestCase {
     }
 
     public void testKNN92Format() {
-        final Codec lucene92CodecDelegate = KNNCodecFactory.CodecDelegateFactory.createKNN92DefaultDelegate();
         MapperService mapperService = mock(MapperService.class);
+        final Codec lucene92CodecDelegate = KNNCodecFactory.CodecDelegateFactory.createKNN92DefaultDelegate();
         KNNCodecFactory knnCodecFactory = new KNNCodecFactory(mapperService);
         final Codec knnCodec = knnCodecFactory.createKNNCodec(lucene92CodecDelegate);
         KNNFormatFacade knnFormatFacade = KNNFormatFactory.createKNN920Format(knnCodec);
