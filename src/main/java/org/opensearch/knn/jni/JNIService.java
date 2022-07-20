@@ -11,7 +11,7 @@
 
 package org.opensearch.knn.jni;
 
-import org.opensearch.knn.index.KNNQueryResult;
+import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Map;

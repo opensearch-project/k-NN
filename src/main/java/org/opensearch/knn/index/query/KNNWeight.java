@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index;
+package org.opensearch.knn.index.query;
 
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
