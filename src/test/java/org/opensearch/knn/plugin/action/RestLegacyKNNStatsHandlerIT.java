@@ -13,7 +13,7 @@ package org.opensearch.knn.plugin.action;
 
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.KNNQueryBuilder;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.stats.KNNStats;
 import org.opensearch.knn.plugin.stats.StatNames;
