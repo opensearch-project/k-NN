@@ -3,15 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index;
+package org.opensearch.knn.index.query;
 
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.plugin.stats.KNNCounter;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.search.Query;
 import org.opensearch.common.ParseField;
 import org.opensearch.common.ParsingException;
@@ -31,8 +32,8 @@ import java.util.Objects;
 /**
  * Helper class to build the KNN query
  */
+@Log4j2
 public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
-    private static Logger logger = LogManager.getLogger(KNNQueryBuilder.class);
     private static ModelDao modelDao;
 
     public static final ParseField VECTOR_FIELD = new ParseField("vector");
@@ -152,10 +153,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
         }
 
-        KNNQueryBuilder knnQuery = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector), k);
-        knnQuery.queryName(queryName);
-        knnQuery.boost(boost);
-        return knnQuery;
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector), k);
+        knnQueryBuilder.queryName(queryName);
+        knnQueryBuilder.boost(boost);
+        return knnQueryBuilder;
     }
 
     @Override
@@ -196,39 +197,50 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     }
 
     @Override
-    protected Query doToQuery(QueryShardContext context) throws IOException {
-
+    protected Query doToQuery(QueryShardContext context) {
         MappedFieldType mappedFieldType = context.fieldMapper(this.fieldName);
 
         if (!(mappedFieldType instanceof KNNVectorFieldMapper.KNNVectorFieldType)) {
-            throw new IllegalArgumentException("Field '" + this.fieldName + "' is not knn_vector type.");
+            throw new IllegalArgumentException(String.format("Field '%s' is not knn_vector type.", this.fieldName));
         }
 
-        int dimension = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getDimension();
+        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType;
+        int fieldDimension = knnVectorFieldType.getDimension();
+        KNNMethodContext knnMethodContext = knnVectorFieldType.getKnnMethodContext();
+        KNNEngine knnEngine = KNNEngine.DEFAULT;
 
-        // If the dimension is not set, then the only valid route forward is if the field uses a model
-        if (dimension == -1) {
-            String modelId = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getModelId();
-
-            if (modelId == null) {
-                throw new IllegalArgumentException("Field '" + this.fieldName + "' does not have dimension set.");
-            }
-
-            ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
-
-            if (modelMetadata == null) {
-                throw new IllegalArgumentException("Model ID \"" + modelId + "\" does not exist.");
-            }
-            dimension = modelMetadata.getDimension();
+        if (fieldDimension == -1) {
+            // If dimension is not set, the field uses a model and the information needs to be retrieved from there
+            ModelMetadata modelMetadata = getModelMetadataForField(knnVectorFieldType);
+            fieldDimension = modelMetadata.getDimension();
+            knnEngine = modelMetadata.getKnnEngine();
+        } else if (knnMethodContext != null) {
+            // If the dimension is set but the knnMethodContext is not then the field is using the legacy mapping
+            knnEngine = knnMethodContext.getKnnEngine();
         }
 
-        if (dimension != vector.length) {
+        if (fieldDimension != vector.length) {
             throw new IllegalArgumentException(
-                "Query vector has invalid dimension: " + vector.length + ". Dimension should be: " + dimension
+                String.format("Query vector has invalid dimension: %d. Dimension should be: %d", vector.length, fieldDimension)
             );
         }
 
-        return new KNNQuery(this.fieldName, vector, k, context.index().getName());
+        String indexName = context.index().getName();
+        return KNNQueryFactory.create(knnEngine, indexName, this.fieldName, this.vector, this.k);
+    }
+
+    private ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
+        String modelId = knnVectorField.getModelId();
+
+        if (modelId == null) {
+            throw new IllegalArgumentException(String.format("Field '%s' does not have model.", this.fieldName));
+        }
+
+        ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+        if (modelMetadata == null) {
+            throw new IllegalArgumentException(String.format("Model ID '%s' does not exist.", modelId));
+        }
+        return modelMetadata;
     }
 
     @Override

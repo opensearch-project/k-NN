@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index;
+package org.opensearch.knn.index.query;
 
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.common.xcontent.XContentBuilder;
@@ -13,6 +13,7 @@ import org.opensearch.index.Index;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 
@@ -88,7 +89,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
     }
 
-    public void testDoToQuery_FromModel() throws Exception {
+    public void testDoToQuery_FromModel() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder("myvector", queryVector, 1);
         Index dummyIndex = new Index("dummy", "dummy");
@@ -98,12 +99,14 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         // Dimension is -1. In this case, model metadata will need to provide dimension
         when(mockKNNVectorField.getDimension()).thenReturn(-1);
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(null);
         String modelId = "test-model-id";
         when(mockKNNVectorField.getModelId()).thenReturn(modelId);
 
         // Mock the modelDao to return mocked modelMetadata
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
         when(modelMetadata.getDimension()).thenReturn(4);
+        when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
         KNNQueryBuilder.initialize(modelDao);

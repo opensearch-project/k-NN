@@ -9,6 +9,7 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
 
 import java.util.Collections;
 import java.util.Map;
