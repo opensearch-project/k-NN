@@ -11,6 +11,8 @@ import org.apache.lucene.codecs.lucene92.Lucene92Codec;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.KNN920Codec.KNN920Codec;
 
+import java.util.Optional;
+
 /**
  * Factory abstraction for KNN codec
  */
@@ -20,7 +22,8 @@ public class KNNCodecFactory {
     private final MapperService mapperService;
 
     public Codec createKNNCodec(final Codec userCodec) {
-        return KNN920Codec.builder().delegate(userCodec).build();
+        var codec = KNN920Codec.builder().delegate(userCodec).mapperService(Optional.of(mapperService)).build();
+        return codec;
     }
 
     /**
