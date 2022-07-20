@@ -11,6 +11,7 @@ import org.apache.http.util.EntityUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.client.Response;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
 
 import java.util.ArrayList;
 import java.util.Arrays;

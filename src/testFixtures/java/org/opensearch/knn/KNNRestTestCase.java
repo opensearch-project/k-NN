@@ -12,7 +12,7 @@ import org.apache.commons.lang.StringUtils;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.index.query.MatchAllQueryBuilder;
-import org.opensearch.knn.index.KNNQueryBuilder;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.indices.ModelDao;

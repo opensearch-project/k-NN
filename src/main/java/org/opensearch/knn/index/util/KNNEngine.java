@@ -5,15 +5,14 @@
 
 package org.opensearch.knn.index.util;
 
+import com.google.common.collect.ImmutableSet;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
@@ -29,6 +28,8 @@ public enum KNNEngine implements KNNLibrary {
     LUCENE(LUCENE_NAME, Lucene.INSTANCE);
 
     public static final KNNEngine DEFAULT = NMSLIB;
+
+    private static final Set<KNNEngine> CUSTOM_SEGMENT_FILE_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB, KNNEngine.FAISS);
 
     /**
      * Constructor for KNNEngine
@@ -85,12 +86,12 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     /**
-     * Returns all engines that create custom segment files. This will be all engines except for Lucene
+     * Returns all engines that create custom segment files.
      *
-     * @return List of all engines that create custom segment files.
+     * @return Set of all engines that create custom segment files.
      */
-    public static List<KNNEngine> getEnginesThatCreateCustomSegmentFiles() {
-        return Arrays.stream(KNNEngine.values()).filter(knnEngine -> knnEngine != KNNEngine.LUCENE).collect(Collectors.toList());
+    public static Set<KNNEngine> getEnginesThatCreateCustomSegmentFiles() {
+        return CUSTOM_SEGMENT_FILE_ENGINES;
     }
 
     /**
