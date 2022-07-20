@@ -6,6 +6,8 @@
 package org.opensearch.knn.index.codec.KNN80Codec;
 
 import com.google.common.collect.ImmutableMap;
+import lombok.NonNull;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.opensearch.common.xcontent.DeprecationHandler;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
@@ -54,6 +56,7 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileNa
 /**
  * This class writes the KNN docvalues to the segments
  */
+@Log4j2
 class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
     private final Logger logger = LogManager.getLogger(KNN80DocValuesConsumer.class);
@@ -71,13 +74,29 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     @Override
     public void addBinaryField(FieldInfo field, DocValuesProducer valuesProducer) throws IOException {
         delegatee.addBinaryField(field, valuesProducer);
-        if (field.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
+        if (isKNNBinaryFieldRequired(field)) {
             addKNNBinaryField(field, valuesProducer);
         }
     }
 
-    public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer) throws IOException {
+    private boolean isKNNBinaryFieldRequired(FieldInfo field) {
+        final KNNEngine knnEngine = getKNNEngine(field);
+        log.debug(String.format("Read engine [%s] for field [%s]", knnEngine.getName(), field.getName()));
+        return field.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)
+            && KNNEngine.getEnginesThatCreateCustomSegmentFiles().stream().anyMatch(engine -> engine == knnEngine);
+    }
 
+    private KNNEngine getKNNEngine(@NonNull FieldInfo field) {
+        final String modelId = field.attributes().get(MODEL_ID);
+        if (modelId != null) {
+            var model = ModelCache.getInstance().get(modelId);
+            return model.getModelMetadata().getKnnEngine();
+        }
+        final String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
+        return KNNEngine.getEngine(engineName);
+    }
+
+    public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer) throws IOException {
         // Get values to be indexed
         BinaryDocValues values = valuesProducer.getBinary(field);
         KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
@@ -85,19 +104,17 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             logger.info("Skipping engine index creation as there are no vectors or docs in the documents");
             return;
         }
-
         // Increment counter for number of graph index requests
         KNNCounter.GRAPH_INDEX_REQUESTS.increment();
         // Create library index either from model or from scratch
         String engineFileName;
         String indexPath;
         NativeIndexCreator indexCreator;
+        final KNNEngine knnEngine = getKNNEngine(field);
         if (field.attributes().containsKey(MODEL_ID)) {
 
             String modelId = field.attributes().get(MODEL_ID);
             Model model = ModelCache.getInstance().get(modelId);
-
-            KNNEngine knnEngine = model.getModelMetadata().getKnnEngine();
 
             engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getVersion(), field.name, knnEngine.getExtension());
             indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(), engineFileName)
@@ -109,10 +126,6 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
             indexCreator = () -> createKNNIndexFromTemplate(model.getModelBlob(), pair, knnEngine, indexPath);
         } else {
-
-            // Get engine to be used for indexing
-            String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
-            KNNEngine knnEngine = KNNEngine.getEngine(engineName);
 
             engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getVersion(), field.name, knnEngine.getExtension());
             indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(), engineFileName)

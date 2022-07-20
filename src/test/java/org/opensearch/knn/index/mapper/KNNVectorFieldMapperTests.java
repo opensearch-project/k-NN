@@ -31,10 +31,13 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.HashSet;
 
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -148,6 +151,94 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         assertNull(knnVectorFieldMapper.modelId);
         assertNull(knnVectorFieldMapper.knnMethod);
+    }
+
+    public void testBuilder_parse_fromKnnMethodContext_luceneEngine() throws IOException {
+        // Check that knnMethodContext is set
+        String fieldName = "test-field-name";
+        String indexName = "test-index-name";
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).build();
+
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        int efConstruction = 321;
+        int m = 12;
+        int dimension = 133;
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
+            .field(KNN_ENGINE, LUCENE_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
+            .field(METHOD_PARAMETER_M, m)
+            .endObject()
+            .endObject()
+            .endObject();
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext(indexName, settings)
+        );
+
+        assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponent().getName());
+        assertEquals(
+            efConstruction,
+            builder.knnMethodContext.get().getMethodComponent().getParameters().get(METHOD_PARAMETER_EF_CONSTRUCTION)
+        );
+
+        XContentBuilder xContentBuilderInvalidSpaceType = XContentFactory.jsonBuilder()
+            .startObject()
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L1)
+            .field(KNN_ENGINE, LUCENE_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        expectThrows(
+            ValidationException.class,
+            () -> typeParser.parse(
+                fieldName,
+                xContentBuilderToMap(xContentBuilderInvalidSpaceType),
+                buildParserContext(indexName, settings)
+            )
+        );
+
+        XContentBuilder xContentBuilderInvalidDimension = XContentFactory.jsonBuilder()
+            .startObject()
+            .field("type", "knn_vector")
+            .field("dimension", 2_000)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
+            .field(KNN_ENGINE, LUCENE_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
+            .endObject()
+            .endObject()
+            .endObject();
+        KNNVectorFieldMapper.Builder builderInvalidDimension = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilderInvalidDimension),
+            buildParserContext(indexName, settings)
+        );
+
+        IllegalArgumentException ex = expectThrows(
+            IllegalArgumentException.class,
+            () -> builderInvalidDimension.build(new Mapper.BuilderContext(settings, new ContentPath()))
+        );
+        assertEquals("Dimension value cannot be greater than [1024] but got [2000] for vector [test-field-name]", ex.getMessage());
     }
 
     public void testTypeParser_parse_fromKnnMethodContext() throws IOException {
