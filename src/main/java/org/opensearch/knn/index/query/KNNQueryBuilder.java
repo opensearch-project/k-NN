@@ -204,13 +204,14 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             throw new IllegalArgumentException(String.format("Field '%s' is not knn_vector type.", this.fieldName));
         }
 
-        int fieldDimension = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getDimension();
-        KNNMethodContext knnMethodContext = ((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType).getKnnMethodContext();
+        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType;
+        int fieldDimension = knnVectorFieldType.getDimension();
+        KNNMethodContext knnMethodContext = knnVectorFieldType.getKnnMethodContext();
         KNNEngine knnEngine = KNNEngine.DEFAULT;
 
         if (fieldDimension == -1) {
             // If dimension is not set, the field uses a model and the information needs to be retrieved from there
-            ModelMetadata modelMetadata = getModelMetadataForField((KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType);
+            ModelMetadata modelMetadata = getModelMetadataForField(knnVectorFieldType);
             fieldDimension = modelMetadata.getDimension();
             knnEngine = modelMetadata.getKnnEngine();
         } else if (knnMethodContext != null) {
