@@ -8,7 +8,6 @@ package org.opensearch.knn.index.mapper;
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.document.KnnVectorField;
 import org.apache.lucene.index.IndexableField;
-import org.apache.lucene.index.VectorValues;
 import org.apache.lucene.util.BytesRef;
 import org.mockito.Mockito;
 import org.opensearch.common.Explicit;
@@ -264,7 +263,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         XContentBuilder xContentBuilderInvalidDimension = XContentFactory.jsonBuilder()
             .startObject()
             .field("type", "knn_vector")
-            .field("dimension", VectorValues.MAX_DIMENSIONS + 1)
+            .field("dimension", 2000)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
@@ -280,10 +279,11 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             buildParserContext(indexName, settings)
         );
 
-        expectThrows(
+        IllegalArgumentException ex = expectThrows(
             IllegalArgumentException.class,
             () -> builderInvalidDimension.build(new Mapper.BuilderContext(settings, new ContentPath()))
         );
+        assertEquals("Dimension value cannot be greater than [1024] but got [2000] for vector [test-field-name]", ex.getMessage());
 
         XContentBuilder xContentBuilderUnsupportedParam = XContentFactory.jsonBuilder()
             .startObject()

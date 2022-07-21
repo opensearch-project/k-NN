@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.apache.lucene.index.VectorValues.MAX_DIMENSIONS;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.index.SpaceType.COSINESIMIL;
 import static org.opensearch.knn.index.SpaceType.INNER_PRODUCT;
@@ -34,6 +35,8 @@ import static org.opensearch.knn.index.SpaceType.L2;
  * Field mapper for case when Lucene has been set as an engine.
  */
 public class LuceneFieldMapper extends KNNVectorFieldMapper {
+
+    private static final int LUCENE_MAX_DIMENSION = MAX_DIMENSIONS;
 
     /** FieldType used for initializing VectorField, which is used for creating binary doc values. **/
     private final FieldType vectorFieldType;
@@ -65,6 +68,17 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         ).orElseThrow(() -> new IllegalArgumentException(String.format("Space type [%s] is not supported for Lucene engine", spaceType)));
 
         final int dimension = input.getMappedFieldType().getDimension();
+        if (dimension > LUCENE_MAX_DIMENSION) {
+            throw new IllegalArgumentException(
+                String.format(
+                    "Dimension value cannot be greater than [%s] but got [%s] for vector [%s]",
+                    LUCENE_MAX_DIMENSION,
+                    dimension,
+                    input.getName()
+                )
+            );
+        }
+
         this.fieldType = KnnVectorField.createFieldType(dimension, vectorSimilarityFunction);
 
         if (this.hasDocValues) {
