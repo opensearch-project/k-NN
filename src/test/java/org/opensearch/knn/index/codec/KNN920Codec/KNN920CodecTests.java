@@ -12,6 +12,8 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.SerialMergeScheduler;
 import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.tests.index.RandomIndexWriter;
 import org.opensearch.index.mapper.MapperService;
@@ -21,6 +23,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNNCodecTestCase;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.index.query.KNNQueryFactory;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.watcher.ResourceWatcherService;
 
@@ -29,8 +32,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_M;
@@ -71,14 +78,13 @@ public class KNN920CodecTests extends KNNCodecTestCase {
         when(mapperService.fieldType(eq(fieldName))).thenReturn(mappedFieldType1);
         when(mapperService.fieldType(eq(field1Name))).thenReturn(mappedFieldType2);
 
+        var knnVectorsFormat = spy(new KNN920PerFieldKnnVectorsFormat(Optional.of(mapperService)));
+
         final KNN920Codec actualCodec = KNN920Codec.builder()
             .delegate(createKNN92DefaultDelegate())
-            .mapperService(Optional.of(mapperService))
+            .knnVectorsFormat(knnVectorsFormat)
             .build();
-        final KNN920Codec codec = KNN920Codec.builder()
-            .delegate(createKNN92DefaultDelegate())
-            .mapperService(Optional.of(mapperService))
-            .build();
+        final KNN920Codec codec = KNN920Codec.builder().delegate(createKNN92DefaultDelegate()).knnVectorsFormat(knnVectorsFormat).build();
         setUpMockClusterService();
         Directory dir = newFSDirectory(createTempDir());
         IndexWriterConfig iwc = newIndexWriterConfig();
@@ -96,7 +102,17 @@ public class KNN920CodecTests extends KNNCodecTestCase {
         doc.add(vectorField);
         writer.addDocument(doc);
         writer.commit();
+        IndexReader reader = writer.getReader();
         writer.close();
+
+        verify(knnVectorsFormat).getKnnVectorsFormatForField(anyString());
+
+        IndexSearcher searcher = new IndexSearcher(reader);
+        Query query = KNNQueryFactory.create(KNNEngine.LUCENE, "dummy", fieldName, new float[] { 1.0f, 0.0f, 0.0f }, 1);
+
+        assertEquals(1, searcher.count(query));
+
+        reader.close();
 
         /**
          * Add doc with field "my_vector"
@@ -111,12 +127,19 @@ public class KNN920CodecTests extends KNNCodecTestCase {
         Document doc1 = new Document();
         doc1.add(vectorField1);
         writer.addDocument(doc1);
-        IndexReader reader = writer.getReader();
+        IndexReader reader1 = writer.getReader();
         writer.close();
         ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
         NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
 
-        reader.close();
+        verify(knnVectorsFormat, times(2)).getKnnVectorsFormatForField(anyString());
+
+        IndexSearcher searcher1 = new IndexSearcher(reader1);
+        Query query1 = KNNQueryFactory.create(KNNEngine.LUCENE, "dummy", field1Name, new float[] { 1.0f, 0.0f }, 1);
+
+        assertEquals(1, searcher1.count(query1));
+
+        reader1.close();
         dir.close();
         resourceWatcherService.close();
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
