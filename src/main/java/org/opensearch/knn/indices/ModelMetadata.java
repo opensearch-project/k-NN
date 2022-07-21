@@ -34,7 +34,6 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.MAX_DIMENSION;
 
 public class ModelMetadata implements Writeable, ToXContentObject {
 
@@ -89,9 +88,10 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     ) {
         this.knnEngine = Objects.requireNonNull(knnEngine, "knnEngine must not be null");
         this.spaceType = Objects.requireNonNull(spaceType, "spaceType must not be null");
-        if (dimension <= 0 || dimension >= MAX_DIMENSION) {
+        int maxDimensions = KNNEngine.getMaxDimensionByEngine(this.knnEngine);
+        if (dimension <= 0 || dimension >= maxDimensions) {
             throw new IllegalArgumentException(
-                "Dimension \"" + dimension + "\" is invalid. Value must be greater " + "than 0 and less than " + MAX_DIMENSION
+                String.format("Dimension \"%s\" is invalid. Value must be greater than 0 and less than %d", dimension, maxDimensions)
             );
         }
         this.dimension = dimension;
