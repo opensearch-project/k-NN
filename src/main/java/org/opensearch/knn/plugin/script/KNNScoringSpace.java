@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.plugin.script;
 
-import org.opensearch.knn.index.KNNVectorFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.KNNWeight;
 import org.apache.lucene.index.LeafReaderContext;
 import org.opensearch.index.mapper.MappedFieldType;
