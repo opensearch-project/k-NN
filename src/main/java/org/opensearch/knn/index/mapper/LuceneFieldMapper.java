@@ -65,17 +65,6 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         ).orElseThrow(() -> new IllegalArgumentException(String.format("Space type [%s] is not supported for Lucene engine", spaceType)));
 
         final int dimension = input.getMappedFieldType().getDimension();
-        if (dimension > MAX_DIMENSION) {
-            throw new IllegalArgumentException(
-                String.format(
-                    "Dimension value cannot be greater than [%s] but got [%s] for vector [%s]",
-                    MAX_DIMENSION,
-                    dimension,
-                    input.getName()
-                )
-            );
-        }
-
         this.fieldType = KnnVectorField.createFieldType(dimension, vectorSimilarityFunction);
 
         if (this.hasDocValues) {
