@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.util;
 
 import com.google.common.collect.ImmutableSet;
+import org.apache.lucene.index.VectorValues;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
@@ -30,6 +31,15 @@ public enum KNNEngine implements KNNLibrary {
     public static final KNNEngine DEFAULT = NMSLIB;
 
     private static final Set<KNNEngine> CUSTOM_SEGMENT_FILE_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB, KNNEngine.FAISS);
+
+    private static Map<KNNEngine, Integer> MAX_DIMENSIONS_BY_ENGINE = Map.of(
+        KNNEngine.NMSLIB,
+        10_000,
+        KNNEngine.FAISS,
+        10_000,
+        KNNEngine.LUCENE,
+        VectorValues.MAX_DIMENSIONS
+    );
 
     /**
      * Constructor for KNNEngine
@@ -92,6 +102,15 @@ public enum KNNEngine implements KNNLibrary {
      */
     public static Set<KNNEngine> getEnginesThatCreateCustomSegmentFiles() {
         return CUSTOM_SEGMENT_FILE_ENGINES;
+    }
+
+    /**
+     * Return number of max allowed dimensions per single vector based on the knn engine
+     * @param knnEngine knn engine to check max dimensions value
+     * @return
+     */
+    public static int getMaxDimensionByEngine(KNNEngine knnEngine) {
+        return MAX_DIMENSIONS_BY_ENGINE.getOrDefault(knnEngine, MAX_DIMENSIONS_BY_ENGINE.get(KNNEngine.DEFAULT));
     }
 
     /**

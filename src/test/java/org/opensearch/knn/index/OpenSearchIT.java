@@ -27,7 +27,6 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
@@ -288,11 +287,20 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         Exception ex = expectThrows(
             ResponseException.class,
-            () -> createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, KNNVectorFieldMapper.MAX_DIMENSION + 1))
+            () -> createKnnIndex(
+                INDEX_NAME,
+                settings,
+                createKnnIndexMapping(FIELD_NAME, KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT) + 1)
+            )
         );
         assertThat(
             ex.getMessage(),
-            containsString("Dimension value cannot be greater than " + KNNVectorFieldMapper.MAX_DIMENSION + " for vector: " + FIELD_NAME)
+            containsString(
+                "Dimension value cannot be greater than "
+                    + KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT)
+                    + " for vector: "
+                    + FIELD_NAME
+            )
         );
     }
 

@@ -65,12 +65,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     public static final String CONTENT_TYPE = "knn_vector";
     public static final String KNN_FIELD = "knn_field";
 
-    /**
-     * Define the max dimension a knn_vector mapping can have. This limit is somewhat arbitrary. In the future, we
-     * should make this configurable.
-     */
-    public static final int MAX_DIMENSION = 10000;
-
     private static KNNVectorFieldMapper toType(FieldMapper in) {
         return (KNNVectorFieldMapper) in;
     }
@@ -89,11 +83,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 throw new IllegalArgumentException("Dimension cannot be null");
             }
             int value = XContentMapValues.nodeIntegerValue(o);
-            if (value > MAX_DIMENSION) {
-                throw new IllegalArgumentException(
-                    String.format("Dimension value cannot be greater than %s for vector: %s", MAX_DIMENSION, name)
-                );
-            }
 
             if (value <= 0) {
                 throw new IllegalArgumentException(String.format("Dimension value must be greater than 0 for vector: %s", name));
@@ -197,6 +186,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             // the mappings, setting the index settings will have no impact.
 
             final KNNMethodContext knnMethodContext = this.knnMethodContext.getValue();
+            validateMaxDimensions(knnMethodContext);
             final MultiFields multiFieldsBuilder = this.multiFieldsBuilder.build(this, context);
             final CopyTo copyToBuilder = copyTo.build();
             final Explicit<Boolean> ignoreMalformed = ignoreMalformed(context);
@@ -280,6 +270,25 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 m,
                 efConstruction
             );
+        }
+
+        private KNNEngine validateMaxDimensions(final KNNMethodContext knnMethodContext) {
+            final KNNEngine knnEngine;
+            if (knnMethodContext != null) {
+                knnEngine = knnMethodContext.getKnnEngine();
+            } else {
+                knnEngine = KNNEngine.DEFAULT;
+            }
+            if (dimension.getValue() > KNNEngine.getMaxDimensionByEngine(knnEngine)) {
+                throw new IllegalArgumentException(
+                    String.format(
+                        "Dimension value cannot be greater than %s for vector: %s",
+                        KNNEngine.getMaxDimensionByEngine(knnEngine),
+                        name
+                    )
+                );
+            }
+            return knnEngine;
         }
     }
 

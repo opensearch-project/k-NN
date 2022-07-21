@@ -283,7 +283,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             IllegalArgumentException.class,
             () -> builderInvalidDimension.build(new Mapper.BuilderContext(settings, new ContentPath()))
         );
-        assertEquals("Dimension value cannot be greater than [1024] but got [2000] for vector [test-field-name]", ex.getMessage());
+        assertEquals("Dimension value cannot be greater than 1024 for vector: test-field-name", ex.getMessage());
 
         XContentBuilder xContentBuilderUnsupportedParam = XContentFactory.jsonBuilder()
             .startObject()
