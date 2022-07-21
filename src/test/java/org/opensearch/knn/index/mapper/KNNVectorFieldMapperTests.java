@@ -60,7 +60,7 @@ import static org.mockito.Mockito.when;
 public class KNNVectorFieldMapperTests extends KNNTestCase {
 
     private final static String TEST_FIELD_NAME = "test-field-name";
-    
+
     private final static int TEST_DIMENSION = 17;
 
     private final static float TEST_VECTOR_VALUE = 1.5f;
