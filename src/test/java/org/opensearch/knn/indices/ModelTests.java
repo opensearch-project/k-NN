@@ -21,8 +21,6 @@ import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.MAX_DIMENSION;
-
 public class ModelTests extends KNNTestCase {
 
     public void testNullConstructor() {
@@ -87,7 +85,7 @@ public class ModelTests extends KNNTestCase {
                 new ModelMetadata(
                     KNNEngine.DEFAULT,
                     SpaceType.DEFAULT,
-                    MAX_DIMENSION + 1,
+                    KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT) + 1,
                     ModelState.CREATED,
                     ZonedDateTime.now(ZoneOffset.UTC).toString(),
                     "",
