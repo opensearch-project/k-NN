@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.document.KnnVectorField;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.util.BytesRef;
+import org.mockito.Mockito;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.FieldMapper;
 import org.opensearch.index.mapper.ParseContext;
@@ -43,6 +44,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
@@ -574,13 +577,16 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 .ignoreMalformed(new Explicit<>(true, true))
                 .knnMethodContext(knnMethodContext);
 
-        LuceneFieldMapper luceneFieldMapper = createMockLuceneFieldMapper(inputBuilder.build(), TEST_VECTOR);
-
         ParseContext.Document document = new ParseContext.Document();
         ContentPath contentPath = new ContentPath();
         ParseContext parseContext = mock(ParseContext.class);
         when(parseContext.doc()).thenReturn(document);
         when(parseContext.path()).thenReturn(contentPath);
+
+        LuceneFieldMapper luceneFieldMapper = Mockito.spy(new LuceneFieldMapper(inputBuilder.build()));
+        doReturn(Optional.of(TEST_VECTOR)).when(luceneFieldMapper).getFloatsFromContext(parseContext, TEST_DIMENSION);
+        doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
+        doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
 
         luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION);
 
@@ -607,14 +613,17 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertArrayEquals(TEST_VECTOR, knnVectorField.vectorValue(), 0.001f);
 
         // Test when doc values are disabled
-        inputBuilder.hasDocValues(false);
-        luceneFieldMapper = createMockLuceneFieldMapper(inputBuilder.build(), TEST_VECTOR);
-
         document = new ParseContext.Document();
         contentPath = new ContentPath();
         parseContext = mock(ParseContext.class);
         when(parseContext.doc()).thenReturn(document);
         when(parseContext.path()).thenReturn(contentPath);
+
+        inputBuilder.hasDocValues(false);
+        luceneFieldMapper = Mockito.spy(new LuceneFieldMapper(inputBuilder.build()));
+        doReturn(Optional.of(TEST_VECTOR)).when(luceneFieldMapper).getFloatsFromContext(parseContext, TEST_DIMENSION);
+        doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
+        doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
 
         luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION);
 
@@ -667,17 +676,5 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             null
         );
 
-    }
-
-    public LuceneFieldMapper createMockLuceneFieldMapper(LuceneFieldMapper.CreateLuceneFieldMapperInput input, float[] testVector) {
-        return new LuceneFieldMapper(input) {
-            void validateIfCircuitBreakerIsNotTriggered() {}
-
-            void validateIfKNNPluginEnabled() {}
-
-            Optional<float[]> getFloatsFromContext(ParseContext context, int dimension) {
-                return Optional.of(testVector);
-            }
-        };
     }
 }

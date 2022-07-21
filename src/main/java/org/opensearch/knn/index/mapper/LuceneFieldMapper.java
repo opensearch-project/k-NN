@@ -35,7 +35,8 @@ import static org.opensearch.knn.index.SpaceType.L2;
  */
 public class LuceneFieldMapper extends KNNVectorFieldMapper {
 
-    private final FieldType docValuesFieldType;
+    /** FieldType used for initializing VectorField, which is used for creating binary doc values. **/
+    private final FieldType vectorFieldType;
 
     private static final Map<SpaceType, VectorSimilarityFunction> SPACE_TYPE_TO_VECTOR_SIMILARITY_FUNCTION = ImmutableMap.of(
         L2,
@@ -62,14 +63,25 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         final VectorSimilarityFunction vectorSimilarityFunction = Optional.ofNullable(
             SPACE_TYPE_TO_VECTOR_SIMILARITY_FUNCTION.get(spaceType)
         ).orElseThrow(() -> new IllegalArgumentException(String.format("Space type [%s] is not supported for Lucene engine", spaceType)));
+
         final int dimension = input.getMappedFieldType().getDimension();
+        if (dimension > MAX_DIMENSION) {
+            throw new IllegalArgumentException(
+                String.format(
+                    "Dimension value cannot be greater than [%s] but got [%s] for vector [%s]",
+                    MAX_DIMENSION,
+                    dimension,
+                    input.getName()
+                )
+            );
+        }
 
         this.fieldType = KnnVectorField.createFieldType(dimension, vectorSimilarityFunction);
 
         if (this.hasDocValues) {
-            this.docValuesFieldType = buildDocValuesFieldType(this.knnMethod.getKnnEngine());
+            this.vectorFieldType = buildDocValuesFieldType(this.knnMethod.getKnnEngine());
         } else {
-            this.docValuesFieldType = null;
+            this.vectorFieldType = null;
         }
     }
 
@@ -101,8 +113,8 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             context.doc().add(new StoredField(name(), point.toString()));
         }
 
-        if (docValuesFieldType != null) {
-            context.doc().add(new VectorField(name(), array, docValuesFieldType));
+        if (hasDocValues && vectorFieldType != null) {
+            context.doc().add(new VectorField(name(), array, vectorFieldType));
         }
 
         context.path().remove();
