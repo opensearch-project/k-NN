@@ -72,7 +72,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
     private final static BytesRef TEST_VECTOR_BYTES_REF = new BytesRef(
         KNNVectorSerializerFactory.getDefaultSerializer().floatToByteArray(TEST_VECTOR)
-    );;
+    );
 
     public void testBuilder_getParameters() {
         String fieldName = "test-field-name";
