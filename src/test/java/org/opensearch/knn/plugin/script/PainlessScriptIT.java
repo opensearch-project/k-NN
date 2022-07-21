@@ -5,8 +5,13 @@
 
 package org.opensearch.knn.plugin.script;
 
+import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.client.Request;
@@ -17,6 +22,7 @@ import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.script.Script;
 
@@ -28,11 +34,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+
 public class PainlessScriptIT extends KNNRestTestCase {
 
     public static final int AGGREGATION_FIELD_NAME_MIN_LENGTH = 2;
     public static final int AGGREGATION_FIELD_NAME_MAX_LENGTH = 5;
-    private static String NUMERIC_INDEX_FIELD_NAME = "price";
+    private static final String NUMERIC_INDEX_FIELD_NAME = "price";
 
     /**
      * Utility to create a Index Mapping with multiple fields
@@ -45,6 +53,13 @@ public class PainlessScriptIT extends KNNRestTestCase {
             if (property.getDimension() != null) {
                 builder.field("dimension", property.getDimension());
             }
+
+            if (property.getKnnMethodContext() != null) {
+                builder.startObject(KNNConstants.KNN_METHOD);
+                property.getKnnMethodContext().toXContent(builder, ToXContent.EMPTY_PARAMS);
+                builder.endObject();
+            }
+
             builder.endObject();
         }
         xContentBuilder.endObject().endObject();
@@ -57,6 +72,10 @@ public class PainlessScriptIT extends KNNRestTestCase {
      */
     private void buildTestIndex(Map<String, Float[]> knnDocuments) throws Exception {
         List<MappingProperty> properties = buildMappingProperties();
+        buildTestIndex(knnDocuments, properties);
+    }
+
+    private void buildTestIndex(Map<String, Float[]> knnDocuments, List<MappingProperty> properties) throws Exception {
         createKnnIndex(INDEX_NAME, createMapping(properties));
         for (Map.Entry<String, Float[]> data : knnDocuments.entrySet()) {
             addKnnDoc(INDEX_NAME, data.getKey(), FIELD_NAME, data.getValue());
@@ -136,6 +155,17 @@ public class PainlessScriptIT extends KNNRestTestCase {
 
     private Request buildPainlessScoreScriptRequest(String source, int size, Map<String, Float[]> documents) throws Exception {
         buildTestIndex(documents);
+        QueryBuilder qb = new MatchAllQueryBuilder();
+        return constructScriptScoreContextSearchRequest(INDEX_NAME, qb, Collections.emptyMap(), Script.DEFAULT_SCRIPT_LANG, source, size);
+    }
+
+    private Request buildPainlessScoreScriptRequest(
+        String source,
+        int size,
+        Map<String, Float[]> documents,
+        List<MappingProperty> properties
+    ) throws Exception {
+        buildTestIndex(documents, properties);
         QueryBuilder qb = new MatchAllQueryBuilder();
         return constructScriptScoreContextSearchRequest(INDEX_NAME, qb, Collections.emptyMap(), Script.DEFAULT_SCRIPT_LANG, source, size);
     }
@@ -506,11 +536,40 @@ public class PainlessScriptIT extends KNNRestTestCase {
         deleteKNNIndex(INDEX_NAME);
     }
 
-    class MappingProperty {
+    public void testL2ScriptingWithLuceneBackedIndex() throws Exception {
+        List<MappingProperty> properties = new ArrayList<>();
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.NMSLIB,
+            SpaceType.DEFAULT,
+            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
+        );
+        properties.add(
+            new MappingProperty(FIELD_NAME, KNNVectorFieldMapper.CONTENT_TYPE).dimension("2").knnMethodContext(knnMethodContext)
+        );
 
-        private String name;
-        private String type;
+        String source = String.format("1/(1 + l2Squared([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
+        Request request = buildPainlessScoreScriptRequest(source, 3, getL2TestData(), properties);
+
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+        assertEquals(3, results.size());
+
+        String[] expectedDocIDs = { "2", "4", "3", "1" };
+        for (int i = 0; i < results.size(); i++) {
+            assertEquals(expectedDocIDs[i], results.get(i).getDocId());
+        }
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    static class MappingProperty {
+
+        private final String name;
+        private final String type;
         private String dimension;
+
+        private KNNMethodContext knnMethodContext;
 
         MappingProperty(String name, String type) {
             this.name = name;
@@ -520,6 +579,15 @@ public class PainlessScriptIT extends KNNRestTestCase {
         MappingProperty dimension(String dimension) {
             this.dimension = dimension;
             return this;
+        }
+
+        MappingProperty knnMethodContext(KNNMethodContext knnMethodContext) {
+            this.knnMethodContext = knnMethodContext;
+            return this;
+        }
+
+        KNNMethodContext getKnnMethodContext() {
+            return knnMethodContext;
         }
 
         String getDimension() {

@@ -12,18 +12,20 @@ import lombok.NonNull;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.KnnVectorField;
 import org.apache.lucene.document.StoredField;
-import org.apache.lucene.index.IndexOptions;
+import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.VectorSimilarityFunction;
-import org.apache.lucene.index.VectorValues;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorField;
+import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.index.SpaceType.COSINESIMIL;
 import static org.opensearch.knn.index.SpaceType.INNER_PRODUCT;
 import static org.opensearch.knn.index.SpaceType.L2;
@@ -33,7 +35,7 @@ import static org.opensearch.knn.index.SpaceType.L2;
  */
 public class LuceneFieldMapper extends KNNVectorFieldMapper {
 
-    private static final int MAX_DIMENSION = VectorValues.MAX_DIMENSIONS;
+    private final FieldType docValuesFieldType;
 
     private static final Map<SpaceType, VectorSimilarityFunction> SPACE_TYPE_TO_VECTOR_SIMILARITY_FUNCTION = ImmutableMap.of(
         L2,
@@ -56,31 +58,27 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         );
 
         this.knnMethod = input.getKnnMethodContext();
-
-        this.fieldType = new FieldType();
-
-        this.fieldType.setTokenized(false);
-        this.fieldType.setIndexOptions(IndexOptions.NONE);
-
         final SpaceType spaceType = this.knnMethod.getSpaceType();
         final VectorSimilarityFunction vectorSimilarityFunction = Optional.ofNullable(
             SPACE_TYPE_TO_VECTOR_SIMILARITY_FUNCTION.get(spaceType)
         ).orElseThrow(() -> new IllegalArgumentException(String.format("Space type [%s] is not supported for Lucene engine", spaceType)));
-
         final int dimension = input.getMappedFieldType().getDimension();
-        if (dimension > MAX_DIMENSION) {
-            throw new IllegalArgumentException(
-                String.format(
-                    "Dimension value cannot be greater than [%s] but got [%s] for vector [%s]",
-                    MAX_DIMENSION,
-                    dimension,
-                    input.getName()
-                )
-            );
-        }
 
-        this.fieldType.setVectorDimensionsAndSimilarityFunction(dimension, vectorSimilarityFunction);
-        this.fieldType.freeze();
+        this.fieldType = KnnVectorField.createFieldType(dimension, vectorSimilarityFunction);
+
+        if (this.hasDocValues) {
+            this.docValuesFieldType = buildDocValuesFieldType(this.knnMethod.getKnnEngine());
+        } else {
+            this.docValuesFieldType = null;
+        }
+    }
+
+    private static FieldType buildDocValuesFieldType(KNNEngine knnEngine) {
+        FieldType field = new FieldType();
+        field.putAttribute(KNN_ENGINE, knnEngine.getName());
+        field.setDocValuesType(DocValuesType.BINARY);
+        field.freeze();
+        return field;
     }
 
     @Override
@@ -91,7 +89,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
 
         Optional<float[]> arrayOptional = getFloatsFromContext(context, dimension);
 
-        if (!arrayOptional.isPresent()) {
+        if (arrayOptional.isEmpty()) {
             return;
         }
         final float[] array = arrayOptional.get();
@@ -102,6 +100,11 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         if (fieldType.stored()) {
             context.doc().add(new StoredField(name(), point.toString()));
         }
+
+        if (docValuesFieldType != null) {
+            context.doc().add(new VectorField(name(), array, docValuesFieldType));
+        }
+
         context.path().remove();
     }
 
