@@ -264,7 +264,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .field("dimension", dimension)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
-            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L1)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
             .field(KNN_ENGINE, LUCENE_NAME)
             .startObject(PARAMETERS)
             .field("RANDOM_PARAM", 0)

@@ -55,8 +55,7 @@ public class KNN920PerFieldKnnVectorsFormat extends PerFieldKnnVectorsFormat {
                 beamWidth
             )
         );
-        var luceneHnswVectorsFormat = new Lucene92HnswVectorsFormat(maxConnections, beamWidth);
-        return luceneHnswVectorsFormat;
+        return new Lucene92HnswVectorsFormat(maxConnections, beamWidth);
     }
 
     private boolean isNotKnnVectorFieldType(final String field) {
