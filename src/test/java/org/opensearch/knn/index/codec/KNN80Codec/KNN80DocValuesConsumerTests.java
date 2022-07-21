@@ -45,8 +45,11 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -409,4 +412,21 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         verify(delegate, times(1)).close();
     }
 
+    public void testAddBinaryField_luceneEngine_noInvocations_addKNNBinary() throws IOException {
+        var fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test-field")
+            .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+            .addAttribute(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .build();
+        DocValuesProducer docValuesProducer = mock(DocValuesProducer.class);
+
+        var delegate = mock(DocValuesConsumer.class);
+        doNothing().when(delegate).addBinaryField(fieldInfo, docValuesProducer);
+
+        var knn80DocValuesConsumer = spy(new KNN80DocValuesConsumer(delegate, null));
+
+        knn80DocValuesConsumer.addBinaryField(fieldInfo, docValuesProducer);
+
+        verify(delegate, times(1)).addBinaryField(fieldInfo, docValuesProducer);
+        verify(knn80DocValuesConsumer, never()).addKNNBinaryField(any(), any());
+    }
 }

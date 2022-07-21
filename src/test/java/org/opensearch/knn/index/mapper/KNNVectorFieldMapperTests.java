@@ -154,7 +154,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     }
 
     public void testBuilder_parse_fromKnnMethodContext_luceneEngine() throws IOException {
-        // Check that knnMethodContext is set
         String fieldName = "test-field-name";
         String indexName = "test-index-name";
 
@@ -191,6 +190,25 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             efConstruction,
             builder.knnMethodContext.get().getMethodComponent().getParameters().get(METHOD_PARAMETER_EF_CONSTRUCTION)
         );
+
+        XContentBuilder xContentBuilderEmptyParams = XContentFactory.jsonBuilder()
+            .startObject()
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
+            .field(KNN_ENGINE, LUCENE_NAME)
+            .endObject()
+            .endObject();
+        KNNVectorFieldMapper.Builder builderEmptyParams = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilderEmptyParams),
+            buildParserContext(indexName, settings)
+        );
+
+        assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponent().getName());
+        assertTrue(builderEmptyParams.knnMethodContext.get().getMethodComponent().getParameters().isEmpty());
 
         XContentBuilder xContentBuilderInvalidSpaceType = XContentFactory.jsonBuilder()
             .startObject()
@@ -239,6 +257,29 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             () -> builderInvalidDimension.build(new Mapper.BuilderContext(settings, new ContentPath()))
         );
         assertEquals("Dimension value cannot be greater than [1024] but got [2000] for vector [test-field-name]", ex.getMessage());
+
+        XContentBuilder xContentBuilderUnsupportedParam = XContentFactory.jsonBuilder()
+            .startObject()
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
+            .field(KNN_ENGINE, LUCENE_NAME)
+            .startObject(PARAMETERS)
+            .field("RANDOM_PARAM", 0)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        expectThrows(
+            ValidationException.class,
+            () -> typeParser.parse(
+                fieldName,
+                xContentBuilderToMap(xContentBuilderUnsupportedParam),
+                buildParserContext(indexName, settings)
+            )
+        );
     }
 
     public void testTypeParser_parse_fromKnnMethodContext() throws IOException {
