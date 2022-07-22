@@ -14,6 +14,7 @@ package org.opensearch.knn.indices;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.action.ActionListener;
@@ -765,6 +766,9 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
+    // Ignoring the flaky test
+    // TODO Add a fix to flaky test and refactor the test to use implemented methods in ModelDao
+    @Ignore
     public void testDeleteWithStepListenersOnFailure() throws IOException, InterruptedException, ExecutionException {
         String modelId = "test-model-id-delete1";
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
