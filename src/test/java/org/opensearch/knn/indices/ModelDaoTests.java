@@ -765,27 +765,10 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
     }
 
-    public void testDeleteWithStepListenersOnFailure() throws IOException, InterruptedException, ExecutionException {
+    // Some exception occurs during the process of deletion and validate that the model is unblocked
+    public void testDeleteWithStepListenersOnFailureModelUnblocked() throws InterruptedException {
         String modelId = "test-model-id-delete1";
         ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
-        byte[] modelBlob = "deleteModel".getBytes();
-        int dimension = 2;
-        createIndex(MODEL_INDEX_NAME);
-        Model model = new Model(
-            new ModelMetadata(
-                KNNEngine.DEFAULT,
-                SpaceType.DEFAULT,
-                dimension,
-                ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(),
-                "",
-                ""
-            ),
-            modelBlob,
-            modelId
-        );
-
-        addDoc(model);
 
         // We will validate if the modelId gets unblocked when some exception occurs
         // during the process of deletion after adding that modelId to blocked list
@@ -829,8 +812,13 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         }, exception -> fail(exception.getMessage()));
 
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
+    }
 
-        // Some exception occurs during the process of deletion and unblocking model request also fails
+    // Some exception occurs during the process of deletion and unblocking model request also fails
+    public void testDeleteWithStepListenersOnFailureModelBlocked() throws InterruptedException {
+        String modelId = "test-model-id-delete2";
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
+
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
 
         StepListener<AcknowledgedResponse> blockModelIdStep1 = new StepListener<>();
