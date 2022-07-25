@@ -17,10 +17,10 @@ import org.opensearch.knn.KNNTestCase;
 public class SpaceTypeTests extends KNNTestCase {
 
     public void testSpaceTypeToVectorSimilarityFunction_l2() {
-        assertEquals(VectorSimilarityFunction.EUCLIDEAN, SpaceType.spaceTypeToVectorSimilarityFunction(SpaceType.L2));
+        assertEquals(VectorSimilarityFunction.EUCLIDEAN, SpaceType.L2.getVectorSimilarityFunction());
     }
 
     public void testSpaceTypeToVectorSimilarityFunction_invalid() {
-        expectThrows(IllegalArgumentException.class, () -> SpaceType.spaceTypeToVectorSimilarityFunction(SpaceType.L1));
+        expectThrows(UnsupportedOperationException.class, SpaceType.L1::getVectorSimilarityFunction);
     }
 }

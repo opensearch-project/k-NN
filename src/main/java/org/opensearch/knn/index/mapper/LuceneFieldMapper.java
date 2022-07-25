@@ -49,9 +49,10 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
 
         this.knnMethod = input.getKnnMethodContext();
         final SpaceType spaceType = this.knnMethod.getSpaceType();
-        final VectorSimilarityFunction vectorSimilarityFunction = Optional.ofNullable(
-            SpaceType.spaceTypeToVectorSimilarityFunction(spaceType)
-        ).orElseThrow(() -> new IllegalArgumentException(String.format("Space type [%s] is not supported for Lucene engine", spaceType)));
+        final VectorSimilarityFunction vectorSimilarityFunction = Optional.ofNullable(spaceType.getVectorSimilarityFunction())
+            .orElseThrow(
+                () -> new IllegalArgumentException(String.format("Space type [%s] is not supported for Lucene engine", spaceType))
+            );
 
         final int dimension = input.getMappedFieldType().getDimension();
         if (dimension > LUCENE_MAX_DIMENSION) {

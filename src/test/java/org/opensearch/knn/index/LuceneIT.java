@@ -250,7 +250,7 @@ public class LuceneIT extends KNNRestTestCase {
             for (int j = 0; j < k; j++) {
                 float[] primitiveArray = Floats.toArray(Arrays.stream(knnResults.get(j).getVector()).collect(Collectors.toList()));
                 float distance = TestUtils.computeDistFromSpaceType(spaceType, primitiveArray, queryVector);
-                float rawScore = SpaceType.spaceTypeToVectorSimilarityFunction(spaceType).convertToScore(distance);
+                float rawScore = spaceType.getVectorSimilarityFunction().convertToScore(distance);
                 assertEquals(KNNEngine.LUCENE.score(rawScore, spaceType), actualScores.get(j), 0.0001);
             }
         }
