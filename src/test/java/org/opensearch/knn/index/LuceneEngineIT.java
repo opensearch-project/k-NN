@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
-public class LuceneIT extends KNNRestTestCase {
+public class LuceneEngineIT extends KNNRestTestCase {
 
     private static final int DIMENSION = 3;
     private static final String DOC_ID = "doc1";
@@ -60,7 +60,7 @@ public class LuceneIT extends KNNRestTestCase {
         baseQueryTest(SpaceType.INNER_PRODUCT);
     }
 
-    public void testQuery_invalidParameters() throws Exception {
+    public void testQuery_invalidVectorDimensionInQuery() throws Exception {
 
         createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2);
         for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
@@ -239,7 +239,7 @@ public class LuceneIT extends KNNRestTestCase {
 
     private void validateQueries(SpaceType spaceType, String fieldName) throws IOException {
 
-        int k = LuceneIT.TEST_INDEX_VECTORS.length;
+        int k = LuceneEngineIT.TEST_INDEX_VECTORS.length;
         for (float[] queryVector : TEST_QUERY_VECTORS) {
             Response response = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(fieldName, queryVector, k), k);
             String responseBody = EntityUtils.toString(response.getEntity());
