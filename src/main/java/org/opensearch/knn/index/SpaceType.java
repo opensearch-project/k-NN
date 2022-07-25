@@ -11,6 +11,8 @@
 
 package org.opensearch.knn.index;
 
+import org.apache.lucene.index.VectorSimilarityFunction;
+
 import java.util.HashSet;
 import java.util.Set;
 
@@ -26,11 +28,21 @@ public enum SpaceType {
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
         }
+
+        @Override
+        public VectorSimilarityFunction getVectorSimilarityFunction() {
+            return VectorSimilarityFunction.EUCLIDEAN;
+        }
     },
     COSINESIMIL("cosinesimil") {
         @Override
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
+        }
+
+        @Override
+        public VectorSimilarityFunction getVectorSimilarityFunction() {
+            return VectorSimilarityFunction.COSINE;
         }
     },
     L1("l1") {
@@ -61,6 +73,11 @@ public enum SpaceType {
             }
             return -rawScore + 1;
         }
+
+        @Override
+        public VectorSimilarityFunction getVectorSimilarityFunction() {
+            return VectorSimilarityFunction.DOT_PRODUCT;
+        }
     },
     HAMMING_BIT("hammingbit") {
         @Override
@@ -78,6 +95,15 @@ public enum SpaceType {
     }
 
     public abstract float scoreTranslation(float rawScore);
+
+    /**
+     * Get VectorSimilarityFunction that maps to this SpaceType
+     *
+     * @return VectorSimilarityFunction
+     */
+    public VectorSimilarityFunction getVectorSimilarityFunction() {
+        throw new UnsupportedOperationException(String.format("Space [%s] does not have a vector similarity function", getValue()));
+    }
 
     /**
      * Get space type name in engine
