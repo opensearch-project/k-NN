@@ -98,7 +98,7 @@ public class KNNMethodTests extends KNNTestCase {
         String methodName = "test-method";
         Map<String, Object> generatedMap = ImmutableMap.of("test-key", "test-value");
         MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
-            .setMapGenerator(((methodComponent1, methodComponentContext) -> generatedMap))
+            .setMapGenerator(((methodComponent1, methodComponentContext) -> methodComponentContext.getParameters()))
             .build();
 
         KNNMethod knnMethod = KNNMethod.Builder.builder(methodComponent).build();
@@ -106,7 +106,10 @@ public class KNNMethodTests extends KNNTestCase {
         Map<String, Object> expectedMap = new HashMap<>(generatedMap);
         expectedMap.put(KNNConstants.SPACE_TYPE, spaceType.getValue());
 
-        assertEquals(expectedMap, knnMethod.getAsMap(new KNNMethodContext(KNNEngine.DEFAULT, spaceType, null)));
+        assertEquals(
+            expectedMap,
+            knnMethod.getAsMap(new KNNMethodContext(KNNEngine.DEFAULT, spaceType, new MethodComponentContext(methodName, generatedMap)))
+        );
     }
 
     public void testBuilder() {
