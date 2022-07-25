@@ -16,7 +16,6 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.index.KNNMethodContext;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -48,11 +47,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         );
 
         this.knnMethod = input.getKnnMethodContext();
-        final SpaceType spaceType = this.knnMethod.getSpaceType();
-        final VectorSimilarityFunction vectorSimilarityFunction = Optional.ofNullable(spaceType.getVectorSimilarityFunction())
-            .orElseThrow(
-                () -> new IllegalArgumentException(String.format("Space type [%s] is not supported for Lucene engine", spaceType))
-            );
+        final VectorSimilarityFunction vectorSimilarityFunction = this.knnMethod.getSpaceType().getVectorSimilarityFunction();
 
         final int dimension = input.getMappedFieldType().getDimension();
         if (dimension > LUCENE_MAX_DIMENSION) {
