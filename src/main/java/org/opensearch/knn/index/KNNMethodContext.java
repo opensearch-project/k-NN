@@ -13,6 +13,7 @@ package org.opensearch.knn.index;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NonNull;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -57,8 +58,11 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         return defaultInstance;
     }
 
+    @NonNull
     private final KNNEngine knnEngine;
+    @NonNull
     private final SpaceType spaceType;
+    @NonNull
     private final MethodComponentContext methodComponent;
 
     /**
