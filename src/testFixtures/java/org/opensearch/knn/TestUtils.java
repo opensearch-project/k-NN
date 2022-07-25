@@ -66,7 +66,11 @@ public class TestUtils {
         SpaceType.L2,
         KNNScoringUtil::l2Squared,
         SpaceType.LINF,
-        KNNScoringUtil::lInfNorm
+        KNNScoringUtil::lInfNorm,
+        SpaceType.COSINESIMIL,
+        KNNScoringUtil::cosinesimil,
+        SpaceType.INNER_PRODUCT,
+        KNNScoringUtil::innerProduct
     );
 
     public static final String KNN_BWC_PREFIX = "knn-bwc-";

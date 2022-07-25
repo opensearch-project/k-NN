@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.mapper;
 
-import com.google.common.collect.ImmutableMap;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
@@ -22,14 +21,10 @@ import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.lucene.index.VectorValues.MAX_DIMENSIONS;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.index.SpaceType.COSINESIMIL;
-import static org.opensearch.knn.index.SpaceType.INNER_PRODUCT;
-import static org.opensearch.knn.index.SpaceType.L2;
 
 /**
  * Field mapper for case when Lucene has been set as an engine.
@@ -40,15 +35,6 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
 
     /** FieldType used for initializing VectorField, which is used for creating binary doc values. **/
     private final FieldType vectorFieldType;
-
-    private static final Map<SpaceType, VectorSimilarityFunction> SPACE_TYPE_TO_VECTOR_SIMILARITY_FUNCTION = ImmutableMap.of(
-        L2,
-        VectorSimilarityFunction.EUCLIDEAN,
-        COSINESIMIL,
-        VectorSimilarityFunction.COSINE,
-        INNER_PRODUCT,
-        VectorSimilarityFunction.DOT_PRODUCT
-    );
 
     LuceneFieldMapper(final CreateLuceneFieldMapperInput input) {
         super(
@@ -64,7 +50,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         this.knnMethod = input.getKnnMethodContext();
         final SpaceType spaceType = this.knnMethod.getSpaceType();
         final VectorSimilarityFunction vectorSimilarityFunction = Optional.ofNullable(
-            SPACE_TYPE_TO_VECTOR_SIMILARITY_FUNCTION.get(spaceType)
+            SpaceType.spaceTypeToVectorSimilarityFunction(spaceType)
         ).orElseThrow(() -> new IllegalArgumentException(String.format("Space type [%s] is not supported for Lucene engine", spaceType)));
 
         final int dimension = input.getMappedFieldType().getDimension();

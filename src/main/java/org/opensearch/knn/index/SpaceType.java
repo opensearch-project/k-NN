@@ -11,6 +11,8 @@
 
 package org.opensearch.knn.index;
 
+import org.apache.lucene.index.VectorSimilarityFunction;
+
 import java.util.HashSet;
 import java.util.Set;
 
@@ -104,5 +106,24 @@ public enum SpaceType {
             }
         }
         throw new IllegalArgumentException("Unable to find space: " + spaceTypeName);
+    }
+
+    public static VectorSimilarityFunction spaceTypeToVectorSimilarityFunction(SpaceType spaceType) {
+        if (spaceType == null) {
+            throw new IllegalArgumentException("spaceType cannot be null");
+        }
+
+        switch (spaceType) {
+            case L2:
+                return VectorSimilarityFunction.EUCLIDEAN;
+            case COSINESIMIL:
+                return VectorSimilarityFunction.COSINE;
+            case INNER_PRODUCT:
+                return VectorSimilarityFunction.DOT_PRODUCT;
+            default:
+                throw new IllegalArgumentException(
+                    String.format("Space [%s] does not have a vector similarity function", spaceType.getValue())
+                );
+        }
     }
 }
