@@ -7,15 +7,15 @@ import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
 
 apply from : "$rootDir/qa/build.gradle"
 
-String knn_bwc_version = System.getProperty("bwc.version")
+String default_bwc_version = System.getProperty("bwc.version")
+String knn_bwc_version = System.getProperty("tests.bwc.version", default_bwc_version)
 String baseName = "knnBwcCluster-rolling"
-String opensearch_version_upgraded = System.getProperty("rolling.bwctests.opensearch.version", opensearch_version)
 
 // Creates a test cluster of previous version and loads k-NN plugin of bwcVersion
 testClusters {
     "${baseName}" {
         testDistribution = "ARCHIVE"
-        versions = [knn_bwc_version, opensearch_version_upgraded]
+        versions = [knn_bwc_version, opensearch_version]
         numberOfNodes = 3
         plugin(project.tasks.zipBwcPlugin.archiveFile)
         setting 'path.repo', "${buildDir}/cluster/shared/repo/${baseName}"
