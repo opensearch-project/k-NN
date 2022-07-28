@@ -52,7 +52,7 @@ jobs:
     name: k-NN Rolling-Upgrade BWC Tests
     runs-on: ubuntu-latest
     env:
-      OPENSEARCH_VERSION_ROLLING_UPGRADE: ${{ matrix.opensearch_version }}
+      BWC_VERSION_ROLLING_UPGRADE: ${{ matrix.bwc_version }}
 
     steps:
       - name: Checkout k-NN
@@ -70,4 +70,4 @@ jobs:
       - name: Run k-NN Rolling-Upgrade BWC Tests from BWCVersion-${{ matrix.bwc_version }} to OpenSearch Version-${{ matrix.opensearch_version }}
         run: |
           echo "Running rolling-upgrade backwards compatibility tests ..."
-          ./gradlew :qa:rolling-upgrade:testRollingUpgrade -Drolling.bwctests.opensearch.version=$OPENSEARCH_VERSION_ROLLING_UPGRADE
+          ./gradlew :qa:rolling-upgrade:testRollingUpgrade -Dtests.bwc.version=$BWC_VERSION_ROLLING_UPGRADE
