@@ -55,6 +55,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.Version.CURRENT;
 import static org.mockito.Mockito.mock;
@@ -260,31 +261,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             )
         );
 
-        XContentBuilder xContentBuilderInvalidDimension = XContentFactory.jsonBuilder()
-            .startObject()
-            .field("type", "knn_vector")
-            .field("dimension", 2000)
-            .startObject(KNN_METHOD)
-            .field(NAME, METHOD_HNSW)
-            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
-            .field(KNN_ENGINE, LUCENE_NAME)
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
-            .endObject()
-            .endObject()
-            .endObject();
-        KNNVectorFieldMapper.Builder builderInvalidDimension = (KNNVectorFieldMapper.Builder) typeParser.parse(
-            fieldName,
-            xContentBuilderToMap(xContentBuilderInvalidDimension),
-            buildParserContext(indexName, settings)
-        );
-
-        IllegalArgumentException ex = expectThrows(
-            IllegalArgumentException.class,
-            () -> builderInvalidDimension.build(new Mapper.BuilderContext(settings, new ContentPath()))
-        );
-        assertEquals("Dimension value cannot be greater than 1024 for vector: test-field-name", ex.getMessage());
-
         XContentBuilder xContentBuilderUnsupportedParam = XContentFactory.jsonBuilder()
             .startObject()
             .field("type", "knn_vector")
@@ -306,6 +282,70 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 xContentBuilderToMap(xContentBuilderUnsupportedParam),
                 buildParserContext(indexName, settings)
             )
+        );
+    }
+
+    public void testTypeParser_parse_fromKnnMethodContext_invalidDimension() throws IOException {
+        String fieldName = "test-field-name";
+        String indexName = "test-index-name";
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).build();
+
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        int efConstruction = 321;
+
+        XContentBuilder xContentBuilderOverMaxDimension = XContentFactory.jsonBuilder()
+            .startObject()
+            .field("type", "knn_vector")
+            .field("dimension", 2000)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
+            .field(KNN_ENGINE, LUCENE_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
+            .endObject()
+            .endObject()
+            .endObject();
+        KNNVectorFieldMapper.Builder builderOverMaxDimension = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            fieldName,
+            xContentBuilderToMap(xContentBuilderOverMaxDimension),
+            buildParserContext(indexName, settings)
+        );
+
+        IllegalArgumentException ex = expectThrows(
+            IllegalArgumentException.class,
+            () -> builderOverMaxDimension.build(new Mapper.BuilderContext(settings, new ContentPath()))
+        );
+        assertEquals("Dimension value cannot be greater than 1024 for vector: test-field-name", ex.getMessage());
+
+        XContentBuilder xContentBuilderInvalidDimension = XContentFactory.jsonBuilder()
+            .startObject()
+            .field("type", "knn_vector")
+            .field("dimension", "2147483648")
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
+            .field(KNN_ENGINE, NMSLIB_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        IllegalArgumentException exInvalidDimension = expectThrows(
+            IllegalArgumentException.class,
+            () -> typeParser.parse(
+                fieldName,
+                xContentBuilderToMap(xContentBuilderInvalidDimension),
+                buildParserContext(indexName, settings)
+            )
+        );
+        assertEquals(
+            "Unable to parse [dimension] from provided value [2147483648] for vector [test-field-name]",
+            exInvalidDimension.getMessage()
         );
     }
 
