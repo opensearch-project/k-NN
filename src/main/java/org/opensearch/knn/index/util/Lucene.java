@@ -41,7 +41,7 @@ public class Lucene extends JVMLibrary {
                     )
                 )
                 .build()
-        ).addSpaces(SpaceType.L2, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT).build()
+        ).addSpaces(SpaceType.L2, SpaceType.COSINESIMIL).build()
     );
 
     final static Lucene INSTANCE = new Lucene(METHODS, Version.LUCENE_9_2_0.toString());
