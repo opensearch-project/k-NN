@@ -23,7 +23,6 @@ import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -56,6 +55,10 @@ public class LuceneEngineIT extends KNNRestTestCase {
         VectorSimilarityFunction.COSINE,
         (similarity) -> (1 + similarity) / 2
     );
+    private static final String DIMENSION_FIELD_NAME = "dimension";
+    private static final String KNN_VECTOR_TYPE = "knn_vector";
+    private static final String PROPERTIES_FIELD_NAME = "properties";
+    private static final String TYPE_FIELD_NAME = "type";
 
     @After
     public final void cleanUp() throws IOException {
@@ -72,23 +75,23 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
     public void testQuery_innerProduct_notSupported() throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(FIELD_NAME)
-                .field("type", "knn_vector")
-                .field("dimension", DIMENSION)
-                .startObject(KNNConstants.KNN_METHOD)
-                .field(KNNConstants.NAME, KNNEngine.LUCENE.getMethod(METHOD_HNSW).getMethodComponent().getName())
-                .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
-                .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
-                .startObject(KNNConstants.PARAMETERS)
-                .field(KNNConstants.METHOD_PARAMETER_M, M)
-                .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .startObject(PROPERTIES_FIELD_NAME)
+            .startObject(FIELD_NAME)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, DIMENSION)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNEngine.LUCENE.getMethod(METHOD_HNSW).getMethodComponent().getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .startObject(KNNConstants.PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, M)
+            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
 
         String mapping = Strings.toString(builder);
 
@@ -139,10 +142,10 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
-            .startObject("properties")
+            .startObject(PROPERTIES_FIELD_NAME)
             .startObject(luceneField)
-            .field("type", "knn_vector")
-            .field("dimension", DIMENSION)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, DIMENSION)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, luceneSpaceType.getValue())
@@ -154,8 +157,8 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject()
             .endObject()
             .startObject(nmslibField)
-            .field("type", "knn_vector")
-            .field("dimension", DIMENSION)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, DIMENSION)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, nmslibSpaceType.getValue())
@@ -190,10 +193,10 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
-            .startObject("properties")
+            .startObject(PROPERTIES_FIELD_NAME)
             .startObject(FIELD_NAME)
-            .field("type", "knn_vector")
-            .field("dimension", DIMENSION)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, DIMENSION)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNEngine.LUCENE.getMethod(METHOD_HNSW).getMethodComponent().getName())
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
@@ -246,10 +249,10 @@ public class LuceneEngineIT extends KNNRestTestCase {
     private void createKnnIndexMappingWithLuceneEngine(int dimension, SpaceType spaceType) throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
-            .startObject("properties")
+            .startObject(PROPERTIES_FIELD_NAME)
             .startObject(FIELD_NAME)
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNEngine.LUCENE.getMethod(METHOD_HNSW).getMethodComponent().getName())
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())

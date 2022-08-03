@@ -12,7 +12,6 @@ import org.apache.lucene.util.BytesRef;
 import org.mockito.Mockito;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.FieldMapper;
-import org.opensearch.index.mapper.MapperParsingException;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -47,7 +46,6 @@ import java.util.Optional;
 
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
-import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
@@ -76,6 +74,9 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     private final static BytesRef TEST_VECTOR_BYTES_REF = new BytesRef(
         KNNVectorSerializerFactory.getDefaultSerializer().floatToByteArray(TEST_VECTOR)
     );
+    private static final String DIMENSION_FIELD_NAME = "dimension";
+    private static final String KNN_VECTOR_TYPE = "knn_vector";
+    private static final String TYPE_FIELD_NAME = "type";
 
     public void testBuilder_getParameters() {
         String fieldName = "test-field-name";
@@ -197,8 +198,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         int dimension = 133;
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
@@ -223,8 +224,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         XContentBuilder xContentBuilderEmptyParams = XContentFactory.jsonBuilder()
             .startObject()
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
@@ -242,8 +243,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         XContentBuilder xContentBuilderUnsupportedParam = XContentFactory.jsonBuilder()
             .startObject()
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
@@ -277,8 +278,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         XContentBuilder xContentBuilderOverMaxDimension = XContentFactory.jsonBuilder()
             .startObject()
-            .field("type", "knn_vector")
-            .field("dimension", 2000)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 2000)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
@@ -302,8 +303,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         XContentBuilder xContentBuilderInvalidDimension = XContentFactory.jsonBuilder()
             .startObject()
-            .field("type", "knn_vector")
-            .field("dimension", "2147483648")
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, "2147483648")
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
@@ -340,49 +341,45 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         int efConstruction = 321;
         int dimension = 133;
         XContentBuilder xContentBuilderL1SpaceType = XContentFactory.jsonBuilder()
-                .startObject()
-                .field("type", "knn_vector")
-                .field("dimension", dimension)
-                .startObject(KNN_METHOD)
-                .field(NAME, METHOD_HNSW)
-                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L1.getValue())
-                .field(KNN_ENGINE, LUCENE_NAME)
-                .startObject(PARAMETERS)
-                .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L1.getValue())
+            .field(KNN_ENGINE, LUCENE_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
+            .endObject()
+            .endObject()
+            .endObject();
 
         expectThrows(
-                ValidationException.class,
-                () -> typeParser.parse(
-                        fieldName,
-                        xContentBuilderToMap(xContentBuilderL1SpaceType),
-                        buildParserContext(indexName, settings)
-                )
+            ValidationException.class,
+            () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilderL1SpaceType), buildParserContext(indexName, settings))
         );
 
         XContentBuilder xContentBuilderInnerproductSpaceType = XContentFactory.jsonBuilder()
-                .startObject()
-                .field("type", "knn_vector")
-                .field("dimension", dimension)
-                .startObject(KNN_METHOD)
-                .field(NAME, METHOD_HNSW)
-                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
-                .field(KNN_ENGINE, LUCENE_NAME)
-                .startObject(PARAMETERS)
-                .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+            .field(KNN_ENGINE, LUCENE_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
+            .endObject()
+            .endObject()
+            .endObject();
 
         expectThrows(
-                ValidationException.class,
-                () -> typeParser.parse(
-                        fieldName,
-                        xContentBuilderToMap(xContentBuilderInnerproductSpaceType),
-                        buildParserContext(indexName, settings)
-                )
+            ValidationException.class,
+            () -> typeParser.parse(
+                fieldName,
+                xContentBuilderToMap(xContentBuilderInnerproductSpaceType),
+                buildParserContext(indexName, settings)
+            )
         );
     }
 
@@ -400,8 +397,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         int dimension = 133;
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .startObject(PARAMETERS)
@@ -425,8 +422,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         // Test invalid parameter
         XContentBuilder xContentBuilder2 = XContentFactory.jsonBuilder()
             .startObject()
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .startObject(PARAMETERS)
@@ -443,8 +440,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         // Test invalid method
         XContentBuilder xContentBuilder3 = XContentFactory.jsonBuilder()
             .startObject()
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
             .startObject(KNN_METHOD)
             .field(NAME, "invalid")
             .endObject()
@@ -456,7 +453,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         );
 
         // Test missing required parameter: dimension
-        XContentBuilder xContentBuilder4 = XContentFactory.jsonBuilder().startObject().field("type", "knn_vector").endObject();
+        XContentBuilder xContentBuilder4 = XContentFactory.jsonBuilder().startObject().field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE).endObject();
 
         expectThrows(
             IllegalArgumentException.class,
@@ -466,8 +463,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         // Check that this fails if model id is also set
         XContentBuilder xContentBuilder5 = XContentFactory.jsonBuilder()
             .startObject()
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
             .field(MODEL_ID, "test-id")
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
@@ -496,7 +493,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         String modelId = "test-id";
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
-            .field("type", "knn_vector")
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
             .field(MODEL_ID, modelId)
             .endObject();
 
@@ -530,8 +527,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         int dimension = 122;
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
             .endObject();
 
         KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
@@ -557,8 +554,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         int efConstruction = 321;
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .startObject(PARAMETERS)
@@ -588,8 +585,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         // merge with another mapper of the same field with different context
         xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .endObject()
@@ -629,7 +626,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
-            .field("type", "knn_vector")
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
             .field(MODEL_ID, modelId)
             .endObject();
 
@@ -654,8 +651,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         // merge with another mapper of the same field with different context
         xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .endObject()
