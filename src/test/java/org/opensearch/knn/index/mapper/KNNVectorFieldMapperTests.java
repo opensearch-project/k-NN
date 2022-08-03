@@ -12,6 +12,7 @@ import org.apache.lucene.util.BytesRef;
 import org.mockito.Mockito;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.FieldMapper;
+import org.opensearch.index.mapper.MapperParsingException;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -46,6 +47,7 @@ import java.util.Optional;
 
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
@@ -238,29 +240,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponent().getName());
         assertTrue(builderEmptyParams.knnMethodContext.get().getMethodComponent().getParameters().isEmpty());
 
-        XContentBuilder xContentBuilderInvalidSpaceType = XContentFactory.jsonBuilder()
-            .startObject()
-            .field("type", "knn_vector")
-            .field("dimension", dimension)
-            .startObject(KNN_METHOD)
-            .field(NAME, METHOD_HNSW)
-            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L1)
-            .field(KNN_ENGINE, LUCENE_NAME)
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
-            .endObject()
-            .endObject()
-            .endObject();
-
-        expectThrows(
-            ValidationException.class,
-            () -> typeParser.parse(
-                fieldName,
-                xContentBuilderToMap(xContentBuilderInvalidSpaceType),
-                buildParserContext(indexName, settings)
-            )
-        );
-
         XContentBuilder xContentBuilderUnsupportedParam = XContentFactory.jsonBuilder()
             .startObject()
             .field("type", "knn_vector")
@@ -346,6 +325,64 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertEquals(
             "Unable to parse [dimension] from provided value [2147483648] for vector [test-field-name]",
             exInvalidDimension.getMessage()
+        );
+    }
+
+    public void testTypeParser_parse_fromKnnMethodContext_invalidSpaceType() throws IOException {
+        String fieldName = "test-field-name";
+        String indexName = "test-index-name";
+
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).build();
+
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        int efConstruction = 321;
+        int dimension = 133;
+        XContentBuilder xContentBuilderL1SpaceType = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("type", "knn_vector")
+                .field("dimension", dimension)
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L1.getValue())
+                .field(KNN_ENGINE, LUCENE_NAME)
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
+                .endObject()
+                .endObject()
+                .endObject();
+
+        expectThrows(
+                ValidationException.class,
+                () -> typeParser.parse(
+                        fieldName,
+                        xContentBuilderToMap(xContentBuilderL1SpaceType),
+                        buildParserContext(indexName, settings)
+                )
+        );
+
+        XContentBuilder xContentBuilderInnerproductSpaceType = XContentFactory.jsonBuilder()
+                .startObject()
+                .field("type", "knn_vector")
+                .field("dimension", dimension)
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+                .field(KNN_ENGINE, LUCENE_NAME)
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
+                .endObject()
+                .endObject()
+                .endObject();
+
+        expectThrows(
+                ValidationException.class,
+                () -> typeParser.parse(
+                        fieldName,
+                        xContentBuilderToMap(xContentBuilderInnerproductSpaceType),
+                        buildParserContext(indexName, settings)
+                )
         );
     }
 

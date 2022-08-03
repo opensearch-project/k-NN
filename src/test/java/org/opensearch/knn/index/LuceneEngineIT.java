@@ -11,6 +11,7 @@ import com.google.common.primitives.Floats;
 import org.apache.http.util.EntityUtils;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.junit.After;
+import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.Strings;
@@ -22,6 +23,7 @@ import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -68,8 +70,34 @@ public class LuceneEngineIT extends KNNRestTestCase {
         baseQueryTest(SpaceType.COSINESIMIL);
     }
 
-    public void testQuery_innerProduct() throws Exception {
-        baseQueryTest(SpaceType.INNER_PRODUCT);
+    public void testQuery_innerProduct_notSupported() throws Exception {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(FIELD_NAME)
+                .field("type", "knn_vector")
+                .field("dimension", DIMENSION)
+                .startObject(KNNConstants.KNN_METHOD)
+                .field(KNNConstants.NAME, KNNEngine.LUCENE.getMethod(METHOD_HNSW).getMethodComponent().getName())
+                .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+                .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+                .startObject(KNNConstants.PARAMETERS)
+                .field(KNNConstants.METHOD_PARAMETER_M, M)
+                .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+
+        String mapping = Strings.toString(builder);
+
+        createIndex(INDEX_NAME, getKNNDefaultIndexSettings());
+
+        Request request = new Request("PUT", "/" + INDEX_NAME + "/_mapping");
+        request.setJsonEntity(mapping);
+
+        expectThrows(ResponseException.class, () -> client().performRequest(request));
     }
 
     public void testQuery_invalidVectorDimensionInQuery() throws Exception {
