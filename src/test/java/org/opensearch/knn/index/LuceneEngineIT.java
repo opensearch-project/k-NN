@@ -6,8 +6,10 @@
 package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Floats;
 import org.apache.http.util.EntityUtils;
+import org.apache.lucene.index.VectorSimilarityFunction;
 import org.junit.After;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -26,6 +28,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -42,6 +45,15 @@ public class LuceneEngineIT extends KNNRestTestCase {
     private static final Float[][] TEST_INDEX_VECTORS = { { 1.0f, 1.0f, 1.0f }, { 2.0f, 2.0f, 2.0f }, { 3.0f, 3.0f, 3.0f } };
 
     private static final float[][] TEST_QUERY_VECTORS = { { 1.0f, 1.0f, 1.0f }, { 2.0f, 2.0f, 2.0f }, { 3.0f, 3.0f, 3.0f } };
+
+    private static final Map<VectorSimilarityFunction, Function<Float, Float>> VECTOR_SIMILARITY_TO_SCORE = ImmutableMap.of(
+        VectorSimilarityFunction.EUCLIDEAN,
+        (similarity) -> 1 / (1 + similarity),
+        VectorSimilarityFunction.DOT_PRODUCT,
+        (similarity) -> (1 + similarity) / 2,
+        VectorSimilarityFunction.COSINE,
+        (similarity) -> (1 + similarity) / 2
+    );
 
     @After
     public final void cleanUp() throws IOException {
@@ -250,7 +262,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             for (int j = 0; j < k; j++) {
                 float[] primitiveArray = Floats.toArray(Arrays.stream(knnResults.get(j).getVector()).collect(Collectors.toList()));
                 float distance = TestUtils.computeDistFromSpaceType(spaceType, primitiveArray, queryVector);
-                float rawScore = spaceType.getVectorSimilarityFunction().convertToScore(distance);
+                float rawScore = VECTOR_SIMILARITY_TO_SCORE.get(spaceType.getVectorSimilarityFunction()).apply(distance);
                 assertEquals(KNNEngine.LUCENE.score(rawScore, spaceType), actualScores.get(j), 0.0001);
             }
         }
