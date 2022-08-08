@@ -192,9 +192,10 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniU
         throw std::runtime_error("Invalid pointer to index");
     }
 
-    int dim	= jniUtil->GetJavaFloatArrayLength(env, queryVectorJ);
-    std::vector<float> dis(kJ * dim);
-    std::vector<faiss::Index::idx_t> ids(kJ * dim);
+    // The ids vector will hold the top k ids from the search and the dis vector will hold the top k distances from
+    // the query point
+    std::vector<float> dis(kJ);
+    std::vector<faiss::Index::idx_t> ids(kJ);
     float* rawQueryvector = jniUtil->GetFloatArrayElements(env, queryVectorJ, nullptr);
 
     try {
