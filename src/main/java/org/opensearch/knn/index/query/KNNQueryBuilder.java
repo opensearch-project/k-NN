@@ -226,7 +226,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         String indexName = context.index().getName();
-        return KNNQueryFactory.create(knnEngine, indexName, this.fieldName, this.vector, this.k);
+        return KNNQueryFactory.create(knnEngine, indexName, this.fieldName, this.vector, this.k, context);
     }
 
     private ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
