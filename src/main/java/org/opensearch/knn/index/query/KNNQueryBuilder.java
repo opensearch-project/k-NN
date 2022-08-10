@@ -5,8 +5,17 @@
 
 package org.opensearch.knn.index.query;
 
+import lombok.NoArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.util.BytesRef;
+import org.opensearch.common.Nullable;
+import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.common.lucene.BytesRefs;
+import org.opensearch.common.xcontent.ConstructingObjectParser;
+import org.opensearch.common.xcontent.ObjectParser;
+import org.opensearch.common.xcontent.ToXContentFragment;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -29,6 +38,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 
+import static org.opensearch.common.xcontent.ConstructingObjectParser.optionalConstructorArg;
+
 /**
  * Helper class to build the KNN query
  */
@@ -49,6 +60,17 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private final String fieldName;
     private final float[] vector;
     private int k = 0;
+    private KNNQueryFilter filter;
+    private static final ParseField MUST = new ParseField("must");
+    private static final ParseField SHOULD = new ParseField("should");
+    private static final ParseField MUST_NOT = new ParseField("mustNot");
+    private static final ObjectParser<KNNQueryFilter, Void> QUERY_FILTER_PARSER;
+    static {
+        QUERY_FILTER_PARSER = new ObjectParser<>("filter", KNNQueryFilter::new);
+        QUERY_FILTER_PARSER.declareObjectArrayOrNull((builder, clauses) -> clauses.forEach(builder::must), (p, c) -> parseInnerQueryBuilder(p), MUST);
+        QUERY_FILTER_PARSER.declareObjectArrayOrNull((builder, clauses) -> clauses.forEach(builder::should), (p, c) -> parseInnerQueryBuilder(p), SHOULD);
+        QUERY_FILTER_PARSER.declareObjectArrayOrNull((builder, clauses) -> clauses.forEach(builder::mustNot), (p, c) -> parseInnerQueryBuilder(p), MUST_NOT);
+    }
 
     /**
      * Constructs a new knn query
@@ -57,7 +79,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
      * @param vector    Array of floating points
      * @param k         K nearest neighbours for the given vector
      */
-    public KNNQueryBuilder(String fieldName, float[] vector, int k) {
+    public KNNQueryBuilder(String fieldName, float[] vector, int k, KNNQueryFilter filter) {
         if (Strings.isNullOrEmpty(fieldName)) {
             throw new IllegalArgumentException("[" + NAME + "] requires fieldName");
         }
@@ -77,6 +99,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         this.fieldName = fieldName;
         this.vector = vector;
         this.k = k;
+        this.filter = filter;
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -111,6 +134,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         List<Object> vector = null;
         float boost = AbstractQueryBuilder.DEFAULT_BOOST;
         int k = 0;
+        KNNQueryFilter filter = null;
         String queryName = null;
         String currentFieldName = null;
         XContentParser.Token token;
@@ -135,10 +159,19 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                             queryName = parser.text();
                         } else {
                             throw new ParsingException(
-                                parser.getTokenLocation(),
-                                "[" + NAME + "] query does not support [" + currentFieldName + "]"
+                                    parser.getTokenLocation(),
+                                    "[" + NAME + "] query does not support [" + currentFieldName + "]"
                             );
                         }
+                    } else if (token == XContentParser.Token.START_OBJECT) {
+                        //check if that is filter object
+                        String filterType;
+                        XContentParser.Token boolToken = parser.nextToken();
+                        //skip the field name
+                        parser.nextToken();
+                        //here we at start of must clause
+                        filter = QUERY_FILTER_PARSER.parse(parser, null);
+                        parser.nextToken();
                     } else {
                         throw new ParsingException(
                             parser.getTokenLocation(),
@@ -153,7 +186,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
         }
 
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector), k);
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector), k, filter);
         knnQueryBuilder.queryName(queryName);
         knnQueryBuilder.boost(boost);
         return knnQueryBuilder;
@@ -226,7 +259,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         String indexName = context.index().getName();
-        return KNNQueryFactory.create(knnEngine, indexName, this.fieldName, this.vector, this.k, context);
+        return KNNQueryFactory.create(knnEngine, indexName, this.fieldName, this.vector, this.k, this.filter, context);
     }
 
     private ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
