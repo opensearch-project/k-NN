@@ -6,8 +6,6 @@
 package org.opensearch.knn.index.query;
 
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.search.BooleanClause;
-import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.KnnVectorQuery;
 import org.apache.lucene.search.Query;
 import org.opensearch.index.query.QueryBuilder;
@@ -32,7 +30,7 @@ public class KNNQueryFactory {
      * @param k the number of nearest neighbors to return
      * @return Lucene Query
      */
-    public static Query create(KNNEngine knnEngine, String indexName, String fieldName, float[] vector, int k, KNNQueryFilter knnQueryFilter, QueryShardContext context) {
+    public static Query create(KNNEngine knnEngine, String indexName, String fieldName, float[] vector, int k, QueryBuilder knnQueryFilter, QueryShardContext context) {
         // Engines that create their own custom segment files cannot use the Lucene's KnnVectorQuery. They need to
         // use the custom query type created by the plugin
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine)) {
@@ -44,31 +42,11 @@ public class KNNQueryFactory {
         if (knnQueryFilter == null) {
             return new KnnVectorQuery(fieldName, vector, k);
         }
-        BooleanQuery.Builder booleanQuery;
-        boolean filterAdded = false;
         try {
-            booleanQuery = new BooleanQuery.Builder();
-            if (!knnQueryFilter.getMustClauses().isEmpty()) {
-                for (QueryBuilder mustQuery : knnQueryFilter.getMustClauses()) {
-                    booleanQuery.add(mustQuery.toQuery(context), BooleanClause.Occur.MUST);
-                }
-                filterAdded = true;
-            }
-            if (!knnQueryFilter.getShouldClauses().isEmpty()) {
-                for (QueryBuilder shouldQuery : knnQueryFilter.getShouldClauses()) {
-                    booleanQuery.add(shouldQuery.toQuery(context), BooleanClause.Occur.SHOULD);
-                }
-                filterAdded = true;
-            }
-            if (!knnQueryFilter.getMustNotClauses().isEmpty()) {
-                for (QueryBuilder mustNotQuery : knnQueryFilter.getMustNotClauses()) {
-                    booleanQuery.add(mustNotQuery.toQuery(context), BooleanClause.Occur.MUST_NOT);
-                }
-                filterAdded = true;
-            }
+            Query filterQuery = knnQueryFilter.toQuery(context);
+            return new KnnVectorQuery(fieldName, vector, k, filterQuery);
         } catch (IOException e) {
-            throw new RuntimeException("Cannot construct filter for knn query", e);
+            throw new RuntimeException("Cannot create knn query with filter", e);
         }
-        return filterAdded ? new KnnVectorQuery(fieldName, vector, k, booleanQuery.build()) : new KnnVectorQuery(fieldName, vector, k);
     }
 }
