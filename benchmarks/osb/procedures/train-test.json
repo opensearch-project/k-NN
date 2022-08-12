@@ -102,6 +102,16 @@
         },
         {
             "operation": {
+                "name": "force-merge",
+                "operation-type": "force-merge",
+                "request-timeout": {{ target_index_force_merge_timeout }},
+                "index": "{{ target_index_name }}",
+                "mode": "polling",
+                "max-num-segments": {{ target_index_max_num_segments }}
+            }
+        },
+        {
+            "operation": {
                 "name": "knn-query-from-data-set",
                 "operation-type": "search",
                 "index": "{{ target_index_name }}",

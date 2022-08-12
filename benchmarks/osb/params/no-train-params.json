@@ -10,6 +10,8 @@
   "target_index_bulk_index_data_set_format": "hdf5",
   "target_index_bulk_index_data_set_path": "<path to data>",
   "target_index_bulk_index_clients": 10,
+  "target_index_max_num_segments": 1,
+  "target_index_force_merge_timeout": 45.0,
   "hnsw_ef_search": 512,
   "hnsw_ef_construction": 512,
   "hnsw_m": 16,
