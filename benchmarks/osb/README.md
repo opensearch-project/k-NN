@@ -120,7 +120,7 @@ use an algorithm that requires training.
 | target_index_bulk_index_data_set_path   | Path to vector data set                                                  |
 | target_index_bulk_index_clients         | Clients to be used for bulk ingestion (must be divisor of data set size) |
 | target_index_max_num_segments           | Number of segments to merge target index down to before beginning search |
-| target_index_force_merge_timeout        | Timeout for of force merge requests                                      |
+| target_index_force_merge_timeout        | Timeout for of force merge requests in seconds                           |
 | hnsw_ef_search                          | HNSW ef search parameter                                                 |
 | hnsw_ef_construction                    | HNSW ef construction parameter                                           |
 | hnsw_m                                  | HNSW m parameter                                                         |
@@ -263,7 +263,7 @@ algorithm that requires training.
 | target_index_bulk_index_data_set_path   | Path to vector data set for ingestion                                    |
 | target_index_bulk_index_clients         | Clients to be used for bulk ingestion (must be divisor of data set size) |
 | target_index_max_num_segments           | Number of segments to merge target index down to before beginning search |
-| target_index_force_merge_timeout        | Timeout for of force merge requests                                      |
+| target_index_force_merge_timeout        | Timeout for of force merge requests in seconds                           |
 | ivf_nlists                              | IVF nlist parameter                                                      |
 | ivf_nprobes                             | IVF nprobe parameter                                                     |
 | pq_code_size                            | PQ code_size parameter                                                   |
