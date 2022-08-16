@@ -7,7 +7,6 @@ package org.opensearch.knn.index.query;
 
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.index.mapper.NumberFieldMapper;
-import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -61,6 +60,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
      * @param vector    Array of floating points
      * @param k         K nearest neighbours for the given vector
      */
+    public KNNQueryBuilder(String fieldName, float[] vector, int k) {
+        this(fieldName, vector, k, null);
+    }
+
     public KNNQueryBuilder(String fieldName, float[] vector, int k, QueryBuilder filter) {
         if (Strings.isNullOrEmpty(fieldName)) {
             throw new IllegalArgumentException("[" + NAME + "] requires fieldName");
@@ -141,8 +144,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                             queryName = parser.text();
                         } else {
                             throw new ParsingException(
-                                    parser.getTokenLocation(),
-                                    "[" + NAME + "] query does not support [" + currentFieldName + "]"
+                                parser.getTokenLocation(),
+                                "[" + NAME + "] query does not support [" + currentFieldName + "]"
                             );
                         }
                     } else if (token == XContentParser.Token.START_OBJECT) {
@@ -151,8 +154,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                             filter = parseInnerQueryBuilder(parser);
                         } else {
                             throw new ParsingException(
-                                    parser.getTokenLocation(),
-                                    "[" + NAME + "] unknown token [" + token + "] after [" + currentFieldName + "]"
+                                parser.getTokenLocation(),
+                                "[" + NAME + "] unknown token [" + token + "] after [" + currentFieldName + "]"
                             );
                         }
 
