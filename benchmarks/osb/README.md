@@ -106,26 +106,28 @@ use an algorithm that requires training.
 
 #### Parameters
 
-| Name                                    | Description                                                                      |
-|-----------------------------------------|----------------------------------------------------------------------------------|
-| target_index_name                       | Name of index to add vectors to                                                  |
-| target_field_name                       | Name of field to add vectors to                                                  |
-| target_index_body                       | Path to target index definition                                                  |
-| target_index_primary_shards             | Target index primary shards                                                      |
-| target_index_replica_shards             | Target index replica shards                                                      |
-| target_index_dimension                  | Dimension of target index                                                        |
-| target_index_space_type                 | Target index space type                                                          |
-| target_index_bulk_size                  | Target index bulk size                                                           |
-| target_index_bulk_index_data_set_format | Format of vector data set                                                        |
-| target_index_bulk_index_data_set_path   | Path to vector data set                                                          |
-| target_index_bulk_index_clients         | Clients to be used for bulk ingestion (must be divisor of data set size)         |
-| hnsw_ef_search                          | HNSW ef search parameter                                                         |
-| hnsw_ef_construction                    | HNSW ef construction parameter                                                   |
-| hnsw_m                                  | HNSW m parameter                                                                 |
-| query_k                                 | The number of neighbors to return for the search                                 |
-| query_clients                           | Number of clients to use for running queries                                     |
-| query_data_set_format                   | Format of vector data set for queries                                            |
-| query_data_set_path                     | Path to vector data set for queries                                              |
+| Name                                    | Description                                                              |
+|-----------------------------------------|--------------------------------------------------------------------------|
+| target_index_name                       | Name of index to add vectors to                                          |
+| target_field_name                       | Name of field to add vectors to                                          |
+| target_index_body                       | Path to target index definition                                          |
+| target_index_primary_shards             | Target index primary shards                                              |
+| target_index_replica_shards             | Target index replica shards                                              |
+| target_index_dimension                  | Dimension of target index                                                |
+| target_index_space_type                 | Target index space type                                                  |
+| target_index_bulk_size                  | Target index bulk size                                                   |
+| target_index_bulk_index_data_set_format | Format of vector data set                                                |
+| target_index_bulk_index_data_set_path   | Path to vector data set                                                  |
+| target_index_bulk_index_clients         | Clients to be used for bulk ingestion (must be divisor of data set size) |
+| target_index_max_num_segments           | Number of segments to merge target index down to before beginning search |
+| target_index_force_merge_timeout        | Timeout for of force merge requests in seconds                           |
+| hnsw_ef_search                          | HNSW ef search parameter                                                 |
+| hnsw_ef_construction                    | HNSW ef construction parameter                                           |
+| hnsw_m                                  | HNSW m parameter                                                         |
+| query_k                                 | The number of neighbors to return for the search                         |
+| query_clients                           | Number of clients to use for running queries                             |
+| query_data_set_format                   | Format of vector data set for queries                                    |
+| query_data_set_path                     | Path to vector data set for queries                                      |
 
 #### Metrics
 
@@ -141,86 +143,90 @@ The result metrics of this procedure will look like:
 
 |                                                         Metric |                    Task |       Value |   Unit |
 |---------------------------------------------------------------:|------------------------:|------------:|-------:|
-|                     Cumulative indexing time of primary shards |                         |  0.00173333 |    min |
-|             Min cumulative indexing time across primary shards |                         |           0 |    min |
-|          Median cumulative indexing time across primary shards |                         |           0 |    min |
-|             Max cumulative indexing time across primary shards |                         | 0.000616667 |    min |
+|                     Cumulative indexing time of primary shards |                         |     1.82885 |    min |
+|             Min cumulative indexing time across primary shards |                         |      0.4121 |    min |
+|          Median cumulative indexing time across primary shards |                         |    0.559617 |    min |
+|             Max cumulative indexing time across primary shards |                         |    0.857133 |    min |
 |            Cumulative indexing throttle time of primary shards |                         |           0 |    min |
 |    Min cumulative indexing throttle time across primary shards |                         |           0 |    min |
 | Median cumulative indexing throttle time across primary shards |                         |           0 |    min |
 |    Max cumulative indexing throttle time across primary shards |                         |           0 |    min |
-|                        Cumulative merge time of primary shards |                         |           0 |    min |
-|                       Cumulative merge count of primary shards |                         |           0 |        |
-|                Min cumulative merge time across primary shards |                         |           0 |    min |
-|             Median cumulative merge time across primary shards |                         |           0 |    min |
-|                Max cumulative merge time across primary shards |                         |           0 |    min |
+|                        Cumulative merge time of primary shards |                         |     5.89065 |    min |
+|                       Cumulative merge count of primary shards |                         |           3 |        |
+|                Min cumulative merge time across primary shards |                         |     1.95945 |    min |
+|             Median cumulative merge time across primary shards |                         |     1.96345 |    min |
+|                Max cumulative merge time across primary shards |                         |     1.96775 |    min |
 |               Cumulative merge throttle time of primary shards |                         |           0 |    min |
 |       Min cumulative merge throttle time across primary shards |                         |           0 |    min |
 |    Median cumulative merge throttle time across primary shards |                         |           0 |    min |
 |       Max cumulative merge throttle time across primary shards |                         |           0 |    min |
-|                      Cumulative refresh time of primary shards |                         |  0.00271667 |    min |
-|                     Cumulative refresh count of primary shards |                         |         115 |        |
-|              Min cumulative refresh time across primary shards |                         |           0 |    min |
-|           Median cumulative refresh time across primary shards |                         |           0 |    min |
-|              Max cumulative refresh time across primary shards |                         |     0.00135 |    min |
-|                        Cumulative flush time of primary shards |                         |           0 |    min |
-|                       Cumulative flush count of primary shards |                         |          43 |        |
-|                Min cumulative flush time across primary shards |                         |           0 |    min |
-|             Median cumulative flush time across primary shards |                         |           0 |    min |
-|                Max cumulative flush time across primary shards |                         |           0 |    min |
-|                                        Total Young Gen GC time |                         |       0.849 |      s |
-|                                       Total Young Gen GC count |                         |          20 |        |
+|                      Cumulative refresh time of primary shards |                         |     8.52517 |    min |
+|                     Cumulative refresh count of primary shards |                         |          29 |        |
+|              Min cumulative refresh time across primary shards |                         |     2.64265 |    min |
+|           Median cumulative refresh time across primary shards |                         |     2.93913 |    min |
+|              Max cumulative refresh time across primary shards |                         |     2.94338 |    min |
+|                        Cumulative flush time of primary shards |                         |  0.00221667 |    min |
+|                       Cumulative flush count of primary shards |                         |           3 |        |
+|                Min cumulative flush time across primary shards |                         | 0.000733333 |    min |
+|             Median cumulative flush time across primary shards |                         | 0.000733333 |    min |
+|                Max cumulative flush time across primary shards |                         |     0.00075 |    min |
+|                                        Total Young Gen GC time |                         |       0.318 |      s |
+|                                       Total Young Gen GC count |                         |           2 |        |
 |                                          Total Old Gen GC time |                         |           0 |      s |
 |                                         Total Old Gen GC count |                         |           0 |        |
-|                                                     Store size |                         |    0.647921 |     GB |
-|                                                  Translog size |                         |  0.00247511 |     GB |
-|                                         Heap used for segments |                         |    0.284451 |     MB |
-|                                       Heap used for doc values |                         |   0.0872688 |     MB |
-|                                            Heap used for terms |                         |   0.0714417 |     MB |
-|                                            Heap used for norms |                         | 6.10352e-05 |     MB |
+|                                                     Store size |                         |     1.43566 |     GB |
+|                                                  Translog size |                         | 1.53668e-07 |     GB |
+|                                         Heap used for segments |                         |  0.00410843 |     MB |
+|                                       Heap used for doc values |                         | 0.000286102 |     MB |
+|                                            Heap used for terms |                         |  0.00121307 |     MB |
+|                                            Heap used for norms |                         |           0 |     MB |
 |                                           Heap used for points |                         |           0 |     MB |
-|                                    Heap used for stored fields |                         |    0.125679 |     MB |
-|                                                  Segment count |                         |         257 |        |
-|                                                 Min Throughput |      custom-vector-bulk |     18018.5 | docs/s |
-|                                                Mean Throughput |      custom-vector-bulk |     18018.5 | docs/s |
-|                                              Median Throughput |      custom-vector-bulk |     18018.5 | docs/s |
-|                                                 Max Throughput |      custom-vector-bulk |     18018.5 | docs/s |
-|                                        50th percentile latency |      custom-vector-bulk |     98.5565 |     ms |
-|                                        90th percentile latency |      custom-vector-bulk |     100.033 |     ms |
-|                                       100th percentile latency |      custom-vector-bulk |     103.792 |     ms |
-|                                   50th percentile service time |      custom-vector-bulk |     98.5565 |     ms |
-|                                   90th percentile service time |      custom-vector-bulk |     100.033 |     ms |
-|                                  100th percentile service time |      custom-vector-bulk |     103.792 |     ms |
+|                                    Heap used for stored fields |                         |  0.00260925 |     MB |
+|                                                  Segment count |                         |           3 |        |
+|                                                 Min Throughput |      custom-vector-bulk |     38005.8 | docs/s |
+|                                                Mean Throughput |      custom-vector-bulk |     44827.9 | docs/s |
+|                                              Median Throughput |      custom-vector-bulk |     40507.2 | docs/s |
+|                                                 Max Throughput |      custom-vector-bulk |     88967.8 | docs/s |
+|                                        50th percentile latency |      custom-vector-bulk |     29.5857 |     ms |
+|                                        90th percentile latency |      custom-vector-bulk |     49.0719 |     ms |
+|                                        99th percentile latency |      custom-vector-bulk |     72.6138 |     ms |
+|                                      99.9th percentile latency |      custom-vector-bulk |     279.826 |     ms |
+|                                       100th percentile latency |      custom-vector-bulk |       15688 |     ms |
+|                                   50th percentile service time |      custom-vector-bulk |     29.5857 |     ms |
+|                                   90th percentile service time |      custom-vector-bulk |     49.0719 |     ms |
+|                                   99th percentile service time |      custom-vector-bulk |     72.6138 |     ms |
+|                                 99.9th percentile service time |      custom-vector-bulk |     279.826 |     ms |
+|                                  100th percentile service time |      custom-vector-bulk |       15688 |     ms |
 |                                                     error rate |      custom-vector-bulk |           0 |      % |
-|                                                 Min Throughput |    refresh-target-index |       76.22 |  ops/s |
-|                                                Mean Throughput |    refresh-target-index |       76.22 |  ops/s |
-|                                              Median Throughput |    refresh-target-index |       76.22 |  ops/s |
-|                                                 Max Throughput |    refresh-target-index |       76.22 |  ops/s |
-|                                       100th percentile latency |    refresh-target-index |     12.7619 |     ms |
-|                                  100th percentile service time |    refresh-target-index |     12.7619 |     ms |
+|                                                 Min Throughput |    refresh-target-index |        0.01 |  ops/s |
+|                                                Mean Throughput |    refresh-target-index |        0.01 |  ops/s |
+|                                              Median Throughput |    refresh-target-index |        0.01 |  ops/s |
+|                                                 Max Throughput |    refresh-target-index |        0.01 |  ops/s |
+|                                       100th percentile latency |    refresh-target-index |      176610 |     ms |
+|                                  100th percentile service time |    refresh-target-index |      176610 |     ms |
 |                                                     error rate |    refresh-target-index |           0 |      % |
-|                                                 Min Throughput | knn-query-from-data-set |     1587.47 |  ops/s |
-|                                                Mean Throughput | knn-query-from-data-set |     1649.97 |  ops/s |
-|                                              Median Throughput | knn-query-from-data-set |     1661.79 |  ops/s |
-|                                                 Max Throughput | knn-query-from-data-set |     1677.06 |  ops/s |
-|                                        50th percentile latency | knn-query-from-data-set |     4.79125 |     ms |
-|                                        90th percentile latency | knn-query-from-data-set |        5.38 |     ms |
-|                                        99th percentile latency | knn-query-from-data-set |     46.8965 |     ms |
-|                                      99.9th percentile latency | knn-query-from-data-set |     58.2049 |     ms |
-|                                     99.99th percentile latency | knn-query-from-data-set |     59.6476 |     ms |
-|                                       100th percentile latency | knn-query-from-data-set |     60.9245 |     ms |
-|                                   50th percentile service time | knn-query-from-data-set |     4.79125 |     ms |
-|                                   90th percentile service time | knn-query-from-data-set |        5.38 |     ms |
-|                                   99th percentile service time | knn-query-from-data-set |     46.8965 |     ms |
-|                                 99.9th percentile service time | knn-query-from-data-set |     58.2049 |     ms |
-|                                99.99th percentile service time | knn-query-from-data-set |     59.6476 |     ms |
-|                                  100th percentile service time | knn-query-from-data-set |     60.9245 |     ms |
+|                                                 Min Throughput | knn-query-from-data-set |      444.17 |  ops/s |
+|                                                Mean Throughput | knn-query-from-data-set |      601.68 |  ops/s |
+|                                              Median Throughput | knn-query-from-data-set |      621.19 |  ops/s |
+|                                                 Max Throughput | knn-query-from-data-set |      631.23 |  ops/s |
+|                                        50th percentile latency | knn-query-from-data-set |     14.7612 |     ms |
+|                                        90th percentile latency | knn-query-from-data-set |     20.6954 |     ms |
+|                                        99th percentile latency | knn-query-from-data-set |     27.7499 |     ms |
+|                                      99.9th percentile latency | knn-query-from-data-set |     41.3506 |     ms |
+|                                     99.99th percentile latency | knn-query-from-data-set |     162.391 |     ms |
+|                                       100th percentile latency | knn-query-from-data-set |     162.756 |     ms |
+|                                   50th percentile service time | knn-query-from-data-set |     14.7612 |     ms |
+|                                   90th percentile service time | knn-query-from-data-set |     20.6954 |     ms |
+|                                   99th percentile service time | knn-query-from-data-set |     27.7499 |     ms |
+|                                 99.9th percentile service time | knn-query-from-data-set |     41.3506 |     ms |
+|                                99.99th percentile service time | knn-query-from-data-set |     162.391 |     ms |
+|                                  100th percentile service time | knn-query-from-data-set |     162.756 |     ms |
 |                                                     error rate | knn-query-from-data-set |           0 |      % |
 
 
---------------------------------
-[INFO] SUCCESS (took 46 seconds)
---------------------------------
+---------------------------------
+[INFO] SUCCESS (took 618 seconds)
+---------------------------------
 ```
 
 ### Train Test
@@ -243,41 +249,43 @@ algorithm that requires training.
 
 #### Parameters
 
-| Name                                    | Description                                                                      |
-|-----------------------------------------|----------------------------------------------------------------------------------|
-| target_index_name                       | Name of index to add vectors to                                                  |
-| target_field_name                       | Name of field to add vectors to                                                  |
-| target_index_body                       | Path to target index definition                                                  |
-| target_index_primary_shards             | Target index primary shards                                                      |
-| target_index_replica_shards             | Target index replica shards                                                      |
-| target_index_dimension                  | Dimension of target index                                                        |
-| target_index_space_type                 | Target index space type                                                          |
-| target_index_bulk_size                  | Target index bulk size                                                           |
-| target_index_bulk_index_data_set_format | Format of vector data set for ingestion                                          |
-| target_index_bulk_index_data_set_path   | Path to vector data set for ingestion                                            |
-| target_index_bulk_index_clients         | Clients to be used for bulk ingestion (must be divisor of data set size)         |
-| ivf_nlists                              | IVF nlist parameter                                                              |
-| ivf_nprobes                             | IVF nprobe parameter                                                             |
-| pq_code_size                            | PQ code_size parameter                                                           |
-| pq_m                                    | PQ m parameter                                                                   |
-| train_model_method                      | Method to be used for model (ivf or ivfpq)                                       |
-| train_model_id                          | Model ID                                                                         |
-| train_index_name                        | Name of index to put training data into                                          |
-| train_field_name                        | Name of field to put training data into                                          |
-| train_index_body                        | Path to train index definition                                                   |
-| train_search_size                       | Search size to use when pulling training data                                    |
-| train_timeout                           | Timeout to wait for training to finish                                           |
-| train_index_primary_shards              | Train index primary shards                                                       |
-| train_index_replica_shards              | Train index replica shards                                                       |
-| train_index_bulk_size                   | Train index bulk size                                                            |
-| train_index_data_set_format             | Format of vector data set for training                                           |
-| train_index_data_set_path               | Path to vector data set for training                                             |
-| train_index_num_vectors                 | Number of vectors to use from vector data set for training                       |
-| train_index_bulk_index_clients          | Clients to be used for bulk ingestion (must be divisor of data set size)         |
-| query_k                                 | The number of neighbors to return for the search                                 |
-| query_clients                           | Number of clients to use for running queries                                     |
-| query_data_set_format                   | Format of vector data set for queries                                            |
-| query_data_set_path                     | Path to vector data set for queries                                              |
+| Name                                    | Description                                                              |
+|-----------------------------------------|--------------------------------------------------------------------------|
+| target_index_name                       | Name of index to add vectors to                                          |
+| target_field_name                       | Name of field to add vectors to                                          |
+| target_index_body                       | Path to target index definition                                          |
+| target_index_primary_shards             | Target index primary shards                                              |
+| target_index_replica_shards             | Target index replica shards                                              |
+| target_index_dimension                  | Dimension of target index                                                |
+| target_index_space_type                 | Target index space type                                                  |
+| target_index_bulk_size                  | Target index bulk size                                                   |
+| target_index_bulk_index_data_set_format | Format of vector data set for ingestion                                  |
+| target_index_bulk_index_data_set_path   | Path to vector data set for ingestion                                    |
+| target_index_bulk_index_clients         | Clients to be used for bulk ingestion (must be divisor of data set size) |
+| target_index_max_num_segments           | Number of segments to merge target index down to before beginning search |
+| target_index_force_merge_timeout        | Timeout for of force merge requests in seconds                           |
+| ivf_nlists                              | IVF nlist parameter                                                      |
+| ivf_nprobes                             | IVF nprobe parameter                                                     |
+| pq_code_size                            | PQ code_size parameter                                                   |
+| pq_m                                    | PQ m parameter                                                           |
+| train_model_method                      | Method to be used for model (ivf or ivfpq)                               |
+| train_model_id                          | Model ID                                                                 |
+| train_index_name                        | Name of index to put training data into                                  |
+| train_field_name                        | Name of field to put training data into                                  |
+| train_index_body                        | Path to train index definition                                           |
+| train_search_size                       | Search size to use when pulling training data                            |
+| train_timeout                           | Timeout to wait for training to finish                                   |
+| train_index_primary_shards              | Train index primary shards                                               |
+| train_index_replica_shards              | Train index replica shards                                               |
+| train_index_bulk_size                   | Train index bulk size                                                    |
+| train_index_data_set_format             | Format of vector data set for training                                   |
+| train_index_data_set_path               | Path to vector data set for training                                     |
+| train_index_num_vectors                 | Number of vectors to use from vector data set for training               |
+| train_index_bulk_index_clients          | Clients to be used for bulk ingestion (must be divisor of data set size) |
+| query_k                                 | The number of neighbors to return for the search                         |
+| query_clients                           | Number of clients to use for running queries                             |
+| query_data_set_format                   | Format of vector data set for queries                                    |
+| query_data_set_path                     | Path to vector data set for queries                                      |
 
 #### Metrics
 
@@ -286,131 +294,132 @@ The result metrics of this procedure will look like:
 ------------------------------------------------------
     _______             __   _____
    / ____(_)___  ____ _/ /  / ___/_________  ________
-  / /_  / / __ \/ __ `/ /   \__ \/ ___/ __ \/ ___/ _ \                                                                                                                                                                                                                                           [63/1855]
+  / /_  / / __ \/ __ `/ /   \__ \/ ___/ __ \/ ___/ _ \
  / __/ / / / / / /_/ / /   ___/ / /__/ /_/ / /  /  __/
 /_/   /_/_/ /_/\__,_/_/   /____/\___/\____/_/   \___/
 ------------------------------------------------------
-|                                                         Metric |                    Task |       Value |             Unit |
-|---------------------------------------------------------------:|------------------------:|------------:|-----------------:|
-|                     Cumulative indexing time of primary shards |                         |     2.92355 |              min |
-|             Min cumulative indexing time across primary shards |                         |           0 |              min |
-|          Median cumulative indexing time across primary shards |                         |    0.497817 |              min |
-|             Max cumulative indexing time across primary shards |                         |     1.37717 |              min |
-|            Cumulative indexing throttle time of primary shards |                         |           0 |              min |
-|    Min cumulative indexing throttle time across primary shards |                         |           0 |              min |
-| Median cumulative indexing throttle time across primary shards |                         |           0 |              min |
-|    Max cumulative indexing throttle time across primary shards |                         |           0 |              min |
-|                        Cumulative merge time of primary shards |                         |     1.34895 |              min |
-|                       Cumulative merge count of primary shards |                         |          39 |                  |
-|                Min cumulative merge time across primary shards |                         |           0 |              min |
-|             Median cumulative merge time across primary shards |                         |    0.292033 |              min |
-|                Max cumulative merge time across primary shards |                         |      0.6268 |              min |
-|               Cumulative merge throttle time of primary shards |                         |     0.62845 |              min |
-|       Min cumulative merge throttle time across primary shards |                         |           0 |              min |
-|    Median cumulative merge throttle time across primary shards |                         |    0.155617 |              min |
-|       Max cumulative merge throttle time across primary shards |                         |    0.290117 |              min |
-|                      Cumulative refresh time of primary shards |                         |    0.369433 |              min |
-|                     Cumulative refresh count of primary shards |                         |          96 |                  |
-|              Min cumulative refresh time across primary shards |                         |           0 |              min |
-|           Median cumulative refresh time across primary shards |                         |   0.0903833 |              min |
-|              Max cumulative refresh time across primary shards |                         |     0.10365 |              min |
-|                        Cumulative flush time of primary shards |                         |   0.0278667 |              min |
-|                       Cumulative flush count of primary shards |                         |           2 |                  |
-|                Min cumulative flush time across primary shards |                         |           0 |              min |
-|             Median cumulative flush time across primary shards |                         |           0 |              min |
-|                Max cumulative flush time across primary shards |                         |   0.0278667 |              min |
-|                                        Total Young Gen GC time |                         |      13.106 |                s |
-|                                       Total Young Gen GC count |                         |         263 |                  |
-|                                          Total Old Gen GC time |                         |           0 |                s |
-|                                         Total Old Gen GC count |                         |           0 |                  |
-|                                                     Store size |                         |     2.60183 |               GB |
-|                                                  Translog size |                         |     1.34787 |               GB |
-|                                         Heap used for segments |                         |   0.0646248 |               MB |
-|                                       Heap used for doc values |                         |  0.00899887 |               MB |
-|                                            Heap used for terms |                         |   0.0203552 |               MB |
-|                                            Heap used for norms |                         | 6.10352e-05 |               MB |
-|                                           Heap used for points |                         |           0 |               MB |
-|                                    Heap used for stored fields |                         |   0.0352097 |               MB |
-|                                                  Segment count |                         |          71 |                  |
-|                                                 Min Throughput |            delete-model |       10.55 |            ops/s |
-|                                                Mean Throughput |            delete-model |       10.55 |            ops/s |
-|                                              Median Throughput |            delete-model |       10.55 |            ops/s |
-|                                                 Max Throughput |            delete-model |       10.55 |            ops/s |
-|                                       100th percentile latency |            delete-model |     94.4726 |               ms |
-|                                  100th percentile service time |            delete-model |     94.4726 |               ms |
-|                                                     error rate |            delete-model |           0 |                % |
-|                                                 Min Throughput |       train-vector-bulk |     44763.1 |           docs/s |
-|                                                Mean Throughput |       train-vector-bulk |     52022.4 |           docs/s |
-|                                              Median Throughput |       train-vector-bulk |     52564.8 |           docs/s |
-|                                                 Max Throughput |       train-vector-bulk |       53833 |           docs/s |
-|                                        50th percentile latency |       train-vector-bulk |     22.3364 |               ms |
-|                                        90th percentile latency |       train-vector-bulk |      47.799 |               ms |
-|                                        99th percentile latency |       train-vector-bulk |     195.954 |               ms |
-|                                      99.9th percentile latency |       train-vector-bulk |     495.217 |               ms |
-|                                       100th percentile latency |       train-vector-bulk |      663.48 |               ms |
-|                                   50th percentile service time |       train-vector-bulk |     22.3364 |               ms |
-|                                   90th percentile service time |       train-vector-bulk |      47.799 |               ms |
-|                                   99th percentile service time |       train-vector-bulk |     195.954 |               ms |
-|                                 99.9th percentile service time |       train-vector-bulk |     495.217 |               ms |
-|                                  100th percentile service time |       train-vector-bulk |      663.48 |               ms |
-|                                                     error rate |       train-vector-bulk |           0 |                % |
-|                                                 Min Throughput |     refresh-train-index |        0.98 |            ops/s |
-|                                                Mean Throughput |     refresh-train-index |        0.98 |            ops/s |
-|                                              Median Throughput |     refresh-train-index |        0.98 |            ops/s |
-|                                                 Max Throughput |     refresh-train-index |        0.98 |            ops/s |
-|                                       100th percentile latency |     refresh-train-index |     1019.54 |               ms |
-|                                  100th percentile service time |     refresh-train-index |     1019.54 |               ms |
-|                                                     error rate |     refresh-train-index |           0 |                % |
-|                                                 Min Throughput |       ivfpq-train-model |        0.01 | models_trained/s |
-|                                                Mean Throughput |       ivfpq-train-model |        0.01 | models_trained/s |
-|                                              Median Throughput |       ivfpq-train-model |        0.01 | models_trained/s |
-|                                                 Max Throughput |       ivfpq-train-model |        0.01 | models_trained/s |
-|                                       100th percentile latency |       ivfpq-train-model |      150952 |               ms |
-|                                  100th percentile service time |       ivfpq-train-model |      150952 |               ms |
-|                                                     error rate |       ivfpq-train-model |           0 |                % |
-|                                                 Min Throughput |      custom-vector-bulk |     32367.4 |           docs/s |
-|                                                Mean Throughput |      custom-vector-bulk |     36027.5 |           docs/s |
-|                                              Median Throughput |      custom-vector-bulk |     35276.7 |           docs/s |
-|                                                 Max Throughput |      custom-vector-bulk |       41095 |           docs/s |
-|                                        50th percentile latency |      custom-vector-bulk |     22.2419 |               ms |
-|                                        90th percentile latency |      custom-vector-bulk |      70.163 |               ms |
-|                                        99th percentile latency |      custom-vector-bulk |     308.395 |               ms |
-|                                      99.9th percentile latency |      custom-vector-bulk |     548.558 |               ms |
-|                                       100th percentile latency |      custom-vector-bulk |     655.628 |               ms |
-|                                   50th percentile service time |      custom-vector-bulk |     22.2419 |               ms |
-|                                   90th percentile service time |      custom-vector-bulk |      70.163 |               ms |
-|                                   99th percentile service time |      custom-vector-bulk |     308.395 |               ms |
-|                                 99.9th percentile service time |      custom-vector-bulk |     548.558 |               ms |
-|                                  100th percentile service time |      custom-vector-bulk |     655.628 |               ms |
-|                                                     error rate |      custom-vector-bulk |           0 |                % |
-|                                                 Min Throughput |    refresh-target-index |        0.23 |            ops/s |
-|                                                Mean Throughput |    refresh-target-index |        0.23 |            ops/s |
-|                                              Median Throughput |    refresh-target-index |        0.23 |            ops/s |
-|                                                 Max Throughput |    refresh-target-index |        0.23 |            ops/s |
-|                                       100th percentile latency |    refresh-target-index |     4331.17 |               ms |
-|                                  100th percentile service time |    refresh-target-index |     4331.17 |               ms |
-|                                                     error rate |    refresh-target-index |           0 |                % |
-|                                                 Min Throughput | knn-query-from-data-set |      455.19 |            ops/s |
-|                                                Mean Throughput | knn-query-from-data-set |      511.74 |            ops/s |
-|                                              Median Throughput | knn-query-from-data-set |      510.85 |            ops/s |
-|                                                 Max Throughput | knn-query-from-data-set |      570.07 |            ops/s |
-|                                        50th percentile latency | knn-query-from-data-set |     14.1626 |               ms |
-|                                        90th percentile latency | knn-query-from-data-set |     30.2389 |               ms |
-|                                        99th percentile latency | knn-query-from-data-set |     71.2793 |               ms |
-|                                      99.9th percentile latency | knn-query-from-data-set |     104.733 |               ms |
-|                                     99.99th percentile latency | knn-query-from-data-set |     127.298 |               ms |
-|                                       100th percentile latency | knn-query-from-data-set |     145.229 |               ms |
-|                                   50th percentile service time | knn-query-from-data-set |     14.1626 |               ms |
-|                                   90th percentile service time | knn-query-from-data-set |     30.2389 |               ms |
-|                                   99th percentile service time | knn-query-from-data-set |     71.2793 |               ms |
-|                                 99.9th percentile service time | knn-query-from-data-set |     104.733 |               ms |
-|                                99.99th percentile service time | knn-query-from-data-set |     127.298 |               ms |
-|                                  100th percentile service time | knn-query-from-data-set |     145.229 |               ms |
-|                                                     error rate | knn-query-from-data-set |           0 |                % |
+
+|                                                         Metric |                    Task |      Value |             Unit |
+|---------------------------------------------------------------:|------------------------:|-----------:|-----------------:|
+|                     Cumulative indexing time of primary shards |                         |    2.92382 |              min |
+|             Min cumulative indexing time across primary shards |                         |    0.42245 |              min |
+|          Median cumulative indexing time across primary shards |                         |    0.43395 |              min |
+|             Max cumulative indexing time across primary shards |                         |    1.63347 |              min |
+|            Cumulative indexing throttle time of primary shards |                         |          0 |              min |
+|    Min cumulative indexing throttle time across primary shards |                         |          0 |              min |
+| Median cumulative indexing throttle time across primary shards |                         |          0 |              min |
+|    Max cumulative indexing throttle time across primary shards |                         |          0 |              min |
+|                        Cumulative merge time of primary shards |                         |    1.36293 |              min |
+|                       Cumulative merge count of primary shards |                         |         20 |                  |
+|                Min cumulative merge time across primary shards |                         |   0.263283 |              min |
+|             Median cumulative merge time across primary shards |                         |   0.291733 |              min |
+|                Max cumulative merge time across primary shards |                         |   0.516183 |              min |
+|               Cumulative merge throttle time of primary shards |                         |   0.701683 |              min |
+|       Min cumulative merge throttle time across primary shards |                         |   0.163883 |              min |
+|    Median cumulative merge throttle time across primary shards |                         |   0.175717 |              min |
+|       Max cumulative merge throttle time across primary shards |                         |   0.186367 |              min |
+|                      Cumulative refresh time of primary shards |                         |   0.222217 |              min |
+|                     Cumulative refresh count of primary shards |                         |         67 |                  |
+|              Min cumulative refresh time across primary shards |                         |    0.03915 |              min |
+|           Median cumulative refresh time across primary shards |                         |   0.039825 |              min |
+|              Max cumulative refresh time across primary shards |                         |   0.103417 |              min |
+|                        Cumulative flush time of primary shards |                         |  0.0276833 |              min |
+|                       Cumulative flush count of primary shards |                         |          1 |                  |
+|                Min cumulative flush time across primary shards |                         |          0 |              min |
+|             Median cumulative flush time across primary shards |                         |          0 |              min |
+|                Max cumulative flush time across primary shards |                         |  0.0276833 |              min |
+|                                        Total Young Gen GC time |                         |      0.074 |                s |
+|                                       Total Young Gen GC count |                         |          8 |                  |
+|                                          Total Old Gen GC time |                         |          0 |                s |
+|                                         Total Old Gen GC count |                         |          0 |                  |
+|                                                     Store size |                         |    1.67839 |               GB |
+|                                                  Translog size |                         |   0.115145 |               GB |
+|                                         Heap used for segments |                         |  0.0350914 |               MB |
+|                                       Heap used for doc values |                         | 0.00771713 |               MB |
+|                                            Heap used for terms |                         |  0.0101089 |               MB |
+|                                            Heap used for norms |                         |          0 |               MB |
+|                                           Heap used for points |                         |          0 |               MB |
+|                                    Heap used for stored fields |                         |  0.0172653 |               MB |
+|                                                  Segment count |                         |         25 |                  |
+|                                                 Min Throughput |            delete-model |      25.45 |            ops/s |
+|                                                Mean Throughput |            delete-model |      25.45 |            ops/s |
+|                                              Median Throughput |            delete-model |      25.45 |            ops/s |
+|                                                 Max Throughput |            delete-model |      25.45 |            ops/s |
+|                                       100th percentile latency |            delete-model |    39.0409 |               ms |
+|                                  100th percentile service time |            delete-model |    39.0409 |               ms |
+|                                                     error rate |            delete-model |          0 |                % |
+|                                                 Min Throughput |       train-vector-bulk |    49518.9 |           docs/s |
+|                                                Mean Throughput |       train-vector-bulk |    54418.8 |           docs/s |
+|                                              Median Throughput |       train-vector-bulk |    52984.2 |           docs/s |
+|                                                 Max Throughput |       train-vector-bulk |    62118.3 |           docs/s |
+|                                        50th percentile latency |       train-vector-bulk |    26.5293 |               ms |
+|                                        90th percentile latency |       train-vector-bulk |    41.8212 |               ms |
+|                                        99th percentile latency |       train-vector-bulk |    239.351 |               ms |
+|                                      99.9th percentile latency |       train-vector-bulk |    348.507 |               ms |
+|                                       100th percentile latency |       train-vector-bulk |    436.292 |               ms |
+|                                   50th percentile service time |       train-vector-bulk |    26.5293 |               ms |
+|                                   90th percentile service time |       train-vector-bulk |    41.8212 |               ms |
+|                                   99th percentile service time |       train-vector-bulk |    239.351 |               ms |
+|                                 99.9th percentile service time |       train-vector-bulk |    348.507 |               ms |
+|                                  100th percentile service time |       train-vector-bulk |    436.292 |               ms |
+|                                                     error rate |       train-vector-bulk |          0 |                % |
+|                                                 Min Throughput |     refresh-train-index |       0.47 |            ops/s |
+|                                                Mean Throughput |     refresh-train-index |       0.47 |            ops/s |
+|                                              Median Throughput |     refresh-train-index |       0.47 |            ops/s |
+|                                                 Max Throughput |     refresh-train-index |       0.47 |            ops/s |
+|                                       100th percentile latency |     refresh-train-index |    2142.96 |               ms |
+|                                  100th percentile service time |     refresh-train-index |    2142.96 |               ms |
+|                                                     error rate |     refresh-train-index |          0 |                % |
+|                                                 Min Throughput |       ivfpq-train-model |       0.01 | models_trained/s |
+|                                                Mean Throughput |       ivfpq-train-model |       0.01 | models_trained/s |
+|                                              Median Throughput |       ivfpq-train-model |       0.01 | models_trained/s |
+|                                                 Max Throughput |       ivfpq-train-model |       0.01 | models_trained/s |
+|                                       100th percentile latency |       ivfpq-train-model |     136563 |               ms |
+|                                  100th percentile service time |       ivfpq-train-model |     136563 |               ms |
+|                                                     error rate |       ivfpq-train-model |          0 |                % |
+|                                                 Min Throughput |      custom-vector-bulk |    62384.8 |           docs/s |
+|                                                Mean Throughput |      custom-vector-bulk |    69035.2 |           docs/s |
+|                                              Median Throughput |      custom-vector-bulk |    68675.4 |           docs/s |
+|                                                 Max Throughput |      custom-vector-bulk |    80713.4 |           docs/s |
+|                                        50th percentile latency |      custom-vector-bulk |    18.7726 |               ms |
+|                                        90th percentile latency |      custom-vector-bulk |    34.8881 |               ms |
+|                                        99th percentile latency |      custom-vector-bulk |    150.435 |               ms |
+|                                      99.9th percentile latency |      custom-vector-bulk |    296.862 |               ms |
+|                                       100th percentile latency |      custom-vector-bulk |    344.394 |               ms |
+|                                   50th percentile service time |      custom-vector-bulk |    18.7726 |               ms |
+|                                   90th percentile service time |      custom-vector-bulk |    34.8881 |               ms |
+|                                   99th percentile service time |      custom-vector-bulk |    150.435 |               ms |
+|                                 99.9th percentile service time |      custom-vector-bulk |    296.862 |               ms |
+|                                  100th percentile service time |      custom-vector-bulk |    344.394 |               ms |
+|                                                     error rate |      custom-vector-bulk |          0 |                % |
+|                                                 Min Throughput |    refresh-target-index |      28.32 |            ops/s |
+|                                                Mean Throughput |    refresh-target-index |      28.32 |            ops/s |
+|                                              Median Throughput |    refresh-target-index |      28.32 |            ops/s |
+|                                                 Max Throughput |    refresh-target-index |      28.32 |            ops/s |
+|                                       100th percentile latency |    refresh-target-index |    34.9811 |               ms |
+|                                  100th percentile service time |    refresh-target-index |    34.9811 |               ms |
+|                                                     error rate |    refresh-target-index |          0 |                % |
+|                                                 Min Throughput | knn-query-from-data-set |        0.9 |            ops/s |
+|                                                Mean Throughput | knn-query-from-data-set |     453.84 |            ops/s |
+|                                              Median Throughput | knn-query-from-data-set |     554.15 |            ops/s |
+|                                                 Max Throughput | knn-query-from-data-set |        681 |            ops/s |
+|                                        50th percentile latency | knn-query-from-data-set |    11.7174 |               ms |
+|                                        90th percentile latency | knn-query-from-data-set |    15.4445 |               ms |
+|                                        99th percentile latency | knn-query-from-data-set |    21.0682 |               ms |
+|                                      99.9th percentile latency | knn-query-from-data-set |    39.5414 |               ms |
+|                                     99.99th percentile latency | knn-query-from-data-set |    1116.33 |               ms |
+|                                       100th percentile latency | knn-query-from-data-set |    1116.66 |               ms |
+|                                   50th percentile service time | knn-query-from-data-set |    11.7174 |               ms |
+|                                   90th percentile service time | knn-query-from-data-set |    15.4445 |               ms |
+|                                   99th percentile service time | knn-query-from-data-set |    21.0682 |               ms |
+|                                 99.9th percentile service time | knn-query-from-data-set |    39.5414 |               ms |
+|                                99.99th percentile service time | knn-query-from-data-set |    1116.33 |               ms |
+|                                  100th percentile service time | knn-query-from-data-set |    1116.66 |               ms |
+|                                                     error rate | knn-query-from-data-set |          0 |                % |
 
 
 ---------------------------------
-[INFO] SUCCESS (took 295 seconds)
+[INFO] SUCCESS (took 281 seconds)
 ---------------------------------
 ```
 
