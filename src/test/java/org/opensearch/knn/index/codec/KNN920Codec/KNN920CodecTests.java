@@ -17,7 +17,6 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.tests.index.RandomIndexWriter;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
@@ -109,16 +108,7 @@ public class KNN920CodecTests extends KNNCodecTestCase {
         verify(knnVectorsFormat).getKnnVectorsFormatForField(anyString());
 
         IndexSearcher searcher = new IndexSearcher(reader);
-        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
-        Query query = KNNQueryFactory.create(
-            KNNEngine.LUCENE,
-            "dummy",
-            fieldName,
-            new float[] { 1.0f, 0.0f, 0.0f },
-            1,
-            null,
-            mockQueryShardContext
-        );
+        Query query = KNNQueryFactory.create(KNNEngine.LUCENE, "dummy", fieldName, new float[] { 1.0f, 0.0f, 0.0f }, 1);
 
         assertEquals(1, searcher.count(query));
 
@@ -145,15 +135,7 @@ public class KNN920CodecTests extends KNNCodecTestCase {
         verify(knnVectorsFormat, times(2)).getKnnVectorsFormatForField(anyString());
 
         IndexSearcher searcher1 = new IndexSearcher(reader1);
-        Query query1 = KNNQueryFactory.create(
-            KNNEngine.LUCENE,
-            "dummy",
-            field1Name,
-            new float[] { 1.0f, 0.0f },
-            1,
-            null,
-            mockQueryShardContext
-        );
+        Query query1 = KNNQueryFactory.create(KNNEngine.LUCENE, "dummy", field1Name, new float[] { 1.0f, 0.0f }, 1);
 
         assertEquals(1, searcher1.count(query1));
 

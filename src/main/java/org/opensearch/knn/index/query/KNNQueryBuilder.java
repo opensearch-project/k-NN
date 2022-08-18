@@ -153,10 +153,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                         if (FILTER_FIELD.getPreferredName().equals(tokenName)) {
                             filter = parseInnerQueryBuilder(parser);
                         } else {
-                            throw new ParsingException(
-                                parser.getTokenLocation(),
-                                "[" + NAME + "] unknown token [" + token + "] after [" + currentFieldName + "]"
-                            );
+                            throw new ParsingException(parser.getTokenLocation(), "[" + NAME + "] unknown token [" + token + "]");
                         }
 
                     } else {
@@ -246,7 +243,16 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         String indexName = context.index().getName();
-        return KNNQueryFactory.create(knnEngine, indexName, this.fieldName, this.vector, this.k, this.filter, context);
+        KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(knnEngine)
+            .indexName(indexName)
+            .fieldName(this.fieldName)
+            .vector(this.vector)
+            .k(this.k)
+            .knnQueryFilter(this.filter)
+            .context(context)
+            .build();
+        return KNNQueryFactory.create(createQueryRequest);
     }
 
     private ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {

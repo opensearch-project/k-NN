@@ -7,7 +7,10 @@ package org.opensearch.knn.index.query;
 
 import org.apache.lucene.search.KnnVectorQuery;
 import org.apache.lucene.search.Query;
+import org.opensearch.index.mapper.MappedFieldType;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -15,7 +18,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class KNNQueryFactoryTests extends KNNTestCase {
     private final int testQueryDimension = 17;
@@ -26,16 +31,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
 
     public void testCreateCustomKNNQuery() {
         for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
-            QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
-            Query query = KNNQueryFactory.create(
-                knnEngine,
-                testIndexName,
-                testFieldName,
-                testQueryVector,
-                testK,
-                null,
-                mockQueryShardContext
-            );
+            Query query = KNNQueryFactory.create(knnEngine, testIndexName, testFieldName, testQueryVector, testK);
             assertTrue(query instanceof KNNQuery);
 
             assertEquals(testIndexName, ((KNNQuery) query).getIndexName());
@@ -50,16 +46,30 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
         for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
+            Query query = KNNQueryFactory.create(knnEngine, testIndexName, testFieldName, testQueryVector, testK);
+            assertTrue(query instanceof KnnVectorQuery);
+        }
+    }
+
+    public void testCreateLuceneQueryWithFilter() {
+        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
+            .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
+            .collect(Collectors.toList());
+        for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
             QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
-            Query query = KNNQueryFactory.create(
-                knnEngine,
-                testIndexName,
-                testFieldName,
-                testQueryVector,
-                testK,
-                null,
-                mockQueryShardContext
-            );
+            MappedFieldType testMapper = mock(MappedFieldType.class);
+            when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
+            QueryBuilder filter = new TermQueryBuilder("foo", "fooval");
+            final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(knnEngine)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .vector(testQueryVector)
+                .k(testK)
+                .context(mockQueryShardContext)
+                .knnQueryFilter(filter)
+                .build();
+            Query query = KNNQueryFactory.create(createQueryRequest);
             assertTrue(query instanceof KnnVectorQuery);
         }
     }
