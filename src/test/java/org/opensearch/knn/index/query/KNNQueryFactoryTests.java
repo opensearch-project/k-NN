@@ -67,7 +67,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
                 .vector(testQueryVector)
                 .k(testK)
                 .context(mockQueryShardContext)
-                .knnQueryFilter(filter)
+                .filter(filter)
                 .build();
             Query query = KNNQueryFactory.create(createQueryRequest);
             assertTrue(query instanceof KnnVectorQuery);

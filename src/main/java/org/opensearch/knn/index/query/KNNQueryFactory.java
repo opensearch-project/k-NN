@@ -80,11 +80,11 @@ public class KNNQueryFactory {
                 createQueryRequest.getK()
             )
         );
-        if (createQueryRequest.getKnnQueryFilter().isPresent()) {
+        if (createQueryRequest.getFilter().isPresent()) {
             final QueryShardContext queryShardContext = createQueryRequest.getContext()
                 .orElseThrow(() -> new RuntimeException("Shard context cannot be null"));
             try {
-                final Query filterQuery = createQueryRequest.getKnnQueryFilter().get().toQuery(queryShardContext);
+                final Query filterQuery = createQueryRequest.getFilter().get().toQuery(queryShardContext);
                 return new KnnVectorQuery(
                     createQueryRequest.getFieldName(),
                     createQueryRequest.getVector(),
@@ -118,12 +118,12 @@ public class KNNQueryFactory {
         @Getter
         private int k;
         // can be null in cases filter not passed with the knn query
-        private QueryBuilder knnQueryFilter;
+        private QueryBuilder filter;
         // can be null in cases filter not passed with the knn query
         private QueryShardContext context;
 
-        public Optional<QueryBuilder> getKnnQueryFilter() {
-            return Optional.ofNullable(knnQueryFilter);
+        public Optional<QueryBuilder> getFilter() {
+            return Optional.ofNullable(filter);
         }
 
         public Optional<QueryShardContext> getContext() {

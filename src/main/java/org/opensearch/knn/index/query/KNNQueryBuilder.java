@@ -249,7 +249,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             .fieldName(this.fieldName)
             .vector(this.vector)
             .k(this.k)
-            .knnQueryFilter(this.filter)
+            .filter(this.filter)
             .context(context)
             .build();
         return KNNQueryFactory.create(createQueryRequest);
