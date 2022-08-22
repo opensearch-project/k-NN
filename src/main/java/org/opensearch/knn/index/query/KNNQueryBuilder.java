@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query;
 
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -38,6 +39,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
     public static final ParseField VECTOR_FIELD = new ParseField("vector");
     public static final ParseField K_FIELD = new ParseField("k");
+    public static final ParseField FILTER_FIELD = new ParseField("filter");
     public static int K_MAX = 10000;
     /**
      * The name for the knn query
@@ -49,6 +51,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private final String fieldName;
     private final float[] vector;
     private int k = 0;
+    private QueryBuilder filter;
 
     /**
      * Constructs a new knn query
@@ -58,6 +61,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
      * @param k         K nearest neighbours for the given vector
      */
     public KNNQueryBuilder(String fieldName, float[] vector, int k) {
+        this(fieldName, vector, k, null);
+    }
+
+    public KNNQueryBuilder(String fieldName, float[] vector, int k, QueryBuilder filter) {
         if (Strings.isNullOrEmpty(fieldName)) {
             throw new IllegalArgumentException("[" + NAME + "] requires fieldName");
         }
@@ -77,6 +84,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         this.fieldName = fieldName;
         this.vector = vector;
         this.k = k;
+        this.filter = filter;
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -111,6 +119,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         List<Object> vector = null;
         float boost = AbstractQueryBuilder.DEFAULT_BOOST;
         int k = 0;
+        QueryBuilder filter = null;
         String queryName = null;
         String currentFieldName = null;
         XContentParser.Token token;
@@ -139,6 +148,14 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                                 "[" + NAME + "] query does not support [" + currentFieldName + "]"
                             );
                         }
+                    } else if (token == XContentParser.Token.START_OBJECT) {
+                        String tokenName = parser.currentName();
+                        if (FILTER_FIELD.getPreferredName().equals(tokenName)) {
+                            filter = parseInnerQueryBuilder(parser);
+                        } else {
+                            throw new ParsingException(parser.getTokenLocation(), "[" + NAME + "] unknown token [" + token + "]");
+                        }
+
                     } else {
                         throw new ParsingException(
                             parser.getTokenLocation(),
@@ -153,7 +170,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
         }
 
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector), k);
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector), k, filter);
         knnQueryBuilder.queryName(queryName);
         knnQueryBuilder.boost(boost);
         return knnQueryBuilder;
@@ -226,7 +243,16 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         String indexName = context.index().getName();
-        return KNNQueryFactory.create(knnEngine, indexName, this.fieldName, this.vector, this.k);
+        KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(knnEngine)
+            .indexName(indexName)
+            .fieldName(this.fieldName)
+            .vector(this.vector)
+            .k(this.k)
+            .filter(this.filter)
+            .context(context)
+            .build();
+        return KNNQueryFactory.create(createQueryRequest);
     }
 
     private ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
