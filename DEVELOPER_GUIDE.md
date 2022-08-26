@@ -3,6 +3,9 @@
     - [Fork OpenSearch k-NN Repo](#fork-opensearch-k-nn-repo)
     - [Install Prerequisites](#install-prerequisites)
       - [JDK 11](#jdk-11)
+      - [CMake](#cmake)
+      - [Faiss Dependencies](#Faiss-Dependencies)
+      - [Environment](#Environment)
   - [Use an Editor](#use-an-editor)
     - [IntelliJ IDEA](#intellij-idea)
   - [Build](#build)
@@ -55,10 +58,25 @@ In addition to this, the plugin has been tested with JDK 17, and this JDK versio
 
 The plugin requires that cmake >= 3.17.2 is installed in order to build the JNI libraries.
 
+One easy way to install on mac or linux is to use pip:
+```bash
+pip install cmake==3.17.2
+```
+
 #### Faiss Dependencies
 
 To build the *faiss* JNI library, you need to have openmp, lapack and blas installed. For more information on *faiss* 
 dependencies, please refer to [their documentation](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md).
+
+[Openblas](https://www.openblas.net/) can be used for both lapack and blas. To install on Mac, run:
+```bash
+brew install openblas
+```
+
+Additionally, the `gcc` toolchain needs to be installed on Mac. To install, run:
+```bash
+brew install gcc
+```
 
 #### Environment
 
