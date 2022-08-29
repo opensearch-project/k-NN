@@ -16,7 +16,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.action.support.master.TransportMasterNodeAction;
+import org.opensearch.action.support.clustermanager.TransportClusterManagerNodeAction;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.ClusterStateTaskConfig;
 import org.opensearch.cluster.ClusterStateTaskExecutor;
@@ -45,7 +45,9 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_METADATA_FIELD;
 /**
  * Transport action used to update metadata of model's on the cluster manager node.
  */
-public class UpdateModelMetadataTransportAction extends TransportMasterNodeAction<UpdateModelMetadataRequest, AcknowledgedResponse> {
+public class UpdateModelMetadataTransportAction extends TransportClusterManagerNodeAction<
+    UpdateModelMetadataRequest,
+    AcknowledgedResponse> {
 
     public static Logger logger = LogManager.getLogger(UpdateModelMetadataTransportAction.class);
 
@@ -82,7 +84,7 @@ public class UpdateModelMetadataTransportAction extends TransportMasterNodeActio
     }
 
     @Override
-    protected void masterOperation(
+    protected void clusterManagerOperation(
         UpdateModelMetadataRequest request,
         ClusterState clusterState,
         ActionListener<AcknowledgedResponse> actionListener
