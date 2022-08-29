@@ -10,7 +10,7 @@ import lombok.extern.log4j.Log4j2;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.master.AcknowledgedResponse;
-import org.opensearch.action.support.master.TransportMasterNodeAction;
+import org.opensearch.action.support.clustermanager.TransportClusterManagerNodeAction;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.ClusterStateTaskConfig;
 import org.opensearch.cluster.ClusterStateTaskExecutor;
@@ -38,7 +38,9 @@ import static org.opensearch.knn.common.KNNConstants.PLUGIN_NAME;
  * Transport action used to update model graveyard on the cluster manager node.
  */
 @Log4j2
-public class UpdateModelGraveyardTransportAction extends TransportMasterNodeAction<UpdateModelGraveyardRequest, AcknowledgedResponse> {
+public class UpdateModelGraveyardTransportAction extends TransportClusterManagerNodeAction<
+    UpdateModelGraveyardRequest,
+    AcknowledgedResponse> {
     private UpdateModelGraveyardExecutor updateModelGraveyardExecutor;
 
     @Inject
@@ -72,7 +74,7 @@ public class UpdateModelGraveyardTransportAction extends TransportMasterNodeActi
     }
 
     @Override
-    protected void masterOperation(
+    protected void clusterManagerOperation(
         UpdateModelGraveyardRequest request,
         ClusterState clusterState,
         ActionListener<AcknowledgedResponse> actionListener
