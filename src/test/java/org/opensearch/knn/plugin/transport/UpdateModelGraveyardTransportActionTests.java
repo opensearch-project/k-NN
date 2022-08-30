@@ -51,7 +51,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
         client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
             ClusterState clusterState1 = stateResponse1.getState();
-            updateModelGraveyardTransportAction.masterOperation(
+            updateModelGraveyardTransportAction.clusterManagerOperation(
                 addModelGraveyardRequest,
                 clusterState1,
                 ActionListener.wrap(acknowledgedResponse -> {
@@ -81,7 +81,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
         client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
             ClusterState clusterState1 = stateResponse1.getState();
-            updateModelGraveyardTransportAction.masterOperation(
+            updateModelGraveyardTransportAction.clusterManagerOperation(
                 addModelGraveyardRequest1,
                 clusterState1,
                 ActionListener.wrap(acknowledgedResponse -> {
@@ -123,7 +123,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
         final CountDownLatch inProgressLatch3 = new CountDownLatch(1);
         client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
             ClusterState clusterState1 = stateResponse1.getState();
-            updateModelGraveyardTransportAction.masterOperation(
+            updateModelGraveyardTransportAction.clusterManagerOperation(
                 removeModelGraveyardRequest,
                 clusterState1,
                 ActionListener.wrap(acknowledgedResponse -> {

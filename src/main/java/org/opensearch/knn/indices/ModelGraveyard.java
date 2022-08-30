@@ -148,7 +148,7 @@ public class ModelGraveyard implements Metadata.Custom {
 
     /**
      * The ModelGraveyardDiff class compares the previous modelGraveyard object with the current updated modelGraveyard object
-     * and returns only the diff of those 2 objects. So that, whenever there is a change in cluster state, master node only
+     * and returns only the diff of those 2 objects. So that, whenever there is a change in cluster state, clusterManager node only
      * sends the diff to all the data nodes instead of the full cluster state
      */
     public static class ModelGraveyardDiff implements NamedDiff<Metadata.Custom> {

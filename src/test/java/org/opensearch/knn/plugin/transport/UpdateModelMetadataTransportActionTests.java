@@ -79,7 +79,7 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
         client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
             ClusterState clusterState1 = stateResponse1.getState();
-            updateModelMetadataTransportAction.masterOperation(
+            updateModelMetadataTransportAction.clusterManagerOperation(
                 updateModelMetadataRequest,
                 clusterState1,
                 ActionListener.wrap(acknowledgedResponse -> {
@@ -114,7 +114,7 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
         final CountDownLatch inProgressLatch2 = new CountDownLatch(1);
         client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
             ClusterState clusterState1 = stateResponse1.getState();
-            updateModelMetadataTransportAction.masterOperation(
+            updateModelMetadataTransportAction.clusterManagerOperation(
                 removeModelMetadataRequest,
                 clusterState1,
                 ActionListener.wrap(acknowledgedResponse -> {
