@@ -14,10 +14,8 @@ import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.cluster.health.ClusterHealthStatus;
-import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -38,6 +36,7 @@ import java.util.Map;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.plugin.stats.KNNStatsConfig.KNN_STATS;
 
 /**
@@ -345,8 +344,13 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      *
      * @throws IOException throws IOException
      */
-    public void testBiltWithEngineStats() throws IOException {
+    public void testFieldByEngineStats() throws Exception {
+        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2, METHOD_HNSW, NMSLIB_NAME));
+        putMappingRequest(INDEX_NAME, createKnnIndexMapping(FIELD_NAME_2, 3, METHOD_HNSW, LUCENE_NAME));
+        putMappingRequest(INDEX_NAME, createKnnIndexMapping(FIELD_NAME_3, 3, METHOD_HNSW, FAISS_NAME));
+
         Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
+
         String responseBody = EntityUtils.toString(response.getEntity());
 
         Map<String, Object> clusterStats = parseClusterStatsResponse(responseBody);
@@ -354,54 +358,14 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         boolean luceneField = (Boolean) clusterStats.get(StatNames.LUCENE_FIELD.getName());
         boolean nmslibField = (Boolean) clusterStats.get(StatNames.NMSLIB_FIELD.getName());
 
-        assertFalse(faissField);
-        assertFalse(luceneField);
-        assertFalse(nmslibField);
-
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
-
-        response = getKnnStats(Collections.emptyList(), Collections.emptyList());
-
-        responseBody = EntityUtils.toString(response.getEntity());
-
-        clusterStats = parseClusterStatsResponse(responseBody);
-        faissField = (Boolean) clusterStats.get(StatNames.FAISS_FIELD.getName());
-        luceneField = (Boolean) clusterStats.get(StatNames.LUCENE_FIELD.getName());
-        nmslibField = (Boolean) clusterStats.get(StatNames.NMSLIB_FIELD.getName());
-
-        assertFalse(faissField);
-        assertFalse(luceneField);
-        assertTrue(nmslibField);
-
-        putMappingRequest(INDEX_NAME, createKnnIndexMapping(FIELD_NAME_2, 3, METHOD_HNSW, LUCENE_NAME));
-
-        response = getKnnStats(Collections.emptyList(), Collections.emptyList());
-
-        responseBody = EntityUtils.toString(response.getEntity());
-
-        clusterStats = parseClusterStatsResponse(responseBody);
-        faissField = (Boolean) clusterStats.get(StatNames.FAISS_FIELD.getName());
-        luceneField = (Boolean) clusterStats.get(StatNames.LUCENE_FIELD.getName());
-        nmslibField = (Boolean) clusterStats.get(StatNames.NMSLIB_FIELD.getName());
-
-        assertFalse(faissField);
-        assertTrue(luceneField);
-        assertTrue(nmslibField);
-
-        putMappingRequest(INDEX_NAME, createKnnIndexMapping(FIELD_NAME_3, 3, METHOD_HNSW, FAISS_NAME));
-
-        response = getKnnStats(Collections.emptyList(), Collections.emptyList());
-
-        responseBody = EntityUtils.toString(response.getEntity());
-
-        clusterStats = parseClusterStatsResponse(responseBody);
-        faissField = (Boolean) clusterStats.get(StatNames.FAISS_FIELD.getName());
-        luceneField = (Boolean) clusterStats.get(StatNames.LUCENE_FIELD.getName());
-        nmslibField = (Boolean) clusterStats.get(StatNames.NMSLIB_FIELD.getName());
-
         assertTrue(faissField);
         assertTrue(luceneField);
         assertTrue(nmslibField);
+    }
+
+    @Override
+    protected boolean preserveClusterUponCompletion() {
+        return false;
     }
 
     // Useful settings when debugging to prevent timeouts

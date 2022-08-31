@@ -302,19 +302,19 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected String createKnnIndexMapping(String fieldName, Integer dimensions, String algoName, String knnEngine) throws IOException {
         return Strings.toString(
-                XContentFactory.jsonBuilder()
-                        .startObject()
-                        .startObject("properties")
-                        .startObject(fieldName)
-                        .field("type", "knn_vector")
-                        .field("dimension", dimensions.toString())
-                        .startObject("method")
-                        .field("name", algoName)
-                        .field("engine", knnEngine)
-                        .endObject()
-                        .endObject()
-                        .endObject()
-                        .endObject()
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(fieldName)
+                .field("type", "knn_vector")
+                .field("dimension", dimensions.toString())
+                .startObject("method")
+                .field("name", algoName)
+                .field("engine", knnEngine)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
         );
     }
 
