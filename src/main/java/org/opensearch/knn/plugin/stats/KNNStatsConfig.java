@@ -12,6 +12,7 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.plugin.stats.suppliers.FieldWithEngineSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.LibraryInitializedSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.EventOccurredWithinThresholdSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNCircuitBreakerSupplier;
@@ -85,5 +86,8 @@ public class KNNStatsConfig {
             StatNames.TRAINING_MEMORY_USAGE_PERCENTAGE.getName(),
             new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getTrainingSizeAsPercentage))
         )
+        .put(StatNames.FAISS_FIELD.getName(), new KNNStat<>(true, new FieldWithEngineSupplier(KNNFlag.BUILT_WITH_FAISS)))
+        .put(StatNames.LUCENE_FIELD.getName(), new KNNStat<>(true, new FieldWithEngineSupplier(KNNFlag.BUILT_WITH_LUCENE)))
+        .put(StatNames.NMSLIB_FIELD.getName(), new KNNStat<>(true, new FieldWithEngineSupplier(KNNFlag.BUILT_WITH_NMSLIB)))
         .build();
 }

@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.mapper;
 
+import com.google.common.collect.ImmutableMap;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.ValidationException;
@@ -38,6 +39,7 @@ import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.plugin.stats.KNNFlag;
 import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.opensearch.search.lookup.SearchLookup;
 
@@ -64,6 +66,15 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     public static final String CONTENT_TYPE = "knn_vector";
     public static final String KNN_FIELD = "knn_field";
+
+    private static final Map<KNNEngine, KNNFlag> ENGINE_TO_STATS_SUPPLIER = ImmutableMap.of(
+        KNNEngine.FAISS,
+        KNNFlag.BUILT_WITH_FAISS,
+        KNNEngine.LUCENE,
+        KNNFlag.BUILT_WITH_LUCENE,
+        KNNEngine.NMSLIB,
+        KNNFlag.BUILT_WITH_NMSLIB
+    );
 
     private static KNNVectorFieldMapper toType(FieldMapper in) {
         return (KNNVectorFieldMapper) in;
@@ -197,6 +208,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             final CopyTo copyToBuilder = copyTo.build();
             final Explicit<Boolean> ignoreMalformed = ignoreMalformed(context);
             final Map<String, String> metaValue = meta.getValue();
+
+            updateStats(knnMethodContext);
+
             if (knnMethodContext != null) {
                 final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
                     buildFullName(context),
@@ -295,6 +309,18 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
             return knnEngine;
+        }
+
+        private void updateStats(final KNNMethodContext knnMethodContext) {
+            KNNEngine knnEngine = KNNEngine.DEFAULT;
+            if (knnMethodContext != null) {
+                knnEngine = knnMethodContext.getKnnEngine();
+            }
+            final KNNFlag builtWithEngineStat = ENGINE_TO_STATS_SUPPLIER.getOrDefault(
+                knnEngine,
+                ENGINE_TO_STATS_SUPPLIER.get(KNNEngine.DEFAULT)
+            );
+            builtWithEngineStat.set(true);
         }
     }
 
