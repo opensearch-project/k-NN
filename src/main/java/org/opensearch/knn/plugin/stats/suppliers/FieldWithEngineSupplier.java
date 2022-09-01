@@ -20,6 +20,6 @@ public class FieldWithEngineSupplier implements Supplier<Boolean> {
 
     @Override
     public Boolean get() {
-        return builtWithEngineFlag.getFlag();
+        return builtWithEngineFlag.isValue();
     }
 }
