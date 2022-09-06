@@ -169,7 +169,7 @@ public class KNNScoringUtilTests extends KNNTestCase {
         assertEquals(0.0, KNNScoringUtil.calculateHammingBit(long3, long3), 0.1);
     }
 
-    public void testL2SquaredWhitelistedScoringFunction() throws IOException {
+    public void testL2SquaredAllowlistedScoringFunction() throws IOException {
         List<Number> queryVector = getTestQueryVector();
         TestKNNScriptDocValues dataset = new TestKNNScriptDocValues();
         dataset.createKNNVectorDocument(new float[] { 4.0f, 4.0f, 4.0f }, "test-index-field-name");
