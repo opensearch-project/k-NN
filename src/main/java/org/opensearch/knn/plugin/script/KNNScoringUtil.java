@@ -65,7 +65,7 @@ public class KNNScoringUtil {
     }
 
     /**
-     * Whitelisted l2Squared method for users to calculate L2 squared distance between query vector
+     * Allowlisted l2Squared method for users to calculate L2 squared distance between query vector
      * and document vectors
      * Example
      *  "script": {
@@ -110,7 +110,7 @@ public class KNNScoringUtil {
     }
 
     /**
-     * Whitelisted cosineSimilarity method that can be used in a script to avoid repeated
+     * Allowlisted cosineSimilarity method that can be used in a script to avoid repeated
      * calculation of normalization for the query vector.
      * Example:
      *  "script": {
@@ -156,7 +156,7 @@ public class KNNScoringUtil {
     }
 
     /**
-     * Whitelisted cosineSimilarity method for users to calculate cosine similarity between query vectors and
+     * Allowlisted cosineSimilarity method for users to calculate cosine similarity between query vectors and
      * document vectors
      * Example:
      *  "script": {
@@ -216,7 +216,7 @@ public class KNNScoringUtil {
     }
 
     /**
-     * Whitelisted l1distance method for users to calculate L1 distance between query vector
+     * Allowlisted l1distance method for users to calculate L1 distance between query vector
      * and document vectors
      * Example
      *  "script": {
@@ -254,7 +254,7 @@ public class KNNScoringUtil {
     }
 
     /**
-     * Whitelisted lInfNorm method for users to calculate L-inf distance between query vector
+     * Allowlisted lInfNorm method for users to calculate L-inf distance between query vector
      * and document vectors
      * Example
      *  "script": {
@@ -291,7 +291,7 @@ public class KNNScoringUtil {
     }
 
     /**
-     * Whitelisted innerProd method for users to calculate inner product distance between query vector
+     * Allowlisted innerProd method for users to calculate inner product distance between query vector
      * and document vectors
      * Example
      *  "script": {
