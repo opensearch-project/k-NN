@@ -16,9 +16,9 @@ import org.opensearch.script.ScriptedMetricAggContexts;
 import java.util.List;
 import java.util.Map;
 
-public class KNNWhitelistExtension implements PainlessExtension {
+public class KNNAllowlistExtension implements PainlessExtension {
 
-    private static final Whitelist ALLOW_LIST = WhitelistLoader.loadFromResourceFiles(KNNWhitelistExtension.class, "knn_whitelist.txt");
+    private static final Whitelist ALLOW_LIST = WhitelistLoader.loadFromResourceFiles(KNNAllowlistExtension.class, "knn_allowlist.txt");
 
     @Override
     public Map<ScriptContext<?>, List<Whitelist>> getContextWhitelists() {
