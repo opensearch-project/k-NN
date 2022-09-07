@@ -24,6 +24,8 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
  */
 public class Lucene extends JVMLibrary {
 
+    private boolean initialized;
+
     final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
         METHOD_HNSW,
         KNNMethod.Builder.builder(
@@ -76,11 +78,11 @@ public class Lucene extends JVMLibrary {
 
     @Override
     public Boolean isInitialized() {
-        return true;
+        return initialized;
     }
 
     @Override
     public void setInitialized(Boolean isInitialized) {
-        throw new UnsupportedOperationException("Setting Lucene as initialized is not supported");
+        initialized = isInitialized;
     }
 }

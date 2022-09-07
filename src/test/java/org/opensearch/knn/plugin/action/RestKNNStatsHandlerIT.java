@@ -377,9 +377,9 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(response.getEntity());
 
         Map<String, Object> nodeStats0 = parseNodeStatsResponse(responseBody).get(0);
-        boolean faissField = (Boolean) nodeStats0.get(StatNames.FAISS_FIELD.getName());
-        boolean luceneField = (Boolean) nodeStats0.get(StatNames.LUCENE_FIELD.getName());
-        boolean nmslibField = (Boolean) nodeStats0.get(StatNames.NMSLIB_FIELD.getName());
+        boolean faissField = (Boolean) nodeStats0.get(StatNames.FAISS_LOADED.getName());
+        boolean luceneField = (Boolean) nodeStats0.get(StatNames.LUCENE_LOADED.getName());
+        boolean nmslibField = (Boolean) nodeStats0.get(StatNames.NMSLIB_LOADED.getName());
 
         assertTrue(faissField);
         assertTrue(luceneField);
@@ -402,7 +402,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
         final Map<String, Object> nodeStats0 = parseNodeStatsResponse(responseBody).get(0);
 
-        boolean faissField = (Boolean) nodeStats0.get(StatNames.FAISS_FIELD.getName());
+        boolean faissField = (Boolean) nodeStats0.get(StatNames.FAISS_LOADED.getName());
 
         assertTrue(faissField);
     }

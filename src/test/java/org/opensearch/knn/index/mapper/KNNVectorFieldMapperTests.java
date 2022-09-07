@@ -34,7 +34,6 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
-import org.opensearch.knn.plugin.stats.KNNFlag;
 
 import java.io.IOException;
 import java.time.ZoneOffset;
@@ -116,14 +115,11 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         builder.modelId.setValue("Random modelId");
 
-        KNNFlag.BUILT_WITH_NMSLIB.setValue(false);
-
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
         assertTrue(knnVectorFieldMapper instanceof MethodFieldMapper);
         assertNotNull(knnVectorFieldMapper.knnMethod);
         assertNull(knnVectorFieldMapper.modelId);
-        assertTrue(KNNFlag.BUILT_WITH_NMSLIB.isValue());
     }
 
     public void testBuilder_build_fromModel() {
@@ -197,7 +193,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
 
-        KNNFlag.BUILT_WITH_LUCENE.setValue(false);
+        KNNEngine.LUCENE.setInitialized(false);
 
         int efConstruction = 321;
         int m = 12;
@@ -229,7 +225,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             efConstruction,
             builder.knnMethodContext.get().getMethodComponent().getParameters().get(METHOD_PARAMETER_EF_CONSTRUCTION)
         );
-        assertTrue(KNNFlag.BUILT_WITH_LUCENE.isValue());
+        assertTrue(KNNEngine.LUCENE.isInitialized());
 
         XContentBuilder xContentBuilderEmptyParams = XContentFactory.jsonBuilder()
             .startObject()

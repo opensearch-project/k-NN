@@ -8,12 +8,10 @@ package org.opensearch.knn.index.mapper;
 import org.apache.lucene.document.FieldType;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
-import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 
 import java.io.IOException;
-import java.util.Optional;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 
@@ -60,17 +58,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
                 )
             );
         }
-        updateStats(Optional.ofNullable(modelId), modelDao);
 
         parseCreateField(context, modelMetadata.getDimension());
-    }
-
-    private void updateStats(final Optional<String> modelId, ModelDao modelDao) {
-        if (!modelId.isPresent()) {
-            return;
-        }
-        final ModelMetadata modelMetadata = modelDao.getMetadata(modelId.get());
-        final KNNEngine knnEngine = modelMetadata.getKnnEngine();
-        knnEngine.getFieldWithEngineFlag().setValue(true);
     }
 }

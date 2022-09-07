@@ -198,8 +198,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             final Explicit<Boolean> ignoreMalformed = ignoreMalformed(context);
             final Map<String, String> metaValue = meta.getValue();
 
-            updateStats(Optional.ofNullable(knnMethodContext));
-
             if (knnMethodContext != null) {
                 final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
                     buildFullName(context),
@@ -209,6 +207,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
                 if (knnMethodContext.getKnnEngine() == KNNEngine.LUCENE) {
                     log.debug(String.format("Use [LuceneFieldMapper] mapper for field [%s]", name));
+                    updateLuceneEngineStats(knnMethodContext.getKnnEngine());
                     LuceneFieldMapper.CreateLuceneFieldMapperInput createLuceneFieldMapperInput =
                         LuceneFieldMapper.CreateLuceneFieldMapperInput.builder()
                             .name(name)
@@ -300,11 +299,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             return knnEngine;
         }
 
-        private void updateStats(final Optional<KNNMethodContext> knnMethodContext) {
-            if (knnMethodContext.isPresent()) {
-                final KNNEngine knnEngine = knnMethodContext.get().getKnnEngine();
-                knnEngine.getFieldWithEngineFlag().setValue(true);
+        private void updateLuceneEngineStats(final KNNEngine knnEngine) {
+            if (knnEngine == null || knnEngine != KNNEngine.LUCENE) {
+                return;
             }
+            knnEngine.setInitialized(true);
         }
     }
 

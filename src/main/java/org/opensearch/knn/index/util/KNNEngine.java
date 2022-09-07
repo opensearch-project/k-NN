@@ -6,13 +6,11 @@
 package org.opensearch.knn.index.util;
 
 import com.google.common.collect.ImmutableSet;
-import lombok.Getter;
 import org.apache.lucene.index.VectorValues;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.plugin.stats.KNNFlag;
 
 import java.util.Map;
 import java.util.Set;
@@ -26,9 +24,9 @@ import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
  * passed to the respective k-NN library's JNI layer.
  */
 public enum KNNEngine implements KNNLibrary {
-    NMSLIB(NMSLIB_NAME, Nmslib.INSTANCE, KNNFlag.BUILT_WITH_NMSLIB),
-    FAISS(FAISS_NAME, Faiss.INSTANCE, KNNFlag.BUILT_WITH_FAISS),
-    LUCENE(LUCENE_NAME, Lucene.INSTANCE, KNNFlag.BUILT_WITH_LUCENE);
+    NMSLIB(NMSLIB_NAME, Nmslib.INSTANCE),
+    FAISS(FAISS_NAME, Faiss.INSTANCE),
+    LUCENE(LUCENE_NAME, Lucene.INSTANCE);
 
     public static final KNNEngine DEFAULT = NMSLIB;
 
@@ -49,16 +47,13 @@ public enum KNNEngine implements KNNLibrary {
      * @param name name of engine
      * @param knnLibrary library the engine uses
      */
-    KNNEngine(String name, KNNLibrary knnLibrary, KNNFlag fieldWithEngineFlag) {
+    KNNEngine(String name, KNNLibrary knnLibrary) {
         this.name = name;
         this.knnLibrary = knnLibrary;
-        this.fieldWithEngineFlag = fieldWithEngineFlag;
     }
 
     private final String name;
     private final KNNLibrary knnLibrary;
-    @Getter
-    private final KNNFlag fieldWithEngineFlag;
 
     /**
      * Get the engine
