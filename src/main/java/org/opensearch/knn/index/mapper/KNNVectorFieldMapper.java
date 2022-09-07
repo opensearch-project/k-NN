@@ -198,7 +198,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             final Explicit<Boolean> ignoreMalformed = ignoreMalformed(context);
             final Map<String, String> metaValue = meta.getValue();
 
-            updateStats(knnMethodContext);
+            updateStats(Optional.ofNullable(knnMethodContext));
 
             if (knnMethodContext != null) {
                 final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
@@ -300,12 +300,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             return knnEngine;
         }
 
-        private void updateStats(final KNNMethodContext knnMethodContext) {
-            KNNEngine knnEngine = KNNEngine.DEFAULT;
-            if (knnMethodContext != null) {
-                knnEngine = knnMethodContext.getKnnEngine();
+        private void updateStats(final Optional<KNNMethodContext> knnMethodContext) {
+            if (knnMethodContext.isPresent()) {
+                final KNNEngine knnEngine = knnMethodContext.get().getKnnEngine();
+                knnEngine.getFieldWithEngineFlag().setValue(true);
             }
-            knnEngine.getFieldWithEngineFlag().setValue(true);
         }
     }
 

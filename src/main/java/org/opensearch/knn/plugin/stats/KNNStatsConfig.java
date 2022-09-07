@@ -86,8 +86,8 @@ public class KNNStatsConfig {
             StatNames.TRAINING_MEMORY_USAGE_PERCENTAGE.getName(),
             new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getTrainingSizeAsPercentage))
         )
-        .put(StatNames.FAISS_FIELD.getName(), new KNNStat<>(true, new FieldWithEngineSupplier(KNNFlag.BUILT_WITH_FAISS)))
-        .put(StatNames.LUCENE_FIELD.getName(), new KNNStat<>(true, new FieldWithEngineSupplier(KNNFlag.BUILT_WITH_LUCENE)))
-        .put(StatNames.NMSLIB_FIELD.getName(), new KNNStat<>(true, new FieldWithEngineSupplier(KNNFlag.BUILT_WITH_NMSLIB)))
+        .put(StatNames.FAISS_FIELD.getName(), new KNNStat<>(false, new FieldWithEngineSupplier(KNNFlag.BUILT_WITH_FAISS)))
+        .put(StatNames.LUCENE_FIELD.getName(), new KNNStat<>(false, new FieldWithEngineSupplier(KNNFlag.BUILT_WITH_LUCENE)))
+        .put(StatNames.NMSLIB_FIELD.getName(), new KNNStat<>(false, new FieldWithEngineSupplier(KNNFlag.BUILT_WITH_NMSLIB)))
         .build();
 }
