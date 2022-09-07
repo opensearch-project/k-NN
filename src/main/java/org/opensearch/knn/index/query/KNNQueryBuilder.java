@@ -151,11 +151,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                     } else if (token == XContentParser.Token.START_OBJECT) {
                         String tokenName = parser.currentName();
                         if (FILTER_FIELD.getPreferredName().equals(tokenName)) {
+                            log.debug(String.format("Start parsing filter for field [%s]", fieldName));
                             filter = parseInnerQueryBuilder(parser);
                         } else {
                             throw new ParsingException(parser.getTokenLocation(), "[" + NAME + "] unknown token [" + token + "]");
                         }
-
                     } else {
                         throw new ParsingException(
                             parser.getTokenLocation(),
@@ -201,6 +201,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return this.k;
     }
 
+    public QueryBuilder getFilter() {
+        return this.filter;
+    }
+
     @Override
     public void doXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject(NAME);
@@ -208,6 +212,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
         builder.field(VECTOR_FIELD.getPreferredName(), vector);
         builder.field(K_FIELD.getPreferredName(), k);
+        if (filter != null) {
+            builder.field(FILTER_FIELD.getPreferredName(), filter);
+        }
         printBoostAndQueryName(builder);
         builder.endObject();
         builder.endObject();
@@ -240,6 +247,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             throw new IllegalArgumentException(
                 String.format("Query vector has invalid dimension: %d. Dimension should be: %d", vector.length, fieldDimension)
             );
+        }
+
+        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine) && filter != null) {
+            throw new IllegalArgumentException(String.format("Engine [%s] does not support filters", knnEngine));
         }
 
         String indexName = context.index().getName();
