@@ -197,6 +197,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             final CopyTo copyToBuilder = copyTo.build();
             final Explicit<Boolean> ignoreMalformed = ignoreMalformed(context);
             final Map<String, String> metaValue = meta.getValue();
+
             if (knnMethodContext != null) {
                 final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
                     buildFullName(context),
@@ -407,6 +408,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         this.stored = stored;
         this.hasDocValues = hasDocValues;
         this.dimension = mappedFieldType.getDimension();
+        updateEngineStats();
     }
 
     public KNNVectorFieldMapper clone() {
@@ -537,6 +539,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             builder.field(Names.IGNORE_MALFORMED, ignoreMalformed.value());
         }
     }
+
+    /**
+     * Overwrite at child level in case specific stat needs to be updated
+     */
+    void updateEngineStats() {}
 
     public static class Names {
         public static final String IGNORE_MALFORMED = "ignore_malformed";

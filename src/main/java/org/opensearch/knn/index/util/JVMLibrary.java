@@ -15,6 +15,8 @@ import java.util.Map;
  */
 public abstract class JVMLibrary extends AbstractKNNLibrary {
 
+    boolean initialized;
+
     /**
      * Constructor
      *
@@ -28,5 +30,15 @@ public abstract class JVMLibrary extends AbstractKNNLibrary {
     @Override
     public int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension) {
         throw new UnsupportedOperationException("Estimating overhead is not supported for JVM based libraries.");
+    }
+
+    @Override
+    public Boolean isInitialized() {
+        return initialized;
+    }
+
+    @Override
+    public void setInitialized(Boolean isInitialized) {
+        initialized = isInitialized;
     }
 }
