@@ -20,14 +20,16 @@ import static org.opensearch.knn.plugin.stats.KNNStatsConfig.KNN_STATS;
 public class StatsIT extends AbstractRollingUpgradeTestCase {
     private KNNStats knnStats = new KNNStats(KNN_STATS);
 
-    // Validate if all the KNN Stats metrics are returned
+    // Validate if all the KNN Stats metrics from old version are present in new version
     public void testAllMetricStatsReturned() throws IOException {
         Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
         String responseBody = EntityUtils.toString(response.getEntity());
         Map<String, Object> clusterStats = parseClusterStatsResponse(responseBody);
-        assertEquals(knnStats.getClusterStats().keySet(), clusterStats.keySet());
+        assertNotNull(clusterStats);
+        assertTrue(knnStats.getClusterStats().keySet().containsAll(clusterStats.keySet()));
         List<Map<String, Object>> nodeStats = parseNodeStatsResponse(responseBody);
-        assertEquals(knnStats.getNodeStats().keySet(), nodeStats.get(0).keySet());
+        assertNotNull(nodeStats.get(0));
+        assertTrue(knnStats.getNodeStats().keySet().containsAll(nodeStats.get(0).keySet()));
     }
 
     // Verify if it returns failure for invalid metric

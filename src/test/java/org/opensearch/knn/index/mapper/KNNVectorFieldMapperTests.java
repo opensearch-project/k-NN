@@ -193,6 +193,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
 
+        KNNEngine.LUCENE.setInitialized(false);
+
         int efConstruction = 321;
         int m = 12;
         int dimension = 133;
@@ -215,12 +217,15 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             xContentBuilderToMap(xContentBuilder),
             buildParserContext(indexName, settings)
         );
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        builder.build(builderContext);
 
         assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponent().getName());
         assertEquals(
             efConstruction,
             builder.knnMethodContext.get().getMethodComponent().getParameters().get(METHOD_PARAMETER_EF_CONSTRUCTION)
         );
+        assertTrue(KNNEngine.LUCENE.isInitialized());
 
         XContentBuilder xContentBuilderEmptyParams = XContentFactory.jsonBuilder()
             .startObject()
