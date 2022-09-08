@@ -73,14 +73,4 @@ public class Lucene extends JVMLibrary {
         // score provided.
         return rawScore;
     }
-
-    @Override
-    public Boolean isInitialized() {
-        return true;
-    }
-
-    @Override
-    public void setInitialized(Boolean isInitialized) {
-        throw new UnsupportedOperationException("Setting Lucene as initialized is not supported");
-    }
 }

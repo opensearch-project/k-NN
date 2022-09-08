@@ -14,8 +14,11 @@ import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.cluster.health.ClusterHealthStatus;
+import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -33,6 +36,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.opensearch.knn.TestUtils.KNN_VECTOR;
+import static org.opensearch.knn.TestUtils.PROPERTIES;
+import static org.opensearch.knn.TestUtils.VECTOR_TYPE;
+import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.plugin.stats.KNNStatsConfig.KNN_STATS;
 
 /**
@@ -41,8 +58,20 @@ import static org.opensearch.knn.plugin.stats.KNNStatsConfig.KNN_STATS;
 public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
     private static final Logger logger = LogManager.getLogger(RestKNNStatsHandlerIT.class);
+    private static final String TRAINING_INDEX = "training-index";
+    private static final String TRAINING_FIELD = "training-field";
+    private static final String TEST_MODEL_ID = "model-id";
+    private static final String TEST_INDEX = "test-index";
+    private static final String MODEL_DESCRIPTION = "Description for train model test";
     private boolean isDebuggingTest = new DisableOnDebug(null).isDebugging();
     private boolean isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false").equals("true");
+    private static final String FIELD_NAME_2 = "test_field_two";
+    private static final String FIELD_NAME_3 = "test_field_three";
+    private static final int DIMENSION = 4;
+    private static int DOC_ID = 0;
+    private static final int NUM_DOCS = 10;
+    private static final int DELAY_MILLI_SEC = 1000;
+    private static final int NUM_OF_ATTEMPTS = 30;
 
     private KNNStats knnStats;
 
@@ -331,6 +360,98 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
         assertTrue("does not contain expected key: " + statName, nodeStats.containsKey(statName));
         assertEquals(false, nodeStats.get(statName));
+    }
+
+    /**
+     * Test checks that handler correctly returns value for field per engine stats
+     *
+     * @throws IOException throws IOException
+     */
+    public void testFieldByEngineStats() throws Exception {
+        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2, METHOD_HNSW, NMSLIB_NAME));
+        putMappingRequest(INDEX_NAME, createKnnIndexMapping(FIELD_NAME_2, 3, METHOD_HNSW, LUCENE_NAME));
+        putMappingRequest(INDEX_NAME, createKnnIndexMapping(FIELD_NAME_3, 3, METHOD_HNSW, FAISS_NAME));
+
+        Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+
+        Map<String, Object> nodeStats0 = parseNodeStatsResponse(responseBody).get(0);
+        boolean faissField = (Boolean) nodeStats0.get(StatNames.FAISS_LOADED.getName());
+        boolean luceneField = (Boolean) nodeStats0.get(StatNames.LUCENE_LOADED.getName());
+        boolean nmslibField = (Boolean) nodeStats0.get(StatNames.NMSLIB_LOADED.getName());
+
+        assertTrue(faissField);
+        assertTrue(luceneField);
+        assertTrue(nmslibField);
+    }
+
+    public void testFieldsByEngineModelTraining() throws Exception {
+        createBasicKnnIndex(TRAINING_INDEX, TRAINING_FIELD, DIMENSION);
+        bulkIngestRandomVectors(TRAINING_INDEX, TRAINING_FIELD, NUM_DOCS, DIMENSION);
+        trainKnnModel(TEST_MODEL_ID, TRAINING_INDEX, TRAINING_FIELD, DIMENSION, MODEL_DESCRIPTION);
+
+        validateModelCreated(TEST_MODEL_ID);
+
+        createKnnIndex(TEST_INDEX, modelIndexMapping(FIELD_NAME, TEST_MODEL_ID));
+
+        addKNNDocs(TEST_INDEX, FIELD_NAME, DIMENSION, DOC_ID, NUM_DOCS);
+
+        final Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
+        final String responseBody = EntityUtils.toString(response.getEntity());
+
+        final Map<String, Object> nodeStats0 = parseNodeStatsResponse(responseBody).get(0);
+
+        boolean faissField = (Boolean) nodeStats0.get(StatNames.FAISS_LOADED.getName());
+
+        assertTrue(faissField);
+    }
+
+    public void trainKnnModel(String modelId, String trainingIndexName, String trainingFieldName, int dimension, String description)
+        throws IOException {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 1)
+            .endObject()
+            .endObject();
+        Map<String, Object> method = xContentBuilderToMap(builder);
+
+        Response trainResponse = trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, description);
+        assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
+    }
+
+    public void validateModelCreated(String modelId) throws IOException, InterruptedException {
+        Response getResponse = getModel(modelId, null);
+        String responseBody = EntityUtils.toString(getResponse.getEntity());
+        assertNotNull(responseBody);
+
+        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        assertEquals(modelId, responseMap.get(MODEL_ID));
+        assertTrainingSucceeds(modelId, NUM_OF_ATTEMPTS, DELAY_MILLI_SEC);
+    }
+
+    // mapping to create index from model
+    public String modelIndexMapping(String fieldName, String modelId) throws IOException {
+        return Strings.toString(
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(fieldName)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(MODEL_ID, modelId)
+                .endObject()
+                .endObject()
+                .endObject()
+        );
+    }
+
+    @Override
+    protected boolean preserveClusterUponCompletion() {
+        return false;
     }
 
     // Useful settings when debugging to prevent timeouts

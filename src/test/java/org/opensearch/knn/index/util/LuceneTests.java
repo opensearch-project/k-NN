@@ -100,11 +100,12 @@ public class LuceneTests extends KNNTestCase {
 
     public void testIsInitialized() {
         Lucene luceneLibrary = new Lucene(Collections.emptyMap(), "");
-        assertTrue(luceneLibrary.isInitialized());
+        assertFalse(luceneLibrary.isInitialized());
     }
 
     public void testSetInitialized() {
         Lucene luceneLibrary = new Lucene(Collections.emptyMap(), "");
-        expectThrows(UnsupportedOperationException.class, () -> luceneLibrary.setInitialized(true));
+        luceneLibrary.setInitialized(true);
+        assertTrue(luceneLibrary.isInitialized());
     }
 }
