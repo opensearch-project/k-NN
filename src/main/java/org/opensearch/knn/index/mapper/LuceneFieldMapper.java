@@ -105,6 +105,11 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         context.path().remove();
     }
 
+    @Override
+    void updateEngineStats() {
+        KNNEngine.LUCENE.setInitialized(true);
+    }
+
     @AllArgsConstructor
     @lombok.Builder
     @Getter

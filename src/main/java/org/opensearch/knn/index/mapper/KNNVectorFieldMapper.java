@@ -207,7 +207,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
                 if (knnMethodContext.getKnnEngine() == KNNEngine.LUCENE) {
                     log.debug(String.format("Use [LuceneFieldMapper] mapper for field [%s]", name));
-                    updateLuceneEngineStats(knnMethodContext.getKnnEngine());
                     LuceneFieldMapper.CreateLuceneFieldMapperInput createLuceneFieldMapperInput =
                         LuceneFieldMapper.CreateLuceneFieldMapperInput.builder()
                             .name(name)
@@ -297,13 +296,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
             return knnEngine;
-        }
-
-        private void updateLuceneEngineStats(final KNNEngine knnEngine) {
-            if (knnEngine == null || knnEngine != KNNEngine.LUCENE) {
-                return;
-            }
-            knnEngine.setInitialized(true);
         }
     }
 
@@ -416,6 +408,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         this.stored = stored;
         this.hasDocValues = hasDocValues;
         this.dimension = mappedFieldType.getDimension();
+        updateEngineStats();
     }
 
     public KNNVectorFieldMapper clone() {
@@ -546,6 +539,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             builder.field(Names.IGNORE_MALFORMED, ignoreMalformed.value());
         }
     }
+
+    /**
+     * Overwrite at child level in case specific stat needs to be updated
+     */
+    void updateEngineStats() {}
 
     public static class Names {
         public static final String IGNORE_MALFORMED = "ignore_malformed";

@@ -24,8 +24,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
  */
 public class Lucene extends JVMLibrary {
 
-    private boolean initialized;
-
     final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
         METHOD_HNSW,
         KNNMethod.Builder.builder(
@@ -74,15 +72,5 @@ public class Lucene extends JVMLibrary {
         // actually invert the distance score so that a higher number is a better score. So, we can just return the
         // score provided.
         return rawScore;
-    }
-
-    @Override
-    public Boolean isInitialized() {
-        return initialized;
-    }
-
-    @Override
-    public void setInitialized(Boolean isInitialized) {
-        initialized = isInitialized;
     }
 }
