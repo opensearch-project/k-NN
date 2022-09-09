@@ -1,7 +1,7 @@
 [![Build and Test k-NN](https://github.com/opensearch-project/k-NN/actions/workflows/CI.yml/badge.svg)](https://github.com/opensearch-project/k-NN/actions/workflows/CI.yml)
 [![codecov](https://codecov.io/gh/opensearch-project/k-NN/branch/main/graph/badge.svg?token=PYQO2GW39S)](https://codecov.io/gh/opensearch-project/k-NN)
 [![Documentation](https://img.shields.io/badge/doc-reference-blue)](https://opensearch.org/docs/search-plugins/knn/index/)
-[![Chat](https://img.shields.io/badge/chat-on%20forums-blue)](https://discuss.opendistrocommunity.dev/c/k-NN/)
+[![Chat](https://img.shields.io/badge/chat-on%20forums-blue)](https://forum.opensearch.org/c/plugins/k-nn/48)
 ![PRs welcome!](https://img.shields.io/badge/PRs-welcome!-success)
 
 # OpenSearch k-NN
@@ -21,7 +21,7 @@
 * [Project Website](https://opensearch.org/)
 * [Downloads](https://opensearch.org/downloads.html).
 * [Documentation](https://opensearch.org/docs/search-plugins/knn/index/)
-* Need help? Try [Forums](https://discuss.opendistrocommunity.dev/c/k-nn/)
+* Need help? Try the [Forum](https://forum.opensearch.org/c/plugins/k-nn/48)
 * [Project Principles](https://opensearch.org/#principles)
 * [Contributing to OpenSearch k-NN](CONTRIBUTING.md)
 * [Maintainer Responsibilities](MAINTAINERS.md)
