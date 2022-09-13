@@ -298,6 +298,27 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
+     * Utility to create a Knn Index Mapping with specific algorithm and engine
+     */
+    protected String createKnnIndexMapping(String fieldName, Integer dimensions, String algoName, String knnEngine) throws IOException {
+        return Strings.toString(
+            XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(fieldName)
+                .field("type", "knn_vector")
+                .field("dimension", dimensions.toString())
+                .startObject("method")
+                .field("name", algoName)
+                .field("engine", knnEngine)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+        );
+    }
+
+    /**
      * Utility to create a Knn Index Mapping with multiple k-NN fields
      */
     protected String createKnnIndexMapping(List<String> fieldNames, List<Integer> dimensions) throws IOException {
