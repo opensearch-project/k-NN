@@ -33,7 +33,7 @@ class OpenSearchStep(base.Step):
         self.endpoint = parse_string_param('endpoint', step_config.config,
                                            step_config.implicit_config,
                                            'localhost')
-        default_port = 9200 if self.endpoint == 'localhost' else 80
+        default_port = 9000 if self.endpoint == 'localhost' else 80
         self.port = parse_int_param('port', step_config.config,
                                     step_config.implicit_config, default_port)
         self.opensearch = get_opensearch_client(str(self.endpoint),
@@ -300,6 +300,9 @@ class IngestStep(OpenSearchStep):
         self.dataset = parse_dataset(dataset_format, dataset_path,
                                      Context.INDEX)
 
+        self.attributes_dataset = parse_dataset('hdf5', '/Users/gaievski/dev/opensearch/datasets/data-with-attr.hdf5',
+                                     Context.ATTRIBUTES)
+
         input_doc_count = parse_int_param('doc_count', step_config.config, {},
                                           self.dataset.size())
         self.doc_count = min(input_doc_count, self.dataset.size())
@@ -312,10 +315,13 @@ class IngestStep(OpenSearchStep):
         # Maintain minimal state outside of this loop. For large data sets, too
         # much state may cause out of memory failure
         for i in range(0, self.doc_count, self.bulk_size):
+            if i % 5000 == 0:
+                print('indexed {} docs'.format(i))
             partition = self.dataset.read(self.bulk_size)
+            partition_attr = self.attributes_dataset.read(self.bulk_size)
             if partition is None:
                 break
-            body = bulk_transform(partition, self.field_name, action, i)
+            body = bulk_transform(partition, partition_attr, self.field_name, action, i)
             bulk_index(self.opensearch, self.index_name, body)
 
         self.dataset.reset()
@@ -370,7 +376,12 @@ class QueryStep(OpenSearchStep):
                     'knn': {
                         self.field_name: {
                             'vector': vec,
-                            'k': self.k
+                            'k': self.k,
+                            'filter': {
+                                'term' : {
+                                    'color' : 'red'
+                                }
+                            }
                         }
                     }
                 }
@@ -416,7 +427,7 @@ class QueryStep(OpenSearchStep):
 
 
 # Helper functions - (AKA not steps)
-def bulk_transform(partition: np.ndarray, field_name: str, action,
+def bulk_transform(partition: np.ndarray, partition_attr, field_name: str, action,
                    offset: int) -> List[Dict[str, Any]]:
     """Partitions and transforms a list of vectors into OpenSearch's bulk
     injection format.
@@ -433,7 +444,17 @@ def bulk_transform(partition: np.ndarray, field_name: str, action,
         actions.extend([action(i + offset), None])
         for i in range(len(partition))
     ]
-    actions[1::2] = [{field_name: vec} for vec in partition.tolist()]
+    print(partition_attr)
+    idx = 1
+    part_list = partition.tolist()
+    for i in range(len(part_list)):
+        actions[idx] = {field_name: part_list[i]}
+        color_val = partition_attr[i][0].decode()
+        if color_val != 'None':
+            actions[idx]['color'] = color_val
+        idx+=2
+
+    #actions[1::2] = [{field_name: vec} for vec in partition.tolist()]
     return actions
 
 
@@ -576,4 +597,12 @@ def query_index(opensearch: OpenSearch, index_name: str, body: dict,
 
 
 def bulk_index(opensearch: OpenSearch, index_name: str, body: List):
-    return opensearch.bulk(index=index_name, body=body, timeout='5m')
+    for attempt in range(10):
+        try:
+            return opensearch.bulk(index=index_name, body=body, timeout='5m')
+        except BaseException as error:
+            print('Failed on bulk with error {}, retrying'.format(error))
+        else:
+            break
+    else:
+        print('Failed all attempts on bulk, stopped retrying')

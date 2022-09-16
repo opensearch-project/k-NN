@@ -170,7 +170,12 @@ class QueryVectorsFromDataSetParamSource(VectorsFromDataSetParamSource):
                     "knn": {
                         field_name: {
                             "vector": vector,
-                            "k": k
+                            "k": k,
+                            "filter": {
+                                "term" : {
+                                    "color" : "green"
+                                }
+                            }
                         }
                     }
                 }

@@ -27,7 +27,7 @@ def bulk_transform(partition: np.ndarray, field_name: str, action,
         actions.extend([action(i + offset), None])
         for i in range(len(partition))
     ]
-    actions[1::2] = [{field_name: vec} for vec in partition.tolist()]
+    actions[1::2] = [{field_name: vec, 'color' : 'red'} for vec in partition.tolist()]
     return actions
 
 

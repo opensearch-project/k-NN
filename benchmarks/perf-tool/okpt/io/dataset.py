@@ -34,6 +34,7 @@ class Context(Enum):
     INDEX = 1
     QUERY = 2
     NEIGHBORS = 3
+    ATTRIBUTES = 4
 
 
 class DataSet(ABC):
@@ -97,6 +98,9 @@ class HDF5DataSet(DataSet):
 
         if context == Context.QUERY:
             return "test"
+
+        if context == Context.ATTRIBUTES:
+            return "attributes"
 
         raise Exception("Unsupported context")
 
