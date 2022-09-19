@@ -7,7 +7,7 @@ package org.opensearch.knn.index.codec;
 import lombok.AllArgsConstructor;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.backward_codecs.lucene91.Lucene91Codec;
-import org.apache.lucene.codecs.lucene92.Lucene92Codec;
+import org.apache.lucene.backward_codecs.lucene92.Lucene92Codec;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.KNN920Codec.KNN920Codec;
 import org.opensearch.knn.index.codec.KNN920Codec.KNN920PerFieldKnnVectorsFormat;

@@ -8,7 +8,7 @@ package org.opensearch.knn.index.codec.KNN920Codec;
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnVectorsFormat;
-import org.apache.lucene.codecs.lucene92.Lucene92HnswVectorsFormat;
+import org.apache.lucene.backward_codecs.lucene92.Lucene92HnswVectorsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.common.KNNConstants;
