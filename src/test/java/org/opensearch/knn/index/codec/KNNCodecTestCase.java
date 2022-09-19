@@ -18,8 +18,8 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.MethodComponentContext;
-import org.opensearch.knn.index.codec.KNN920Codec.KNN920Codec;
 import org.opensearch.knn.index.query.KNNQueryFactory;
+import org.opensearch.knn.index.codec.KNN940Codec.KNN940Codec;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.query.KNNQuery;
 import org.opensearch.knn.index.KNNSettings;
@@ -79,7 +79,7 @@ import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTIN
  */
 public class KNNCodecTestCase extends KNNTestCase {
 
-    private static final KNN920Codec ACTUAL_CODEC = new KNN920Codec();
+    private static final KNN940Codec ACTUAL_CODEC = new KNN940Codec();
     private static FieldType sampleFieldType;
     static {
         sampleFieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
