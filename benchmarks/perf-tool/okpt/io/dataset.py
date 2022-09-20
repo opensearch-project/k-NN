@@ -35,6 +35,9 @@ class Context(Enum):
     QUERY = 2
     NEIGHBORS = 3
     ATTRIBUTES = 4
+    NEIGHBORS_FILTER_1 = 5
+    NEIGHBORS_FILTER_2 = 6
+    NEIGHBORS_FILTER_3 = 7
 
 
 class DataSet(ABC):
@@ -101,6 +104,15 @@ class HDF5DataSet(DataSet):
 
         if context == Context.ATTRIBUTES:
             return "attributes"
+
+        if context == Context.NEIGHBORS_FILTER_1:
+            return "neighbors_filter_1"
+
+        if context == Context.NEIGHBORS_FILTER_2:
+            return "neighbors_filter_2"
+
+        if context == Context.NEIGHBORS_FILTER_3:
+            return "neighbors_filter_3"
 
         raise Exception("Unsupported context")
 

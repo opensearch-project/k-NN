@@ -33,7 +33,7 @@ class OpenSearchStep(base.Step):
         self.endpoint = parse_string_param('endpoint', step_config.config,
                                            step_config.implicit_config,
                                            'localhost')
-        default_port = 9000 if self.endpoint == 'localhost' else 80
+        default_port = 9200 if self.endpoint == 'localhost' else 80
         self.port = parse_int_param('port', step_config.config,
                                     step_config.implicit_config, default_port)
         self.opensearch = get_opensearch_client(str(self.endpoint),
@@ -300,7 +300,7 @@ class IngestStep(OpenSearchStep):
         self.dataset = parse_dataset(dataset_format, dataset_path,
                                      Context.INDEX)
 
-        self.attributes_dataset = parse_dataset('hdf5', '/Users/gaievski/dev/opensearch/datasets/data-with-attr.hdf5',
+        self.attributes_dataset = parse_dataset(dataset_format, dataset_path,
                                      Context.ATTRIBUTES)
 
         input_doc_count = parse_int_param('doc_count', step_config.config, {},
@@ -314,11 +314,14 @@ class IngestStep(OpenSearchStep):
 
         # Maintain minimal state outside of this loop. For large data sets, too
         # much state may cause out of memory failure
+        partition_attr = self.attributes_dataset.read(self.doc_count)
+
         for i in range(0, self.doc_count, self.bulk_size):
             if i % 5000 == 0:
                 print('indexed {} docs'.format(i))
             partition = self.dataset.read(self.bulk_size)
-            partition_attr = self.attributes_dataset.read(self.bulk_size)
+            #partition_attr = self.attributes_dataset.read(1000000)
+            #print(len(partition_attr))
             if partition is None:
                 break
             body = bulk_transform(partition, partition_attr, self.field_name, action, i)
@@ -347,6 +350,9 @@ class QueryStep(OpenSearchStep):
                                              {}, None)
         self.calculate_recall = parse_bool_param('calculate_recall',
                                                  step_config.config, {}, False)
+
+        self.filter = parse_string_param('filter', step_config.config, {}, None)
+
         dataset_format = parse_string_param('dataset_format',
                                             step_config.config, {}, 'hdf5')
         dataset_path = parse_string_param('dataset_path',
@@ -363,11 +369,23 @@ class QueryStep(OpenSearchStep):
                                               step_config.config, {}, 'hdf5')
         neighbors_path = parse_string_param('neighbors_path',
                                             step_config.config, {}, None)
+
+        context_by_filter = {
+            "filter_1": Context.NEIGHBORS_FILTER_1,
+            "filter_2": Context.NEIGHBORS_FILTER_2,
+            "filter_3": Context.NEIGHBORS_FILTER_3,
+            "score_script": Context.NEIGHBORS_FILTER_1,
+            "no_filter": Context.NEIGHBORS
+        }
+        current_context = context_by_filter.get(self.filter)
+
         self.neighbors = parse_dataset(neighbors_format, neighbors_path,
-                                       Context.NEIGHBORS)
+                                       current_context)
+
         self.implicit_config = step_config.implicit_config
 
     def _action(self):
+
 
         def get_body(vec):
             return {
@@ -376,10 +394,137 @@ class QueryStep(OpenSearchStep):
                     'knn': {
                         self.field_name: {
                             'vector': vec,
+                            'k': self.k
+                        }
+                    }
+                }
+            }
+
+        def get_body_score_script(vec):
+            return {
+                'size': self.k,
+                'query': {
+                    'script_score': {
+                        'query': {
+                            'bool': {
+                                'filter': {
+                                    'bool': {
+                                        'must': [
+                                            {'range': {'age': {'gte': 20, 'lte': 100}}},
+                                            {'term': {'color': 'red'}}
+                                        ]
+                                    }
+                                }
+                            }
+                        },
+                        'script': {
+                            'source': 'knn_score',
+                            "lang": "knn",
+                            'params': {
+                                'field': self.field_name,
+                                'query_value': vec,
+                                'space_type': 'l2'
+                            }
+                        }
+                    }
+                }
+            }
+
+        """
+        def get_body_score_script(vec):
+            return {
+                'size': self.k,
+                'query': {
+                    'script_score': {
+                        'query': {
+                            'bool': {
+                                'filter': {
+                                    'bool': {
+                                        'must': [
+                                            {'range': {'age': {'gte': 20, 'lte': 100}}},
+                                            {'term': {'color': 'red'}}
+                                        ]
+                                    }
+                                }
+                            }
+                        },
+                        'script': {
+                            'source': 'knn_score',
+                            "lang": "knn",
+                            'params': {
+                                'field': 'target_field',
+                                'query_value': vec,
+                                'space_type': 'l2'
+                            }
+                        }
+                    }
+                }
+            }
+        """
+
+        def get_body_filter_1(vec):
+            return {
+                'size': self.k,
+                'query': {
+                    'knn': {
+                        self.field_name: {
+                            'vector': vec,
                             'k': self.k,
                             'filter': {
-                                'term' : {
-                                    'color' : 'red'
+                                'bool': {
+                                        'must': [
+                                            {'range': {'age': {'gte': 20, 'lte': 100}}},
+                                            {'term': {'color': 'red'}}
+                                        ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+        def get_body_filter_2(vec):
+            return {
+                'size': self.k,
+                'query': {
+                    'knn': {
+                        self.field_name: {
+                            'vector': vec,
+                            'k': self.k,
+                            'filter': {
+                                'bool': {
+                                        'must': [
+                                            {'term': {'taste': 'salty'}},
+                                            {'term': {'color': 'blue'}}
+                                        ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+        def get_body_filter_3(vec):
+            return {
+                'size': self.k,
+                'query': {
+                    'knn': {
+                        self.field_name: {
+                            'vector': vec,
+                            'k': self.k,
+                            'filter': {
+                                'bool': {
+                                    'must': [
+                                        { "range": { "age": { "gte": 30, "lte": 50 }}},
+                                        {
+                                            "bool": {
+                                                'should': [
+                                                    {'term': {'taste': 'bitter'}},
+                                                    {'term': {'taste': 'sweet'}}
+                                                ]
+                                            }
+                                        }
+                                    ],
                                 }
                             }
                         }
@@ -393,9 +538,17 @@ class QueryStep(OpenSearchStep):
             query = self.dataset.read(1)
             if query is None:
                 break
+            get_body_func_map = {
+                "filter_1": get_body_filter_1,
+                "filter_2": get_body_filter_2,
+                "filter_3": get_body_filter_3,
+                "score_script": get_body_score_script,
+                "no_filter": get_body
+            }
+            get_body_func = get_body_func_map.get(self.filter)
             query_responses.append(
                 query_index(self.opensearch, self.index_name,
-                            get_body(query[0]), [self.field_name]))
+                            get_body_func(query[0]), [self.field_name]))
 
         results['took'] = [
             float(query_response['took']) for query_response in query_responses
@@ -444,17 +597,25 @@ def bulk_transform(partition: np.ndarray, partition_attr, field_name: str, actio
         actions.extend([action(i + offset), None])
         for i in range(len(partition))
     ]
-    print(partition_attr)
     idx = 1
     part_list = partition.tolist()
+    #print(part_list)
     for i in range(len(part_list)):
         actions[idx] = {field_name: part_list[i]}
+        #print(i)
         color_val = partition_attr[i][0].decode()
         if color_val != 'None':
             actions[idx]['color'] = color_val
+
+        taste_val = partition_attr[i][1].decode()
+        if taste_val != 'None':
+            actions[idx]['taste'] = taste_val
+
+        age_val = int(partition_attr[i][2].decode())
+        actions[idx]['age'] = age_val
+
         idx+=2
 
-    #actions[1::2] = [{field_name: vec} for vec in partition.tolist()]
     return actions
 
 
@@ -541,16 +702,27 @@ def recall_at_r(results, neighbor_dataset, r, k, query_count):
         Recall at R
     """
     correct = 0.0
+    rrr = 0
     for query in range(query_count):
         true_neighbors = neighbor_dataset.read(1)
         if true_neighbors is None:
             break
         true_neighbors_set = set(true_neighbors[0][:k])
-        for j in range(r):
+        true_neighbors_set.discard(-1)
+        rr = min(r, len(true_neighbors_set))
+        rrr += rr
+        for j in range(rr):
             if results[query][j] in true_neighbors_set:
                 correct += 1.0
-
-    return correct / (r * query_count)
+            #else:
+            #    print(results[query])
+            #    print(true_neighbors_set)
+    """
+    print(correct)
+    print(r)
+    print(query_count)
+    """
+    return correct / (int(rrr) * query_count)
 
 
 def get_index_size_in_kb(opensearch, index_name):
@@ -576,6 +748,7 @@ def get_cache_size_in_kb(endpoint, port):
     Returns:
         size of cache in kilobytes
     """
+    """
     response = requests.get('http://' + endpoint + ':' + str(port) +
                             '/_plugins/_knn/stats',
                             headers={'content-type': 'application/json'})
@@ -587,7 +760,8 @@ def get_cache_size_in_kb(endpoint, port):
     for key in keys:
         total_used += int(stats['nodes'][key]['graph_memory_usage'])
     return total_used
-
+    """
+    return 0
 
 def query_index(opensearch: OpenSearch, index_name: str, body: dict,
                 excluded_fields: list):
