@@ -11,6 +11,7 @@ import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.FilterCodec;
 import org.apache.lucene.codecs.KnnVectorsFormat;
+import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNNFormatFacade;
 import org.opensearch.knn.index.codec.KNNFormatFactory;
 
@@ -27,7 +28,7 @@ public final class KNN920Codec extends FilterCodec {
     private static final String KNN920 = "KNN920Codec";
 
     private final KNNFormatFacade knnFormatFacade;
-    private final KNN920PerFieldKnnVectorsFormat perFieldKnnVectorsFormat;
+    private final PerFieldKnnVectorsFormat perFieldKnnVectorsFormat;
 
     /**
      * No arg constructor that uses Lucene91 as the delegate
@@ -43,7 +44,7 @@ public final class KNN920Codec extends FilterCodec {
      * @param knnVectorsFormat per field format for KnnVector
      */
     @Builder
-    public KNN920Codec(Codec delegate, KNN920PerFieldKnnVectorsFormat knnVectorsFormat) {
+    public KNN920Codec(Codec delegate, PerFieldKnnVectorsFormat knnVectorsFormat) {
         super(KNN920, delegate);
         knnFormatFacade = KNNFormatFactory.createKNN920Format(delegate);
         perFieldKnnVectorsFormat = knnVectorsFormat;
