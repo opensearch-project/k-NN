@@ -28,13 +28,14 @@ public class KNN920CodecTests extends KNNCodecTestCase {
     }
 
     public void testKnnVectorIndex() throws Exception {
-        Function<MapperService, PerFieldKnnVectorsFormat> mapperServicePerFieldKnnVectorsFormatProvider = (
+        Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider = (
             mapperService) -> new KNN920PerFieldKnnVectorsFormat(Optional.of(mapperService));
-        Function<PerFieldKnnVectorsFormat, Codec> perFieldKnnVectorsFormatCodecProvider = (knnVectorFormat) -> KNN920Codec.builder()
+
+        Function<PerFieldKnnVectorsFormat, Codec> knnCodecProvider = (knnVectorFormat) -> KNN920Codec.builder()
             .delegate(createKNN92DefaultDelegate())
             .knnVectorsFormat(knnVectorFormat)
             .build();
 
-        testKnnVectorIndex(mapperServicePerFieldKnnVectorsFormatProvider, perFieldKnnVectorsFormatCodecProvider);
+        testKnnVectorIndex(knnCodecProvider, perFieldKnnVectorsFormatProvider);
     }
 }

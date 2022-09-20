@@ -275,8 +275,8 @@ public class KNNCodecTestCase extends KNNTestCase {
     }
 
     public void testKnnVectorIndex(
-        final Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider,
-        final Function<PerFieldKnnVectorsFormat, Codec> codecFunction
+        final Function<PerFieldKnnVectorsFormat, Codec> codecProvider,
+        final Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider
     ) throws Exception {
         final MapperService mapperService = mock(MapperService.class);
         final KNNMethodContext knnMethodContext = new KNNMethodContext(
@@ -300,7 +300,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         when(mapperService.fieldType(eq(FIELD_NAME_TWO))).thenReturn(mappedFieldType2);
 
         var perFieldKnnVectorsFormatSpy = spy(perFieldKnnVectorsFormatProvider.apply(mapperService));
-        final Codec codec = codecFunction.apply(perFieldKnnVectorsFormatSpy);
+        final Codec codec = codecProvider.apply(perFieldKnnVectorsFormatSpy);
 
         setUpMockClusterService();
         Directory dir = newFSDirectory(createTempDir());
