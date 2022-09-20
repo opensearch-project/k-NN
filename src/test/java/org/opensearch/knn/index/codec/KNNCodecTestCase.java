@@ -13,8 +13,11 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.codec.KNN920Codec.KNN920Codec;
 import org.opensearch.knn.index.query.KNNQueryFactory;
 import org.opensearch.knn.jni.JNIService;
@@ -50,17 +53,24 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.Version.CURRENT;
+import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_CONSTRUCTION;
+import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_M;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTING;
 
@@ -80,8 +90,8 @@ public class KNNCodecTestCase extends KNNTestCase {
         sampleFieldType.putAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, "512");
         sampleFieldType.freeze();
     }
-    protected static final String FIELD_NAME_ONE = "test_vector_one";
-    protected static final String FIELD_NAME_TWO = "test_vector_two";
+    private static final String FIELD_NAME_ONE = "test_vector_one";
+    private static final String FIELD_NAME_TWO = "test_vector_two";
 
     protected void setUpMockClusterService() {
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
@@ -264,7 +274,34 @@ public class KNNCodecTestCase extends KNNTestCase {
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 
-    public void testKnnVectorIndex(final Codec codec, final PerFieldKnnVectorsFormat perFieldKnnVectorsFormatSpy) throws Exception {
+    public void testKnnVectorIndex(
+        final Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider,
+        final Function<PerFieldKnnVectorsFormat, Codec> codecFunction
+    ) throws Exception {
+        final MapperService mapperService = mock(MapperService.class);
+        final KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256))
+        );
+        final KNNVectorFieldMapper.KNNVectorFieldType mappedFieldType1 = new KNNVectorFieldMapper.KNNVectorFieldType(
+            FIELD_NAME_ONE,
+            Map.of(),
+            3,
+            knnMethodContext
+        );
+        final KNNVectorFieldMapper.KNNVectorFieldType mappedFieldType2 = new KNNVectorFieldMapper.KNNVectorFieldType(
+            FIELD_NAME_TWO,
+            Map.of(),
+            2,
+            knnMethodContext
+        );
+        when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(mappedFieldType1);
+        when(mapperService.fieldType(eq(FIELD_NAME_TWO))).thenReturn(mappedFieldType2);
+
+        var perFieldKnnVectorsFormatSpy = spy(perFieldKnnVectorsFormatProvider.apply(mapperService));
+        final Codec codec = codecFunction.apply(perFieldKnnVectorsFormatSpy);
+
         setUpMockClusterService();
         Directory dir = newFSDirectory(createTempDir());
         IndexWriterConfig iwc = newIndexWriterConfig();
@@ -272,7 +309,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         iwc.setCodec(codec);
 
         /**
-         * Add doc with field "test_vector"
+         * Add doc with field "test_vector_one"
          */
         final FieldType luceneFieldType = KnnVectorField.createFieldType(3, VectorSimilarityFunction.EUCLIDEAN);
         float[] array = { 1.0f, 3.0f, 4.0f };
@@ -295,7 +332,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         reader.close();
 
         /**
-         * Add doc with field "my_vector"
+         * Add doc with field "test_vector_two"
          */
         IndexWriterConfig iwc1 = newIndexWriterConfig();
         iwc1.setMergeScheduler(new SerialMergeScheduler());
