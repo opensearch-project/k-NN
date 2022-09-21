@@ -4,9 +4,9 @@ import random
 
 import h5py
 import numpy as np
+from pathlib import Path
 
 from osb.extensions.data_set import Context, HDF5DataSet
-from osb.tests.data_set_helper import DataSetBuildContext
 
 class HDF5Dataset():
     DEFAULT_INDEX_NAME = "test-index"
@@ -17,107 +17,104 @@ class HDF5Dataset():
     DEFAULT_DIMENSION = 10
     DEFAULT_RANDOM_STRING_LENGTH = 8
 
-    def create_random_2d_array(self, num_vectors: int, dimension: int) -> np.ndarray:
-        rng = np.random.default_rng()
-        return rng.random(size=(num_vectors, dimension), dtype=np.float32)
-
-    def createDataset(self) -> None:
+    def createDataset(self, source_dataset_path, generate_attrs, generate_filters) -> None:
             self.data_set_dir = os.getcwd()
 
-            # Create a data set we know to be valid for convenience
-            self.valid_data_set_path = self._create_data_set(
-                self.DEFAULT_NUM_VECTORS,
-                self.DEFAULT_DIMENSION,
-                self.DEFAULT_TYPE,
-                self.DEFAULT_CONTEXT,
-                self.data_set_dir
-            )
+            self._build_data_sets(self.data_set_dir, source_dataset_path, self.DEFAULT_TYPE, generate_attrs, generate_filters)
 
-    def _create_data_set(
-            self,
-            num_vectors: int,
-            dimension: int,
-            extension: str,
-            data_set_context: Context,
-            data_set_dir
-    ) -> str:
-
-        #file_name_base = ''.join(random.choice(string.ascii_letters) for _ in
-        #                         range(self.DEFAULT_RANDOM_STRING_LENGTH))
-        file_name_base = 'data-with-attr'
-        data_set_file_name = "{}.{}".format(file_name_base, extension)
-        data_set_path = os.path.join(data_set_dir, data_set_file_name)
-        context = DataSetBuildContext(
-            data_set_context,
-            self.create_random_2d_array(num_vectors, dimension),
-            data_set_path)
-
-
-        self._build_data_set(context)
-
-        return data_set_path
-
-    def _build_data_set(self, context: DataSetBuildContext):
+    def _build_data_sets(self, data_set_dir, source_dataset_path, extension: str,
+                         generate_attrs: bool, generate_filters: bool):
         # For HDF5, because multiple data sets can be grouped in the same file,
         # we will build data sets in memory and not write to disk until
         # _flush_data_sets_to_disk is called
         # read existing dataset
+        source_file_name = Path(source_dataset_path).stem
+        #data_set_w_filtering = self.create_dataset_file(source_file_name + '-with-attr', extension, data_set_dir)
 
-        data_set_w_filtering = h5py.File(context.path, 'a')
-
-        data_hdf5 = os.path.join(os.path.dirname(os.path.realpath('/')),
-                                 'Users/gaievski/dev/opensearch/datasets/data.hdf5')
+        data_hdf5 = os.path.join(os.path.dirname(os.path.realpath('/')), source_dataset_path)
         #data_hdf5 = os.path.join(os.path.dirname(os.path.realpath('/')),
         #                         'Users/gaievski/dev/opensearch/datasets/glove-25-angular.hdf5')
         with h5py.File(data_hdf5, "r") as hf:
-            print("Keys: %s" % hf.keys())
+            #print("Keys: %s" % hf.keys())
 
-            for key in hf.keys():
-                print(key)
-                if key not in ['neighbors', 'test', 'train']:
-                    continue
-                data_set_w_filtering.create_dataset(key, data = hf[key][()])
+            if generate_attrs:
+                data_set_w_attr = self.create_dataset_file(source_file_name + '-with-attr', extension,
+                                                                data_set_dir)
 
-            possible_colors = ['red', 'green', 'yellow', 'blue', None]
-            possible_tastes = ['sweet', 'salty', 'sour', 'bitter', None]
-            max_age = 100
-            attributes = []
-            for i in range(len(hf['train'])):
-                attr = [random.choice(possible_colors), random.choice(possible_tastes), random.randint(0, max_age + 1)]
-                attributes.append(attr)
+                possible_colors = ['red', 'green', 'yellow', 'blue', None]
+                possible_tastes = ['sweet', 'salty', 'sour', 'bitter', None]
+                max_age = 100
 
-            data_set_w_filtering.create_dataset('attributes', (len(attributes), 3), 'S10', data=attributes)
-            expected_neighbors = hf['neighbors'][()]
+                for key in hf.keys():
+                    print(key)
+                    if key not in ['neighbors', 'test', 'train']:
+                        continue
+                    data_set_w_attr.create_dataset(key, data = hf[key][()])
 
-            def filter1(attributes, vector_idx):
-                if attributes[vector_idx][0] == 'red' and attributes[vector_idx][2] >= 20:
-                    return True
-                else:
-                    return False
+                attributes = []
+                for i in range(len(hf['train'])):
+                    attr = [random.choice(possible_colors), random.choice(possible_tastes),
+                            random.randint(0, max_age + 1)]
+                    attributes.append(attr)
 
-            self.apply_filter(expected_neighbors, attributes, data_set_w_filtering, 'neighbors_filter_1', filter1)
+                data_set_w_attr.create_dataset('attributes', (len(attributes), 3), 'S10', data=attributes)
 
-            # filter 2 - color = blue or None and taste = 'salty'
-            def filter2(attributes, vector_idx):
-                if (attributes[vector_idx][0] == 'blue' or attributes[vector_idx][0] == 'None') and attributes[vector_idx][1] == 'salty':
-                    return True
-                else:
-                    return False
+                data_set_w_attr.flush()
+                data_set_w_attr.close()
 
-            self.apply_filter(expected_neighbors, attributes, data_set_w_filtering, 'neighbors_filter_2', filter2)
+            if generate_filters:
+                attributes = hf['attributes'][()]
+                expected_neighbors = hf['neighbors'][()]
+                """    
+                for key in hf.keys():
+                    #    print(key)
+                    #if key not in ['neighbors', 'test', 'train']:
+                    #    continue
+                    #data_set_w_filtering.create_dataset(key, data = hf[key][()])
+    
+                possible_colors = ['red', 'green', 'yellow', 'blue', None]
+                possible_tastes = ['sweet', 'salty', 'sour', 'bitter', None]
+                max_age = 100
+                attributes = []
+                for i in range(len(hf['train'])):
+                    attr = [random.choice(possible_colors), random.choice(possible_tastes), random.randint(0, max_age + 1)]
+                    attributes.append(attr)
+    
+                data_set_w_filtering.create_dataset('attributes', (len(attributes), 3), 'S10', data=attributes)
+                expected_neighbors = hf['neighbors'][()]
+                """
+                data_set_filters = self.create_dataset_file(source_file_name + '-with-filters', extension,
+                                                            data_set_dir)
 
-            # filter 3 - color and taste are not None and age is between 20 and 80
-            def filter3(attributes, vector_idx):
-                if attributes[vector_idx][0] != 'None' and attributes[vector_idx][1] != 'None' and 20 <= \
-                        attributes[vector_idx][2] <= 80:
-                    return True
-                else:
-                    return False
+                def filter1(attributes, vector_idx):
+                    if attributes[vector_idx][0].decode() == 'red' and int(attributes[vector_idx][2].decode()) >= 20:
+                        return True
+                    else:
+                        return False
 
-            self.apply_filter(expected_neighbors, attributes, data_set_w_filtering, 'neighbors_filter_3', filter3)
+                self.apply_filter(expected_neighbors, attributes, data_set_filters, 'neighbors_filter_1', filter1)
 
-            data_set_w_filtering.flush()
-            data_set_w_filtering.close()
+                # filter 2 - color = blue or None and taste = 'salty'
+                def filter2(attributes, vector_idx):
+                    if (attributes[vector_idx][0].decode() == 'blue' or attributes[vector_idx][0].decode() == 'None') and attributes[vector_idx][1].decode() == 'salty':
+                        return True
+                    else:
+                        return False
+
+                self.apply_filter(expected_neighbors, attributes, data_set_filters, 'neighbors_filter_2', filter2)
+
+                # filter 3 - color and taste are not None and age is between 20 and 80
+                def filter3(attributes, vector_idx):
+                    if attributes[vector_idx][0].decode() != 'None' and attributes[vector_idx][1].decode() != 'None' and 20 <= \
+                            int(attributes[vector_idx][2].decode()) <= 80:
+                        return True
+                    else:
+                        return False
+
+                self.apply_filter(expected_neighbors, attributes, data_set_filters, 'neighbors_filter_3', filter3)
+
+                data_set_filters.flush()
+                data_set_filters.close()
 
         """
         with h5py.File(context.path, 'a') as hf:
@@ -177,5 +174,14 @@ class HDF5Dataset():
     def dd(self, n):
         return None if n is None else n.encode("ascii", "ignore")
 
+    def create_dataset_file(self, file_name, extension, data_set_dir) -> h5py.File:
+        data_set_file_name = "{}.{}".format(file_name, extension)
+        data_set_path = os.path.join(data_set_dir, data_set_file_name)
+
+        data_set_w_filtering = h5py.File(data_set_path, 'a')
+
+        return data_set_w_filtering
+
 worker = HDF5Dataset()
-worker.createDataset()
+#worker.createDataset('/Users/gaievski/dev/opensearch/datasets/sift-128-euclidean.hdf5', True, False)
+worker.createDataset('/Users/gaievski/dev/opensearch/datasets/sift-128-euclidean-with-attr.hdf5', False, True)

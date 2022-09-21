@@ -33,7 +33,7 @@ class OpenSearchStep(base.Step):
         self.endpoint = parse_string_param('endpoint', step_config.config,
                                            step_config.implicit_config,
                                            'localhost')
-        default_port = 9200 if self.endpoint == 'localhost' else 80
+        default_port = 9000 if self.endpoint == 'localhost' else 80
         self.port = parse_int_param('port', step_config.config,
                                     step_config.implicit_config, default_port)
         self.opensearch = get_opensearch_client(str(self.endpoint),
@@ -386,7 +386,6 @@ class QueryStep(OpenSearchStep):
 
     def _action(self):
 
-
         def get_body(vec):
             return {
                 'size': self.k,
@@ -534,17 +533,21 @@ class QueryStep(OpenSearchStep):
 
         results = {}
         query_responses = []
-        for _ in range(self.query_count):
+        get_body_func_map = {
+            "filter_1": get_body_filter_1,
+            "filter_2": get_body_filter_2,
+            "filter_3": get_body_filter_3,
+            "score_script": get_body_score_script,
+            "no_filter": get_body
+        }
+
+        for i in range(self.query_count):
+            if i % 1000 == 0:
+                print('executed {} queries'.format(i))
             query = self.dataset.read(1)
             if query is None:
                 break
-            get_body_func_map = {
-                "filter_1": get_body_filter_1,
-                "filter_2": get_body_filter_2,
-                "filter_3": get_body_filter_3,
-                "score_script": get_body_score_script,
-                "no_filter": get_body
-            }
+
             get_body_func = get_body_func_map.get(self.filter)
             query_responses.append(
                 query_index(self.opensearch, self.index_name,
@@ -559,11 +562,13 @@ class QueryStep(OpenSearchStep):
             ids = [[int(hit['_id'])
                     for hit in query_response['hits']['hits']]
                    for query_response in query_responses]
-            results['recall@K'] = recall_at_r(ids, self.neighbors,
+            r_at_k = recall_at_r(ids, self.neighbors,
                                               self.k, self.k, self.query_count)
+            results['recall@K'] = r_at_k
             self.neighbors.reset()
-            results[f'recall@{str(self.r)}'] = recall_at_r(
+            r_at_r = recall_at_r(
                 ids, self.neighbors, self.r, self.k, self.query_count)
+            results[f'recall@{str(self.r)}'] = r_at_r
             self.neighbors.reset()
 
         self.dataset.reset()
@@ -600,18 +605,18 @@ def bulk_transform(partition: np.ndarray, partition_attr, field_name: str, actio
     idx = 1
     part_list = partition.tolist()
     #print(part_list)
-    for i in range(len(part_list)):
+    for i in range(len(partition)):
         actions[idx] = {field_name: part_list[i]}
-        #print(i)
-        color_val = partition_attr[i][0].decode()
+        attr_idx = i + offset
+        color_val = partition_attr[attr_idx][0].decode()
         if color_val != 'None':
             actions[idx]['color'] = color_val
 
-        taste_val = partition_attr[i][1].decode()
+        taste_val = partition_attr[attr_idx][1].decode()
         if taste_val != 'None':
             actions[idx]['taste'] = taste_val
 
-        age_val = int(partition_attr[i][2].decode())
+        age_val = int(partition_attr[attr_idx][2].decode())
         actions[idx]['age'] = age_val
 
         idx+=2
@@ -722,7 +727,7 @@ def recall_at_r(results, neighbor_dataset, r, k, query_count):
     print(r)
     print(query_count)
     """
-    return correct / (int(rrr) * query_count)
+    return correct / rrr
 
 
 def get_index_size_in_kb(opensearch, index_name):
