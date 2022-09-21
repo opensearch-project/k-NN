@@ -70,7 +70,17 @@ work_dir=$PWD
 git submodule update --init -- jni/external/nmslib
 git submodule update --init -- jni/external/faiss
 
-# Build knn libs
+# Setup compile time dependency for Windows only
+# As Linux version already have OpenBlas in the runner
+if [ "$PLATFORM" = "windows" ]; then
+    openBlasVersion="0.3.21"
+    openBlasFile="openblas_${openBlasVersion}"
+    curl -SL https://github.com/xianyi/OpenBLAS/releases/download/v${openBlasVersion}/OpenBLAS-${openBlasVersion}-x64.zip -o ${openBlasFile}.zip
+    unzip -j -o ${openBlasFile}.zip bin/libopenblas.dll -d ./src/main/resources/windowsDependencies
+    rm -rf ${openBlasFile}.zip
+fi
+
+# Setup knnlib build params for all platforms
 cd jni
 
 # For x64, generalize arch so library is compatible for processors without simd instruction extensions
@@ -90,26 +100,37 @@ if [ "$JAVA_HOME" = "" ]; then
     echo "SET JAVA_HOME=$JAVA_HOME"
 fi
 
-cmake .
-make opensearchknn_faiss opensearchknn_nmslib
-
+# Build k-NN lib and plugin through gradle tasks
 cd $work_dir
-./gradlew assemble --no-daemon --refresh-dependencies -DskipTests=true -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
+# Gradle build is used here to replace gradle assemble due to build will also call cmake and make before generating jars
+./gradlew build --no-daemon --refresh-dependencies -x integTest -DskipTests=true -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
 
 # Add lib to zip
 zipPath=$(find "$(pwd)" -path \*build/distributions/*.zip)
 distributions="$(dirname "${zipPath}")"
 mkdir $distributions/lib
-cp ./jni/release/libopensearchknn* $distributions/lib
+libPrefix="libopensearchknn"
+if [ "$PLATFORM" = "windows" ]; then
+    libPrefix="opensearchknn"
+    cp -v ./src/main/resources/windowsDependencies/libopenblas.dll $distributions/lib
 
-# Copy libomp to be packaged with the lib contents
-ompPath=$(ldconfig -p | grep libgomp | cut -d ' ' -f 4)
-cp $ompPath $distributions/lib
+    # Have to define $MINGW_BIN either in ENV VAR or User Provided Var
+    cp -v "$MINGW_BIN/libgcc_s_seh-1.dll" $distributions/lib
+    cp -v "$MINGW_BIN/libwinpthread-1.dll" $distributions/lib
+    cp -v "$MINGW_BIN/libstdc++-6.dll" $distributions/lib
+    cp -v "$MINGW_BIN/libgomp-1.dll" $distributions/lib
+else
+   ompPath=$(ldconfig -p | grep libgomp | cut -d ' ' -f 4)
+   cp -v $ompPath $distributions/lib
+fi
+cp -v ./jni/release/${libPrefix}* $distributions/lib
+ls -l $distributions/lib
 
+# Add lib directory to the k-NN plugin zip
 cd $distributions
 zip -ur $zipPath lib
 cd $work_dir
 
 echo "COPY ${distributions}/*.zip"
 mkdir -p $OUTPUT/plugins
-cp ${distributions}/*.zip $OUTPUT/plugins
+cp -v ${distributions}/*.zip $OUTPUT/plugins
