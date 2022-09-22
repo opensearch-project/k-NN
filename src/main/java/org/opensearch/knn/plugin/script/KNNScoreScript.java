@@ -9,7 +9,6 @@ import org.opensearch.knn.index.KNNVectorScriptDocValues;
 import org.apache.lucene.index.LeafReaderContext;
 import org.opensearch.index.fielddata.ScriptDocValues;
 import org.opensearch.script.ScoreScript;
-import org.opensearch.script.ScriptContext;
 import org.opensearch.search.lookup.SearchLookup;
 
 import java.io.IOException;
@@ -140,6 +139,4 @@ public abstract class KNNScoreScript<T> extends ScoreScript {
             return this.scoringMethod.apply(this.queryValue, scriptDocValues.getValue());
         }
     }
-
-    public static final ScriptContext<KNNScoreScriptFactory> CONTEXT = new ScriptContext<>("knn_score", KNNScoreScriptFactory.class);
 }
