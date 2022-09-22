@@ -45,6 +45,6 @@ public class KNNScoringScriptEngine implements ScriptEngine {
 
     @Override
     public Set<ScriptContext<?>> getSupportedContexts() {
-        return Collections.singleton(KNNScoreScript.CONTEXT);
+        return Collections.singleton(ScoreScript.CONTEXT);
     }
 }
