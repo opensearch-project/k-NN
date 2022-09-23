@@ -13,9 +13,9 @@ from okpt.io.dataset import HDF5DataSet, BigANNNeighborDataSet, \
 
 
 def parse_dataset(dataset_format: str, dataset_path: str,
-                  context: Context) -> DataSet:
+                  context: Context, custom_context=None) -> DataSet:
     if dataset_format == 'hdf5':
-        return HDF5DataSet(dataset_path, context)
+        return HDF5DataSet(dataset_path, context, custom_context)
 
     if dataset_format == 'bigann' and context == Context.NEIGHBORS:
         return BigANNNeighborDataSet(dataset_path)

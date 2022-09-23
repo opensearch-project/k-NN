@@ -33,7 +33,7 @@ class OpenSearchStep(base.Step):
         self.endpoint = parse_string_param('endpoint', step_config.config,
                                            step_config.implicit_config,
                                            'localhost')
-        default_port = 9000 if self.endpoint == 'localhost' else 80
+        default_port = 9200 if self.endpoint == 'localhost' else 80
         self.port = parse_int_param('port', step_config.config,
                                     step_config.implicit_config, default_port)
         self.opensearch = get_opensearch_client(str(self.endpoint),
@@ -320,8 +320,6 @@ class IngestStep(OpenSearchStep):
             if i % 5000 == 0:
                 print('indexed {} docs'.format(i))
             partition = self.dataset.read(self.bulk_size)
-            #partition_attr = self.attributes_dataset.read(1000000)
-            #print(len(partition_attr))
             if partition is None:
                 break
             body = bulk_transform(partition, partition_attr, self.field_name, action, i)
@@ -350,8 +348,96 @@ class QueryStep(OpenSearchStep):
                                              {}, None)
         self.calculate_recall = parse_bool_param('calculate_recall',
                                                  step_config.config, {}, False)
+        dataset_format = parse_string_param('dataset_format',
+                                            step_config.config, {}, 'hdf5')
+        dataset_path = parse_string_param('dataset_path',
+                                          step_config.config, {}, None)
+        self.dataset = parse_dataset(dataset_format, dataset_path,
+                                     Context.QUERY)
 
-        self.filter = parse_string_param('filter', step_config.config, {}, None)
+        input_query_count = parse_int_param('query_count',
+                                            step_config.config, {},
+                                            self.dataset.size())
+        self.query_count = min(input_query_count, self.dataset.size())
+
+        neighbors_format = parse_string_param('neighbors_format',
+                                              step_config.config, {}, 'hdf5')
+        neighbors_path = parse_string_param('neighbors_path',
+                                            step_config.config, {}, None)
+        self.neighbors = parse_dataset(neighbors_format, neighbors_path,
+                                       Context.NEIGHBORS)
+        self.implicit_config = step_config.implicit_config
+
+    def _action(self):
+
+        def get_body(vec):
+            return {
+                'size': self.k,
+                'query': {
+                    'knn': {
+                        self.field_name: {
+                            'vector': vec,
+                            'k': self.k
+                        }
+                    }
+                }
+            }
+
+        results = {}
+        query_responses = []
+        for _ in range(self.query_count):
+            query = self.dataset.read(1)
+            if query is None:
+                break
+            query_responses.append(
+                query_index(self.opensearch, self.index_name,
+                            get_body(query[0]), [self.field_name]))
+
+        results['took'] = [
+            float(query_response['took']) for query_response in query_responses
+        ]
+        results['memory_kb'] = get_cache_size_in_kb(self.endpoint, 80)
+
+        if self.calculate_recall:
+            ids = [[int(hit['_id'])
+                    for hit in query_response['hits']['hits']]
+                   for query_response in query_responses]
+            results['recall@K'] = recall_at_r(ids, self.neighbors,
+                                              self.k, self.k, self.query_count)
+            self.neighbors.reset()
+            results[f'recall@{str(self.r)}'] = recall_at_r(
+                ids, self.neighbors, self.r, self.k, self.query_count)
+            self.neighbors.reset()
+
+        self.dataset.reset()
+
+        return results
+
+    def _get_measures(self) -> List[str]:
+        measures = ['took', 'memory_kb']
+
+        if self.calculate_recall:
+            measures.extend(['recall@K', f'recall@{str(self.r)}'])
+
+        return measures
+
+class QueryWithFilterStep(OpenSearchStep):
+    """See base class."""
+
+    label = 'query_with_filter'
+
+    def __init__(self, step_config: StepConfig):
+        super().__init__(step_config)
+        self.k = parse_int_param('k', step_config.config, {}, 100)
+        self.r = parse_int_param('r', step_config.config, {}, 1)
+        self.index_name = parse_string_param('index_name', step_config.config,
+                                             {}, None)
+        self.field_name = parse_string_param('field_name', step_config.config,
+                                             {}, None)
+        self.calculate_recall = parse_bool_param('calculate_recall',
+                                                 step_config.config, {}, False)
+
+        self.filter_spec = parse_string_param('filter_spec', step_config.config, {}, None)
 
         dataset_format = parse_string_param('dataset_format',
                                             step_config.config, {}, 'hdf5')
@@ -370,176 +456,60 @@ class QueryStep(OpenSearchStep):
         neighbors_path = parse_string_param('neighbors_path',
                                             step_config.config, {}, None)
 
-        context_by_filter = {
-            "filter_1": Context.NEIGHBORS_FILTER_1,
-            "filter_2": Context.NEIGHBORS_FILTER_2,
-            "filter_3": Context.NEIGHBORS_FILTER_3,
-            "score_script": Context.NEIGHBORS_FILTER_1,
-            "no_filter": Context.NEIGHBORS
-        }
-        current_context = context_by_filter.get(self.filter)
+        neighbors_dataset = parse_string_param('neighbors_dataset',
+                                            step_config.config, {}, None)
 
         self.neighbors = parse_dataset(neighbors_format, neighbors_path,
-                                       current_context)
+                                       Context.NEIGHBORS_FILTER, neighbors_dataset)
+
+        self.filter_type = parse_string_param('filter_type', step_config.config, {}, None)
+        self.score_script_similarity = parse_string_param('score_script_similarity', step_config.config, {}, 'None')
 
         self.implicit_config = step_config.implicit_config
 
     def _action(self):
-
-        def get_body(vec):
-            return {
-                'size': self.k,
-                'query': {
-                    'knn': {
-                        self.field_name: {
-                            'vector': vec,
-                            'k': self.k
-                        }
-                    }
-                }
-            }
-
-        def get_body_score_script(vec):
-            return {
-                'size': self.k,
-                'query': {
-                    'script_score': {
-                        'query': {
-                            'bool': {
-                                'filter': {
-                                    'bool': {
-                                        'must': [
-                                            {'range': {'age': {'gte': 20, 'lte': 100}}},
-                                            {'term': {'color': 'red'}}
-                                        ]
-                                    }
-                                }
-                            }
-                        },
-                        'script': {
-                            'source': 'knn_score',
-                            "lang": "knn",
-                            'params': {
-                                'field': self.field_name,
-                                'query_value': vec,
-                                'space_type': 'l2'
+        def get_body_filter(vec):
+            filter_json = json.load(open(self.filter_spec))
+            if self.filter_type == 'FILTER':
+                return {
+                    'size': self.k,
+                    'query': {
+                        'knn': {
+                            self.field_name: {
+                                'vector': vec,
+                                'k': self.k,
+                                'filter': filter_json
                             }
                         }
                     }
                 }
-            }
-
-        """
-        def get_body_score_script(vec):
-            return {
-                'size': self.k,
-                'query': {
-                    'script_score': {
-                        'query': {
-                            'bool': {
-                                'filter': {
-                                    'bool': {
-                                        'must': [
-                                            {'range': {'age': {'gte': 20, 'lte': 100}}},
-                                            {'term': {'color': 'red'}}
-                                        ]
-                                    }
-                                }
-                            }
-                        },
-                        'script': {
-                            'source': 'knn_score',
-                            "lang": "knn",
-                            'params': {
-                                'field': 'target_field',
-                                'query_value': vec,
-                                'space_type': 'l2'
-                            }
-                        }
-                    }
-                }
-            }
-        """
-
-        def get_body_filter_1(vec):
-            return {
-                'size': self.k,
-                'query': {
-                    'knn': {
-                        self.field_name: {
-                            'vector': vec,
-                            'k': self.k,
-                            'filter': {
+            elif self.filter_type == 'SCRIPT':
+                return {
+                    'size': self.k,
+                    'query': {
+                        'script_score': {
+                            'query': {
                                 'bool': {
-                                        'must': [
-                                            {'range': {'age': {'gte': 20, 'lte': 100}}},
-                                            {'term': {'color': 'red'}}
-                                        ]
+                                    'filter': filter_json
+                                }
+                            },
+                            'script': {
+                                'source': 'knn_score',
+                                'lang': 'knn',
+                                'params': {
+                                    'field': self.field_name,
+                                    'query_value': vec,
+                                    'space_type': self.score_script_similarity
                                 }
                             }
                         }
                     }
                 }
-            }
-
-        def get_body_filter_2(vec):
-            return {
-                'size': self.k,
-                'query': {
-                    'knn': {
-                        self.field_name: {
-                            'vector': vec,
-                            'k': self.k,
-                            'filter': {
-                                'bool': {
-                                        'must': [
-                                            {'term': {'taste': 'salty'}},
-                                            {'term': {'color': 'blue'}}
-                                        ]
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-        def get_body_filter_3(vec):
-            return {
-                'size': self.k,
-                'query': {
-                    'knn': {
-                        self.field_name: {
-                            'vector': vec,
-                            'k': self.k,
-                            'filter': {
-                                'bool': {
-                                    'must': [
-                                        { "range": { "age": { "gte": 30, "lte": 50 }}},
-                                        {
-                                            "bool": {
-                                                'should': [
-                                                    {'term': {'taste': 'bitter'}},
-                                                    {'term': {'taste': 'sweet'}}
-                                                ]
-                                            }
-                                        }
-                                    ],
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            else:
+                raise ConfigurationError('Not supported filter type {}'.format(self.filter_type))
 
         results = {}
         query_responses = []
-        get_body_func_map = {
-            "filter_1": get_body_filter_1,
-            "filter_2": get_body_filter_2,
-            "filter_3": get_body_filter_3,
-            "score_script": get_body_score_script,
-            "no_filter": get_body
-        }
 
         for i in range(self.query_count):
             if i % 1000 == 0:
@@ -548,10 +518,9 @@ class QueryStep(OpenSearchStep):
             if query is None:
                 break
 
-            get_body_func = get_body_func_map.get(self.filter)
             query_responses.append(
                 query_index(self.opensearch, self.index_name,
-                            get_body_func(query[0]), [self.field_name]))
+                            get_body_filter(query[0]), [self.field_name]))
 
         results['took'] = [
             float(query_response['took']) for query_response in query_responses
@@ -583,7 +552,6 @@ class QueryStep(OpenSearchStep):
 
         return measures
 
-
 # Helper functions - (AKA not steps)
 def bulk_transform(partition: np.ndarray, partition_attr, field_name: str, action,
                    offset: int) -> List[Dict[str, Any]]:
@@ -604,7 +572,6 @@ def bulk_transform(partition: np.ndarray, partition_attr, field_name: str, actio
     ]
     idx = 1
     part_list = partition.tolist()
-    #print(part_list)
     for i in range(len(partition)):
         actions[idx] = {field_name: part_list[i]}
         attr_idx = i + offset

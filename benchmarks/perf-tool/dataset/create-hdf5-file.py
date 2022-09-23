@@ -1,12 +1,24 @@
+import getopt
 import os
 import random
-
+import sys
 
 import h5py
-import numpy as np
+
 from pathlib import Path
 
 from osb.extensions.data_set import Context, HDF5DataSet
+
+"""
+Example of usage:
+    
+    create new hdf5 file with attribute dataset
+    create-hdf5-file.py /Users/gaievski/dev/opensearch/k-NN-1/benchmarks/perf-tool/dataset/data.hdf5 True False
+    
+    create new hdf5 file with filter datasets
+    create-hdf5-file.py /Users/gaievski/dev/opensearch/k-NN-1/benchmarks/perf-tool/dataset/data-with-attr.hdf5 False True
+    
+"""
 
 class HDF5Dataset():
     DEFAULT_INDEX_NAME = "test-index"
@@ -18,9 +30,10 @@ class HDF5Dataset():
     DEFAULT_RANDOM_STRING_LENGTH = 8
 
     def createDataset(self, source_dataset_path, generate_attrs, generate_filters) -> None:
-            self.data_set_dir = os.getcwd()
+        path_elements = os.path.split(os.path.abspath(source_dataset_path))
 
-            self._build_data_sets(self.data_set_dir, source_dataset_path, self.DEFAULT_TYPE, generate_attrs, generate_filters)
+        self._build_data_sets(path_elements[0], source_dataset_path, self.DEFAULT_TYPE, generate_attrs,
+                              generate_filters)
 
     def _build_data_sets(self, data_set_dir, source_dataset_path, extension: str,
                          generate_attrs: bool, generate_filters: bool):
@@ -29,27 +42,23 @@ class HDF5Dataset():
         # _flush_data_sets_to_disk is called
         # read existing dataset
         source_file_name = Path(source_dataset_path).stem
-        #data_set_w_filtering = self.create_dataset_file(source_file_name + '-with-attr', extension, data_set_dir)
-
         data_hdf5 = os.path.join(os.path.dirname(os.path.realpath('/')), source_dataset_path)
-        #data_hdf5 = os.path.join(os.path.dirname(os.path.realpath('/')),
-        #                         'Users/gaievski/dev/opensearch/datasets/glove-25-angular.hdf5')
+
         with h5py.File(data_hdf5, "r") as hf:
-            #print("Keys: %s" % hf.keys())
 
             if generate_attrs:
                 data_set_w_attr = self.create_dataset_file(source_file_name + '-with-attr', extension,
-                                                                data_set_dir)
+                                                           data_set_dir)
 
                 possible_colors = ['red', 'green', 'yellow', 'blue', None]
                 possible_tastes = ['sweet', 'salty', 'sour', 'bitter', None]
                 max_age = 100
 
                 for key in hf.keys():
-                    print(key)
                     if key not in ['neighbors', 'test', 'train']:
                         continue
-                    data_set_w_attr.create_dataset(key, data = hf[key][()])
+                    print(key)
+                    data_set_w_attr.create_dataset(key, data=hf[key][()])
 
                 attributes = []
                 for i in range(len(hf['train'])):
@@ -65,24 +74,7 @@ class HDF5Dataset():
             if generate_filters:
                 attributes = hf['attributes'][()]
                 expected_neighbors = hf['neighbors'][()]
-                """    
-                for key in hf.keys():
-                    #    print(key)
-                    #if key not in ['neighbors', 'test', 'train']:
-                    #    continue
-                    #data_set_w_filtering.create_dataset(key, data = hf[key][()])
-    
-                possible_colors = ['red', 'green', 'yellow', 'blue', None]
-                possible_tastes = ['sweet', 'salty', 'sour', 'bitter', None]
-                max_age = 100
-                attributes = []
-                for i in range(len(hf['train'])):
-                    attr = [random.choice(possible_colors), random.choice(possible_tastes), random.randint(0, max_age + 1)]
-                    attributes.append(attr)
-    
-                data_set_w_filtering.create_dataset('attributes', (len(attributes), 3), 'S10', data=attributes)
-                expected_neighbors = hf['neighbors'][()]
-                """
+
                 data_set_filters = self.create_dataset_file(source_file_name + '-with-filters', extension,
                                                             data_set_dir)
 
@@ -96,7 +88,8 @@ class HDF5Dataset():
 
                 # filter 2 - color = blue or None and taste = 'salty'
                 def filter2(attributes, vector_idx):
-                    if (attributes[vector_idx][0].decode() == 'blue' or attributes[vector_idx][0].decode() == 'None') and attributes[vector_idx][1].decode() == 'salty':
+                    if (attributes[vector_idx][0].decode() == 'blue' or attributes[vector_idx][
+                        0].decode() == 'None') and attributes[vector_idx][1].decode() == 'salty':
                         return True
                     else:
                         return False
@@ -105,7 +98,8 @@ class HDF5Dataset():
 
                 # filter 3 - color and taste are not None and age is between 20 and 80
                 def filter3(attributes, vector_idx):
-                    if attributes[vector_idx][0].decode() != 'None' and attributes[vector_idx][1].decode() != 'None' and 20 <= \
+                    if attributes[vector_idx][0].decode() != 'None' and attributes[vector_idx][
+                        1].decode() != 'None' and 20 <= \
                             int(attributes[vector_idx][2].decode()) <= 80:
                         return True
                     else:
@@ -116,46 +110,6 @@ class HDF5Dataset():
                 data_set_filters.flush()
                 data_set_filters.close()
 
-        """
-        with h5py.File(context.path, 'a') as hf:
-            hf.create_dataset(
-                HDF5DataSet.parse_context(context.data_set_context),
-                data=context.vectors
-            )
-        """
-        """
-        with h5py.File(context.path, 'a') as hf:
-            colors = ['red',None, 'green', None, 'red']
-            #asciiList = [self.dd(n) for n in strList]
-            hf.create_dataset('color', (len(colors), 1), 'S10', colors)
-            taste = ['sweet', 'sweet', 'sour', 'salty', None]
-            # asciiList = [self.dd(n) for n in strList]
-            hf.create_dataset('taste', (len(taste), 1), 'S10', taste)
-            hf.create_dataset(
-                HDF5DataSet.parse_context(context.data_set_context),
-                data=context.vectors
-            )
-            hf.flush()
-            hf.close()
-
-        with h5py.File(context.path, "r") as hf:
-            print("Keys: %s" % hf.keys())
-
-            for key in hf.keys():
-                print(key)
-                data = hf[key][()]
-                for d in data:
-                    #print(type(d))
-                    if key in ['color', 'taste']:
-                        s = d[0].decode()
-                        if s == "None":
-                            print("Empty string")
-                        else:
-                            print(s)
-                    else:
-                        print(d)
-        """
-
     def apply_filter(self, expected_neighbors, attributes, data_set_w_filtering, filter_name, filter_func):
         # filter one - color = red, age >= 20
         neighbors_filter_1 = []
@@ -163,7 +117,6 @@ class HDF5Dataset():
             neighbors_filter_1_row = [-1] * len(expected_neighbors_row)
             idx = 0
             for vector_idx in expected_neighbors_row:
-                #if attributes[vector_idx][0] == 'red' and attributes[vector_idx][2] >= 20:
                 if filter_func(attributes, vector_idx):
                     neighbors_filter_1_row[idx] = vector_idx
                     idx += 1
@@ -182,6 +135,19 @@ class HDF5Dataset():
 
         return data_set_w_filtering
 
-worker = HDF5Dataset()
-#worker.createDataset('/Users/gaievski/dev/opensearch/datasets/sift-128-euclidean.hdf5', True, False)
-worker.createDataset('/Users/gaievski/dev/opensearch/datasets/sift-128-euclidean-with-attr.hdf5', False, True)
+
+def main(argv):
+    opts, args = getopt.getopt(argv, "")
+    file_path = args[0]
+    generate_attr = str2bool(args[1])
+    generate_filters = str2bool(args[2])
+
+    worker = HDF5Dataset()
+    worker.createDataset(file_path, generate_attr, generate_filters)
+
+def str2bool(v):
+  return v.lower() in ("yes", "true", "t", "1")
+
+if __name__ == "__main__":
+   main(sys.argv[1:])
+
