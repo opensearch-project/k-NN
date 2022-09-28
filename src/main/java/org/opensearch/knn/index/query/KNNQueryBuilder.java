@@ -110,7 +110,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             fieldName = in.readString();
             vector = in.readFloatArray();
             k = in.readInt();
-            if (in.getVersion().onOrAfter(Version.V_2_4_0)) {
+            if (in.getVersion().onOrAfter(Version.V_3_0_0)) {
                 filter = in.readOptionalNamedWriteable(QueryBuilder.class);
             }
         } catch (IOException ex) {

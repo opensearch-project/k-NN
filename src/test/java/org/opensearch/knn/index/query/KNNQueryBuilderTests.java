@@ -47,7 +47,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     private static final String FIELD_NAME = "myvector";
     private static final int K = 1;
     private static final TermQueryBuilder TERM_QUERY = QueryBuilders.termQuery("field", "value");
-    private static final float[] QUERY_VECTOR = new float[]{ 1.0f, 2.0f, 3.0f, 4.0f };
+    private static final float[] QUERY_VECTOR = new float[] { 1.0f, 2.0f, 3.0f, 4.0f };
 
     public void testInvalidK() {
         float[] queryVector = { 1.0f, 1.0f };
@@ -250,7 +250,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             }
         }
 
-        //test serialization from < 2.4 versions
+        // test serialization from < 2.4 versions
         try (BytesStreamOutput output = new BytesStreamOutput()) {
             output.setVersion(Version.V_2_3_0);
             output.writeNamedWriteable(knnQueryBuilderWithFilter);
