@@ -30,12 +30,10 @@ public class KNN940PerFieldKnnVectorsFormat extends PerFieldKnnVectorsFormat {
     public KnnVectorsFormat getKnnVectorsFormatForField(final String field) {
         if (isNotKnnVectorFieldType(field)) {
             log.debug(
-                String.format(
-                    "Initialize KNN vector format for field [%s] with default params [max_connections] = \"%d\" and [beam_width] = \"%d\"",
-                    field,
-                    Lucene94HnswVectorsFormat.DEFAULT_MAX_CONN,
-                    Lucene94HnswVectorsFormat.DEFAULT_BEAM_WIDTH
-                )
+                "Initialize KNN vector format for field [{}] with default params [max_connections] = \"{}\" and [beam_width] = \"{}\"",
+                field,
+                Lucene94HnswVectorsFormat.DEFAULT_MAX_CONN,
+                Lucene94HnswVectorsFormat.DEFAULT_BEAM_WIDTH
             );
             return new Lucene94HnswVectorsFormat();
         }
@@ -48,12 +46,10 @@ public class KNN940PerFieldKnnVectorsFormat extends PerFieldKnnVectorsFormat {
         int maxConnections = getMaxConnections(params);
         int beamWidth = getBeamWidth(params);
         log.debug(
-            String.format(
-                "Initialize KNN vector format for field [%s] with params [max_connections] = \"%d\" and [beam_width] = \"%d\"",
-                field,
-                maxConnections,
-                beamWidth
-            )
+            "Initialize KNN vector format for field [{}] with params [max_connections] = \"{}\" and [beam_width] = \"{}\"",
+            field,
+            maxConnections,
+            beamWidth
         );
         return new Lucene94HnswVectorsFormat(maxConnections, beamWidth);
     }
