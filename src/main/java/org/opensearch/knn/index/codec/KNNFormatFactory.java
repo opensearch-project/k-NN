@@ -38,4 +38,16 @@ public class KNNFormatFactory {
         );
         return knnFormatFacade;
     }
+
+    /**
+     * Return facade class that abstracts format specific to KNN940 codec
+     * @param delegate delegate codec that is wrapped by KNN codec
+     */
+    public static KNNFormatFacade createKNN940Format(final Codec delegate) {
+        final KNNFormatFacade knnFormatFacade = new KNNFormatFacade(
+            new KNN80DocValuesFormat(delegate.docValuesFormat()),
+            new KNN80CompoundFormat(delegate.compoundFormat())
+        );
+        return knnFormatFacade;
+    }
 }
