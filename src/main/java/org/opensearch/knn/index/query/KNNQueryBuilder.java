@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import lombok.extern.log4j.Log4j2;
+import org.opensearch.Version;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.index.KNNMethodContext;
@@ -109,11 +110,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             fieldName = in.readString();
             vector = in.readFloatArray();
             k = in.readInt();
-            if (in.readBoolean()) {
-                filter = in.readNamedWriteable(QueryBuilder.class);
+            if (in.getVersion().onOrAfter(Version.V_2_4_0)) {
+                filter = in.readOptionalNamedWriteable(QueryBuilder.class);
             }
         } catch (IOException ex) {
-            throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder: " + ex);
+            throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder", ex);
         }
     }
 
@@ -184,12 +185,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         out.writeString(fieldName);
         out.writeFloatArray(vector);
         out.writeInt(k);
-        if (filter != null) {
-            out.writeBoolean(true);
-            out.writeNamedWriteable(filter);
-        } else {
-            out.writeBoolean(false);
-        }
+        out.writeOptionalNamedWriteable(filter);
     }
 
     /**
