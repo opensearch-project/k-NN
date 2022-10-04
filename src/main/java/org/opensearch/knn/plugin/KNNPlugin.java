@@ -11,6 +11,7 @@ import org.opensearch.common.ParseField;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.knn.index.KNNCircuitBreaker;
+import org.opensearch.knn.index.KNNClusterContext;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -179,6 +180,7 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
         NativeMemoryLoadStrategy.TrainingLoadStrategy.initialize(vectorReader);
 
         KNNSettings.state().initialize(client, clusterService);
+        KNNClusterContext.instance().initialize(clusterService);
         ModelDao.OpenSearchKNNModelDao.initialize(client, clusterService, environment.settings());
         ModelCache.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
         TrainingJobRunner.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance());

@@ -9,6 +9,7 @@ import lombok.extern.log4j.Log4j2;
 import org.opensearch.Version;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.knn.index.KNNClusterContext;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -106,11 +107,12 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
      */
     public KNNQueryBuilder(StreamInput in) throws IOException {
         super(in);
+        final Version minClusterVersion = KNNClusterContext.instance().getClusterMinVersion();
         try {
             fieldName = in.readString();
             vector = in.readFloatArray();
             k = in.readInt();
-            if (in.getVersion().onOrAfter(Version.V_3_0_0)) {
+            if (minClusterVersion.onOrAfter(Version.V_3_0_0)) {
                 filter = in.readOptionalNamedWriteable(QueryBuilder.class);
             }
         } catch (IOException ex) {
@@ -185,7 +187,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         out.writeString(fieldName);
         out.writeFloatArray(vector);
         out.writeInt(k);
-        out.writeOptionalNamedWriteable(filter);
+        final Version minVersion = KNNClusterContext.instance().getClusterMinVersion();
+        if (minVersion.onOrAfter(Version.V_3_0_0)) {
+            out.writeOptionalNamedWriteable(filter);
+        }
     }
 
     /**
