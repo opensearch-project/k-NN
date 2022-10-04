@@ -38,6 +38,7 @@ import org.opensearch.plugins.SearchPlugin;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
@@ -226,62 +227,43 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     }
 
     public void testSerialization() throws Exception {
+        assertSerialization(Version.CURRENT, Optional.empty());
 
-        final KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, K);
-        ClusterService clusterService = mockClusterService(List.of(Version.CURRENT));
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY));
+
+        assertSerialization(Version.V_2_3_0, Optional.empty());
+    }
+
+    private void assertSerialization(final Version version, final Optional<QueryBuilder> queryBuilderOptional) throws Exception {
+        final KNNQueryBuilder knnQueryBuilder = queryBuilderOptional.isPresent()
+            ? new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, K, queryBuilderOptional.get())
+            : new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, K);
+
+        final ClusterService clusterService = mockClusterService(List.of(version));
+
         final KNNClusterContext knnClusterContext = KNNClusterContext.instance();
         knnClusterContext.initialize(clusterService);
         try (BytesStreamOutput output = new BytesStreamOutput()) {
-            output.setVersion(Version.CURRENT);
+            output.setVersion(version);
             output.writeNamedWriteable(knnQueryBuilder);
 
             try (StreamInput in = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry())) {
                 in.setVersion(Version.CURRENT);
                 final QueryBuilder deserializedQuery = in.readNamedWriteable(QueryBuilder.class);
-                assertSerialization(deserializedQuery, true);
+
+                assertNotNull(deserializedQuery);
+                assertTrue(deserializedQuery instanceof KNNQueryBuilder);
+                final KNNQueryBuilder deserializedKnnQueryBuilder = (KNNQueryBuilder) deserializedQuery;
+                assertEquals(FIELD_NAME, deserializedKnnQueryBuilder.fieldName());
+                assertArrayEquals(QUERY_VECTOR, (float[]) deserializedKnnQueryBuilder.vector(), 0.0f);
+                assertEquals(K, deserializedKnnQueryBuilder.getK());
+                if (queryBuilderOptional.isPresent()) {
+                    assertNotNull(deserializedKnnQueryBuilder.getFilter());
+                    assertEquals(queryBuilderOptional.get(), deserializedKnnQueryBuilder.getFilter());
+                } else {
+                    assertNull(deserializedKnnQueryBuilder.getFilter());
+                }
             }
-        }
-
-        final KNNQueryBuilder knnQueryBuilderWithFilter = new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, K, TERM_QUERY);
-
-        try (BytesStreamOutput output = new BytesStreamOutput()) {
-            output.setVersion(Version.CURRENT);
-            output.writeNamedWriteable(knnQueryBuilderWithFilter);
-
-            try (StreamInput in = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry())) {
-                in.setVersion(Version.CURRENT);
-                final QueryBuilder deserializedQuery = in.readNamedWriteable(QueryBuilder.class);
-                assertSerialization(deserializedQuery, false);
-            }
-        }
-
-        // test serialization from < 2.4 versions
-        clusterService = mockClusterService(List.of(Version.V_2_3_0));
-        knnClusterContext.initialize(clusterService);
-        try (BytesStreamOutput output = new BytesStreamOutput()) {
-            output.setVersion(Version.V_2_3_0);
-            output.writeNamedWriteable(knnQueryBuilderWithFilter);
-
-            try (StreamInput in = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry())) {
-                in.setVersion(Version.V_2_3_0);
-                final QueryBuilder deserializedQuery = in.readNamedWriteable(QueryBuilder.class);
-                assertSerialization(deserializedQuery, true);
-            }
-        }
-    }
-
-    private void assertSerialization(final QueryBuilder deserializedQuery, boolean assertFilterIsNull) {
-        assertNotNull(deserializedQuery);
-        assertTrue(deserializedQuery instanceof KNNQueryBuilder);
-        final KNNQueryBuilder deserializedKnnQueryBuilder = (KNNQueryBuilder) deserializedQuery;
-        assertEquals(FIELD_NAME, deserializedKnnQueryBuilder.fieldName());
-        assertArrayEquals(QUERY_VECTOR, (float[]) deserializedKnnQueryBuilder.vector(), 0.0f);
-        assertEquals(K, deserializedKnnQueryBuilder.getK());
-        if (assertFilterIsNull) {
-            assertNull(deserializedKnnQueryBuilder.getFilter());
-        } else {
-            assertNotNull(deserializedKnnQueryBuilder.getFilter());
-            assertEquals(TERM_QUERY, deserializedKnnQueryBuilder.getFilter());
         }
     }
 }
