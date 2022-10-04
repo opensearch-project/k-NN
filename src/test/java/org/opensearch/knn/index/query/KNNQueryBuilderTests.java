@@ -103,6 +103,11 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     }
 
     public void testFromXcontent_WithFilter() throws Exception {
+        final ClusterService clusterService = mockClusterService(List.of(Version.CURRENT));
+
+        final KNNClusterContext knnClusterContext = KNNClusterContext.instance();
+        knnClusterContext.initialize(clusterService);
+
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K, TERM_QUERY);
         XContentBuilder builder = XContentFactory.jsonBuilder();
@@ -117,6 +122,28 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         contentParser.nextToken();
         KNNQueryBuilder actualBuilder = KNNQueryBuilder.fromXContent(contentParser);
         actualBuilder.equals(knnQueryBuilder);
+    }
+
+    public void testFromXcontent_WithFilter_UnsupportedClusterVersion() throws Exception {
+        final ClusterService clusterService = mockClusterService(List.of(Version.V_2_3_0));
+
+        final KNNClusterContext knnClusterContext = KNNClusterContext.instance();
+        knnClusterContext.initialize(clusterService);
+
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        final KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K, TERM_QUERY);
+        final XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(knnQueryBuilder.fieldName());
+        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
+        builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), knnQueryBuilder.getK());
+        builder.field(KNNQueryBuilder.FILTER_FIELD.getPreferredName(), knnQueryBuilder.getFilter());
+        builder.endObject();
+        builder.endObject();
+        final XContentParser contentParser = createParser(builder);
+        contentParser.nextToken();
+
+        expectThrows(IllegalArgumentException.class, () -> KNNQueryBuilder.fromXContent(contentParser));
     }
 
     @Override

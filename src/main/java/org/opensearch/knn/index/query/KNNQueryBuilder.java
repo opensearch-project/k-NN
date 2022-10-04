@@ -54,6 +54,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private final float[] vector;
     private int k = 0;
     private QueryBuilder filter;
+    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER = Version.V_3_0_0;
 
     /**
      * Constructs a new knn query
@@ -107,12 +108,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
      */
     public KNNQueryBuilder(StreamInput in) throws IOException {
         super(in);
-        final Version minClusterVersion = KNNClusterContext.instance().getClusterMinVersion();
         try {
             fieldName = in.readString();
             vector = in.readFloatArray();
             k = in.readInt();
-            if (minClusterVersion.onOrAfter(Version.V_3_0_0)) {
+            if (isClusterOnOrAfterMinRequiredVersion()) {
                 filter = in.readOptionalNamedWriteable(QueryBuilder.class);
             }
         } catch (IOException ex) {
@@ -158,7 +158,23 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                         String tokenName = parser.currentName();
                         if (FILTER_FIELD.getPreferredName().equals(tokenName)) {
                             log.debug(String.format("Start parsing filter for field [%s]", fieldName));
-                            filter = parseInnerQueryBuilder(parser);
+                            if (isClusterOnOrAfterMinRequiredVersion()) {
+                                filter = parseInnerQueryBuilder(parser);
+                            } else {
+                                log.debug(
+                                    String.format(
+                                        "This version of k-NN doesn't support [filter] field, minimal required version is [%s]",
+                                        MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER
+                                    )
+                                );
+                                throw new IllegalArgumentException(
+                                    String.format(
+                                        "%s field is supported from version %s",
+                                        FILTER_FIELD.getPreferredName(),
+                                        MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER
+                                    )
+                                );
+                            }
                         } else {
                             throw new ParsingException(parser.getTokenLocation(), "[" + NAME + "] unknown token [" + token + "]");
                         }
@@ -187,8 +203,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         out.writeString(fieldName);
         out.writeFloatArray(vector);
         out.writeInt(k);
-        final Version minVersion = KNNClusterContext.instance().getClusterMinVersion();
-        if (minVersion.onOrAfter(Version.V_3_0_0)) {
+        if (isClusterOnOrAfterMinRequiredVersion()) {
             out.writeOptionalNamedWriteable(filter);
         }
     }
@@ -303,5 +318,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     @Override
     public String getWriteableName() {
         return NAME;
+    }
+
+    private static boolean isClusterOnOrAfterMinRequiredVersion() {
+        return KNNClusterContext.instance().getClusterMinVersion().onOrAfter(MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER);
     }
 }
