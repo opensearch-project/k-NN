@@ -10,6 +10,7 @@ import org.opensearch.script.ScoreScript;
 import org.opensearch.script.ScriptContext;
 import org.opensearch.script.ScriptEngine;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
@@ -44,6 +45,6 @@ public class KNNScoringScriptEngine implements ScriptEngine {
 
     @Override
     public Set<ScriptContext<?>> getSupportedContexts() {
-        return null;
+        return Collections.singleton(ScoreScript.CONTEXT);
     }
 }
