@@ -40,7 +40,7 @@ else()
 endif()
 
 if(NOT KNN_PLUGIN_VERSION)
-    set(KNN_PLUGIN_VERSION "1.3.0.0")
+    set(KNN_PLUGIN_VERSION "1.3.6.0")
 endif()
 
 # Set architecture specific variables
