@@ -22,6 +22,7 @@ import org.apache.lucene.index.SortedDocValues;
 import org.apache.lucene.index.SortedNumericDocValues;
 import org.apache.lucene.index.SortedSetDocValues;
 import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
@@ -178,6 +179,7 @@ public class KNNCodecTestUtil {
                 pointIndexDimensionCount,
                 pointNumBytes,
                 vectorDimension,
+                VectorEncoding.FLOAT32,
                 vectorSimilarityFunction,
                 softDeletes
             );

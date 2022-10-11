@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.KNN920Codec;
+package org.opensearch.knn.index.codec.KNN940Codec;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.codecs.lucene94.Lucene94HnswVectorsFormat;
 import org.apache.lucene.codecs.KnnVectorsFormat;
-import org.apache.lucene.backward_codecs.lucene92.Lucene92HnswVectorsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.common.KNNConstants;
@@ -22,7 +22,7 @@ import java.util.Optional;
  */
 @AllArgsConstructor
 @Log4j2
-public class KNN920PerFieldKnnVectorsFormat extends PerFieldKnnVectorsFormat {
+public class KNN940PerFieldKnnVectorsFormat extends PerFieldKnnVectorsFormat {
 
     private final Optional<MapperService> mapperService;
 
@@ -33,11 +33,11 @@ public class KNN920PerFieldKnnVectorsFormat extends PerFieldKnnVectorsFormat {
                 String.format(
                     "Initialize KNN vector format for field [%s] with default params [max_connections] = \"%d\" and [beam_width] = \"%d\"",
                     field,
-                    Lucene92HnswVectorsFormat.DEFAULT_MAX_CONN,
-                    Lucene92HnswVectorsFormat.DEFAULT_BEAM_WIDTH
+                    Lucene94HnswVectorsFormat.DEFAULT_MAX_CONN,
+                    Lucene94HnswVectorsFormat.DEFAULT_BEAM_WIDTH
                 )
             );
-            return new Lucene92HnswVectorsFormat();
+            return new Lucene94HnswVectorsFormat();
         }
         var type = (KNNVectorFieldMapper.KNNVectorFieldType) mapperService.orElseThrow(
             () -> new IllegalStateException(
@@ -55,7 +55,7 @@ public class KNN920PerFieldKnnVectorsFormat extends PerFieldKnnVectorsFormat {
                 beamWidth
             )
         );
-        return new Lucene92HnswVectorsFormat(maxConnections, beamWidth);
+        return new Lucene94HnswVectorsFormat(maxConnections, beamWidth);
     }
 
     private boolean isNotKnnVectorFieldType(final String field) {
@@ -66,13 +66,13 @@ public class KNN920PerFieldKnnVectorsFormat extends PerFieldKnnVectorsFormat {
         if (params != null && params.containsKey(KNNConstants.METHOD_PARAMETER_M)) {
             return (int) params.get(KNNConstants.METHOD_PARAMETER_M);
         }
-        return Lucene92HnswVectorsFormat.DEFAULT_MAX_CONN;
+        return Lucene94HnswVectorsFormat.DEFAULT_MAX_CONN;
     }
 
     private int getBeamWidth(final Map<String, Object> params) {
         if (params != null && params.containsKey(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION)) {
             return (int) params.get(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION);
         }
-        return Lucene92HnswVectorsFormat.DEFAULT_BEAM_WIDTH;
+        return Lucene94HnswVectorsFormat.DEFAULT_BEAM_WIDTH;
     }
 }
