@@ -11,8 +11,8 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.opensearch.action.support.nodes.BaseNodeRequest;
 import org.opensearch.common.io.stream.StreamInput;
+import org.opensearch.transport.TransportRequest;
 
 import java.io.IOException;
 
@@ -20,7 +20,7 @@ import java.io.IOException;
  * Request sent to each node to gather info that will be used to determine where to route a job. Right now,
  * this is fairly simple. However, in the future, we could add different filter parameters here.
  */
-public class TrainingJobRouteDecisionInfoNodeRequest extends BaseNodeRequest {
+public class TrainingJobRouteDecisionInfoNodeRequest extends TransportRequest {
 
     /**
      * Constructor

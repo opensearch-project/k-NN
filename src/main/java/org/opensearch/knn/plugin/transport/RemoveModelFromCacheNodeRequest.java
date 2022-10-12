@@ -11,16 +11,16 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.opensearch.action.support.nodes.BaseNodeRequest;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.transport.TransportRequest;
 
 import java.io.IOException;
 
 /**
  * Request sent to each to tell it to evict a given model from the cache.
  */
-public class RemoveModelFromCacheNodeRequest extends BaseNodeRequest {
+public class RemoveModelFromCacheNodeRequest extends TransportRequest {
 
     private final String modelId;
 
