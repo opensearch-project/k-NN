@@ -16,7 +16,7 @@ import com.google.common.primitives.Floats;
 import org.junit.BeforeClass;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -55,7 +55,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());
     }
 
-    public void testEndToEnd() throws IOException, InterruptedException {
+    public void testEndToEnd() throws Exception {
         String indexName = "test-index-1";
         KNNEngine knnEngine1 = KNNEngine.NMSLIB;
         KNNEngine knnEngine2 = KNNEngine.FAISS;
@@ -365,7 +365,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         updateKnnDoc(INDEX_NAME, "1", f5, vector1);
     }
 
-    public void testExistsQuery() throws IOException {
+    public void testExistsQuery() throws Exception {
         String field1 = "field1";
         String field2 = "field2";
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(Arrays.asList(field1, field2), Arrays.asList(2, 2)));

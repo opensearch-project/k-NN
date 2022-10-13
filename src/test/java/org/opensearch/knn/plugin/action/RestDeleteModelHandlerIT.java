@@ -11,7 +11,7 @@
 
 package org.opensearch.knn.plugin.action;
 
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -27,7 +27,6 @@ import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.rest.RestStatus;
 
-import java.io.IOException;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
@@ -52,7 +51,7 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED, "2021-03-27", "test model", "");
     }
 
-    public void testDeleteModelExists() throws IOException {
+    public void testDeleteModelExists() throws Exception {
         createModelSystemIndex();
         String testModelID = "test-model-id";
         byte[] testModelBlob = "hello".getBytes();
@@ -70,7 +69,7 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         assertEquals(0, getDocCount(MODEL_INDEX_NAME));
     }
 
-    public void testDeleteTrainingModel() throws IOException {
+    public void testDeleteTrainingModel() throws Exception {
         createModelSystemIndex();
         String testModelID = "test-model-id";
         byte[] testModelBlob = "hello".getBytes();
@@ -100,7 +99,7 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         assertEquals(errorMessage, responseMap.get(DeleteModelResponse.ERROR_MSG));
     }
 
-    public void testDeleteModelFailsInvalid() throws IOException {
+    public void testDeleteModelFailsInvalid() throws Exception {
         String modelId = "invalid-model-id";
         createModelSystemIndex();
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
@@ -111,7 +110,7 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
     }
 
     // Test Train Model -> Delete Model -> Train Model with same modelId
-    public void testTrainingDeletedModel() throws IOException, InterruptedException {
+    public void testTrainingDeletedModel() throws Exception {
         String modelId = "test-model-id1";
         String trainingIndexName1 = "train-index-1";
         String trainingIndexName2 = "train-index-2";
@@ -134,8 +133,7 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         trainModel(modelId, trainingIndexName2, trainingFieldName, dimension);
     }
 
-    private void trainModel(String modelId, String trainingIndexName, String trainingFieldName, int dimension) throws IOException,
-        InterruptedException {
+    private void trainModel(String modelId, String trainingIndexName, String trainingFieldName, int dimension) throws Exception {
 
         // Create a training index and randomly ingest data into it
         createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);

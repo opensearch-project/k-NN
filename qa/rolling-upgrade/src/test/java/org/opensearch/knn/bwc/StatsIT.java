@@ -5,12 +5,11 @@
 
 package org.opensearch.knn.bwc;
 
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.knn.plugin.stats.KNNStats;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +20,7 @@ public class StatsIT extends AbstractRollingUpgradeTestCase {
     private KNNStats knnStats = new KNNStats(KNN_STATS);
 
     // Validate if all the KNN Stats metrics from old version are present in new version
-    public void testAllMetricStatsReturned() throws IOException {
+    public void testAllMetricStatsReturned() throws Exception {
         Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
         String responseBody = EntityUtils.toString(response.getEntity());
         Map<String, Object> clusterStats = parseClusterStatsResponse(responseBody);

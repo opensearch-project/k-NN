@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.plugin.action;
 
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Before;
@@ -85,7 +85,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      *
      * @throws IOException throws IOException
      */
-    public void testCorrectStatsReturned() throws IOException {
+    public void testCorrectStatsReturned() throws Exception {
         Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
         String responseBody = EntityUtils.toString(response.getEntity());
         Map<String, Object> clusterStats = parseClusterStatsResponse(responseBody);
@@ -99,7 +99,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      *
      * @throws IOException throws IOException
      */
-    public void testStatsValueCheck() throws IOException {
+    public void testStatsValueCheck() throws Exception {
         Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
         String responseBody = EntityUtils.toString(response.getEntity());
 
@@ -147,7 +147,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      *
      * @throws IOException throws IOException
      */
-    public void testValidMetricsStats() throws IOException {
+    public void testValidMetricsStats() throws Exception {
         // Create request that only grabs two of the possible metrics
         String metric1 = StatNames.HIT_COUNT.getName();
         String metric2 = StatNames.MISS_COUNT.getName();
@@ -174,7 +174,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      *
      * @throws IOException throws IOException
      */
-    public void testValidNodeIdStats() throws IOException {
+    public void testValidNodeIdStats() throws Exception {
         Response response = getKnnStats(Collections.singletonList("_local"), Collections.emptyList());
         String responseBody = EntityUtils.toString(response.getEntity());
         List<Map<String, Object>> nodeStats = parseNodeStatsResponse(responseBody);
@@ -319,7 +319,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         assertEquals(initialScriptQueryErrors + 2, (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_ERRORS.getName())));
     }
 
-    public void testModelIndexHealthMetricsStats() throws IOException {
+    public void testModelIndexHealthMetricsStats() throws Exception {
         // Create request that filters only model index
         String modelIndexStatusName = StatNames.MODEL_INDEX_STATUS.getName();
 
@@ -350,7 +350,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
      *
      * @throws IOException throws IOException
      */
-    public void testModelIndexingDegradedMetricsStats() throws IOException {
+    public void testModelIndexingDegradedMetricsStats() throws Exception {
         // Create request that only grabs model indexing degraded stats alone
         String statName = StatNames.INDEXING_FROM_MODEL_DEGRADED.getName();
 
@@ -424,7 +424,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
     }
 
-    public void validateModelCreated(String modelId) throws IOException, InterruptedException {
+    public void validateModelCreated(String modelId) throws Exception {
         Response getResponse = getModel(modelId, null);
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);

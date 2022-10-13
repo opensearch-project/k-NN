@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.bwc;
 
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.AfterClass;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
@@ -141,7 +141,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
     }
 
     // KNN Delete Model test for model in Training State
-    public void testDeleteTrainingModel() throws IOException, InterruptedException {
+    public void testDeleteTrainingModel() throws Exception {
         byte[] testModelBlob = "hello".getBytes();
         ModelMetadata testModelMetadata = getModelMetadata();
         testModelMetadata.setState(ModelState.TRAINING);
@@ -193,7 +193,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
-    public void searchKNNModel(String testModelID) throws IOException {
+    public void searchKNNModel(String testModelID) throws Exception {
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
 
         for (String method : Arrays.asList("GET", "POST")) {
@@ -217,7 +217,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
     }
 
     // Confirm that the model gets created using Get Model API
-    public void validateModelCreated(String modelId) throws IOException, InterruptedException {
+    public void validateModelCreated(String modelId) throws Exception {
         Response getResponse = getModel(modelId, null);
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);

@@ -17,7 +17,7 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.stats.KNNStats;
 import org.opensearch.knn.plugin.stats.StatNames;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.Before;
@@ -61,7 +61,7 @@ public class RestLegacyKNNStatsHandlerIT extends KNNRestTestCase {
      *
      * @throws IOException throws IOException
      */
-    public void testCorrectStatsReturned() throws IOException {
+    public void testCorrectStatsReturned() throws Exception {
         Response response = executeKnnStatRequest(Collections.emptyList(), Collections.emptyList(), KNNPlugin.LEGACY_KNN_BASE_URI);
         String responseBody = EntityUtils.toString(response.getEntity());
         Map<String, Object> clusterStats = parseClusterStatsResponse(responseBody);
@@ -75,7 +75,7 @@ public class RestLegacyKNNStatsHandlerIT extends KNNRestTestCase {
      *
      * @throws IOException throws IOException
      */
-    public void testStatsValueCheck() throws IOException {
+    public void testStatsValueCheck() throws Exception {
         Response response = executeKnnStatRequest(Collections.emptyList(), Collections.emptyList(), KNNPlugin.LEGACY_KNN_BASE_URI);
         String responseBody = EntityUtils.toString(response.getEntity());
 
@@ -123,7 +123,7 @@ public class RestLegacyKNNStatsHandlerIT extends KNNRestTestCase {
      *
      * @throws IOException throws IOException
      */
-    public void testValidMetricsStats() throws IOException {
+    public void testValidMetricsStats() throws Exception {
         // Create request that only grabs two of the possible metrics
         String metric1 = StatNames.HIT_COUNT.getName();
         String metric2 = StatNames.MISS_COUNT.getName();
@@ -153,7 +153,7 @@ public class RestLegacyKNNStatsHandlerIT extends KNNRestTestCase {
      *
      * @throws IOException throws IOException
      */
-    public void testValidNodeIdStats() throws IOException {
+    public void testValidNodeIdStats() throws Exception {
         Response response = executeKnnStatRequest(
             Collections.singletonList("_local"),
             Collections.emptyList(),

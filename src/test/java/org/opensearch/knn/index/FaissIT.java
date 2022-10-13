@@ -13,7 +13,7 @@ package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Floats;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
 import org.opensearch.common.xcontent.XContentBuilder;
@@ -55,7 +55,7 @@ public class FaissIT extends KNNRestTestCase {
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());
     }
 
-    public void testEndToEnd_fromMethod() throws IOException, InterruptedException {
+    public void testEndToEnd_fromMethod() throws Exception {
         String indexName = "test-index-1";
         String fieldName = "test-field-1";
 
@@ -213,7 +213,7 @@ public class FaissIT extends KNNRestTestCase {
         deleteKnnDoc(INDEX_NAME, "1");
     }
 
-    public void testEndToEnd_fromModel() throws IOException, InterruptedException {
+    public void testEndToEnd_fromModel() throws Exception {
         String modelId = "test-model";
         int dimension = 128;
 
