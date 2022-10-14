@@ -5,8 +5,6 @@
 
 package org.opensearch.knn.bwc;
 
-import java.io.IOException;
-
 import static org.opensearch.knn.TestUtils.NODES_BWC_CLUSTER;
 
 public class IndexingIT extends AbstractRollingUpgradeTestCase {
@@ -49,7 +47,7 @@ public class IndexingIT extends AbstractRollingUpgradeTestCase {
     }
 
     // validation steps for indexing after upgrading each node from old version to new version
-    public void validateKNNIndexingOnUpgrade(int totalDocsCount, int docId) throws IOException {
+    public void validateKNNIndexingOnUpgrade(int totalDocsCount, int docId) throws Exception {
         validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, totalDocsCount, K);
         addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, docId, NUM_DOCS);
 

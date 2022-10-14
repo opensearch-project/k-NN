@@ -9,6 +9,7 @@ import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import com.google.common.primitives.Floats;
 import org.apache.commons.lang.StringUtils;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -20,7 +21,7 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.opensearch.client.Request;
@@ -344,7 +345,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * @return index mapping a map
      */
     @SuppressWarnings("unchecked")
-    public Map<String, Object> getIndexMappingAsMap(String index) throws IOException {
+    public Map<String, Object> getIndexMappingAsMap(String index) throws Exception {
         Request request = new Request("GET", "/" + index + "/_mapping");
 
         Response response = client().performRequest(request);
@@ -358,7 +359,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return (Map<String, Object>) ((Map<String, Object>) responseMap.get(index)).get("mappings");
     }
 
-    public int getDocCount(String indexName) throws IOException {
+    public int getDocCount(String indexName) throws Exception {
         Request request = new Request("GET", "/" + indexName + "/_count");
 
         Response response = client().performRequest(request);
@@ -479,7 +480,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     /**
      * Retrieve document by index and document id
      */
-    protected Map<String, Object> getKnnDoc(final String index, final String docId) throws IOException {
+    protected Map<String, Object> getKnnDoc(final String index, final String docId) throws Exception {
         final Request request = new Request("GET", "/" + index + "/_doc/" + docId);
         final Response response = client().performRequest(request);
 
@@ -598,7 +599,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Get the total number of graphs in the cache across all nodes
      */
     @SuppressWarnings("unchecked")
-    protected int getTotalGraphsInCache() throws IOException {
+    protected int getTotalGraphsInCache() throws Exception {
         Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
         String responseBody = EntityUtils.toString(response.getEntity());
 
@@ -838,7 +839,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     // Method that returns index vectors of the documents that were added before into the index
-    public float[][] getIndexVectorsFromIndex(String testIndex, String testField, int docCount, int dimensions) throws IOException {
+    public float[][] getIndexVectorsFromIndex(String testIndex, String testField, int docCount, int dimensions) throws Exception {
         float[][] vectors = new float[docCount][dimensions];
 
         QueryBuilder qb = new MatchAllQueryBuilder();
@@ -866,7 +867,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     // Method that performs bulk search for multiple queries and stores the resulting documents ids into list
-    public List<List<String>> bulkSearch(String testIndex, String testField, float[][] queryVectors, int k) throws IOException {
+    public List<List<String>> bulkSearch(String testIndex, String testField, float[][] queryVectors, int k) throws Exception {
         List<List<String>> searchResults = new ArrayList<>();
         List<String> kVectors;
 
@@ -904,7 +905,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     // Validate KNN search on a KNN index by generating the query vector from the number of documents in the index
-    public void validateKNNSearch(String testIndex, String testField, int dimension, int numDocs, int k) throws IOException {
+    public void validateKNNSearch(String testIndex, String testField, int dimension, int numDocs, int k) throws Exception {
         float[] queryVector = new float[dimension];
         Arrays.fill(queryVector, (float) numDocs);
 
@@ -1116,7 +1117,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return client().performRequest(request);
     }
 
-    public void assertTrainingSucceeds(String modelId, int attempts, int delayInMillis) throws InterruptedException, IOException {
+    public void assertTrainingSucceeds(String modelId, int attempts, int delayInMillis) throws InterruptedException, Exception {
         int attemptNum = 0;
         Response response;
         Map<String, Object> responseMap;
@@ -1140,7 +1141,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         fail("Training did not succeed after " + attempts + " attempts with a delay of " + delayInMillis + " ms.");
     }
 
-    public void assertTrainingFails(String modelId, int attempts, int delayInMillis) throws InterruptedException, IOException {
+    public void assertTrainingFails(String modelId, int attempts, int delayInMillis) throws Exception {
         int attemptNum = 0;
         Response response;
         Map<String, Object> responseMap;

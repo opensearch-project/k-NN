@@ -12,7 +12,7 @@
 package org.opensearch.knn.plugin.action;
 
 import joptsimple.internal.Strings;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -50,7 +50,7 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED, "2021-03-27", "test model", "");
     }
 
-    public void testGetModelExists() throws IOException {
+    public void testGetModelExists() throws Exception {
         createModelSystemIndex();
         String testModelID = "test-model-id";
         byte[] testModelBlob = "hello".getBytes();
@@ -79,7 +79,7 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         assertEquals(testModelMetadata.getTimestamp(), responseMap.get(MODEL_TIMESTAMP));
     }
 
-    public void testGetModelExistsWithFilter() throws IOException {
+    public void testGetModelExistsWithFilter() throws Exception {
         createModelSystemIndex();
         String testModelID = "test-model-id";
         byte[] testModelBlob = "hello".getBytes();

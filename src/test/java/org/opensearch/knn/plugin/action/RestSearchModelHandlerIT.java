@@ -11,7 +11,7 @@
 
 package org.opensearch.knn.plugin.action;
 
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
@@ -60,7 +60,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
         expectThrows(ResponseException.class, () -> client().performRequest(request));
     }
 
-    public void testNoModelExists() throws IOException {
+    public void testNoModelExists() throws Exception {
         createModelSystemIndex();
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
         Request request = new Request("GET", restURI);
@@ -96,7 +96,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
 
     }
 
-    public void testSearchModelExists() throws IOException {
+    public void testSearchModelExists() throws Exception {
         createModelSystemIndex();
         createIndex("irrelevant-index", Settings.EMPTY);
         addDocWithBinaryField("irrelevant-index", "id1", "field-name", "value");
@@ -134,7 +134,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
         }
     }
 
-    public void testSearchModelWithoutSource() throws IOException {
+    public void testSearchModelWithoutSource() throws Exception {
         createModelSystemIndex();
         createIndex("irrelevant-index", Settings.EMPTY);
         addDocWithBinaryField("irrelevant-index", "id1", "field-name", "value");
@@ -172,7 +172,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
         }
     }
 
-    public void testSearchModelWithSourceFilteringIncludes() throws IOException {
+    public void testSearchModelWithSourceFilteringIncludes() throws Exception {
         createModelSystemIndex();
         createIndex("irrelevant-index", Settings.EMPTY);
         addDocWithBinaryField("irrelevant-index", "id1", "field-name", "value");
@@ -221,7 +221,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
         }
     }
 
-    public void testSearchModelWithSourceFilteringExcludes() throws IOException {
+    public void testSearchModelWithSourceFilteringExcludes() throws Exception {
         createModelSystemIndex();
         createIndex("irrelevant-index", Settings.EMPTY);
         addDocWithBinaryField("irrelevant-index", "id1", "field-name", "value");

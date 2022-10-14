@@ -8,7 +8,7 @@ package org.opensearch.knn.index;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.stats.StatNames;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.settings.Settings;
@@ -118,7 +118,7 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
     }
 
     @SuppressWarnings("unchecked")
-    public void testCacheRebuiltAfterUpdateIndexSettings() throws IOException {
+    public void testCacheRebuiltAfterUpdateIndexSettings() throws Exception {
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
 
         Float[] vector = { 6.0f, 6.0f };

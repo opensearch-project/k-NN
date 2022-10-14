@@ -11,7 +11,7 @@
 
 package org.opensearch.knn.plugin.action;
 
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Response;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -19,7 +19,6 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.rest.RestStatus;
 
-import java.io.IOException;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
@@ -34,7 +33,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class RestTrainModelHandlerIT extends KNNRestTestCase {
 
-    public void testTrainModel_fail_notEnoughData() throws IOException, InterruptedException {
+    public void testTrainModel_fail_notEnoughData() throws Exception {
 
         // Check that training fails properly when there is not enough data
 
@@ -193,7 +192,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         assertTrainingFails(modelId, 30, 1000);
     }
 
-    public void testTrainModel_success_withId() throws IOException, InterruptedException {
+    public void testTrainModel_success_withId() throws Exception {
         // Test checks that training when passing in an id succeeds
 
         String modelId = "test-model-id";
@@ -265,7 +264,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         assertTrainingSucceeds(modelId, 30, 1000);
     }
 
-    public void testTrainModel_success_noId() throws IOException, InterruptedException {
+    public void testTrainModel_success_noId() throws Exception {
         // Test to check if training succeeds when no id is passed in
 
         String trainingIndexName = "train-index";

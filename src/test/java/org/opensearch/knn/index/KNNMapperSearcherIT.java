@@ -7,7 +7,7 @@ package org.opensearch.knn.index;
 
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.client.Response;

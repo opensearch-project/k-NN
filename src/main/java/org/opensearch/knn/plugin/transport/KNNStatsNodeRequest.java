@@ -5,16 +5,16 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.opensearch.action.support.nodes.BaseNodeRequest;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.transport.TransportRequest;
 
 import java.io.IOException;
 
 /**
  *  KNNStatsNodeRequest represents the request to an individual node
  */
-public class KNNStatsNodeRequest extends BaseNodeRequest {
+public class KNNStatsNodeRequest extends TransportRequest {
     private KNNStatsRequest request;
 
     /**
