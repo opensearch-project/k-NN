@@ -103,7 +103,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     }
 
     public void testFromXcontent_WithFilter() throws Exception {
-        final ClusterService clusterService = mockClusterService(List.of(Version.CURRENT));
+        final ClusterService clusterService = mockClusterService(Version.CURRENT);
 
         final KNNClusterContext knnClusterContext = KNNClusterContext.instance();
         knnClusterContext.initialize(clusterService);
@@ -125,7 +125,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     }
 
     public void testFromXcontent_WithFilter_UnsupportedClusterVersion() throws Exception {
-        final ClusterService clusterService = mockClusterService(List.of(Version.V_2_3_0));
+        final ClusterService clusterService = mockClusterService(Version.V_2_3_0);
 
         final KNNClusterContext knnClusterContext = KNNClusterContext.instance();
         knnClusterContext.initialize(clusterService);
@@ -266,7 +266,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             ? new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, K, queryBuilderOptional.get())
             : new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, K);
 
-        final ClusterService clusterService = mockClusterService(List.of(version));
+        final ClusterService clusterService = mockClusterService(version);
 
         final KNNClusterContext knnClusterContext = KNNClusterContext.instance();
         knnClusterContext.initialize(clusterService);
