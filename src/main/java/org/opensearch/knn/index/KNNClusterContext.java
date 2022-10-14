@@ -45,13 +45,14 @@ public class KNNClusterContext {
      * @return minimal installed OpenSearch version, default to Version.CURRENT which is typically the latest version
      */
     public Version getClusterMinVersion() {
-        Version minVersion = Version.CURRENT;
         try {
-            minVersion = this.clusterService.state().getNodes().getMinNodeVersion();
+            return this.clusterService.state().getNodes().getMinNodeVersion();
         } catch (Exception exception) {
-            log.error("Cannot get cluster nodes", exception);
+            log.error(
+                String.format("Failed to get cluster minimum node version, returning current node version %s instead.", Version.CURRENT),
+                exception
+            );
+            return Version.CURRENT;
         }
-        log.debug("Return cluster min version {}", minVersion);
-        return minVersion;
     }
 }
