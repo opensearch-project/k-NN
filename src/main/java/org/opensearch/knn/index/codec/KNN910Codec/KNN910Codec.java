@@ -8,10 +8,10 @@ import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.FilterCodec;
+import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.KNNFormatFacade;
-import org.opensearch.knn.index.codec.KNNFormatFactory;
 
-import static org.opensearch.knn.index.codec.KNNCodecFactory.CodecDelegateFactory.createKNN91DefaultDelegate;
+import static org.opensearch.knn.index.codec.KNNCodecFactory.CodecDelegateFactory.createKNNDefaultDelegate;
 
 /**
  * Extends the Codec to support a new file format for KNN index
@@ -19,15 +19,14 @@ import static org.opensearch.knn.index.codec.KNNCodecFactory.CodecDelegateFactor
  *
  */
 public final class KNN910Codec extends FilterCodec {
-
-    private static final String KNN910 = "KNN910Codec";
+    private static final KNNCodecVersion version = KNNCodecVersion.V_9_1_0;
     private final KNNFormatFacade knnFormatFacade;
 
     /**
      * No arg constructor that uses Lucene91 as the delegate
      */
     public KNN910Codec() {
-        this(createKNN91DefaultDelegate());
+        this(createKNNDefaultDelegate(version));
     }
 
     /**
@@ -36,8 +35,8 @@ public final class KNN910Codec extends FilterCodec {
      * @param delegate codec that will perform all operations this codec does not override
      */
     public KNN910Codec(Codec delegate) {
-        super(KNN910, delegate);
-        knnFormatFacade = KNNFormatFactory.createKNN910Format(delegate);
+        super(version.getCodecName(), delegate);
+        knnFormatFacade = version.getKnnFormatFacadeSupplier().apply(delegate);
     }
 
     @Override

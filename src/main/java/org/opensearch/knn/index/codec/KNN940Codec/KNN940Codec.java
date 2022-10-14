@@ -12,15 +12,11 @@ import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.FilterCodec;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
+import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.KNNFormatFacade;
-import org.opensearch.knn.index.codec.KNNFormatFactory;
-
-import java.util.Optional;
-
-import static org.opensearch.knn.index.codec.KNNCodecFactory.CodecDelegateFactory.createKNN94DefaultDelegate;
 
 public class KNN940Codec extends FilterCodec {
-    private static final String KNN940 = "KNN940Codec";
+    private static final KNNCodecVersion version = KNNCodecVersion.V_9_4_0;
     private final KNNFormatFacade knnFormatFacade;
     private final PerFieldKnnVectorsFormat perFieldKnnVectorsFormat;
 
@@ -28,7 +24,7 @@ public class KNN940Codec extends FilterCodec {
      * No arg constructor that uses Lucene94 as the delegate
      */
     public KNN940Codec() {
-        this(createKNN94DefaultDelegate(), new KNN940PerFieldKnnVectorsFormat(Optional.empty()));
+        this(version.getDefaultCodecDelegate(), version.getPerFieldKnnVectorsFormat());
     }
 
     /**
@@ -40,8 +36,8 @@ public class KNN940Codec extends FilterCodec {
      */
     @Builder
     protected KNN940Codec(Codec delegate, PerFieldKnnVectorsFormat knnVectorsFormat) {
-        super(KNN940, delegate);
-        knnFormatFacade = KNNFormatFactory.createKNN940Format(delegate);
+        super(version.getCodecName(), delegate);
+        knnFormatFacade = version.getKnnFormatFacadeSupplier().apply(delegate);
         perFieldKnnVectorsFormat = knnVectorsFormat;
     }
 
