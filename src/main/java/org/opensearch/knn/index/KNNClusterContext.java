@@ -5,14 +5,11 @@
 
 package org.opensearch.knn.index;
 
-import com.carrotsearch.hppc.cursors.ObjectCursor;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.Version;
-import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.collect.ImmutableOpenMap;
 
 /**
  * Class abstracts information related to underlying OpenSearch cluster
@@ -48,22 +45,14 @@ public class KNNClusterContext {
      * @return minimal installed OpenSearch version, default to Version.CURRENT which is typically the latest version
      */
     public Version getClusterMinVersion() {
-        Version minVersion = Version.CURRENT;
-        ImmutableOpenMap<String, DiscoveryNode> clusterDiscoveryNodes = ImmutableOpenMap.of();
-        log.debug("Reading cluster min version");
         try {
-            clusterDiscoveryNodes = this.clusterService.state().getNodes().getNodes();
+            return this.clusterService.state().getNodes().getMinNodeVersion();
         } catch (Exception exception) {
-            log.error("Cannot get cluster nodes", exception);
+            log.error(
+                String.format("Failed to get cluster minimum node version, returning current node version %s instead.", Version.CURRENT),
+                exception
+            );
+            return Version.CURRENT;
         }
-        for (final ObjectCursor<DiscoveryNode> discoveryNodeCursor : clusterDiscoveryNodes.values()) {
-            final Version nodeVersion = discoveryNodeCursor.value.getVersion();
-            if (nodeVersion.before(minVersion)) {
-                minVersion = nodeVersion;
-                log.debug("Update cluster min version to {} based on node {}", nodeVersion, discoveryNodeCursor.value.toString());
-            }
-        }
-        log.debug("Return cluster min version {}", minVersion);
-        return minVersion;
     }
 }

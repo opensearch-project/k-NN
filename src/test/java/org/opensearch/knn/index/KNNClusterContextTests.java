@@ -9,8 +9,6 @@ import org.opensearch.Version;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.knn.KNNTestCase;
 
-import java.util.List;
-
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
@@ -18,7 +16,7 @@ import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
 public class KNNClusterContextTests extends KNNTestCase {
 
     public void testSingleNodeCluster() {
-        ClusterService clusterService = mockClusterService(List.of(Version.V_2_4_0));
+        ClusterService clusterService = mockClusterService(Version.V_2_4_0);
 
         final KNNClusterContext knnClusterContext = KNNClusterContext.instance();
         knnClusterContext.initialize(clusterService);
@@ -29,7 +27,7 @@ public class KNNClusterContextTests extends KNNTestCase {
     }
 
     public void testMultipleNodesCluster() {
-        ClusterService clusterService = mockClusterService(List.of(Version.V_3_0_0, Version.V_2_3_0, Version.V_3_0_0));
+        ClusterService clusterService = mockClusterService(Version.V_2_3_0);
 
         final KNNClusterContext knnClusterContext = KNNClusterContext.instance();
         knnClusterContext.initialize(clusterService);
