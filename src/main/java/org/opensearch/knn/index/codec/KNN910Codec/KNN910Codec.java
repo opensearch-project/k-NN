@@ -11,8 +11,6 @@ import org.apache.lucene.codecs.FilterCodec;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.KNNFormatFacade;
 
-import static org.opensearch.knn.index.codec.KNNCodecFactory.CodecDelegateFactory.createKNNDefaultDelegate;
-
 /**
  * Extends the Codec to support a new file format for KNN index
  * based on the mappings.
@@ -26,7 +24,7 @@ public final class KNN910Codec extends FilterCodec {
      * No arg constructor that uses Lucene91 as the delegate
      */
     public KNN910Codec() {
-        this(createKNNDefaultDelegate(version));
+        this(version.getDefaultCodecDelegate());
     }
 
     /**

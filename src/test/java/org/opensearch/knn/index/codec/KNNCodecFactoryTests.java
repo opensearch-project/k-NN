@@ -35,8 +35,8 @@ public class KNNCodecFactoryTests extends KNNTestCase {
         assertNotNull(V_9_4_0.getKnnFormatFacadeSupplier().apply(V_9_4_0.getDefaultCodecDelegate()));
     }
 
-    private void assertDelegateForVersion(final KNNCodecVersion codecVersion, Class expectedCodecClass) {
-        Codec defaultDelegate = KNNCodecFactory.CodecDelegateFactory.createKNNDefaultDelegate(codecVersion);
+    private void assertDelegateForVersion(final KNNCodecVersion codecVersion, final Class expectedCodecClass) {
+        final Codec defaultDelegate = codecVersion.getDefaultCodecDelegate();
         assertNotNull(defaultDelegate);
         assertTrue(defaultDelegate.getClass().isAssignableFrom(expectedCodecClass));
     }

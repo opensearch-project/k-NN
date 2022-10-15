@@ -15,8 +15,6 @@ import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.KNNFormatFacade;
 
-import static org.opensearch.knn.index.codec.KNNCodecFactory.CodecDelegateFactory.createKNNDefaultDelegate;
-
 /**
  * KNN codec that is based on Lucene92 codec
  */
@@ -30,7 +28,7 @@ public final class KNN920Codec extends FilterCodec {
      * No arg constructor that uses Lucene91 as the delegate
      */
     public KNN920Codec() {
-        this(createKNNDefaultDelegate(version), version.getPerFieldKnnVectorsFormat());
+        this(version.getDefaultCodecDelegate(), version.getPerFieldKnnVectorsFormat());
     }
 
     /**
