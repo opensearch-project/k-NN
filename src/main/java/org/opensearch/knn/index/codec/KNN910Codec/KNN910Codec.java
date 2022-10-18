@@ -17,14 +17,14 @@ import org.opensearch.knn.index.codec.KNNFormatFacade;
  *
  */
 public final class KNN910Codec extends FilterCodec {
-    private static final KNNCodecVersion version = KNNCodecVersion.V_9_1_0;
+    private static final KNNCodecVersion VERSION = KNNCodecVersion.V_9_1_0;
     private final KNNFormatFacade knnFormatFacade;
 
     /**
      * No arg constructor that uses Lucene91 as the delegate
      */
     public KNN910Codec() {
-        this(version.getDefaultCodecDelegate());
+        this(VERSION.getDefaultCodecDelegate());
     }
 
     /**
@@ -33,8 +33,8 @@ public final class KNN910Codec extends FilterCodec {
      * @param delegate codec that will perform all operations this codec does not override
      */
     public KNN910Codec(Codec delegate) {
-        super(version.getCodecName(), delegate);
-        knnFormatFacade = version.getKnnFormatFacadeSupplier().apply(delegate);
+        super(VERSION.getCodecName(), delegate);
+        knnFormatFacade = VERSION.getKnnFormatFacadeSupplier().apply(delegate);
     }
 
     @Override

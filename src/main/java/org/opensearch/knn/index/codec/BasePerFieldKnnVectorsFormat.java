@@ -35,12 +35,10 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     public KnnVectorsFormat getKnnVectorsFormatForField(final String field) {
         if (isKnnVectorFieldType(field) == false) {
             log.debug(
-                String.format(
-                    "Initialize KNN vector format for field [%s] with default params [max_connections] = \"%d\" and [beam_width] = \"%d\"",
-                    field,
-                    defaultMaxConnections,
-                    defaultBeamWidth
-                )
+                "Initialize KNN vector format for field [{}] with default params [max_connections] = \"{}\" and [beam_width] = \"{}\"",
+                field,
+                defaultMaxConnections,
+                defaultBeamWidth
             );
             return defaultFormatSupplier.get();
         }
@@ -53,12 +51,10 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         int maxConnections = getMaxConnections(params);
         int beamWidth = getBeamWidth(params);
         log.debug(
-            String.format(
-                "Initialize KNN vector format for field [%s] with params [max_connections] = \"%d\" and [beam_width] = \"%d\"",
-                field,
-                maxConnections,
-                beamWidth
-            )
+            "Initialize KNN vector format for field [{}] with params [max_connections] = \"{}\" and [beam_width] = \"{}\"",
+            field,
+            maxConnections,
+            beamWidth
         );
         return formatSupplier.apply(maxConnections, beamWidth);
     }
