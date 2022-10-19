@@ -8,17 +8,18 @@ package org.opensearch.knn.index.codec;
 import org.opensearch.index.codec.CodecServiceConfig;
 import org.apache.lucene.codecs.Codec;
 import org.opensearch.index.codec.CodecService;
+import org.opensearch.index.mapper.MapperService;
 
 /**
  * KNNCodecService to inject the right KNNCodec version
  */
 public class KNNCodecService extends CodecService {
 
-    private final KNNCodecFactory knnCodecFactory;
+    private final MapperService mapperService;
 
     public KNNCodecService(CodecServiceConfig codecServiceConfig) {
         super(codecServiceConfig.getMapperService(), codecServiceConfig.getLogger());
-        knnCodecFactory = new KNNCodecFactory(codecServiceConfig.getMapperService());
+        mapperService = codecServiceConfig.getMapperService();
     }
 
     /**
@@ -29,6 +30,6 @@ public class KNNCodecService extends CodecService {
      */
     @Override
     public Codec codec(String name) {
-        return knnCodecFactory.createKNNCodec(super.codec(name));
+        return KNNCodecVersion.current().getKnnCodecSupplier().apply(super.codec(name), mapperService);
     }
 }
