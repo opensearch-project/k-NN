@@ -158,6 +158,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                         String tokenName = parser.currentName();
                         if (FILTER_FIELD.getPreferredName().equals(tokenName)) {
                             log.debug(String.format("Start parsing filter for field [%s]", fieldName));
+                            KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS.increment();
                             if (isClusterOnOrAfterMinRequiredVersion()) {
                                 filter = parseInnerQueryBuilder(parser);
                             } else {

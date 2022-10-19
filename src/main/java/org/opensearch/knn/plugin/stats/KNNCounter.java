@@ -21,7 +21,8 @@ public enum KNNCounter {
     SCRIPT_QUERY_REQUESTS("script_query_requests"),
     SCRIPT_QUERY_ERRORS("script_query_errors"),
     TRAINING_REQUESTS("training_requests"),
-    TRAINING_ERRORS("training_errors");
+    TRAINING_ERRORS("training_errors"),
+    KNN_QUERY_WITH_FILTER_REQUESTS("knn_query_with_filter_requests");
 
     private String name;
     private AtomicLong count;
