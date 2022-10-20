@@ -40,7 +40,8 @@ public enum StatNames {
     TRAINING_ERRORS(KNNCounter.TRAINING_ERRORS.getName()),
     TRAINING_MEMORY_USAGE("training_memory_usage"),
     TRAINING_MEMORY_USAGE_PERCENTAGE("training_memory_usage_percentage"),
-    SCRIPT_QUERY_ERRORS(KNNCounter.SCRIPT_QUERY_ERRORS.getName());
+    SCRIPT_QUERY_ERRORS(KNNCounter.SCRIPT_QUERY_ERRORS.getName()),
+    KNN_QUERY_WITH_FILTER_REQUESTS(KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS.getName());
 
     private String name;
 
