@@ -16,9 +16,10 @@ jobs:
     strategy:
       matrix:
         java: [11, 17]
+        os: [ubuntu-latest, macos-latest]
 
     name: Build and Test k-NN Plugin
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout k-NN
@@ -29,9 +30,16 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
 
-      - name: Install dependencies
+      - name: Install dependencies on ubuntu
+        if: startsWith(matrix.os,'ubuntu')
         run: |
           sudo apt-get install libopenblas-dev gfortran -y
+
+      - name: Install dependencies on macos
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          brew reinstall gcc
+          export FC=/usr/local/Cellar/gcc/12.2.0/bin/gfortran
 
       - name: Run build
         run: |
