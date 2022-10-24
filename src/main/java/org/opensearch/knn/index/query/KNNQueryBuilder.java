@@ -112,6 +112,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             fieldName = in.readString();
             vector = in.readFloatArray();
             k = in.readInt();
+            // We're checking if all cluster nodes has at least that version or higher. This check is required
+            // to avoid issues with cluster upgrade
             if (isClusterOnOrAfterMinRequiredVersion()) {
                 filter = in.readOptionalNamedWriteable(QueryBuilder.class);
             }
@@ -159,6 +161,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                         if (FILTER_FIELD.getPreferredName().equals(tokenName)) {
                             log.debug(String.format("Start parsing filter for field [%s]", fieldName));
                             KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS.increment();
+                            // Query filters are supported starting from a certain k-NN version only, exact version is defined by
+                            // MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER variable.
+                            // Here we're checking if all cluster nodes has at least that version or higher. This check is required
+                            // to avoid issues with rolling cluster upgrade
                             if (isClusterOnOrAfterMinRequiredVersion()) {
                                 filter = parseInnerQueryBuilder(parser);
                             } else {
@@ -204,6 +210,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         out.writeString(fieldName);
         out.writeFloatArray(vector);
         out.writeInt(k);
+        // We're checking if all cluster nodes has at least that version or higher. This check is required
+        // to avoid issues with cluster upgrade
         if (isClusterOnOrAfterMinRequiredVersion()) {
             out.writeOptionalNamedWriteable(filter);
         }
