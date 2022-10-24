@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.bwc;
 
+import org.hamcrest.MatcherAssert;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -19,7 +20,11 @@ import org.opensearch.common.xcontent.XContentFactory;
 
 import java.io.IOException;
 
+import static org.hamcrest.CoreMatchers.anyOf;
+import static org.hamcrest.CoreMatchers.containsString;
 import static org.opensearch.knn.TestUtils.NODES_BWC_CLUSTER;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
 /**
  * Tests scenarios specific to filtering functionality in k-NN in case Lucene is set as an engine
@@ -36,7 +41,11 @@ public class LuceneFilteringIT extends AbstractRollingUpgradeTestCase {
         float[] queryVector = TestUtils.getQueryVectors(1, DIMENSIONS, NUM_DOCS, true)[0];
         switch (getClusterType()) {
             case OLD:
-                createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMappingWithLuceneField(TEST_FIELD, DIMENSIONS));
+                createKnnIndex(
+                    testIndex,
+                    getKNNDefaultIndexSettings(),
+                    createKnnIndexMapping(TEST_FIELD, DIMENSIONS, METHOD_HNSW, LUCENE_NAME)
+                );
                 bulkAddKnnDocs(testIndex, TEST_FIELD, TestUtils.getIndexVectors(NUM_DOCS, DIMENSIONS, true), NUM_DOCS);
                 validateSearchKNNIndexFailed(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, K, TERM_QUERY), K);
                 break;
@@ -48,25 +57,6 @@ public class LuceneFilteringIT extends AbstractRollingUpgradeTestCase {
                 deleteKNNIndex(testIndex);
                 break;
         }
-    }
-
-    protected String createKnnIndexMappingWithLuceneField(final String fieldName, int dimension) throws IOException {
-        return Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(fieldName)
-                .field("type", "knn_vector")
-                .field("dimension", Integer.toString(dimension))
-                .startObject("method")
-                .field("name", "hnsw")
-                .field("engine", "lucene")
-                .field("space_type", "l2")
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-        );
     }
 
     private void validateSearchKNNIndexFailed(String index, KNNQueryBuilder knnQueryBuilder, int resultSize) throws IOException {
@@ -81,6 +71,16 @@ public class LuceneFilteringIT extends AbstractRollingUpgradeTestCase {
         request.addParameter("search_type", "query_then_fetch");
         request.setJsonEntity(Strings.toString(builder));
 
-        expectThrows(ResponseException.class, () -> client().performRequest(request));
+        Exception exception = expectThrows(ResponseException.class, () -> client().performRequest(request));
+        // assert for two possible exception messages, fist one can come from current version in case serialized request is coming from
+        // lower version,
+        // second exception is vise versa, when lower version node receives request with filter field from higher version
+        MatcherAssert.assertThat(
+            exception.getMessage(),
+            anyOf(
+                containsString("filter field is supported from version"),
+                containsString("[knn] unknown token [START_OBJECT] after [filter]")
+            )
+        );
     }
 }

@@ -26,7 +26,7 @@ import org.opensearch.common.xcontent.XContentParser;
 import org.opensearch.index.Index;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.QueryShardContext;
-import org.opensearch.knn.index.KNNClusterContext;
+import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
@@ -105,8 +105,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     public void testFromXcontent_WithFilter() throws Exception {
         final ClusterService clusterService = mockClusterService(Version.CURRENT);
 
-        final KNNClusterContext knnClusterContext = KNNClusterContext.instance();
-        knnClusterContext.initialize(clusterService);
+        final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
+        knnClusterUtil.initialize(clusterService);
 
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K, TERM_QUERY);
@@ -127,8 +127,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     public void testFromXcontent_WithFilter_UnsupportedClusterVersion() throws Exception {
         final ClusterService clusterService = mockClusterService(Version.V_2_3_0);
 
-        final KNNClusterContext knnClusterContext = KNNClusterContext.instance();
-        knnClusterContext.initialize(clusterService);
+        final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
+        knnClusterUtil.initialize(clusterService);
 
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         final KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K, TERM_QUERY);
@@ -268,8 +268,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         final ClusterService clusterService = mockClusterService(version);
 
-        final KNNClusterContext knnClusterContext = KNNClusterContext.instance();
-        knnClusterContext.initialize(clusterService);
+        final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
+        knnClusterUtil.initialize(clusterService);
         try (BytesStreamOutput output = new BytesStreamOutput()) {
             output.setVersion(version);
             output.writeNamedWriteable(knnQueryBuilder);

@@ -16,18 +16,18 @@ import org.opensearch.cluster.service.ClusterService;
  */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 @Log4j2
-public class KNNClusterContext {
+public class KNNClusterUtil {
 
     private ClusterService clusterService;
-    private static KNNClusterContext instance;
+    private static KNNClusterUtil instance;
 
     /**
      * Return instance of the cluster context, must be initialized first for proper usage
      * @return instance of cluster context
      */
-    public static synchronized KNNClusterContext instance() {
+    public static synchronized KNNClusterUtil instance() {
         if (instance == null) {
-            instance = new KNNClusterContext();
+            instance = new KNNClusterUtil();
         }
         return instance;
     }
