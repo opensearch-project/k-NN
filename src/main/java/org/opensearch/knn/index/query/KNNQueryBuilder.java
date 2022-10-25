@@ -6,7 +6,10 @@
 package org.opensearch.knn.index.query;
 
 import lombok.extern.log4j.Log4j2;
+import org.opensearch.Version;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -38,6 +41,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
     public static final ParseField VECTOR_FIELD = new ParseField("vector");
     public static final ParseField K_FIELD = new ParseField("k");
+    public static final ParseField FILTER_FIELD = new ParseField("filter");
     public static int K_MAX = 10000;
     /**
      * The name for the knn query
@@ -49,6 +53,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private final String fieldName;
     private final float[] vector;
     private int k = 0;
+    private QueryBuilder filter;
+    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER = Version.V_3_0_0;
 
     /**
      * Constructs a new knn query
@@ -58,6 +64,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
      * @param k         K nearest neighbours for the given vector
      */
     public KNNQueryBuilder(String fieldName, float[] vector, int k) {
+        this(fieldName, vector, k, null);
+    }
+
+    public KNNQueryBuilder(String fieldName, float[] vector, int k, QueryBuilder filter) {
         if (Strings.isNullOrEmpty(fieldName)) {
             throw new IllegalArgumentException("[" + NAME + "] requires fieldName");
         }
@@ -77,6 +87,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         this.fieldName = fieldName;
         this.vector = vector;
         this.k = k;
+        this.filter = filter;
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -101,8 +112,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             fieldName = in.readString();
             vector = in.readFloatArray();
             k = in.readInt();
+            // We're checking if all cluster nodes has at least that version or higher. This check is required
+            // to avoid issues with cluster upgrade
+            if (isClusterOnOrAfterMinRequiredVersion()) {
+                filter = in.readOptionalNamedWriteable(QueryBuilder.class);
+            }
         } catch (IOException ex) {
-            throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder: " + ex);
+            throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder", ex);
         }
     }
 
@@ -111,6 +127,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         List<Object> vector = null;
         float boost = AbstractQueryBuilder.DEFAULT_BOOST;
         int k = 0;
+        QueryBuilder filter = null;
         String queryName = null;
         String currentFieldName = null;
         XContentParser.Token token;
@@ -139,6 +156,35 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                                 "[" + NAME + "] query does not support [" + currentFieldName + "]"
                             );
                         }
+                    } else if (token == XContentParser.Token.START_OBJECT) {
+                        String tokenName = parser.currentName();
+                        if (FILTER_FIELD.getPreferredName().equals(tokenName)) {
+                            log.debug(String.format("Start parsing filter for field [%s]", fieldName));
+                            KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS.increment();
+                            // Query filters are supported starting from a certain k-NN version only, exact version is defined by
+                            // MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER variable.
+                            // Here we're checking if all cluster nodes has at least that version or higher. This check is required
+                            // to avoid issues with rolling cluster upgrade
+                            if (isClusterOnOrAfterMinRequiredVersion()) {
+                                filter = parseInnerQueryBuilder(parser);
+                            } else {
+                                log.debug(
+                                    String.format(
+                                        "This version of k-NN doesn't support [filter] field, minimal required version is [%s]",
+                                        MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER
+                                    )
+                                );
+                                throw new IllegalArgumentException(
+                                    String.format(
+                                        "%s field is supported from version %s",
+                                        FILTER_FIELD.getPreferredName(),
+                                        MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER
+                                    )
+                                );
+                            }
+                        } else {
+                            throw new ParsingException(parser.getTokenLocation(), "[" + NAME + "] unknown token [" + token + "]");
+                        }
                     } else {
                         throw new ParsingException(
                             parser.getTokenLocation(),
@@ -153,7 +199,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
         }
 
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector), k);
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector), k, filter);
         knnQueryBuilder.queryName(queryName);
         knnQueryBuilder.boost(boost);
         return knnQueryBuilder;
@@ -164,6 +210,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         out.writeString(fieldName);
         out.writeFloatArray(vector);
         out.writeInt(k);
+        // We're checking if all cluster nodes has at least that version or higher. This check is required
+        // to avoid issues with cluster upgrade
+        if (isClusterOnOrAfterMinRequiredVersion()) {
+            out.writeOptionalNamedWriteable(filter);
+        }
     }
 
     /**
@@ -184,6 +235,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return this.k;
     }
 
+    public QueryBuilder getFilter() {
+        return this.filter;
+    }
+
     @Override
     public void doXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject(NAME);
@@ -191,6 +246,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
         builder.field(VECTOR_FIELD.getPreferredName(), vector);
         builder.field(K_FIELD.getPreferredName(), k);
+        if (filter != null) {
+            builder.field(FILTER_FIELD.getPreferredName(), filter);
+        }
         printBoostAndQueryName(builder);
         builder.endObject();
         builder.endObject();
@@ -225,8 +283,21 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             );
         }
 
+        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine) && filter != null) {
+            throw new IllegalArgumentException(String.format("Engine [%s] does not support filters", knnEngine));
+        }
+
         String indexName = context.index().getName();
-        return KNNQueryFactory.create(knnEngine, indexName, this.fieldName, this.vector, this.k);
+        KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(knnEngine)
+            .indexName(indexName)
+            .fieldName(this.fieldName)
+            .vector(this.vector)
+            .k(this.k)
+            .filter(this.filter)
+            .context(context)
+            .build();
+        return KNNQueryFactory.create(createQueryRequest);
     }
 
     private ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
@@ -256,5 +327,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     @Override
     public String getWriteableName() {
         return NAME;
+    }
+
+    private static boolean isClusterOnOrAfterMinRequiredVersion() {
+        return KNNClusterUtil.instance().getClusterMinVersion().onOrAfter(MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER);
     }
 }
