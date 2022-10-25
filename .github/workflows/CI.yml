@@ -70,6 +70,16 @@ jobs:
           echo "C:/Users/runneradmin/scoop/apps/mingw/current/bin" >> $env:GITHUB_PATH
           refreshenv
 
+      - name: Download OpenBLAS
+        run: |
+          curl -L -O https://github.com/xianyi/OpenBLAS/releases/download/v0.3.21/OpenBLAS-0.3.21-x64.zip
+          mkdir OpenBLAS
+          Expand-Archive -Path .\OpenBLAS-0.3.21-x64.zip -DestinationPath .\OpenBLAS\
+          mkdir ./src/main/resources/windowsDependencies
+          cp ./OpenBLAS/bin/libopenblas.dll ./src/main/resources/windowsDependencies/
+          rm .\OpenBLAS-0.3.21-x64.zip
+          rm -r .\OpenBLAS\
+
       - name: Run build
         run: |
           ./gradlew.bat build
