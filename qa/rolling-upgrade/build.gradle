@@ -33,6 +33,12 @@ task testAgainstOldCluster(type: StandaloneRestIntegTestTask) {
     systemProperty 'tests.rest.bwcsuite_cluster', 'old_cluster'
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
     systemProperty 'tests.skip_delete_model_index', 'true'
+    // Skip test if version is anything lower than 2.2 as they are not supported in those versions
+    if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.0") || knn_bwc_version.startsWith("2.1")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.LuceneFilteringIT.testLuceneFiltering"
+        }
+    }
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
     systemProperty 'tests.security.manager', 'false'
@@ -55,6 +61,12 @@ task testAgainstOneThirdUpgradedCluster(type: StandaloneRestIntegTestTask) {
     systemProperty 'tests.rest.first_round', 'true'
     systemProperty 'tests.skip_delete_model_index', 'true'
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+    // Skip test if version is anything lower than 2.2 as they are not supported in those versions
+    if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.0") || knn_bwc_version.startsWith("2.1")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.LuceneFilteringIT.testLuceneFiltering"
+        }
+    }
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
     systemProperty 'tests.security.manager', 'false'
@@ -74,6 +86,12 @@ task testAgainstTwoThirdsUpgradedCluster(type: StandaloneRestIntegTestTask) {
     systemProperty 'tests.rest.first_round', 'false'
     systemProperty 'tests.skip_delete_model_index', 'true'
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+    // Skip test if version is anything lower than 2.2 as they are not supported in those versions
+    if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.0") || knn_bwc_version.startsWith("2.1")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.LuceneFilteringIT.testLuceneFiltering"
+        }
+    }
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
     systemProperty 'tests.security.manager', 'false'
@@ -93,6 +111,12 @@ task testRollingUpgrade(type: StandaloneRestIntegTestTask) {
     systemProperty 'tests.rest.bwcsuite_cluster', 'upgraded_cluster'
     systemProperty 'tests.skip_delete_model_index', 'true'
     systemProperty 'tests.plugin_bwc_version', knn_bwc_version
+    // Skip test if version is anything lower than 2.2 as they are not supported in those versions
+    if (knn_bwc_version.startsWith("1.") || knn_bwc_version.startsWith("2.0") || knn_bwc_version.startsWith("2.1")) {
+        filter {
+            excludeTestsMatching "org.opensearch.knn.bwc.LuceneFilteringIT.testLuceneFiltering"
+        }
+    }
     nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters."${baseName}".allHttpSocketURI.join(",")}")
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
     systemProperty 'tests.security.manager', 'false'

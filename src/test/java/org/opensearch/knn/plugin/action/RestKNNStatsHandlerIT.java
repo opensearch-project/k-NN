@@ -22,6 +22,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.SpaceType;
@@ -67,6 +68,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
     private boolean isDebuggingRemoteCluster = System.getProperty("cluster.debug", "false").equals("true");
     private static final String FIELD_NAME_2 = "test_field_two";
     private static final String FIELD_NAME_3 = "test_field_three";
+    private static final String FIELD_LUCENE_NAME = "lucene_test_field";
     private static final int DIMENSION = 4;
     private static int DOC_ID = 0;
     private static final int NUM_DOCS = 10;
@@ -106,6 +108,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         Map<String, Object> nodeStats0 = parseNodeStatsResponse(responseBody).get(0);
         Integer hitCount0 = (Integer) nodeStats0.get(StatNames.HIT_COUNT.getName());
         Integer missCount0 = (Integer) nodeStats0.get(StatNames.MISS_COUNT.getName());
+        Integer knnQueryWithFilterCount0 = (Integer) nodeStats0.get(StatNames.KNN_QUERY_WITH_FILTER_REQUESTS.getName());
 
         // Setup index
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
@@ -124,9 +127,11 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         Map<String, Object> nodeStats1 = parseNodeStatsResponse(responseBody).get(0);
         Integer hitCount1 = (Integer) nodeStats1.get(StatNames.HIT_COUNT.getName());
         Integer missCount1 = (Integer) nodeStats1.get(StatNames.MISS_COUNT.getName());
+        Integer knnQueryWithFilterCount1 = (Integer) nodeStats1.get(StatNames.KNN_QUERY_WITH_FILTER_REQUESTS.getName());
 
         assertEquals(hitCount0, hitCount1);
         assertEquals((Integer) (missCount0 + 1), missCount1);
+        assertEquals(knnQueryWithFilterCount0, knnQueryWithFilterCount1);
 
         // Second search: Ensure that hits=1
         searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1);
@@ -137,9 +142,24 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         Map<String, Object> nodeStats2 = parseNodeStatsResponse(responseBody).get(0);
         Integer hitCount2 = (Integer) nodeStats2.get(StatNames.HIT_COUNT.getName());
         Integer missCount2 = (Integer) nodeStats2.get(StatNames.MISS_COUNT.getName());
+        Integer knnQueryWithFilterCount2 = (Integer) nodeStats2.get(StatNames.KNN_QUERY_WITH_FILTER_REQUESTS.getName());
 
         assertEquals(missCount1, missCount2);
         assertEquals((Integer) (hitCount1 + 1), hitCount2);
+        assertEquals(knnQueryWithFilterCount0, knnQueryWithFilterCount2);
+
+        putMappingRequest(INDEX_NAME, createKnnIndexMapping(FIELD_LUCENE_NAME, 2, METHOD_HNSW, LUCENE_NAME));
+        addKnnDoc(INDEX_NAME, "2", FIELD_LUCENE_NAME, vector);
+
+        searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_LUCENE_NAME, qvector, 1, QueryBuilders.termQuery("_id", "1")), 1);
+
+        response = getKnnStats(Collections.emptyList(), Collections.emptyList());
+        responseBody = EntityUtils.toString(response.getEntity());
+
+        Map<String, Object> nodeStats3 = parseNodeStatsResponse(responseBody).get(0);
+        Integer knnQueryWithFilterCount3 = (Integer) nodeStats3.get(StatNames.KNN_QUERY_WITH_FILTER_REQUESTS.getName());
+
+        assertEquals((Integer) (knnQueryWithFilterCount0 + 1), knnQueryWithFilterCount3);
     }
 
     /**
