@@ -50,6 +50,52 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  Build-k-NN-Windows:
+    strategy:
+      matrix:
+        java: [ 11, 17 ]
+
+    name: Build and Test k-NN Plugin on Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout k-NN
+        uses: actions/checkout@v1
+
+      - name: Setup Java ${{ matrix.java }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java }}
+
+      - name: Install MinGW Using Scoop
+        run: |
+          iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
+          scoop bucket add main
+          scoop install mingw
+
+      - name: Add MinGW to PATH
+        run: |
+          echo "C:/Users/runneradmin/scoop/apps/mingw/current/bin" >> $env:GITHUB_PATH
+          refreshenv
+
+      - name: Download OpenBLAS
+        run: |
+          curl -L -O https://github.com/xianyi/OpenBLAS/releases/download/v0.3.21/OpenBLAS-0.3.21-x64.zip
+          mkdir OpenBLAS
+          Expand-Archive -Path .\OpenBLAS-0.3.21-x64.zip -DestinationPath .\OpenBLAS\
+          mkdir ./src/main/resources/windowsDependencies
+          cp ./OpenBLAS/bin/libopenblas.dll ./src/main/resources/windowsDependencies/
+          rm .\OpenBLAS-0.3.21-x64.zip
+          rm -r .\OpenBLAS\
+
+      - name: Run build
+        run: |
+          ./gradlew.bat build
+      - name: Upload Coverage Report
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
 #      - name: Pull and Run Docker for security tests
 #        run: |
 #          plugin=`ls build/distributions/*.zip`
