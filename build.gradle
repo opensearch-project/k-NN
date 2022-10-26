@@ -53,7 +53,7 @@ ext {
 
 allprojects {
 
-    group = 'org.opensearch'
+    group = 'org.opensearch.plugin'
     version = opensearch_version.tokenize('-')[0] + '.0'
     if (version_qualifier) {
         version += "-${version_qualifier}"
