@@ -17,7 +17,7 @@ jobs:
       matrix:
         java: [11, 17]
 
-    name: Build and Test k-NN Plugin on Ubuntu
+    name: Build and Test k-NN Plugin
     runs-on: ubuntu-latest
 
     steps:

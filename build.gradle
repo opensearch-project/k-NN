@@ -197,7 +197,6 @@ test {
     systemProperty 'tests.security.manager', 'false'
     systemProperty "java.library.path", "$rootDir/jni/release"
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
         environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
     }
@@ -242,7 +241,6 @@ testClusters.integTest {
     testDistribution = "ARCHIVE"
     plugin(project.tasks.bundlePlugin.archiveFile)
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
-
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
         environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
     }
