@@ -124,28 +124,6 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         actualBuilder.equals(knnQueryBuilder);
     }
 
-    public void testFromXcontent_WithFilter_UnsupportedClusterVersion() throws Exception {
-        final ClusterService clusterService = mockClusterService(Version.V_2_3_0);
-
-        final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
-        knnClusterUtil.initialize(clusterService);
-
-        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        final KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K, TERM_QUERY);
-        final XContentBuilder builder = XContentFactory.jsonBuilder();
-        builder.startObject();
-        builder.startObject(knnQueryBuilder.fieldName());
-        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
-        builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), knnQueryBuilder.getK());
-        builder.field(KNNQueryBuilder.FILTER_FIELD.getPreferredName(), knnQueryBuilder.getFilter());
-        builder.endObject();
-        builder.endObject();
-        final XContentParser contentParser = createParser(builder);
-        contentParser.nextToken();
-
-        expectThrows(IllegalArgumentException.class, () -> KNNQueryBuilder.fromXContent(contentParser));
-    }
-
     @Override
     protected NamedXContentRegistry xContentRegistry() {
         List<NamedXContentRegistry.Entry> list = ClusterModule.getNamedXWriteables();
