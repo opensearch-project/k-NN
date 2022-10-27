@@ -229,6 +229,29 @@ Ingests a dataset of vectors into the cluster.
 | ----------- | ----------- | ----------- |
 | took | Total time to ingest the dataset into the index.| ms |
 
+#### ingest_extended
+
+Ingests a dataset of multiple context types into the cluster.
+
+##### Parameters
+
+| Parameter Name | Description                                                                                                                                                  | Default |  
+| ----------- |--------------------------------------------------------------------------------------------------------------------------------------------------------------| ----------- |
+| index_name | Name of index to ingest into                                                                                                                                 | No default |
+| field_name | Name of field to ingest into                                                                                                                                 | No default |
+| bulk_size | Documents per bulk request                                                                                                                                   | 300 |
+| dataset_format | Format the data-set is in. Currently hdf5 and bigann is supported. The hdf5 file must be organized in the same way that the ann-benchmarks organizes theirs. | 'hdf5' |
+| dataset_path | Path to data-set                                                                                                                                             | No default |
+| doc_count | Number of documents to create from data-set                                                                                                                  | Size of the data-set |
+| attributes_dataset_name | Name of dataset with additional attributes inside the main dataset                                                                                           | No default |
+| attribute_spec | Definition of attributes, format is: [{id: [id_val], name: [name_val], type: [type_val]}]                                                                    | No default |
+
+##### Metrics
+
+| Metric Name | Description | Unit |  
+| ----------- | ----------- | ----------- |
+| took | Total time to ingest the dataset into the index.| ms |
+
 #### query
 
 Runs a set of queries against an index.
@@ -256,6 +279,60 @@ Runs a set of queries against an index.
 | memory_kb | Native memory k-NN is using at the end of the query workload | KB |
 | recall@R | ratio of top R results from the ground truth neighbors that are in the K results returned by the plugin | float 0.0-1.0 |
 | recall@K | ratio of results returned that were ground truth nearest neighbors  | float 0.0-1.0 |
+
+#### query_with_filter
+
+Runs a set of queries with filter against an index.
+
+##### Parameters
+
+| Parameter Name | Description                                                                                                                                                               | Default              |  
+| ----------- |---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
+| k | Number of neighbors to return on search                                                                                                                                   | 100                  |
+| r | r value in Recall@R                                                                                                                                                       | 1                    |
+| index_name | Name of index to search                                                                                                                                                   | No default           |
+| field_name | Name field to search                                                                                                                                                      | No default           |
+| calculate_recall | Whether to calculate recall values                                                                                                                                        | False                |
+| dataset_format | Format the dataset is in. Currently hdf5 and bigann is supported. The hdf5 file must be organized in the same way that the ann-benchmarks organizes theirs.               | 'hdf5'               |
+| dataset_path | Path to dataset                                                                                                                                                           | No default           |
+| neighbors_format | Format the neighbors dataset is in. Currently hdf5 and bigann is supported. The hdf5 file must be organized in the same way that the ann-benchmarks organizes theirs.     | 'hdf5'               |
+| neighbors_path | Path to neighbors dataset                                                                                                                                                 | No default           |
+| neighbors_dataset | Name of filter dataset inside the neighbors dataset                                                                                                                       | No default           |
+| filter_spec | Path to filter specification                                                                                                                                              | No default           |
+| filter_type | Type of filter format, we do support following types: <br/>FILTER inner filter format for approximate k-NN search<br/>SCRIPT score scripting style with exact k-NN search | SCRIPT               |
+| score_script_similarity | Similarity function that has been used to index dataset. Used for SCRIPT filter type and ignored for others                                                               | l2                   |
+| query_count | Number of queries to create from data-set                                                                                                                                 | Size of the data-set |
+
+##### Metrics
+
+| Metric Name | Description | Unit |  
+| ----------- | ----------- | ----------- |
+| took | Took times returned per query aggregated as total, p50, p90 and p99 (when applicable) | ms |
+| memory_kb | Native memory k-NN is using at the end of the query workload | KB |
+| recall@R | ratio of top R results from the ground truth neighbors that are in the K results returned by the plugin | float 0.0-1.0 |
+| recall@K | ratio of results returned that were ground truth nearest neighbors  | float 0.0-1.0 |
+
+### Data sets
+
+This benchmark tool uses pre-generated data sets to run indexing and query workload. For some benchmark types existing dataset need to be 
+extended. Filtering is an example of use case where such dataset extension is needed.
+
+It's possible to use script provided with this repo to generate dataset and run benchmark for filtering queries.
+You need to have existing dataset with vector data. This dataset will be used  to generate additional attribute data and set of ground truth neighbours document ids.
+
+To generate dataset with attributes based on vectors only dataset use following command pattern:
+
+```commandline
+python add-filters-to-dataset.py <path_to_dataset_with_vectors> <path_of_new_dataset_with_attributes> True False
+```
+
+To generate neighbours dataset for different filters based on dataset with attributes use following command pattern:
+
+```commandline
+python add-filters-to-dataset.py <path_to_dataset_with_vectors> <path_of_new_dataset_with_attributes> False True
+```
+
+After that new dataset(s) can be referred from testcase definition in `ingest_extended` and `query_with_filter` steps.
 
 ## Contributing 
 

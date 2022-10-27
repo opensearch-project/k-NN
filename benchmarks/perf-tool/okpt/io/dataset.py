@@ -34,6 +34,7 @@ class Context(Enum):
     INDEX = 1
     QUERY = 2
     NEIGHBORS = 3
+    CUSTOM = 4
 
 
 class DataSet(ABC):
@@ -64,9 +65,9 @@ class HDF5DataSet(DataSet):
     <https://github.com/erikbern/ann-benchmarks#data-sets>`_
     """
 
-    def __init__(self, dataset_path: str, context: Context):
+    def __init__(self, dataset_path: str, context: Context, custom_context=None):
         file = h5py.File(dataset_path)
-        self.data = cast(h5py.Dataset, file[self._parse_context(context)])
+        self.data = cast(h5py.Dataset, file[self._parse_context(context, custom_context)])
         self.current = 0
 
     def read(self, chunk_size: int):
@@ -88,7 +89,7 @@ class HDF5DataSet(DataSet):
         self.current = 0
 
     @staticmethod
-    def _parse_context(context: Context) -> str:
+    def _parse_context(context: Context, custom_context=None) -> str:
         if context == Context.NEIGHBORS:
             return "neighbors"
 
@@ -97,6 +98,9 @@ class HDF5DataSet(DataSet):
 
         if context == Context.QUERY:
             return "test"
+
+        if context == Context.CUSTOM:
+            return custom_context
 
         raise Exception("Unsupported context")
 
