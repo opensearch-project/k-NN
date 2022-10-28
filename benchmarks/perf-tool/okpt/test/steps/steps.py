@@ -555,6 +555,25 @@ class QueryWithFilterStep(OpenSearchStep):
                         }
                     }
                 }
+            elif self.filter_type == 'BOOL_POST_FILTER':
+                return {
+                    'size': self.k,
+                    'query': {
+                        'bool': {
+                            'filter': filter_json,
+                            'must': [
+                                {
+                                    'knn': {
+                                        self.field_name: {
+                                            'vector': vec,
+                                            'k': self.k
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
             else:
                 raise ConfigurationError('Not supported filter type {}'.format(self.filter_type))
 
@@ -573,7 +592,7 @@ class QueryWithFilterStep(OpenSearchStep):
         results['took'] = [
             float(query_response['took']) for query_response in query_responses
         ]
-        results['memory_kb'] = get_cache_size_in_kb(self.endpoint, 9200)
+        results['memory_kb'] = get_cache_size_in_kb(self.endpoint, 80)
 
         if self.calculate_recall:
             ids = [[int(hit['_id'])
