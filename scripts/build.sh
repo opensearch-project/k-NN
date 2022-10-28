@@ -108,7 +108,7 @@ fi
 # Build k-NN lib and plugin through gradle tasks
 cd $work_dir
 # Gradle build is used here to replace gradle assemble due to build will also call cmake and make before generating jars
-./gradlew build --no-daemon --refresh-dependencies -x integTest -DskipTests=true -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
+./gradlew build --no-daemon --refresh-dependencies -x integTest -x test -DskipTests=true -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
 ./gradlew publishPluginZipPublicationToZipStagingRepository -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
 ./gradlew publishPluginZipPublicationToMavenLocal -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER -Dopensearch.version=$VERSION
 
