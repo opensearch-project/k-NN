@@ -46,6 +46,7 @@ jobs:
           ./gradlew build
 
       - name: Upload Coverage Report
+        if: startsWith(matrix.os,'ubuntu')
         uses: codecov/codecov-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -91,10 +92,6 @@ jobs:
       - name: Run build
         run: |
           ./gradlew.bat build
-      - name: Upload Coverage Report
-        uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
 
 #      - name: Pull and Run Docker for security tests
 #        run: |
