@@ -57,12 +57,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.Version.CURRENT;
@@ -321,7 +320,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         IndexReader reader = writer.getReader();
         writer.close();
 
-        verify(perFieldKnnVectorsFormatSpy).getKnnVectorsFormatForField(anyString());
+        verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getKnnVectorsFormatForField(eq(FIELD_NAME_ONE));
 
         IndexSearcher searcher = new IndexSearcher(reader);
         Query query = KNNQueryFactory.create(KNNEngine.LUCENE, "dummy", FIELD_NAME_ONE, new float[] { 1.0f, 0.0f, 0.0f }, 1);
@@ -348,7 +347,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
         NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
 
-        verify(perFieldKnnVectorsFormatSpy, times(2)).getKnnVectorsFormatForField(anyString());
+        verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getKnnVectorsFormatForField(eq(FIELD_NAME_TWO));
 
         IndexSearcher searcher1 = new IndexSearcher(reader1);
         Query query1 = KNNQueryFactory.create(KNNEngine.LUCENE, "dummy", FIELD_NAME_TWO, new float[] { 1.0f, 0.0f }, 1);
