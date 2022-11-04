@@ -94,7 +94,7 @@ class HDF5DataSet(DataSet):
             return "neighbors"
 
         if context == Context.INDEX:
-            return "neighbors"
+            return "train"
 
         if context == Context.QUERY:
             return "test"
