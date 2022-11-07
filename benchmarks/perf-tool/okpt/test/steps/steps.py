@@ -281,11 +281,8 @@ class DeleteIndexStep(OpenSearchStep):
         return ['took']
 
 
-class IngestStep(OpenSearchStep):
+class BaseIngestStep(OpenSearchStep):
     """See base class."""
-
-    label = 'ingest'
-
     def __init__(self, step_config: StepConfig):
         super().__init__(step_config)
         self.index_name = parse_string_param('index_name', step_config.config,
@@ -302,9 +299,9 @@ class IngestStep(OpenSearchStep):
         self.dataset = parse_dataset(dataset_format, dataset_path,
                                      Context.INDEX)
 
-        input_doc_count = parse_int_param('doc_count', step_config.config, {},
+        self.input_doc_count = parse_int_param('doc_count', step_config.config, {},
                                           self.dataset.size())
-        self.doc_count = min(input_doc_count, self.dataset.size())
+        self.doc_count = min(self.input_doc_count, self.dataset.size())
 
     def _action(self):
 
@@ -314,11 +311,7 @@ class IngestStep(OpenSearchStep):
         # Maintain minimal state outside of this loop. For large data sets, too
         # much state may cause out of memory failure
         for i in range(0, self.doc_count, self.bulk_size):
-            partition = self.dataset.read(self.bulk_size)
-            if partition is None:
-                break
-            body = bulk_transform(partition, self.field_name, action, i)
-            bulk_index(self.opensearch, self.index_name, body)
+            self.handle_data_bulk(action, i)
 
         self.dataset.reset()
 
@@ -327,63 +320,97 @@ class IngestStep(OpenSearchStep):
     def _get_measures(self) -> List[str]:
         return ['took']
 
-class IngestStepExtended(OpenSearchStep):
+    @abstractmethod
+    def handle_data_bulk(self, action, i):
+        pass
+
+
+class IngestStep(BaseIngestStep):
+    """See base class."""
+
+    label = 'ingest'
+
+    def handle_data_bulk(self, action, i):
+        partition = self.dataset.read(self.bulk_size)
+        if partition is None:
+            return
+        body = bulk_transform(partition, self.field_name, action, i)
+        bulk_index(self.opensearch, self.index_name, body)
+
+
+class IngestStepExtended(BaseIngestStep):
     """See base class."""
 
     label = 'ingest_extended'
 
     def __init__(self, step_config: StepConfig):
         super().__init__(step_config)
-        self.index_name = parse_string_param('index_name', step_config.config,
-                                             {}, None)
-        self.field_name = parse_string_param('field_name', step_config.config,
-                                             {}, None)
-        self.bulk_size = parse_int_param('bulk_size', step_config.config, {},
-                                         300)
-        self.implicit_config = step_config.implicit_config
-        dataset_format = parse_string_param('dataset_format',
+
+        self.dataset_format = parse_string_param('dataset_format',
                                             step_config.config, {}, 'hdf5')
+
         dataset_path = parse_string_param('dataset_path', step_config.config,
                                           {}, None)
-
-        self.dataset = parse_dataset(dataset_format, dataset_path,
-                                     Context.INDEX)
 
         self.attributes_dataset_name = parse_string_param('attributes_dataset_name',
                                             step_config.config, {}, None)
 
-        self.attributes_dataset = parse_dataset(dataset_format, dataset_path,
+        self.attributes_dataset = parse_dataset(self.dataset_format, dataset_path,
                                                 Context.CUSTOM, self.attributes_dataset_name)
 
         self.attribute_spec = parse_list_param('attribute_spec',
                                                step_config.config, {}, [])
 
-        input_doc_count = parse_int_param('doc_count', step_config.config, {},
-                                          self.dataset.size())
-        self.doc_count = min(input_doc_count, self.dataset.size())
+        self.partition_attr = self.attributes_dataset.read(self.doc_count)
 
-    def _action(self):
+    def handle_data_bulk(self, action, i):
+        partition = self.dataset.read(self.bulk_size)
+        if partition is None:
+            return
+        body = self.bulk_transform_with_attributes(partition, self.partition_attr, self.field_name,
+                                              action, i, self.attribute_spec)
+        bulk_index(self.opensearch, self.index_name, body)
 
-        def action(doc_id):
-            return {'index': {'_index': self.index_name, '_id': doc_id}}
+    def bulk_transform_with_attributes(self, partition: np.ndarray, partition_attr, field_name: str,
+                                       action, offset: int, attributes_def) -> List[Dict[str, Any]]:
+        """Partitions and transforms a list of vectors into OpenSearch's bulk
+        injection format.
+        Args:
+            partition: An array of vectors to transform.
+            partition_attr: dictionary of additional data to transform
+            field_name: field name for action
+            action: Bulk API action.
+            offset: to start counting from
+            attributes_def: definition of additional doc fields
+        Returns:
+            An array of transformed vectors in bulk format.
+        """
+        actions = []
+        _ = [
+            actions.extend([action(i + offset), None])
+            for i in range(len(partition))
+        ]
+        idx = 1
+        part_list = partition.tolist()
+        for i in range(len(partition)):
+            actions[idx] = {field_name: part_list[i]}
+            attr_idx = i + offset
 
-        # Maintain minimal state outside of this loop. For large data sets, too
-        # much state may cause out of memory failure
-        partition_attr = self.attributes_dataset.read(self.doc_count)
-        for i in range(0, self.doc_count, self.bulk_size):
-            partition = self.dataset.read(self.bulk_size)
-            if partition is None:
-                break
-            body = bulk_transform_with_attributes(partition, partition_attr, self.field_name,
-                                                  self.attributes_dataset_name, action, i, self.attribute_spec)
-            bulk_index(self.opensearch, self.index_name, body)
+            for attribute in attributes_def:
+                attr_def_idx = attribute['id']
+                attr_def_name = attribute['name']
+                attr_def_type = attribute['type']
 
-        self.dataset.reset()
+                if attr_def_type == 'str':
+                    val = partition_attr[attr_idx][attr_def_idx].decode()
+                    if val != 'None':
+                        actions[idx][attr_def_name] = val
+                elif attr_def_type == 'int':
+                    val = int(partition_attr[attr_idx][attr_def_idx].decode())
+                    actions[idx][attr_def_name] = val
+            idx += 2
 
-        return {}
-
-    def _get_measures(self) -> List[str]:
-        return ['took']
+        return actions
 
 
 class BaseQueryStep(OpenSearchStep):
@@ -585,46 +612,6 @@ def bulk_transform(partition: np.ndarray, field_name: str, action,
         for i in range(len(partition))
     ]
     actions[1::2] = [{field_name: vec} for vec in partition.tolist()]
-    return actions
-
-
-def bulk_transform_with_attributes(partition: np.ndarray, partition_attr, field_name: str, attributes_dataset_name: str,
-                                   action, offset: int, attributes_def) -> List[Dict[str, Any]]:
-    """Partitions and transforms a list of vectors into OpenSearch's bulk
-    injection format.
-    Args:
-        offset: to start counting from
-        partition: An array of vectors to transform.
-        field_name: field name for action
-        action: Bulk API action.
-    Returns:
-        An array of transformed vectors in bulk format.
-    """
-    actions = []
-    _ = [
-        actions.extend([action(i + offset), None])
-        for i in range(len(partition))
-    ]
-    idx = 1
-    part_list = partition.tolist()
-    for i in range(len(partition)):
-        actions[idx] = {field_name: part_list[i]}
-        attr_idx = i + offset
-
-        for attribute in attributes_def:
-            attr_def_idx = attribute['id']
-            attr_def_name = attribute['name']
-            attr_def_type = attribute['type']
-
-            if attr_def_type == 'str':
-                val = partition_attr[attr_idx][attr_def_idx].decode()
-                if val != 'None':
-                    actions[idx][attr_def_name] = val
-            elif attr_def_type == 'int':
-                val = int(partition_attr[attr_idx][attr_def_idx].decode())
-                actions[idx][attr_def_name] = val
-        idx += 2
-
     return actions
 
 
