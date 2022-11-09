@@ -81,11 +81,11 @@ public class ModelGraveyard implements Metadata.Custom {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        Iterator modelIds = getModelIds().iterator();
+        Iterator model_ids = getModelIds().iterator();
 
-        builder.startArray("MODEL_GRAVEYARD");
-        while (modelIds.hasNext()) {
-            builder.value(modelIds.next());
+        builder.startArray("model_ids");
+        while (model_ids.hasNext()) {
+            builder.value(model_ids.next());
         }
         builder.endArray();
         return builder;

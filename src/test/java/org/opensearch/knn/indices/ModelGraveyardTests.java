@@ -62,10 +62,10 @@ public class ModelGraveyardTests extends OpenSearchTestCase {
 
     public void testXContentBuilder() throws IOException {
         Set<String> modelIds = new HashSet<>();
-        String testModelId = "test-model-id";
         String testModelId1 = "test-model-id1";
-        modelIds.add(testModelId);
+        String testModelId2 = "test-model-id2";
         modelIds.add(testModelId1);
+        modelIds.add(testModelId2);
         ModelGraveyard testModelGraveyard = new ModelGraveyard(modelIds);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
@@ -74,8 +74,9 @@ public class ModelGraveyardTests extends OpenSearchTestCase {
         builder.endObject();
 
         ModelGraveyard testModelGraveyard2 = ModelGraveyard.fromXContent(createParser(builder));
-        assertTrue(testModelGraveyard2.contains(testModelId));
+        assertEquals(2, testModelGraveyard2.size());
         assertTrue(testModelGraveyard2.contains(testModelId1));
+        assertTrue(testModelGraveyard2.contains(testModelId2));
     }
 
     public void testDiffStreams() throws IOException {
