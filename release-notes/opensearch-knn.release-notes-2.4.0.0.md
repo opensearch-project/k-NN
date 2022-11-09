@@ -23,6 +23,7 @@ Compatible with OpenSearch 2.4.0
 
 ### Bug Fixes
 * Fix NPE on null script context ([#560](https://github.com/opensearch-project/k-NN/pull/560))
+* Add fix to fromXContent and toXContent in ModelGraveyard ([#618](https://github.com/opensearch-project/k-NN/pull/618))
 
 ### Refactoring
 * Refactor kNN codec related classes ([#582](https://github.com/opensearch-project/k-NN/pull/582))
