@@ -21,7 +21,8 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.Iterator;
+
 import com.google.common.collect.Sets;
 
 /**
@@ -80,6 +81,13 @@ public class ModelGraveyard implements Metadata.Custom {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
+        Iterator modelIds = getModelIds().iterator();
+
+        builder.startArray("MODEL_GRAVEYARD");
+        while (modelIds.hasNext()) {
+            builder.value(modelIds.next());
+        }
+        builder.endArray();
         return builder;
     }
 
@@ -143,7 +151,28 @@ public class ModelGraveyard implements Metadata.Custom {
      * @throws IOException
      */
     public static ModelGraveyard fromXContent(XContentParser xContentParser) throws IOException {
-        return new ModelGraveyard(xContentParser.list().stream().map(Object::toString).collect(Collectors.toSet()));
+        ModelGraveyard modelGraveyard = new ModelGraveyard();
+
+        // If it is a fresh parser, move to the first token
+        if (xContentParser.currentToken() == null) {
+            xContentParser.nextToken();
+        }
+
+        // on a start object move to next token
+        if (xContentParser.currentToken() == XContentParser.Token.START_OBJECT) {
+            xContentParser.nextToken();
+        }
+
+        if (xContentParser.currentToken() != XContentParser.Token.FIELD_NAME) {
+            throw new IllegalArgumentException("expected field name but got a " + xContentParser.currentToken());
+        }
+
+        while (xContentParser.nextToken() != XContentParser.Token.END_OBJECT) {
+            if (xContentParser.currentToken() == XContentParser.Token.VALUE_STRING) {
+                modelGraveyard.add(xContentParser.text());
+            }
+        }
+        return modelGraveyard;
     }
 
     /**

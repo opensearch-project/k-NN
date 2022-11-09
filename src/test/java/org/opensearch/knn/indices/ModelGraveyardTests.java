@@ -6,6 +6,9 @@
 package org.opensearch.knn.indices;
 
 import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.common.xcontent.ToXContent;
+import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.io.IOException;
@@ -55,6 +58,24 @@ public class ModelGraveyardTests extends OpenSearchTestCase {
         assertEquals(testModelGraveyard.size(), testModelGraveyardCopy.size());
         assertTrue(testModelGraveyard.contains(testModelId));
         assertTrue(testModelGraveyardCopy.contains(testModelId));
+    }
+
+    public void testXContentBuilder() throws IOException {
+        Set<String> modelIds = new HashSet<>();
+        String testModelId = "test-model-id";
+        String testModelId1 = "test-model-id1";
+        modelIds.add(testModelId);
+        modelIds.add(testModelId1);
+        ModelGraveyard testModelGraveyard = new ModelGraveyard(modelIds);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
+        xContentBuilder.startObject();
+        XContentBuilder builder = testModelGraveyard.toXContent(xContentBuilder, ToXContent.EMPTY_PARAMS);
+        builder.endObject();
+
+        ModelGraveyard testModelGraveyard2 = ModelGraveyard.fromXContent(createParser(builder));
+        assertTrue(testModelGraveyard2.contains(testModelId));
+        assertTrue(testModelGraveyard2.contains(testModelId1));
     }
 
     public void testDiffStreams() throws IOException {
