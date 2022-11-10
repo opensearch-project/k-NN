@@ -229,22 +229,21 @@ Ingests a dataset of vectors into the cluster.
 | ----------- | ----------- | ----------- |
 | took | Total time to ingest the dataset into the index.| ms |
 
-#### ingest_extended
+#### ingest_multi_field
 
 Ingests a dataset of multiple context types into the cluster.
 
 ##### Parameters
 
-| Parameter Name | Description                                                                                                                                                  | Default |  
-| ----------- |--------------------------------------------------------------------------------------------------------------------------------------------------------------| ----------- |
-| index_name | Name of index to ingest into                                                                                                                                 | No default |
-| field_name | Name of field to ingest into                                                                                                                                 | No default |
-| bulk_size | Documents per bulk request                                                                                                                                   | 300 |
-| dataset_format | Format the data-set is in. Currently hdf5 and bigann is supported. The hdf5 file must be organized in the same way that the ann-benchmarks organizes theirs. | 'hdf5' |
-| dataset_path | Path to data-set                                                                                                                                             | No default |
-| doc_count | Number of documents to create from data-set                                                                                                                  | Size of the data-set |
-| attributes_dataset_name | Name of dataset with additional attributes inside the main dataset                                                                                           | No default |
-| attribute_spec | Definition of attributes, format is: [{id: [id_val], name: [name_val], type: [type_val]}]                                                                    | No default |
+| Parameter Name | Description                                                                                                                                               | Default |  
+| ----------- |-----------------------------------------------------------------------------------------------------------------------------------------------------------| ----------- |
+| index_name | Name of index to ingest into                                                                                                                              | No default |
+| field_name | Name of field to ingest into                                                                                                                              | No default |
+| bulk_size | Documents per bulk request                                                                                                                                | 300 |
+| dataset_path | Path to data-set                                                                                                                                          | No default |
+| doc_count | Number of documents to create from data-set                                                                                                               | Size of the data-set |
+| attributes_dataset_name | Name of dataset with additional attributes inside the main dataset                                                                                        | No default |
+| attribute_spec | Definition of attributes, format is: [{ name: [name_val], type: [type_val]}] Order is important and must match order of attributes column in dataset file | No default |
 
 ##### Metrics
 

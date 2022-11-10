@@ -311,7 +311,8 @@ class BaseIngestStep(OpenSearchStep):
         # Maintain minimal state outside of this loop. For large data sets, too
         # much state may cause out of memory failure
         for i in range(0, self.doc_count, self.bulk_size):
-            self.handle_data_bulk(action, i)
+            partition = self.dataset.read(self.bulk_size)
+            self._handle_data_bulk(partition, action, i)
 
         self.dataset.reset()
 
@@ -321,7 +322,7 @@ class BaseIngestStep(OpenSearchStep):
         return ['took']
 
     @abstractmethod
-    def handle_data_bulk(self, action, i):
+    def _handle_data_bulk(self, partition, action, i):
         pass
 
 
@@ -330,8 +331,7 @@ class IngestStep(BaseIngestStep):
 
     label = 'ingest'
 
-    def handle_data_bulk(self, action, i):
-        partition = self.dataset.read(self.bulk_size)
+    def _handle_data_bulk(self, partition, action, i):
         if partition is None:
             return
         body = bulk_transform(partition, self.field_name, action, i)
@@ -341,13 +341,10 @@ class IngestStep(BaseIngestStep):
 class IngestMultiFieldStep(BaseIngestStep):
     """See base class."""
 
-    label = 'ingest_extended'
+    label = 'ingest_multi_field'
 
     def __init__(self, step_config: StepConfig):
         super().__init__(step_config)
-
-        self.dataset_format = parse_string_param('dataset_format',
-                                            step_config.config, {}, 'hdf5')
 
         dataset_path = parse_string_param('dataset_path', step_config.config,
                                           {}, None)
@@ -355,7 +352,7 @@ class IngestMultiFieldStep(BaseIngestStep):
         self.attributes_dataset_name = parse_string_param('attributes_dataset_name',
                                             step_config.config, {}, None)
 
-        self.attributes_dataset = parse_dataset(self.dataset_format, dataset_path,
+        self.attributes_dataset = parse_dataset('hdf5', dataset_path,
                                                 Context.CUSTOM, self.attributes_dataset_name)
 
         self.attribute_spec = parse_list_param('attribute_spec',
@@ -363,8 +360,7 @@ class IngestMultiFieldStep(BaseIngestStep):
 
         self.partition_attr = self.attributes_dataset.read(self.doc_count)
 
-    def handle_data_bulk(self, action, i):
-        partition = self.dataset.read(self.bulk_size)
+    def _handle_data_bulk(self, partition, action, i):
         if partition is None:
             return
         body = self.bulk_transform_with_attributes(partition, self.partition_attr, self.field_name,
@@ -395,9 +391,8 @@ class IngestMultiFieldStep(BaseIngestStep):
         for i in range(len(partition)):
             actions[idx] = {field_name: part_list[i]}
             attr_idx = i + offset
-
+            attr_def_idx = 0
             for attribute in attributes_def:
-                attr_def_idx = attribute['id']
                 attr_def_name = attribute['name']
                 attr_def_type = attribute['type']
 
@@ -408,6 +403,7 @@ class IngestMultiFieldStep(BaseIngestStep):
                 elif attr_def_type == 'int':
                     val = int(partition_attr[attr_idx][attr_def_idx].decode())
                     actions[idx][attr_def_name] = val
+                attr_def_idx += 1
             idx += 2
 
         return actions
