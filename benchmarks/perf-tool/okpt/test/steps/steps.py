@@ -338,7 +338,7 @@ class IngestStep(BaseIngestStep):
         bulk_index(self.opensearch, self.index_name, body)
 
 
-class IngestStepExtended(BaseIngestStep):
+class IngestMultiFieldStep(BaseIngestStep):
     """See base class."""
 
     label = 'ingest_extended'
