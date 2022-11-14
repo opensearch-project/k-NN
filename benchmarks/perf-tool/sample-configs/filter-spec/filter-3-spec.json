@@ -1,0 +1,30 @@
+{
+    "bool":
+    {
+        "must":
+        [
+            {
+                "range":
+                {
+                    "age":
+                    {
+                        "gte": 20,
+                        "lte": 80
+                    }
+                }
+            },
+            {
+                "exists":
+                {
+                    "field": "color"
+                }
+            },
+            {
+                "exists":
+                {
+                    "field": "taste"
+                }
+            }
+        ]
+    }
+}
