@@ -9,7 +9,7 @@ from okpt.io.config.parsers.base import ConfigurationError
 from okpt.test.steps.base import Step, StepConfig
 
 from okpt.test.steps.steps import CreateIndexStep, DisableRefreshStep, RefreshIndexStep, DeleteIndexStep, \
-    TrainModelStep, DeleteModelStep, ForceMergeStep, ClearCacheStep, IngestStep, IngestMultiFieldStep, QueryStep, QueryWithFilterStep
+    TrainModelStep, DeleteModelStep, ForceMergeStep, ClearCacheStep, IngestStep, IngestMultiFieldStep, QueryStep, QueryWithFilterStep, GetStatsStep
 
 
 def create_step(step_config: StepConfig) -> Step:
@@ -37,5 +37,7 @@ def create_step(step_config: StepConfig) -> Step:
         return ForceMergeStep(step_config)
     elif step_config.step_name == ClearCacheStep.label:
         return ClearCacheStep(step_config)
+    elif step_config.step_name == GetStatsStep.label:
+        return GetStatsStep(step_config)
 
     raise ConfigurationError(f'Invalid step {step_config.step_name}')

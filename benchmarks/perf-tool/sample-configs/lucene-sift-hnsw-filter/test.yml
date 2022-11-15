@@ -36,6 +36,8 @@ steps:
     neighbors_dataset: neighbors_filter_1
     filter_spec: sample-configs/filter-spec/filter-1-spec.json
     query_count: 100
+  - name: get_stats
+    index_name: target_index
 cleanup:
   - name: delete_index
     index_name: target_index
