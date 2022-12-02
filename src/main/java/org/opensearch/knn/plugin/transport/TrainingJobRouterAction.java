@@ -20,8 +20,7 @@ import org.opensearch.common.io.stream.Writeable;
 public class TrainingJobRouterAction extends ActionType<TrainingModelResponse> {
 
     public static final String NAME = "cluster:admin/knn_training_job_router_action";
-    public static final TrainingJobRouterAction INSTANCE = new TrainingJobRouterAction(NAME,
-            TrainingModelResponse::new);
+    public static final TrainingJobRouterAction INSTANCE = new TrainingJobRouterAction(NAME, TrainingModelResponse::new);
 
     private TrainingJobRouterAction(String name, Writeable.Reader<TrainingModelResponse> trainingModelResponseReader) {
         super(name, trainingModelResponseReader);

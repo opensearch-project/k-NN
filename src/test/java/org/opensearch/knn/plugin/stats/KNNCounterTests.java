@@ -17,7 +17,7 @@ public class KNNCounterTests extends KNNTestCase {
 
         for (long i = 0; i < 100; i++) {
             KNNCounter.GRAPH_QUERY_ERRORS.increment();
-            assertEquals((Long) (i+1), KNNCounter.GRAPH_QUERY_ERRORS.getCount());
+            assertEquals((Long) (i + 1), KNNCounter.GRAPH_QUERY_ERRORS.getCount());
         }
     }
 }

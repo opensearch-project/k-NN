@@ -18,8 +18,10 @@ public class KNNVectorAsArraySerializer implements KNNVectorSerializer {
     @Override
     public byte[] floatToByteArray(float[] input) {
         byte[] bytes;
-        try (ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-             ObjectOutputStream objectStream = new ObjectOutputStream(byteStream);) {
+        try (
+            ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+            ObjectOutputStream objectStream = new ObjectOutputStream(byteStream);
+        ) {
             objectStream.writeObject(input);
             bytes = byteStream.toByteArray();
         } catch (IOException e) {

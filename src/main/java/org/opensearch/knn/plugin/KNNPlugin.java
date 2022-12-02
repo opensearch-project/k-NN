@@ -138,8 +138,10 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
 
     @Override
     public Map<String, Mapper.TypeParser> getMappers() {
-        return Collections.singletonMap(KNNVectorFieldMapper.CONTENT_TYPE, new KNNVectorFieldMapper.TypeParser(
-                ModelDao.OpenSearchKNNModelDao::getInstance));
+        return Collections.singletonMap(
+            KNNVectorFieldMapper.CONTENT_TYPE,
+            new KNNVectorFieldMapper.TypeParser(ModelDao.OpenSearchKNNModelDao::getInstance)
+        );
     }
 
     @Override
@@ -148,12 +150,19 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
     }
 
     @Override
-    public Collection<Object> createComponents(Client client, ClusterService clusterService, ThreadPool threadPool,
-                                               ResourceWatcherService resourceWatcherService, ScriptService scriptService,
-                                               NamedXContentRegistry xContentRegistry, Environment environment,
-                                               NodeEnvironment nodeEnvironment, NamedWriteableRegistry namedWriteableRegistry,
-                                               IndexNameExpressionResolver indexNameExpressionResolver,
-                                               Supplier<RepositoriesService> repositoriesServiceSupplier) {
+    public Collection<Object> createComponents(
+        Client client,
+        ClusterService clusterService,
+        ThreadPool threadPool,
+        ResourceWatcherService resourceWatcherService,
+        ScriptService scriptService,
+        NamedXContentRegistry xContentRegistry,
+        Environment environment,
+        NodeEnvironment nodeEnvironment,
+        NamedWriteableRegistry namedWriteableRegistry,
+        IndexNameExpressionResolver indexNameExpressionResolver,
+        Supplier<RepositoriesService> repositoriesServiceSupplier
+    ) {
         this.clusterService = clusterService;
 
         // Initialize Native Memory loading strategies
@@ -178,25 +187,35 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
         return KNNSettings.state().getSettings();
     }
 
-    public List<RestHandler> getRestHandlers(Settings settings,
-                                             RestController restController,
-                                             ClusterSettings clusterSettings,
-                                             IndexScopedSettings indexScopedSettings,
-                                             SettingsFilter settingsFilter,
-                                             IndexNameExpressionResolver indexNameExpressionResolver,
-                                             Supplier<DiscoveryNodes> nodesInCluster) {
+    public List<RestHandler> getRestHandlers(
+        Settings settings,
+        RestController restController,
+        ClusterSettings clusterSettings,
+        IndexScopedSettings indexScopedSettings,
+        SettingsFilter settingsFilter,
+        IndexNameExpressionResolver indexNameExpressionResolver,
+        Supplier<DiscoveryNodes> nodesInCluster
+    ) {
 
         RestKNNStatsHandler restKNNStatsHandler = new RestKNNStatsHandler(settings, restController, knnStats);
-        RestKNNWarmupHandler restKNNWarmupHandler = new RestKNNWarmupHandler(settings, restController, clusterService,
-                indexNameExpressionResolver);
+        RestKNNWarmupHandler restKNNWarmupHandler = new RestKNNWarmupHandler(
+            settings,
+            restController,
+            clusterService,
+            indexNameExpressionResolver
+        );
         RestGetModelHandler restGetModelHandler = new RestGetModelHandler();
         RestDeleteModelHandler restDeleteModelHandler = new RestDeleteModelHandler();
         RestTrainModelHandler restTrainModelHandler = new RestTrainModelHandler();
         RestSearchModelHandler restSearchModelHandler = new RestSearchModelHandler();
 
         return ImmutableList.of(
-            restKNNStatsHandler, restKNNWarmupHandler, restGetModelHandler, restDeleteModelHandler,
-                restTrainModelHandler, restSearchModelHandler
+            restKNNStatsHandler,
+            restKNNWarmupHandler,
+            restGetModelHandler,
+            restDeleteModelHandler,
+            restTrainModelHandler,
+            restSearchModelHandler
         );
     }
 
@@ -206,17 +225,16 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
     @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
         return Arrays.asList(
-                new ActionHandler<>(KNNStatsAction.INSTANCE, KNNStatsTransportAction.class),
-                new ActionHandler<>(KNNWarmupAction.INSTANCE, KNNWarmupTransportAction.class),
-                new ActionHandler<>(UpdateModelMetadataAction.INSTANCE, UpdateModelMetadataTransportAction.class),
-                new ActionHandler<>(TrainingJobRouteDecisionInfoAction.INSTANCE,
-                        TrainingJobRouteDecisionInfoTransportAction.class),
-                new ActionHandler<>(GetModelAction.INSTANCE, GetModelTransportAction.class),
-                new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
-                new ActionHandler<>(TrainingJobRouterAction.INSTANCE, TrainingJobRouterTransportAction.class),
-                new ActionHandler<>(TrainingModelAction.INSTANCE, TrainingModelTransportAction.class),
-                new ActionHandler<>(RemoveModelFromCacheAction.INSTANCE, RemoveModelFromCacheTransportAction.class),
-                new ActionHandler<>(SearchModelAction.INSTANCE, SearchModelTransportAction.class)
+            new ActionHandler<>(KNNStatsAction.INSTANCE, KNNStatsTransportAction.class),
+            new ActionHandler<>(KNNWarmupAction.INSTANCE, KNNWarmupTransportAction.class),
+            new ActionHandler<>(UpdateModelMetadataAction.INSTANCE, UpdateModelMetadataTransportAction.class),
+            new ActionHandler<>(TrainingJobRouteDecisionInfoAction.INSTANCE, TrainingJobRouteDecisionInfoTransportAction.class),
+            new ActionHandler<>(GetModelAction.INSTANCE, GetModelTransportAction.class),
+            new ActionHandler<>(DeleteModelAction.INSTANCE, DeleteModelTransportAction.class),
+            new ActionHandler<>(TrainingJobRouterAction.INSTANCE, TrainingJobRouterTransportAction.class),
+            new ActionHandler<>(TrainingModelAction.INSTANCE, TrainingModelTransportAction.class),
+            new ActionHandler<>(RemoveModelFromCacheAction.INSTANCE, RemoveModelFromCacheTransportAction.class),
+            new ActionHandler<>(SearchModelAction.INSTANCE, SearchModelTransportAction.class)
         );
     }
 
@@ -267,15 +285,6 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
 
     @Override
     public List<ExecutorBuilder<?>> getExecutorBuilders(Settings settings) {
-        return ImmutableList.of(
-                new FixedExecutorBuilder(
-                        settings,
-                        TRAIN_THREAD_POOL,
-                        1,
-                        1,
-                        KNN_THREAD_POOL_PREFIX,
-                        false
-                )
-        );
+        return ImmutableList.of(new FixedExecutorBuilder(settings, TRAIN_THREAD_POOL, 1, 1, KNN_THREAD_POOL_PREFIX, false));
     }
 }

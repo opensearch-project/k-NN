@@ -27,7 +27,7 @@ public class KNNScoringSpaceUtil {
      */
     public static boolean isLongFieldType(MappedFieldType fieldType) {
         return fieldType instanceof NumberFieldMapper.NumberFieldType
-                && ((NumberFieldMapper.NumberFieldType) fieldType).numericType() == LONG.numericType();
+            && ((NumberFieldMapper.NumberFieldType) fieldType).numericType() == LONG.numericType();
     }
 
     /**
@@ -89,8 +89,9 @@ public class KNNScoringSpaceUtil {
         float[] floatArray = convertVectorToPrimitive(object);
         if (expectedDimensions != floatArray.length) {
             KNNCounter.SCRIPT_QUERY_ERRORS.increment();
-            throw new IllegalStateException("Object's dimension=" + floatArray.length + " does not match the " +
-                    "expected dimension=" + expectedDimensions + ".");
+            throw new IllegalStateException(
+                "Object's dimension=" + floatArray.length + " does not match the " + "expected dimension=" + expectedDimensions + "."
+            );
         }
         return floatArray;
     }

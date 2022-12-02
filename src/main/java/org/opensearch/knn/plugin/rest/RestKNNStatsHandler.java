@@ -55,7 +55,6 @@ public class RestKNNStatsHandler extends BaseRestHandler {
         return NAME;
     }
 
-
     private List<String> getStatsPath() {
         List<String> statsPath = new ArrayList<>();
         statsPath.add("/{nodeId}/stats/");
@@ -66,24 +65,24 @@ public class RestKNNStatsHandler extends BaseRestHandler {
     }
 
     private Map<String, String> getUrlPathByLegacyUrlPathMap() {
-        return getStatsPath().stream().collect(
-            Collectors.toMap(path -> KNNPlugin.LEGACY_KNN_BASE_URI + path, path -> KNNPlugin.KNN_BASE_URI + path)
-        );
+        return getStatsPath().stream()
+            .collect(Collectors.toMap(path -> KNNPlugin.LEGACY_KNN_BASE_URI + path, path -> KNNPlugin.KNN_BASE_URI + path));
     }
 
     @Override
     public List<Route> routes() {
-      return ImmutableList.of();
+        return ImmutableList.of();
     }
 
     @Override
     public List<ReplacedRoute> replacedRoutes() {
-        return getUrlPathByLegacyUrlPathMap().entrySet().stream().map(
-            e -> new ReplacedRoute(RestRequest.Method.GET, e.getValue(), RestRequest.Method.GET, e.getKey())
-        ).collect(Collectors.toList());
+        return getUrlPathByLegacyUrlPathMap().entrySet()
+            .stream()
+            .map(e -> new ReplacedRoute(RestRequest.Method.GET, e.getValue(), RestRequest.Method.GET, e.getKey()))
+            .collect(Collectors.toList());
     }
 
-  @Override
+    @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) {
         // From restrequest, create a knnStatsRequest
         KNNStatsRequest knnStatsRequest = getRequest(request);
@@ -130,8 +129,7 @@ public class RestKNNStatsHandler extends BaseRestHandler {
             }
 
             if (!invalidStats.isEmpty()) {
-                throw new IllegalArgumentException(unrecognized(request, invalidStats,
-                        knnStatsRequest.getStatsToBeRetrieved(), "stat"));
+                throw new IllegalArgumentException(unrecognized(request, invalidStats, knnStatsRequest.getStatsToBeRetrieved(), "stat"));
             }
 
         }

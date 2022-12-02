@@ -29,26 +29,40 @@ import java.util.List;
 /**
  * Transport action to remove models from some or all nodes in the clusters caches
  */
-public class RemoveModelFromCacheTransportAction extends
-        TransportNodesAction<RemoveModelFromCacheRequest, RemoveModelFromCacheResponse,
-                RemoveModelFromCacheNodeRequest, RemoveModelFromCacheNodeResponse> {
+public class RemoveModelFromCacheTransportAction extends TransportNodesAction<
+    RemoveModelFromCacheRequest,
+    RemoveModelFromCacheResponse,
+    RemoveModelFromCacheNodeRequest,
+    RemoveModelFromCacheNodeResponse> {
 
     private static Logger logger = LogManager.getLogger(RemoveModelFromCacheTransportAction.class);
 
     @Inject
-    public RemoveModelFromCacheTransportAction(ThreadPool threadPool,
-                                               ClusterService clusterService,
-                                               TransportService transportService,
-                                               ActionFilters actionFilters) {
-        super(RemoveModelFromCacheAction.NAME, threadPool, clusterService, transportService, actionFilters,
-                RemoveModelFromCacheRequest::new, RemoveModelFromCacheNodeRequest::new,
-                ThreadPool.Names.SAME, RemoveModelFromCacheNodeResponse.class);
+    public RemoveModelFromCacheTransportAction(
+        ThreadPool threadPool,
+        ClusterService clusterService,
+        TransportService transportService,
+        ActionFilters actionFilters
+    ) {
+        super(
+            RemoveModelFromCacheAction.NAME,
+            threadPool,
+            clusterService,
+            transportService,
+            actionFilters,
+            RemoveModelFromCacheRequest::new,
+            RemoveModelFromCacheNodeRequest::new,
+            ThreadPool.Names.SAME,
+            RemoveModelFromCacheNodeResponse.class
+        );
     }
 
     @Override
-    protected RemoveModelFromCacheResponse newResponse(RemoveModelFromCacheRequest nodesRequest,
-                                                       List<RemoveModelFromCacheNodeResponse> responses,
-                                                       List<FailedNodeException> failures) {
+    protected RemoveModelFromCacheResponse newResponse(
+        RemoveModelFromCacheRequest nodesRequest,
+        List<RemoveModelFromCacheNodeResponse> responses,
+        List<FailedNodeException> failures
+    ) {
         return new RemoveModelFromCacheResponse(clusterService.getClusterName(), responses, failures);
     }
 
@@ -64,8 +78,7 @@ public class RemoveModelFromCacheTransportAction extends
 
     @Override
     protected RemoveModelFromCacheNodeResponse nodeOperation(RemoveModelFromCacheNodeRequest nodeRequest) {
-        logger.debug("[KNN] Removing model \"" + nodeRequest.getModelId() + "\" on node \"" +
-                clusterService.localNode().getId() + ".");
+        logger.debug("[KNN] Removing model \"" + nodeRequest.getModelId() + "\" on node \"" + clusterService.localNode().getId() + ".");
         ModelCache.getInstance().remove(nodeRequest.getModelId());
         return new RemoveModelFromCacheNodeResponse(clusterService.localNode());
     }

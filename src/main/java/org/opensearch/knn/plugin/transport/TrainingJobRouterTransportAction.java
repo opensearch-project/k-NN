@@ -28,8 +28,6 @@ import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
 
-import java.util.concurrent.RejectedExecutionException;
-
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 import static org.opensearch.search.internal.SearchContext.DEFAULT_TERMINATE_AFTER;
 
@@ -43,9 +41,12 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
     private final Client client;
 
     @Inject
-    public TrainingJobRouterTransportAction(TransportService transportService,
-                                            ActionFilters actionFilters,
-                                            ClusterService clusterService, Client client) {
+    public TrainingJobRouterTransportAction(
+        TransportService transportService,
+        ActionFilters actionFilters,
+        ClusterService clusterService,
+        Client client
+    ) {
         super(TrainingJobRouterAction.NAME, transportService, actionFilters, TrainingModelRequest::new);
         this.clusterService = clusterService;
         this.client = client;
@@ -53,8 +54,7 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
     }
 
     @Override
-    protected void doExecute(Task task, TrainingModelRequest request,
-                             ActionListener<TrainingModelResponse> listener) {
+    protected void doExecute(Task task, TrainingModelRequest request, ActionListener<TrainingModelResponse> listener) {
         // Get the size of the training request and then route the request. We get/set this here, as opposed to in
         // TrainingModelTransportAction, because in the future, we may want to use size to factor into our routing
         // decision.
@@ -66,20 +66,27 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
 
     protected void routeRequest(TrainingModelRequest request, ActionListener<TrainingModelResponse> listener) {
         // Pick a node and then use the transport service to forward the request
-        client.execute(TrainingJobRouteDecisionInfoAction.INSTANCE, new TrainingJobRouteDecisionInfoRequest(),
-                ActionListener.wrap(response -> {
-                    DiscoveryNode node = selectNode(request.getPreferredNodeId(), response);
+        client.execute(
+            TrainingJobRouteDecisionInfoAction.INSTANCE,
+            new TrainingJobRouteDecisionInfoRequest(),
+            ActionListener.wrap(response -> {
+                DiscoveryNode node = selectNode(request.getPreferredNodeId(), response);
 
-                    if (node == null) {
-                        ValidationException exception = new ValidationException();
-                        exception.addValidationError("Cluster does not have capacity to train");
-                        listener.onFailure(exception);
-                        return;
-                    }
+                if (node == null) {
+                    ValidationException exception = new ValidationException();
+                    exception.addValidationError("Cluster does not have capacity to train");
+                    listener.onFailure(exception);
+                    return;
+                }
 
-                    transportService.sendRequest(node, TrainingModelAction.NAME, request, TransportRequestOptions.EMPTY,
-                            new ActionListenerResponseHandler<>(listener, TrainingModelResponse::new));
-                }, listener::onFailure)
+                transportService.sendRequest(
+                    node,
+                    TrainingModelAction.NAME,
+                    request,
+                    TransportRequestOptions.EMPTY,
+                    new ActionListenerResponseHandler<>(listener, TrainingModelResponse::new)
+                );
+            }, listener::onFailure)
         );
     }
 
@@ -93,7 +100,7 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
         for (TrainingJobRouteDecisionInfoNodeResponse response : jobInfo.getNodes()) {
             currentNode = response.getNode();
 
-            if(!eligibleNodes.containsKey(currentNode.getId())) {
+            if (!eligibleNodes.containsKey(currentNode.getId())) {
                 continue;
             }
 
@@ -138,6 +145,6 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
      */
     public static int estimateVectorSetSizeInKB(long vectorCount, int dimension) {
         // Ensure we do not overflow the int on estimate
-        return Math.toIntExact(((Float.BYTES * dimension * vectorCount) / BYTES_PER_KILOBYTES ) + 1L);
+        return Math.toIntExact(((Float.BYTES * dimension * vectorCount) / BYTES_PER_KILOBYTES) + 1L);
     }
 }

@@ -58,33 +58,34 @@ public class TrainingJob implements Runnable {
      * @param dimension model's dimension
      * @param description user provided description of the model.
      */
-    public TrainingJob(String modelId, KNNMethodContext knnMethodContext,
-                       NativeMemoryCacheManager nativeMemoryCacheManager,
-                       NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext,
-                       NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext,
-                       int dimension, String description) {
+    public TrainingJob(
+        String modelId,
+        KNNMethodContext knnMethodContext,
+        NativeMemoryCacheManager nativeMemoryCacheManager,
+        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext,
+        NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext,
+        int dimension,
+        String description
+    ) {
         // Generate random base64 string if one is not provided
         this.modelId = Strings.hasText(modelId) ? modelId : UUIDs.randomBase64UUID();
         this.knnMethodContext = Objects.requireNonNull(knnMethodContext, "MethodContext cannot be null.");
-        this.nativeMemoryCacheManager = Objects.requireNonNull(nativeMemoryCacheManager,
-                "NativeMemoryCacheManager cannot be null.");
-        this.trainingDataEntryContext = Objects.requireNonNull(trainingDataEntryContext,
-                "TrainingDataEntryContext cannot be null.");
-        this.modelAnonymousEntryContext = Objects.requireNonNull(modelAnonymousEntryContext,
-                "AnonymousEntryContext cannot be null.");
+        this.nativeMemoryCacheManager = Objects.requireNonNull(nativeMemoryCacheManager, "NativeMemoryCacheManager cannot be null.");
+        this.trainingDataEntryContext = Objects.requireNonNull(trainingDataEntryContext, "TrainingDataEntryContext cannot be null.");
+        this.modelAnonymousEntryContext = Objects.requireNonNull(modelAnonymousEntryContext, "AnonymousEntryContext cannot be null.");
         this.model = new Model(
-                        new ModelMetadata(
-                                knnMethodContext.getEngine(),
-                                knnMethodContext.getSpaceType(),
-                                dimension,
-                                ModelState.TRAINING,
-                                ZonedDateTime.now(ZoneOffset.UTC).toString(),
-                                description,
-                                ""
-                        ),
-                        null,
-                        this.modelId
-                    );
+            new ModelMetadata(
+                knnMethodContext.getEngine(),
+                knnMethodContext.getSpaceType(),
+                dimension,
+                ModelState.TRAINING,
+                ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                description,
+                ""
+            ),
+            null,
+            this.modelId
+        );
     }
 
     /**
@@ -120,8 +121,9 @@ public class TrainingJob implements Runnable {
         } catch (Exception e) {
             logger.error("Failed to get training data for model \"" + modelId + "\": " + e.getMessage());
             modelMetadata.setState(ModelState.FAILED);
-            modelMetadata.setError("Failed to load training data into memory. " +
-                    "Check if there is enough memory to perform the request.");
+            modelMetadata.setError(
+                "Failed to load training data into memory. " + "Check if there is enough memory to perform the request."
+            );
 
             if (trainingDataAllocation != null) {
                 nativeMemoryCacheManager.invalidate(trainingDataEntryContext.getKey());
@@ -141,8 +143,9 @@ public class TrainingJob implements Runnable {
         } catch (Exception e) {
             logger.error("Failed to allocate space in native memory for model \"" + modelId + "\": " + e.getMessage());
             modelMetadata.setState(ModelState.FAILED);
-            modelMetadata.setError("Failed to allocate space in native memory for the model. " +
-                    "Check if there is enough memory to perform the request.");
+            modelMetadata.setError(
+                "Failed to allocate space in native memory for the model. " + "Check if there is enough memory to perform the request."
+            );
 
             trainingDataAllocation.readUnlock();
             nativeMemoryCacheManager.invalidate(trainingDataEntryContext.getKey());
@@ -171,14 +174,16 @@ public class TrainingJob implements Runnable {
             }
 
             Map<String, Object> trainParameters = model.getModelMetadata().getKnnEngine().getMethodAsMap(knnMethodContext);
-            trainParameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(
-                    KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
+            trainParameters.put(
+                KNNConstants.INDEX_THREAD_QTY,
+                KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY)
+            );
 
             byte[] modelBlob = JNIService.trainIndex(
-                    trainParameters,
-                    model.getModelMetadata().getDimension(),
-                    trainingDataAllocation.getMemoryAddress(),
-                    model.getModelMetadata().getKnnEngine().getName()
+                trainParameters,
+                model.getModelMetadata().getDimension(),
+                trainingDataAllocation.getMemoryAddress(),
+                model.getModelMetadata().getKnnEngine().getName()
             );
 
             // Once training finishes, update model
@@ -187,8 +192,9 @@ public class TrainingJob implements Runnable {
         } catch (Exception e) {
             logger.error("Failed to run training job for model \"" + modelId + "\": " + e.getMessage());
             modelMetadata.setState(ModelState.FAILED);
-            modelMetadata.setError("Failed to execute training. May be caused by an invalid method definition or " +
-                    "not enough memory to perform training.");
+            modelMetadata.setError(
+                "Failed to execute training. May be caused by an invalid method definition or " + "not enough memory to perform training."
+            );
 
             KNNCounter.TRAINING_ERRORS.increment();
 

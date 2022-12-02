@@ -31,8 +31,15 @@ public class ModelMetadataTests extends KNNTestCase {
         SpaceType spaceType = SpaceType.L2;
         int dimension = 128;
 
-        ModelMetadata modelMetadata = new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
+        ModelMetadata modelMetadata = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            ""
+        );
 
         BytesStreamOutput streamOutput = new BytesStreamOutput();
         modelMetadata.writeTo(streamOutput);
@@ -44,64 +51,112 @@ public class ModelMetadataTests extends KNNTestCase {
 
     public void testGetKnnEngine() {
         KNNEngine knnEngine = KNNEngine.DEFAULT;
-        ModelMetadata modelMetadata = new ModelMetadata(knnEngine, SpaceType.L2, 128, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
+        ModelMetadata modelMetadata = new ModelMetadata(
+            knnEngine,
+            SpaceType.L2,
+            128,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            ""
+        );
 
         assertEquals(knnEngine, modelMetadata.getKnnEngine());
     }
 
     public void testGetSpaceType() {
         SpaceType spaceType = SpaceType.L2;
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, spaceType, 128, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
+        ModelMetadata modelMetadata = new ModelMetadata(
+            KNNEngine.DEFAULT,
+            spaceType,
+            128,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            ""
+        );
 
         assertEquals(spaceType, modelMetadata.getSpaceType());
     }
 
     public void testGetDimension() {
         int dimension = 128;
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, dimension, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
+        ModelMetadata modelMetadata = new ModelMetadata(
+            KNNEngine.DEFAULT,
+            SpaceType.L2,
+            dimension,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            ""
+        );
 
         assertEquals(dimension, modelMetadata.getDimension());
     }
 
     public void testGetState() {
         ModelState modelState = ModelState.FAILED;
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 12, modelState,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
+        ModelMetadata modelMetadata = new ModelMetadata(
+            KNNEngine.DEFAULT,
+            SpaceType.L2,
+            12,
+            modelState,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            ""
+        );
 
         assertEquals(modelState, modelMetadata.getState());
     }
 
     public void testGetTimestamp() {
         String timeValue = ZonedDateTime.now(ZoneOffset.UTC).toString();
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 12, ModelState.CREATED,
-                timeValue, "", "");
+        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 12, ModelState.CREATED, timeValue, "", "");
 
         assertEquals(timeValue, modelMetadata.getTimestamp());
     }
 
     public void testDescription() {
         String description = "test description";
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 12, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), description, "");
+        ModelMetadata modelMetadata = new ModelMetadata(
+            KNNEngine.DEFAULT,
+            SpaceType.L2,
+            12,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            description,
+            ""
+        );
 
         assertEquals(description, modelMetadata.getDescription());
     }
 
     public void testGetError() {
         String error = "test error";
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 12, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", error);
+        ModelMetadata modelMetadata = new ModelMetadata(
+            KNNEngine.DEFAULT,
+            SpaceType.L2,
+            12,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            error
+        );
 
         assertEquals(error, modelMetadata.getError());
     }
 
     public void testSetState() {
         ModelState modelState = ModelState.FAILED;
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 12, modelState,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
+        ModelMetadata modelMetadata = new ModelMetadata(
+            KNNEngine.DEFAULT,
+            SpaceType.L2,
+            12,
+            modelState,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            ""
+        );
 
         assertEquals(modelState, modelMetadata.getState());
 
@@ -112,8 +167,15 @@ public class ModelMetadataTests extends KNNTestCase {
 
     public void testSetError() {
         String error = "";
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 12, ModelState.TRAINING,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", error);
+        ModelMetadata modelMetadata = new ModelMetadata(
+            KNNEngine.DEFAULT,
+            SpaceType.L2,
+            12,
+            ModelState.TRAINING,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            error
+        );
 
         assertEquals(error, modelMetadata.getError());
 
@@ -131,16 +193,21 @@ public class ModelMetadataTests extends KNNTestCase {
         String description = "test-description";
         String error = "test-error";
 
-        String expected = knnEngine.getName() + "," +
-                spaceType.getValue() + "," +
-                dimension + "," +
-                modelState.getName() + "," +
-                timestamp + "," +
-                description + "," +
-                error;
+        String expected = knnEngine.getName()
+            + ","
+            + spaceType.getValue()
+            + ","
+            + dimension
+            + ","
+            + modelState.getName()
+            + ","
+            + timestamp
+            + ","
+            + description
+            + ","
+            + error;
 
-        ModelMetadata modelMetadata = new ModelMetadata(knnEngine, spaceType, dimension, modelState,
-                timestamp, description, error);
+        ModelMetadata modelMetadata = new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error);
 
         assertEquals(expected, modelMetadata.toString());
     }
@@ -148,28 +215,26 @@ public class ModelMetadataTests extends KNNTestCase {
     public void testEquals() {
 
         String time1 = ZonedDateTime.now(ZoneOffset.UTC).toString();
-        String time2 = ZonedDateTime.of(2021, 9, 30,12, 20, 45, 1,
-                ZoneId.systemDefault()).toString();
+        String time2 = ZonedDateTime.of(2021, 9, 30, 12, 20, 45, 1, ZoneId.systemDefault()).toString();
 
-        ModelMetadata modelMetadata1 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED,
-                time1, "", "");
-        ModelMetadata modelMetadata2 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED,
-                time1, "", "");
+        ModelMetadata modelMetadata1 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED, time1, "", "");
+        ModelMetadata modelMetadata2 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED, time1, "", "");
 
-        ModelMetadata modelMetadata3 = new ModelMetadata(KNNEngine.NMSLIB, SpaceType.L2, 128, ModelState.CREATED,
-                time1, "", "");
-        ModelMetadata modelMetadata4 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L1, 128, ModelState.CREATED,
-                time1, "", "");
-        ModelMetadata modelMetadata5 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 129, ModelState.CREATED,
-                time1, "", "");
-        ModelMetadata modelMetadata6 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.TRAINING,
-                time1, "", "");
-        ModelMetadata modelMetadata7 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED,
-                time2, "", "");
-        ModelMetadata modelMetadata8 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED,
-                time1, "diff descript", "");
-        ModelMetadata modelMetadata9 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED,
-                time1, "", "diff error");
+        ModelMetadata modelMetadata3 = new ModelMetadata(KNNEngine.NMSLIB, SpaceType.L2, 128, ModelState.CREATED, time1, "", "");
+        ModelMetadata modelMetadata4 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L1, 128, ModelState.CREATED, time1, "", "");
+        ModelMetadata modelMetadata5 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 129, ModelState.CREATED, time1, "", "");
+        ModelMetadata modelMetadata6 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.TRAINING, time1, "", "");
+        ModelMetadata modelMetadata7 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED, time2, "", "");
+        ModelMetadata modelMetadata8 = new ModelMetadata(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            128,
+            ModelState.CREATED,
+            time1,
+            "diff descript",
+            ""
+        );
+        ModelMetadata modelMetadata9 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED, time1, "", "diff error");
 
         assertEquals(modelMetadata1, modelMetadata1);
         assertEquals(modelMetadata1, modelMetadata2);
@@ -187,28 +252,26 @@ public class ModelMetadataTests extends KNNTestCase {
     public void testHashCode() {
 
         String time1 = ZonedDateTime.now(ZoneOffset.UTC).toString();
-        String time2 = ZonedDateTime.of(2021, 9, 30,12, 20, 45, 1,
-                ZoneId.systemDefault()).toString();
+        String time2 = ZonedDateTime.of(2021, 9, 30, 12, 20, 45, 1, ZoneId.systemDefault()).toString();
 
-        ModelMetadata modelMetadata1 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED,
-                time1, "", "");
-        ModelMetadata modelMetadata2 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED,
-                time1, "", "");
+        ModelMetadata modelMetadata1 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED, time1, "", "");
+        ModelMetadata modelMetadata2 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED, time1, "", "");
 
-        ModelMetadata modelMetadata3 = new ModelMetadata(KNNEngine.NMSLIB, SpaceType.L2, 128, ModelState.CREATED,
-                time1, "", "");
-        ModelMetadata modelMetadata4 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L1, 128, ModelState.CREATED,
-                time1, "", "");
-        ModelMetadata modelMetadata5 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 129, ModelState.CREATED,
-                time1, "", "");
-        ModelMetadata modelMetadata6 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.TRAINING,
-                time1, "", "");
-        ModelMetadata modelMetadata7 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED,
-                time2, "", "");
-        ModelMetadata modelMetadata8 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED,
-                time1, "diff descript", "");
-        ModelMetadata modelMetadata9 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED,
-                time1, "", "diff error");
+        ModelMetadata modelMetadata3 = new ModelMetadata(KNNEngine.NMSLIB, SpaceType.L2, 128, ModelState.CREATED, time1, "", "");
+        ModelMetadata modelMetadata4 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L1, 128, ModelState.CREATED, time1, "", "");
+        ModelMetadata modelMetadata5 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 129, ModelState.CREATED, time1, "", "");
+        ModelMetadata modelMetadata6 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.TRAINING, time1, "", "");
+        ModelMetadata modelMetadata7 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED, time2, "", "");
+        ModelMetadata modelMetadata8 = new ModelMetadata(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            128,
+            ModelState.CREATED,
+            time1,
+            "diff descript",
+            ""
+        );
+        ModelMetadata modelMetadata9 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED, time1, "", "diff error");
 
         assertEquals(modelMetadata1.hashCode(), modelMetadata1.hashCode());
         assertEquals(modelMetadata1.hashCode(), modelMetadata2.hashCode());
@@ -232,17 +295,21 @@ public class ModelMetadataTests extends KNNTestCase {
         String description = "test-description";
         String error = "test-error";
 
-        String stringRep1 = knnEngine.getName() + "," +
-                spaceType.getValue() + "," +
-                dimension + "," +
-                modelState.getName() + "," +
-                timestamp + "," +
-                description + "," +
-                error;
+        String stringRep1 = knnEngine.getName()
+            + ","
+            + spaceType.getValue()
+            + ","
+            + dimension
+            + ","
+            + modelState.getName()
+            + ","
+            + timestamp
+            + ","
+            + description
+            + ","
+            + error;
 
-
-        ModelMetadata expected = new ModelMetadata(knnEngine, spaceType, dimension, modelState,
-                timestamp, description, error);
+        ModelMetadata expected = new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error);
         ModelMetadata fromString1 = ModelMetadata.fromString(stringRep1);
 
         assertEquals(expected, fromString1);
@@ -259,9 +326,8 @@ public class ModelMetadataTests extends KNNTestCase {
         String description = "test-description";
         String error = "test-error";
 
-        ModelMetadata expected = new ModelMetadata(knnEngine, spaceType, dimension, modelState,
-            timestamp, description, error);
-        Map<String,Object> metadataAsMap = new HashMap<>();
+        ModelMetadata expected = new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error);
+        Map<String, Object> metadataAsMap = new HashMap<>();
         metadataAsMap.put(KNNConstants.KNN_ENGINE, knnEngine.getName());
         metadataAsMap.put(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
         metadataAsMap.put(KNNConstants.DIMENSION, dimension);

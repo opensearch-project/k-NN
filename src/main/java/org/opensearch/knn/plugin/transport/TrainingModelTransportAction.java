@@ -35,43 +35,38 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
     private final ClusterService clusterService;
 
     @Inject
-    public TrainingModelTransportAction(TransportService transportService,
-                                        ActionFilters actionFilters,
-                                        ClusterService clusterService) {
+    public TrainingModelTransportAction(TransportService transportService, ActionFilters actionFilters, ClusterService clusterService) {
         super(TrainingModelAction.NAME, transportService, actionFilters, TrainingModelRequest::new);
         this.clusterService = clusterService;
     }
 
     @Override
-    protected void doExecute(Task task, TrainingModelRequest request,
-                             ActionListener<TrainingModelResponse> listener) {
+    protected void doExecute(Task task, TrainingModelRequest request, ActionListener<TrainingModelResponse> listener) {
 
-        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext =
-                new NativeMemoryEntryContext.TrainingDataEntryContext(
-                        request.getTrainingDataSizeInKB(),
-                        request.getTrainingIndex(),
-                        request.getTrainingField(),
-                        NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance(),
-                        clusterService,
-                        request.getMaximumVectorCount(),
-                        request.getSearchSize()
-                );
+        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext = new NativeMemoryEntryContext.TrainingDataEntryContext(
+            request.getTrainingDataSizeInKB(),
+            request.getTrainingIndex(),
+            request.getTrainingField(),
+            NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance(),
+            clusterService,
+            request.getMaximumVectorCount(),
+            request.getSearchSize()
+        );
 
         // Allocation representing size model will occupy in memory during training
-        NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext =
-                new NativeMemoryEntryContext.AnonymousEntryContext(
-                        request.getKnnMethodContext().estimateOverheadInKB(request.getDimension()),
-                        NativeMemoryLoadStrategy.AnonymousLoadStrategy.getInstance()
-                );
+        NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext = new NativeMemoryEntryContext.AnonymousEntryContext(
+            request.getKnnMethodContext().estimateOverheadInKB(request.getDimension()),
+            NativeMemoryLoadStrategy.AnonymousLoadStrategy.getInstance()
+        );
 
         TrainingJob trainingJob = new TrainingJob(
-                request.getModelId(),
-                request.getKnnMethodContext(),
-                NativeMemoryCacheManager.getInstance(),
-                trainingDataEntryContext,
-                modelAnonymousEntryContext,
-                request.getDimension(),
-                request.getDescription()
+            request.getModelId(),
+            request.getKnnMethodContext(),
+            NativeMemoryCacheManager.getInstance(),
+            trainingDataEntryContext,
+            modelAnonymousEntryContext,
+            request.getDimension(),
+            request.getDescription()
         );
 
         KNNCounter.TRAINING_REQUESTS.increment();
@@ -81,10 +76,14 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
         });
 
         try {
-            TrainingJobRunner.getInstance().execute(trainingJob, ActionListener.wrap(
-                    indexResponse -> wrappedListener.onResponse(new TrainingModelResponse(indexResponse.getId())),
-                    wrappedListener::onFailure)
-            );
+            TrainingJobRunner.getInstance()
+                .execute(
+                    trainingJob,
+                    ActionListener.wrap(
+                        indexResponse -> wrappedListener.onResponse(new TrainingModelResponse(indexResponse.getId())),
+                        wrappedListener::onFailure
+                    )
+                );
         } catch (IOException e) {
             wrappedListener.onFailure(e);
         }

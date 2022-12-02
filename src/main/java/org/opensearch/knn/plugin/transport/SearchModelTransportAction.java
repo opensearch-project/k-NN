@@ -27,10 +27,7 @@ public class SearchModelTransportAction extends HandledTransportAction<SearchReq
     private ModelDao modelDao;
 
     @Inject
-    public SearchModelTransportAction(
-        TransportService transportService,
-        ActionFilters actionFilters
-    ) {
+    public SearchModelTransportAction(TransportService transportService, ActionFilters actionFilters) {
         super(SearchModelAction.NAME, transportService, actionFilters, SearchRequest::new);
         this.modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
     }

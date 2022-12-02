@@ -21,8 +21,10 @@ import org.opensearch.common.io.stream.Writeable;
 public class TrainingJobRouteDecisionInfoAction extends ActionType<TrainingJobRouteDecisionInfoResponse> {
 
     public static final String NAME = "cluster:admin/knn_training_job_route_decision_info_action";
-    public static final TrainingJobRouteDecisionInfoAction INSTANCE = new TrainingJobRouteDecisionInfoAction(NAME,
-            TrainingJobRouteDecisionInfoResponse::new);
+    public static final TrainingJobRouteDecisionInfoAction INSTANCE = new TrainingJobRouteDecisionInfoAction(
+        NAME,
+        TrainingJobRouteDecisionInfoResponse::new
+    );
 
     /**
      * Constructor.
@@ -30,8 +32,7 @@ public class TrainingJobRouteDecisionInfoAction extends ActionType<TrainingJobRo
      * @param name name of action
      * @param responseReader reader for TrainingJobRouteDecisionInfoResponse response
      */
-    public TrainingJobRouteDecisionInfoAction(String name,
-                                              Writeable.Reader<TrainingJobRouteDecisionInfoResponse> responseReader) {
+    public TrainingJobRouteDecisionInfoAction(String name, Writeable.Reader<TrainingJobRouteDecisionInfoResponse> responseReader) {
         super(name, responseReader);
     }
 }

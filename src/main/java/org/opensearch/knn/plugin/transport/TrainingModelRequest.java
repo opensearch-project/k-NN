@@ -57,8 +57,15 @@ public class TrainingModelRequest extends ActionRequest {
      * @param preferredNodeId Preferred node to execute training on. If null, the plugin will select the node.
      * @param description User provided description of their model
      */
-    public TrainingModelRequest(String modelId, KNNMethodContext knnMethodContext, int dimension, String trainingIndex,
-                                String trainingField, String preferredNodeId, String description) {
+    public TrainingModelRequest(
+        String modelId,
+        KNNMethodContext knnMethodContext,
+        int dimension,
+        String trainingIndex,
+        String trainingField,
+        String preferredNodeId,
+        String description
+    ) {
         super();
         this.modelId = modelId;
         this.knnMethodContext = knnMethodContext;
@@ -188,8 +195,9 @@ public class TrainingModelRequest extends ActionRequest {
      */
     public void setMaximumVectorCount(int maximumVectorCount) {
         if (maximumVectorCount <= 0) {
-            throw new IllegalArgumentException(String.format("Maximum vector count %d is invalid. Maximum vector " +
-                    "count must be greater than 0", maximumVectorCount));
+            throw new IllegalArgumentException(
+                String.format("Maximum vector count %d is invalid. Maximum vector " + "count must be greater than 0", maximumVectorCount)
+            );
         }
         this.maximumVectorCount = maximumVectorCount;
     }
@@ -211,8 +219,9 @@ public class TrainingModelRequest extends ActionRequest {
      */
     public void setSearchSize(int searchSize) {
         if (searchSize <= 0 || searchSize > 10000) {
-            throw new IllegalArgumentException(String.format("Search size %d is invalid. Search size must be " +
-                    "between 0 and 10,000", searchSize));
+            throw new IllegalArgumentException(
+                String.format("Search size %d is invalid. Search size must be " + "between 0 and 10,000", searchSize)
+            );
         }
         this.searchSize = searchSize;
     }
@@ -233,8 +242,9 @@ public class TrainingModelRequest extends ActionRequest {
      */
     void setTrainingDataSizeInKB(int trainingDataSizeInKB) {
         if (trainingDataSizeInKB <= 0) {
-            throw new IllegalArgumentException(String.format("Training data size %d is invalid. Training data size " +
-                    "must be greater than 0", trainingDataSizeInKB));
+            throw new IllegalArgumentException(
+                String.format("Training data size %d is invalid. Training data size " + "must be greater than 0", trainingDataSizeInKB)
+            );
         }
         this.trainingDataSizeInKB = trainingDataSizeInKB;
     }
@@ -271,8 +281,7 @@ public class TrainingModelRequest extends ActionRequest {
         // Check if description is too long
         if (description != null && description.length() > KNNConstants.MAX_MODEL_DESCRIPTION_LENGTH) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
-            exception.addValidationError("Description exceeds limit of " + KNNConstants.MAX_MODEL_DESCRIPTION_LENGTH +
-                    " characters");
+            exception.addValidationError("Description exceeds limit of " + KNNConstants.MAX_MODEL_DESCRIPTION_LENGTH + " characters");
         }
 
         // Validate training index exists
@@ -284,8 +293,7 @@ public class TrainingModelRequest extends ActionRequest {
         }
 
         // Validate the training field
-        ValidationException fieldValidation = IndexUtil.validateKnnField(indexMetadata, this.trainingField,
-                this.dimension, modelDao);
+        ValidationException fieldValidation = IndexUtil.validateKnnField(indexMetadata, this.trainingField, this.dimension, modelDao);
         if (fieldValidation != null) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
             exception.addValidationErrors(fieldValidation.validationErrors());

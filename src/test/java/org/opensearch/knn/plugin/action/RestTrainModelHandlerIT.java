@@ -71,25 +71,25 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
               }
             }
         */
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
-                .field(NAME, "ivf")
-                .field(KNN_ENGINE, "faiss")
-                .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
-                .startObject(PARAMETERS)
-                .field(METHOD_PARAMETER_NLIST, 128)
-                .startObject(METHOD_ENCODER_PARAMETER)
-                .field(NAME, "pq")
-                .startObject(PARAMETERS)
-                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-                .field(ENCODER_PARAMETER_PQ_M, 2)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, "ivf")
+            .field(KNN_ENGINE, "faiss")
+            .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 128)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "pq")
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+            .field(ENCODER_PARAMETER_PQ_M, 2)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
         Map<String, Object> method = xContentBuilderToMap(builder);
 
-        Response trainResponse = trainModel(null, trainingIndexName, trainingFieldName, dimension, method,
-                "dummy description");
+        Response trainResponse = trainModel(null, trainingIndexName, trainingFieldName, dimension, method, "dummy description");
 
         assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
 
@@ -97,10 +97,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         String trainResponseBody = EntityUtils.toString(trainResponse.getEntity());
         assertNotNull(trainResponseBody);
 
-        Map<String, Object> trainResponseMap = createParser(
-                XContentType.JSON.xContent(),
-                trainResponseBody
-        ).map();
+        Map<String, Object> trainResponseMap = createParser(XContentType.JSON.xContent(), trainResponseBody).map();
         String modelId = (String) trainResponseMap.get(MODEL_ID);
         assertNotNull(modelId);
 
@@ -109,10 +106,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(
-                XContentType.JSON.xContent(),
-                responseBody
-        ).map();
+        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
 
@@ -157,25 +151,25 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
               }
             }
         */
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
-                .field(NAME, "ivf")
-                .field(KNN_ENGINE, "faiss")
-                .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
-                .startObject(PARAMETERS)
-                .field(METHOD_PARAMETER_NLIST, 128)
-                .startObject(METHOD_ENCODER_PARAMETER)
-                .field(NAME, "pq")
-                .startObject(PARAMETERS)
-                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-                .field(ENCODER_PARAMETER_PQ_M, 2)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, "ivf")
+            .field(KNN_ENGINE, "faiss")
+            .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 128)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "pq")
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+            .field(ENCODER_PARAMETER_PQ_M, 2)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
         Map<String, Object> method = xContentBuilderToMap(builder);
 
-        Response trainResponse = trainModel(null, trainingIndexName, trainingFieldName, dimension, method,
-                "dummy description");
+        Response trainResponse = trainModel(null, trainingIndexName, trainingFieldName, dimension, method, "dummy description");
 
         assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
 
@@ -183,10 +177,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         String trainResponseBody = EntityUtils.toString(trainResponse.getEntity());
         assertNotNull(trainResponseBody);
 
-        Map<String, Object> trainResponseMap = createParser(
-                XContentType.JSON.xContent(),
-                trainResponseBody
-        ).map();
+        Map<String, Object> trainResponseMap = createParser(XContentType.JSON.xContent(), trainResponseBody).map();
         String modelId = (String) trainResponseMap.get(MODEL_ID);
         assertNotNull(modelId);
 
@@ -195,10 +186,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(
-                XContentType.JSON.xContent(),
-                responseBody
-        ).map();
+        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
 
@@ -242,25 +230,25 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
               }
             }
         */
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
-                .field(NAME, "ivf")
-                .field(KNN_ENGINE, "faiss")
-                .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
-                .startObject(PARAMETERS)
-                .field(METHOD_PARAMETER_NLIST, 1)
-                .startObject(METHOD_ENCODER_PARAMETER)
-                .field(NAME, "pq")
-                .startObject(PARAMETERS)
-                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-                .field(ENCODER_PARAMETER_PQ_M, 2)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, "ivf")
+            .field(KNN_ENGINE, "faiss")
+            .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 1)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "pq")
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+            .field(ENCODER_PARAMETER_PQ_M, 2)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
         Map<String, Object> method = xContentBuilderToMap(builder);
 
-        Response trainResponse = trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method,
-                "dummy description");
+        Response trainResponse = trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, "dummy description");
 
         assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
 
@@ -269,10 +257,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(
-                XContentType.JSON.xContent(),
-                responseBody
-        ).map();
+        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
 
@@ -316,25 +301,25 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
               }
             }
         */
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
-                .field(NAME, "ivf")
-                .field(KNN_ENGINE, "faiss")
-                .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
-                .startObject(PARAMETERS)
-                .field(METHOD_PARAMETER_NLIST, 2)
-                .startObject(METHOD_ENCODER_PARAMETER)
-                .field(NAME, "pq")
-                .startObject(PARAMETERS)
-                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-                .field(ENCODER_PARAMETER_PQ_M, 2)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, "ivf")
+            .field(KNN_ENGINE, "faiss")
+            .field(METHOD_PARAMETER_SPACE_TYPE, "innerproduct")
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 2)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "pq")
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+            .field(ENCODER_PARAMETER_PQ_M, 2)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
         Map<String, Object> method = xContentBuilderToMap(builder);
 
-        Response trainResponse = trainModel(null, trainingIndexName, trainingFieldName, dimension, method,
-                "dummy description");
+        Response trainResponse = trainModel(null, trainingIndexName, trainingFieldName, dimension, method, "dummy description");
 
         assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
 
@@ -342,10 +327,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         String trainResponseBody = EntityUtils.toString(trainResponse.getEntity());
         assertNotNull(trainResponseBody);
 
-        Map<String, Object> trainResponseMap = createParser(
-                XContentType.JSON.xContent(),
-                trainResponseBody
-        ).map();
+        Map<String, Object> trainResponseMap = createParser(XContentType.JSON.xContent(), trainResponseBody).map();
         String modelId = (String) trainResponseMap.get(MODEL_ID);
         assertNotNull(modelId);
 
@@ -354,10 +336,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(
-                XContentType.JSON.xContent(),
-                responseBody
-        ).map();
+        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
 

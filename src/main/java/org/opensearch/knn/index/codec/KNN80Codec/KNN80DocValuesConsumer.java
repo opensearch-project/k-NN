@@ -94,10 +94,14 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
                 KNNEngine knnEngine = model.getModelMetadata().getKnnEngine();
 
-                engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getLatestBuildVersion(),
-                        field.name, knnEngine.getExtension());
-                indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
-                        engineFileName).toString();
+                engineFileName = buildEngineFileName(
+                    state.segmentInfo.name,
+                    knnEngine.getLatestBuildVersion(),
+                    field.name,
+                    knnEngine.getExtension()
+                );
+                indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(), engineFileName)
+                    .toString();
                 tmpEngineFileName = engineFileName + TEMP_SUFFIX;
                 String tempIndexPath = indexPath + TEMP_SUFFIX;
 
@@ -112,10 +116,14 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                 String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
                 KNNEngine knnEngine = KNNEngine.getEngine(engineName);
 
-                engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getLatestBuildVersion(),
-                        field.name, knnEngine.getExtension());
-                indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
-                        engineFileName).toString();
+                engineFileName = buildEngineFileName(
+                    state.segmentInfo.name,
+                    knnEngine.getLatestBuildVersion(),
+                    field.name,
+                    knnEngine.getExtension()
+                );
+                indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(), engineFileName)
+                    .toString();
                 tmpEngineFileName = engineFileName + TEMP_SUFFIX;
                 String tempIndexPath = indexPath + TEMP_SUFFIX;
 
@@ -131,10 +139,12 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
              * existing file will miss calculating checksum for the serialized graph
              * bytes and result in index corruption issues.
              */
-            //TODO: I think this can be refactored to avoid this copy and then write
+            // TODO: I think this can be refactored to avoid this copy and then write
             // https://github.com/opendistro-for-elasticsearch/k-NN/issues/330
-            try (IndexInput is = state.directory.openInput(tmpEngineFileName, state.context);
-                 IndexOutput os = state.directory.createOutput(engineFileName, state.context)) {
+            try (
+                IndexInput is = state.directory.openInput(tmpEngineFileName, state.context);
+                IndexOutput os = state.directory.createOutput(engineFileName, state.context)
+            ) {
                 os.copyBytes(is, is.length());
                 CodecUtil.writeFooter(os);
             } catch (Exception ex) {
@@ -146,29 +156,26 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         }
     }
 
-    private void createKNNIndexFromTemplate(byte[] model, KNNCodecUtil.Pair pair, KNNEngine knnEngine,
-                                            String indexPath) {
-        Map<String, Object> parameters = ImmutableMap.of(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(
-                KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
-        AccessController.doPrivileged(
-                (PrivilegedAction<Void>) () -> {
-                    JNIService.createIndexFromTemplate(pair.docs, pair.vectors, indexPath, model, parameters,
-                            knnEngine.getName());
-                    return null;
-                }
+    private void createKNNIndexFromTemplate(byte[] model, KNNCodecUtil.Pair pair, KNNEngine knnEngine, String indexPath) {
+        Map<String, Object> parameters = ImmutableMap.of(
+            KNNConstants.INDEX_THREAD_QTY,
+            KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY)
         );
+        AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
+            JNIService.createIndexFromTemplate(pair.docs, pair.vectors, indexPath, model, parameters, knnEngine.getName());
+            return null;
+        });
     }
 
-    private void createKNNIndexFromScratch(FieldInfo fieldInfo, KNNCodecUtil.Pair pair, KNNEngine knnEngine,
-                                           String indexPath) throws IOException {
+    private void createKNNIndexFromScratch(FieldInfo fieldInfo, KNNCodecUtil.Pair pair, KNNEngine knnEngine, String indexPath)
+        throws IOException {
         Map<String, Object> parameters = new HashMap<>();
         Map<String, String> fieldAttributes = fieldInfo.attributes();
         String parametersString = fieldAttributes.get(KNNConstants.PARAMETERS);
 
         // parametersString will be null when legacy mapper is used
         if (parametersString == null) {
-            parameters.put(KNNConstants.SPACE_TYPE, fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE,
-                    SpaceType.DEFAULT.getValue()));
+            parameters.put(KNNConstants.SPACE_TYPE, fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue()));
 
             String efConstruction = fieldAttributes.get(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION);
             Map<String, Object> algoParams = new HashMap<>();
@@ -183,22 +190,20 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             parameters.put(PARAMETERS, algoParams);
         } else {
             parameters.putAll(
-                    XContentFactory.xContent(XContentType.JSON).createParser(NamedXContentRegistry.EMPTY,
-                            DeprecationHandler.THROW_UNSUPPORTED_OPERATION, parametersString).map()
+                XContentFactory.xContent(XContentType.JSON)
+                    .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, parametersString)
+                    .map()
             );
         }
 
         // Used to determine how many threads to use when indexing
-        parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(
-                KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
+        parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
 
         // Pass the path for the nms library to save the file
-        AccessController.doPrivileged(
-                (PrivilegedAction<Void>) () -> {
-                    JNIService.createIndex(pair.docs, pair.vectors, indexPath, parameters, knnEngine.getName());
-                    return null;
-                }
-        );
+        AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
+            JNIService.createIndex(pair.docs, pair.vectors, indexPath, parameters, knnEngine.getName());
+            return null;
+        });
     }
 
     /**

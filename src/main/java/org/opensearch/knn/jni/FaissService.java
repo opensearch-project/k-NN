@@ -57,8 +57,13 @@ class FaissService {
      * @param templateIndex empty template index
      * @param parameters additional build time parameters
      */
-    public static native void createIndexFromTemplate(int[] ids, float[][] data, String indexPath, byte[] templateIndex,
-                                                      Map<String, Object> parameters);
+    public static native void createIndexFromTemplate(
+        int[] ids,
+        float[][] data,
+        String indexPath,
+        byte[] templateIndex,
+        Map<String, Object> parameters
+    );
 
     /**
      * Load an index into memory
@@ -97,8 +102,7 @@ class FaissService {
      * @param trainVectorsPointer pointer to where training vectors are stored in native memory
      * @return bytes array of trained template index
      */
-    public static native byte[] trainIndex(Map<String, Object> indexParameters, int dimension,
-                                           long trainVectorsPointer);
+    public static native byte[] trainIndex(Map<String, Object> indexParameters, int dimension, long trainVectorsPointer);
 
     /**
      * Transfer vectors from Java to native
