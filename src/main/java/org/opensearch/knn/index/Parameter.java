@@ -70,8 +70,7 @@ public abstract class Parameter<T> {
      * Integer method parameter
      */
     public static class IntegerParameter extends Parameter<Integer> {
-        public IntegerParameter(String name, Integer defaultValue, Predicate<Integer> validator)
-        {
+        public IntegerParameter(String name, Integer defaultValue, Predicate<Integer> validator) {
             super(name, defaultValue, validator);
         }
 
@@ -80,20 +79,21 @@ public abstract class Parameter<T> {
             ValidationException validationException = null;
             if (!(value instanceof Integer)) {
                 validationException = new ValidationException();
-                validationException.addValidationError(String.format("Value not of type Integer for Integer " +
-                        "parameter \"%s\".", getName()));
+                validationException.addValidationError(
+                    String.format("Value not of type Integer for Integer " + "parameter \"%s\".", getName())
+                );
                 return validationException;
             }
 
             if (!validator.test((Integer) value)) {
                 validationException = new ValidationException();
-                validationException.addValidationError(String.format("Parameter validation failed for Integer " +
-                        "parameter \"%s\".", getName()));
+                validationException.addValidationError(
+                    String.format("Parameter validation failed for Integer " + "parameter \"%s\".", getName())
+                );
             }
             return validationException;
         }
     }
-
 
     /**
      * MethodContext parameter. Some methods require sub-methods in order to implement some kind of functionality. For
@@ -111,9 +111,11 @@ public abstract class Parameter<T> {
          * @param defaultValue value to assign this parameter if it is not set
          * @param methodComponents valid components that the MethodComponentContext can map to
          */
-        public MethodComponentContextParameter(String name,
-                                               MethodComponentContext defaultValue,
-                                               Map<String, MethodComponent> methodComponents) {
+        public MethodComponentContextParameter(
+            String name,
+            MethodComponentContext defaultValue,
+            Map<String, MethodComponent> methodComponents
+        ) {
             super(name, defaultValue, methodComponentContext -> {
                 if (!methodComponents.containsKey(methodComponentContext.getName())) {
                     return false;
@@ -129,16 +131,18 @@ public abstract class Parameter<T> {
             ValidationException validationException = null;
             if (!(value instanceof MethodComponentContext)) {
                 validationException = new ValidationException();
-                validationException.addValidationError(String.format("Value not of type MethodComponentContext for" +
-                        " MethodComponentContext parameter \"%s\".", getName()));
+                validationException.addValidationError(
+                    String.format("Value not of type MethodComponentContext for" + " MethodComponentContext parameter \"%s\".", getName())
+                );
                 return validationException;
             }
 
             if (!validator.test((MethodComponentContext) value)) {
                 validationException = new ValidationException();
                 validationException.addValidationError("Parameter validation failed.");
-                validationException.addValidationError(String.format("Parameter validation failed for " +
-                        "MethodComponentContext parameter \"%s\".", getName()));
+                validationException.addValidationError(
+                    String.format("Parameter validation failed for " + "MethodComponentContext parameter \"%s\".", getName())
+                );
             }
 
             return validationException;

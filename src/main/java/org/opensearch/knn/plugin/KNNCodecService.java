@@ -36,6 +36,6 @@ class KNNCodecService extends CodecService {
     }
 
     public void setPostingsFormat(PostingsFormat postingsFormat) {
-        ((KNN87Codec)codec("")).setPostingsFormat(postingsFormat);
+        ((KNN87Codec) codec("")).setPostingsFormat(postingsFormat);
     }
 }

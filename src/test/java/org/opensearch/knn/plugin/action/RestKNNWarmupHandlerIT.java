@@ -48,7 +48,7 @@ public class RestKNNWarmupHandlerIT extends KNNRestTestCase {
     public void testSingleIndex() throws IOException {
         int graphCountBefore = getTotalGraphsInCache();
         createKnnIndex(testIndexName, getKNNDefaultIndexSettings(), createKnnIndexMapping(testFieldName, dimensions));
-        addKnnDoc(testIndexName, "1", testFieldName, new Float[]{6.0f, 6.0f});
+        addKnnDoc(testIndexName, "1", testFieldName, new Float[] { 6.0f, 6.0f });
 
         knnWarmup(Collections.singletonList(testIndexName));
 
@@ -59,10 +59,10 @@ public class RestKNNWarmupHandlerIT extends KNNRestTestCase {
         int graphCountBefore = getTotalGraphsInCache();
 
         createKnnIndex(testIndexName + "1", getKNNDefaultIndexSettings(), createKnnIndexMapping(testFieldName, dimensions));
-        addKnnDoc(testIndexName + "1", "1", testFieldName, new Float[]{6.0f, 6.0f});
+        addKnnDoc(testIndexName + "1", "1", testFieldName, new Float[] { 6.0f, 6.0f });
 
         createKnnIndex(testIndexName + "2", getKNNDefaultIndexSettings(), createKnnIndexMapping(testFieldName, dimensions));
-        addKnnDoc(testIndexName + "2", "1", testFieldName, new Float[]{6.0f, 6.0f});
+        addKnnDoc(testIndexName + "2", "1", testFieldName, new Float[] { 6.0f, 6.0f });
 
         knnWarmup(Arrays.asList(testIndexName + "1", testIndexName + "2"));
 

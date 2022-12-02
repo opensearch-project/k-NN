@@ -45,14 +45,23 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
 
         // "Train" a faiss flat index - this really just creates an empty index that does brute force k-NN
         long vectorsPointer = JNIService.transferVectors(0, new float[0][0]);
-        byte [] modelBlob = JNIService.trainIndex(ImmutableMap.of(
-                INDEX_DESCRIPTION_PARAMETER, "Flat",
-                SPACE_TYPE, spaceType.getValue()), dimension, vectorsPointer,
-                KNNEngine.FAISS.getName());
+        byte[] modelBlob = JNIService.trainIndex(
+            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "Flat", SPACE_TYPE, spaceType.getValue()),
+            dimension,
+            vectorsPointer,
+            KNNEngine.FAISS.getName()
+        );
 
         // Setup model
-        ModelMetadata modelMetadata = new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
+        ModelMetadata modelMetadata = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            ""
+        );
 
         Model model = new Model(modelMetadata, modelBlob, modelId);
 
@@ -65,33 +74,21 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
         String fieldName = "test-field";
 
         modelDao.put(model, ActionListener.wrap(indexResponse -> {
-            CreateIndexRequestBuilder createIndexRequestBuilder = client().admin().indices().prepareCreate(indexName)
-                    .setSettings(Settings.builder()
-                            .put("number_of_shards", 1)
-                            .put("number_of_replicas", 0)
-                            .put("index.knn", true)
-                            .build()
-                    ).addMapping(
-                            "_doc", ImmutableMap.of(
-                                    "properties", ImmutableMap.of(
-                                            fieldName, ImmutableMap.of(
-                                                    "type", "knn_vector",
-                                                    "model_id", modelId
-                                            )
-                                    )
-                            )
-                    );
+            CreateIndexRequestBuilder createIndexRequestBuilder = client().admin()
+                .indices()
+                .prepareCreate(indexName)
+                .setSettings(Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", true).build())
+                .addMapping(
+                    "_doc",
+                    ImmutableMap.of("properties", ImmutableMap.of(fieldName, ImmutableMap.of("type", "knn_vector", "model_id", modelId)))
+                );
 
-            client().admin().indices().create(createIndexRequestBuilder.request(),
-                    ActionListener.wrap(
-                            createIndexResponse -> {
-                                assertTrue(createIndexResponse.isAcknowledged());
-                                inProgressLatch.countDown();
-                            }, e -> fail("Unable to create index: " + e.getMessage())
-                    )
-            );
+            client().admin().indices().create(createIndexRequestBuilder.request(), ActionListener.wrap(createIndexResponse -> {
+                assertTrue(createIndexResponse.isAcknowledged());
+                inProgressLatch.countDown();
+            }, e -> fail("Unable to create index: " + e.getMessage())));
 
-        }, e ->fail("Unable to put model: " + e.getMessage())));
+        }, e -> fail("Unable to put model: " + e.getMessage())));
 
         assertTrue(inProgressLatch.await(20, TimeUnit.SECONDS));
     }

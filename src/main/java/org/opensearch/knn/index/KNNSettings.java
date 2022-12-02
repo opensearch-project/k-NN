@@ -90,11 +90,13 @@ public class KNNSettings {
      * Settings Definition
      */
 
-    public static final Setting<String> INDEX_KNN_SPACE_TYPE = Setting.simpleString(KNN_SPACE_TYPE,
-            INDEX_KNN_DEFAULT_SPACE_TYPE,
-            new SpaceTypeValidator(),
-            IndexScope,
-            Setting.Property.Deprecated);
+    public static final Setting<String> INDEX_KNN_SPACE_TYPE = Setting.simpleString(
+        KNN_SPACE_TYPE,
+        INDEX_KNN_DEFAULT_SPACE_TYPE,
+        new SpaceTypeValidator(),
+        IndexScope,
+        Setting.Property.Deprecated
+    );
 
     /**
      * M - the number of bi-directional links created for every new element during construction.
@@ -102,76 +104,87 @@ public class KNNSettings {
      * dimensionality and/or high recall, while low M work better for datasets with low intrinsic dimensionality and/or low recalls.
      * The parameter also determines the algorithm's memory consumption, which is roughly M * 8-10 bytes per stored element.
      */
-    public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_M_SETTING =  Setting.intSetting(KNN_ALGO_PARAM_M,
-            INDEX_KNN_DEFAULT_ALGO_PARAM_M,
-            2,
-            IndexScope,
-            Setting.Property.Deprecated);
+    public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_M_SETTING = Setting.intSetting(
+        KNN_ALGO_PARAM_M,
+        INDEX_KNN_DEFAULT_ALGO_PARAM_M,
+        2,
+        IndexScope,
+        Setting.Property.Deprecated
+    );
 
     /**
      *  ef or efSearch - the size of the dynamic list for the nearest neighbors (used during the search).
      *  Higher ef leads to more accurate but slower search. ef cannot be set lower than the number of queried nearest neighbors k.
      *  The value ef can be anything between k and the size of the dataset.
      */
-    public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING =  Setting.intSetting(KNN_ALGO_PARAM_EF_SEARCH,
-            INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
-            2,
-            IndexScope,
-            Dynamic);
+    public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING = Setting.intSetting(
+        KNN_ALGO_PARAM_EF_SEARCH,
+        INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+        2,
+        IndexScope,
+        Dynamic
+    );
 
     /**
      * ef_constrution - the parameter has the same meaning as ef, but controls the index_time/index_accuracy.
      * Bigger ef_construction leads to longer construction(more indexing time), but better index quality.
      */
-    public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING =  Setting.intSetting(KNN_ALGO_PARAM_EF_CONSTRUCTION,
-            INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
-            2,
-            IndexScope,
-            Setting.Property.Deprecated);
+    public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING = Setting.intSetting(
+        KNN_ALGO_PARAM_EF_CONSTRUCTION,
+        INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
+        2,
+        IndexScope,
+        Setting.Property.Deprecated
+    );
 
     public static final Setting<Integer> MODEL_INDEX_NUMBER_OF_SHARDS_SETTING = Setting.intSetting(
-            MODEL_INDEX_NUMBER_OF_SHARDS,
-            1,
-            1,
-            Setting.Property.NodeScope,
-            Setting.Property.Dynamic);
+        MODEL_INDEX_NUMBER_OF_SHARDS,
+        1,
+        1,
+        Setting.Property.NodeScope,
+        Setting.Property.Dynamic
+    );
 
     public static final Setting<Integer> MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING = Setting.intSetting(
-            MODEL_INDEX_NUMBER_OF_REPLICAS,
-            1,
-            0,
-            Setting.Property.NodeScope,
-            Setting.Property.Dynamic);
+        MODEL_INDEX_NUMBER_OF_REPLICAS,
+        1,
+        0,
+        Setting.Property.NodeScope,
+        Setting.Property.Dynamic
+    );
 
     public static final Setting<ByteSizeValue> MODEL_CACHE_SIZE_LIMIT_SETTING = new Setting<>(
-            MODEL_CACHE_SIZE_LIMIT,
-            percentageAsString(KNN_DEFAULT_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE),
-            (s) -> {
-                ByteSizeValue userDefinedLimit =  parseBytesSizeValueOrHeapRatio(s, MODEL_CACHE_SIZE_LIMIT);
+        MODEL_CACHE_SIZE_LIMIT,
+        percentageAsString(KNN_DEFAULT_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE),
+        (s) -> {
+            ByteSizeValue userDefinedLimit = parseBytesSizeValueOrHeapRatio(s, MODEL_CACHE_SIZE_LIMIT);
 
-                // parseBytesSizeValueOrHeapRatio will make sure that the value entered falls between 0 and 100% of the
-                // JVM heap. However, we want the maximum percentage of the heap to be much smaller. So, we add
-                // some additional validation here before returning
-                ByteSizeValue jvmHeapSize = JvmInfo.jvmInfo().getMem().getHeapMax();
-                if ((userDefinedLimit.getKbFrac() / jvmHeapSize.getKbFrac()) > percentageAsFraction(KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE)) {
-                    throw new OpenSearchParseException("{} ({} KB) cannot exceed {}% of the heap ({} KB).",
-                            MODEL_CACHE_SIZE_LIMIT,
-                            userDefinedLimit.getKb(),
-                            KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE,
-                            jvmHeapSize.getKb());
-                }
+            // parseBytesSizeValueOrHeapRatio will make sure that the value entered falls between 0 and 100% of the
+            // JVM heap. However, we want the maximum percentage of the heap to be much smaller. So, we add
+            // some additional validation here before returning
+            ByteSizeValue jvmHeapSize = JvmInfo.jvmInfo().getMem().getHeapMax();
+            if ((userDefinedLimit.getKbFrac() / jvmHeapSize.getKbFrac()) > percentageAsFraction(
+                KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE
+            )) {
+                throw new OpenSearchParseException(
+                    "{} ({} KB) cannot exceed {}% of the heap ({} KB).",
+                    MODEL_CACHE_SIZE_LIMIT,
+                    userDefinedLimit.getKb(),
+                    KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE,
+                    jvmHeapSize.getKb()
+                );
+            }
 
-                return userDefinedLimit;
-            },
-            Setting.Property.NodeScope,
-            Setting.Property.Dynamic
+            return userDefinedLimit;
+        },
+        Setting.Property.NodeScope,
+        Setting.Property.Dynamic
     );
 
     /**
      * This setting identifies KNN index.
      */
-    public static final Setting<Boolean> IS_KNN_INDEX_SETTING =  Setting.boolSetting(KNN_INDEX, false, IndexScope);
-
+    public static final Setting<Boolean> IS_KNN_INDEX_SETTING = Setting.boolSetting(KNN_INDEX, false, IndexScope);
 
     /**
      * index_thread_quantity - the parameter specifies how many threads the nms library should use to create the graph.
@@ -180,29 +193,34 @@ public class KNNSettings {
      * this could lead to NUM_CORES^2 threads running and could lead to 100% CPU utilization. This setting allows users to
      * configure number of threads for graph construction.
      */
-    public static final Setting<Integer> KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING =  Setting.intSetting(KNN_ALGO_PARAM_INDEX_THREAD_QTY,
-            KNN_DEFAULT_ALGO_PARAM_INDEX_THREAD_QTY,
-            1,
-            INDEX_THREAD_QTY_MAX,
-            NodeScope,
-            Dynamic);
+    public static final Setting<Integer> KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING = Setting.intSetting(
+        KNN_ALGO_PARAM_INDEX_THREAD_QTY,
+        KNN_DEFAULT_ALGO_PARAM_INDEX_THREAD_QTY,
+        1,
+        INDEX_THREAD_QTY_MAX,
+        NodeScope,
+        Dynamic
+    );
 
-    public static final Setting<Boolean> KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING =  Setting.boolSetting(KNN_CIRCUIT_BREAKER_TRIGGERED,
-            false,
-            NodeScope,
-            Dynamic);
+    public static final Setting<Boolean> KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING = Setting.boolSetting(
+        KNN_CIRCUIT_BREAKER_TRIGGERED,
+        false,
+        NodeScope,
+        Dynamic
+    );
 
-    public static final Setting<Double> KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING =  Setting.doubleSetting(
-            KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE,
-            KNN_DEFAULT_CIRCUIT_BREAKER_UNSET_PERCENTAGE,
-            0,
-            100,
-            NodeScope,
-            Dynamic);
+    public static final Setting<Double> KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING = Setting.doubleSetting(
+        KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE,
+        KNN_DEFAULT_CIRCUIT_BREAKER_UNSET_PERCENTAGE,
+        0,
+        100,
+        NodeScope,
+        Dynamic
+    );
     /**
      * Dynamic settings
      */
-    public static  Map<String, Setting<?>> dynamicCacheSettings = new HashMap<String, Setting<?>>() {
+    public static Map<String, Setting<?>> dynamicCacheSettings = new HashMap<String, Setting<?>>() {
         {
             /**
              * KNN plugin enable/disable setting
@@ -212,17 +230,20 @@ public class KNNSettings {
             /**
              * Weight circuit breaker settings
              */
-            put(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, Setting.boolSetting(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED,true,
-                    NodeScope, Dynamic));
-            put(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT, knnMemoryCircuitBreakerSetting(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT, "50%",
-                    NodeScope, Dynamic));
+            put(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, Setting.boolSetting(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, true, NodeScope, Dynamic));
+            put(
+                KNN_MEMORY_CIRCUIT_BREAKER_LIMIT,
+                knnMemoryCircuitBreakerSetting(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT, "50%", NodeScope, Dynamic)
+            );
 
             /**
              * Cache expiry time settings
              */
             put(KNN_CACHE_ITEM_EXPIRY_ENABLED, Setting.boolSetting(KNN_CACHE_ITEM_EXPIRY_ENABLED, false, NodeScope, Dynamic));
-            put(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, Setting.positiveTimeSetting(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES,
-                    TimeValue.timeValueHours(3), NodeScope, Dynamic));
+            put(
+                KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES,
+                Setting.positiveTimeSetting(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, TimeValue.timeValueHours(3), NodeScope, Dynamic)
+            );
         }
     };
 
@@ -243,38 +264,33 @@ public class KNNSettings {
 
     public void setSettingsUpdateConsumers() {
         for (Setting<?> setting : dynamicCacheSettings.values()) {
-            clusterService.getClusterSettings().addSettingsUpdateConsumer(
-                    setting,
-                    newVal -> {
-                        logger.debug("The value of setting [{}] changed to [{}]", setting.getKey(), newVal);
-                        latestSettings.put(setting.getKey(), newVal);
+            clusterService.getClusterSettings().addSettingsUpdateConsumer(setting, newVal -> {
+                logger.debug("The value of setting [{}] changed to [{}]", setting.getKey(), newVal);
+                latestSettings.put(setting.getKey(), newVal);
 
-                        // Rebuild the cache with updated limit
-                        NativeMemoryCacheManager.getInstance().rebuildCache();
-                    });
+                // Rebuild the cache with updated limit
+                NativeMemoryCacheManager.getInstance().rebuildCache();
+            });
         }
 
         /**
          * We do not have to rebuild the cache for below settings
          */
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(
+        clusterService.getClusterSettings()
+            .addSettingsUpdateConsumer(
                 KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING,
-                newVal -> {
-                    latestSettings.put(KNN_CIRCUIT_BREAKER_TRIGGERED, newVal);
-                }
-        );
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(
+                newVal -> { latestSettings.put(KNN_CIRCUIT_BREAKER_TRIGGERED, newVal); }
+            );
+        clusterService.getClusterSettings()
+            .addSettingsUpdateConsumer(
                 KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING,
-                newVal -> {
-                    latestSettings.put(KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE, newVal);
-                }
-        );
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(
+                newVal -> { latestSettings.put(KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE, newVal); }
+            );
+        clusterService.getClusterSettings()
+            .addSettingsUpdateConsumer(
                 KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING,
-                newVal -> {
-                    latestSettings.put(KNN_ALGO_PARAM_INDEX_THREAD_QTY, newVal);
-                }
-        );
+                newVal -> { latestSettings.put(KNN_ALGO_PARAM_INDEX_THREAD_QTY, newVal); }
+            );
     }
 
     /**
@@ -310,19 +326,20 @@ public class KNNSettings {
     }
 
     public List<Setting<?>> getSettings() {
-        List<Setting<?>> settings =  Arrays.asList(INDEX_KNN_SPACE_TYPE,
-                INDEX_KNN_ALGO_PARAM_M_SETTING,
-                INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING,
-                INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING,
-                KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING,
-                KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING,
-                KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING,
-                IS_KNN_INDEX_SETTING,
-                MODEL_INDEX_NUMBER_OF_SHARDS_SETTING,
-                MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
-                MODEL_CACHE_SIZE_LIMIT_SETTING);
-        return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream())
-                     .collect(Collectors.toList());
+        List<Setting<?>> settings = Arrays.asList(
+            INDEX_KNN_SPACE_TYPE,
+            INDEX_KNN_ALGO_PARAM_M_SETTING,
+            INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING,
+            INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING,
+            KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING,
+            KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING,
+            KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING,
+            IS_KNN_INDEX_SETTING,
+            MODEL_INDEX_NUMBER_OF_SHARDS_SETTING,
+            MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
+            MODEL_CACHE_SIZE_LIMIT_SETTING
+        );
+        return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream()).collect(Collectors.toList());
     }
 
     public static boolean isKNNPluginEnabled() {
@@ -390,22 +407,25 @@ public class KNNSettings {
      */
     public synchronized void updateCircuitBreakerSettings(boolean flag) {
         ClusterUpdateSettingsRequest clusterUpdateSettingsRequest = new ClusterUpdateSettingsRequest();
-        Settings circuitBreakerSettings = Settings.builder()
-                                                  .put(KNNSettings.KNN_CIRCUIT_BREAKER_TRIGGERED, flag)
-                                                  .build();
+        Settings circuitBreakerSettings = Settings.builder().put(KNNSettings.KNN_CIRCUIT_BREAKER_TRIGGERED, flag).build();
         clusterUpdateSettingsRequest.persistentSettings(circuitBreakerSettings);
-        client.admin().cluster().updateSettings(clusterUpdateSettingsRequest,
-                new ActionListener<ClusterUpdateSettingsResponse>() {
+        client.admin().cluster().updateSettings(clusterUpdateSettingsRequest, new ActionListener<ClusterUpdateSettingsResponse>() {
             @Override
             public void onResponse(ClusterUpdateSettingsResponse clusterUpdateSettingsResponse) {
-                logger.debug("Cluster setting {}, acknowledged: {} ",
-                        clusterUpdateSettingsRequest.persistentSettings(),
-                        clusterUpdateSettingsResponse.isAcknowledged());
+                logger.debug(
+                    "Cluster setting {}, acknowledged: {} ",
+                    clusterUpdateSettingsRequest.persistentSettings(),
+                    clusterUpdateSettingsResponse.isAcknowledged()
+                );
             }
+
             @Override
             public void onFailure(Exception e) {
-                logger.info("Exception while updating circuit breaker setting {} to {}",
-                        clusterUpdateSettingsRequest.persistentSettings(), e.getMessage());
+                logger.info(
+                    "Exception while updating circuit breaker setting {} to {}",
+                    clusterUpdateSettingsRequest.persistentSettings(),
+                    e.getMessage()
+                );
             }
         });
     }
@@ -425,14 +445,15 @@ public class KNNSettings {
      * @return spaceType name in KNN plugin
      */
     public static String getSpaceType(String index) {
-        return KNNSettings.state().clusterService.state().getMetadata()
-            .index(index).getSettings().get(KNN_SPACE_TYPE, SpaceType.DEFAULT.getValue());
+        return KNNSettings.state().clusterService.state()
+            .getMetadata()
+            .index(index)
+            .getSettings()
+            .get(KNN_SPACE_TYPE, SpaceType.DEFAULT.getValue());
     }
 
     public static int getIndexSettingValue(String index, String settingName, int defaultValue) {
-        return KNNSettings.state().clusterService.state().getMetadata()
-                                                 .index(index).getSettings()
-                                                 .getAsInt(settingName, defaultValue);
+        return KNNSettings.state().clusterService.state().getMetadata().index(index).getSettings().getAsInt(settingName, defaultValue);
     }
 
     public void setClusterService(ClusterService clusterService) {
@@ -441,7 +462,8 @@ public class KNNSettings {
 
     static class SpaceTypeValidator implements Setting.Validator<String> {
 
-        @Override public void validate(String value) {
+        @Override
+        public void validate(String value) {
             try {
                 SpaceType.getSpace(value);
             } catch (IllegalArgumentException ex) {
@@ -451,14 +473,12 @@ public class KNNSettings {
     }
 
     public void onIndexModule(IndexModule module) {
-        module.addSettingsUpdateConsumer(
-                INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING,
-                newVal -> {
-                    logger.debug("The value of [KNN] setting [{}] changed to [{}]", KNN_ALGO_PARAM_EF_SEARCH, newVal);
-                    latestSettings.put(KNN_ALGO_PARAM_EF_SEARCH, newVal);
-                    // TODO: replace cache-rebuild with index reload into the cache
-                    NativeMemoryCacheManager.getInstance().rebuildCache();
-                });
+        module.addSettingsUpdateConsumer(INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING, newVal -> {
+            logger.debug("The value of [KNN] setting [{}] changed to [{}]", KNN_ALGO_PARAM_EF_SEARCH, newVal);
+            latestSettings.put(KNN_ALGO_PARAM_EF_SEARCH, newVal);
+            // TODO: replace cache-rebuild with index reload into the cache
+            NativeMemoryCacheManager.getInstance().rebuildCache();
+        });
     }
 
     private static String percentageAsString(Integer percentage) {

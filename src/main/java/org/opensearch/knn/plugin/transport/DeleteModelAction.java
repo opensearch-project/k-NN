@@ -12,11 +12,9 @@
 package org.opensearch.knn.plugin.transport;
 
 import org.opensearch.action.ActionType;
-import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.common.io.stream.Writeable;
 
 public class DeleteModelAction extends ActionType<DeleteModelResponse> {
-
 
     public static final DeleteModelAction INSTANCE = new DeleteModelAction();
     public static final String NAME = "cluster:admin/knn_delete_model_action";

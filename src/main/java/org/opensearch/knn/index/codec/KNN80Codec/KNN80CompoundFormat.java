@@ -28,8 +28,7 @@ public class KNN80CompoundFormat extends CompoundFormat {
 
     private final Logger logger = LogManager.getLogger(KNN80CompoundFormat.class);
 
-    public KNN80CompoundFormat() {
-    }
+    public KNN80CompoundFormat() {}
 
     @Override
     public CompoundDirectory getCompoundReader(Directory dir, SegmentInfo si, IOContext context) throws IOException {
@@ -44,14 +43,12 @@ public class KNN80CompoundFormat extends CompoundFormat {
         Codec.getDefault().compoundFormat().write(dir, si, context);
     }
 
-    private void writeEngineFiles(Directory dir, SegmentInfo si, IOContext context, String engineExtension)
-            throws IOException {
+    private void writeEngineFiles(Directory dir, SegmentInfo si, IOContext context, String engineExtension) throws IOException {
         /*
          * If engine file present, remove it from the compounding file list to avoid header/footer checks
          * and create a new compounding file format with extension engine + c.
          */
-        Set<String> engineFiles = si.files().stream().filter(file -> file.endsWith(engineExtension))
-                .collect(Collectors.toSet());
+        Set<String> engineFiles = si.files().stream().filter(file -> file.endsWith(engineExtension)).collect(Collectors.toSet());
 
         Set<String> segmentFiles = new HashSet<>(si.files());
 

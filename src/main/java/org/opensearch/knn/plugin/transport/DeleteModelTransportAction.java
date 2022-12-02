@@ -12,7 +12,6 @@
 package org.opensearch.knn.plugin.transport;
 
 import org.opensearch.action.ActionListener;
-import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.common.inject.Inject;
@@ -21,7 +20,6 @@ import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
 public class DeleteModelTransportAction extends HandledTransportAction<DeleteModelRequest, DeleteModelResponse> {
-
 
     private final ModelDao modelDao;
 

@@ -43,14 +43,18 @@ public enum StatNames {
 
     private String name;
 
-    StatNames(String name) { this.name = name; }
+    StatNames(String name) {
+        this.name = name;
+    }
 
     /**
      * Get stat name
      *
      * @return name
      */
-    public String getName() { return name; }
+    public String getName() {
+        return name;
+    }
 
     /**
      * Get all stat names

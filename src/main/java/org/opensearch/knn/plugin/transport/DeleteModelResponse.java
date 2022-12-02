@@ -11,7 +11,6 @@
 package org.opensearch.knn.plugin.transport;
 
 import org.opensearch.action.ActionResponse;
-import org.opensearch.action.DocWriteResponse;
 import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
@@ -73,7 +72,7 @@ public class DeleteModelResponse extends ActionResponse implements ToXContentObj
         builder.startObject();
         builder.field(MODEL_ID, getModelID());
         builder.field(RESULT, getResult());
-        if (Strings.hasText(errorMessage)){
+        if (Strings.hasText(errorMessage)) {
             builder.field(ERROR_MSG, getErrorMessage());
         }
         builder.endObject();

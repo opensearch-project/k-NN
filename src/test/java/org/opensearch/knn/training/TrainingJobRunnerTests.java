@@ -26,7 +26,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -56,30 +55,23 @@ public class TrainingJobRunnerTests extends KNNTestCase {
 
         // This gets called right after the initial put, before training begins. Just check that the model id is
         // equal
-        ActionListener<IndexResponse> responseListener = ActionListener.wrap(indexResponse ->
-                assertEquals(modelId, indexResponse.getId()), e -> fail("Failure should not have occurred"));
+        ActionListener<IndexResponse> responseListener = ActionListener.wrap(
+            indexResponse -> assertEquals(modelId, indexResponse.getId()),
+            e -> fail("Failure should not have occurred")
+        );
 
         // After put finishes, it should call the onResponse function that will call responseListener and then kickoff
         // training.
         ModelDao modelDao = mock(ModelDao.class);
         doAnswer(invocationOnMock -> {
             assertEquals(1, trainingJobRunner.getJobCount()); // Make sure job count is correct
-            IndexResponse indexResponse = new IndexResponse(
-                    new ShardId(MODEL_INDEX_NAME, "uuid", 0),
-                    "any-type",
-                    modelId,
-                    0,
-                    0,
-                    0,
-                    true
-                    );
-            ((ActionListener<IndexResponse>)invocationOnMock.getArguments()[1]).onResponse(indexResponse);
+            IndexResponse indexResponse = new IndexResponse(new ShardId(MODEL_INDEX_NAME, "uuid", 0), "any-type", modelId, 0, 0, 0, true);
+            ((ActionListener<IndexResponse>) invocationOnMock.getArguments()[1]).onResponse(indexResponse);
             return null;
         }).when(modelDao).put(any(Model.class), any(ActionListener.class));
 
         // Function finishes when update is called
-        doAnswer(invocationOnMock -> null)
-                .when(modelDao).update(any(Model.class), any(ActionListener.class));
+        doAnswer(invocationOnMock -> null).when(modelDao).update(any(Model.class), any(ActionListener.class));
 
         // Finally, initialize the singleton runner, execute the job.
         TrainingJobRunner.initialize(threadPool, modelDao);
@@ -116,33 +108,28 @@ public class TrainingJobRunnerTests extends KNNTestCase {
         // This gets called right after the initial put, before training begins. Just check that the model id is
         // equal
         ActionListener<IndexResponse> responseListener = ActionListener.wrap(
-                indexResponse -> assertEquals(modelId, indexResponse.getId()),
-                e -> fail("Should not reach this state")
+            indexResponse -> assertEquals(modelId, indexResponse.getId()),
+            e -> fail("Should not reach this state")
         );
 
         // After put finishes, it should call the onResponse function that will call responseListener and then kickoff
         // training.
         ModelDao modelDao = mock(ModelDao.class);
         doAnswer(invocationOnMock -> {
-            IndexResponse indexResponse = new IndexResponse(
-                    new ShardId(MODEL_INDEX_NAME, "uuid", 0),
-                    "any-type",
-                    modelId,
-                    0,
-                    0,
-                    0,
-                    true
-            );
-            ((ActionListener<IndexResponse>)invocationOnMock.getArguments()[1]).onResponse(indexResponse);
+            IndexResponse indexResponse = new IndexResponse(new ShardId(MODEL_INDEX_NAME, "uuid", 0), "any-type", modelId, 0, 0, 0, true);
+            ((ActionListener<IndexResponse>) invocationOnMock.getArguments()[1]).onResponse(indexResponse);
             return null;
         }).when(modelDao).put(any(Model.class), any(ActionListener.class));
 
         // Once update is called, try to start another training job. This should fail because the calling thread
         // is running training
         TrainingJobRunner trainingJobRunner = TrainingJobRunner.getInstance();
-        doAnswer(invocationOnMock -> expectThrows(RejectedExecutionException.class,
-                () -> trainingJobRunner.execute(trainingJob, responseListener))).when(modelDao)
-                .update(model, responseListener);
+        doAnswer(
+            invocationOnMock -> expectThrows(
+                RejectedExecutionException.class,
+                () -> trainingJobRunner.execute(trainingJob, responseListener)
+            )
+        ).when(modelDao).update(model, responseListener);
 
         // Finally, initialize the singleton runner, execute the job.
         TrainingJobRunner.initialize(threadPool, modelDao);

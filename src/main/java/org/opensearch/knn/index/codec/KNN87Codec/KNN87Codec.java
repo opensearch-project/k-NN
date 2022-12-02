@@ -43,7 +43,7 @@ public final class KNN87Codec extends Codec {
         super(KNN_87);
         // Note that DocValuesFormat can use old Codec's DocValuesFormat. For instance Lucene84 uses Lucene80
         // DocValuesFormat. Refer to defaultDVFormat in LuceneXXCodec.java to find out which version it uses
-        this.docValuesFormat =  new KNN80DocValuesFormat();
+        this.docValuesFormat = new KNN80DocValuesFormat();
         this.perFieldDocValuesFormat = new PerFieldDocValuesFormat() {
             @Override
             public DocValuesFormat getDocValuesFormatForField(String field) {
@@ -57,8 +57,7 @@ public final class KNN87Codec extends Codec {
      * This function returns the Codec.
      */
     public Codec getDelegatee() {
-        if (lucene87Codec == null)
-            lucene87Codec = Codec.forName(LUCENE_87);
+        if (lucene87Codec == null) lucene87Codec = Codec.forName(LUCENE_87);
         return lucene87Codec;
     }
 
@@ -72,7 +71,6 @@ public final class KNN87Codec extends Codec {
      * SPI related issues while loading Codec in the tests. So fall back to traditional
      * approach of manually overriding.
      */
-
 
     public void setPostingsFormat(PostingsFormat postingsFormat) {
         this.postingsFormat = postingsFormat;

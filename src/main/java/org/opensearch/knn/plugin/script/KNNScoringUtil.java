@@ -10,7 +10,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.math.BigInteger;
-import java.lang.Math;
 import java.util.List;
 import java.util.Objects;
 
@@ -28,13 +27,14 @@ public class KNNScoringUtil {
         Objects.requireNonNull(queryVector);
         Objects.requireNonNull(inputVector);
         if (queryVector.length != inputVector.length) {
-            String errorMessage = String.format("query vector dimension mismatch. Expected: %d, Given: %d",
-                    inputVector.length, queryVector.length);
+            String errorMessage = String.format(
+                "query vector dimension mismatch. Expected: %d, Given: %d",
+                inputVector.length,
+                queryVector.length
+            );
             throw new IllegalArgumentException(errorMessage);
         }
     }
-
-
 
     /**
      * This method calculates L2 squared distance between query vector
@@ -126,8 +126,7 @@ public class KNNScoringUtil {
      * @param queryVectorMagnitude the magnitude of the query vector.
      * @return cosine score
      */
-    public static float cosineSimilarity(
-            List<Number> queryVector, KNNVectorScriptDocValues docValues, Number queryVectorMagnitude) {
+    public static float cosineSimilarity(List<Number> queryVector, KNNVectorScriptDocValues docValues, Number queryVectorMagnitude) {
         return cosinesimilOptimized(toFloat(queryVector), docValues.getValue(), queryVectorMagnitude.floatValue());
     }
 
@@ -175,7 +174,6 @@ public class KNNScoringUtil {
     public static float cosineSimilarity(List<Number> queryVector, KNNVectorScriptDocValues docValues) {
         return cosinesimil(toFloat(queryVector), docValues.getValue());
     }
-
 
     /**
      * This method calculates hamming distance on 2 BigIntegers

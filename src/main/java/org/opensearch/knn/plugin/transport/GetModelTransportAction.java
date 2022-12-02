@@ -35,7 +35,6 @@ public class GetModelTransportAction extends HandledTransportAction<GetModelRequ
         this.modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
     }
 
-
     @Override
     protected void doExecute(Task task, GetModelRequest request, ActionListener<GetModelResponse> actionListener) {
         String modelID = request.getModelID();

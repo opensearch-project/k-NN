@@ -9,7 +9,6 @@
  * GitHub history for details.
  */
 
-
 package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableList;
@@ -70,24 +69,24 @@ public class FaissIT extends KNNRestTestCase {
 
         // Create an index
         XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(fieldName)
-                .field("type", "knn_vector")
-                .field("dimension", dimension)
-                .startObject(KNNConstants.KNN_METHOD)
-                .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
-                .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-                .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-                .startObject(KNNConstants.PARAMETERS)
-                .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
-                .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
-                .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(KNNConstants.PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
+            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
+            .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
 
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
         String mapping = Strings.toString(builder);
@@ -97,8 +96,12 @@ public class FaissIT extends KNNRestTestCase {
 
         // Index the test data
         for (int i = 0; i < testData.indexData.docs.length; i++) {
-            addKnnDoc(indexName, Integer.toString(testData.indexData.docs[i]), fieldName,
-                    Floats.asList(testData.indexData.vectors[i]).toArray());
+            addKnnDoc(
+                indexName,
+                Integer.toString(testData.indexData.docs[i]),
+                fieldName,
+                Floats.asList(testData.indexData.vectors[i]).toArray()
+            );
         }
 
         // Assert we have the right number of documents in the index
@@ -115,8 +118,11 @@ public class FaissIT extends KNNRestTestCase {
             List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName);
             for (int j = 0; j < k; j++) {
                 float[] primitiveArray = Floats.toArray(Arrays.stream(knnResults.get(j).getVector()).collect(Collectors.toList()));
-                assertEquals(KNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray),
-                        spaceType), actualScores.get(j), 0.0001);
+                assertEquals(
+                    KNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), spaceType),
+                    actualScores.get(j),
+                    0.0001
+                );
             }
         }
 
@@ -130,7 +136,7 @@ public class FaissIT extends KNNRestTestCase {
                 return;
             }
 
-            Thread.sleep(5*1000);
+            Thread.sleep(5 * 1000);
         }
 
         fail("Graphs are not getting evicted");
@@ -146,28 +152,28 @@ public class FaissIT extends KNNRestTestCase {
 
         // Create an index
         XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(fieldName)
-                .field("type", "knn_vector")
-                .field("dimension", dimension)
-                .startObject(KNNConstants.KNN_METHOD)
-                .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
-                .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-                .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
 
         String mapping = Strings.toString(builder);
         createKnnIndex(indexName, mapping);
 
-        Float[] vector  = {6.0f, 6.0f};
+        Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
 
         // update
-        Float[] updatedVector  = {8.0f, 8.0f};
+        Float[] updatedVector = { 8.0f, 8.0f };
         updateKnnDoc(INDEX_NAME, "1", FIELD_NAME, updatedVector);
 
     }
@@ -182,24 +188,24 @@ public class FaissIT extends KNNRestTestCase {
 
         // Create an index
         XContentBuilder builder = XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(fieldName)
-                .field("type", "knn_vector")
-                .field("dimension", dimension)
-                .startObject(KNNConstants.KNN_METHOD)
-                .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
-                .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-                .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject();
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
 
         String mapping = Strings.toString(builder);
         createKnnIndex(indexName, mapping);
 
-        Float[] vector  = {6.0f, 6.0f};
+        Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
 
         // delete knn doc
@@ -219,14 +225,15 @@ public class FaissIT extends KNNRestTestCase {
         bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
 
         // Call train API - IVF with nlists = 1 is brute force, but will require training
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject()
-                .field(NAME, "ivf")
-                .field(KNN_ENGINE, "faiss")
-                .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
-                .startObject(PARAMETERS)
-                .field(METHOD_PARAMETER_NLIST, 1)
-                .endObject()
-                .endObject();
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, "ivf")
+            .field(KNN_ENGINE, "faiss")
+            .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 1)
+            .endObject()
+            .endObject();
         Map<String, Object> method = xContentBuilderToMap(builder);
 
         trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, "faiss test description");
@@ -237,14 +244,17 @@ public class FaissIT extends KNNRestTestCase {
         // Create knn index from model
         String fieldName = "test-field-name";
         String indexName = "test-index-name";
-        String indexMapping = Strings.toString(XContentFactory.jsonBuilder().startObject()
+        String indexMapping = Strings.toString(
+            XContentFactory.jsonBuilder()
+                .startObject()
                 .startObject("properties")
                 .startObject(fieldName)
                 .field("type", "knn_vector")
                 .field(MODEL_ID, modelId)
                 .endObject()
                 .endObject()
-                .endObject());
+                .endObject()
+        );
 
         createKnnIndex(indexName, getKNNDefaultIndexSettings(), indexMapping);
 
