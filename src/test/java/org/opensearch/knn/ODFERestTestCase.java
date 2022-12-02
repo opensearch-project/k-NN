@@ -81,28 +81,27 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         }
         builder.setDefaultHeaders(defaultHeaders);
         builder.setHttpClientConfigCallback(httpClientBuilder -> {
-            String userName = Optional
-                    .ofNullable(System.getProperty("user"))
-                    .orElseThrow(() -> new RuntimeException("user name is missing"));
-            String password = Optional
-                    .ofNullable(System.getProperty("password"))
-                    .orElseThrow(() -> new RuntimeException("password is missing"));
+            String userName = Optional.ofNullable(System.getProperty("user"))
+                .orElseThrow(() -> new RuntimeException("user name is missing"));
+            String password = Optional.ofNullable(System.getProperty("password"))
+                .orElseThrow(() -> new RuntimeException("password is missing"));
             CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
             credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(userName, password));
             try {
-                return httpClientBuilder
-                        .setDefaultCredentialsProvider(credentialsProvider)
-                        // disable the certificate since our testing cluster just uses the default security configuration
-                        .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
-                        .setSSLContext(SSLContextBuilder.create().loadTrustMaterial(null, (chains, authType) -> true).build());
+                return httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider)
+                    // disable the certificate since our testing cluster just uses the default security configuration
+                    .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                    .setSSLContext(SSLContextBuilder.create().loadTrustMaterial(null, (chains, authType) -> true).build());
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         });
 
         final String socketTimeoutString = settings.get(CLIENT_SOCKET_TIMEOUT);
-        final TimeValue socketTimeout = TimeValue
-                .parseTimeValue(socketTimeoutString == null ? "60s" : socketTimeoutString, CLIENT_SOCKET_TIMEOUT);
+        final TimeValue socketTimeout = TimeValue.parseTimeValue(
+            socketTimeoutString == null ? "60s" : socketTimeoutString,
+            CLIENT_SOCKET_TIMEOUT
+        );
         builder.setRequestConfigCallback(conf -> conf.setSocketTimeout(Math.toIntExact(socketTimeout.getMillis())));
         if (settings.hasValue(CLIENT_PATH_PREFIX)) {
             builder.setPathPrefix(settings.get(CLIENT_PATH_PREFIX));
@@ -123,13 +122,12 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         Response response = client().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
         XContentType xContentType = XContentType.fromMediaTypeOrFormat(response.getEntity().getContentType().getValue());
         try (
-                XContentParser parser = xContentType
-                        .xContent()
-                        .createParser(
-                                NamedXContentRegistry.EMPTY,
-                                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                                response.getEntity().getContent()
-                        )
+            XContentParser parser = xContentType.xContent()
+                .createParser(
+                    NamedXContentRegistry.EMPTY,
+                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                    response.getEntity().getContent()
+                )
         ) {
             XContentParser.Token token = parser.nextToken();
             List<Map<String, Object>> parserList = null;
@@ -148,12 +146,11 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         }
     }
 
-    private boolean skipDeleteIndex(String indexName){
-        if (indexName != null && !OPENDISTRO_SECURITY.equals(indexName) && !indexName.matches(KNN_BWC_PREFIX+"(.*)")){
+    private boolean skipDeleteIndex(String indexName) {
+        if (indexName != null && !OPENDISTRO_SECURITY.equals(indexName) && !indexName.matches(KNN_BWC_PREFIX + "(.*)")) {
             return false;
         }
 
         return true;
     }
 }
-

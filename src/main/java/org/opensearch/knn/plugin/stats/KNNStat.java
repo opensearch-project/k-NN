@@ -30,7 +30,9 @@ public class KNNStat<T> {
      *
      * @return boolean that is true if the stat is clusterLevel; false otherwise
      */
-    public Boolean isClusterLevel() { return clusterLevel; }
+    public Boolean isClusterLevel() {
+        return clusterLevel;
+    }
 
     /**
      * Get the value of the statistic

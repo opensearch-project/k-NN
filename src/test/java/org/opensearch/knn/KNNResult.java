@@ -18,7 +18,7 @@ public class KNNResult {
         return docId;
     }
 
-    public  Float[] getVector() {
+    public Float[] getVector() {
         return vector;
     }
 }

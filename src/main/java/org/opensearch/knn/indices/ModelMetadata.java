@@ -23,7 +23,6 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
-import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -31,7 +30,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
@@ -80,13 +78,21 @@ public class ModelMetadata implements Writeable, ToXContentObject {
      * @param description information about the model
      * @param error error message associated with model
      */
-    public ModelMetadata(KNNEngine knnEngine, SpaceType spaceType, int dimension, ModelState modelState,
-                         String timestamp, String description, String error) {
+    public ModelMetadata(
+        KNNEngine knnEngine,
+        SpaceType spaceType,
+        int dimension,
+        ModelState modelState,
+        String timestamp,
+        String description,
+        String error
+    ) {
         this.knnEngine = Objects.requireNonNull(knnEngine, "knnEngine must not be null");
         this.spaceType = Objects.requireNonNull(spaceType, "spaceType must not be null");
         if (dimension <= 0 || dimension >= MAX_DIMENSION) {
-            throw new IllegalArgumentException("Dimension \"" + dimension + "\" is invalid. Value must be greater " +
-                    "than 0 and less than " + MAX_DIMENSION);
+            throw new IllegalArgumentException(
+                "Dimension \"" + dimension + "\" is invalid. Value must be greater " + "than 0 and less than " + MAX_DIMENSION
+            );
         }
         this.dimension = dimension;
 
@@ -179,16 +185,22 @@ public class ModelMetadata implements Writeable, ToXContentObject {
 
     @Override
     public String toString() {
-        return String.join(DELIMITER, knnEngine.getName(), spaceType.getValue(), Integer.toString(dimension),
-                getState().toString(), timestamp, description, error);
+        return String.join(
+            DELIMITER,
+            knnEngine.getName(),
+            spaceType.getValue(),
+            Integer.toString(dimension),
+            getState().toString(),
+            timestamp,
+            description,
+            error
+        );
     }
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (obj == null || getClass() != obj.getClass())
-            return false;
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
         ModelMetadata other = (ModelMetadata) obj;
 
         EqualsBuilder equalsBuilder = new EqualsBuilder();
@@ -205,8 +217,14 @@ public class ModelMetadata implements Writeable, ToXContentObject {
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(getKnnEngine()).append(getSpaceType()).append(getDimension())
-                .append(getState()).append(getTimestamp()).append(getDescription()).append(getError()).toHashCode();
+        return new HashCodeBuilder().append(getKnnEngine())
+            .append(getSpaceType())
+            .append(getDimension())
+            .append(getState())
+            .append(getTimestamp())
+            .append(getDescription())
+            .append(getError())
+            .toHashCode();
     }
 
     /**
@@ -219,8 +237,10 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         String[] modelMetadataArray = modelMetadataString.split(DELIMITER, -1);
 
         if (modelMetadataArray.length != 7) {
-            throw new IllegalArgumentException("Illegal format for model metadata. Must be of the form " +
-                    "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>\".");
+            throw new IllegalArgumentException(
+                "Illegal format for model metadata. Must be of the form "
+                    + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>\"."
+            );
         }
 
         KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
@@ -235,15 +255,13 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     }
 
     private static String objectToString(Object value) {
-        if(value == null)
-            return null;
-        return (String)value;
+        if (value == null) return null;
+        return (String) value;
     }
 
     private static Integer objectToInteger(Object value) {
-        if(value == null)
-            return null;
-        return (Integer)value;
+        if (value == null) return null;
+        return (Integer) value;
     }
 
     /**
@@ -252,18 +270,24 @@ public class ModelMetadata implements Writeable, ToXContentObject {
      * @param modelSourceMap Map to be parsed
      * @return ModelMetadata instance
      */
-    public static ModelMetadata getMetadataFromSourceMap(final Map<String, Object> modelSourceMap){
+    public static ModelMetadata getMetadataFromSourceMap(final Map<String, Object> modelSourceMap) {
         Object engine = modelSourceMap.get(KNNConstants.KNN_ENGINE);
         Object space = modelSourceMap.get(KNNConstants.METHOD_PARAMETER_SPACE_TYPE);
         Object dimension = modelSourceMap.get(KNNConstants.DIMENSION);
         Object state = modelSourceMap.get(KNNConstants.MODEL_STATE);
-        Object timestamp  = modelSourceMap.get(KNNConstants.MODEL_TIMESTAMP);
+        Object timestamp = modelSourceMap.get(KNNConstants.MODEL_TIMESTAMP);
         Object description = modelSourceMap.get(KNNConstants.MODEL_DESCRIPTION);
         Object error = modelSourceMap.get(KNNConstants.MODEL_ERROR);
 
-        ModelMetadata modelMetadata = new ModelMetadata(KNNEngine.getEngine(objectToString(engine)),
-            SpaceType.getSpace(objectToString( space)), objectToInteger(dimension), ModelState.getModelState(objectToString(state)),
-            objectToString(timestamp), objectToString(description), objectToString( error));
+        ModelMetadata modelMetadata = new ModelMetadata(
+            KNNEngine.getEngine(objectToString(engine)),
+            SpaceType.getSpace(objectToString(space)),
+            objectToInteger(dimension),
+            ModelState.getModelState(objectToString(state)),
+            objectToString(timestamp),
+            objectToString(description),
+            objectToString(error)
+        );
         return modelMetadata;
     }
 

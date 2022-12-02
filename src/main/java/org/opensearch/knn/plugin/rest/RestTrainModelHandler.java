@@ -55,26 +55,17 @@ public class RestTrainModelHandler extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
-        return ImmutableList
-                .of(
-                        new Route(
-                                RestRequest.Method.POST,
-                                String.format(Locale.ROOT, "%s/%s/{%s}/_train", KNNPlugin.KNN_BASE_URI, MODELS,
-                                        MODEL_ID)
-                        ),
-                        new Route(
-                                RestRequest.Method.POST,
-                                String.format(Locale.ROOT, "%s/%s/_train", KNNPlugin.KNN_BASE_URI, MODELS)
-                        )
-                );
+        return ImmutableList.of(
+            new Route(RestRequest.Method.POST, String.format(Locale.ROOT, "%s/%s/{%s}/_train", KNNPlugin.KNN_BASE_URI, MODELS, MODEL_ID)),
+            new Route(RestRequest.Method.POST, String.format(Locale.ROOT, "%s/%s/_train", KNNPlugin.KNN_BASE_URI, MODELS))
+        );
     }
 
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest restRequest, NodeClient client) throws IOException {
         TrainingModelRequest trainingModelRequest = createTransportRequest(restRequest);
 
-        return channel -> client.execute(TrainingJobRouterAction.INSTANCE, trainingModelRequest,
-                new RestToXContentListener<>(channel));
+        return channel -> client.execute(TrainingJobRouterAction.INSTANCE, trainingModelRequest, new RestToXContentListener<>(channel));
     }
 
     private TrainingModelRequest createTransportRequest(RestRequest restRequest) throws IOException {
@@ -114,8 +105,7 @@ public class RestTrainModelHandler extends BaseRestHandler {
             } else if (MODEL_DESCRIPTION.equals(fieldName) && ensureNotSet(fieldName, description)) {
                 description = parser.textOrNull();
             } else {
-                throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is not a valid " +
-                        "parameter.");
+                throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is not a valid " + "parameter.");
             }
         }
 
@@ -130,8 +120,15 @@ public class RestTrainModelHandler extends BaseRestHandler {
             description = "";
         }
 
-        TrainingModelRequest trainingModelRequest = new TrainingModelRequest(modelId, knnMethodContext, dimension,
-                trainingIndex, trainingField, preferredNodeId, description);
+        TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
+            modelId,
+            knnMethodContext,
+            dimension,
+            trainingIndex,
+            trainingField,
+            preferredNodeId,
+            description
+        );
 
         if (maximumVectorCount != DEFAULT_NOT_SET_INT_VALUE) {
             trainingModelRequest.setMaximumVectorCount(maximumVectorCount);

@@ -30,7 +30,7 @@ public class KNNStatsNodeResponse extends BaseNodeResponse implements ToXContent
      */
     public KNNStatsNodeResponse(StreamInput in) throws IOException {
         super(in);
-        this.statsMap    = in.readMap(StreamInput::readString, StreamInput::readGenericValue);
+        this.statsMap = in.readMap(StreamInput::readString, StreamInput::readGenericValue);
     }
 
     /**

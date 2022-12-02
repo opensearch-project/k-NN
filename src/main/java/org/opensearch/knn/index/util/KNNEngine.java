@@ -21,7 +21,6 @@ import java.util.Map;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 
-
 /**
  * KNNEngine provides the functionality to validate and transform user defined indices into information that can be
  * passed to the respective k-NN library's JNI layer.
@@ -53,7 +52,7 @@ public enum KNNEngine implements KNNLibrary {
      * @return KNNEngine corresponding to name
      */
     public static KNNEngine getEngine(String name) {
-        if (NMSLIB.getName().equalsIgnoreCase(name)){
+        if (NMSLIB.getName().equalsIgnoreCase(name)) {
             return NMSLIB;
         }
 
@@ -71,13 +70,11 @@ public enum KNNEngine implements KNNLibrary {
      * @return KNNEngine corresponding to path
      */
     public static KNNEngine getEngineNameFromPath(String path) {
-        if (path.endsWith(KNNEngine.NMSLIB.getExtension())
-                || path.endsWith(KNNEngine.NMSLIB.getCompoundExtension())) {
+        if (path.endsWith(KNNEngine.NMSLIB.getExtension()) || path.endsWith(KNNEngine.NMSLIB.getCompoundExtension())) {
             return KNNEngine.NMSLIB;
         }
 
-        if (path.endsWith(KNNEngine.FAISS.getExtension())
-                || path.endsWith(KNNEngine.FAISS.getCompoundExtension())) {
+        if (path.endsWith(KNNEngine.FAISS.getExtension()) || path.endsWith(KNNEngine.FAISS.getCompoundExtension())) {
             return KNNEngine.FAISS;
         }
 
@@ -132,7 +129,6 @@ public enum KNNEngine implements KNNLibrary {
     public boolean isTrainingRequired(KNNMethodContext knnMethodContext) {
         return knnLibrary.isTrainingRequired(knnMethodContext);
     }
-
 
     @Override
     public Map<String, Object> getMethodAsMap(KNNMethodContext knnMethodContext) {

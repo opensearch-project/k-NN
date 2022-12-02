@@ -9,7 +9,6 @@
  * GitHub history for details.
  */
 
-
 package org.opensearch.knn.index.util;
 
 import org.opensearch.common.ValidationException;
@@ -131,7 +130,7 @@ public interface KNNLibrary {
      * @param dimension to estimate size for
      * @return size overhead estimate in KB
      */
-    int estimateOverheadInKB (KNNMethodContext knnMethodContext, int dimension);
+    int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension);
 
     /**
      * Generate method as map that can be used to configure the knn index from the jni
@@ -176,9 +175,13 @@ public interface KNNLibrary {
          * @param latestLibraryVersion String representation of latest version of the library
          * @param extension String representing the extension that library files should use
          */
-        public NativeLibrary(Map<String, KNNMethod> methods, Map<SpaceType, Function<Float, Float>> scoreTranslation,
-                             String latestLibraryBuildVersion, String latestLibraryVersion, String extension)
-        {
+        public NativeLibrary(
+            Map<String, KNNMethod> methods,
+            Map<SpaceType, Function<Float, Float>> scoreTranslation,
+            String latestLibraryBuildVersion,
+            String latestLibraryVersion,
+            String extension
+        ) {
             this.methods = methods;
             this.scoreTranslation = scoreTranslation;
             this.latestLibraryBuildVersion = latestLibraryBuildVersion;
@@ -248,8 +251,7 @@ public interface KNNLibrary {
             KNNMethod knnMethod = methods.get(knnMethodContext.getMethodComponent().getName());
 
             if (knnMethod == null) {
-                throw new IllegalArgumentException("Invalid method name: "
-                        + knnMethodContext.getMethodComponent().getName());
+                throw new IllegalArgumentException("Invalid method name: " + knnMethodContext.getMethodComponent().getName());
             }
 
             return knnMethod.getAsMap(knnMethodContext);
@@ -277,23 +279,32 @@ public interface KNNLibrary {
         public final static String EXTENSION = ".hnsw";
 
         public final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
-                METHOD_HNSW,
-                KNNMethod.Builder.builder(
-                        MethodComponent.Builder.builder(HNSW_LIB_NAME)
-                                .addParameter(METHOD_PARAMETER_M, new Parameter.IntegerParameter(
-                                        METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0))
-                                .addParameter(METHOD_PARAMETER_EF_CONSTRUCTION, new Parameter.IntegerParameter(
-                                        METHOD_PARAMETER_EF_CONSTRUCTION,
-                                        KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION, v -> v > 0))
-                                .build())
-                        .addSpaces(SpaceType.L2, SpaceType.L1, SpaceType.LINF, SpaceType.COSINESIMIL,
-                                SpaceType.INNER_PRODUCT)
-                        .build()
+            METHOD_HNSW,
+            KNNMethod.Builder.builder(
+                MethodComponent.Builder.builder(HNSW_LIB_NAME)
+                    .addParameter(
+                        METHOD_PARAMETER_M,
+                        new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0)
+                    )
+                    .addParameter(
+                        METHOD_PARAMETER_EF_CONSTRUCTION,
+                        new Parameter.IntegerParameter(
+                            METHOD_PARAMETER_EF_CONSTRUCTION,
+                            KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
+                            v -> v > 0
+                        )
+                    )
+                    .build()
+            ).addSpaces(SpaceType.L2, SpaceType.L1, SpaceType.LINF, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT).build()
         );
 
-
-        public final static Nmslib INSTANCE = new Nmslib(METHODS, Collections.emptyMap(),
-                Version.LATEST.getBuildVersion(), Version.LATEST.indexLibraryVersion(), EXTENSION);
+        public final static Nmslib INSTANCE = new Nmslib(
+            METHODS,
+            Collections.emptyMap(),
+            Version.LATEST.getBuildVersion(),
+            Version.LATEST.indexLibraryVersion(),
+            EXTENSION
+        );
 
         /**
          * Constructor for Nmslib
@@ -304,8 +315,13 @@ public interface KNNLibrary {
          * @param latestLibraryVersion String representation of latest version of the library
          * @param extension String representing the extension that library files should use
          */
-        private Nmslib(Map<String, KNNMethod> methods, Map<SpaceType, Function<Float, Float>> scoreTranslation,
-                       String latestLibraryBuildVersion, String latestLibraryVersion, String extension) {
+        private Nmslib(
+            Map<String, KNNMethod> methods,
+            Map<SpaceType, Function<Float, Float>> scoreTranslation,
+            String latestLibraryBuildVersion,
+            String latestLibraryVersion,
+            String extension
+        ) {
             super(methods, scoreTranslation, latestLibraryBuildVersion, latestLibraryVersion, extension);
         }
 
@@ -313,7 +329,7 @@ public interface KNNLibrary {
             /**
              * Latest available nmslib version
              */
-            V2011("2011"){
+            V2011("2011") {
                 @Override
                 public String indexLibraryVersion() {
                     return KNNConstants.NMSLIB_JNI_LIBRARY_NAME;
@@ -334,7 +350,9 @@ public interface KNNLibrary {
              */
             public abstract String indexLibraryVersion();
 
-            public String getBuildVersion() { return buildVersion; }
+            public String getBuildVersion() {
+                return buildVersion;
+            }
         }
     }
 
@@ -345,134 +363,186 @@ public interface KNNLibrary {
 
         // Map that overrides OpenSearch score translation by space type of scores returned by faiss
         public final static Map<SpaceType, Function<Float, Float>> SCORE_TRANSLATIONS = ImmutableMap.of(
-                SpaceType.INNER_PRODUCT, rawScore -> SpaceType.INNER_PRODUCT.scoreTranslation(-1*rawScore)
+            SpaceType.INNER_PRODUCT,
+            rawScore -> SpaceType.INNER_PRODUCT.scoreTranslation(-1 * rawScore)
         );
 
         // Define encoders supported by faiss
         public final static MethodComponentContext ENCODER_DEFAULT = new MethodComponentContext(
-                KNNConstants.ENCODER_FLAT, Collections.emptyMap());
+            KNNConstants.ENCODER_FLAT,
+            Collections.emptyMap()
+        );
 
-        //TODO: To think about in future: for PQ, if dimension is not divisible by code count, PQ will fail. Right now,
+        // TODO: To think about in future: for PQ, if dimension is not divisible by code count, PQ will fail. Right now,
         // we do not have a way to base validation off of dimension. Failure will happen during training in JNI.
         public final static Map<String, MethodComponent> encoderComponents = ImmutableMap.of(
-                KNNConstants.ENCODER_FLAT, MethodComponent.Builder.builder(KNNConstants.ENCODER_FLAT)
-                        .setMapGenerator(((methodComponent, methodComponentContext) ->
-                                MethodAsMapBuilder.builder(KNNConstants.FAISS_FLAT_DESCRIPTION, methodComponent,
-                                        methodComponentContext).build())).build(),
-                KNNConstants.ENCODER_PQ, MethodComponent.Builder.builder(KNNConstants.ENCODER_PQ)
-                        .addParameter(ENCODER_PARAMETER_PQ_M,
-                                new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_M,
-                                        ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT, v -> v > 0
-                                        && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT))
-                        .addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE,
-                                new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_CODE_SIZE,
-                                        ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT, v -> v > 0
-                                        && v < ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT))
-                        .setRequiresTraining(true)
-                        .setMapGenerator(((methodComponent, methodComponentContext) ->
-                                MethodAsMapBuilder.builder(FAISS_PQ_DESCRIPTION, methodComponent, methodComponentContext)
-                                        .addParameter(ENCODER_PARAMETER_PQ_M, "", "")
-                                        .addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, "x", "")
-                                        .build()))
-                        .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
-                            // Size estimate formula: (4 * d * 2^code_size) / 1024 + 1
+            KNNConstants.ENCODER_FLAT,
+            MethodComponent.Builder.builder(KNNConstants.ENCODER_FLAT)
+                .setMapGenerator(
+                    ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+                        KNNConstants.FAISS_FLAT_DESCRIPTION,
+                        methodComponent,
+                        methodComponentContext
+                    ).build())
+                )
+                .build(),
+            KNNConstants.ENCODER_PQ,
+            MethodComponent.Builder.builder(KNNConstants.ENCODER_PQ)
+                .addParameter(
+                    ENCODER_PARAMETER_PQ_M,
+                    new Parameter.IntegerParameter(
+                        ENCODER_PARAMETER_PQ_M,
+                        ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT,
+                        v -> v > 0 && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT
+                    )
+                )
+                .addParameter(
+                    ENCODER_PARAMETER_PQ_CODE_SIZE,
+                    new Parameter.IntegerParameter(
+                        ENCODER_PARAMETER_PQ_CODE_SIZE,
+                        ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT,
+                        v -> v > 0 && v < ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT
+                    )
+                )
+                .setRequiresTraining(true)
+                .setMapGenerator(
+                    ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+                        FAISS_PQ_DESCRIPTION,
+                        methodComponent,
+                        methodComponentContext
+                    ).addParameter(ENCODER_PARAMETER_PQ_M, "", "").addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, "x", "").build())
+                )
+                .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
+                    // Size estimate formula: (4 * d * 2^code_size) / 1024 + 1
 
-                            // Get value of code size passed in by user
-                            Object codeSizeObject = methodComponentContext.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
+                    // Get value of code size passed in by user
+                    Object codeSizeObject = methodComponentContext.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
 
-                            // If not specified, get default value of code size
-                            if (codeSizeObject == null) {
-                                Object codeSizeParameter = methodComponent.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
-                                if (codeSizeParameter == null) {
-                                    throw new IllegalStateException(ENCODER_PARAMETER_PQ_CODE_SIZE + " is not a valid " +
-                                            " parameter. This is a bug.");
-                                }
+                    // If not specified, get default value of code size
+                    if (codeSizeObject == null) {
+                        Object codeSizeParameter = methodComponent.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
+                        if (codeSizeParameter == null) {
+                            throw new IllegalStateException(
+                                ENCODER_PARAMETER_PQ_CODE_SIZE + " is not a valid " + " parameter. This is a bug."
+                            );
+                        }
 
-                                codeSizeObject = ((Parameter<?>) codeSizeParameter).getDefaultValue();
-                            }
+                        codeSizeObject = ((Parameter<?>) codeSizeParameter).getDefaultValue();
+                    }
 
-                            if (!(codeSizeObject instanceof Integer)) {
-                                throw new IllegalStateException(ENCODER_PARAMETER_PQ_CODE_SIZE + " must be " +
-                                        "an integer.");
-                            }
+                    if (!(codeSizeObject instanceof Integer)) {
+                        throw new IllegalStateException(ENCODER_PARAMETER_PQ_CODE_SIZE + " must be " + "an integer.");
+                    }
 
-                            int codeSize = (Integer) codeSizeObject;
-                            return ((4L *  (1 << codeSize) * dimension) / BYTES_PER_KILOBYTES) + 1;
-                        })
-                        .build()
+                    int codeSize = (Integer) codeSizeObject;
+                    return ((4L * (1 << codeSize) * dimension) / BYTES_PER_KILOBYTES) + 1;
+                })
+                .build()
         );
 
         // Define methods supported by faiss
         public final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
-                METHOD_HNSW, KNNMethod.Builder.builder(MethodComponent.Builder.builder(METHOD_HNSW)
-                        .addParameter(METHOD_PARAMETER_M,
-                                new Parameter.IntegerParameter(METHOD_PARAMETER_M,
-                                        KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0))
-                        .addParameter(METHOD_PARAMETER_EF_CONSTRUCTION,
-                                new Parameter.IntegerParameter(METHOD_PARAMETER_EF_CONSTRUCTION,
-                                        KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION, v -> v > 0))
-                        .addParameter(METHOD_PARAMETER_EF_SEARCH,
-                                new Parameter.IntegerParameter(METHOD_PARAMETER_EF_SEARCH,
-                                        KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH, v -> v > 0))
-                        .addParameter(METHOD_ENCODER_PARAMETER,
-                                new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER,
-                                        ENCODER_DEFAULT, encoderComponents))
-                        .setMapGenerator(((methodComponent, methodComponentContext) ->
-                                MethodAsMapBuilder.builder(FAISS_HNSW_DESCRIPTION, methodComponent, methodComponentContext)
-                                        .addParameter(METHOD_PARAMETER_M, "", "")
-                                        .addParameter(METHOD_ENCODER_PARAMETER, ",", "")
-                                        .build()))
-                        .build())
-                        .addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build(),
-                METHOD_IVF, KNNMethod.Builder.builder(MethodComponent.Builder.builder(METHOD_IVF)
-                        .addParameter(METHOD_PARAMETER_NPROBES,
-                                new Parameter.IntegerParameter(METHOD_PARAMETER_NPROBES,
-                                        METHOD_PARAMETER_NPROBES_DEFAULT, v -> v > 0
-                                        && v < METHOD_PARAMETER_NPROBES_LIMIT))
-                        .addParameter(METHOD_PARAMETER_NLIST,
-                                new Parameter.IntegerParameter(METHOD_PARAMETER_NLIST, METHOD_PARAMETER_NLIST_DEFAULT,
-                                        v -> v > 0 && v < METHOD_PARAMETER_NLIST_LIMIT))
-                        .addParameter(METHOD_ENCODER_PARAMETER,
-                                new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER,
-                                        ENCODER_DEFAULT, encoderComponents))
-                        .setRequiresTraining(true)
-                        .setMapGenerator(((methodComponent, methodComponentContext) ->
-                                MethodAsMapBuilder.builder(FAISS_IVF_DESCRIPTION, methodComponent, methodComponentContext)
-                                        .addParameter(METHOD_PARAMETER_NLIST, "", "")
-                                        .addParameter(METHOD_ENCODER_PARAMETER, ",", "")
-                                        .build()))
-                        .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
-                            // Size estimate formula: (4 * nlists * d) / 1024 + 1
+            METHOD_HNSW,
+            KNNMethod.Builder.builder(
+                MethodComponent.Builder.builder(METHOD_HNSW)
+                    .addParameter(
+                        METHOD_PARAMETER_M,
+                        new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0)
+                    )
+                    .addParameter(
+                        METHOD_PARAMETER_EF_CONSTRUCTION,
+                        new Parameter.IntegerParameter(
+                            METHOD_PARAMETER_EF_CONSTRUCTION,
+                            KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
+                            v -> v > 0
+                        )
+                    )
+                    .addParameter(
+                        METHOD_PARAMETER_EF_SEARCH,
+                        new Parameter.IntegerParameter(
+                            METHOD_PARAMETER_EF_SEARCH,
+                            KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+                            v -> v > 0
+                        )
+                    )
+                    .addParameter(
+                        METHOD_ENCODER_PARAMETER,
+                        new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, ENCODER_DEFAULT, encoderComponents)
+                    )
+                    .setMapGenerator(
+                        ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+                            FAISS_HNSW_DESCRIPTION,
+                            methodComponent,
+                            methodComponentContext
+                        ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build())
+                    )
+                    .build()
+            ).addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build(),
+            METHOD_IVF,
+            KNNMethod.Builder.builder(
+                MethodComponent.Builder.builder(METHOD_IVF)
+                    .addParameter(
+                        METHOD_PARAMETER_NPROBES,
+                        new Parameter.IntegerParameter(
+                            METHOD_PARAMETER_NPROBES,
+                            METHOD_PARAMETER_NPROBES_DEFAULT,
+                            v -> v > 0 && v < METHOD_PARAMETER_NPROBES_LIMIT
+                        )
+                    )
+                    .addParameter(
+                        METHOD_PARAMETER_NLIST,
+                        new Parameter.IntegerParameter(
+                            METHOD_PARAMETER_NLIST,
+                            METHOD_PARAMETER_NLIST_DEFAULT,
+                            v -> v > 0 && v < METHOD_PARAMETER_NLIST_LIMIT
+                        )
+                    )
+                    .addParameter(
+                        METHOD_ENCODER_PARAMETER,
+                        new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, ENCODER_DEFAULT, encoderComponents)
+                    )
+                    .setRequiresTraining(true)
+                    .setMapGenerator(
+                        ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+                            FAISS_IVF_DESCRIPTION,
+                            methodComponent,
+                            methodComponentContext
+                        ).addParameter(METHOD_PARAMETER_NLIST, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build())
+                    )
+                    .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
+                        // Size estimate formula: (4 * nlists * d) / 1024 + 1
 
-                            // Get value of nlists passed in by user
-                            Object nlistObject = methodComponentContext.getParameters().get(METHOD_PARAMETER_NLIST);
+                        // Get value of nlists passed in by user
+                        Object nlistObject = methodComponentContext.getParameters().get(METHOD_PARAMETER_NLIST);
 
-                            // If not specified, get default value of nlist
-                            if (nlistObject == null) {
-                                Object nlistParameter = methodComponent.getParameters().get(METHOD_PARAMETER_NLIST);
-                                if (nlistParameter == null) {
-                                    throw new IllegalStateException(METHOD_PARAMETER_NLIST + " is not a valid " +
-                                            " parameter. This is a bug.");
-                                }
-
-                                nlistObject = ((Parameter<?>) nlistParameter).getDefaultValue();
+                        // If not specified, get default value of nlist
+                        if (nlistObject == null) {
+                            Object nlistParameter = methodComponent.getParameters().get(METHOD_PARAMETER_NLIST);
+                            if (nlistParameter == null) {
+                                throw new IllegalStateException(METHOD_PARAMETER_NLIST + " is not a valid " + " parameter. This is a bug.");
                             }
 
-                            if (!(nlistObject instanceof Integer)) {
-                                throw new IllegalStateException(METHOD_PARAMETER_NLIST + " must be " +
-                                        "an integer.");
-                            }
+                            nlistObject = ((Parameter<?>) nlistParameter).getDefaultValue();
+                        }
 
-                            int centroids = (Integer) nlistObject;
-                            return ((4L *  centroids * dimension) / BYTES_PER_KILOBYTES) + 1;
-                        })
-                        .build())
-                        .addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build()
+                        if (!(nlistObject instanceof Integer)) {
+                            throw new IllegalStateException(METHOD_PARAMETER_NLIST + " must be " + "an integer.");
+                        }
+
+                        int centroids = (Integer) nlistObject;
+                        return ((4L * centroids * dimension) / BYTES_PER_KILOBYTES) + 1;
+                    })
+                    .build()
+            ).addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build()
         );
 
-        public final static Faiss INSTANCE = new Faiss(METHODS, SCORE_TRANSLATIONS,
-                Version.LATEST.getBuildVersion(), Version.LATEST.indexLibraryVersion(),
-                KNNConstants.FAISS_EXTENSION);
+        public final static Faiss INSTANCE = new Faiss(
+            METHODS,
+            SCORE_TRANSLATIONS,
+            Version.LATEST.getBuildVersion(),
+            Version.LATEST.indexLibraryVersion(),
+            KNNConstants.FAISS_EXTENSION
+        );
 
         /**
          * Constructor for Faiss
@@ -483,9 +553,13 @@ public interface KNNLibrary {
          * @param latestLibraryVersion      String representation of latest version of the library
          * @param extension                 String representing the extension that library files should use
          */
-        private Faiss(Map<String, KNNMethod> methods, Map<SpaceType,
-                Function<Float, Float>> scoreTranslation, String latestLibraryBuildVersion, String latestLibraryVersion,
-                      String extension) {
+        private Faiss(
+            Map<String, KNNMethod> methods,
+            Map<SpaceType, Function<Float, Float>> scoreTranslation,
+            String latestLibraryBuildVersion,
+            String latestLibraryVersion,
+            String extension
+        ) {
             super(methods, scoreTranslation, latestLibraryBuildVersion, latestLibraryVersion, extension);
         }
 
@@ -508,8 +582,7 @@ public interface KNNLibrary {
              * @param methodComponent the method component that maps to this builder
              * @param initialMap the initial parameter map that will be modified
              */
-            MethodAsMapBuilder(String baseDescription, MethodComponent methodComponent,
-                               Map<String, Object> initialMap) {
+            MethodAsMapBuilder(String baseDescription, MethodComponent methodComponent, Map<String, Object> initialMap) {
                 this.indexDescription = baseDescription;
                 this.methodComponent = methodComponent;
                 this.methodAsMap = initialMap;
@@ -531,13 +604,16 @@ public interface KNNLibrary {
                 // into the index description string faiss uses to create the index.
                 Map<String, Object> methodParameters = (Map<String, Object>) methodAsMap.get(PARAMETERS);
                 Parameter<?> parameter = methodComponent.getParameters().get(parameterName);
-                Object value = methodParameters.containsKey(parameterName) ? methodParameters.get(parameterName) : parameter.getDefaultValue();
+                Object value = methodParameters.containsKey(parameterName)
+                    ? methodParameters.get(parameterName)
+                    : parameter.getDefaultValue();
 
                 // Recursion is needed if the parameter is a method component context itself.
                 if (parameter instanceof Parameter.MethodComponentContextParameter) {
                     MethodComponentContext subMethodComponentContext = (MethodComponentContext) value;
-                    MethodComponent subMethodComponent = ((Parameter.MethodComponentContextParameter) parameter)
-                            .getMethodComponent(subMethodComponentContext.getName());
+                    MethodComponent subMethodComponent = ((Parameter.MethodComponentContextParameter) parameter).getMethodComponent(
+                        subMethodComponentContext.getName()
+                    );
 
                     Map<String, Object> subMethodAsMap = subMethodComponent.getAsMap(subMethodComponentContext);
                     indexDescription += subMethodAsMap.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER);
@@ -566,8 +642,11 @@ public interface KNNLibrary {
                 return methodAsMap;
             }
 
-            static MethodAsMapBuilder builder(String baseDescription, MethodComponent methodComponent,
-                                              MethodComponentContext methodComponentContext) {
+            static MethodAsMapBuilder builder(
+                String baseDescription,
+                MethodComponent methodComponent,
+                MethodComponentContext methodComponentContext
+            ) {
                 Map<String, Object> initialMap = new HashMap<>();
                 initialMap.put(NAME, methodComponent.getName());
                 initialMap.put(PARAMETERS, MethodComponent.getParameterMapWithDefaultsAdded(methodComponentContext, methodComponent));
@@ -583,7 +662,7 @@ public interface KNNLibrary {
             /**
              * Latest available nmslib version
              */
-            V165("165"){
+            V165("165") {
                 @Override
                 public String indexLibraryVersion() {
                     return KNNConstants.FAISS_JNI_LIBRARY_NAME;
@@ -604,7 +683,9 @@ public interface KNNLibrary {
              */
             abstract String indexLibraryVersion();
 
-            String getBuildVersion() { return buildVersion; }
+            String getBuildVersion() {
+                return buildVersion;
+            }
         }
     }
 }

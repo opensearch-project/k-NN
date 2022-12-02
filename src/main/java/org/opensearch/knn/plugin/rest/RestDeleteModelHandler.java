@@ -43,13 +43,9 @@ public class RestDeleteModelHandler extends BaseRestHandler {
 
     @Override
     public List<Route> routes() {
-        return ImmutableList
-            .of(
-                new Route(
-                    RestRequest.Method.DELETE,
-                    String.format(Locale.ROOT, "%s/%s/{%s}", KNNPlugin.KNN_BASE_URI, MODELS, MODEL_ID)
-                )
-            );
+        return ImmutableList.of(
+            new Route(RestRequest.Method.DELETE, String.format(Locale.ROOT, "%s/%s/{%s}", KNNPlugin.KNN_BASE_URI, MODELS, MODEL_ID))
+        );
     }
 
     /**

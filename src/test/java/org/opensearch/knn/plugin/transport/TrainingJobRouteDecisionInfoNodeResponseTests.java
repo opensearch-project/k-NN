@@ -36,16 +36,13 @@ public class TrainingJobRouteDecisionInfoNodeResponseTests extends KNNTestCase {
 
         int trainingJobCount = 13;
         InetAddress inetAddress = InetAddresses.fromInteger(randomInt());
-        DiscoveryNode discoveryNode = new DiscoveryNode("id", new TransportAddress(inetAddress, 9200),
-                Version.CURRENT);
+        DiscoveryNode discoveryNode = new DiscoveryNode("id", new TransportAddress(inetAddress, 9200), Version.CURRENT);
 
-        TrainingJobRouteDecisionInfoNodeResponse original =
-                new TrainingJobRouteDecisionInfoNodeResponse(discoveryNode, trainingJobCount);
+        TrainingJobRouteDecisionInfoNodeResponse original = new TrainingJobRouteDecisionInfoNodeResponse(discoveryNode, trainingJobCount);
 
         original.writeTo(streamOutput);
 
-        TrainingJobRouteDecisionInfoNodeResponse copy =
-                new TrainingJobRouteDecisionInfoNodeResponse(streamOutput.bytes().streamInput());
+        TrainingJobRouteDecisionInfoNodeResponse copy = new TrainingJobRouteDecisionInfoNodeResponse(streamOutput.bytes().streamInput());
 
         assertEquals(original.getTrainingJobCount(), copy.getTrainingJobCount());
     }
@@ -55,8 +52,7 @@ public class TrainingJobRouteDecisionInfoNodeResponseTests extends KNNTestCase {
 
         DiscoveryNode discoveryNode = mock(DiscoveryNode.class);
 
-        TrainingJobRouteDecisionInfoNodeResponse response =
-                new TrainingJobRouteDecisionInfoNodeResponse(discoveryNode, trainingJobCount);
+        TrainingJobRouteDecisionInfoNodeResponse response = new TrainingJobRouteDecisionInfoNodeResponse(discoveryNode, trainingJobCount);
 
         assertEquals(trainingJobCount, response.getTrainingJobCount().intValue());
     }
@@ -66,17 +62,17 @@ public class TrainingJobRouteDecisionInfoNodeResponseTests extends KNNTestCase {
 
         // We expect this:
         // {
-        //    "training_job_count": 13
+        // "training_job_count": 13
         // }
-        XContentBuilder expectedXContentBuilder = XContentFactory.jsonBuilder().startObject()
-                .field(TRAINING_JOB_COUNT_FIELD_NAME, trainingJobCount)
-                .endObject();
+        XContentBuilder expectedXContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TRAINING_JOB_COUNT_FIELD_NAME, trainingJobCount)
+            .endObject();
 
         Map<String, Object> expected = xContentBuilderToMap(expectedXContentBuilder);
 
         DiscoveryNode discoveryNode = mock(DiscoveryNode.class);
-        TrainingJobRouteDecisionInfoNodeResponse response =
-                new TrainingJobRouteDecisionInfoNodeResponse(discoveryNode, trainingJobCount);
+        TrainingJobRouteDecisionInfoNodeResponse response = new TrainingJobRouteDecisionInfoNodeResponse(discoveryNode, trainingJobCount);
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
         builder = response.toXContent(builder, ToXContent.EMPTY_PARAMS).endObject();

@@ -102,8 +102,15 @@ public interface NativeMemoryAllocation {
          * @param openSearchIndexName Name of OpenSearch index this index is associated with
          * @param watcherHandle Handle for watching index file
          */
-        IndexAllocation(ExecutorService executorService, long memoryAddress, int size, KNNEngine knnEngine,
-                        String indexPath, String openSearchIndexName, WatcherHandle<FileWatcher> watcherHandle) {
+        IndexAllocation(
+            ExecutorService executorService,
+            long memoryAddress,
+            int size,
+            KNNEngine knnEngine,
+            String indexPath,
+            String openSearchIndexName,
+            WatcherHandle<FileWatcher> watcherHandle
+        ) {
             this.executor = executorService;
             this.closed = false;
             this.knnEngine = knnEngine;

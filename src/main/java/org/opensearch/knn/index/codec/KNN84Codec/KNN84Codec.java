@@ -42,7 +42,7 @@ public final class KNN84Codec extends Codec {
         super(KNN_84);
         // Note that DocValuesFormat can use old Codec's DocValuesFormat. For instance Lucene84 uses Lucene80
         // DocValuesFormat. Refer to defaultDVFormat in LuceneXXCodec.java to find out which version it uses
-        this.docValuesFormat =  new KNN80DocValuesFormat();
+        this.docValuesFormat = new KNN80DocValuesFormat();
         this.perFieldDocValuesFormat = new PerFieldDocValuesFormat() {
             @Override
             public DocValuesFormat getDocValuesFormatForField(String field) {
@@ -56,8 +56,7 @@ public final class KNN84Codec extends Codec {
      * This function returns the Lucene84 Codec.
      */
     public Codec getDelegatee() {
-        if (lucene84Codec == null)
-            lucene84Codec = Codec.forName(LUCENE_84);
+        if (lucene84Codec == null) lucene84Codec = Codec.forName(LUCENE_84);
         return lucene84Codec;
     }
 

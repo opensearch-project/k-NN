@@ -46,13 +46,13 @@ public class TrainingJobTests extends KNNTestCase {
         when(knnMethodContext.getSpaceType()).thenReturn(SpaceType.DEFAULT);
 
         TrainingJob trainingJob = new TrainingJob(
-                modelId,
-                knnMethodContext,
-                mock(NativeMemoryCacheManager.class),
-                mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
-                mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
-                10,
-                ""
+            modelId,
+            knnMethodContext,
+            mock(NativeMemoryCacheManager.class),
+            mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
+            mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
+            10,
+            ""
         );
 
         assertEquals(modelId, trainingJob.getModelId());
@@ -71,27 +71,27 @@ public class TrainingJobTests extends KNNTestCase {
 
         String modelID = "test-model-id";
         TrainingJob trainingJob = new TrainingJob(
-                modelID,
-                knnMethodContext,
-                mock(NativeMemoryCacheManager.class),
-                mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
-                mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
-                dimension,
-                desciption
+            modelID,
+            knnMethodContext,
+            mock(NativeMemoryCacheManager.class),
+            mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
+            mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
+            dimension,
+            desciption
         );
 
         Model model = new Model(
-                new ModelMetadata(
-                        knnEngine,
-                        spaceType,
-                        dimension,
-                        ModelState.TRAINING,
-                        trainingJob.getModel().getModelMetadata().getTimestamp(),
-                        desciption,
-                        error
-                ),
-                null,
-                modelID
+            new ModelMetadata(
+                knnEngine,
+                spaceType,
+                dimension,
+                ModelState.TRAINING,
+                trainingJob.getModel().getModelMetadata().getTimestamp(),
+                desciption,
+                error
+            ),
+            null,
+            modelID
         );
 
         assertEquals(model, trainingJob.getModel());
@@ -105,8 +105,11 @@ public class TrainingJobTests extends KNNTestCase {
         int nlists = 5;
         int dimension = 16;
         KNNEngine knnEngine = KNNEngine.FAISS;
-        KNNMethodContext knnMethodContext = new KNNMethodContext(knnEngine, SpaceType.INNER_PRODUCT,
-                new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)));
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            knnEngine,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
+        );
 
         // Set up training data
         int tdataPoints = 100;
@@ -138,8 +141,9 @@ public class TrainingJobTests extends KNNTestCase {
         when(nativeMemoryAllocation.getMemoryAddress()).thenReturn(memoryAddress);
 
         String tdataKey = "t-data-key";
-        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext =
-                mock(NativeMemoryEntryContext.TrainingDataEntryContext.class);
+        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext = mock(
+            NativeMemoryEntryContext.TrainingDataEntryContext.class
+        );
         when(trainingDataEntryContext.getKey()).thenReturn(tdataKey);
 
         when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
@@ -149,13 +153,13 @@ public class TrainingJobTests extends KNNTestCase {
         }).when(nativeMemoryCacheManager).invalidate(tdataKey);
 
         TrainingJob trainingJob = new TrainingJob(
-                modelId,
-                knnMethodContext,
-                nativeMemoryCacheManager,
-                trainingDataEntryContext,
-                modelContext,
-                dimension,
-                ""
+            modelId,
+            knnMethodContext,
+            nativeMemoryCacheManager,
+            trainingDataEntryContext,
+            modelContext,
+            dimension,
+            ""
         );
 
         trainingJob.run();
@@ -166,12 +170,19 @@ public class TrainingJobTests extends KNNTestCase {
         assertEquals(ModelState.CREATED, model.getModelMetadata().getState());
 
         // Simple test that creates the index from template and doesnt fail
-        int[] ids = { 1, 2, 3, 4};
+        int[] ids = { 1, 2, 3, 4 };
         float[][] vectors = new float[ids.length][dimension];
         fillFloatArrayRandomly(vectors);
 
         Path indexPath = createTempFile();
-        JNIService.createIndexFromTemplate(ids, vectors, indexPath.toString(), model.getModelBlob(), ImmutableMap.of(INDEX_THREAD_QTY, 1), knnEngine.getName());
+        JNIService.createIndexFromTemplate(
+            ids,
+            vectors,
+            indexPath.toString(),
+            model.getModelBlob(),
+            ImmutableMap.of(INDEX_THREAD_QTY, 1),
+            knnEngine.getName()
+        );
         assertNotEquals(0, new File(indexPath.toString()).length());
     }
 
@@ -184,8 +195,11 @@ public class TrainingJobTests extends KNNTestCase {
         int nlists = 5;
         int dimension = 16;
         KNNEngine knnEngine = KNNEngine.FAISS;
-        KNNMethodContext knnMethodContext = new KNNMethodContext(knnEngine, SpaceType.INNER_PRODUCT,
-                new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)));
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            knnEngine,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
+        );
 
         // Setup model manager
         NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
@@ -205,23 +219,23 @@ public class TrainingJobTests extends KNNTestCase {
 
         // Setup mock allocation for training data
         String tdataKey = "t-data-key";
-        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext =
-                mock(NativeMemoryEntryContext.TrainingDataEntryContext.class);
+        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext = mock(
+            NativeMemoryEntryContext.TrainingDataEntryContext.class
+        );
         when(trainingDataEntryContext.getKey()).thenReturn(tdataKey);
 
         // Throw error on getting data
         String testException = "test exception";
-        when(nativeMemoryCacheManager.get(trainingDataEntryContext, false))
-                .thenThrow(new RuntimeException(testException));
+        when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenThrow(new RuntimeException(testException));
 
         TrainingJob trainingJob = new TrainingJob(
-                modelId,
-                knnMethodContext,
-                nativeMemoryCacheManager,
-                trainingDataEntryContext,
-                modelContext,
-                dimension,
-                ""
+            modelId,
+            knnMethodContext,
+            nativeMemoryCacheManager,
+            trainingDataEntryContext,
+            modelContext,
+            dimension,
+            ""
         );
 
         trainingJob.run();
@@ -241,8 +255,11 @@ public class TrainingJobTests extends KNNTestCase {
         int nlists = 5;
         int dimension = 16;
         KNNEngine knnEngine = KNNEngine.FAISS;
-        KNNMethodContext knnMethodContext = new KNNMethodContext(knnEngine, SpaceType.INNER_PRODUCT,
-                new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)));
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            knnEngine,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
+        );
 
         // Setup model manager
         NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
@@ -255,8 +272,9 @@ public class TrainingJobTests extends KNNTestCase {
         when(nativeMemoryAllocation.getMemoryAddress()).thenReturn((long) 0);
 
         String tdataKey = "t-data-key";
-        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext =
-                mock(NativeMemoryEntryContext.TrainingDataEntryContext.class);
+        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext = mock(
+            NativeMemoryEntryContext.TrainingDataEntryContext.class
+        );
         when(trainingDataEntryContext.getKey()).thenReturn(tdataKey);
 
         when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
@@ -274,17 +292,16 @@ public class TrainingJobTests extends KNNTestCase {
 
         // Throw error on getting model alloc
         String testException = "test exception";
-        when(nativeMemoryCacheManager.get(modelContext, false))
-                .thenThrow(new RuntimeException(testException));
+        when(nativeMemoryCacheManager.get(modelContext, false)).thenThrow(new RuntimeException(testException));
 
         TrainingJob trainingJob = new TrainingJob(
-                modelId,
-                knnMethodContext,
-                nativeMemoryCacheManager,
-                trainingDataEntryContext,
-                modelContext,
-                dimension,
-                ""
+            modelId,
+            knnMethodContext,
+            nativeMemoryCacheManager,
+            trainingDataEntryContext,
+            modelContext,
+            dimension,
+            ""
         );
 
         trainingJob.run();
@@ -304,12 +321,16 @@ public class TrainingJobTests extends KNNTestCase {
         int nlists = 5;
         int dimension = 16;
         KNNEngine knnEngine = KNNEngine.FAISS;
-        KNNMethodContext knnMethodContext = new KNNMethodContext(knnEngine, SpaceType.INNER_PRODUCT,
-                new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)));
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            knnEngine,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
+        );
 
         String tdataKey = "t-data-key";
-        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext =
-                mock(NativeMemoryEntryContext.TrainingDataEntryContext.class);
+        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext = mock(
+            NativeMemoryEntryContext.TrainingDataEntryContext.class
+        );
         when(trainingDataEntryContext.getKey()).thenReturn(tdataKey);
 
         // Setup model manager
@@ -339,13 +360,13 @@ public class TrainingJobTests extends KNNTestCase {
         when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
 
         TrainingJob trainingJob = new TrainingJob(
-                modelId,
-                knnMethodContext,
-                nativeMemoryCacheManager,
-                trainingDataEntryContext,
-                mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
-                dimension,
-                ""
+            modelId,
+            knnMethodContext,
+            nativeMemoryCacheManager,
+            trainingDataEntryContext,
+            mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
+            dimension,
+            ""
         );
 
         trainingJob.run();
@@ -363,8 +384,11 @@ public class TrainingJobTests extends KNNTestCase {
         int nlists = 1024; // setting this to 1024 will cause training to fail when there is only 2 data points
         int dimension = 16;
         KNNEngine knnEngine = KNNEngine.FAISS;
-        KNNMethodContext knnMethodContext = new KNNMethodContext(knnEngine, SpaceType.INNER_PRODUCT,
-                new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)));
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            knnEngine,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
+        );
 
         // Set up training data
         int tdataPoints = 2;
@@ -396,8 +420,9 @@ public class TrainingJobTests extends KNNTestCase {
         when(nativeMemoryAllocation.getMemoryAddress()).thenReturn(memoryAddress);
 
         String tdataKey = "t-data-key";
-        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext =
-                mock(NativeMemoryEntryContext.TrainingDataEntryContext.class);
+        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext = mock(
+            NativeMemoryEntryContext.TrainingDataEntryContext.class
+        );
         when(trainingDataEntryContext.getKey()).thenReturn(tdataKey);
 
         when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
@@ -407,13 +432,13 @@ public class TrainingJobTests extends KNNTestCase {
         }).when(nativeMemoryCacheManager).invalidate(tdataKey);
 
         TrainingJob trainingJob = new TrainingJob(
-                modelId,
-                knnMethodContext,
-                nativeMemoryCacheManager,
-                trainingDataEntryContext,
-                modelContext,
-                dimension,
-                ""
+            modelId,
+            knnMethodContext,
+            nativeMemoryCacheManager,
+            trainingDataEntryContext,
+            modelContext,
+            dimension,
+            ""
         );
 
         trainingJob.run();
@@ -424,7 +449,7 @@ public class TrainingJobTests extends KNNTestCase {
         assertFalse(model.getModelMetadata().getError().isEmpty());
     }
 
-    private void fillFloatArrayRandomly(float [][] vectors) {
+    private void fillFloatArrayRandomly(float[][] vectors) {
         for (int i = 0; i < vectors.length; i++) {
             for (int j = 0; j < vectors[i].length; j++) {
                 vectors[i][j] = randomFloat();

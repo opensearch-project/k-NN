@@ -24,6 +24,7 @@ public class ModelIndexingDegradingSupplier implements Supplier<Instant> {
     public ModelIndexingDegradingSupplier(Function<ModelCache, Instant> getter) {
         this.getter = getter;
     }
+
     @Override
     public Instant get() {
         return getter.apply(ModelCache.getInstance());
