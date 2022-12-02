@@ -28,9 +28,11 @@ import java.util.List;
  * Broadcasts request to collect training job route decision info from all nodes and aggregates it into a single
  * response.
  */
-public class TrainingJobRouteDecisionInfoTransportAction extends
-        TransportNodesAction<TrainingJobRouteDecisionInfoRequest, TrainingJobRouteDecisionInfoResponse,
-        TrainingJobRouteDecisionInfoNodeRequest, TrainingJobRouteDecisionInfoNodeResponse> {
+public class TrainingJobRouteDecisionInfoTransportAction extends TransportNodesAction<
+    TrainingJobRouteDecisionInfoRequest,
+    TrainingJobRouteDecisionInfoResponse,
+    TrainingJobRouteDecisionInfoNodeRequest,
+    TrainingJobRouteDecisionInfoNodeResponse> {
     /**
      * Constructor
      *
@@ -41,25 +43,31 @@ public class TrainingJobRouteDecisionInfoTransportAction extends
      */
     @Inject
     public TrainingJobRouteDecisionInfoTransportAction(
-            ThreadPool threadPool,
-            ClusterService clusterService,
-            TransportService transportService,
-            ActionFilters actionFilters
+        ThreadPool threadPool,
+        ClusterService clusterService,
+        TransportService transportService,
+        ActionFilters actionFilters
     ) {
-        super(TrainingJobRouteDecisionInfoAction.NAME, threadPool, clusterService, transportService, actionFilters,
-                TrainingJobRouteDecisionInfoRequest::new, TrainingJobRouteDecisionInfoNodeRequest::new,
-                ThreadPool.Names.MANAGEMENT, TrainingJobRouteDecisionInfoNodeResponse.class);
+        super(
+            TrainingJobRouteDecisionInfoAction.NAME,
+            threadPool,
+            clusterService,
+            transportService,
+            actionFilters,
+            TrainingJobRouteDecisionInfoRequest::new,
+            TrainingJobRouteDecisionInfoNodeRequest::new,
+            ThreadPool.Names.MANAGEMENT,
+            TrainingJobRouteDecisionInfoNodeResponse.class
+        );
     }
 
     @Override
-    protected TrainingJobRouteDecisionInfoResponse newResponse(TrainingJobRouteDecisionInfoRequest request,
-                                                               List<TrainingJobRouteDecisionInfoNodeResponse> responses,
-                                                               List<FailedNodeException> failures) {
-        return new TrainingJobRouteDecisionInfoResponse(
-                clusterService.getClusterName(),
-                responses,
-                failures
-        );
+    protected TrainingJobRouteDecisionInfoResponse newResponse(
+        TrainingJobRouteDecisionInfoRequest request,
+        List<TrainingJobRouteDecisionInfoNodeResponse> responses,
+        List<FailedNodeException> failures
+    ) {
+        return new TrainingJobRouteDecisionInfoResponse(clusterService.getClusterName(), responses, failures);
     }
 
     @Override
@@ -74,7 +82,6 @@ public class TrainingJobRouteDecisionInfoTransportAction extends
 
     @Override
     protected TrainingJobRouteDecisionInfoNodeResponse nodeOperation(TrainingJobRouteDecisionInfoNodeRequest request) {
-        return new TrainingJobRouteDecisionInfoNodeResponse(clusterService.localNode(),
-                TrainingJobRunner.getInstance().getJobCount());
+        return new TrainingJobRouteDecisionInfoNodeResponse(clusterService.localNode(), TrainingJobRunner.getInstance().getJobCount());
     }
 }

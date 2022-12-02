@@ -69,18 +69,18 @@ public class NativeMemoryCacheManager implements Closeable {
 
     private void initialize() {
         CacheBuilder<String, NativeMemoryAllocation> cacheBuilder = CacheBuilder.newBuilder()
-                .recordStats()
-                .concurrencyLevel(1)
-                .removalListener(this::onRemoval);
+            .recordStats()
+            .concurrencyLevel(1)
+            .removalListener(this::onRemoval);
 
-        if(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED)) {
+        if (KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED)) {
             maxWeight = KNNSettings.getCircuitBreakerLimit().getKb();
             cacheBuilder.maximumWeight(maxWeight).weigher((k, v) -> v.getSizeInKB());
         }
 
-        if(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED)) {
-            long expiryTime = ((TimeValue) KNNSettings.state()
-                    .getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes();
+        if (KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED)) {
+            long expiryTime = ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))
+                .getMinutes();
             cacheBuilder.expireAfterAccess(expiryTime, TimeUnit.MINUTES);
         }
 
@@ -95,12 +95,12 @@ public class NativeMemoryCacheManager implements Closeable {
     public synchronized void rebuildCache() {
         logger.info("KNN Cache rebuilding.");
 
-        //TODO: Does this really need to be executed with an executor? Also, does invalidateAll really need to be
+        // TODO: Does this really need to be executed with an executor? Also, does invalidateAll really need to be
         // called?
         executor.execute(() -> {
             cache.invalidateAll();
-            initialize(); }
-        );
+            initialize();
+        });
     }
 
     @Override
@@ -132,10 +132,12 @@ public class NativeMemoryCacheManager implements Closeable {
      * @return current size of the cache
      */
     public long getIndicesSizeInKilobytes() {
-        return cache.asMap().values().stream()
-                .filter(nativeMemoryAllocation -> nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
-                .mapToLong(NativeMemoryAllocation::getSizeInKB)
-                .sum();
+        return cache.asMap()
+            .values()
+            .stream()
+            .filter(nativeMemoryAllocation -> nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
+            .mapToLong(NativeMemoryAllocation::getSizeInKB)
+            .sum();
     }
 
     /**
@@ -155,11 +157,15 @@ public class NativeMemoryCacheManager implements Closeable {
      */
     public Long getIndexSizeInKilobytes(final String indexName) {
         Validate.notNull(indexName, "Index name cannot be null");
-        return cache.asMap().values().stream()
-                .filter(nativeMemoryAllocation -> nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
-                .filter(indexAllocation -> indexName.equals(((NativeMemoryAllocation.IndexAllocation) indexAllocation).getOpenSearchIndexName()))
-                .mapToLong(NativeMemoryAllocation::getSizeInKB)
-                .sum();
+        return cache.asMap()
+            .values()
+            .stream()
+            .filter(nativeMemoryAllocation -> nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
+            .filter(
+                indexAllocation -> indexName.equals(((NativeMemoryAllocation.IndexAllocation) indexAllocation).getOpenSearchIndexName())
+            )
+            .mapToLong(NativeMemoryAllocation::getSizeInKB)
+            .sum();
     }
 
     /**
@@ -180,12 +186,15 @@ public class NativeMemoryCacheManager implements Closeable {
      */
     public long getTrainingSizeInKilobytes() {
         // Currently, all allocations that are not index allocations will be for training.
-        return cache.asMap().values().stream()
-                .filter(nativeMemoryAllocation ->
-                        nativeMemoryAllocation instanceof NativeMemoryAllocation.TrainingDataAllocation ||
-                                nativeMemoryAllocation instanceof NativeMemoryAllocation.AnonymousAllocation)
-                .mapToLong(NativeMemoryAllocation::getSizeInKB)
-                .sum();
+        return cache.asMap()
+            .values()
+            .stream()
+            .filter(
+                nativeMemoryAllocation -> nativeMemoryAllocation instanceof NativeMemoryAllocation.TrainingDataAllocation
+                    || nativeMemoryAllocation instanceof NativeMemoryAllocation.AnonymousAllocation
+            )
+            .mapToLong(NativeMemoryAllocation::getSizeInKB)
+            .sum();
     }
 
     /**
@@ -214,12 +223,16 @@ public class NativeMemoryCacheManager implements Closeable {
      */
     public int getIndexGraphCount(String indexName) {
         Validate.notNull(indexName, "Index name cannot be null");
-        return Long.valueOf(cache.asMap().values().stream()
-                .filter(nativeMemoryAllocation ->
-                        nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
-                .filter(indexAllocation -> indexName.equals(((NativeMemoryAllocation.IndexAllocation) indexAllocation)
-                        .getOpenSearchIndexName()))
-                .count()).intValue();
+        return Long.valueOf(
+            cache.asMap()
+                .values()
+                .stream()
+                .filter(nativeMemoryAllocation -> nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
+                .filter(
+                    indexAllocation -> indexName.equals(((NativeMemoryAllocation.IndexAllocation) indexAllocation).getOpenSearchIndexName())
+                )
+                .count()
+        ).intValue();
     }
 
     /**
@@ -239,17 +252,22 @@ public class NativeMemoryCacheManager implements Closeable {
      * @return NativeMemoryAllocation associated with nativeMemoryEntryContext
      * @throws ExecutionException if there is an exception when loading from the cache
      */
-    public NativeMemoryAllocation get(NativeMemoryEntryContext<?> nativeMemoryEntryContext,
-                                      boolean isAbleToTriggerEviction) throws ExecutionException {
-        if (!isAbleToTriggerEviction &&
-                !cache.asMap().containsKey(nativeMemoryEntryContext.getKey()) &&
-                maxWeight - getCacheSizeInKilobytes() - nativeMemoryEntryContext.calculateSizeInKB() <= 0
-        ) {
+    public NativeMemoryAllocation get(NativeMemoryEntryContext<?> nativeMemoryEntryContext, boolean isAbleToTriggerEviction)
+        throws ExecutionException {
+        if (!isAbleToTriggerEviction
+            && !cache.asMap().containsKey(nativeMemoryEntryContext.getKey())
+            && maxWeight - getCacheSizeInKilobytes() - nativeMemoryEntryContext.calculateSizeInKB() <= 0) {
             throw new OutOfNativeMemoryException(
-                    "Entry cannot be loaded into cache because it would not fit. " +
-                            "Entry size: " + nativeMemoryEntryContext.calculateSizeInKB() + " KB " +
-                            "Current Cache Size: " + getCacheSizeInKilobytes() + " KB " +
-                            "Max Cache Size: " + maxWeight);
+                "Entry cannot be loaded into cache because it would not fit. "
+                    + "Entry size: "
+                    + nativeMemoryEntryContext.calculateSizeInKB()
+                    + " KB "
+                    + "Current Cache Size: "
+                    + getCacheSizeInKilobytes()
+                    + " KB "
+                    + "Max Cache Size: "
+                    + maxWeight
+            );
         }
 
         return cache.get(nativeMemoryEntryContext.getKey(), nativeMemoryEntryContext::load);
@@ -306,16 +324,13 @@ public class NativeMemoryCacheManager implements Closeable {
 
                 Map<String, Object> indexMap = statValues.computeIfAbsent(indexName, name -> new HashMap<>());
                 indexMap.computeIfAbsent(GRAPH_COUNT, key -> getIndexGraphCount(indexName));
-                indexMap.computeIfAbsent(StatNames.GRAPH_MEMORY_USAGE.getName(), key ->
-                        getIndexSizeInKilobytes(indexName));
-                indexMap.computeIfAbsent(StatNames.GRAPH_MEMORY_USAGE_PERCENTAGE.getName(), key ->
-                        getIndexSizeAsPercentage(indexName));
+                indexMap.computeIfAbsent(StatNames.GRAPH_MEMORY_USAGE.getName(), key -> getIndexSizeInKilobytes(indexName));
+                indexMap.computeIfAbsent(StatNames.GRAPH_MEMORY_USAGE_PERCENTAGE.getName(), key -> getIndexSizeAsPercentage(indexName));
             }
         }
 
         return statValues;
     }
-
 
     private void onRemoval(RemovalNotification<String, NativeMemoryAllocation> removalNotification) {
         NativeMemoryAllocation nativeMemoryAllocation = removalNotification.getValue();
@@ -326,8 +341,7 @@ public class NativeMemoryCacheManager implements Closeable {
             setCacheCapacityReached(true);
         }
 
-        logger.debug("[KNN] Cache evicted. Key {}, Reason: {}", removalNotification.getKey(),
-                removalNotification.getCause());
+        logger.debug("[KNN] Cache evicted. Key {}, Reason: {}", removalNotification.getKey(), removalNotification.getCause());
     }
 
     private Float getSizeAsPercentage(long size) {

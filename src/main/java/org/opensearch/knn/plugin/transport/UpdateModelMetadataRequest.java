@@ -104,7 +104,6 @@ public class UpdateModelMetadataRequest extends AcknowledgedRequest<UpdateModelM
         return modelMetadata;
     }
 
-
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);

@@ -25,6 +25,7 @@ import java.util.function.Function;
 public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation> {
 
     protected final String key;
+
     /**
      * Constructor
      *
@@ -71,10 +72,12 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          * @param parameters load time parameters
          * @param openSearchIndexName opensearch index associated with index
          */
-        public IndexEntryContext(String indexPath,
-                                 NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
-                                 Map<String, Object> parameters,
-                                 String openSearchIndexName) {
+        public IndexEntryContext(
+            String indexPath,
+            NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
+            Map<String, Object> parameters,
+            String openSearchIndexName
+        ) {
             super(indexPath);
             this.indexLoadStrategy = indexLoadStrategy;
             this.openSearchIndexName = openSearchIndexName;
@@ -146,13 +149,15 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          * @param maxVectorCount maximum number of vectors there can be
          * @param searchSize size each search request should return during loading
          */
-        public TrainingDataEntryContext(int size,
-                                        String trainIndexName,
-                                        String trainFieldName,
-                                        NativeMemoryLoadStrategy.TrainingLoadStrategy trainingLoadStrategy,
-                                        ClusterService clusterService,
-                                        int maxVectorCount,
-                                        int searchSize) {
+        public TrainingDataEntryContext(
+            int size,
+            String trainIndexName,
+            String trainFieldName,
+            NativeMemoryLoadStrategy.TrainingLoadStrategy trainingLoadStrategy,
+            ClusterService clusterService,
+            int maxVectorCount,
+            int searchSize
+        ) {
             super(generateKey(trainIndexName, trainFieldName));
             this.size = size;
             this.trainingLoadStrategy = trainingLoadStrategy;
@@ -234,8 +239,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          * @param size Size of the entry
          * @param loadStrategy strategy to load anonymous allocation into memory
          */
-        public AnonymousEntryContext(int size,
-                                     NativeMemoryLoadStrategy.AnonymousLoadStrategy loadStrategy) {
+        public AnonymousEntryContext(int size, NativeMemoryLoadStrategy.AnonymousLoadStrategy loadStrategy) {
             super(UUID.randomUUID().toString());
             this.size = size;
             this.loadStrategy = loadStrategy;

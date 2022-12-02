@@ -25,8 +25,12 @@ public class KNNWarmupResponse extends BroadcastResponse implements ToXContentOb
         super(in);
     }
 
-    public KNNWarmupResponse(int totalShards, int successfulShards, int failedShards,
-                             List<DefaultShardOperationFailedException> shardFailures) {
+    public KNNWarmupResponse(
+        int totalShards,
+        int successfulShards,
+        int failedShards,
+        List<DefaultShardOperationFailedException> shardFailures
+    ) {
         super(totalShards, successfulShards, failedShards, shardFailures);
     }
 }

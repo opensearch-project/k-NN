@@ -21,18 +21,14 @@ public class EventOccurredWithinThresholdSupplierTests extends KNNTestCase {
     public void testOutsideThreshold() throws InterruptedException {
         Instant now = Instant.now();
         long threshold = 2;
-        EventOccurredWithinThresholdSupplier supplier = new EventOccurredWithinThresholdSupplier(
-            ()->now, threshold, ChronoUnit.SECONDS
-        );
+        EventOccurredWithinThresholdSupplier supplier = new EventOccurredWithinThresholdSupplier(() -> now, threshold, ChronoUnit.SECONDS);
         TimeUnit.SECONDS.sleep(threshold + 1);
         assertFalse(supplier.get());
     }
 
     public void testEventNeverHappened() throws InterruptedException {
         long threshold = 2;
-        EventOccurredWithinThresholdSupplier supplier = new EventOccurredWithinThresholdSupplier(
-            () -> null, threshold, ChronoUnit.SECONDS
-        );
+        EventOccurredWithinThresholdSupplier supplier = new EventOccurredWithinThresholdSupplier(() -> null, threshold, ChronoUnit.SECONDS);
         TimeUnit.SECONDS.sleep(threshold + 1);
         assertFalse(supplier.get());
     }
@@ -40,9 +36,7 @@ public class EventOccurredWithinThresholdSupplierTests extends KNNTestCase {
     public void testInsideThreshold() throws InterruptedException {
         Instant now = Instant.now();
         long threshold = 2;
-        EventOccurredWithinThresholdSupplier supplier = new EventOccurredWithinThresholdSupplier(
-            ()->now, threshold, ChronoUnit.MINUTES
-        );
+        EventOccurredWithinThresholdSupplier supplier = new EventOccurredWithinThresholdSupplier(() -> now, threshold, ChronoUnit.MINUTES);
         TimeUnit.SECONDS.sleep(threshold + 1);
         assertTrue(supplier.get());
     }

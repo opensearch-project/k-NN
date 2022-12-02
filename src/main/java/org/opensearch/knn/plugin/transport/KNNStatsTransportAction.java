@@ -25,8 +25,11 @@ import java.util.Set;
 /**
  *  KNNStatsTransportAction contains the logic to extract the stats from the nodes
  */
-public class KNNStatsTransportAction extends TransportNodesAction<KNNStatsRequest, KNNStatsResponse,
-        KNNStatsNodeRequest, KNNStatsNodeResponse> {
+public class KNNStatsTransportAction extends TransportNodesAction<
+    KNNStatsRequest,
+    KNNStatsResponse,
+    KNNStatsNodeRequest,
+    KNNStatsNodeResponse> {
 
     private KNNStats knnStats;
 
@@ -41,20 +44,32 @@ public class KNNStatsTransportAction extends TransportNodesAction<KNNStatsReques
      */
     @Inject
     public KNNStatsTransportAction(
-            ThreadPool threadPool,
-            ClusterService clusterService,
-            TransportService transportService,
-            ActionFilters actionFilters,
-            KNNStats knnStats
-            ) {
-        super(KNNStatsAction.NAME, threadPool, clusterService, transportService, actionFilters, KNNStatsRequest::new,
-                KNNStatsNodeRequest::new, ThreadPool.Names.MANAGEMENT, KNNStatsNodeResponse.class);
+        ThreadPool threadPool,
+        ClusterService clusterService,
+        TransportService transportService,
+        ActionFilters actionFilters,
+        KNNStats knnStats
+    ) {
+        super(
+            KNNStatsAction.NAME,
+            threadPool,
+            clusterService,
+            transportService,
+            actionFilters,
+            KNNStatsRequest::new,
+            KNNStatsNodeRequest::new,
+            ThreadPool.Names.MANAGEMENT,
+            KNNStatsNodeResponse.class
+        );
         this.knnStats = knnStats;
     }
 
     @Override
-    protected KNNStatsResponse newResponse(KNNStatsRequest request, List<KNNStatsNodeResponse> responses,
-                                           List<FailedNodeException> failures) {
+    protected KNNStatsResponse newResponse(
+        KNNStatsRequest request,
+        List<KNNStatsNodeResponse> responses,
+        List<FailedNodeException> failures
+    ) {
 
         Map<String, Object> clusterStats = new HashMap<>();
         Set<String> statsToBeRetrieved = request.getStatsToBeRetrieved();
@@ -65,12 +80,7 @@ public class KNNStatsTransportAction extends TransportNodesAction<KNNStatsReques
             }
         }
 
-        return new KNNStatsResponse(
-                clusterService.getClusterName(),
-                responses,
-                failures,
-                clusterStats
-        );
+        return new KNNStatsResponse(clusterService.getClusterName(), responses, failures, clusterStats);
     }
 
     @Override

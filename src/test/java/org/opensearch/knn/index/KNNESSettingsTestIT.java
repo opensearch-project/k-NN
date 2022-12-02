@@ -27,22 +27,21 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
     public void testIndexWritesPluginDisabled() throws Exception {
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
 
-        Float[] vector = {6.0f, 6.0f};
+        Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
 
-        float[] qvector = {1.0f, 2.0f};
+        float[] qvector = { 1.0f, 2.0f };
         Response response = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1);
         assertEquals("knn query failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
-        //disable plugin
+        // disable plugin
         updateClusterSettings(KNNSettings.KNN_PLUGIN_ENABLED, false);
 
         // indexing should be blocked
-        Exception ex = expectThrows(ResponseException.class,
-                () -> addKnnDoc(INDEX_NAME, "2", FIELD_NAME, vector));
+        Exception ex = expectThrows(ResponseException.class, () -> addKnnDoc(INDEX_NAME, "2", FIELD_NAME, vector));
         assertThat(ex.getMessage(), containsString("KNN plugin is disabled"));
 
-        //enable plugin
+        // enable plugin
         updateClusterSettings(KNNSettings.KNN_PLUGIN_ENABLED, true);
         addKnnDoc(INDEX_NAME, "3", FIELD_NAME, vector);
     }
@@ -50,21 +49,23 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
     public void testQueriesPluginDisabled() throws Exception {
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
 
-        Float[] vector = {6.0f, 6.0f};
+        Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
 
-        float[] qvector = {1.0f, 2.0f};
+        float[] qvector = { 1.0f, 2.0f };
         Response response = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1);
         assertEquals("knn query failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
-        //update settings
+        // update settings
         updateClusterSettings(KNNSettings.KNN_PLUGIN_ENABLED, false);
 
         // indexing should be blocked
-        Exception ex = expectThrows(ResponseException.class,
-                () -> searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1));
+        Exception ex = expectThrows(
+            ResponseException.class,
+            () -> searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1)
+        );
         assertThat(ex.getMessage(), containsString("KNN plugin is disabled"));
-        //enable plugin
+        // enable plugin
         updateClusterSettings(KNNSettings.KNN_PLUGIN_ENABLED, true);
         searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1);
     }
@@ -74,10 +75,10 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
         updateClusterSettings(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED, true);
         updateClusterSettings(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, "1m");
 
-        Float[] vector = {6.0f, 6.0f};
+        Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
 
-        float[] qvector = {1.0f, 2.0f};
+        float[] qvector = { 1.0f, 2.0f };
         Response response = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1);
         assertEquals("knn query failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
         assertEquals(1, getTotalGraphsInCache());
@@ -97,36 +98,32 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
             .put("index.knn", true)
             .put("index.knn.space_type", invalidSpaceType)
             .build();
-        expectThrows(ResponseException.class,
-            () -> createKnnIndex(INDEX_NAME, invalidSettings, createKnnIndexMapping(FIELD_NAME, 2)));
+        expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, invalidSettings, createKnnIndexMapping(FIELD_NAME, 2)));
     }
 
     public void testUpdateIndexSetting() throws IOException {
-        Settings settings = Settings.builder()
-                .put("index.knn", true)
-                .put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 512)
-                .build();
+        Settings settings = Settings.builder().put("index.knn", true).put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 512).build();
         createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 2));
         assertEquals("512", getIndexSettingByName(INDEX_NAME, KNNSettings.KNN_ALGO_PARAM_EF_SEARCH));
 
         updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 400));
         assertEquals("400", getIndexSettingByName(INDEX_NAME, KNNSettings.KNN_ALGO_PARAM_EF_SEARCH));
 
-        Exception ex = expectThrows(ResponseException.class,
-                () -> updateIndexSettings(INDEX_NAME,
-                        Settings.builder().put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 1)));
-        assertThat(ex.getMessage(),
-                containsString("Failed to parse value [1] for setting [index.knn.algo_param.ef_search] must be >= 2"));
+        Exception ex = expectThrows(
+            ResponseException.class,
+            () -> updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 1))
+        );
+        assertThat(ex.getMessage(), containsString("Failed to parse value [1] for setting [index.knn.algo_param.ef_search] must be >= 2"));
     }
 
     @SuppressWarnings("unchecked")
     public void testCacheRebuiltAfterUpdateIndexSettings() throws IOException {
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
 
-        Float[] vector = {6.0f, 6.0f};
+        Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
 
-        float[] qvector = {6.0f, 6.0f};
+        float[] qvector = { 6.0f, 6.0f };
         // First search to load graph into cache
         searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1);
 
@@ -149,4 +146,3 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
         assertEquals(0, indicesInCache.size());
     }
 }
-

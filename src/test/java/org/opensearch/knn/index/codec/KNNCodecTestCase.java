@@ -65,7 +65,7 @@ import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTIN
 /**
  * Test used for testing Codecs
  */
-public class  KNNCodecTestCase extends KNNTestCase {
+public class KNNCodecTestCase extends KNNTestCase {
 
     private static FieldType sampleFieldType;
     static {
@@ -86,13 +86,8 @@ public class  KNNCodecTestCase extends KNNTestCase {
     }
 
     protected ResourceWatcherService createDisabledResourceWatcherService() {
-        final Settings settings = Settings.builder()
-                .put("resource.reload.enabled", false)
-                .build();
-        return new ResourceWatcherService(
-                settings,
-                null
-        );
+        final Settings settings = Settings.builder().put("resource.reload.enabled", false).build();
+        return new ResourceWatcherService(settings, null);
     }
 
     public void testFooter(Codec codec) throws Exception {
@@ -102,7 +97,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         iwc.setMergeScheduler(new SerialMergeScheduler());
         iwc.setCodec(codec);
 
-        float[] array = {1.0f, 2.0f, 3.0f};
+        float[] array = { 1.0f, 2.0f, 3.0f };
         VectorField vectorField = new VectorField("test_vector", array, sampleFieldType);
         RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
         Document doc = new Document();
@@ -115,11 +110,14 @@ public class  KNNCodecTestCase extends KNNTestCase {
         LeafReaderContext lrc = reader.getContext().leaves().iterator().next(); // leaf reader context
         SegmentReader segmentReader = (SegmentReader) FilterLeafReader.unwrap(lrc.reader());
         String hnswFileExtension = segmentReader.getSegmentInfo().info.getUseCompoundFile()
-                ? KNNEngine.NMSLIB.getCompoundExtension() : KNNEngine.NMSLIB.getExtension();
+            ? KNNEngine.NMSLIB.getCompoundExtension()
+            : KNNEngine.NMSLIB.getExtension();
         String hnswSuffix = "test_vector" + hnswFileExtension;
-        List<String> hnswFiles = segmentReader.getSegmentInfo().files().stream()
-                .filter(fileName -> fileName.endsWith(hnswSuffix))
-                .collect(Collectors.toList());
+        List<String> hnswFiles = segmentReader.getSegmentInfo()
+            .files()
+            .stream()
+            .filter(fileName -> fileName.endsWith(hnswSuffix))
+            .collect(Collectors.toList());
         assertTrue(!hnswFiles.isEmpty());
         ChecksumIndexInput indexInput = dir.openChecksumInput(hnswFiles.get(0), IOContext.DEFAULT);
         indexInput.seek(indexInput.length() - CodecUtil.footerLength());
@@ -127,7 +125,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         indexInput.close();
 
         IndexSearcher searcher = new IndexSearcher(reader);
-        assertEquals(1, searcher.count(new KNNQuery("test_vector", new float[] {1.0f, 2.5f}, 1, "myindex")));
+        assertEquals(1, searcher.count(new KNNQuery("test_vector", new float[] { 1.0f, 2.5f }, 1, "myindex")));
 
         reader.close();
         writer.close();
@@ -146,7 +144,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         /**
          * Add doc with field "test_vector"
          */
-        float[] array = {1.0f, 3.0f, 4.0f};
+        float[] array = { 1.0f, 3.0f, 4.0f };
         VectorField vectorField = new VectorField("test_vector", array, sampleFieldType);
         RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
         Document doc = new Document();
@@ -161,7 +159,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         iwc1.setMergeScheduler(new SerialMergeScheduler());
         iwc1.setCodec(new KNN87Codec());
         writer = new RandomIndexWriter(random(), dir, iwc1);
-        float[] array1 = {6.0f, 14.0f};
+        float[] array1 = { 6.0f, 14.0f };
         VectorField vectorField1 = new VectorField("my_vector", array1, sampleFieldType);
         Document doc1 = new Document();
         doc1.add(vectorField1);
@@ -179,14 +177,14 @@ public class  KNNCodecTestCase extends KNNTestCase {
 
         // query to verify distance for each of the field
         IndexSearcher searcher = new IndexSearcher(reader);
-        float score = searcher.search(new KNNQuery("test_vector", new float[] {1.0f, 0.0f, 0.0f}, 1, "dummy"), 10).scoreDocs[0].score;
-        float score1 = searcher.search(new KNNQuery("my_vector", new float[] {1.0f, 2.0f}, 1, "dummy"), 10).scoreDocs[0].score;
-        assertEquals(1.0f/(1 + 25), score, 0.01f);
-        assertEquals(1.0f/(1 + 169), score1, 0.01f);
+        float score = searcher.search(new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy"), 10).scoreDocs[0].score;
+        float score1 = searcher.search(new KNNQuery("my_vector", new float[] { 1.0f, 2.0f }, 1, "dummy"), 10).scoreDocs[0].score;
+        assertEquals(1.0f / (1 + 25), score, 0.01f);
+        assertEquals(1.0f / (1 + 169), score1, 0.01f);
 
         // query to determine the hits
-        assertEquals(1, searcher.count(new KNNQuery("test_vector", new float[] {1.0f, 0.0f, 0.0f}, 1, "dummy")));
-        assertEquals(1, searcher.count(new KNNQuery("my_vector", new float[] {1.0f, 1.0f}, 1, "dummy")));
+        assertEquals(1, searcher.count(new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy")));
+        assertEquals(1, searcher.count(new KNNQuery("my_vector", new float[] { 1.0f, 1.0f }, 1, "dummy")));
 
         reader.close();
         dir.close();
@@ -203,25 +201,33 @@ public class  KNNCodecTestCase extends KNNTestCase {
 
         // "Train" a faiss flat index - this really just creates an empty index that does brute force k-NN
         long vectorsPointer = JNIService.transferVectors(0, new float[0][0]);
-        byte [] modelBlob = JNIService.trainIndex(ImmutableMap.of(
-                INDEX_DESCRIPTION_PARAMETER, "Flat",
-                SPACE_TYPE, spaceType.getValue()), dimension, vectorsPointer,
-                KNNEngine.FAISS.getName());
+        byte[] modelBlob = JNIService.trainIndex(
+            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "Flat", SPACE_TYPE, spaceType.getValue()),
+            dimension,
+            vectorsPointer,
+            KNNEngine.FAISS.getName()
+        );
 
         // Setup model cache
         ModelDao modelDao = mock(ModelDao.class);
 
         // Set model state to created
-        ModelMetadata modelMetadata1 = new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED,
-                ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "");
+        ModelMetadata modelMetadata1 = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            ""
+        );
 
         Model mockModel = new Model(modelMetadata1, modelBlob, modelId);
         when(modelDao.get(modelId)).thenReturn(mockModel);
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata1);
 
         Settings settings = settings(CURRENT).put(MODEL_CACHE_SIZE_LIMIT_SETTING.getKey(), "10%").build();
-        ClusterSettings clusterSettings = new ClusterSettings(settings,
-                ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
+        ClusterSettings clusterSettings = new ClusterSettings(settings, ImmutableSet.of(MODEL_CACHE_SIZE_LIMIT_SETTING));
 
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.getSettings()).thenReturn(settings);
@@ -242,12 +248,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         fieldType.freeze();
 
         // Add the documents to the index
-        float[][] arrays = {
-                {1.0f, 3.0f, 4.0f},
-                {2.0f, 5.0f, 8.0f},
-                {3.0f, 6.0f, 9.0f},
-                {4.0f, 7.0f, 10.0f}
-        };
+        float[][] arrays = { { 1.0f, 3.0f, 4.0f }, { 2.0f, 5.0f, 8.0f }, { 3.0f, 6.0f, 9.0f }, { 4.0f, 7.0f, 10.0f } };
 
         RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
         String fieldName = "test_vector";
@@ -265,7 +266,7 @@ public class  KNNCodecTestCase extends KNNTestCase {
         KNNWeight.initialize(modelDao);
         ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
         NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
-        float [] query = {10.0f, 10.0f, 10.0f};
+        float[] query = { 10.0f, 10.0f, 10.0f };
         IndexSearcher searcher = new IndexSearcher(reader);
         TopDocs topDocs = searcher.search(new KNNQuery(fieldName, query, 4, "dummy"), 10);
 
@@ -280,4 +281,3 @@ public class  KNNCodecTestCase extends KNNTestCase {
         NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance().close();
     }
 }
-

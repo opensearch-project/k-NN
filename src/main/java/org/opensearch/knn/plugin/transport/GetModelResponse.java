@@ -57,7 +57,6 @@ public class GetModelResponse extends ActionResponse implements ToXContentObject
         return model.toXContent(builder, params);
     }
 
-
     @Override
     public void writeTo(StreamOutput output) throws IOException {
         model.writeTo(output);

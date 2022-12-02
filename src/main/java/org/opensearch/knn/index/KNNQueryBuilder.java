@@ -132,12 +132,16 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                         } else if (AbstractQueryBuilder.NAME_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                             queryName = parser.text();
                         } else {
-                            throw new ParsingException(parser.getTokenLocation(),
-                                    "[" + NAME + "] query does not support [" + currentFieldName + "]");
+                            throw new ParsingException(
+                                parser.getTokenLocation(),
+                                "[" + NAME + "] query does not support [" + currentFieldName + "]"
+                            );
                         }
                     } else {
-                        throw new ParsingException(parser.getTokenLocation(),
-                                "[" + NAME + "] unknown token [" + token + "] after [" + currentFieldName + "]");
+                        throw new ParsingException(
+                            parser.getTokenLocation(),
+                            "[" + NAME + "] unknown token [" + token + "] after [" + currentFieldName + "]"
+                        );
                     }
                 }
             } else {
@@ -218,8 +222,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         if (dimension != vector.length) {
-            throw new IllegalArgumentException("Query vector has invalid dimension: " + vector.length +
-                    ". Dimension should be: " + dimension);
+            throw new IllegalArgumentException(
+                "Query vector has invalid dimension: " + vector.length + ". Dimension should be: " + dimension
+            );
         }
 
         return new KNNQuery(this.fieldName, vector, k, context.index().getName());
@@ -227,9 +232,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
     @Override
     protected boolean doEquals(KNNQueryBuilder other) {
-        return Objects.equals(fieldName, other.fieldName) &&
-                       Objects.equals(vector, other.vector) &&
-                       Objects.equals(k, other.k);
+        return Objects.equals(fieldName, other.fieldName) && Objects.equals(vector, other.vector) && Objects.equals(k, other.k);
     }
 
     @Override

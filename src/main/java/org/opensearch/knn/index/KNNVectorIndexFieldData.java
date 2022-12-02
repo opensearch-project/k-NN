@@ -54,18 +54,22 @@ public class KNNVectorIndexFieldData implements IndexFieldData<KNNVectorDVLeafFi
 
     @Override
     public BucketedSort newBucketedSort(
-            BigArrays bigArrays, Object missingValue,
-            MultiValueMode sortMode, XFieldComparatorSource.Nested nested,
-            SortOrder sortOrder, DocValueFormat format, int bucketSize, BucketedSort.ExtraData extra) {
+        BigArrays bigArrays,
+        Object missingValue,
+        MultiValueMode sortMode,
+        XFieldComparatorSource.Nested nested,
+        SortOrder sortOrder,
+        DocValueFormat format,
+        int bucketSize,
+        BucketedSort.ExtraData extra
+    ) {
         throw new UnsupportedOperationException("knn vector field doesn't support this operation");
     }
-
 
     public static class Builder implements IndexFieldData.Builder {
 
         private final String name;
         private final ValuesSourceType valuesSourceType;
-
 
         public Builder(String name, ValuesSourceType valuesSourceType) {
             this.name = name;
