@@ -6,6 +6,7 @@
 import java.util.concurrent.Callable
 import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
 import org.opensearch.gradle.test.RestIntegTestTask
+import org.apache.tools.ant.taskdefs.condition.Os
 
 buildscript {
     ext {
@@ -130,9 +131,19 @@ loggerUsageCheck.enabled = false
 def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absoluteFile
 opensearch_tmp_dir.mkdirs()
 
+task windowsPatches(type:Exec) {
+    commandLine 'cmd', '/c', "Powershell -File $rootDir\\scripts\\windowsScript.ps1"
+}
+
 task cmakeJniLib(type:Exec) {
     workingDir 'jni'
-    commandLine 'cmake', '.'
+    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        dependsOn windowsPatches
+        commandLine 'cmake', '.', "-G", "Unix Makefiles", "-DBLAS_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll", "-DLAPACK_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll"
+    }
+    else {
+        commandLine 'cmake', '.'
+    }
 }
 
 task buildJniLib(type:Exec) {
@@ -145,6 +156,10 @@ test {
     dependsOn buildJniLib
     systemProperty 'tests.security.manager', 'false'
     systemProperty "java.library.path", "$rootDir/jni/release"
+    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
+        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
+    }
 }
 
 def _numNodes = findProperty('numNodes') as Integer ?: 1
@@ -191,6 +206,11 @@ integTest {
 testClusters.integTest {
     testDistribution = "ARCHIVE"
     plugin(project.tasks.bundlePlugin.archiveFile)
+    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
+        environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
+    }
+
     // Cluster shrink exception thrown if we try to set numberOfNodes to 1, so only apply if > 1
     if (_numNodes > 1) numberOfNodes = _numNodes
     // When running integration tests it doesn't forward the --debug-jvm to the cluster anymore
