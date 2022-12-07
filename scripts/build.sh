@@ -102,8 +102,8 @@ fi
 
 # Build k-NN lib and plugin through gradle tasks
 cd $work_dir
-# Gradle build is used here to replace gradle assemble due to build will also call cmake and make before generating jars
-./gradlew build --no-daemon --refresh-dependencies -x integTest -x test -x jacocoTestReport -DskipTests=true -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
+./gradlew buildJniLib
+./gradlew assemble --no-daemon --refresh-dependencies -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT
 
 # Add lib to zip
 zipPath=$(find "$(pwd)" -path \*build/distributions/*.zip)
