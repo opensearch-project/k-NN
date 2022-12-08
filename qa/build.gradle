@@ -31,7 +31,8 @@ def tmp_dir = project.file('build/private/artifact_tmp').absoluteFile
 tmp_dir.mkdirs()
 String default_bwc_version = System.getProperty("bwc.version")
 String knn_bwc_version = System.getProperty("tests.bwc.version", default_bwc_version)
-
+boolean isSnapshot = knn_bwc_version.contains("-SNAPSHOT")
+String knn_bwc_version_no_qualifier = isSnapshot ? knn_bwc_version - "-SNAPSHOT" : knn_bwc_version
 // Task to pull k-NN plugin from archive
 task pullBwcPlugin {
     doFirst {
@@ -40,8 +41,8 @@ task pullBwcPlugin {
 
     doLast {
         ext{
-            if (knn_bwc_version.contains("SNAPSHOT")) {
-                srcUrl = "https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${knn_bwc_version}/latest/linux/x64/tar/dist/opensearch/opensearch-${knn_bwc_version}-linux-x64.tar.gz"
+            if (isSnapshot) {
+                srcUrl = "https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${knn_bwc_version_no_qualifier}/latest/linux/x64/tar/dist/opensearch/opensearch-${knn_bwc_version_no_qualifier}-linux-x64.tar.gz"
             } else {
                 srcUrl = "https://artifacts.opensearch.org/releases/bundle/opensearch/${knn_bwc_version}/opensearch-${knn_bwc_version}-linux-x64.tar.gz"
             }
@@ -52,14 +53,14 @@ task pullBwcPlugin {
                 httpusecaches: false
         )
         copy {
-            from tarTree(java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version}-linux-x64.tar.gz"))
+            from tarTree(java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version_no_qualifier}-linux-x64.tar.gz"))
             into tmp_dir.absolutePath
         }
         copy {
-            from(java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version}", "plugins", "opensearch-knn"))
+            from(java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version_no_qualifier}", "plugins", "opensearch-knn"))
             into java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-knn")
         }
-        delete java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version}"), java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version}-linux-x64.tar.gz")
+        delete java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version_no_qualifier}"), java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version_no_qualifier}-linux-x64.tar.gz")
     }
 }
 
@@ -68,7 +69,7 @@ task zipBwcPlugin(type: Zip) {
     dependsOn "pullBwcPlugin"
     from(java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-knn"))
     destinationDirectory = tmp_dir
-    archiveFileName = "opensearch-knn-${knn_bwc_version}.zip"
+    archiveFileName = "opensearch-knn-${knn_bwc_version_no_qualifier}.zip"
     doLast {
         delete java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-knn")
     }
