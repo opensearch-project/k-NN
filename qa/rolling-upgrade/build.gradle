@@ -9,6 +9,8 @@ apply from : "$rootDir/qa/build.gradle"
 
 String default_bwc_version = System.getProperty("bwc.version")
 String knn_bwc_version = System.getProperty("tests.bwc.version", default_bwc_version)
+boolean isSnapshot = knn_bwc_version.contains("-SNAPSHOT")
+String knn_bwc_version_no_qualifier = isSnapshot ? knn_bwc_version - "-SNAPSHOT" : knn_bwc_version
 String baseName = "knnBwcCluster-rolling"
 
 // Creates a test cluster of previous version and loads k-NN plugin of bwcVersion
@@ -20,8 +22,8 @@ testClusters {
         plugin(project.tasks.zipBwcPlugin.archiveFile)
         setting 'path.repo', "${buildDir}/cluster/shared/repo/${baseName}"
         setting 'http.content_type.required', 'true'
-        environment "LD_LIBRARY_PATH", "${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version}-ARCHIVE/plugins/opensearch-knn/knnlib;${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version}-ARCHIVE/plugins/opensearch-knn/lib"
-        systemProperty "java.library.path", "${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version}-ARCHIVE/plugins/opensearch-knn/knnlib:${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version}-ARCHIVE/plugins/opensearch-knn/lib"
+        environment "LD_LIBRARY_PATH", "${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/knnlib;${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/lib"
+        systemProperty "java.library.path", "${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/knnlib:${buildDir}/testclusters/${baseName}-0/distro/${knn_bwc_version_no_qualifier}-ARCHIVE/plugins/opensearch-knn/lib"
     }
 }
 
@@ -97,3 +99,4 @@ task testRollingUpgrade(type: StandaloneRestIntegTestTask) {
     nonInputProperties.systemProperty('tests.clustername', "${-> testClusters."${baseName}".getName()}")
     systemProperty 'tests.security.manager', 'false'
 }
+
