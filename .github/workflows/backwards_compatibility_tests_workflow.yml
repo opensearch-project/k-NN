@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         java: [ 11, 17 ]
-        bwc_version : [ "2.0.0", "2.1.0", "2.2.0", "2.3.0", "2.4.0" ]
+        bwc_version : [ "2.0.0", "2.1.0", "2.2.0", "2.3.0", "2.4.0", "2.5.0-SNAPSHOT" ]
         opensearch_version : [ "3.0.0-SNAPSHOT" ]
 
     name: k-NN Restart-Upgrade BWC Tests
@@ -46,7 +46,7 @@ jobs:
     strategy:
       matrix:
         java: [ 11, 17 ]
-        bwc_version: [ "2.4.0" ]
+        bwc_version: [ "2.5.0-SNAPSHOT" ]
         opensearch_version: [ "3.0.0-SNAPSHOT" ]
 
     name: k-NN Rolling-Upgrade BWC Tests
