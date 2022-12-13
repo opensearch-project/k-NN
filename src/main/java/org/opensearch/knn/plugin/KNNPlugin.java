@@ -10,6 +10,7 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.common.ParseField;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
+import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
@@ -83,6 +84,7 @@ import org.opensearch.plugins.MapperPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.plugins.ScriptPlugin;
 import org.opensearch.plugins.SearchPlugin;
+import org.opensearch.plugins.SystemIndexPlugin;
 import org.opensearch.repositories.RepositoriesService;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestHandler;
@@ -105,6 +107,7 @@ import java.util.function.Supplier;
 
 import static java.util.Collections.singletonList;
 import static org.opensearch.knn.common.KNNConstants.KNN_THREAD_POOL_PREFIX;
+import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
 
 /**
@@ -137,7 +140,15 @@ import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
  *   }
  *
  */
-public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, ActionPlugin, EnginePlugin, ScriptPlugin, ExtensiblePlugin {
+public class KNNPlugin extends Plugin
+    implements
+        MapperPlugin,
+        SearchPlugin,
+        ActionPlugin,
+        EnginePlugin,
+        ScriptPlugin,
+        ExtensiblePlugin,
+        SystemIndexPlugin {
 
     public static final String LEGACY_KNN_BASE_URI = "/_opendistro/_knn";
     public static final String KNN_BASE_URI = "/_plugins/_knn";
@@ -323,4 +334,8 @@ public class KNNPlugin extends Plugin implements MapperPlugin, SearchPlugin, Act
         return entries;
     }
 
+    @Override
+    public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
+        return ImmutableList.of(new SystemIndexDescriptor(MODEL_INDEX_NAME, "Index for storing models used for k-NN indices"));
+    }
 }
