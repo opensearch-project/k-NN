@@ -1,0 +1,44 @@
+{
+    "bool":
+    {
+        "must":
+        [
+            {
+                "range":
+                {
+                    "age":
+                    {
+                        "gte": 30,
+                        "lte": 60
+                    }
+                }
+            },
+            {
+                "term":
+                {
+                    "taste": "bitter"
+                }
+            },
+            {
+                "bool":
+                {
+                    "should":
+                    [
+                        {
+                            "term":
+                            {
+                                "color": "blue"
+                            }
+                        },
+                        {
+                            "term":
+                            {
+                                "color": "green"
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+}
