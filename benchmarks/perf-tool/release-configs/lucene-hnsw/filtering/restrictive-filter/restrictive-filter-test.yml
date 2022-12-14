@@ -8,13 +8,13 @@ steps:
     index_name: target_index
   - name: create_index
     index_name: target_index
-    index_spec: /home/ec2-user/[PATH]/index.json
+    index_spec: [INDEX_SPEC_PATH]/index.json
   - name: ingest_multi_field
     index_name: target_index
     field_name: target_field
     bulk_size: 500
     dataset_format: hdf5
-    dataset_path: /home/ec2-user/data/sift-128-euclidean-with-attr.hdf5
+    dataset_path: [DATASET_PATH]/sift-128-euclidean-with-attr.hdf5
     attributes_dataset_name: attributes
     attribute_spec: [ { name: 'color', type: 'str' }, { name: 'taste', type: 'str' }, { name: 'age', type: 'int' } ]
   - name: refresh_index
@@ -26,8 +26,8 @@ steps:
     index_name: target_index
     field_name: target_field
     dataset_format: hdf5
-    dataset_path: /home/ec2-user/data/sift-128-euclidean-with-attr.hdf5
+    dataset_path: [DATASET_PATH]/sift-128-euclidean-with-attr.hdf5
     neighbors_format: hdf5
-    neighbors_path: /home/ec2-user/data/sift-128-euclidean-with-filters.hdf5
+    neighbors_path: [DATASET_PATH]/sift-128-euclidean-with-filters.hdf5
     neighbors_dataset: neighbors_filter_4
-    filter_spec: /home/ec2-user/[PATH]/restrictive-filter-test.yml
+    filter_spec: [INDEX_SPEC_PATH]/restrictive-filter-test.yml
