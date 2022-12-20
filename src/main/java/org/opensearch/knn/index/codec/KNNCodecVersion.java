@@ -56,7 +56,7 @@ public enum KNNCodecVersion {
         ),
         (userCodec, mapperService) -> KNN920Codec.builder()
             .delegate(userCodec)
-            .knnVectorsFormat(new KNN920PerFieldKnnVectorsFormat(Optional.of(mapperService)))
+            .knnVectorsFormat(new KNN920PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
             .build(),
         KNN920Codec::new
     ),
@@ -71,7 +71,7 @@ public enum KNNCodecVersion {
         ),
         (userCodec, mapperService) -> KNN940Codec.builder()
             .delegate(userCodec)
-            .knnVectorsFormat(new KNN940PerFieldKnnVectorsFormat(Optional.of(mapperService)))
+            .knnVectorsFormat(new KNN940PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
             .build(),
         KNN940Codec::new
     );
