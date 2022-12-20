@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.index.codec.KNN940Codec;
 
-import org.apache.lucene.codecs.lucene94.Lucene94HnswVectorsFormat;
+import org.apache.lucene.backward_codecs.lucene94.Lucene94HnswVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.BasePerFieldKnnVectorsFormat;
 
