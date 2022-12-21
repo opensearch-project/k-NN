@@ -25,7 +25,7 @@ public class KNNCodecFactory {
     public Codec createKNNCodec(final Codec userCodec) {
         var codec = KNN920Codec.builder()
             .delegate(userCodec)
-            .knnVectorsFormat(new KNN920PerFieldKnnVectorsFormat(Optional.of(mapperService)))
+            .knnVectorsFormat(new KNN920PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
             .build();
         return codec;
     }
