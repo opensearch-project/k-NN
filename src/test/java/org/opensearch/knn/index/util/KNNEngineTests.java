@@ -14,6 +14,8 @@ public class KNNEngineTests extends KNNTestCase {
      */
     public void testDelegateLibraryFunctions() {
         assertEquals(Nmslib.INSTANCE.getVersion(), KNNEngine.NMSLIB.getVersion());
+        assertEquals(Faiss.INSTANCE.getVersion(), KNNEngine.FAISS.getVersion());
+        assertEquals(Lucene.INSTANCE.getVersion(), KNNEngine.LUCENE.getVersion());
     }
 
     /**

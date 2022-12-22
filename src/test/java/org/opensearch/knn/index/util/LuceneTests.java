@@ -108,4 +108,9 @@ public class LuceneTests extends KNNTestCase {
         luceneLibrary.setInitialized(true);
         assertTrue(luceneLibrary.isInitialized());
     }
+
+    public void testVersion() {
+        Lucene luceneInstance = Lucene.INSTANCE;
+        assertEquals("9.5.0", luceneInstance.getVersion());
+    }
 }
