@@ -346,7 +346,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         }
 
         final float[] searchVector = TEST_QUERY_VECTORS[0];
-        int k = 1;
+        final int k = 1;
 
         validateQueryResultsQty(searchVector, k);
 
@@ -427,11 +427,12 @@ public class LuceneEngineIT extends KNNRestTestCase {
         }
     }
 
-    private void validateQueryResultsQty(float[] searchVector, int k) throws Exception {
-        final Response response = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, searchVector, k), k);
+    private void validateQueryResultsQty(final float[] searchVector, final int k) throws Exception {
+        final String responseBody = EntityUtils.toString(
+            searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, searchVector, k), k).getEntity()
+        );
+        final List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
 
-        String responseBody = EntityUtils.toString(response.getEntity());
-        List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
         assertEquals(k, knnResults.size());
     }
 }
