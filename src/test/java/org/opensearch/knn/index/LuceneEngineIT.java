@@ -338,6 +338,26 @@ public class LuceneEngineIT extends KNNRestTestCase {
         );
     }
 
+    public void testIndexReopening() throws Exception {
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2);
+
+        for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
+            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
+        }
+
+        final float[] searchVector = TEST_QUERY_VECTORS[0];
+        int k = 1;
+
+        validateQueryResultsQty(searchVector, k);
+
+        closeIndex(INDEX_NAME);
+        openIndex(INDEX_NAME);
+
+        ensureGreen(INDEX_NAME);
+
+        validateQueryResultsQty(searchVector, k);
+    }
+
     private void addKnnDocWithAttributes(String docId, float[] vector, Map<String, String> fieldValues) throws IOException {
         Request request = new Request("POST", "/" + INDEX_NAME + "/_doc/" + docId + "?refresh=true");
 
@@ -405,5 +425,13 @@ public class LuceneEngineIT extends KNNRestTestCase {
                 assertEquals(KNNEngine.LUCENE.score(rawScore, spaceType), actualScores.get(j), 0.0001);
             }
         }
+    }
+
+    private void validateQueryResultsQty(float[] searchVector, int k) throws Exception {
+        final Response response = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, searchVector, k), k);
+
+        String responseBody = EntityUtils.toString(response.getEntity());
+        List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
+        assertEquals(k, knnResults.size());
     }
 }
