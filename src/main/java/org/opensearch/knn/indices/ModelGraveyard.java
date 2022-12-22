@@ -154,14 +154,15 @@ public class ModelGraveyard implements Metadata.Custom {
      */
     public static ModelGraveyard fromXContent(XContentParser xContentParser) throws IOException {
         // Added validation checks to validate all the different possible scenarios
-        // model_ids:"abcd"
-        // {}
-        // {["abcd", "1234"]}
-        // {"dummy_field_name":}
-        // {model_ids:"abcd"}
-        // {model_ids:null}
-        // {model_ids:[]}
-        // {model_ids: ["abcd", "1234"]}
+        // model_ids:"abcd" - Throws exception as the START_OBJECT token is missing
+        // {} - Returns an empty ModelGraveyard object (BackwardCompatibility)
+        // {["abcd", "1234"]} - Throws exception as the FIELD_NAME token is missing
+        // {"dummy_field_name":} - Throws exception as the FIELD_NAME is not matching with model_ids
+        // {model_ids:"abcd"} - Throws exception as the START_ARRAY token is missing after field name
+        // {model_ids:null} - Throws exception as the START_ARRAY token is missing
+        // {model_ids:[]} - Parses and returns an empty ModelGraveyard object as there are no model ids
+        // {model_ids: ["abcd", "1234"]} - Parses and returns a ModelGraveyard object which contains the model ids "abcd" and "1234"
+        // {model_ids:[],dummy_field:[]} - Throws exception as we have FIELD_NAME(dummy_field) instead of END_OBJECT token
 
         ModelGraveyard modelGraveyard = new ModelGraveyard();
 
@@ -173,7 +174,8 @@ public class ModelGraveyard implements Metadata.Custom {
         // Validate if the first token is START_OBJECT
         if (xContentParser.currentToken() != XContentParser.Token.START_OBJECT) {
             throw new OpenSearchParseException(
-                "Unable to parse ModelGraveyard. Expecting START_OBJECT but got " + xContentParser.currentToken()
+                "Unable to parse ModelGraveyard. Expecting token start of an object but got {}",
+                xContentParser.currentToken()
             );
         }
 
@@ -185,28 +187,44 @@ public class ModelGraveyard implements Metadata.Custom {
         // Validate it starts with FIELD_NAME token after START_OBJECT
         if (xContentParser.currentToken() != XContentParser.Token.FIELD_NAME) {
             throw new OpenSearchParseException(
-                "Unable to parse ModelGraveyard. Expecting FIELD_NAME but got " + xContentParser.currentToken()
+                "Unable to parse ModelGraveyard. Expecting token field name but got {}",
+                xContentParser.currentToken()
             );
         }
 
         // Validating that FIELD_NAME matches with "model_ids"
         if (!MODEL_IDS.equals(xContentParser.currentName())) {
             throw new OpenSearchParseException(
-                "Unable to parse ModelGraveyard. Expecting field model_ids but got " + xContentParser.currentName()
+                "Unable to parse ModelGraveyard. Expecting field {} but got {}",
+                MODEL_IDS,
+                xContentParser.currentName()
             );
         }
 
         // Validate it starts with START_ARRAY token after FIELD_NAME
         if (xContentParser.nextToken() != XContentParser.Token.START_ARRAY) {
             throw new OpenSearchParseException(
-                "Unable to parse ModelGraveyard. Expecting START_ARRAY but got " + xContentParser.currentToken()
+                "Unable to parse ModelGraveyard. Expecting token start of an array but got {}",
+                xContentParser.currentToken()
             );
         }
 
-        while (xContentParser.nextToken() != XContentParser.Token.END_OBJECT) {
-            if (xContentParser.currentToken() == XContentParser.Token.VALUE_STRING) {
-                modelGraveyard.add(xContentParser.text());
+        while (xContentParser.nextToken() != XContentParser.Token.END_ARRAY) {
+            if (xContentParser.currentToken() != XContentParser.Token.VALUE_STRING) {
+                throw new OpenSearchParseException(
+                    "Unable to parse ModelGraveyard. Expecting token value string but got {}",
+                    xContentParser.currentToken()
+                );
             }
+            modelGraveyard.add(xContentParser.text());
+        }
+
+        // Validate if the last token is END_OBJECT
+        if (xContentParser.nextToken() != XContentParser.Token.END_OBJECT) {
+            throw new OpenSearchParseException(
+                "Unable to parse ModelGraveyard. Expecting token end of an object but got {}",
+                xContentParser.currentToken()
+            );
         }
         return modelGraveyard;
     }
