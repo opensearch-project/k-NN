@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.indices;
 
+import org.opensearch.OpenSearchParseException;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.ToXContent;
 import org.opensearch.common.xcontent.XContentBuilder;
@@ -60,6 +61,7 @@ public class ModelGraveyardTests extends OpenSearchTestCase {
         assertTrue(testModelGraveyardCopy.contains(testModelId));
     }
 
+    // Validating {model_ids: ["test-model-id1", "test-model-id2"]}
     public void testXContentBuilder() throws IOException {
         Set<String> modelIds = new HashSet<>();
         String testModelId1 = "test-model-id1";
@@ -77,6 +79,69 @@ public class ModelGraveyardTests extends OpenSearchTestCase {
         assertEquals(2, testModelGraveyard2.size());
         assertTrue(testModelGraveyard2.contains(testModelId1));
         assertTrue(testModelGraveyard2.contains(testModelId2));
+    }
+
+    // Validating {model_ids:[]}
+    public void testXContentBuilder2() throws IOException {
+        ModelGraveyard testModelGraveyard = new ModelGraveyard();
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
+        xContentBuilder.startObject();
+        XContentBuilder builder = testModelGraveyard.toXContent(xContentBuilder, ToXContent.EMPTY_PARAMS);
+        builder.endObject();
+
+        ModelGraveyard testModelGraveyard2 = ModelGraveyard.fromXContent(createParser(builder));
+        assertEquals(0, testModelGraveyard2.size());
+    }
+
+    // Validating {test-model:"abcd"}
+    public void testXContentBuilder3() throws IOException {
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
+        xContentBuilder.startObject();
+        xContentBuilder.field("test-model");
+        xContentBuilder.value("abcd");
+        xContentBuilder.endObject();
+
+        OpenSearchParseException ex = expectThrows(
+            OpenSearchParseException.class,
+            () -> ModelGraveyard.fromXContent(createParser(xContentBuilder))
+        );
+        assertTrue(ex.getMessage().contains("Expecting field model_ids but got test-model"));
+    }
+
+    // Validating {}
+    public void testXContentBuilder4() throws IOException {
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
+        xContentBuilder.startObject();
+        xContentBuilder.endObject();
+
+        ModelGraveyard testModelGraveyard = ModelGraveyard.fromXContent(createParser(xContentBuilder));
+        assertEquals(0, testModelGraveyard.size());
+    }
+
+    // Validating null
+    public void testXContentBuilder5() throws IOException {
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
+
+        OpenSearchParseException ex = expectThrows(
+            OpenSearchParseException.class,
+            () -> ModelGraveyard.fromXContent(createParser(xContentBuilder))
+        );
+        assertTrue(ex.getMessage().contains("Expecting START_OBJECT but got null"));
+    }
+
+    // Validating {model_ids:"abcd"}
+    public void testXContentBuilder6() throws IOException {
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
+        xContentBuilder.startObject();
+        xContentBuilder.field("model_ids");
+        xContentBuilder.value("abcd");
+        xContentBuilder.endObject();
+
+        OpenSearchParseException ex = expectThrows(
+            OpenSearchParseException.class,
+            () -> ModelGraveyard.fromXContent(createParser(xContentBuilder))
+        );
+        assertTrue(ex.getMessage().contains("Expecting START_ARRAY but got VALUE_STRING"));
     }
 
     public void testDiffStreams() throws IOException {
