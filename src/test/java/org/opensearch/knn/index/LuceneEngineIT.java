@@ -8,6 +8,7 @@ package org.opensearch.knn.index;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Floats;
+import org.apache.commons.lang.math.RandomUtils;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.junit.After;
@@ -346,16 +347,18 @@ public class LuceneEngineIT extends KNNRestTestCase {
         }
 
         final float[] searchVector = TEST_QUERY_VECTORS[0];
-        final int k = 1;
+        final int k = 1 + RandomUtils.nextInt(TEST_INDEX_VECTORS.length);
 
-        validateQueryResultsQty(searchVector, k);
+        final List<Float[]> knnResultsBeforeIndexClosure = queryResults(searchVector, k);
 
         closeIndex(INDEX_NAME);
         openIndex(INDEX_NAME);
 
         ensureGreen(INDEX_NAME);
 
-        validateQueryResultsQty(searchVector, k);
+        final List<Float[]> knnResultsAfterIndexClosure = queryResults(searchVector, k);
+
+        assertArrayEquals(knnResultsBeforeIndexClosure.toArray(), knnResultsAfterIndexClosure.toArray());
     }
 
     private void addKnnDocWithAttributes(String docId, float[] vector, Map<String, String> fieldValues) throws IOException {
@@ -427,12 +430,12 @@ public class LuceneEngineIT extends KNNRestTestCase {
         }
     }
 
-    private void validateQueryResultsQty(final float[] searchVector, final int k) throws Exception {
+    private List<Float[]> queryResults(final float[] searchVector, final int k) throws Exception {
         final String responseBody = EntityUtils.toString(
             searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, searchVector, k), k).getEntity()
         );
         final List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
-
-        assertEquals(k, knnResults.size());
+        assertNotNull(knnResults);
+        return knnResults.stream().map(KNNResult::getVector).collect(Collectors.toUnmodifiableList());
     }
 }
