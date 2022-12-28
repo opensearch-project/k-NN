@@ -3,6 +3,8 @@
  *  SPDX-License-Identifier: Apache-2.0
  */
 
+import org.apache.tools.ant.taskdefs.condition.Os
+import java.nio.file.Files
 
 apply plugin: 'opensearch.testclusters'
 apply plugin: 'opensearch.build'
@@ -33,18 +35,34 @@ String default_bwc_version = System.getProperty("bwc.version")
 String knn_bwc_version = System.getProperty("tests.bwc.version", default_bwc_version)
 boolean isSnapshot = knn_bwc_version.contains("-SNAPSHOT")
 String knn_bwc_version_no_qualifier = isSnapshot ? knn_bwc_version - "-SNAPSHOT" : knn_bwc_version
+
+String os_platform = "linux"
+String artifact_type = "tar"
+String file_ext = "tar.gz"
+
+if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+    os_platform = "windows"
+    artifact_type = "zip"
+    file_ext = "zip"
+}
+
 // Task to pull k-NN plugin from archive
 task pullBwcPlugin {
     doFirst {
-        delete java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-*")
+        File[] tempFiles = tmp_dir.listFiles()
+        for (File child : tempFiles) {
+            if (child.exists() && child.toString().contains("opensearch-")) {
+                Files.delete(child.toPath());
+            }
+        }
     }
 
     doLast {
         ext{
             if (isSnapshot) {
-                srcUrl = "https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${knn_bwc_version_no_qualifier}/latest/linux/x64/tar/dist/opensearch/opensearch-${knn_bwc_version_no_qualifier}-linux-x64.tar.gz"
+                srcUrl = "https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${knn_bwc_version_no_qualifier}/latest/${os_platform}/x64/${artifact_type}/dist/opensearch/opensearch-${knn_bwc_version_no_qualifier}-${os_platform}-x64.${file_ext}"
             } else {
-                srcUrl = "https://artifacts.opensearch.org/releases/bundle/opensearch/${knn_bwc_version}/opensearch-${knn_bwc_version}-linux-x64.tar.gz"
+                srcUrl = "https://artifacts.opensearch.org/releases/bundle/opensearch/${knn_bwc_version}/opensearch-${knn_bwc_version}-${os_platform}-x64.${file_ext}"
             }
         }
         ant.get(
@@ -53,14 +71,18 @@ task pullBwcPlugin {
                 httpusecaches: false
         )
         copy {
-            from tarTree(java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version_no_qualifier}-linux-x64.tar.gz"))
+            if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+                from zipTree(java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version_no_qualifier}-${os_platform}-x64.${file_ext}"))
+            } else {
+                from tarTree(java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version_no_qualifier}-${os_platform}-x64.${file_ext}"))
+            }
             into tmp_dir.absolutePath
         }
         copy {
             from(java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version_no_qualifier}", "plugins", "opensearch-knn"))
             into java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-knn")
         }
-        delete java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version_no_qualifier}"), java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version_no_qualifier}-linux-x64.tar.gz")
+        delete java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version_no_qualifier}"), java.nio.file.Path.of(tmp_dir.absolutePath, "opensearch-${knn_bwc_version_no_qualifier}-${os_platform}-x64.${file_ext}")
     }
 }
 
