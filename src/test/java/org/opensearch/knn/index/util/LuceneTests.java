@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.util;
 
+import org.apache.lucene.util.Version;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
@@ -111,6 +112,6 @@ public class LuceneTests extends KNNTestCase {
 
     public void testVersion() {
         Lucene luceneInstance = Lucene.INSTANCE;
-        assertEquals("9.5.0", luceneInstance.getVersion());
+        assertEquals(Version.LATEST.toString(), luceneInstance.getVersion());
     }
 }
