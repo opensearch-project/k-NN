@@ -87,7 +87,7 @@ public enum KNNCodecVersion {
             new KNN80DocValuesFormat(delegate.docValuesFormat()),
             new KNN80CompoundFormat(delegate.compoundFormat())
         ),
-        (userCodec, mapperService) -> KNN940Codec.builder()
+        (userCodec, mapperService) -> KNN950Codec.builder()
             .delegate(userCodec)
             .knnVectorsFormat(new KNN950PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
             .build(),
