@@ -5,29 +5,31 @@
 
 package org.opensearch.knn.index.codec.KNN950Codec;
 
+import lombok.SneakyThrows;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.KNNCodecTestCase;
 
-import java.io.IOException;
 import java.util.Optional;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
 import static org.opensearch.knn.index.codec.KNNCodecVersion.V_9_5_0;
 
 public class KNN950CodecTests extends KNNCodecTestCase {
 
-    public void testMultiFieldsKnnIndex() throws Exception {
+    @SneakyThrows
+    public void testMultiFieldsKnnIndex() {
         testMultiFieldsKnnIndex(KNN950Codec.builder().delegate(V_9_5_0.getDefaultCodecDelegate()).build());
     }
 
-    public void testBuildFromModelTemplate() throws InterruptedException, ExecutionException, IOException {
+    @SneakyThrows
+    public void testBuildFromModelTemplate() {
         testBuildFromModelTemplate((KNN950Codec.builder().delegate(V_9_5_0.getDefaultCodecDelegate()).build()));
     }
 
-    public void testKnnVectorIndex() throws Exception {
+    @SneakyThrows
+    public void testKnnVectorIndex() {
         Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider = (
             mapperService) -> new KNN950PerFieldKnnVectorsFormat(Optional.of(mapperService));
 
