@@ -286,10 +286,12 @@ Before adding any new tests to Backward Compatibility Tests, we should be aware 
 
 Starting from 2.0 release the new versioning for codec has been introduced. Two positions will be used to define the version,
 in format 'X.Y', where 'X' corresponds to underlying version of Lucene and 'Y' is the version of the format. 
+Please note that Lucene version along with corresponding Lucene codec is part of the core OpenSearch. KNN codec should be in sync with Lucene codec version from core OpenSearch.
 
 Codec version is used in following classes and methods:
 - org.opensearch.knn.index.codec.KNNXYCodec.KNNXYCodec
-- org.opensearch.knn.index.codec.KNNFormatFactory.createKNNXYFormat
+- org.opensearch.knn.index.codec.KNNXYCodec.KNNXYPerFieldKnnVectorsFormat
+- org.opensearch.knn.index.codec.KNNCodecVersion
 
 These classes and methods are tied directly to Lucene version represented by 'X' part. 
 Other classes use the delegate pattern so no direct tie to Lucene version are related to format and represented by 'Y'
