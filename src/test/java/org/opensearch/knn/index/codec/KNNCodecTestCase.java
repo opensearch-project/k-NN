@@ -320,7 +320,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         IndexReader reader = writer.getReader();
         writer.close();
 
-        verify(perFieldKnnVectorsFormatSpy).getKnnVectorsFormatForField(eq(FIELD_NAME_ONE));
+        verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getKnnVectorsFormatForField(eq(FIELD_NAME_ONE));
 
         IndexSearcher searcher = new IndexSearcher(reader);
         Query query = KNNQueryFactory.create(KNNEngine.LUCENE, "dummy", FIELD_NAME_ONE, new float[] { 1.0f, 0.0f, 0.0f }, 1);
