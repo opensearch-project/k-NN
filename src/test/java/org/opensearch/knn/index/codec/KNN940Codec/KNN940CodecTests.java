@@ -24,11 +24,7 @@ public class KNN940CodecTests extends KNNCodecTestCase {
 
     // Ensure that the codec is able to return the correct per field knn vectors format for codec
     public void testCodecSetsCustomPerFieldKnnVectorsFormat() {
-        final Codec codec = KNN940Codec.builder()
-            .delegate(V_9_4_0.getDefaultCodecDelegate())
-            .knnVectorsFormat(V_9_4_0.getPerFieldKnnVectorsFormat())
-            .build();
-
+        final Codec codec = new KNN940Codec();
         assertTrue(codec.knnVectorsFormat() instanceof KNN940PerFieldKnnVectorsFormat);
     }
 }
