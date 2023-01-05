@@ -28,6 +28,14 @@ public class KNN950CodecTests extends KNNCodecTestCase {
         testBuildFromModelTemplate((KNN950Codec.builder().delegate(V_9_5_0.getDefaultCodecDelegate()).build()));
     }
 
+    // Ensure that the codec is able to return the correct per field knn vectors format for codec
+    public void testCodecSetsCustomPerFieldKnnVectorsFormat() {
+        final Codec codec = new KNN950Codec();
+        assertTrue(codec.knnVectorsFormat() instanceof KNN950PerFieldKnnVectorsFormat);
+    }
+
+    // IMPORTANT: When this Codec is moved to a backwards Codec, this test needs to be removed, because it attempts to
+    // write with a read only codec, which will fail
     @SneakyThrows
     public void testKnnVectorIndex() {
         Function<MapperService, PerFieldKnnVectorsFormat> perFieldKnnVectorsFormatProvider = (
