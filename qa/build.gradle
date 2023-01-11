@@ -41,11 +41,12 @@ task pullBwcPlugin {
     }
 
     doLast {
-
-        if (isSnapshot) {
-            srcUrl = "https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${knn_bwc_version_no_qualifier}/latest/linux/x64/tar/dist/opensearch/opensearch-${knn_bwc_version_no_qualifier}-linux-x64.tar.gz"
-        } else {
-            srcUrl = "https://artifacts.opensearch.org/releases/bundle/opensearch/${knn_bwc_version}/opensearch-${knn_bwc_version}-linux-x64.tar.gz"
+        ext {
+            if (isSnapshot) {
+                srcUrl = "https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${knn_bwc_version_no_qualifier}/latest/linux/x64/tar/dist/opensearch/opensearch-${knn_bwc_version_no_qualifier}-linux-x64.tar.gz"
+            } else {
+                srcUrl = "https://artifacts.opensearch.org/releases/bundle/opensearch/${knn_bwc_version}/opensearch-${knn_bwc_version}-linux-x64.tar.gz"
+            }
         }
         ant.get(
                 src: srcUrl,
