@@ -77,6 +77,6 @@ public class Lucene extends JVMLibrary {
 
     @Override
     public List<String> mmapFileExtensions() {
-        return List.of("vec", "vem");
+        return List.of("vec", "vex");
     }
 }

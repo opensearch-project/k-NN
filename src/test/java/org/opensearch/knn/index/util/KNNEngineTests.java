@@ -57,7 +57,7 @@ public class KNNEngineTests extends KNNTestCase {
             .flatMap(engine -> engine.mmapFileExtensions().stream())
             .collect(Collectors.toList());
         assertNotNull(mmapExtensions);
-        final List<String> expectedSettings = List.of("vem", "vec");
+        final List<String> expectedSettings = List.of("vex", "vec");
         assertTrue(expectedSettings.containsAll(mmapExtensions));
         assertTrue(mmapExtensions.containsAll(expectedSettings));
     }

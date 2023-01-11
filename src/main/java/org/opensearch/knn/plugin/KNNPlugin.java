@@ -342,8 +342,17 @@ public class KNNPlugin extends Plugin
         return ImmutableList.of(new SystemIndexDescriptor(MODEL_INDEX_NAME, "Index for storing models used for k-NN indices"));
     }
 
+    /**
+     * Plugin can provide additional node settings, that includes new settings or overrides for existing one from core.
+     *
+     * @return settings that are set by plugin
+     */
     @Override
     public Settings additionalSettings() {
+        // We add engine specific extensions to the core list for HybridFS store type. We read existing values
+        // and append ours because in core setting will be replaced by override.
+        // Values are set as cluster defaults and are used at index creation time. Index specific overrides will take priority over values
+        // that are set here.
         final List<String> engineSettings = Arrays.stream(KNNEngine.values())
             .flatMap(engine -> engine.mmapFileExtensions().stream())
             .collect(Collectors.toList());

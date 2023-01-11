@@ -119,7 +119,7 @@ public class LuceneTests extends KNNTestCase {
     public void testMmapFileExtensions() {
         final List<String> luceneMmapExtensions = Lucene.INSTANCE.mmapFileExtensions();
         assertNotNull(luceneMmapExtensions);
-        final List<String> expectedSettings = List.of("vem", "vec");
+        final List<String> expectedSettings = List.of("vex", "vec");
         assertTrue(expectedSettings.containsAll(luceneMmapExtensions));
         assertTrue(luceneMmapExtensions.containsAll(expectedSettings));
     }
