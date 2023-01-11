@@ -5,6 +5,7 @@ Compatible with OpenSearch 2.5.0
 ### Enhancements
 
 * Extend SystemIndexPlugin for k-NN model system index ([#630](https://github.com/opensearch-project/k-NN/pull/630))
+* Add Lucene specific file extensions to core HybridFS ([#721](https://github.com/opensearch-project/k-NN/pull/721))
 
 ### Bug Fixes
 
