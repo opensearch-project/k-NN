@@ -23,7 +23,7 @@ Compatible with OpenSearch 2.5.0
 
 ### Documentation
 
-* Updat MAINTAINERS.md format ([#709](https://github.com/opensearch-project/k-NN/pull/709))
+* Update MAINTAINERS.md format ([#709](https://github.com/opensearch-project/k-NN/pull/709))
 
 ### Maintenance
 
