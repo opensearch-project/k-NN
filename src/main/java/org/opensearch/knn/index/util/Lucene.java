@@ -13,6 +13,7 @@ import org.opensearch.knn.index.MethodComponent;
 import org.opensearch.knn.index.Parameter;
 import org.opensearch.knn.index.SpaceType;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -72,5 +73,10 @@ public class Lucene extends JVMLibrary {
         // actually invert the distance score so that a higher number is a better score. So, we can just return the
         // score provided.
         return rawScore;
+    }
+
+    @Override
+    public List<String> mmapFileExtensions() {
+        return List.of("vec", "vex");
     }
 }

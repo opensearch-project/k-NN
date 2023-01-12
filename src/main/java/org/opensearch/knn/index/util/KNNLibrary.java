@@ -16,6 +16,8 @@ import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -113,4 +115,13 @@ public interface KNNLibrary {
      * @param isInitialized whether library has been initialized
      */
     void setInitialized(Boolean isInitialized);
+
+    /**
+     * Getter for mmap file extensions
+     *
+     * @return list of file extensions that will be read/write with mmap
+     */
+    default List<String> mmapFileExtensions() {
+        return Collections.EMPTY_LIST;
+    }
 }
