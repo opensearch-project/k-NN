@@ -12,6 +12,7 @@ import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -175,5 +176,10 @@ public enum KNNEngine implements KNNLibrary {
     @Override
     public void setInitialized(Boolean isInitialized) {
         knnLibrary.setInitialized(isInitialized);
+    }
+
+    @Override
+    public List<String> mmapFileExtensions() {
+        return knnLibrary.mmapFileExtensions();
     }
 }

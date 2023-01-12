@@ -15,6 +15,7 @@ import org.opensearch.knn.index.SpaceType;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -113,5 +114,13 @@ public class LuceneTests extends KNNTestCase {
     public void testVersion() {
         Lucene luceneInstance = Lucene.INSTANCE;
         assertEquals(Version.LATEST.toString(), luceneInstance.getVersion());
+    }
+
+    public void testMmapFileExtensions() {
+        final List<String> luceneMmapExtensions = Lucene.INSTANCE.mmapFileExtensions();
+        assertNotNull(luceneMmapExtensions);
+        final List<String> expectedSettings = List.of("vex", "vec");
+        assertTrue(expectedSettings.containsAll(luceneMmapExtensions));
+        assertTrue(luceneMmapExtensions.containsAll(expectedSettings));
     }
 }
