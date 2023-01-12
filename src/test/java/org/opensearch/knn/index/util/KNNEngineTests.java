@@ -8,6 +8,10 @@ package org.opensearch.knn.index.util;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
 public class KNNEngineTests extends KNNTestCase {
     /**
      * Check that version from engine and library match
@@ -46,5 +50,15 @@ public class KNNEngineTests extends KNNTestCase {
 
         String invalidPath = "test.invalid";
         expectThrows(IllegalArgumentException.class, () -> KNNEngine.getEngineNameFromPath(invalidPath));
+    }
+
+    public void testMmapFileExtensions() {
+        final List<String> mmapExtensions = Arrays.stream(KNNEngine.values())
+            .flatMap(engine -> engine.mmapFileExtensions().stream())
+            .collect(Collectors.toList());
+        assertNotNull(mmapExtensions);
+        final List<String> expectedSettings = List.of("vex", "vec");
+        assertTrue(expectedSettings.containsAll(mmapExtensions));
+        assertTrue(mmapExtensions.containsAll(expectedSettings));
     }
 }
