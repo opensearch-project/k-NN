@@ -5,6 +5,11 @@
 
 package org.opensearch.knn;
 
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.common.bytes.BytesReference;
@@ -12,7 +17,13 @@ import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.test.OpenSearchTestCase;
 
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Base class for integration tests for KNN plugin. Contains several methods for testing KNN ES functionality.
@@ -29,6 +40,18 @@ public class KNNTestCase extends OpenSearchTestCase {
         for (KNNCounter knnCounter : KNNCounter.values()) {
             knnCounter.set(0L);
         }
+
+        ClusterService clusterService = mock(ClusterService.class);
+        Set<Setting<?>> defaultClusterSettings = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
+        defaultClusterSettings.addAll(
+            KNNSettings.state()
+                .getSettings()
+                .stream()
+                .filter(s -> s.getProperties().contains(Setting.Property.NodeScope))
+                .collect(Collectors.toList())
+        );
+        when(clusterService.getClusterSettings()).thenReturn(new ClusterSettings(Settings.EMPTY, defaultClusterSettings));
+        KNNSettings.state().setClusterService(clusterService);
 
         // Clean up the cache
         NativeMemoryCacheManager.getInstance().invalidateAll();

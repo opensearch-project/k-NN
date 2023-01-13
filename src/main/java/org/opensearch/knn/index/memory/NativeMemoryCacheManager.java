@@ -40,11 +40,11 @@ public class NativeMemoryCacheManager implements Closeable {
 
     public static String GRAPH_COUNT = "graph_count";
 
-    private static Logger logger = LogManager.getLogger(NativeMemoryCacheManager.class);
+    private static final Logger logger = LogManager.getLogger(NativeMemoryCacheManager.class);
     private static NativeMemoryCacheManager INSTANCE;
 
     private Cache<String, NativeMemoryAllocation> cache;
-    private ExecutorService executor;
+    private final ExecutorService executor;
     private AtomicBoolean cacheCapacityReached;
     private long maxWeight;
 
@@ -68,20 +68,27 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     private void initialize() {
+        initialize(
+            KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED),
+            KNNSettings.getCircuitBreakerLimit().getKb(),
+            KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED),
+            ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes()
+        );
+    }
+
+    private void initialize(boolean isWeightLimited, long maxWeight, boolean isExpirationLimited, long expiryTimeInMin) {
         CacheBuilder<String, NativeMemoryAllocation> cacheBuilder = CacheBuilder.newBuilder()
             .recordStats()
             .concurrencyLevel(1)
             .removalListener(this::onRemoval);
 
-        if (KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED)) {
-            maxWeight = KNNSettings.getCircuitBreakerLimit().getKb();
-            cacheBuilder.maximumWeight(maxWeight).weigher((k, v) -> v.getSizeInKB());
+        if (isWeightLimited) {
+            this.maxWeight = maxWeight;
+            cacheBuilder.maximumWeight(this.maxWeight).weigher((k, v) -> v.getSizeInKB());
         }
 
-        if (KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED)) {
-            long expiryTime = ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))
-                .getMinutes();
-            cacheBuilder.expireAfterAccess(expiryTime, TimeUnit.MINUTES);
+        if (isExpirationLimited) {
+            cacheBuilder.expireAfterAccess(expiryTimeInMin, TimeUnit.MINUTES);
         }
 
         cacheCapacityReached = new AtomicBoolean(false);
@@ -93,13 +100,33 @@ public class NativeMemoryCacheManager implements Closeable {
      * Evicts all entries from the cache and rebuilds.
      */
     public synchronized void rebuildCache() {
+        rebuildCache(
+            KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED),
+            KNNSettings.getCircuitBreakerLimit().getKb(),
+            KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED),
+            ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes()
+        );
+    }
+
+    /**
+     * Evict all entries from the cache and rebuilds
+     *
+     * @param isWeightLimited whether the cache should have a max weight
+     * @param maxWeight the max weight as a long. Ignored if isWeightLimited is false
+     * @param isExpirationLimited whether the cache should have a last accessed time limit
+     * @param expiryTimeInMin time an entry in cache can remain without being accessed
+     */
+    public synchronized void rebuildCache(boolean isWeightLimited, long maxWeight, boolean isExpirationLimited, long expiryTimeInMin) {
         logger.info("KNN Cache rebuilding.");
 
-        // TODO: Does this really need to be executed with an executor? Also, does invalidateAll really need to be
-        // called?
+        // TODO: Does this really need to be executed with an executor?
         executor.execute(() -> {
-            cache.invalidateAll();
-            initialize();
+            if (cache != null) {
+                // Explicitly invalidate all so that we do not have to wait for garbage collection to be invoked to
+                // free up native memory
+                cache.invalidateAll();
+            }
+            initialize(isWeightLimited, maxWeight, isExpirationLimited, expiryTimeInMin);
         });
     }
 
