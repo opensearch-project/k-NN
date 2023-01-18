@@ -30,6 +30,5 @@ Compatible with OpenSearch 2.5.0
 
 * Fix the codec94 version import statements ([#684](https://github.com/opensearch-project/k-NN/pull/684))
 * Add integ test for index close/open scenario ([#693](https://github.com/opensearch-project/k-NN/pull/693))
-* Add Lucene 9.5 codec and make it new default ([#700](https://github.com/opensearch-project/k-NN/pull/700))
 * Make version of lucene k-nn engine match lucene current version ([#691](https://github.com/opensearch-project/k-NN/pull/691))
 * Increment version to 2.5.0-SNAPSHOT ([#632](https://github.com/opensearch-project/k-NN/pull/632))
