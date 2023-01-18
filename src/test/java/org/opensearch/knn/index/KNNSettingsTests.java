@@ -45,7 +45,7 @@ public class KNNSettingsTests extends KNNTestCase {
         long actualKNNCircuitBreakerLimit = ((ByteSizeValue) KNNSettings.state()
             .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
         mockNode.close();
-        assertEquals(actualKNNCircuitBreakerLimit, expectedKNNCircuitBreakerLimit);
+        assertEquals(expectedKNNCircuitBreakerLimit, actualKNNCircuitBreakerLimit);
     }
 
     @SneakyThrows
@@ -58,9 +58,10 @@ public class KNNSettingsTests extends KNNTestCase {
             .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
         mockNode.close();
         assertEquals(
-            actualKNNCircuitBreakerLimit,
             ((ByteSizeValue) KNNSettings.dynamicCacheSettings.get(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT).getDefault(Settings.EMPTY))
-                .getKb()
+                .getKb(),
+            actualKNNCircuitBreakerLimit
+
         );
     }
 
