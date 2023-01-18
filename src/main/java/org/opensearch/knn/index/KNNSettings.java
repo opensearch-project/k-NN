@@ -20,6 +20,7 @@ import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.IndexModule;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManagerDto;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
 
@@ -269,28 +270,27 @@ public class KNNSettings {
         clusterService.getClusterSettings().addSettingsUpdateConsumer(updatedSettings -> {
             // When any of the dynamic settings are updated, rebuild the cache with the updated values. Use the current
             // cluster settings values as defaults.
-            boolean isCircuitBreakerEnabled = updatedSettings.getAsBoolean(
-                KNN_MEMORY_CIRCUIT_BREAKER_ENABLED,
-                getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED)
+            NativeMemoryCacheManagerDto.NativeMemoryCacheManagerDtoBuilder builder = NativeMemoryCacheManagerDto.builder();
+
+            builder.isWeightLimited(
+                updatedSettings.getAsBoolean(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
             );
 
-            ByteSizeValue maxCacheWeight = getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT);
+            builder.maxWeight(((ByteSizeValue) getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb());
             if (updatedSettings.hasValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)) {
-                maxCacheWeight = (ByteSizeValue) getSetting(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT).get(updatedSettings);
+                builder.maxWeight(((ByteSizeValue) getSetting(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT).get(updatedSettings)).getKb());
             }
 
-            boolean isCacheExpiryEnabled = updatedSettings.getAsBoolean(
-                KNN_CACHE_ITEM_EXPIRY_ENABLED,
-                getSettingValue(KNN_CACHE_ITEM_EXPIRY_ENABLED)
+            builder.isExpirationLimited(
+                updatedSettings.getAsBoolean(KNN_CACHE_ITEM_EXPIRY_ENABLED, getSettingValue(KNN_CACHE_ITEM_EXPIRY_ENABLED))
             );
 
-            long expiryTimeInMinutes = updatedSettings.getAsTime(
-                KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES,
-                getSettingValue(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)
-            ).getMinutes();
+            builder.expiryTimeInMin(
+                updatedSettings.getAsTime(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, getSettingValue(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))
+                    .getMinutes()
+            );
 
-            NativeMemoryCacheManager.getInstance()
-                .rebuildCache(isCircuitBreakerEnabled, maxCacheWeight.getKb(), isCacheExpiryEnabled, expiryTimeInMinutes);
+            NativeMemoryCacheManager.getInstance().rebuildCache(builder.build());
         }, new ArrayList<>(dynamicCacheSettings.values()));
     }
 
