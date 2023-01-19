@@ -13,6 +13,7 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.opensearch.common.settings.ClusterSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
@@ -51,8 +52,10 @@ import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -95,6 +98,15 @@ public class KNNCodecTestCase extends KNNTestCase {
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Settings settings = Settings.Builder.EMPTY_SETTINGS;
         when(clusterService.state().getMetadata().index(Mockito.anyString()).getSettings()).thenReturn(settings);
+        Set<Setting<?>> defaultClusterSettings = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
+        defaultClusterSettings.addAll(
+            KNNSettings.state()
+                .getSettings()
+                .stream()
+                .filter(s -> s.getProperties().contains(Setting.Property.NodeScope))
+                .collect(Collectors.toList())
+        );
+        when(clusterService.getClusterSettings()).thenReturn(new ClusterSettings(Settings.EMPTY, defaultClusterSettings));
         KNNSettings.state().setClusterService(clusterService);
     }
 
