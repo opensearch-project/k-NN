@@ -40,11 +40,11 @@ public class NativeMemoryCacheManager implements Closeable {
 
     public static String GRAPH_COUNT = "graph_count";
 
-    private static Logger logger = LogManager.getLogger(NativeMemoryCacheManager.class);
+    private static final Logger logger = LogManager.getLogger(NativeMemoryCacheManager.class);
     private static NativeMemoryCacheManager INSTANCE;
 
     private Cache<String, NativeMemoryAllocation> cache;
-    private ExecutorService executor;
+    private final ExecutorService executor;
     private AtomicBoolean cacheCapacityReached;
     private long maxWeight;
 
@@ -68,20 +68,31 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     private void initialize() {
+        initialize(
+            NativeMemoryCacheManagerDto.builder()
+                .isWeightLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
+                .maxWeight(KNNSettings.getCircuitBreakerLimit().getKb())
+                .isExpirationLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))
+                .expiryTimeInMin(
+                    ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes()
+                )
+                .build()
+        );
+    }
+
+    private void initialize(NativeMemoryCacheManagerDto nativeMemoryCacheDTO) {
         CacheBuilder<String, NativeMemoryAllocation> cacheBuilder = CacheBuilder.newBuilder()
             .recordStats()
             .concurrencyLevel(1)
             .removalListener(this::onRemoval);
 
-        if (KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED)) {
-            maxWeight = KNNSettings.getCircuitBreakerLimit().getKb();
-            cacheBuilder.maximumWeight(maxWeight).weigher((k, v) -> v.getSizeInKB());
+        if (nativeMemoryCacheDTO.isWeightLimited()) {
+            this.maxWeight = nativeMemoryCacheDTO.getMaxWeight();
+            cacheBuilder.maximumWeight(this.maxWeight).weigher((k, v) -> v.getSizeInKB());
         }
 
-        if (KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED)) {
-            long expiryTime = ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))
-                .getMinutes();
-            cacheBuilder.expireAfterAccess(expiryTime, TimeUnit.MINUTES);
+        if (nativeMemoryCacheDTO.isExpirationLimited()) {
+            cacheBuilder.expireAfterAccess(nativeMemoryCacheDTO.getExpiryTimeInMin(), TimeUnit.MINUTES);
         }
 
         cacheCapacityReached = new AtomicBoolean(false);
@@ -93,13 +104,32 @@ public class NativeMemoryCacheManager implements Closeable {
      * Evicts all entries from the cache and rebuilds.
      */
     public synchronized void rebuildCache() {
+        rebuildCache(
+            NativeMemoryCacheManagerDto.builder()
+                .isWeightLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
+                .maxWeight(KNNSettings.getCircuitBreakerLimit().getKb())
+                .isExpirationLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))
+                .expiryTimeInMin(
+                    ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes()
+                )
+                .build()
+        );
+    }
+
+    /**
+     * Evict all entries from the cache and rebuilds
+     *
+     * @param nativeMemoryCacheDTO DTO for cache configuration
+     */
+    public synchronized void rebuildCache(NativeMemoryCacheManagerDto nativeMemoryCacheDTO) {
         logger.info("KNN Cache rebuilding.");
 
-        // TODO: Does this really need to be executed with an executor? Also, does invalidateAll really need to be
-        // called?
+        // TODO: Does this really need to be executed with an executor?
         executor.execute(() -> {
+            // Explicitly invalidate all so that we do not have to wait for garbage collection to be invoked to
+            // free up native memory
             cache.invalidateAll();
-            initialize();
+            initialize(nativeMemoryCacheDTO);
         });
     }
 
