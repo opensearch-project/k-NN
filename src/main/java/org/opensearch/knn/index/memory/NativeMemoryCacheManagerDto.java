@@ -6,13 +6,13 @@
 package org.opensearch.knn.index.memory;
 
 import lombok.Builder;
-import lombok.Getter;
+import lombok.Value;
 
-@Getter
+@Value
 @Builder
 public class NativeMemoryCacheManagerDto {
-    private final boolean isWeightLimited;
-    private final long maxWeight;
-    private final boolean isExpirationLimited;
-    private final long expiryTimeInMin;
+    boolean isWeightLimited;
+    long maxWeight;
+    boolean isExpirationLimited;
+    long expiryTimeInMin;
 }
