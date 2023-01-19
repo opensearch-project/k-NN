@@ -20,16 +20,17 @@ import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.IndexModule;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManagerDto;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
 
 import java.security.InvalidParameterException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -41,16 +42,15 @@ import static org.opensearch.common.unit.MemorySizeValue.parseBytesSizeValueOrHe
 
 /**
  * This class defines
- * 1. KNN settings to hold the HNSW algorithm parameters.
- * https://github.com/nmslib/hnswlib/blob/master/ALGO_PARAMS.md
+ * 1. KNN settings to hold the <a href="https://github.com/nmslib/hnswlib/blob/master/ALGO_PARAMS.md">HNSW algorithm parameters</a>.
  * 2. KNN settings to enable/disable plugin, circuit breaker settings
  * 3. KNN settings to manage graphs loaded in native memory
  */
 public class KNNSettings {
 
-    private static Logger logger = LogManager.getLogger(KNNSettings.class);
+    private static final Logger logger = LogManager.getLogger(KNNSettings.class);
     private static KNNSettings INSTANCE;
-    private static OsProbe osProbe = OsProbe.getInstance();
+    private static final OsProbe osProbe = OsProbe.getInstance();
 
     private static final int INDEX_THREAD_QTY_MAX = 32;
 
@@ -85,6 +85,7 @@ public class KNNSettings {
     public static final Integer KNN_DEFAULT_CIRCUIT_BREAKER_UNSET_PERCENTAGE = 75;
     public static final Integer KNN_DEFAULT_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE = 10; // By default, set aside 10% of the JVM for the limit
     public static final Integer KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE = 25; // Model cache limit cannot exceed 25% of the JVM heap
+    public static final String KNN_DEFAULT_MEMORY_CIRCUIT_BREAKER_LIMIT = "50%";
 
     /**
      * Settings Definition
@@ -233,7 +234,13 @@ public class KNNSettings {
             put(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, Setting.boolSetting(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, true, NodeScope, Dynamic));
             put(
                 KNN_MEMORY_CIRCUIT_BREAKER_LIMIT,
-                knnMemoryCircuitBreakerSetting(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT, "50%", NodeScope, Dynamic)
+                new Setting<>(
+                    KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT,
+                    KNNSettings.KNN_DEFAULT_MEMORY_CIRCUIT_BREAKER_LIMIT,
+                    (s) -> parseknnMemoryCircuitBreakerValue(s, KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT),
+                    NodeScope,
+                    Dynamic
+                )
             );
 
             /**
@@ -247,9 +254,6 @@ public class KNNSettings {
         }
     };
 
-    /** Latest setting value for each registered key. Thread-safe is required. */
-    private final Map<String, Object> latestSettings = new ConcurrentHashMap<>();
-
     private ClusterService clusterService;
     private Client client;
 
@@ -262,35 +266,32 @@ public class KNNSettings {
         return INSTANCE;
     }
 
-    public void setSettingsUpdateConsumers() {
-        for (Setting<?> setting : dynamicCacheSettings.values()) {
-            clusterService.getClusterSettings().addSettingsUpdateConsumer(setting, newVal -> {
-                logger.debug("The value of setting [{}] changed to [{}]", setting.getKey(), newVal);
-                latestSettings.put(setting.getKey(), newVal);
+    private void setSettingsUpdateConsumers() {
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(updatedSettings -> {
+            // When any of the dynamic settings are updated, rebuild the cache with the updated values. Use the current
+            // cluster settings values as defaults.
+            NativeMemoryCacheManagerDto.NativeMemoryCacheManagerDtoBuilder builder = NativeMemoryCacheManagerDto.builder();
 
-                // Rebuild the cache with updated limit
-                NativeMemoryCacheManager.getInstance().rebuildCache();
-            });
-        }
+            builder.isWeightLimited(
+                updatedSettings.getAsBoolean(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
+            );
 
-        /**
-         * We do not have to rebuild the cache for below settings
-         */
-        clusterService.getClusterSettings()
-            .addSettingsUpdateConsumer(
-                KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING,
-                newVal -> { latestSettings.put(KNN_CIRCUIT_BREAKER_TRIGGERED, newVal); }
+            builder.maxWeight(((ByteSizeValue) getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb());
+            if (updatedSettings.hasValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)) {
+                builder.maxWeight(((ByteSizeValue) getSetting(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT).get(updatedSettings)).getKb());
+            }
+
+            builder.isExpirationLimited(
+                updatedSettings.getAsBoolean(KNN_CACHE_ITEM_EXPIRY_ENABLED, getSettingValue(KNN_CACHE_ITEM_EXPIRY_ENABLED))
             );
-        clusterService.getClusterSettings()
-            .addSettingsUpdateConsumer(
-                KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING,
-                newVal -> { latestSettings.put(KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE, newVal); }
+
+            builder.expiryTimeInMin(
+                updatedSettings.getAsTime(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, getSettingValue(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))
+                    .getMinutes()
             );
-        clusterService.getClusterSettings()
-            .addSettingsUpdateConsumer(
-                KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING,
-                newVal -> { latestSettings.put(KNN_ALGO_PARAM_INDEX_THREAD_QTY, newVal); }
-            );
+
+            NativeMemoryCacheManager.getInstance().rebuildCache(builder.build());
+        }, new ArrayList<>(dynamicCacheSettings.values()));
     }
 
     /**
@@ -302,10 +303,10 @@ public class KNNSettings {
      */
     @SuppressWarnings("unchecked")
     public <T> T getSettingValue(String key) {
-        return (T) latestSettings.getOrDefault(key, getSetting(key).getDefault(Settings.EMPTY));
+        return (T) clusterService.getClusterSettings().get(getSetting(key));
     }
 
-    public Setting<?> getSetting(String key) {
+    private Setting<?> getSetting(String key) {
         if (dynamicCacheSettings.containsKey(key)) {
             return dynamicCacheSettings.get(key);
         }
@@ -362,19 +363,6 @@ public class KNNSettings {
         this.client = client;
         this.clusterService = clusterService;
         setSettingsUpdateConsumers();
-    }
-
-    /**
-     * Creates a setting which specifies a circuit breaker memory limit. This can either be
-     * specified as an absolute bytes value or as a percentage.
-     *
-     * @param key the key for the setting
-     * @param defaultValue the default value for this setting
-     * @param properties properties properties for this setting like scope, filtering...
-     * @return the setting object
-     */
-    public static Setting<ByteSizeValue> knnMemoryCircuitBreakerSetting(String key, String defaultValue, Setting.Property... properties) {
-        return new Setting<>(key, defaultValue, (s) -> parseknnMemoryCircuitBreakerValue(s, key), properties);
     }
 
     public static ByteSizeValue parseknnMemoryCircuitBreakerValue(String sValue, String settingName) {
@@ -436,24 +424,11 @@ public class KNNSettings {
      * @return efSearch value
      */
     public static int getEfSearchParam(String index) {
-        return getIndexSettingValue(index, KNN_ALGO_PARAM_EF_SEARCH, 512);
-    }
-
-    /**
-     *
-     * @param index Name of the index
-     * @return spaceType name in KNN plugin
-     */
-    public static String getSpaceType(String index) {
         return KNNSettings.state().clusterService.state()
             .getMetadata()
             .index(index)
             .getSettings()
-            .get(KNN_SPACE_TYPE, SpaceType.DEFAULT.getValue());
-    }
-
-    public static int getIndexSettingValue(String index, String settingName, int defaultValue) {
-        return KNNSettings.state().clusterService.state().getMetadata().index(index).getSettings().getAsInt(settingName, defaultValue);
+            .getAsInt(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 512);
     }
 
     public void setClusterService(ClusterService clusterService) {
@@ -475,7 +450,6 @@ public class KNNSettings {
     public void onIndexModule(IndexModule module) {
         module.addSettingsUpdateConsumer(INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING, newVal -> {
             logger.debug("The value of [KNN] setting [{}] changed to [{}]", KNN_ALGO_PARAM_EF_SEARCH, newVal);
-            latestSettings.put(KNN_ALGO_PARAM_EF_SEARCH, newVal);
             // TODO: replace cache-rebuild with index reload into the cache
             NativeMemoryCacheManager.getInstance().rebuildCache();
         });
