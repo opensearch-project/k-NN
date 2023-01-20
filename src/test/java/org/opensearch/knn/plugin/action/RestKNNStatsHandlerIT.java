@@ -51,7 +51,6 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.plugin.stats.KNNStatsConfig.KNN_STATS;
 
 /**
  * Integration tests to check the correctness of RestKNNStatsHandler
@@ -79,7 +78,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
     @Before
     public void setup() {
-        knnStats = new KNNStats(KNN_STATS);
+        knnStats = new KNNStats();
     }
 
     /**

@@ -14,10 +14,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static org.opensearch.knn.plugin.stats.KNNStatsConfig.KNN_STATS;
-
 public class StatsIT extends AbstractRollingUpgradeTestCase {
-    private KNNStats knnStats = new KNNStats(KNN_STATS);
+    private KNNStats knnStats = new KNNStats();
 
     // Validate if all the KNN Stats metrics from old version are present in new version
     public void testAllMetricStatsReturned() throws Exception {

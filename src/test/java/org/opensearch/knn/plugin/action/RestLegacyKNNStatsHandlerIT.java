@@ -38,8 +38,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.opensearch.knn.plugin.stats.KNNStatsConfig.KNN_STATS;
-
 /**
  * Integration tests to check the correctness of Legacy stats api
  */
@@ -53,7 +51,7 @@ public class RestLegacyKNNStatsHandlerIT extends KNNRestTestCase {
 
     @Before
     public void setup() {
-        knnStats = new KNNStats(KNN_STATS);
+        knnStats = new KNNStats();
     }
 
     /**
