@@ -21,7 +21,6 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.opensearch.client.Request;
@@ -131,8 +130,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     @Before
-    public void cleanUpCache() throws Exception {
+    public void setUp() throws Exception {
+        super.setUp();
         clearCache();
+        resetDynamicSettings();
+    }
+
+    protected void resetDynamicSettings() throws IOException {
+        for (String setting : KNNSettings.dynamicCacheSettings.keySet()) {
+            updateClusterSettings(setting, null);
+        }
     }
 
     /**
@@ -499,7 +506,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     /**
      * Utility to update  settings
      */
-    protected void updateClusterSettings(String settingKey, Object value) throws Exception {
+    protected void updateClusterSettings(String settingKey, Object value) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject("persistent")

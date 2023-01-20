@@ -171,7 +171,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     public void validateKNNIndexingOnUpgrade() throws Exception {
         QUERY_COUNT = NUM_DOCS;
         validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, QUERY_COUNT, K);
-        cleanUpCache();
+        clearCache();
         DOC_ID = NUM_DOCS;
         addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         QUERY_COUNT = QUERY_COUNT + NUM_DOCS;
