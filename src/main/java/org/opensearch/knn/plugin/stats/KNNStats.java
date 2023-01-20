@@ -13,7 +13,7 @@ import java.util.Map;
  */
 public class KNNStats {
 
-    private Map<String, KNNStat<?>> knnStats;
+    private final Map<String, KNNStat<?>> knnStats;
 
     /**
      * Constructor
@@ -31,20 +31,6 @@ public class KNNStats {
      */
     public Map<String, KNNStat<?>> getStats() {
         return knnStats;
-    }
-
-    /**
-     * Get individual stat by stat name
-     *
-     * @param key Name of stat
-     * @return ADStat
-     * @throws IllegalArgumentException thrown on illegal statName
-     */
-    public KNNStat<?> getStat(String key) throws IllegalArgumentException {
-        if (!knnStats.keySet().contains(key)) {
-            throw new IllegalArgumentException("Stat=\"" + key + "\" does not exist");
-        }
-        return knnStats.get(key);
     }
 
     /**

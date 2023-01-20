@@ -221,7 +221,7 @@ public class KNNPlugin extends Plugin
         Supplier<DiscoveryNodes> nodesInCluster
     ) {
 
-        RestKNNStatsHandler restKNNStatsHandler = new RestKNNStatsHandler(settings, restController, knnStats);
+        RestKNNStatsHandler restKNNStatsHandler = new RestKNNStatsHandler();
         RestKNNWarmupHandler restKNNWarmupHandler = new RestKNNWarmupHandler(
             settings,
             restController,

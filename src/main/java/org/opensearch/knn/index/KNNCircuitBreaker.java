@@ -6,7 +6,6 @@
 package org.opensearch.knn.index;
 
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
-import org.opensearch.knn.plugin.stats.KNNStatsConfig;
 import org.opensearch.knn.plugin.stats.StatNames;
 import org.opensearch.knn.plugin.transport.KNNStatsAction;
 import org.opensearch.knn.plugin.transport.KNNStatsNodeResponse;
@@ -73,7 +72,7 @@ public class KNNCircuitBreaker {
 
             // Leader node untriggers CB if all nodes have not reached their max capacity
             if (KNNSettings.isCircuitBreakerTriggered() && clusterService.state().nodes().isLocalNodeElectedClusterManager()) {
-                KNNStatsRequest knnStatsRequest = new KNNStatsRequest(KNNStatsConfig.KNN_STATS.keySet());
+                KNNStatsRequest knnStatsRequest = new KNNStatsRequest();
                 knnStatsRequest.addStat(StatNames.CACHE_CAPACITY_REACHED.getName());
                 knnStatsRequest.timeout(new TimeValue(1000 * 10)); // 10 second timeout
 
