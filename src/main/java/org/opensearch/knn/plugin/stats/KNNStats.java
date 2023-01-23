@@ -78,71 +78,95 @@ public class KNNStats {
     }
 
     private Map<String, KNNStat<?>> buildStatsMap() {
-        return ImmutableMap.<String, KNNStat<?>>builder()
-            .put(StatNames.HIT_COUNT.getName(), new KNNStat<>(false, new KNNInnerCacheStatsSupplier(CacheStats::hitCount)))
+        ImmutableMap.Builder<String, KNNStat<?>> builder = ImmutableMap.<String, KNNStat<?>>builder();
+        addQueryStats(builder);
+        addNativeMemoryStats(builder);
+        addEngineStats(builder);
+        addScriptStats(builder);
+        addModelStats(builder);
+        return builder.build();
+    }
+
+    private void addQueryStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {
+        builder.put(StatNames.KNN_QUERY_REQUESTS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.KNN_QUERY_REQUESTS)))
+            .put(
+                StatNames.KNN_QUERY_WITH_FILTER_REQUESTS.getName(),
+                new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS))
+            );
+
+    }
+
+    private void addNativeMemoryStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {
+        builder.put(StatNames.HIT_COUNT.getName(), new KNNStat<>(false, new KNNInnerCacheStatsSupplier(CacheStats::hitCount)))
             .put(StatNames.MISS_COUNT.getName(), new KNNStat<>(false, new KNNInnerCacheStatsSupplier(CacheStats::missCount)))
             .put(StatNames.LOAD_SUCCESS_COUNT.getName(), new KNNStat<>(false, new KNNInnerCacheStatsSupplier(CacheStats::loadSuccessCount)))
-            .put(StatNames.LOAD_EXCEPTION_COUNT.getName(), new KNNStat<>(false, new KNNInnerCacheStatsSupplier(CacheStats::loadExceptionCount)))
+            .put(
+                StatNames.LOAD_EXCEPTION_COUNT.getName(),
+                new KNNStat<>(false, new KNNInnerCacheStatsSupplier(CacheStats::loadExceptionCount))
+            )
             .put(StatNames.TOTAL_LOAD_TIME.getName(), new KNNStat<>(false, new KNNInnerCacheStatsSupplier(CacheStats::totalLoadTime)))
             .put(StatNames.EVICTION_COUNT.getName(), new KNNStat<>(false, new KNNInnerCacheStatsSupplier(CacheStats::evictionCount)))
             .put(
-                    StatNames.GRAPH_MEMORY_USAGE.getName(),
-                    new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getIndicesSizeInKilobytes))
+                StatNames.GRAPH_MEMORY_USAGE.getName(),
+                new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getIndicesSizeInKilobytes))
             )
             .put(
-                    StatNames.GRAPH_MEMORY_USAGE_PERCENTAGE.getName(),
-                    new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getIndicesSizeAsPercentage))
+                StatNames.GRAPH_MEMORY_USAGE_PERCENTAGE.getName(),
+                new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getIndicesSizeAsPercentage))
             )
             .put(
-                    StatNames.INDICES_IN_CACHE.getName(),
-                    new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getIndicesCacheStats))
+                StatNames.INDICES_IN_CACHE.getName(),
+                new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getIndicesCacheStats))
             )
             .put(
-                    StatNames.CACHE_CAPACITY_REACHED.getName(),
-                    new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::isCacheCapacityReached))
+                StatNames.CACHE_CAPACITY_REACHED.getName(),
+                new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::isCacheCapacityReached))
             )
             .put(StatNames.GRAPH_QUERY_ERRORS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_QUERY_ERRORS)))
             .put(StatNames.GRAPH_QUERY_REQUESTS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_QUERY_REQUESTS)))
             .put(StatNames.GRAPH_INDEX_ERRORS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_INDEX_ERRORS)))
             .put(StatNames.GRAPH_INDEX_REQUESTS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_INDEX_REQUESTS)))
-            .put(StatNames.CIRCUIT_BREAKER_TRIGGERED.getName(), new KNNStat<>(true, new KNNCircuitBreakerSupplier()))
-            .put(StatNames.MODEL_INDEX_STATUS.getName(), new KNNStat<>(true, new ModelIndexStatusSupplier<>(ModelDao::getHealthStatus)))
-            .put(StatNames.KNN_QUERY_REQUESTS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.KNN_QUERY_REQUESTS)))
+            .put(StatNames.CIRCUIT_BREAKER_TRIGGERED.getName(), new KNNStat<>(true, new KNNCircuitBreakerSupplier()));
+    }
+
+    private void addEngineStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {
+        builder.put(StatNames.FAISS_LOADED.getName(), new KNNStat<>(false, new LibraryInitializedSupplier(KNNEngine.FAISS)))
+            .put(StatNames.NMSLIB_LOADED.getName(), new KNNStat<>(false, new LibraryInitializedSupplier(KNNEngine.NMSLIB)))
+            .put(StatNames.LUCENE_LOADED.getName(), new KNNStat<>(false, new LibraryInitializedSupplier(KNNEngine.LUCENE)));
+    }
+
+    private void addScriptStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {
+        builder.put(StatNames.SCRIPT_COMPILATIONS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.SCRIPT_COMPILATIONS)))
             .put(
-                    StatNames.KNN_QUERY_WITH_FILTER_REQUESTS.getName(),
-                    new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS))
-            )
-            .put(StatNames.SCRIPT_COMPILATIONS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.SCRIPT_COMPILATIONS)))
-            .put(
-                    StatNames.SCRIPT_COMPILATION_ERRORS.getName(),
-                    new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.SCRIPT_COMPILATION_ERRORS))
+                StatNames.SCRIPT_COMPILATION_ERRORS.getName(),
+                new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.SCRIPT_COMPILATION_ERRORS))
             )
             .put(StatNames.SCRIPT_QUERY_REQUESTS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.SCRIPT_QUERY_REQUESTS)))
-            .put(StatNames.SCRIPT_QUERY_ERRORS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.SCRIPT_QUERY_ERRORS)))
-            .put(
-                    StatNames.INDEXING_FROM_MODEL_DEGRADED.getName(),
-                    new KNNStat<>(
-                            false,
-                            new EventOccurredWithinThresholdSupplier(
-                                    new ModelIndexingDegradingSupplier(ModelCache::getEvictedDueToSizeAt),
-                                    KNNConstants.MODEL_CACHE_CAPACITY_ATROPHY_THRESHOLD_IN_MINUTES,
-                                    ChronoUnit.MINUTES
-                            )
-                    )
+            .put(StatNames.SCRIPT_QUERY_ERRORS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.SCRIPT_QUERY_ERRORS)));
+    }
+
+    private void addModelStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {
+        builder.put(
+            StatNames.INDEXING_FROM_MODEL_DEGRADED.getName(),
+            new KNNStat<>(
+                false,
+                new EventOccurredWithinThresholdSupplier(
+                    new ModelIndexingDegradingSupplier(ModelCache::getEvictedDueToSizeAt),
+                    KNNConstants.MODEL_CACHE_CAPACITY_ATROPHY_THRESHOLD_IN_MINUTES,
+                    ChronoUnit.MINUTES
+                )
             )
-            .put(StatNames.FAISS_LOADED.getName(), new KNNStat<>(false, new LibraryInitializedSupplier(KNNEngine.FAISS)))
-            .put(StatNames.NMSLIB_LOADED.getName(), new KNNStat<>(false, new LibraryInitializedSupplier(KNNEngine.NMSLIB)))
-            .put(StatNames.LUCENE_LOADED.getName(), new KNNStat<>(false, new LibraryInitializedSupplier(KNNEngine.LUCENE)))
+        )
+            .put(StatNames.MODEL_INDEX_STATUS.getName(), new KNNStat<>(true, new ModelIndexStatusSupplier<>(ModelDao::getHealthStatus)))
             .put(StatNames.TRAINING_REQUESTS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.TRAINING_REQUESTS)))
             .put(StatNames.TRAINING_ERRORS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.TRAINING_ERRORS)))
             .put(
-                    StatNames.TRAINING_MEMORY_USAGE.getName(),
-                    new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getTrainingSizeInKilobytes))
+                StatNames.TRAINING_MEMORY_USAGE.getName(),
+                new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getTrainingSizeInKilobytes))
             )
             .put(
-                    StatNames.TRAINING_MEMORY_USAGE_PERCENTAGE.getName(),
-                    new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getTrainingSizeAsPercentage))
-            )
-            .build();
+                StatNames.TRAINING_MEMORY_USAGE_PERCENTAGE.getName(),
+                new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getTrainingSizeAsPercentage))
+            );
     }
 }

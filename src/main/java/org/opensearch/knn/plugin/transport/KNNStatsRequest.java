@@ -24,14 +24,16 @@ public class KNNStatsRequest extends BaseNodesRequest<KNNStatsRequest> {
      * Key indicating all stats should be retrieved
      */
     public static final String ALL_STATS_KEY = "_all";
-    private Set<String> validStats = StatNames.getNames();
-    private Set<String> statsToBeRetrieved;
+    private final Set<String> validStats;
+    private final Set<String> statsToBeRetrieved;
 
     /**
      * Empty constructor needed for KNNStatsTransportAction
      */
     public KNNStatsRequest() {
         super((String[]) null);
+        validStats = StatNames.getNames();
+        statsToBeRetrieved = new HashSet<>();
     }
 
     /**
@@ -53,6 +55,7 @@ public class KNNStatsRequest extends BaseNodesRequest<KNNStatsRequest> {
      */
     public KNNStatsRequest(String... nodeIds) {
         super(nodeIds);
+        validStats = StatNames.getNames();
         statsToBeRetrieved = new HashSet<>();
     }
 
