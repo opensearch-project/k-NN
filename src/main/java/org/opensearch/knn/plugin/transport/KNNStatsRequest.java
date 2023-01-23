@@ -8,6 +8,7 @@ package org.opensearch.knn.plugin.transport;
 import org.opensearch.action.support.nodes.BaseNodesRequest;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
+import org.opensearch.knn.plugin.stats.StatNames;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -23,15 +24,16 @@ public class KNNStatsRequest extends BaseNodesRequest<KNNStatsRequest> {
      * Key indicating all stats should be retrieved
      */
     public static final String ALL_STATS_KEY = "_all";
-
-    private Set<String> validStats;
-    private Set<String> statsToBeRetrieved;
+    private final Set<String> validStats;
+    private final Set<String> statsToBeRetrieved;
 
     /**
      * Empty constructor needed for KNNStatsTransportAction
      */
     public KNNStatsRequest() {
         super((String[]) null);
+        validStats = StatNames.getNames();
+        statsToBeRetrieved = new HashSet<>();
     }
 
     /**
@@ -49,12 +51,11 @@ public class KNNStatsRequest extends BaseNodesRequest<KNNStatsRequest> {
     /**
      * Constructor
      *
-     * @param validStats set of stat names that are valid for KNN plugin
      * @param nodeIds NodeIDs from which to retrieve stats
      */
-    public KNNStatsRequest(Set<String> validStats, String... nodeIds) {
+    public KNNStatsRequest(String... nodeIds) {
         super(nodeIds);
-        this.validStats = validStats;
+        validStats = StatNames.getNames();
         statsToBeRetrieved = new HashSet<>();
     }
 

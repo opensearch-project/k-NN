@@ -5,18 +5,14 @@
 
 package org.opensearch.knn.plugin.rest;
 
+import lombok.AllArgsConstructor;
 import org.opensearch.knn.plugin.KNNPlugin;
-import org.opensearch.knn.plugin.stats.KNNStats;
 import org.opensearch.knn.plugin.transport.KNNStatsAction;
 import org.opensearch.knn.plugin.transport.KNNStatsRequest;
 import com.google.common.collect.ImmutableList;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.common.Strings;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.rest.BaseRestHandler;
-import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestActions;
 
@@ -33,22 +29,9 @@ import java.util.stream.Collectors;
  * Resthandler for stats api endpoint. The user has the ability to get all stats from
  * all nodes or select stats from specific nodes.
  */
+@AllArgsConstructor
 public class RestKNNStatsHandler extends BaseRestHandler {
-
-    private static final Logger LOG = LogManager.getLogger(RestKNNStatsHandler.class);
     private static final String NAME = "knn_stats_action";
-    private KNNStats knnStats;
-
-    /**
-     * Constructor
-     *
-     * @param settings Settings
-     * @param controller Rest Controller
-     * @param knnStats KNNStats
-     */
-    public RestKNNStatsHandler(Settings settings, RestController controller, KNNStats knnStats) {
-        this.knnStats = knnStats;
-    }
 
     @Override
     public String getName() {
@@ -104,7 +87,7 @@ public class RestKNNStatsHandler extends BaseRestHandler {
             nodeIdsArr = nodesIdsStr.split(",");
         }
 
-        KNNStatsRequest knnStatsRequest = new KNNStatsRequest(knnStats.getStats().keySet(), nodeIdsArr);
+        KNNStatsRequest knnStatsRequest = new KNNStatsRequest(nodeIdsArr);
         knnStatsRequest.timeout(request.param("timeout"));
 
         // parse the stats the customer wants to see
