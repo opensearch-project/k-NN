@@ -10,6 +10,7 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.common.ParseField;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
+import org.opensearch.index.shard.IndexSettingProvider;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNClusterUtil;
@@ -342,12 +343,26 @@ public class KNNPlugin extends Plugin
     }
 
     /**
-     * Plugin can provide additional node settings, that includes new settings or overrides for existing one from core.
+     * Plugin can provide additional index settings, that includes new settings or overrides for existing one from core.
      *
      * @return settings that are set by plugin
      */
     @Override
-    public Settings additionalSettings() {
+    public Collection<IndexSettingProvider> getAdditionalIndexSettingProviders() {
+        final IndexSettingProvider settingProvider = new IndexSettingProvider() {
+            @Override
+            public Settings getAdditionalIndexSettings(
+                final String indexName,
+                boolean isDataStreamIndex,
+                final Settings templateAndRequestSettings
+            ) {
+                return pluginAdditionalSettings(templateAndRequestSettings);
+            }
+        };
+        return List.of(settingProvider);
+    }
+
+    private void additionalMMapFileExtensionsForHybridFs(final Settings.Builder settingsBuilder) {
         // We add engine specific extensions to the core list for HybridFS store type. We read existing values
         // and append ours because in core setting will be replaced by override.
         // Values are set as cluster defaults and are used at index creation time. Index specific overrides will take priority over values
@@ -359,6 +374,16 @@ public class KNNPlugin extends Plugin
             IndexModule.INDEX_STORE_HYBRID_MMAP_EXTENSIONS.getDefault(Settings.EMPTY).stream(),
             engineSettings.stream()
         ).collect(Collectors.toList());
-        return Settings.builder().putList(IndexModule.INDEX_STORE_HYBRID_MMAP_EXTENSIONS.getKey(), combinedSettings).build();
+
+        settingsBuilder.putList(IndexModule.INDEX_STORE_HYBRID_MMAP_EXTENSIONS.getKey(), combinedSettings);
+    }
+
+    private Settings pluginAdditionalSettings(final Settings templateAndRequestSettings) {
+        final var settingsBuilder = Settings.builder();
+        boolean isKnnIndex = Boolean.parseBoolean(templateAndRequestSettings.get(KNNSettings.KNN_INDEX, Boolean.FALSE.toString()));
+        if (isKnnIndex) {
+            additionalMMapFileExtensionsForHybridFs(settingsBuilder);
+        }
+        return settingsBuilder.build();
     }
 }
