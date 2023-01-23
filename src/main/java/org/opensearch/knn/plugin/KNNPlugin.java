@@ -59,7 +59,6 @@ import org.opensearch.env.NodeEnvironment;
 import org.opensearch.index.IndexModule;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.Mapper;
-import org.opensearch.knn.plugin.stats.KNNStatsConfig;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheTransportAction;
 import org.opensearch.knn.plugin.transport.SearchModelAction;
@@ -199,7 +198,7 @@ public class KNNPlugin extends Plugin
         KNNQueryBuilder.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
-        knnStats = new KNNStats(KNNStatsConfig.KNN_STATS);
+        knnStats = new KNNStats();
         return ImmutableList.of(knnStats);
     }
 
@@ -218,7 +217,7 @@ public class KNNPlugin extends Plugin
         Supplier<DiscoveryNodes> nodesInCluster
     ) {
 
-        RestKNNStatsHandler restKNNStatsHandler = new RestKNNStatsHandler(settings, restController, knnStats);
+        RestKNNStatsHandler restKNNStatsHandler = new RestKNNStatsHandler();
         RestKNNWarmupHandler restKNNWarmupHandler = new RestKNNWarmupHandler(
             settings,
             restController,
