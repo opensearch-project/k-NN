@@ -17,6 +17,7 @@ import org.apache.lucene.store.FilterDirectory;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
@@ -27,6 +28,7 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
@@ -97,6 +99,32 @@ public class KNNIndexShard {
                     throw new RuntimeException(ex);
                 }
             });
+        }
+    }
+
+    /**
+     * Removes all the k-NN segments for this shard from the cache.
+     * Adding write lock onto the NativeMemoryAllocation of the index that needs to be evicted from cache.
+     * Write lock will be unlocked after the index is evicted. This locking mechanism is used to avoid
+     * conflicts with queries fired on this index when the index is being evicted from cache.
+     */
+    public void clearCache() {
+        String indexName = getIndexName();
+        Optional<NativeMemoryAllocation> indexAllocationOptional;
+        NativeMemoryAllocation indexAllocation;
+        indexAllocationOptional = nativeMemoryCacheManager.getIndexMemoryAllocation(indexName);
+        if (indexAllocationOptional.isPresent()) {
+            indexAllocation = indexAllocationOptional.get();
+            indexAllocation.writeLock();
+            logger.info("[KNN] Evicting index from cache: [{}]", indexName);
+            try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-clear-cache")) {
+                getAllEnginePaths(searcher.getIndexReader()).forEach((key, value) -> nativeMemoryCacheManager.invalidate(key));
+            } catch (IOException ex) {
+                logger.error("[KNN] Failed to evict index from cache: [{}]", indexName);
+                throw new RuntimeException(ex);
+            } finally {
+                indexAllocation.writeUnlock();
+            }
         }
     }
 
