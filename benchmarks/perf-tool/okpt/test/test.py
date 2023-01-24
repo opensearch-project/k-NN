@@ -53,6 +53,8 @@ def _pxx(values: List[Any], p: float):
     if p < 0 or p > 1:
         return -1.0
     elif p < lowest_percentile or p > highest_percentile:
+        if p == 1.0 and len(values) > 1:
+            return float(values[len(values) - 1])
         return -1.0
     else:
         return float(values[floor(len(values) * p)])
@@ -137,6 +139,12 @@ def _aggregate_steps(step_results: List[Dict[str, Any]],
         p99 = _pxx(step_measure, 0.99)
         if p99 != -1:
             aggregate[step_measure_label + '_p99'] = p99
+        p99_9 = _pxx(step_measure, 0.999)
+        if p99_9 != -1:
+            aggregate[step_measure_label + '_p99.9'] = p99_9
+        p100 = _pxx(step_measure, 1.00)
+        if p100 != -1:
+            aggregate[step_measure_label + '_p100'] = p100
 
     return aggregate
 

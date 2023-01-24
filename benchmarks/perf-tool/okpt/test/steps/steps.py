@@ -454,7 +454,8 @@ class BaseQueryStep(OpenSearchStep):
         results['took'] = [
             float(query_response['took']) for query_response in query_responses
         ]
-        results['memory_kb'] = get_cache_size_in_kb(self.endpoint, 80)
+        port = 9200 if self.endpoint == 'localhost' else 80
+        results['memory_kb'] = get_cache_size_in_kb(self.endpoint, port)
 
         if self.calculate_recall:
             ids = [[int(hit['_id'])
@@ -588,6 +589,41 @@ class QueryWithFilterStep(BaseQueryStep):
         else:
             raise ConfigurationError('Not supported filter type {}'.format(self.filter_type))
 
+class GetStatsStep(OpenSearchStep):
+    """See base class."""
+
+    label = 'get_stats'
+
+    def __init__(self, step_config: StepConfig):
+        super().__init__(step_config)
+
+        self.index_name = parse_string_param('index_name', step_config.config,
+                                             {}, None)
+
+    def _action(self):
+        """Get stats for cluster/index etc.
+
+        Returns:
+            Stats with following info:
+            - number of committed and search segments in the index
+        """
+        results = {}
+        segment_stats = get_segment_stats(self.opensearch, self.index_name)
+        shards = segment_stats["indices"][self.index_name]["shards"]
+        num_of_committed_segments = 0
+        num_of_search_segments = 0;
+        for shard_key in shards.keys():
+            for segment in shards[shard_key]:
+
+                num_of_committed_segments += segment["num_committed_segments"]
+                num_of_search_segments += segment["num_search_segments"]
+
+        results['num_of_committed_segments'] = num_of_committed_segments
+        results['num_of_search_segments'] = num_of_search_segments
+        return results
+
+    def _get_measures(self) -> List[str]:
+        return ['num_of_committed_segments', 'num_of_search_segments']
 
 # Helper functions - (AKA not steps)
 def bulk_transform(partition: np.ndarray, field_name: str, action,
@@ -755,3 +791,6 @@ def query_index(opensearch: OpenSearch, index_name: str, body: dict,
 
 def bulk_index(opensearch: OpenSearch, index_name: str, body: List):
     return opensearch.bulk(index=index_name, body=body, timeout='5m')
+
+def get_segment_stats(opensearch: OpenSearch, index_name: str):
+    return opensearch.indices.segments(index=index_name)
