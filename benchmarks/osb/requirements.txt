@@ -16,7 +16,7 @@ attrs==21.4.0
     #   jsonschema
 cachetools==4.2.4
     # via google-auth
-certifi==2021.10.8
+certifi==2022.12.7
     # via
     #   opensearch-benchmark
     #   opensearch-py
