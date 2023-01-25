@@ -272,12 +272,12 @@ Runs a set of queries against an index.
 
 ##### Metrics
 
-| Metric Name | Description | Unit |  
-| ----------- | ----------- | ----------- |
-| took | Took times returned per query aggregated as total, p50, p90 and p99 (when applicable) | ms |
-| memory_kb | Native memory k-NN is using at the end of the query workload | KB |
+| Metric Name | Description                                                                                             | Unit |  
+| ----------- |---------------------------------------------------------------------------------------------------------| ----------- |
+| took | Took times returned per query aggregated as total, p50, p90, p99, p99.9 and p100 (when applicable)      | ms |
+| memory_kb | Native memory k-NN is using at the end of the query workload                                            | KB |
 | recall@R | ratio of top R results from the ground truth neighbors that are in the K results returned by the plugin | float 0.0-1.0 |
-| recall@K | ratio of results returned that were ground truth nearest neighbors  | float 0.0-1.0 |
+| recall@K | ratio of results returned that were ground truth nearest neighbors                                      | float 0.0-1.0 |
 
 #### query_with_filter
 
@@ -310,6 +310,23 @@ Runs a set of queries with filter against an index.
 | memory_kb | Native memory k-NN is using at the end of the query workload | KB |
 | recall@R | ratio of top R results from the ground truth neighbors that are in the K results returned by the plugin | float 0.0-1.0 |
 | recall@K | ratio of results returned that were ground truth nearest neighbors  | float 0.0-1.0 |
+
+#### get_stats
+
+Gets the index stats.
+
+##### Parameters
+
+| Parameter Name | Description                                                                                                                                                                                                                               | Default              |  
+| ----------- |-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------| 
+| index_name | Name of index to search                                                                                                                                                                                                                   | No default           |
+
+##### Metrics
+
+| Metric Name | Description                                     | Unit       |  
+| ----------- |-------------------------------------------------|------------|
+| num_of_committed_segments | Total number of commited segments in the index  | integer >= 0 |
+| num_of_search_segments | Total number of search segments in the index    | integer >= 0 |
 
 ### Data sets
 
