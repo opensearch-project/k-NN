@@ -362,6 +362,15 @@ public class KNNPlugin extends Plugin
         return List.of(settingProvider);
     }
 
+    private Settings pluginAdditionalSettings(final Settings templateAndRequestSettings) {
+        final var settingsBuilder = Settings.builder();
+        boolean isKnnIndex = Boolean.parseBoolean(templateAndRequestSettings.get(KNNSettings.KNN_INDEX, Boolean.FALSE.toString()));
+        if (isKnnIndex) {
+            additionalMMapFileExtensionsForHybridFs(settingsBuilder);
+        }
+        return settingsBuilder.build();
+    }
+
     private void additionalMMapFileExtensionsForHybridFs(final Settings.Builder settingsBuilder) {
         // We add engine specific extensions to the core list for HybridFS store type. We read existing values
         // and append ours because in core setting will be replaced by override.
@@ -376,14 +385,5 @@ public class KNNPlugin extends Plugin
         ).collect(Collectors.toList());
 
         settingsBuilder.putList(IndexModule.INDEX_STORE_HYBRID_MMAP_EXTENSIONS.getKey(), combinedSettings);
-    }
-
-    private Settings pluginAdditionalSettings(final Settings templateAndRequestSettings) {
-        final var settingsBuilder = Settings.builder();
-        boolean isKnnIndex = Boolean.parseBoolean(templateAndRequestSettings.get(KNNSettings.KNN_INDEX, Boolean.FALSE.toString()));
-        if (isKnnIndex) {
-            additionalMMapFileExtensionsForHybridFs(settingsBuilder);
-        }
-        return settingsBuilder.build();
     }
 }
