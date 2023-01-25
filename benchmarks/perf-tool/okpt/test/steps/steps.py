@@ -618,12 +618,12 @@ class GetStatsStep(OpenSearchStep):
                 num_of_committed_segments += segment["num_committed_segments"]
                 num_of_search_segments += segment["num_search_segments"]
 
-        results['num_of_committed_segments'] = num_of_committed_segments
-        results['num_of_search_segments'] = num_of_search_segments
+        results['committed_segments'] = num_of_committed_segments
+        results['search_segments'] = num_of_search_segments
         return results
 
     def _get_measures(self) -> List[str]:
-        return ['num_of_committed_segments', 'num_of_search_segments']
+        return ['committed_segments', 'search_segments']
 
 # Helper functions - (AKA not steps)
 def bulk_transform(partition: np.ndarray, field_name: str, action,
