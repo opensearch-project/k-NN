@@ -10,7 +10,7 @@ import lombok.Getter;
 import org.apache.lucene.backward_codecs.lucene91.Lucene91Codec;
 import org.apache.lucene.backward_codecs.lucene92.Lucene92Codec;
 import org.apache.lucene.codecs.Codec;
-import org.apache.lucene.codecs.lucene94.Lucene94Codec;
+import org.apache.lucene.backward_codecs.lucene94.Lucene94Codec;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80CompoundFormat;
