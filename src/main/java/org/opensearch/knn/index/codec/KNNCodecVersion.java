@@ -10,7 +10,8 @@ import lombok.Getter;
 import org.apache.lucene.backward_codecs.lucene91.Lucene91Codec;
 import org.apache.lucene.backward_codecs.lucene92.Lucene92Codec;
 import org.apache.lucene.codecs.Codec;
-import org.apache.lucene.codecs.lucene94.Lucene94Codec;
+import org.apache.lucene.backward_codecs.lucene94.Lucene94Codec;
+import org.apache.lucene.codecs.lucene95.Lucene95Codec;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80CompoundFormat;
@@ -20,6 +21,8 @@ import org.opensearch.knn.index.codec.KNN920Codec.KNN920Codec;
 import org.opensearch.knn.index.codec.KNN920Codec.KNN920PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNN940Codec.KNN940Codec;
 import org.opensearch.knn.index.codec.KNN940Codec.KNN940PerFieldKnnVectorsFormat;
+import org.opensearch.knn.index.codec.KNN950Codec.KNN950Codec;
+import org.opensearch.knn.index.codec.KNN950Codec.KNN950PerFieldKnnVectorsFormat;
 
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -74,9 +77,24 @@ public enum KNNCodecVersion {
             .knnVectorsFormat(new KNN940PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
             .build(),
         KNN940Codec::new
+    ),
+
+    V_9_5_0(
+        "KNN950Codec",
+        new Lucene95Codec(),
+        new KNN950PerFieldKnnVectorsFormat(Optional.empty()),
+        (delegate) -> new KNNFormatFacade(
+            new KNN80DocValuesFormat(delegate.docValuesFormat()),
+            new KNN80CompoundFormat(delegate.compoundFormat())
+        ),
+        (userCodec, mapperService) -> KNN950Codec.builder()
+            .delegate(userCodec)
+            .knnVectorsFormat(new KNN950PerFieldKnnVectorsFormat(Optional.ofNullable(mapperService)))
+            .build(),
+        KNN950Codec::new
     );
 
-    private static final KNNCodecVersion CURRENT = V_9_4_0;
+    private static final KNNCodecVersion CURRENT = V_9_5_0;
 
     private final String codecName;
     private final Codec defaultCodecDelegate;
