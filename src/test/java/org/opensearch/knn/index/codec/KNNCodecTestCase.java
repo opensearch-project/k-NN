@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.apache.lucene.document.KnnVectorField;
+import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
@@ -121,6 +122,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         IndexWriterConfig iwc = newIndexWriterConfig();
         iwc.setMergeScheduler(new SerialMergeScheduler());
         iwc.setCodec(codec);
+        iwc.setMergePolicy(NoMergePolicy.INSTANCE);
 
         /**
          * Add doc with field "test_vector"
@@ -223,6 +225,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         IndexWriterConfig iwc = newIndexWriterConfig();
         iwc.setMergeScheduler(new SerialMergeScheduler());
         iwc.setCodec(codec);
+        iwc.setMergePolicy(NoMergePolicy.INSTANCE);
 
         FieldType fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
         fieldType.putAttribute(KNNConstants.MODEL_ID, modelId);
@@ -317,6 +320,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         IndexWriterConfig iwc = newIndexWriterConfig();
         iwc.setMergeScheduler(new SerialMergeScheduler());
         iwc.setCodec(codec);
+        iwc.setMergePolicy(NoMergePolicy.INSTANCE);
 
         /**
          * Add doc with field "test_vector_one"
