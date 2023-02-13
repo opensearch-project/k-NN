@@ -225,7 +225,6 @@ public class KNNCodecTestCase extends KNNTestCase {
         IndexWriterConfig iwc = newIndexWriterConfig();
         iwc.setMergeScheduler(new SerialMergeScheduler());
         iwc.setCodec(codec);
-        iwc.setMergePolicy(NoMergePolicy.INSTANCE);
 
         FieldType fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
         fieldType.putAttribute(KNNConstants.MODEL_ID, modelId);
@@ -320,7 +319,6 @@ public class KNNCodecTestCase extends KNNTestCase {
         IndexWriterConfig iwc = newIndexWriterConfig();
         iwc.setMergeScheduler(new SerialMergeScheduler());
         iwc.setCodec(codec);
-        iwc.setMergePolicy(NoMergePolicy.INSTANCE);
 
         /**
          * Add doc with field "test_vector_one"
