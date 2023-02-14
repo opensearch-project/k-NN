@@ -108,13 +108,9 @@ public class KNNWeightTests extends KNNTestCase {
 
     @SneakyThrows
     public void testQueryResultScoreNmslib() {
-        List.of(SpaceType.L2, SpaceType.L1, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT, SpaceType.LINF).forEach(space -> {
-            try {
-                testQueryScore(space::scoreTranslation, SEGMENT_FILES_NMSLIB, Map.of(SPACE_TYPE, space.getValue()));
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        });
+        for (SpaceType space : List.of(SpaceType.L2, SpaceType.L1, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT, SpaceType.LINF)) {
+            testQueryScore(space::scoreTranslation, SEGMENT_FILES_NMSLIB, Map.of(SPACE_TYPE, space.getValue()));
+        }
     }
 
     @SneakyThrows
