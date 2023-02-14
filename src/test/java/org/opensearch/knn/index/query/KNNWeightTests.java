@@ -63,7 +63,7 @@ import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 public class KNNWeightTests extends KNNTestCase {
     private static final String FIELD_NAME = "target_field";
     private static final float[] QUERY_VECTOR = new float[] { 1.8f, 2.4f };
-    private static final String SEGMENT_NAME = "segment1";
+    private static final String SEGMENT_NAME = "0";
     private static final int K = 5;
     private static final Set<String> SEGMENT_FILES_NMSLIB = Set.of("_0.cfe", "_0_2011_target_field.hnswc");
     private static final Set<String> SEGMENT_FILES_FAISS = Set.of("_0.cfe", "_0_2011_target_field.faissc");
