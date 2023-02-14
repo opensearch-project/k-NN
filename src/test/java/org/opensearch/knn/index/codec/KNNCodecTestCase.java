@@ -122,6 +122,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         IndexWriterConfig iwc = newIndexWriterConfig();
         iwc.setMergeScheduler(new SerialMergeScheduler());
         iwc.setCodec(codec);
+        // Set merge policy to no merges so that we create a predictable number of segments.
         iwc.setMergePolicy(NoMergePolicy.INSTANCE);
 
         /**
