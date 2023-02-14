@@ -165,6 +165,9 @@ dependencies {
     api group: 'com.google.guava', name: 'guava', version:'30.0-jre'
     api group: 'commons-lang', name: 'commons-lang', version: '2.6'
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.12.22'
+    testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.2'
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.12.22'
 }
 
 
@@ -196,6 +199,8 @@ test {
     dependsOn buildJniLib
     systemProperty 'tests.security.manager', 'false'
     systemProperty "java.library.path", "$rootDir/jni/release"
+    //this change enables mockito-inline that supports mocking of static classes/calls
+    systemProperty "jdk.attach.allowAttachSelf", true
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
         environment('PATH', System.getenv('PATH') + ";$rootDir/jni/release" + ";$rootDir/src/main/resources/windowsDependencies")
