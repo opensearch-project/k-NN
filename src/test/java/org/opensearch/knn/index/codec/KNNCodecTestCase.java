@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.apache.lucene.document.KnnVectorField;
+import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
@@ -109,6 +110,8 @@ public class KNNCodecTestCase extends KNNTestCase {
         IndexWriterConfig iwc = newIndexWriterConfig();
         iwc.setMergeScheduler(new SerialMergeScheduler());
         iwc.setCodec(codec);
+        // Set merge policy to no merges so that we create a predictable number of segments.
+        iwc.setMergePolicy(NoMergePolicy.INSTANCE);
 
         /**
          * Add doc with field "test_vector"
