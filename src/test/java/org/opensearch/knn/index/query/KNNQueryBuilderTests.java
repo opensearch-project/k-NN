@@ -6,7 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.lucene.search.KnnVectorQuery;
+import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterModule;
@@ -174,7 +174,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         Query query = knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertNotNull(query);
-        assertTrue(query instanceof KnnVectorQuery);
+        assertTrue(query.getClass().isAssignableFrom(KnnFloatVectorQuery.class));
     }
 
     public void testDoToQuery_FromModel() {
