@@ -11,7 +11,7 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.search.KnnVectorQuery;
+import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
@@ -73,13 +73,13 @@ public class KNNQueryFactory {
             );
             try {
                 final Query filterQuery = createQueryRequest.getFilter().get().toQuery(queryShardContext);
-                return new KnnVectorQuery(fieldName, vector, k, filterQuery);
+                return new KnnFloatVectorQuery(fieldName, vector, k, filterQuery);
             } catch (IOException e) {
                 throw new RuntimeException("Cannot create knn query with filter", e);
             }
         }
         log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
-        return new KnnVectorQuery(fieldName, vector, k);
+        return new KnnFloatVectorQuery(fieldName, vector, k);
     }
 
     /**
