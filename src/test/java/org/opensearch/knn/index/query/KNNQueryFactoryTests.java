@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
-import org.apache.lucene.search.KnnVectorQuery;
+import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.query.QueryBuilder;
@@ -47,7 +47,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .collect(Collectors.toList());
         for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
             Query query = KNNQueryFactory.create(knnEngine, testIndexName, testFieldName, testQueryVector, testK);
-            assertTrue(query instanceof KnnVectorQuery);
+            assertTrue(query.getClass().isAssignableFrom(KnnFloatVectorQuery.class));
         }
     }
 
@@ -70,7 +70,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
                 .filter(filter)
                 .build();
             Query query = KNNQueryFactory.create(createQueryRequest);
-            assertTrue(query instanceof KnnVectorQuery);
+            assertTrue(query.getClass().isAssignableFrom(KnnFloatVectorQuery.class));
         }
     }
 }
