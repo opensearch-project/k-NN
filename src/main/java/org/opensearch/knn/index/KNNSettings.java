@@ -398,7 +398,7 @@ public class KNNSettings {
             @Override
             public void onFailure(Exception e) {
                 logger.info(
-                    "Exception while updating circuit breaker setting {} to {}",
+                    "Exception while updating setting {} to {}",
                     clusterUpdateSettingsRequest.persistentSettings(),
                     e.getMessage()
                 );
