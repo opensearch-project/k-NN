@@ -347,18 +347,6 @@ public class KNNSettings {
         return KNNSettings.state().getSettingValue(KNNSettings.KNN_PLUGIN_ENABLED);
     }
 
-    public static boolean isCircuitBreakerTriggered() {
-        return KNNSettings.state().getSettingValue(KNNSettings.KNN_CIRCUIT_BREAKER_TRIGGERED);
-    }
-
-    public static ByteSizeValue getCircuitBreakerLimit() {
-        return KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT);
-    }
-
-    public static double getCircuitBreakerUnsetPercentage() {
-        return KNNSettings.state().getSettingValue(KNNSettings.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE);
-    }
-
     public void initialize(Client client, ClusterService clusterService) {
         this.client = client;
         this.clusterService = clusterService;
@@ -390,14 +378,14 @@ public class KNNSettings {
     }
 
     /**
-     * Updates knn.circuit_breaker.triggered setting to true/false
-     * @param flag true/false
+     * Updates boolean setting to true/false
+     * @param value true/false
      */
-    public synchronized void updateCircuitBreakerSettings(boolean flag) {
+    public synchronized void updateBooleanSetting(String settingName, boolean value) {
         ClusterUpdateSettingsRequest clusterUpdateSettingsRequest = new ClusterUpdateSettingsRequest();
-        Settings circuitBreakerSettings = Settings.builder().put(KNNSettings.KNN_CIRCUIT_BREAKER_TRIGGERED, flag).build();
+        Settings circuitBreakerSettings = Settings.builder().put(settingName, value).build();
         clusterUpdateSettingsRequest.persistentSettings(circuitBreakerSettings);
-        client.admin().cluster().updateSettings(clusterUpdateSettingsRequest, new ActionListener<ClusterUpdateSettingsResponse>() {
+        client.admin().cluster().updateSettings(clusterUpdateSettingsRequest, new ActionListener<>() {
             @Override
             public void onResponse(ClusterUpdateSettingsResponse clusterUpdateSettingsResponse) {
                 logger.debug(

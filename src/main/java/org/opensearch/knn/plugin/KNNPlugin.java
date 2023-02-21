@@ -11,7 +11,8 @@ import org.opensearch.common.ParseField;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.indices.SystemIndexDescriptor;
-import org.opensearch.knn.index.KNNCircuitBreaker;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
 import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
@@ -157,12 +158,13 @@ public class KNNPlugin extends Plugin
 
     private KNNStats knnStats;
     private ClusterService clusterService;
+    private NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService;
 
     @Override
     public Map<String, Mapper.TypeParser> getMappers() {
         return Collections.singletonMap(
             KNNVectorFieldMapper.CONTENT_TYPE,
-            new KNNVectorFieldMapper.TypeParser(ModelDao.OpenSearchKNNModelDao::getInstance)
+            new KNNVectorFieldMapper.TypeParser(ModelDao.OpenSearchKNNModelDao::getInstance, () -> nativeMemoryCircuitBreakerService)
         );
     }
 
@@ -197,12 +199,16 @@ public class KNNPlugin extends Plugin
         ModelDao.OpenSearchKNNModelDao.initialize(client, clusterService, environment.settings());
         ModelCache.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
         TrainingJobRunner.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance());
-        KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService, client);
         KNNQueryBuilder.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
-        knnStats = new KNNStats();
-        return ImmutableList.of(knnStats);
+        nativeMemoryCircuitBreakerService = new NativeMemoryCircuitBreakerService(KNNSettings.state(), threadPool, clusterService, client);
+        NativeMemoryCacheManager.initialize(nativeMemoryCircuitBreakerService);
+        // Called after NativeMemoryCacheManager initialization. Start method requires access to an instance of the
+        // NativeMemoryCacheManager that needs to be initialized.
+        nativeMemoryCircuitBreakerService.start();
+        knnStats = new KNNStats(nativeMemoryCircuitBreakerService);
+        return ImmutableList.of(knnStats, nativeMemoryCircuitBreakerService);
     }
 
     @Override

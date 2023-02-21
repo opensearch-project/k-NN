@@ -9,11 +9,12 @@ import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.plugin.stats.suppliers.EventOccurredWithinThresholdSupplier;
-import org.opensearch.knn.plugin.stats.suppliers.KNNCircuitBreakerSupplier;
+import org.opensearch.knn.plugin.stats.suppliers.NativeMemoryCircuitBreakerSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNCounterSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.KNNInnerCacheStatsSupplier;
 import org.opensearch.knn.plugin.stats.suppliers.LibraryInitializedSupplier;
@@ -34,9 +35,11 @@ public class KNNStats {
 
     /**
      * Constructor
+     *
+     * @param nativeMemoryCircuitBreakerService k-NN circuit breaker service for native memory
      */
-    public KNNStats() {
-        this.knnStats = buildStatsMap();
+    public KNNStats(NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService) {
+        this.knnStats = buildStatsMap(nativeMemoryCircuitBreakerService);
     }
 
     /**
@@ -77,10 +80,10 @@ public class KNNStats {
         return statsMap;
     }
 
-    private Map<String, KNNStat<?>> buildStatsMap() {
+    private Map<String, KNNStat<?>> buildStatsMap(NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService) {
         ImmutableMap.Builder<String, KNNStat<?>> builder = ImmutableMap.<String, KNNStat<?>>builder();
         addQueryStats(builder);
-        addNativeMemoryStats(builder);
+        addNativeMemoryStats(builder, nativeMemoryCircuitBreakerService);
         addEngineStats(builder);
         addScriptStats(builder);
         addModelStats(builder);
@@ -96,7 +99,10 @@ public class KNNStats {
 
     }
 
-    private void addNativeMemoryStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {
+    private void addNativeMemoryStats(
+        ImmutableMap.Builder<String, KNNStat<?>> builder,
+        NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService
+    ) {
         builder.put(StatNames.HIT_COUNT.getName(), new KNNStat<>(false, new KNNInnerCacheStatsSupplier(CacheStats::hitCount)))
             .put(StatNames.MISS_COUNT.getName(), new KNNStat<>(false, new KNNInnerCacheStatsSupplier(CacheStats::missCount)))
             .put(StatNames.LOAD_SUCCESS_COUNT.getName(), new KNNStat<>(false, new KNNInnerCacheStatsSupplier(CacheStats::loadSuccessCount)))
@@ -126,7 +132,10 @@ public class KNNStats {
             .put(StatNames.GRAPH_QUERY_REQUESTS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_QUERY_REQUESTS)))
             .put(StatNames.GRAPH_INDEX_ERRORS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_INDEX_ERRORS)))
             .put(StatNames.GRAPH_INDEX_REQUESTS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.GRAPH_INDEX_REQUESTS)))
-            .put(StatNames.CIRCUIT_BREAKER_TRIGGERED.getName(), new KNNStat<>(true, new KNNCircuitBreakerSupplier()));
+            .put(
+                StatNames.CIRCUIT_BREAKER_TRIGGERED.getName(),
+                new KNNStat<>(true, new NativeMemoryCircuitBreakerSupplier(nativeMemoryCircuitBreakerService))
+            );
     }
 
     private void addEngineStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {

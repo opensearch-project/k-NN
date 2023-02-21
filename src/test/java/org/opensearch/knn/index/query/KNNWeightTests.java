@@ -22,7 +22,6 @@ import org.apache.lucene.util.Version;
 import org.junit.BeforeClass;
 import org.mockito.MockedStatic;
 import org.opensearch.common.io.PathUtils;
-import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
@@ -82,12 +81,6 @@ public class KNNWeightTests extends KNNTestCase {
         when(knnSettings.getSettingValue(eq(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT))).thenReturn(CIRCUIT_BREAKER_LIMIT_100KB);
         when(knnSettings.getSettingValue(eq(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))).thenReturn(false);
         when(knnSettings.getSettingValue(eq(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))).thenReturn(TimeValue.timeValueMinutes(10));
-
-        final ByteSizeValue v = ByteSizeValue.parseBytesSizeValue(
-            CIRCUIT_BREAKER_LIMIT_100KB,
-            KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT
-        );
-        knnSettingsMockedStatic.when(KNNSettings::getCircuitBreakerLimit).thenReturn(v);
         knnSettingsMockedStatic.when(KNNSettings::state).thenReturn(knnSettings);
         knnSettingsMockedStatic.when(KNNSettings::isKNNPluginEnabled).thenReturn(true);
 

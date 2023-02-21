@@ -14,8 +14,11 @@ package org.opensearch.knn.index.memory;
 import com.google.common.cache.CacheStats;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.ByteSizeUnit;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
@@ -26,6 +29,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
@@ -278,8 +282,15 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
     }
 
     public void testGetMaxCacheSizeInKB() {
+        long cbLimitInKB = 100;
+        ByteSizeValue defaultCBLimit = new ByteSizeValue(cbLimitInKB, ByteSizeUnit.KB);
+        NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService = mock(NativeMemoryCircuitBreakerService.class);
+        when(nativeMemoryCircuitBreakerService.isCircuitBreakerEnabled()).thenReturn(true);
+        when(nativeMemoryCircuitBreakerService.getCircuitBreakerLimit()).thenReturn(defaultCBLimit);
+        doNothing().when(nativeMemoryCircuitBreakerService).close();
+        NativeMemoryCacheManager.initialize(nativeMemoryCircuitBreakerService);
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
-        assertEquals(KNNSettings.getCircuitBreakerLimit().getKb(), nativeMemoryCacheManager.getMaxCacheSizeInKilobytes());
+        assertEquals(cbLimitInKB, nativeMemoryCacheManager.getMaxCacheSizeInKilobytes());
         nativeMemoryCacheManager.close();
     }
 

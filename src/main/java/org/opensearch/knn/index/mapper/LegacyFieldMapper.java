@@ -10,6 +10,7 @@ import org.apache.lucene.document.FieldType;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -45,11 +46,12 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
+        NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService,
         String spaceType,
         String m,
         String efConstruction
     ) {
-        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues);
+        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues, nativeMemoryCircuitBreakerService);
 
         this.spaceType = spaceType;
         this.m = m;
@@ -70,7 +72,13 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
 
     @Override
     public ParametrizedFieldMapper.Builder getMergeBuilder() {
-        return new KNNVectorFieldMapper.Builder(simpleName(), this.spaceType, this.m, this.efConstruction).init(this);
+        return new KNNVectorFieldMapper.Builder(
+            simpleName(),
+            this.spaceType,
+            this.m,
+            this.efConstruction,
+            this.nativeMemoryCircuitBreakerService
+        ).init(this);
     }
 
     static String getSpaceType(Settings indexSettings) {

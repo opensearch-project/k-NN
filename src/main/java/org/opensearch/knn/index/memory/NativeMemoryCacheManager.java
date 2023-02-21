@@ -22,6 +22,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
 import org.opensearch.knn.plugin.stats.StatNames;
 
 import java.io.Closeable;
@@ -42,7 +43,7 @@ public class NativeMemoryCacheManager implements Closeable {
 
     private static final Logger logger = LogManager.getLogger(NativeMemoryCacheManager.class);
     private static NativeMemoryCacheManager INSTANCE;
-
+    private static NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService;
     private Cache<String, NativeMemoryAllocation> cache;
     private final ExecutorService executor;
     private AtomicBoolean cacheCapacityReached;
@@ -70,8 +71,8 @@ public class NativeMemoryCacheManager implements Closeable {
     private void initialize() {
         initialize(
             NativeMemoryCacheManagerDto.builder()
-                .isWeightLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
-                .maxWeight(KNNSettings.getCircuitBreakerLimit().getKb())
+                .isWeightLimited(nativeMemoryCircuitBreakerService.isCircuitBreakerEnabled())
+                .maxWeight(nativeMemoryCircuitBreakerService.getCircuitBreakerLimit().getKb())
                 .isExpirationLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))
                 .expiryTimeInMin(
                     ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes()
@@ -100,14 +101,18 @@ public class NativeMemoryCacheManager implements Closeable {
         cache = cacheBuilder.build();
     }
 
+    public static void initialize(NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService) {
+        NativeMemoryCacheManager.nativeMemoryCircuitBreakerService = nativeMemoryCircuitBreakerService;
+    }
+
     /**
      * Evicts all entries from the cache and rebuilds.
      */
     public synchronized void rebuildCache() {
         rebuildCache(
             NativeMemoryCacheManagerDto.builder()
-                .isWeightLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
-                .maxWeight(KNNSettings.getCircuitBreakerLimit().getKb())
+                .isWeightLimited(nativeMemoryCircuitBreakerService.isCircuitBreakerEnabled())
+                .maxWeight(nativeMemoryCircuitBreakerService.getCircuitBreakerLimit().getKb())
                 .isExpirationLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))
                 .expiryTimeInMin(
                     ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes()
@@ -367,7 +372,7 @@ public class NativeMemoryCacheManager implements Closeable {
         nativeMemoryAllocation.close();
 
         if (RemovalCause.SIZE == removalNotification.getCause()) {
-            KNNSettings.state().updateCircuitBreakerSettings(true);
+            nativeMemoryCircuitBreakerService.setCircuitBreaker(true);
             setCacheCapacityReached(true);
         }
 
@@ -375,7 +380,7 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     private Float getSizeAsPercentage(long size) {
-        long cbLimit = KNNSettings.getCircuitBreakerLimit().getKb();
+        long cbLimit = nativeMemoryCircuitBreakerService.getCircuitBreakerLimit().getKb();
         if (cbLimit == 0) {
             return 0.0F;
         }

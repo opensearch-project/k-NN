@@ -1,9 +1,15 @@
 /*
- * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
  */
 
-package org.opensearch.knn.index;
+package org.opensearch.knn.index.memory.breaker;
 
 import org.opensearch.knn.KNNRestTestCase;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
@@ -14,12 +20,12 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 import java.util.Collections;
 import java.util.Map;
 
-import static org.opensearch.knn.index.KNNCircuitBreaker.CB_TIME_INTERVAL;
+import static org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService.CB_TIME_INTERVAL;
 
 /**
  * Integration tests to test Circuit Breaker functionality
  */
-public class KNNCircuitBreakerIT extends KNNRestTestCase {
+public class NativeMemoryCircuitBreakerIT extends KNNRestTestCase {
     /**
      * To trip the circuit breaker, we will create two indices and index documents. Each index will be small enough so
      * that individually they fit into the cache, but together they do not. To prevent Lucene conditions where

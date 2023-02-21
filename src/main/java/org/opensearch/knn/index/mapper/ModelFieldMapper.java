@@ -8,6 +8,7 @@ package org.opensearch.knn.index.mapper;
 import org.apache.lucene.document.FieldType;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 
@@ -28,10 +29,11 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
+        NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService,
         ModelDao modelDao,
         String modelId
     ) {
-        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues);
+        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues, nativeMemoryCircuitBreakerService);
 
         this.modelId = modelId;
         this.modelDao = modelDao;

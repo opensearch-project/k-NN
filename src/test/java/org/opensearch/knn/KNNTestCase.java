@@ -11,8 +11,11 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.ByteSizeUnit;
+import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentBuilder;
@@ -24,12 +27,19 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
  * Base class for integration tests for KNN plugin. Contains several methods for testing KNN ES functionality.
  */
 public class KNNTestCase extends OpenSearchTestCase {
+
+    protected static final NativeMemoryCircuitBreakerService NEVER_TRIGGERED_CB_SERVICE = mock(NativeMemoryCircuitBreakerService.class);
+    static {
+        when(NEVER_TRIGGERED_CB_SERVICE.isCircuitBreakerTriggered()).thenReturn(false);
+        when(NEVER_TRIGGERED_CB_SERVICE.getCircuitBreakerLimit()).thenReturn(new ByteSizeValue(100, ByteSizeUnit.KB));
+    }
 
     @Mock
     protected ClusterService clusterService;
@@ -66,6 +76,7 @@ public class KNNTestCase extends OpenSearchTestCase {
         KNNSettings.state().setClusterService(clusterService);
 
         // Clean up the cache
+        NativeMemoryCacheManager.initialize(NEVER_TRIGGERED_CB_SERVICE);
         NativeMemoryCacheManager.getInstance().invalidateAll();
         NativeMemoryCacheManager.getInstance().close();
     }

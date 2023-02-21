@@ -78,7 +78,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
     @Before
     public void setup() {
-        knnStats = new KNNStats();
+        knnStats = new KNNStats(null);
     }
 
     /**
