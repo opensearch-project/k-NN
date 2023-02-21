@@ -397,11 +397,7 @@ public class KNNSettings {
 
             @Override
             public void onFailure(Exception e) {
-                logger.info(
-                    "Exception while updating setting {} to {}",
-                    clusterUpdateSettingsRequest.persistentSettings(),
-                    e.getMessage()
-                );
+                logger.info("Exception while updating setting {} to {}", clusterUpdateSettingsRequest.persistentSettings(), e.getMessage());
             }
         });
     }
