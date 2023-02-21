@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.memory.breaker;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.Value;
 import org.opensearch.common.component.AbstractLifecycleComponent;
 import org.opensearch.common.unit.ByteSizeValue;
@@ -36,14 +37,16 @@ import java.util.concurrent.atomic.AtomicReference;
 public class NativeMemoryCircuitBreakerService extends AbstractLifecycleComponent {
     private final ThreadPool threadPool;
     private final KNNSettings knnSettings;
-    private static final Logger logger = LogManager.getLogger(NativeMemoryCircuitBreakerService.class);
-    public static int CB_TIME_INTERVAL = 2 * 60; // seconds
     private final ClusterService clusterService;
     private final Client client;
     // Cancellable task to track circuitBreakerRunnable. In order to schedule, doStart must be called. doStart will
     // only start the future if the previous value is null. Therefore, to close this class, do NOT set the value of
     // this variable to null. To stop this class, this variable should be set to null so that it may be restarted.
-    private final AtomicReference<Scheduler.Cancellable> circuitBreakerFuture;
+    @VisibleForTesting
+    final AtomicReference<Scheduler.Cancellable> circuitBreakerFuture;
+
+    public static final int CB_TIME_INTERVAL = 2 * 60; // seconds
+    private static final Logger logger = LogManager.getLogger(NativeMemoryCircuitBreakerService.class);
 
     /**
      * Constructor for creation of circuit breaker service for KNN
@@ -102,17 +105,23 @@ public class NativeMemoryCircuitBreakerService extends AbstractLifecycleComponen
      *
      * @return percentage as double for unsetting circuit breaker
      */
-    private double getCircuitBreakerUnsetPercentage() {
+    @VisibleForTesting
+    double getCircuitBreakerUnsetPercentage() {
         return knnSettings.getSettingValue(KNNSettings.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE);
     }
 
     @Override
     protected void doStart() {
-        Monitor monitor = new Monitor(this, NativeMemoryCacheManager.getInstance(), clusterService, client);
+        Monitor monitor = getMonitor();
         this.circuitBreakerFuture.compareAndSet(
             null,
             threadPool.scheduleWithFixedDelay(monitor, TimeValue.timeValueSeconds(CB_TIME_INTERVAL), ThreadPool.Names.GENERIC)
         );
+    }
+
+    @VisibleForTesting
+    Monitor getMonitor() {
+        return new Monitor(this, NativeMemoryCacheManager.getInstance(), clusterService, client);
     }
 
     @Override
@@ -131,8 +140,9 @@ public class NativeMemoryCircuitBreakerService extends AbstractLifecycleComponen
         }
     }
 
+    @VisibleForTesting
     @Value
-    private static class Monitor implements Runnable {
+    static class Monitor implements Runnable {
         NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService;
         NativeMemoryCacheManager nativeMemoryCacheManager;
         ClusterService clusterService;

@@ -7,6 +7,10 @@ package org.opensearch.knn;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.client.Client;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
@@ -21,6 +25,7 @@ import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.test.OpenSearchTestCase;
+import org.opensearch.threadpool.ThreadPool;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -43,6 +48,22 @@ public class KNNTestCase extends OpenSearchTestCase {
 
     @Mock
     protected ClusterService clusterService;
+    @Mock
+    protected KNNSettings knnSettings;
+    @Mock
+    protected ThreadPool threadPool;
+    @Mock
+    protected Client client;
+    @Mock
+    protected NativeMemoryCacheManager nativeMemoryCacheManager;
+    @Mock
+    protected NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService;
+    @Mock
+    protected DiscoveryNode node;
+    @Mock
+    protected DiscoveryNodes discoveryNodes;
+    @Mock
+    protected ClusterState clusterState;
     private AutoCloseable openMocks;
 
     @Override
