@@ -13,7 +13,7 @@ package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 
 import java.io.IOException;

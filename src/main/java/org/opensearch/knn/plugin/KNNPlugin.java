@@ -7,7 +7,7 @@ package org.opensearch.knn.plugin;
 
 import org.opensearch.cluster.NamedDiff;
 import org.opensearch.cluster.metadata.Metadata;
-import org.opensearch.common.ParseField;
+import org.opensearch.core.ParseField;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.indices.SystemIndexDescriptor;
@@ -54,7 +54,7 @@ import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.settings.SettingsFilter;
-import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.env.Environment;
 import org.opensearch.env.NodeEnvironment;
 import org.opensearch.index.IndexModule;
