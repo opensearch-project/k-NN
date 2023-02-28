@@ -12,7 +12,7 @@
 package org.opensearch.knn.plugin.transport;
 
 import org.opensearch.action.ActionListener;
-import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.KNNMethodContext;

@@ -11,9 +11,9 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.Strings;
-import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentParser;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -25,7 +25,9 @@ import org.opensearch.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.opensearch.knn.TestUtils.KNN_BWC_PREFIX;
@@ -142,7 +144,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
 
     // KNN Delete Model test for model in Training State
     public void testDeleteTrainingModel() throws Exception {
-        byte[] testModelBlob = "hello".getBytes();
+        byte[] testModelBlob = "hello".getBytes(StandardCharsets.UTF_8);
         ModelMetadata testModelMetadata = getModelMetadata();
         testModelMetadata.setState(ModelState.TRAINING);
         if (isRunningAgainstOldCluster()) {
@@ -164,7 +166,11 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             assertEquals(TEST_MODEL_ID_TRAINING, responseMap.get(MODEL_ID));
             assertEquals("failed", responseMap.get(DeleteModelResponse.RESULT));
 
-            String errorMessage = String.format("Cannot delete model \"%s\". Model is still in training", TEST_MODEL_ID_TRAINING);
+            String errorMessage = String.format(
+                Locale.ROOT,
+                "Cannot delete model \"%s\". Model is still in " + "training",
+                TEST_MODEL_ID_TRAINING
+            );
             assertEquals(errorMessage, responseMap.get(DeleteModelResponse.ERROR_MSG));
         }
     }
