@@ -16,7 +16,7 @@ import com.google.common.primitives.Floats;
 import org.apache.http.util.EntityUtils;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
-import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.XContentFactory;
