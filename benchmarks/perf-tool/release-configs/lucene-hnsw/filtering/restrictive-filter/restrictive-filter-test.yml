@@ -31,3 +31,4 @@ steps:
     neighbors_path: [DATASET_PATH]/sift-128-euclidean-with-filters.hdf5
     neighbors_dataset: neighbors_filter_4
     filter_spec: [INDEX_SPEC_PATH]/restrictive-filter-test.yml
+    filter_type: FILTER
