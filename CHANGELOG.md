@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Adding filter type to filtering release configs ([#792](https://github.com/opensearch-project/k-NN/pull/792))
 * Add CHANGELOG ([#800](https://github.com/opensearch-project/k-NN/pull/800))
 * Bump byte-buddy version from 1.12.22 to 1.14.2 ([#804](https://github.com/opensearch-project/k-NN/pull/804))
+* Add 2.6.0 to BWC Version Matrix ([#810](https://github.com/opensearch-project/k-NN/pull/810))
 ### Documentation
 ### Maintenance
 ### Refactoring
