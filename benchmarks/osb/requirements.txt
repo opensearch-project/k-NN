@@ -52,7 +52,7 @@ multidict==6.0.2
     # via
     #   aiohttp
     #   yarl
-numpy==1.22.3
+numpy==1.24.2
     # via
     #   -r requirements.in
     #   h5py
