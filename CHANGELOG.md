@@ -24,3 +24,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Documentation
 ### Maintenance
 ### Refactoring
+* Replace Map, List, and Set in org.opensearch.common.collect with java.util references ([#816](https://github.com/opensearch-project/k-NN/pull/816))
