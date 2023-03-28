@@ -19,7 +19,7 @@ import org.opensearch.common.unit.ByteSizeUnit;
 import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
-import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreaker;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -40,10 +40,10 @@ import static org.mockito.Mockito.when;
  */
 public class KNNTestCase extends OpenSearchTestCase {
 
-    protected static final NativeMemoryCircuitBreakerService NEVER_TRIGGERED_CB_SERVICE = mock(NativeMemoryCircuitBreakerService.class);
+    protected static final NativeMemoryCircuitBreaker NEVER_TRIGGERED_CB = mock(NativeMemoryCircuitBreaker.class);
     static {
-        when(NEVER_TRIGGERED_CB_SERVICE.isCircuitBreakerTriggered()).thenReturn(false);
-        when(NEVER_TRIGGERED_CB_SERVICE.getCircuitBreakerLimit()).thenReturn(new ByteSizeValue(100, ByteSizeUnit.KB));
+        when(NEVER_TRIGGERED_CB.isTripped()).thenReturn(false);
+        when(NEVER_TRIGGERED_CB.getLimit()).thenReturn(new ByteSizeValue(100, ByteSizeUnit.KB));
     }
 
     @Mock
@@ -57,7 +57,7 @@ public class KNNTestCase extends OpenSearchTestCase {
     @Mock
     protected NativeMemoryCacheManager nativeMemoryCacheManager;
     @Mock
-    protected NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService;
+    protected NativeMemoryCircuitBreaker nativeMemoryCircuitBreaker;
     @Mock
     protected DiscoveryNode node;
     @Mock
@@ -97,7 +97,7 @@ public class KNNTestCase extends OpenSearchTestCase {
         KNNSettings.state().setClusterService(clusterService);
 
         // Clean up the cache
-        NativeMemoryCacheManager.initialize(NEVER_TRIGGERED_CB_SERVICE);
+        NativeMemoryCacheManager.initialize(NEVER_TRIGGERED_CB);
         NativeMemoryCacheManager.getInstance().invalidateAll();
         NativeMemoryCacheManager.getInstance().close();
     }

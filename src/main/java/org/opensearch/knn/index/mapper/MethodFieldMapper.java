@@ -9,7 +9,7 @@ import org.apache.lucene.document.FieldType;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreaker;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -33,11 +33,11 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService,
+        NativeMemoryCircuitBreaker nativeMemoryCircuitBreaker,
         KNNMethodContext knnMethodContext
     ) {
 
-        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues, nativeMemoryCircuitBreakerService);
+        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues, nativeMemoryCircuitBreaker);
 
         this.knnMethod = knnMethodContext;
 

@@ -32,7 +32,7 @@ import org.opensearch.index.mapper.TextSearchInfo;
 import org.opensearch.index.mapper.ValueFetcher;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryShardException;
-import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreaker;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
@@ -145,12 +145,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         protected String efConstruction;
 
         protected ModelDao modelDao;
-        protected NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService;
+        protected NativeMemoryCircuitBreaker nativeMemoryCircuitBreaker;
 
-        public Builder(String name, ModelDao modelDao, NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService) {
+        public Builder(String name, ModelDao modelDao, NativeMemoryCircuitBreaker nativeMemoryCircuitBreaker) {
             super(name);
             this.modelDao = modelDao;
-            this.nativeMemoryCircuitBreakerService = nativeMemoryCircuitBreakerService;
+            this.nativeMemoryCircuitBreaker = nativeMemoryCircuitBreaker;
         }
 
         /**
@@ -167,13 +167,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             String spaceType,
             String m,
             String efConstruction,
-            NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService
+            NativeMemoryCircuitBreaker nativeMemoryCircuitBreaker
         ) {
             super(name);
             this.spaceType = spaceType;
             this.m = m;
             this.efConstruction = efConstruction;
-            this.nativeMemoryCircuitBreakerService = nativeMemoryCircuitBreakerService;
+            this.nativeMemoryCircuitBreaker = nativeMemoryCircuitBreaker;
         }
 
         @Override
@@ -227,7 +227,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                             .stored(stored.get())
                             .hasDocValues(hasDocValues.get())
                             .knnMethodContext(knnMethodContext)
-                            .nativeMemoryCircuitBreakerService(nativeMemoryCircuitBreakerService)
+                            .nativeMemoryCircuitBreaker(nativeMemoryCircuitBreaker)
                             .build();
                     return new LuceneFieldMapper(createLuceneFieldMapperInput);
                 }
@@ -239,7 +239,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     ignoreMalformed,
                     stored.get(),
                     hasDocValues.get(),
-                    nativeMemoryCircuitBreakerService,
+                    nativeMemoryCircuitBreaker,
                     knnMethodContext
                 );
             }
@@ -259,7 +259,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     ignoreMalformed,
                     stored.get(),
                     hasDocValues.get(),
-                    nativeMemoryCircuitBreakerService,
+                    nativeMemoryCircuitBreaker,
                     modelDao,
                     modelIdAsString
                 );
@@ -286,7 +286,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 ignoreMalformed,
                 stored.get(),
                 hasDocValues.get(),
-                nativeMemoryCircuitBreakerService,
+                nativeMemoryCircuitBreaker,
                 spaceType,
                 m,
                 efConstruction
@@ -318,23 +318,16 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         // Use a supplier here because in {@link org.opensearch.knn.KNNPlugin#getMappers()} the ModelDao has not yet
         // been initialized
         private final Supplier<ModelDao> modelDaoSupplier;
-        private final Supplier<NativeMemoryCircuitBreakerService> nativeMemoryCircuitBreakerServiceSupplier;
+        private final Supplier<NativeMemoryCircuitBreaker> nativeMemoryCircuitBreakerSupplier;
 
-        public TypeParser(
-            Supplier<ModelDao> modelDaoSupplier,
-            Supplier<NativeMemoryCircuitBreakerService> knnCircuitBreakerServiceSupplier
-        ) {
+        public TypeParser(Supplier<ModelDao> modelDaoSupplier, Supplier<NativeMemoryCircuitBreaker> knnCircuitBreakerServiceSupplier) {
             this.modelDaoSupplier = modelDaoSupplier;
-            this.nativeMemoryCircuitBreakerServiceSupplier = knnCircuitBreakerServiceSupplier;
+            this.nativeMemoryCircuitBreakerSupplier = knnCircuitBreakerServiceSupplier;
         }
 
         @Override
         public Mapper.Builder<?> parse(String name, Map<String, Object> node, ParserContext parserContext) throws MapperParsingException {
-            Builder builder = new KNNVectorFieldMapper.Builder(
-                name,
-                modelDaoSupplier.get(),
-                nativeMemoryCircuitBreakerServiceSupplier.get()
-            );
+            Builder builder = new KNNVectorFieldMapper.Builder(name, modelDaoSupplier.get(), nativeMemoryCircuitBreakerSupplier.get());
             builder.parse(name, parserContext, node);
 
             // All <a
@@ -416,7 +409,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     // subclass (if it is unique).
     protected KNNMethodContext knnMethod;
     protected String modelId;
-    protected NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService;
+    protected NativeMemoryCircuitBreaker nativeMemoryCircuitBreaker;
 
     public KNNVectorFieldMapper(
         String simpleName,
@@ -426,14 +419,14 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService
+        NativeMemoryCircuitBreaker nativeMemoryCircuitBreaker
     ) {
         super(simpleName, mappedFieldType, multiFields, copyTo);
         this.ignoreMalformed = ignoreMalformed;
         this.stored = stored;
         this.hasDocValues = hasDocValues;
         this.dimension = mappedFieldType.getDimension();
-        this.nativeMemoryCircuitBreakerService = nativeMemoryCircuitBreakerService;
+        this.nativeMemoryCircuitBreaker = nativeMemoryCircuitBreaker;
         updateEngineStats();
     }
 
@@ -472,7 +465,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     }
 
     void validateIfCircuitBreakerIsNotTriggered() {
-        if (nativeMemoryCircuitBreakerService.isCircuitBreakerTriggered()) {
+        if (nativeMemoryCircuitBreaker.isTripped()) {
             throw new IllegalStateException(
                 "Indexing knn vector fields is rejected as circuit breaker triggered. Check _opendistro/_knn/stats for detailed state"
             );
@@ -545,7 +538,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     @Override
     public ParametrizedFieldMapper.Builder getMergeBuilder() {
-        return new KNNVectorFieldMapper.Builder(simpleName(), modelDao, nativeMemoryCircuitBreakerService).init(this);
+        return new KNNVectorFieldMapper.Builder(simpleName(), modelDao, nativeMemoryCircuitBreaker).init(this);
     }
 
     @Override

@@ -383,7 +383,7 @@ public class KNNSettings {
      */
     public synchronized void updateBooleanSetting(String settingName, boolean value) {
         ClusterUpdateSettingsRequest clusterUpdateSettingsRequest = new ClusterUpdateSettingsRequest();
-        Settings circuitBreakerSettings = Settings.builder().put("unregistered-setting-lets-see-what-happens", value).build();
+        Settings circuitBreakerSettings = Settings.builder().put(settingName, value).build();
         clusterUpdateSettingsRequest.persistentSettings(circuitBreakerSettings);
         client.admin().cluster().updateSettings(clusterUpdateSettingsRequest, new ActionListener<>() {
             @Override

@@ -30,7 +30,7 @@ import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
-import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreaker;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -82,15 +82,15 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testBuilder_getParameters() {
         String fieldName = "test-field-name";
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(fieldName, modelDao, NEVER_TRIGGERED_CB_SERVICE);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(fieldName, modelDao, NEVER_TRIGGERED_CB);
         assertEquals(6, builder.getParameters().size());
     }
 
     public void testBuilder_build_fromKnnMethodContext() {
         // Check that knnMethodContext takes precedent over both model and legacy
         ModelDao modelDao = mock(ModelDao.class);
-        NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService = mock(NativeMemoryCircuitBreakerService.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, NEVER_TRIGGERED_CB_SERVICE);
+        NativeMemoryCircuitBreaker nativeMemoryCircuitBreakerService = mock(NativeMemoryCircuitBreaker.class);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, NEVER_TRIGGERED_CB);
 
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int m = 17;
@@ -127,7 +127,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testBuilder_build_fromModel() {
         // Check that modelContext takes precedent over legacy
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, NEVER_TRIGGERED_CB_SERVICE);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, NEVER_TRIGGERED_CB);
 
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int m = 17;
@@ -164,7 +164,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testBuilder_build_fromLegacy() {
         // Check legacy is picked up if model context and method context are not set
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, NEVER_TRIGGERED_CB_SERVICE);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, NEVER_TRIGGERED_CB);
 
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int m = 17;
@@ -193,7 +193,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Settings settings = Settings.builder().put(settings(CURRENT).build()).build();
 
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao, () -> NEVER_TRIGGERED_CB_SERVICE);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao, () -> NEVER_TRIGGERED_CB);
 
         KNNEngine.LUCENE.setInitialized(false);
 
@@ -279,7 +279,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Settings settings = Settings.builder().put(settings(CURRENT).build()).build();
 
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao, () -> NEVER_TRIGGERED_CB_SERVICE);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao, () -> NEVER_TRIGGERED_CB);
 
         int efConstruction = 321;
 
@@ -343,7 +343,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Settings settings = Settings.builder().put(settings(CURRENT).build()).build();
 
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao, () -> NEVER_TRIGGERED_CB_SERVICE);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao, () -> NEVER_TRIGGERED_CB);
 
         int efConstruction = 321;
         int dimension = 133;
@@ -398,7 +398,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Settings settings = Settings.builder().put(settings(CURRENT).build()).build();
 
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao, () -> NEVER_TRIGGERED_CB_SERVICE);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao, () -> NEVER_TRIGGERED_CB);
 
         int efConstruction = 321;
         int dimension = 133;
@@ -495,7 +495,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Settings settings = Settings.builder().put(settings(CURRENT).build()).build();
 
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao, () -> NEVER_TRIGGERED_CB_SERVICE);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao, () -> NEVER_TRIGGERED_CB);
 
         String modelId = "test-id";
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
@@ -529,7 +529,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .build();
 
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao, () -> NEVER_TRIGGERED_CB_SERVICE);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao, () -> NEVER_TRIGGERED_CB);
 
         int dimension = 122;
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
@@ -555,7 +555,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Settings settings = Settings.builder().put(settings(CURRENT).build()).build();
 
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao, () -> NEVER_TRIGGERED_CB_SERVICE);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao, () -> NEVER_TRIGGERED_CB);
 
         int dimension = 133;
         int efConstruction = 321;
@@ -629,10 +629,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         );
         when(mockModelDao.getMetadata(modelId)).thenReturn(mockModelMetadata);
 
-        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(
-            () -> mockModelDao,
-            () -> NEVER_TRIGGERED_CB_SERVICE
-        );
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> mockModelDao, () -> NEVER_TRIGGERED_CB);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
@@ -701,7 +698,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 .copyTo(FieldMapper.CopyTo.empty())
                 .hasDocValues(true)
                 .ignoreMalformed(new Explicit<>(true, true))
-                .nativeMemoryCircuitBreakerService(NEVER_TRIGGERED_CB_SERVICE)
+                .nativeMemoryCircuitBreaker(NEVER_TRIGGERED_CB)
                 .knnMethodContext(knnMethodContext);
 
         ParseContext.Document document = new ParseContext.Document();
@@ -796,7 +793,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         return new Mapper.TypeParser.ParserContext(
             null,
             mapperService,
-            type -> new KNNVectorFieldMapper.TypeParser(() -> mockModelDao, () -> NEVER_TRIGGERED_CB_SERVICE),
+            type -> new KNNVectorFieldMapper.TypeParser(() -> mockModelDao, () -> NEVER_TRIGGERED_CB),
             CURRENT,
             null,
             null,

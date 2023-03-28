@@ -20,7 +20,7 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 import java.util.Collections;
 import java.util.Map;
 
-import static org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService.CB_TIME_INTERVAL;
+import static org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerMonitor.CB_TIME_INTERVAL;
 
 /**
  * Integration tests to test Circuit Breaker functionality

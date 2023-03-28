@@ -15,7 +15,7 @@ import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
-import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreaker;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -45,7 +45,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             input.getIgnoreMalformed(),
             input.isStored(),
             input.isHasDocValues(),
-            input.getNativeMemoryCircuitBreakerService()
+            input.getNativeMemoryCircuitBreaker()
         );
 
         this.knnMethod = input.getKnnMethodContext();
@@ -131,6 +131,6 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         @NonNull
         KNNMethodContext knnMethodContext;
         @NonNull
-        NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService;
+        NativeMemoryCircuitBreaker nativeMemoryCircuitBreaker;
     }
 }

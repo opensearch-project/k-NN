@@ -9,7 +9,7 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.Before;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
-import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreaker;
 import org.opensearch.knn.plugin.stats.KNNStats;
 
 import java.util.Collections;
@@ -24,7 +24,7 @@ public class StatsIT extends AbstractRollingUpgradeTestCase {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService = mock(NativeMemoryCircuitBreakerService.class);
+        NativeMemoryCircuitBreaker nativeMemoryCircuitBreakerService = mock(NativeMemoryCircuitBreaker.class);
         this.knnStats = new KNNStats(nativeMemoryCircuitBreakerService);
     }
 

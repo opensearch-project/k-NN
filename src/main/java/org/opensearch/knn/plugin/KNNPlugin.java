@@ -12,8 +12,10 @@ import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
-import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreaker;
 import org.opensearch.knn.index.KNNClusterUtil;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerMonitor;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerMonitorDto;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -158,13 +160,14 @@ public class KNNPlugin extends Plugin
 
     private KNNStats knnStats;
     private ClusterService clusterService;
-    private NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService;
+    private NativeMemoryCircuitBreaker nativeMemoryCircuitBreaker;
+    private NativeMemoryCircuitBreakerMonitor nativeMemoryCircuitBreakerMonitor;
 
     @Override
     public Map<String, Mapper.TypeParser> getMappers() {
         return Collections.singletonMap(
             KNNVectorFieldMapper.CONTENT_TYPE,
-            new KNNVectorFieldMapper.TypeParser(ModelDao.OpenSearchKNNModelDao::getInstance, () -> nativeMemoryCircuitBreakerService)
+            new KNNVectorFieldMapper.TypeParser(ModelDao.OpenSearchKNNModelDao::getInstance, () -> nativeMemoryCircuitBreaker)
         );
     }
 
@@ -202,13 +205,21 @@ public class KNNPlugin extends Plugin
         KNNQueryBuilder.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
-        nativeMemoryCircuitBreakerService = new NativeMemoryCircuitBreakerService(KNNSettings.state(), threadPool, clusterService, client);
-        NativeMemoryCacheManager.initialize(nativeMemoryCircuitBreakerService);
-        // Called after NativeMemoryCacheManager initialization. Start method requires access to an instance of the
-        // NativeMemoryCacheManager that needs to be initialized.
-        nativeMemoryCircuitBreakerService.start();
-        knnStats = new KNNStats(nativeMemoryCircuitBreakerService);
-        return ImmutableList.of(knnStats, nativeMemoryCircuitBreakerService);
+
+        nativeMemoryCircuitBreaker = new NativeMemoryCircuitBreaker(KNNSettings.state());
+        NativeMemoryCacheManager.initialize(nativeMemoryCircuitBreaker);
+        nativeMemoryCircuitBreakerMonitor = new NativeMemoryCircuitBreakerMonitor(
+            NativeMemoryCircuitBreakerMonitorDto.builder()
+                .nativeMemoryCacheManager(NativeMemoryCacheManager.getInstance())
+                .nativeMemoryCircuitBreaker(nativeMemoryCircuitBreaker)
+                .threadPool(threadPool)
+                .client(client)
+                .clusterService(clusterService)
+                .build()
+        );
+        nativeMemoryCircuitBreakerMonitor.start();
+        knnStats = new KNNStats(nativeMemoryCircuitBreaker);
+        return ImmutableList.of(knnStats, nativeMemoryCircuitBreaker);
     }
 
     @Override
@@ -366,5 +377,10 @@ public class KNNPlugin extends Plugin
             engineSettings.stream()
         ).collect(Collectors.toList());
         return Settings.builder().putList(IndexModule.INDEX_STORE_HYBRID_MMAP_EXTENSIONS.getKey(), combinedSettings).build();
+    }
+
+    @Override
+    public void close() {
+        nativeMemoryCircuitBreakerMonitor.close();
     }
 }

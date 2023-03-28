@@ -6,7 +6,7 @@
 package org.opensearch.knn.plugin.stats.suppliers;
 
 import lombok.AllArgsConstructor;
-import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreaker;
 
 import java.util.function.Supplier;
 
@@ -16,10 +16,10 @@ import java.util.function.Supplier;
 @AllArgsConstructor
 public class NativeMemoryCircuitBreakerSupplier implements Supplier<Boolean> {
 
-    private final NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService;
+    private final NativeMemoryCircuitBreaker nativeMemoryCircuitBreaker;
 
     @Override
     public Boolean get() {
-        return nativeMemoryCircuitBreakerService.isCircuitBreakerTriggered();
+        return nativeMemoryCircuitBreaker.isTripped();
     }
 }
