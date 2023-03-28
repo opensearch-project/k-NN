@@ -10,6 +10,7 @@ import org.junit.AfterClass;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
+import org.opensearch.client.RestClient;
 import org.opensearch.common.Strings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -23,6 +24,7 @@ import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.SearchHit;
+import org.opensearch.test.rest.OpenSearchRestTestCase;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -182,11 +184,6 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             deleteKNNModel(TEST_MODEL_ID);
             deleteKNNModel(TEST_MODEL_ID_DEFAULT);
             deleteKNNModel(TEST_MODEL_ID_TRAINING);
-
-            Request request = new Request("DELETE", "/" + MODEL_INDEX_NAME);
-
-            Response response = client().performRequest(request);
-            assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
         }
     }
 
@@ -224,7 +221,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
 
     // Confirm that the model gets created using Get Model API
     public void validateModelCreated(String modelId) throws Exception {
-        Response getResponse = getModel(modelId, null);
+        Response getResponse = getModel(modelId, null, OpenSearchRestTestCase::client);
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);
 
@@ -248,7 +245,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             .endObject();
         Map<String, Object> method = xContentBuilderToMap(builder);
 
-        Response trainResponse = trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, description);
+        Response trainResponse = trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, description, this::getClient);
         assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
     }
 
@@ -285,5 +282,10 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
 
     private ModelMetadata getModelMetadata() {
         return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED, "2021-03-27", "test model", "");
+    }
+
+    @Override
+    protected RestClient getClient() {
+        return client();
     }
 }

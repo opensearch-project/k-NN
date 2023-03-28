@@ -15,6 +15,8 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
+import org.opensearch.client.RestClient;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
@@ -58,15 +60,15 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         ModelMetadata testModelMetadata = getModelMetadata();
 
         addModelToSystemIndex(testModelID, testModelMetadata, testModelBlob);
-        assertEquals(getDocCount(MODEL_INDEX_NAME), 1);
+        assertEquals(getDocCountFromSystemIndex(MODEL_INDEX_NAME), 1);
 
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, testModelID);
         Request request = new Request("DELETE", restURI);
 
-        Response response = client().performRequest(request);
+        Response response = getClient().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
-        assertEquals(0, getDocCount(MODEL_INDEX_NAME));
+        assertEquals(0, getDocCountFromSystemIndex(MODEL_INDEX_NAME));
     }
 
     public void testDeleteTrainingModel() throws Exception {
@@ -77,15 +79,15 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         testModelMetadata.setState(ModelState.TRAINING);
 
         addModelToSystemIndex(testModelID, testModelMetadata, testModelBlob);
-        assertEquals(1, getDocCount(MODEL_INDEX_NAME));
+        assertEquals(1, getDocCountFromSystemIndex(MODEL_INDEX_NAME));
 
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, testModelID);
         Request request = new Request("DELETE", restURI);
 
-        Response response = client().performRequest(request);
+        Response response = getClient().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
-        assertEquals(1, getDocCount(MODEL_INDEX_NAME));
+        assertEquals(1, getDocCountFromSystemIndex(MODEL_INDEX_NAME));
 
         String responseBody = EntityUtils.toString(response.getEntity());
         assertNotNull(responseBody);
@@ -105,7 +107,7 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
         Request request = new Request("DELETE", restURI);
 
-        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+        ResponseException ex = expectThrows(ResponseException.class, () -> getClient().performRequest(request));
         assertTrue(ex.getMessage().contains(modelId));
     }
 
@@ -124,7 +126,7 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
         Request request = new Request("DELETE", restURI);
 
-        Response response = client().performRequest(request);
+        Response response = getClient().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         assertEquals(0, getDocCount(MODEL_INDEX_NAME));
@@ -199,4 +201,13 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         assertTrainingSucceeds(modelId, 30, 1000);
     }
 
+    @Override
+    protected RestClient getClient() {
+        return adminClient();
+    }
+
+    @Override
+    protected Settings restClientSettings() {
+        return noStrictDeprecationModeSettingsBuilder().build();
+    }
 }

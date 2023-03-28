@@ -16,6 +16,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
+import org.opensearch.client.RestClient;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
@@ -66,7 +67,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
         Request request = new Request("GET", restURI);
         request.setJsonEntity("{\n" + "    \"query\": {\n" + "        \"match_all\": {}\n" + "    }\n" + "}");
 
-        Response response = client().performRequest(request);
+        Response response = getClient().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         String responseBody = EntityUtils.toString(response.getEntity());
@@ -85,7 +86,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search?" + PARAM_SIZE + "=" + invalidSize);
             Request request = new Request("GET", restURI);
 
-            ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+            ResponseException ex = expectThrows(ResponseException.class, () -> getClient().performRequest(request));
             assertTrue(
                 ex.getMessage()
                     .contains(
@@ -112,7 +113,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
         for (String method : Arrays.asList("GET", "POST")) {
             Request request = new Request(method, restURI);
             request.setJsonEntity("{\n" + "    \"query\": {\n" + "        \"match_all\": {}\n" + "    }\n" + "}");
-            Response response = client().performRequest(request);
+            Response response = getClient().performRequest(request);
             assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
             String responseBody = EntityUtils.toString(response.getEntity());
@@ -152,7 +153,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             request.setJsonEntity(
                 "{\n" + "    \"_source\" : false,\n" + "    \"query\": {\n" + "        \"match_all\": {}\n" + "    }\n" + "}"
             );
-            Response response = client().performRequest(request);
+            Response response = getClient().performRequest(request);
             assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
             String responseBody = EntityUtils.toString(response.getEntity());
@@ -197,7 +198,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
                     + "    }\n"
                     + "}"
             );
-            Response response = client().performRequest(request);
+            Response response = getClient().performRequest(request);
             assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
             String responseBody = EntityUtils.toString(response.getEntity());
@@ -246,7 +247,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
                     + "    }\n"
                     + "}"
             );
-            Response response = client().performRequest(request);
+            Response response = getClient().performRequest(request);
             assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
             String responseBody = EntityUtils.toString(response.getEntity());
@@ -268,5 +269,10 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
                 assertTrue(sourceAsMap.containsKey("description"));
             }
         }
+    }
+
+    @Override
+    protected RestClient getClient() {
+        return adminClient();
     }
 }

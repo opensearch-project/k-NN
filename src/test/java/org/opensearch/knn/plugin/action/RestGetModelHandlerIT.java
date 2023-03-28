@@ -16,6 +16,7 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
+import org.opensearch.client.RestClient;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.SpaceType;
@@ -61,7 +62,7 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, testModelID);
         Request request = new Request("GET", restURI);
 
-        Response response = client().performRequest(request);
+        Response response = getClient().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         String responseBody = EntityUtils.toString(response.getEntity());
@@ -93,7 +94,7 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         List<String> filterdPath = Arrays.asList(MODEL_ID, MODEL_DESCRIPTION, MODEL_TIMESTAMP, KNN_ENGINE);
         request.addParameter("filter_path", Strings.join(filterdPath, ","));
 
-        Response response = client().performRequest(request);
+        Response response = getClient().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         String responseBody = EntityUtils.toString(response.getEntity());
@@ -117,7 +118,7 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "invalid-model-id");
         Request request = new Request("GET", restURI);
 
-        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+        ResponseException ex = expectThrows(ResponseException.class, () -> getClient().performRequest(request));
         assertTrue(ex.getMessage().contains("\"invalid-model-id\""));
     }
 
@@ -126,6 +127,11 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, " ");
         Request request = new Request("GET", restURI);
 
-        expectThrows(IllegalArgumentException.class, () -> client().performRequest(request));
+        expectThrows(IllegalArgumentException.class, () -> getClient().performRequest(request));
+    }
+
+    @Override
+    protected RestClient getClient() {
+        return adminClient();
     }
 }

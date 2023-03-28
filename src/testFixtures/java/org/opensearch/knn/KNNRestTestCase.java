@@ -10,8 +10,10 @@ import com.google.common.io.Resources;
 import com.google.common.primitives.Floats;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.opensearch.client.RestClient;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.index.IndexSettings;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
@@ -21,7 +23,6 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.opensearch.client.Request;
@@ -38,6 +39,7 @@ import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.script.Script;
 import org.opensearch.search.aggregations.metrics.ScriptedMetricAggregationBuilder;
+import org.opensearch.test.rest.OpenSearchRestTestCase;
 
 import javax.management.MBeanServerInvocationHandler;
 import javax.management.MalformedObjectNameException;
@@ -61,6 +63,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
@@ -139,16 +142,14 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Create KNN Index with default settings
      */
     protected void createKnnIndex(String index, String mapping) throws IOException {
-        createIndex(index, getKNNDefaultIndexSettings());
-        putMappingRequest(index, mapping);
+        createKnnIndex(index, getKNNDefaultIndexSettings(), mapping);
     }
 
     /**
      * Create KNN Index
      */
     protected void createKnnIndex(String index, Settings settings, String mapping) throws IOException {
-        createIndex(index, settings);
-        putMappingRequest(index, mapping);
+        createIndex(index, mapping.substring(1, mapping.length() - 1), settings);
     }
 
     protected void createBasicKnnIndex(String index, String fieldName, int dimension) throws IOException {
@@ -165,7 +166,20 @@ public class KNNRestTestCase extends ODFERestTestCase {
         );
 
         mapping = mapping.substring(1, mapping.length() - 1);
-        createIndex(index, Settings.EMPTY, mapping);
+
+        Settings settings = Settings.EMPTY;
+        createIndex(index, mapping, settings);
+    }
+
+    private static void createIndex(String index, String mapping, Settings settings) throws IOException {
+        String restURI = String.join("/", index);
+        Request request = new Request("PUT", restURI);
+        String entity = "{\"settings\": " + Strings.toString(XContentType.JSON, settings) + ",\"mappings\" : {" + mapping + "}" + "}";
+        if (!settings.getAsBoolean(IndexSettings.INDEX_SOFT_DELETES_SETTING.getKey(), true)) {
+            expectSoftDeletesWarning(request, index);
+        }
+        request.setJsonEntity(entity);
+        client().performRequest(request);
     }
 
     /**
@@ -183,7 +197,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         request.addParameter("search_type", "query_then_fetch");
         request.setJsonEntity(Strings.toString(builder));
 
-        Response response = client().performRequest(request);
+        Response response = getClient().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         return response;
@@ -348,7 +362,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     public Map<String, Object> getIndexMappingAsMap(String index) throws Exception {
         Request request = new Request("GET", "/" + index + "/_mapping");
 
-        Response response = client().performRequest(request);
+        Response response = getClient().performRequest(request);
 
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
@@ -360,9 +374,17 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     public int getDocCount(String indexName) throws Exception {
+        return getDocCountWithClient(indexName, client());
+    }
+
+    public int getDocCountFromSystemIndex(String indexName) throws Exception {
+        return getDocCountWithClient(indexName, adminClient());
+    }
+
+    private int getDocCountWithClient(String indexName, RestClient client) throws Exception {
         Request request = new Request("GET", "/" + indexName + "/_count");
 
-        Response response = client().performRequest(request);
+        Response response = client.performRequest(request);
 
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
@@ -394,14 +416,19 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Add a single KNN Doc to an index
      */
     protected void addKnnDoc(String index, String docId, String fieldName, Object[] vector) throws IOException {
+        addKnnDoc(index, docId, fieldName, vector, this::getClient);
+    }
+
+    protected void addKnnDoc(String index, String docId, String fieldName, Object[] vector, Supplier<RestClient> restClientSupplier)
+        throws IOException {
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vector).endObject();
         request.setJsonEntity(Strings.toString(builder));
-        client().performRequest(request);
+        restClientSupplier.get().performRequest(request);
 
         request = new Request("POST", "/" + index + "/_refresh");
-        Response response = client().performRequest(request);
+        Response response = restClientSupplier.get().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
@@ -418,7 +445,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         builder.endObject();
 
         request.setJsonEntity(Strings.toString(builder));
-        Response response = client().performRequest(request);
+        Response response = getClient().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.CREATED, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
@@ -462,7 +489,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         request.setJsonEntity(Strings.toString(builder));
 
-        Response response = client().performRequest(request);
+        Response response = getClient().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
@@ -473,7 +500,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         // Put KNN mapping
         Request request = new Request("DELETE", "/" + index + "/_doc/" + docId + "?refresh");
 
-        Response response = client().performRequest(request);
+        Response response = getClient().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
@@ -639,7 +666,9 @@ public class KNNRestTestCase extends ODFERestTestCase {
         String mapping = Resources.toString(url, Charsets.UTF_8);
         mapping = mapping.substring(1, mapping.length() - 1);
 
-        createIndex(MODEL_INDEX_NAME, Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).build(), mapping);
+        if (!systemIndexExists(MODEL_INDEX_NAME)) {
+            createIndex(MODEL_INDEX_NAME, Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).build(), mapping);
+        }
     }
 
     protected void addModelToSystemIndex(String modelId, ModelMetadata modelMetadata, byte[] model) throws IOException {
@@ -663,7 +692,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         request.setJsonEntity(Strings.toString(builder));
 
-        Response response = client().performRequest(request);
+        Response response = adminClient().performRequest(request);
 
         assertEquals(request.getEndpoint() + ": failed", RestStatus.CREATED, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
@@ -897,10 +926,21 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     // Add KNN docs into a KNN index by providing the initial documentID and number of documents
     public void addKNNDocs(String testIndex, String testField, int dimension, int firstDocID, int numDocs) throws IOException {
+        addKNNDocs(testIndex, testField, dimension, firstDocID, numDocs, this::getClient);
+    }
+
+    protected void addKNNDocs(
+        String testIndex,
+        String testField,
+        int dimension,
+        int firstDocID,
+        int numDocs,
+        Supplier<RestClient> restClientSupplier
+    ) throws IOException {
         for (int i = firstDocID; i < firstDocID + numDocs; i++) {
             Float[] indexVector = new Float[dimension];
             Arrays.fill(indexVector, (float) i);
-            addKnnDoc(testIndex, Integer.toString(i), testField, indexVector);
+            addKnnDoc(testIndex, Integer.toString(i), testField, indexVector, restClientSupplier);
         }
     }
 
@@ -1069,6 +1109,26 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Map<String, Object> method,
         String description
     ) throws IOException {
+        return trainModel(
+            modelId,
+            trainingIndexName,
+            trainingFieldName,
+            dimension,
+            method,
+            description,
+            OpenSearchRestTestCase::adminClient
+        );
+    }
+
+    protected Response trainModel(
+        String modelId,
+        String trainingIndexName,
+        String trainingFieldName,
+        int dimension,
+        Map<String, Object> method,
+        String description,
+        Supplier<RestClient> restClientSupplier
+    ) throws IOException {
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
@@ -1087,7 +1147,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         Request request = new Request("POST", "/_plugins/_knn/models" + modelId + "/_train");
         request.setJsonEntity(Strings.toString(builder));
-        return client().performRequest(request);
+        return restClientSupplier.get().performRequest(request);
     }
 
     /**
@@ -1099,6 +1159,19 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * @throws IOException if request cannot be performed
      */
     public Response getModel(String modelId, List<String> filters) throws IOException {
+        return getModel(modelId, filters, OpenSearchRestTestCase::adminClient);
+    }
+
+    /**
+     * Retrieve the model
+     *
+     * @param modelId Id of model to be retrieved
+     * @param filters filters to filter fields out. If null, no filters will
+     * @param restClientSupplier supplier function for client that executes rest requests
+     * @return Response from cluster
+     * @throws IOException if request cannot be performed
+     */
+    public Response getModel(String modelId, List<String> filters, Supplier<RestClient> restClientSupplier) throws IOException {
 
         if (modelId == null) {
             modelId = "";
@@ -1114,7 +1187,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         Request request = new Request("GET", "/_plugins/_knn/models" + modelId + filterString);
 
-        return client().performRequest(request);
+        return restClientSupplier.get().performRequest(request);
     }
 
     public void assertTrainingSucceeds(String modelId, int attempts, int delayInMillis) throws InterruptedException, Exception {
@@ -1163,6 +1236,23 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
 
         fail("Training did not succeed after " + attempts + " attempts with a delay of " + delayInMillis + " ms.");
+    }
+
+    protected boolean systemIndexExists(final String indexName) throws IOException {
+        Response response = adminClient().performRequest(new Request("HEAD", "/" + indexName));
+        return RestStatus.OK.getStatus() == response.getStatusLine().getStatusCode();
+    }
+
+    protected RestClient getClient() {
+        return client();
+    }
+
+    protected Settings.Builder noStrictDeprecationModeSettingsBuilder() {
+        Settings.Builder builder = Settings.builder().put("strictDeprecationMode", false);
+        if (System.getProperty("tests.rest.client_path_prefix") != null) {
+            builder.put(CLIENT_PATH_PREFIX, System.getProperty("tests.rest.client_path_prefix"));
+        }
+        return builder;
     }
 
     /**
