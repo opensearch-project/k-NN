@@ -9,11 +9,14 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.Before;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
+import org.opensearch.knn.index.memory.breaker.NativeMemoryCircuitBreakerService;
 import org.opensearch.knn.plugin.stats.KNNStats;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import static org.mockito.Mockito.mock;
 
 public class StatsIT extends AbstractRollingUpgradeTestCase {
     private KNNStats knnStats;
@@ -21,7 +24,8 @@ public class StatsIT extends AbstractRollingUpgradeTestCase {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        this.knnStats = new KNNStats(null);
+        NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService = mock(NativeMemoryCircuitBreakerService.class);
+        this.knnStats = new KNNStats(nativeMemoryCircuitBreakerService);
     }
 
     // Validate if all the KNN Stats metrics from old version are present in new version

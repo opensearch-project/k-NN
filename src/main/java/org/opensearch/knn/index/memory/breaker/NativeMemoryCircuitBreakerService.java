@@ -7,6 +7,7 @@ package org.opensearch.knn.index.memory.breaker;
 
 import com.google.common.annotations.VisibleForTesting;
 import lombok.Value;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.component.AbstractLifecycleComponent;
 import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.knn.index.KNNSettings;
@@ -16,8 +17,6 @@ import org.opensearch.knn.plugin.transport.KNNStatsAction;
 import org.opensearch.knn.plugin.transport.KNNStatsNodeResponse;
 import org.opensearch.knn.plugin.transport.KNNStatsRequest;
 import org.opensearch.knn.plugin.transport.KNNStatsResponse;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
@@ -34,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * circuit breaking logic is enabled, it will trip the circuit. Elsewhere in the code, the circuit breaker's value can
  * be queried to prevent actions that should not happen during high memory pressure.
  */
+@Log4j2
 public class NativeMemoryCircuitBreakerService extends AbstractLifecycleComponent {
     private final ThreadPool threadPool;
     private final KNNSettings knnSettings;
@@ -46,7 +46,6 @@ public class NativeMemoryCircuitBreakerService extends AbstractLifecycleComponen
     final AtomicReference<Scheduler.Cancellable> circuitBreakerFuture;
 
     public static final int CB_TIME_INTERVAL = 2 * 60; // seconds
-    private static final Logger logger = LogManager.getLogger(NativeMemoryCircuitBreakerService.class);
 
     /**
      * Constructor for creation of circuit breaker service for KNN
@@ -147,6 +146,7 @@ public class NativeMemoryCircuitBreakerService extends AbstractLifecycleComponen
         NativeMemoryCacheManager nativeMemoryCacheManager;
         ClusterService clusterService;
         Client client;
+        private static final TimeValue STATS_REQUEST_TIMEOUT = new TimeValue(1000 * 10); // 10 second timeout
 
         @Override
         public void run() {
@@ -166,7 +166,7 @@ public class NativeMemoryCircuitBreakerService extends AbstractLifecycleComponen
                 && clusterService.state().nodes().isLocalNodeElectedClusterManager()) {
                 KNNStatsRequest knnStatsRequest = new KNNStatsRequest();
                 knnStatsRequest.addStat(StatNames.CACHE_CAPACITY_REACHED.getName());
-                knnStatsRequest.timeout(new TimeValue(1000 * 10)); // 10 second timeout
+                knnStatsRequest.timeout(STATS_REQUEST_TIMEOUT);
 
                 try {
                     KNNStatsResponse knnStatsResponse = client.execute(KNNStatsAction.INSTANCE, knnStatsRequest).get();
@@ -179,21 +179,21 @@ public class NativeMemoryCircuitBreakerService extends AbstractLifecycleComponen
                         }
                     }
 
-                    if (!nodesAtMaxCapacity.isEmpty()) {
-                        logger.info(
+                    if (nodesAtMaxCapacity.isEmpty() == false) {
+                        log.info(
                             "[KNN] knn.circuit_breaker.triggered stays set. Nodes at max cache capacity: "
                                 + String.join(",", nodesAtMaxCapacity)
                                 + "."
                         );
                     } else {
-                        logger.info(
-                            "[KNN] Cache capacity below 75% of the circuit breaker limit for all nodes."
-                                + " Unsetting knn.circuit_breaker.triggered flag."
+                        log.info(
+                            "[KNN] Cache capacity below {}% of the circuit breaker limit for all nodes. Unsetting knn.circuit_breaker.triggered flag.",
+                            nativeMemoryCircuitBreakerService.getCircuitBreakerUnsetPercentage()
                         );
                         nativeMemoryCircuitBreakerService.setCircuitBreaker(false);
                     }
                 } catch (Exception e) {
-                    logger.error("[KNN] Exception getting stats: " + e);
+                    log.error("[KNN] Error when trying to update the circuit breaker setting", e);
                 }
             }
         }

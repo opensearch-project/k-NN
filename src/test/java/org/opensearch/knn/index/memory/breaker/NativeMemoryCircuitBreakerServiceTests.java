@@ -37,7 +37,7 @@ import static org.opensearch.knn.index.KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LI
 
 public class NativeMemoryCircuitBreakerServiceTests extends KNNTestCase {
 
-    public void testSetCircuitBreaker() {
+    public void testCircuitBreaker_whenSet_thenCircuitBreakerUpdated() {
         boolean isTriggered = randomBoolean();
         doNothing().when(knnSettings).updateBooleanSetting(KNN_CIRCUIT_BREAKER_TRIGGERED, isTriggered);
         NativeMemoryCircuitBreakerService nativeMemoryCircuitBreakerService = new NativeMemoryCircuitBreakerService(
