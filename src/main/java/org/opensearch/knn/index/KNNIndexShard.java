@@ -43,6 +43,7 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileSu
 public class KNNIndexShard {
     private IndexShard indexShard;
     private NativeMemoryCacheManager nativeMemoryCacheManager;
+    private static final String INDEX_SHARD_CLEAR_CACHE_SEARCHER = "knn-clear-cache";
 
     private static Logger logger = LogManager.getLogger(KNNIndexShard.class);
 
@@ -117,10 +118,11 @@ public class KNNIndexShard {
             indexAllocation = indexAllocationOptional.get();
             indexAllocation.writeLock();
             logger.info("[KNN] Evicting index from cache: [{}]", indexName);
-            try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-clear-cache")) {
+            try (Engine.Searcher searcher = indexShard.acquireSearcher(INDEX_SHARD_CLEAR_CACHE_SEARCHER)) {
                 getAllEnginePaths(searcher.getIndexReader()).forEach((key, value) -> nativeMemoryCacheManager.invalidate(key));
             } catch (IOException ex) {
                 logger.error("[KNN] Failed to evict index from cache: [{}]", indexName);
+                logger.error(ex.getMessage());
                 throw new RuntimeException(ex);
             } finally {
                 indexAllocation.writeUnlock();

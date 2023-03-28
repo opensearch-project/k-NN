@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.9...2.x)
 ### Features
+* Add Clear Cache API ([#740](https://github.com/opensearch-project/k-NN/pull/740))
 ### Enhancements
 * Enabled the IVF algorithm to work with Filters of K-NN Query. [#1013](https://github.com/opensearch-project/k-NN/pull/1013)
 ### Bug Fixes
