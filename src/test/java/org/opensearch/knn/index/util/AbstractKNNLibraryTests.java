@@ -7,7 +7,7 @@ package org.opensearch.knn.index.util;
 
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.common.ValidationException;
-import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
