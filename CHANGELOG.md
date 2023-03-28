@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.6...2.x)
 ### Features
 ### Enhancements
+* Bulk allocate objects for nmslib index creation to avoid malloc fragmentation ([#773](https://github.com/opensearch-project/k-NN/pull/773))
 ### Bug Fixes
 ### Infrastructure
 * Adding filter type to filtering release configs ([#792](https://github.com/opensearch-project/k-NN/pull/792))
