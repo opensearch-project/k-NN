@@ -152,4 +152,28 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         assertEquals(includedFileNames.size(), included.size());
         included.keySet().forEach(o -> assertTrue(includedFileNames.contains(o)));
     }
+
+    public void testClearCache_emptyIndex() throws IOException {
+        IndexService indexService = createKNNIndex(testIndexName);
+        createKnnIndexMapping(testIndexName, testFieldName, dimensions);
+
+        IndexShard indexShard = indexService.iterator().next();
+        KNNIndexShard knnIndexShard = new KNNIndexShard(indexShard);
+        knnIndexShard.clearCache();
+        assertNull(NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName));
+    }
+
+    public void testClearCache_shardPresentInCache() throws InterruptedException, ExecutionException, IOException {
+        IndexService indexService = createKNNIndex(testIndexName);
+        createKnnIndexMapping(testIndexName, testFieldName, dimensions);
+        addKnnDoc(testIndexName, String.valueOf(randomInt()), testFieldName, new Float[] { randomFloat(), randomFloat() });
+
+        IndexShard indexShard = indexService.iterator().next();
+        KNNIndexShard knnIndexShard = new KNNIndexShard(indexShard);
+        knnIndexShard.warmup();
+        assertEquals(1, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
+
+        knnIndexShard.clearCache();
+        assertNull(NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName));
+    }
 }

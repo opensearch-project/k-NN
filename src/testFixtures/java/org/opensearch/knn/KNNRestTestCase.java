@@ -89,6 +89,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.CLEAR_CACHE;
 
 import static org.opensearch.knn.TestUtils.NUMBER_OF_REPLICAS;
 import static org.opensearch.knn.TestUtils.NUMBER_OF_SHARDS;
@@ -571,6 +572,20 @@ public class KNNRestTestCase extends ODFERestTestCase {
     protected Response executeWarmupRequest(List<String> indices, final String baseURI) throws IOException {
         String indicesSuffix = "/" + String.join(",", indices);
         Request request = new Request("GET", baseURI + "/warmup" + indicesSuffix);
+        return client().performRequest(request);
+    }
+
+    /**
+     * Evicts valid k-NN indices from the cache.
+     *
+     * @param indices list of k-NN indices that needs to be removed from cache
+     * @return Response of clear Cache API request
+     * @throws IOException
+     */
+    protected Response clearCache(List<String> indices) throws IOException {
+        String indicesSuffix = String.join(",", indices);
+        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, CLEAR_CACHE, indicesSuffix);
+        Request request = new Request("POST", restURI);
         return client().performRequest(request);
     }
 
