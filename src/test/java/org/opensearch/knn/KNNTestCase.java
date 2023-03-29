@@ -15,7 +15,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.common.bytes.BytesReference;
-import org.opensearch.common.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.test.OpenSearchTestCase;
 
