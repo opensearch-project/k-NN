@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionListenerResponseHandler;
 import org.opensearch.action.search.SearchRequest;
@@ -35,6 +36,7 @@ import static org.opensearch.search.internal.SearchContext.DEFAULT_TERMINATE_AFT
 /**
  * Sends training request to appropriate node
  */
+@Log4j2
 public class TrainingJobRouterTransportAction extends HandledTransportAction<TrainingModelRequest, TrainingModelResponse> {
 
     private final TransportService transportService;
@@ -82,6 +84,7 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
                     return;
                 }
 
+                log.info("Routing training job to node [{}]", node.getId());
                 transportService.sendRequest(
                     node,
                     TrainingModelAction.NAME,

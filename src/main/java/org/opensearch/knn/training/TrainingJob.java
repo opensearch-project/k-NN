@@ -11,8 +11,7 @@
 
 package org.opensearch.knn.training;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.Strings;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.KNNConstants;
@@ -35,17 +34,15 @@ import java.util.Objects;
 /**
  * Encapsulates all information required to generate and train a model.
  */
+@Log4j2
 public class TrainingJob implements Runnable {
-
-    public static Logger logger = LogManager.getLogger(TrainingJob.class);
-
     private final KNNMethodContext knnMethodContext;
     private final NativeMemoryCacheManager nativeMemoryCacheManager;
     private final NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext;
     private final NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext;
     private final Model model;
 
-    private String modelId;
+    private final String modelId;
 
     /**
      * Constructor.
@@ -119,7 +116,7 @@ public class TrainingJob implements Runnable {
             // Acquire lock on allocation -- this will wait until training data is loaded
             trainingDataAllocation.readLock();
         } catch (Exception e) {
-            logger.error("Failed to get training data for model \"" + modelId + "\": " + e.getMessage());
+            log.error("Failed to load training data for model [{}]", modelId, e);
             modelMetadata.setState(ModelState.FAILED);
             modelMetadata.setError(
                 "Failed to load training data into memory. " + "Check if there is enough memory to perform the request."
@@ -141,7 +138,7 @@ public class TrainingJob implements Runnable {
             // Lock until training completes
             modelAnonymousAllocation.readLock();
         } catch (Exception e) {
-            logger.error("Failed to allocate space in native memory for model \"" + modelId + "\": " + e.getMessage());
+            log.error("Failed to allocate space in native memory for model [{}]", modelId, e);
             modelMetadata.setState(ModelState.FAILED);
             modelMetadata.setError(
                 "Failed to allocate space in native memory for the model. " + "Check if there is enough memory to perform the request."
@@ -190,7 +187,7 @@ public class TrainingJob implements Runnable {
             model.setModelBlob(modelBlob);
             modelMetadata.setState(ModelState.CREATED);
         } catch (Exception e) {
-            logger.error("Failed to run training job for model \"" + modelId + "\": " + e.getMessage());
+            log.error("Failed to run training job for model [{}]", modelId, e);
             modelMetadata.setState(ModelState.FAILED);
             modelMetadata.setError(
                 "Failed to execute training. May be caused by an invalid method definition or " + "not enough memory to perform training."

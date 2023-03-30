@@ -11,8 +11,7 @@
 
 package org.opensearch.knn.training;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.common.ValidationException;
@@ -33,10 +32,8 @@ import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
  * TrainingJobRunner is a singleton class responsible for submitting TrainingJobs to the k-NN training pool executor.
  * Capacity of queue and number of threads of the executor can be configured from executor construction (in KNNPlugin).
  */
+@Log4j2
 public class TrainingJobRunner {
-
-    public static Logger logger = LogManager.getLogger(TrainingJobRunner.class);
-
     private static TrainingJobRunner INSTANCE;
     private static ModelDao modelDao;
     private static ThreadPool threadPool;
@@ -99,12 +96,12 @@ public class TrainingJobRunner {
                 // Respond to the request with the initial index response
                 listener.onResponse(indexResponse);
                 train(trainingJob);
-            }, exception -> {
+            }, e -> {
                 // Serialization failed. Let listener handle the exception, but free up resources.
                 jobCount.decrementAndGet();
                 semaphore.release();
-                logger.error("Unable to initialize model serialization: " + exception.getMessage());
-                listener.onFailure(exception);
+                log.error("Unable to initialize model serialization", e);
+                listener.onFailure(e);
             }), false);
         } catch (IOException ioe) {
             jobCount.decrementAndGet();
@@ -118,23 +115,26 @@ public class TrainingJobRunner {
 
         // Listener for update model after training index action
         ActionListener<IndexResponse> loggingListener = ActionListener.wrap(
-            indexResponse -> logger.debug("[KNN] Model serialization update for \"" + trainingJob.getModelId() + "\" was successful"),
+            indexResponse -> log.info("[KNN] Model serialization update for model [{}] was successful", trainingJob.getModelId()),
             e -> {
-                logger.error("[KNN] Model serialization update for \"" + trainingJob.getModelId() + "\" failed: " + e.getMessage());
+                log.error("[KNN] Model serialization update for model [{}] failed", trainingJob.getModelId(), e);
                 KNNCounter.TRAINING_ERRORS.increment();
             }
         );
 
         try {
+            log.info("Submitting job to training thread pool");
             threadPool.executor(TRAIN_THREAD_POOL).execute(() -> {
                 try {
+                    log.info("Running training job for model [{}]", trainingJob.getModelId());
                     trainingJob.run();
+                    log.info("Training job for model [{}] has completed", trainingJob.getModelId());
                     serializeModel(trainingJob, loggingListener, true);
                 } catch (IOException e) {
-                    logger.error("Unable to serialize model \"" + trainingJob.getModelId() + "\": " + e.getMessage());
+                    log.error("Unable to serialize model [{}]", trainingJob.getModelId(), e);
                     KNNCounter.TRAINING_ERRORS.increment();
                 } catch (Exception e) {
-                    logger.error("Unable to complete training for \"" + trainingJob.getModelId() + "\": " + e.getMessage());
+                    log.error("Unable to complete training for [{}]", trainingJob.getModelId(), e);
                     KNNCounter.TRAINING_ERRORS.increment();
                 } finally {
                     jobCount.decrementAndGet();
@@ -142,7 +142,7 @@ public class TrainingJobRunner {
                 }
             });
         } catch (RejectedExecutionException ree) {
-            logger.error("Unable to train model \"" + trainingJob.getModelId() + "\": " + ree.getMessage());
+            log.error("Unable to train model [{}]", trainingJob.getModelId(), ree);
 
             ModelMetadata modelMetadata = trainingJob.getModel().getModelMetadata();
             modelMetadata.setState(ModelState.FAILED);
@@ -151,7 +151,7 @@ public class TrainingJobRunner {
             try {
                 serializeModel(trainingJob, loggingListener, true);
             } catch (IOException ioe) {
-                logger.error("Unable to serialize the failure for model \"" + trainingJob.getModelId() + "\": " + ioe);
+                log.error("Unable to serialize the failure for model  [{}]", trainingJob.getModelId(), ioe);
             } finally {
                 jobCount.decrementAndGet();
                 semaphore.release();
