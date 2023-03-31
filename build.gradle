@@ -322,10 +322,17 @@ task updateVersion {
             }
         }
         ant.replaceregexp(file:'build.gradle', match: '"opensearch.version", "\\d.*"', replace: '"opensearch.version", "' + newVersion.tokenize('-')[0] + '-SNAPSHOT"', flags:'g', byline:true)
-        // Extract the oldBWCVersion from the existing OpenSearch Version (oldBWCVersion = major + (minor-1) + patch)
+
         ext.os_version_without_snapshot = opensearch_version.tokenize('-')[0]
-        ext.oldBWCVersion = os_version_without_snapshot.tokenize('.')[0] + '.' + Integer.toString(Integer.valueOf(os_version_without_snapshot.tokenize('.')[1]) - 1) + '.' + os_version_without_snapshot.tokenize('.')[2]
-        // Include the current OpenSearch Version before version bump to the bwc_version matrix
-        ant.replaceregexp(file:".github/workflows/backwards_compatibility_tests_workflow.yml", match: oldBWCVersion, replace: oldBWCVersion + '", "' + opensearch_version.tokenize('-')[0], flags:'g', byline:true)
+        ext.os_version_major = os_version_without_snapshot.tokenize('.')[0]
+        ext.os_version_minor = os_version_without_snapshot.tokenize('.')[1]
+        ext.os_version_patch = os_version_without_snapshot.tokenize('.')[2]
+        // This condition will check if the BWC workflow is already updated or not and will run next steps if not updated
+        if (!fileTree(".github/workflows/backwards_compatibility_tests_workflow.yml").getSingleFile().text.contains(os_version_without_snapshot)) {
+            // Extract the oldBWCVersion from the existing OpenSearch Version (oldBWCVersion = major . (minor-1) . patch)
+            ext.oldBWCVersion = os_version_major + '.' + Integer.toString(Integer.valueOf(os_version_minor) - 1) + '.' + os_version_patch
+            // Include the current OpenSearch Version before version bump to the bwc_version matrix
+            ant.replaceregexp(file:".github/workflows/backwards_compatibility_tests_workflow.yml", match: oldBWCVersion, replace: oldBWCVersion + '", "' + opensearch_version.tokenize('-')[0], flags:'g', byline:true)
+        }
     }
 }
