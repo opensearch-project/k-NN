@@ -20,7 +20,6 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.plugin.KNNPlugin;
-import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.rest.RestStatus;
 
 import java.util.List;
@@ -107,23 +106,8 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         String deleteModelRestURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
         Request deleteModelRequest = new Request("DELETE", deleteModelRestURI);
 
-        Response deleteModelResponse = client().performRequest(deleteModelRequest);
-        assertEquals(
-            deleteModelRequest.getEndpoint() + ": failed",
-            RestStatus.OK,
-            RestStatus.fromCode(deleteModelResponse.getStatusLine().getStatusCode())
-        );
-
-        responseBody = EntityUtils.toString(deleteModelResponse.getEntity());
-        assertNotNull(responseBody);
-
-        responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
-
-        assertEquals(modelId, responseMap.get(MODEL_ID));
-        assertEquals("failed", responseMap.get(DeleteModelResponse.RESULT));
-
-        String errorMessage = String.format("Cannot delete model \"%s\". Model is still in training", modelId);
-        assertEquals(errorMessage, responseMap.get(DeleteModelResponse.ERROR_MSG));
+        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(deleteModelRequest));
+        assertEquals(RestStatus.CONFLICT.getStatus(), ex.getResponse().getStatusLine().getStatusCode());
 
         // need to wait for training operation as it's required for after test cleanup
         assertTrainingSucceeds(modelId, NUM_OF_ATTEMPTS, DELAY_MILLI_SEC);
@@ -136,7 +120,7 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         Request request = new Request("DELETE", restURI);
 
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getMessage().contains(modelId));
+        assertEquals(RestStatus.NOT_FOUND.getStatus(), ex.getResponse().getStatusLine().getStatusCode());
     }
 
     // Test Train Model -> Delete Model -> Train Model with same modelId
