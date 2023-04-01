@@ -23,6 +23,7 @@ import org.opensearch.common.Strings;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportRequestOptions;
@@ -58,10 +59,15 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
         // Get the size of the training request and then route the request. We get/set this here, as opposed to in
         // TrainingModelTransportAction, because in the future, we may want to use size to factor into our routing
         // decision.
-        getTrainingIndexSizeInKB(request, ActionListener.wrap(size -> {
-            request.setTrainingDataSizeInKB(size);
-            routeRequest(request, listener);
-        }, listener::onFailure));
+        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+            getTrainingIndexSizeInKB(request, ActionListener.wrap(size -> {
+                request.setTrainingDataSizeInKB(size);
+                routeRequest(request, listener);
+            }, listener::onFailure));
+        } catch (Exception e) {
+            logger.error(e);
+            listener.onFailure(e);
+        }
     }
 
     protected void routeRequest(TrainingModelRequest request, ActionListener<TrainingModelResponse> listener) {

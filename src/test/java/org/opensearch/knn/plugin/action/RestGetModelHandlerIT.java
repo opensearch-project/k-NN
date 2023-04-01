@@ -91,14 +91,7 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
 
         createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
         Map<String, Object> method = xContentBuilderToMap(getModelMethodBuilder());
-        ingestDataAndTrainModel(
-            modelId,
-            trainingIndexName,
-            trainingFieldName,
-            dimension,
-            modelDescription,
-            method
-        );
+        ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, method);
         assertTrainingSucceeds(modelId, NUM_OF_ATTEMPTS, DELAY_MILLI_SEC);
 
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
