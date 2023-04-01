@@ -16,8 +16,6 @@ import com.google.common.primitives.Floats;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
-import org.opensearch.client.RestClient;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.common.Strings;
@@ -281,15 +279,5 @@ public class FaissIT extends KNNRestTestCase {
         for (int i = 0; i < k; i++) {
             assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
         }
-    }
-
-    @Override
-    protected Settings restClientSettings() {
-        return noStrictDeprecationModeSettingsBuilder().build();
-    }
-
-    @Override
-    protected RestClient getClient() {
-        return adminClient();
     }
 }

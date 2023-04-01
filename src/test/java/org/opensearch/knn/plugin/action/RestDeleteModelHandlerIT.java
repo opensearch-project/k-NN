@@ -15,20 +15,15 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
-import org.opensearch.client.RestClient;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNRestTestCase;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.rest.RestStatus;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
@@ -49,55 +44,85 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class RestDeleteModelHandlerIT extends KNNRestTestCase {
 
-    private ModelMetadata getModelMetadata() {
-        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED, "2021-03-27", "test model", "");
-    }
-
     public void testDeleteModelExists() throws Exception {
         createModelSystemIndex();
-        String testModelID = "test-model-id";
-        byte[] testModelBlob = "hello".getBytes();
-        ModelMetadata testModelMetadata = getModelMetadata();
 
-        addModelToSystemIndex(testModelID, testModelMetadata, testModelBlob);
-        assertEquals(getDocCountFromSystemIndex(MODEL_INDEX_NAME), 1);
+        String modelId = "test-model-id";
+        String trainingIndexName = "train-index";
+        String trainingFieldName = "train-field";
+        int dimension = 8;
+        String modelDescription = "dummy description";
 
-        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, testModelID);
-        Request request = new Request("DELETE", restURI);
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription);
+        assertTrainingSucceeds(modelId, NUM_OF_ATTEMPTS, DELAY_MILLI_SEC);
 
-        Response response = getClient().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        Response getModelResponse = getModel(modelId, List.of());
+        assertEquals(RestStatus.OK, RestStatus.fromCode(getModelResponse.getStatusLine().getStatusCode()));
 
-        assertEquals(0, getDocCountFromSystemIndex(MODEL_INDEX_NAME));
-    }
-
-    public void testDeleteTrainingModel() throws Exception {
-        createModelSystemIndex();
-        String testModelID = "test-model-id";
-        byte[] testModelBlob = "hello".getBytes();
-        ModelMetadata testModelMetadata = getModelMetadata();
-        testModelMetadata.setState(ModelState.TRAINING);
-
-        addModelToSystemIndex(testModelID, testModelMetadata, testModelBlob);
-        assertEquals(1, getDocCountFromSystemIndex(MODEL_INDEX_NAME));
-
-        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, testModelID);
-        Request request = new Request("DELETE", restURI);
-
-        Response response = getClient().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-        assertEquals(1, getDocCountFromSystemIndex(MODEL_INDEX_NAME));
-
-        String responseBody = EntityUtils.toString(response.getEntity());
+        String responseBody = EntityUtils.toString(getModelResponse.getEntity());
         assertNotNull(responseBody);
 
         Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
 
-        assertEquals(testModelID, responseMap.get(MODEL_ID));
+        assertEquals(modelId, responseMap.get(MODEL_ID));
+
+        String deleteModelRestURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
+        Request deleteModelRequest = new Request("DELETE", deleteModelRestURI);
+
+        Response deleteModelResponse = client().performRequest(deleteModelRequest);
+        assertEquals(
+            deleteModelRequest.getEndpoint() + ": failed",
+            RestStatus.OK,
+            RestStatus.fromCode(deleteModelResponse.getStatusLine().getStatusCode())
+        );
+
+        ResponseException ex = expectThrows(ResponseException.class, () -> getModel(modelId, List.of()));
+        assertTrue(ex.getMessage().contains("\"" + modelId + "\""));
+    }
+
+    public void testDeleteTrainingModel() throws Exception {
+        createModelSystemIndex();
+
+        String modelId = "test-model-id";
+        String trainingIndexName = "train-index";
+        String trainingFieldName = "train-field";
+        int dimension = 8;
+        String modelDescription = "dummy description";
+
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        // we do not wait for training to be completed
+        ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription);
+
+        Response getModelResponse = getModel(modelId, List.of());
+        assertEquals(RestStatus.OK, RestStatus.fromCode(getModelResponse.getStatusLine().getStatusCode()));
+
+        String responseBody = EntityUtils.toString(getModelResponse.getEntity());
+        assertNotNull(responseBody);
+
+        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+
+        assertEquals(modelId, responseMap.get(MODEL_ID));
+
+        String deleteModelRestURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
+        Request deleteModelRequest = new Request("DELETE", deleteModelRestURI);
+
+        Response deleteModelResponse = client().performRequest(deleteModelRequest);
+        assertEquals(
+            deleteModelRequest.getEndpoint() + ": failed",
+            RestStatus.OK,
+            RestStatus.fromCode(deleteModelResponse.getStatusLine().getStatusCode())
+        );
+
+        responseBody = EntityUtils.toString(deleteModelResponse.getEntity());
+        assertNotNull(responseBody);
+
+        responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+
+        assertEquals(modelId, responseMap.get(MODEL_ID));
         assertEquals("failed", responseMap.get(DeleteModelResponse.RESULT));
 
-        String errorMessage = String.format("Cannot delete model \"%s\". Model is still in training", testModelID);
+        String errorMessage = String.format("Cannot delete model \"%s\". Model is still in training", modelId);
         assertEquals(errorMessage, responseMap.get(DeleteModelResponse.ERROR_MSG));
     }
 
@@ -107,7 +132,7 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
         Request request = new Request("DELETE", restURI);
 
-        ResponseException ex = expectThrows(ResponseException.class, () -> getClient().performRequest(request));
+        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
         assertTrue(ex.getMessage().contains(modelId));
     }
 
@@ -126,7 +151,7 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
         Request request = new Request("DELETE", restURI);
 
-        Response response = getClient().performRequest(request);
+        Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         assertEquals(0, getDocCount(MODEL_INDEX_NAME));
@@ -201,13 +226,4 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         assertTrainingSucceeds(modelId, 30, 1000);
     }
 
-    @Override
-    protected RestClient getClient() {
-        return adminClient();
-    }
-
-    @Override
-    protected Settings restClientSettings() {
-        return noStrictDeprecationModeSettingsBuilder().build();
-    }
 }

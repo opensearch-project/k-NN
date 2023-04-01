@@ -351,9 +351,9 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
             // Check that model health status is null since model index is not created to system yet
             assertNull(statsMap.get(StatNames.MODEL_INDEX_STATUS.getName()));
-        }
 
-        createModelSystemIndex();
+            createModelSystemIndex();
+        }
 
         Response response = getKnnStats(Collections.emptyList(), Arrays.asList(modelIndexStatusName));
 
@@ -418,7 +418,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
         createKnnIndex(TEST_INDEX, modelIndexMapping(FIELD_NAME, TEST_MODEL_ID));
 
-        addKNNDocs(TEST_INDEX, FIELD_NAME, DIMENSION, DOC_ID, NUM_DOCS, () -> adminClient());
+        addKNNDocs(TEST_INDEX, FIELD_NAME, DIMENSION, DOC_ID, NUM_DOCS);
 
         final Response response = getKnnStats(Collections.emptyList(), Collections.emptyList());
         final String responseBody = EntityUtils.toString(response.getEntity());
@@ -480,10 +480,10 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
     // Useful settings when debugging to prevent timeouts
     @Override
     protected Settings restClientSettings() {
-        final Settings.Builder builder = noStrictDeprecationModeSettingsBuilder();
         if (isDebuggingTest || isDebuggingRemoteCluster) {
-            builder.put(CLIENT_SOCKET_TIMEOUT, TimeValue.timeValueMinutes(10));
+            return Settings.builder().put(CLIENT_SOCKET_TIMEOUT, TimeValue.timeValueMinutes(10)).build();
+        } else {
+            return super.restClientSettings();
         }
-        return builder.build();
     }
 }

@@ -205,7 +205,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
             for (Map<String, Object> index : parserList) {
                 final String indexName = (String) index.get("index");
                 if (isIndexCleanupRequired(indexName)) {
-                    wipeIndexContent(MODEL_INDEX_NAME);
+                    wipeIndexContent(indexName);
                     continue;
                 }
                 if (!skipDeleteIndex(indexName)) {

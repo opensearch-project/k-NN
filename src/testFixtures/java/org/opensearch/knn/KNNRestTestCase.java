@@ -10,10 +10,8 @@ import com.google.common.io.Resources;
 import com.google.common.primitives.Floats;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.opensearch.client.RestClient;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
-import org.opensearch.index.IndexSettings;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
@@ -23,6 +21,7 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.opensearch.client.Request;
@@ -39,7 +38,6 @@ import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.script.Script;
 import org.opensearch.search.aggregations.metrics.ScriptedMetricAggregationBuilder;
-import org.opensearch.test.rest.OpenSearchRestTestCase;
 
 import javax.management.MBeanServerInvocationHandler;
 import javax.management.MalformedObjectNameException;
@@ -63,12 +61,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
@@ -96,7 +97,9 @@ import static org.opensearch.knn.TestUtils.FIELD;
 import static org.opensearch.knn.TestUtils.QUERY_VALUE;
 import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
 
+import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
+import static org.opensearch.knn.index.util.KNNEngine.FAISS;
 import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 
 /**
@@ -107,6 +110,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
     public static final String FIELD_NAME = "test_field";
     private static final String DOCUMENT_FIELD_SOURCE = "_source";
     private static final String DOCUMENT_FIELD_FOUND = "found";
+    protected static final int DELAY_MILLI_SEC = 1000;
+    protected static final int NUM_OF_ATTEMPTS = 30;
 
     @AfterClass
     public static void dumpCoverage() throws IOException, MalformedObjectNameException {
@@ -142,14 +147,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Create KNN Index with default settings
      */
     protected void createKnnIndex(String index, String mapping) throws IOException {
-        createKnnIndex(index, getKNNDefaultIndexSettings(), mapping);
+        createIndex(index, getKNNDefaultIndexSettings());
+        putMappingRequest(index, mapping);
     }
 
     /**
      * Create KNN Index
      */
     protected void createKnnIndex(String index, Settings settings, String mapping) throws IOException {
-        createIndex(index, mapping.substring(1, mapping.length() - 1), settings);
+        createIndex(index, settings);
+        putMappingRequest(index, mapping);
     }
 
     protected void createBasicKnnIndex(String index, String fieldName, int dimension) throws IOException {
@@ -166,20 +173,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         );
 
         mapping = mapping.substring(1, mapping.length() - 1);
-
-        Settings settings = Settings.EMPTY;
-        createIndex(index, mapping, settings);
-    }
-
-    private static void createIndex(String index, String mapping, Settings settings) throws IOException {
-        String restURI = String.join("/", index);
-        Request request = new Request("PUT", restURI);
-        String entity = "{\"settings\": " + Strings.toString(XContentType.JSON, settings) + ",\"mappings\" : {" + mapping + "}" + "}";
-        if (!settings.getAsBoolean(IndexSettings.INDEX_SOFT_DELETES_SETTING.getKey(), true)) {
-            expectSoftDeletesWarning(request, index);
-        }
-        request.setJsonEntity(entity);
-        client().performRequest(request);
+        createIndex(index, Settings.EMPTY, mapping);
     }
 
     /**
@@ -197,7 +191,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         request.addParameter("search_type", "query_then_fetch");
         request.setJsonEntity(Strings.toString(builder));
 
-        Response response = getClient().performRequest(request);
+        Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         return response;
@@ -362,7 +356,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     public Map<String, Object> getIndexMappingAsMap(String index) throws Exception {
         Request request = new Request("GET", "/" + index + "/_mapping");
 
-        Response response = getClient().performRequest(request);
+        Response response = client().performRequest(request);
 
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
@@ -374,17 +368,9 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     public int getDocCount(String indexName) throws Exception {
-        return getDocCountWithClient(indexName, client());
-    }
-
-    public int getDocCountFromSystemIndex(String indexName) throws Exception {
-        return getDocCountWithClient(indexName, adminClient());
-    }
-
-    private int getDocCountWithClient(String indexName, RestClient client) throws Exception {
         Request request = new Request("GET", "/" + indexName + "/_count");
 
-        Response response = client.performRequest(request);
+        Response response = client().performRequest(request);
 
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
@@ -416,19 +402,14 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Add a single KNN Doc to an index
      */
     protected void addKnnDoc(String index, String docId, String fieldName, Object[] vector) throws IOException {
-        addKnnDoc(index, docId, fieldName, vector, this::getClient);
-    }
-
-    protected void addKnnDoc(String index, String docId, String fieldName, Object[] vector, Supplier<RestClient> restClientSupplier)
-        throws IOException {
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vector).endObject();
         request.setJsonEntity(Strings.toString(builder));
-        restClientSupplier.get().performRequest(request);
+        client().performRequest(request);
 
         request = new Request("POST", "/" + index + "/_refresh");
-        Response response = restClientSupplier.get().performRequest(request);
+        Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
@@ -445,7 +426,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         builder.endObject();
 
         request.setJsonEntity(Strings.toString(builder));
-        Response response = getClient().performRequest(request);
+        Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.CREATED, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
@@ -489,7 +470,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         request.setJsonEntity(Strings.toString(builder));
 
-        Response response = getClient().performRequest(request);
+        Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
@@ -500,7 +481,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         // Put KNN mapping
         Request request = new Request("DELETE", "/" + index + "/_doc/" + docId + "?refresh");
 
-        Response response = getClient().performRequest(request);
+        Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
@@ -692,7 +673,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         request.setJsonEntity(Strings.toString(builder));
 
-        Response response = adminClient().performRequest(request);
+        Response response = client().performRequest(request);
 
         assertEquals(request.getEndpoint() + ": failed", RestStatus.CREATED, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
@@ -926,21 +907,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     // Add KNN docs into a KNN index by providing the initial documentID and number of documents
     public void addKNNDocs(String testIndex, String testField, int dimension, int firstDocID, int numDocs) throws IOException {
-        addKNNDocs(testIndex, testField, dimension, firstDocID, numDocs, this::getClient);
-    }
-
-    protected void addKNNDocs(
-        String testIndex,
-        String testField,
-        int dimension,
-        int firstDocID,
-        int numDocs,
-        Supplier<RestClient> restClientSupplier
-    ) throws IOException {
         for (int i = firstDocID; i < firstDocID + numDocs; i++) {
             Float[] indexVector = new Float[dimension];
             Arrays.fill(indexVector, (float) i);
-            addKnnDoc(testIndex, Integer.toString(i), testField, indexVector, restClientSupplier);
+            addKnnDoc(testIndex, Integer.toString(i), testField, indexVector);
         }
     }
 
@@ -1109,26 +1079,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Map<String, Object> method,
         String description
     ) throws IOException {
-        return trainModel(
-            modelId,
-            trainingIndexName,
-            trainingFieldName,
-            dimension,
-            method,
-            description,
-            OpenSearchRestTestCase::adminClient
-        );
-    }
-
-    protected Response trainModel(
-        String modelId,
-        String trainingIndexName,
-        String trainingFieldName,
-        int dimension,
-        Map<String, Object> method,
-        String description,
-        Supplier<RestClient> restClientSupplier
-    ) throws IOException {
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
@@ -1147,7 +1097,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         Request request = new Request("POST", "/_plugins/_knn/models" + modelId + "/_train");
         request.setJsonEntity(Strings.toString(builder));
-        return restClientSupplier.get().performRequest(request);
+        return client().performRequest(request);
     }
 
     /**
@@ -1159,19 +1109,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * @throws IOException if request cannot be performed
      */
     public Response getModel(String modelId, List<String> filters) throws IOException {
-        return getModel(modelId, filters, OpenSearchRestTestCase::adminClient);
-    }
-
-    /**
-     * Retrieve the model
-     *
-     * @param modelId Id of model to be retrieved
-     * @param filters filters to filter fields out. If null, no filters will
-     * @param restClientSupplier supplier function for client that executes rest requests
-     * @return Response from cluster
-     * @throws IOException if request cannot be performed
-     */
-    public Response getModel(String modelId, List<String> filters, Supplier<RestClient> restClientSupplier) throws IOException {
 
         if (modelId == null) {
             modelId = "";
@@ -1187,7 +1124,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         Request request = new Request("GET", "/_plugins/_knn/models" + modelId + filterString);
 
-        return restClientSupplier.get().performRequest(request);
+        return client().performRequest(request);
     }
 
     public void assertTrainingSucceeds(String modelId, int attempts, int delayInMillis) throws InterruptedException, Exception {
@@ -1243,16 +1180,76 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return RestStatus.OK.getStatus() == response.getStatusLine().getStatusCode();
     }
 
-    protected RestClient getClient() {
-        return client();
-    }
-
     protected Settings.Builder noStrictDeprecationModeSettingsBuilder() {
         Settings.Builder builder = Settings.builder().put("strictDeprecationMode", false);
         if (System.getProperty("tests.rest.client_path_prefix") != null) {
             builder.put(CLIENT_PATH_PREFIX, System.getProperty("tests.rest.client_path_prefix"));
         }
         return builder;
+    }
+
+    protected void ingestDataAndTrainModel(
+        String modelId,
+        String trainingIndexName,
+        String trainingFieldName,
+        int dimension,
+        String modelDescription
+    ) throws Exception {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, "ivf")
+            .field(KNN_ENGINE, "faiss")
+            .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 1)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "pq")
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+            .field(ENCODER_PARAMETER_PQ_M, 2)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Map<String, Object> method = xContentBuilderToMap(builder);
+        ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, method);
+    }
+
+    protected void ingestDataAndTrainModel(
+        String modelId,
+        String trainingIndexName,
+        String trainingFieldName,
+        int dimension,
+        String modelDescription,
+        Map<String, Object> method
+    ) throws Exception {
+        int trainingDataCount = 40;
+        bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
+
+        Response trainResponse = trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, modelDescription);
+
+        assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
+    }
+
+    protected XContentBuilder getModelMethodBuilder() throws IOException {
+        XContentBuilder modelMethodBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, "ivf")
+            .field(KNN_ENGINE, FAISS.getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, L2.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 1)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "pq")
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+            .field(ENCODER_PARAMETER_PQ_M, 2)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        return modelMethodBuilder;
     }
 
     /**
