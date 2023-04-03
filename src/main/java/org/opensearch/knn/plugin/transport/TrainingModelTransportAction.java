@@ -84,6 +84,8 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
             KNNCounter.TRAINING_ERRORS.increment();
             listener.onFailure(ex);
         });
+        // temporary setting thread context to default, this is needed to allow actions on model system index when security plugin is
+        // enabled
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             TrainingJobRunner.getInstance()
                 .execute(

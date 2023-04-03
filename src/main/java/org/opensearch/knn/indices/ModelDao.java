@@ -363,6 +363,8 @@ public interface ModelDao {
             /*
                 GET /<model_index>/<modelId>?_local
             */
+            // temporary setting thread context to default, this is needed to allow actions on model system index when security plugin is
+            // enabled
             try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
                 GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE, MODEL_INDEX_NAME).setId(modelId)
                     .setPreference("_local");
@@ -407,6 +409,8 @@ public interface ModelDao {
          */
         @Override
         public void search(SearchRequest request, ActionListener<SearchResponse> actionListener) {
+            // temporary setting thread context to default, this is needed to allow actions on model system index when security plugin is
+            // enabled
             try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
                 request.indices(MODEL_INDEX_NAME);
                 client.search(request, actionListener);

@@ -35,11 +35,12 @@ public class DeleteModelTransportAction extends HandledTransportAction<DeleteMod
 
     @Override
     protected void doExecute(Task task, DeleteModelRequest request, ActionListener<DeleteModelResponse> listener) {
+        // temporary setting thread context to default, this is needed to allow actions on model system index when security plugin is
+        // enabled
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             String modelID = request.getModelID();
             modelDao.delete(modelID, listener);
         } catch (Exception e) {
-            logger.error(e);
             listener.onFailure(e);
         }
     }

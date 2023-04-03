@@ -59,13 +59,14 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
         // Get the size of the training request and then route the request. We get/set this here, as opposed to in
         // TrainingModelTransportAction, because in the future, we may want to use size to factor into our routing
         // decision.
+        // temporary setting thread context to default, this is needed to allow actions on model system index when security plugin is
+        // enabled
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             getTrainingIndexSizeInKB(request, ActionListener.wrap(size -> {
                 request.setTrainingDataSizeInKB(size);
                 routeRequest(request, listener);
             }, listener::onFailure));
         } catch (Exception e) {
-            logger.error(e);
             listener.onFailure(e);
         }
     }

@@ -40,12 +40,13 @@ public class GetModelTransportAction extends HandledTransportAction<GetModelRequ
 
     @Override
     protected void doExecute(Task task, GetModelRequest request, ActionListener<GetModelResponse> actionListener) {
+        // temporary setting thread context to default, this is needed to allow actions on model system index when security plugin is
+        // enabled
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             String modelID = request.getModelID();
 
             modelDao.get(modelID, actionListener);
         } catch (Exception e) {
-            logger.error(e);
             actionListener.onFailure(e);
         }
     }

@@ -39,10 +39,11 @@ public class SearchModelTransportAction extends HandledTransportAction<SearchReq
 
     @Override
     protected void doExecute(Task task, SearchRequest request, ActionListener<SearchResponse> listener) {
+        // temporary setting thread context to default, this is needed to allow actions on model system index when security plugin is
+        // enabled
         try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
             this.modelDao.search(request, listener);
         } catch (IOException e) {
-            logger.error(e);
             listener.onFailure(e);
         }
     }
