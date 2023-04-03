@@ -78,7 +78,7 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         );
 
         ResponseException ex = expectThrows(ResponseException.class, () -> getModel(modelId, List.of()));
-        assertTrue(ex.getMessage().contains("\"" + modelId + "\""));
+        assertTrue(ex.getMessage().contains(modelId));
     }
 
     public void testDeleteTrainingModel() throws Exception {
@@ -124,6 +124,9 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
 
         String errorMessage = String.format("Cannot delete model \"%s\". Model is still in training", modelId);
         assertEquals(errorMessage, responseMap.get(DeleteModelResponse.ERROR_MSG));
+
+        // need to wait for training operation as it's required for after test cleanup
+        assertTrainingSucceeds(modelId, NUM_OF_ATTEMPTS, DELAY_MILLI_SEC);
     }
 
     public void testDeleteModelFailsInvalid() throws Exception {
