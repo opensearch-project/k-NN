@@ -14,10 +14,8 @@ package org.opensearch.knn.plugin.transport;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
@@ -36,18 +34,10 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
 
     private final ClusterService clusterService;
 
-    private final Client client;
-
     @Inject
-    public TrainingModelTransportAction(
-        TransportService transportService,
-        ActionFilters actionFilters,
-        ClusterService clusterService,
-        Client client
-    ) {
+    public TrainingModelTransportAction(TransportService transportService, ActionFilters actionFilters, ClusterService clusterService) {
         super(TrainingModelAction.NAME, transportService, actionFilters, TrainingModelRequest::new);
         this.clusterService = clusterService;
-        this.client = client;
     }
 
     @Override
@@ -84,9 +74,8 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
             KNNCounter.TRAINING_ERRORS.increment();
             listener.onFailure(ex);
         });
-        // temporary setting thread context to default, this is needed to allow actions on model system index when security plugin is
-        // enabled
-        try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+
+        try {
             TrainingJobRunner.getInstance()
                 .execute(
                     trainingJob,

@@ -217,14 +217,20 @@ public interface ModelDao {
             if (isCreated()) {
                 return;
             }
-            CreateIndexRequest request = new CreateIndexRequest(MODEL_INDEX_NAME).mapping(getMapping())
-                .settings(
-                    Settings.builder()
-                        .put("index.hidden", true)
-                        .put("index.number_of_shards", this.numberOfShards)
-                        .put("index.number_of_replicas", this.numberOfReplicas)
-                );
-            client.admin().indices().create(request, actionListener);
+            // temporary setting thread context to default, this is needed to allow actions on model system index
+            // when security plugin is enabled
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                CreateIndexRequest request = new CreateIndexRequest(MODEL_INDEX_NAME).mapping(getMapping())
+                    .settings(
+                        Settings.builder()
+                            .put("index.hidden", true)
+                            .put("index.number_of_shards", this.numberOfShards)
+                            .put("index.number_of_replicas", this.numberOfReplicas)
+                    );
+                client.admin().indices().create(request, actionListener);
+            } catch (Exception e) {
+                actionListener.onFailure(e);
+            }
         }
 
         @Override
@@ -294,7 +300,12 @@ public interface ModelDao {
                 parameters.put(KNNConstants.MODEL_BLOB_PARAMETER, base64Model);
             }
 
-            IndexRequestBuilder indexRequestBuilder = client.prepareIndex(MODEL_INDEX_NAME);
+            IndexRequestBuilder indexRequestBuilder;
+            // temporary setting thread context to default, this is needed to allow actions on model system index
+            // when security plugin is enabled
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                indexRequestBuilder = client.prepareIndex(MODEL_INDEX_NAME);
+            }
 
             indexRequestBuilder.setId(model.getModelID());
             indexRequestBuilder.setSource(parameters);
@@ -305,23 +316,28 @@ public interface ModelDao {
             // After metadata update finishes, remove item from every node's cache if necessary. If no model id is
             // passed then nothing needs to be removed from the cache
             ActionListener<IndexResponse> onMetaListener;
-            onMetaListener = ActionListener.wrap(
-                indexResponse -> client.execute(
-                    RemoveModelFromCacheAction.INSTANCE,
-                    new RemoveModelFromCacheRequest(model.getModelID()),
-                    ActionListener.wrap(removeModelFromCacheResponse -> {
-                        if (!removeModelFromCacheResponse.hasFailures()) {
-                            listener.onResponse(indexResponse);
-                            return;
-                        }
+            onMetaListener = ActionListener.wrap(indexResponse -> {
+                // temporary setting thread context to default, this is needed to allow actions on model system index
+                // when security plugin is enabled
+                try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                    client.execute(
+                        RemoveModelFromCacheAction.INSTANCE,
+                        new RemoveModelFromCacheRequest(model.getModelID()),
+                        ActionListener.wrap(removeModelFromCacheResponse -> {
+                            if (!removeModelFromCacheResponse.hasFailures()) {
+                                listener.onResponse(indexResponse);
+                                return;
+                            }
 
-                        String failureMessage = buildRemoveModelErrorMessage(model.getModelID(), removeModelFromCacheResponse);
+                            String failureMessage = buildRemoveModelErrorMessage(model.getModelID(), removeModelFromCacheResponse);
 
-                        listener.onFailure(new RuntimeException(failureMessage));
-                    }, listener::onFailure)
-                ),
-                listener::onFailure
-            );
+                            listener.onFailure(new RuntimeException(failureMessage));
+                        }, listener::onFailure)
+                    );
+                } catch (Exception e) {
+                    listener.onFailure(e);
+                }
+            }, listener::onFailure);
 
             // After the model is indexed, update metadata only if the model is in CREATED state
             ActionListener<IndexResponse> onIndexListener;
@@ -346,16 +362,20 @@ public interface ModelDao {
             ModelMetadata modelMetadata,
             ActionListener<IndexResponse> listener
         ) {
-            return ActionListener.wrap(
-                indexResponse -> client.execute(
-                    UpdateModelMetadataAction.INSTANCE,
-                    new UpdateModelMetadataRequest(indexResponse.getId(), false, modelMetadata),
-                    // Here we wrap the IndexResponse listener around an AcknowledgedListener. This allows us
-                    // to pass the indexResponse back up.
-                    ActionListener.wrap(acknowledgedResponse -> listener.onResponse(indexResponse), listener::onFailure)
-                ),
-                listener::onFailure
-            );
+            // temporary setting thread context to default, this is needed to allow actions on model system index
+            // when security plugin is enabled
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                return ActionListener.wrap(
+                    indexResponse -> client.execute(
+                        UpdateModelMetadataAction.INSTANCE,
+                        new UpdateModelMetadataRequest(indexResponse.getId(), false, modelMetadata),
+                        // Here we wrap the IndexResponse listener around an AcknowledgedListener. This allows us
+                        // to pass the indexResponse back up.
+                        ActionListener.wrap(acknowledgedResponse -> listener.onResponse(indexResponse), listener::onFailure)
+                    ),
+                    listener::onFailure
+                );
+            }
         }
 
         @Override
@@ -385,20 +405,26 @@ public interface ModelDao {
             /*
                 GET /<model_index>/<modelId>?_local
             */
-            GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE, MODEL_INDEX_NAME).setId(modelId)
-                .setPreference("_local");
+            // temporary setting thread context to default, this is needed to allow actions on model system index
+            // when security plugin is enabled
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE, MODEL_INDEX_NAME).setId(modelId)
+                    .setPreference("_local");
 
-            getRequestBuilder.execute(ActionListener.wrap(response -> {
-                if (response.isSourceEmpty()) {
-                    String errorMessage = String.format("Model \" %s \" does not exist", modelId);
-                    actionListener.onFailure(new ResourceNotFoundException(modelId, errorMessage));
-                    return;
-                }
-                final Map<String, Object> responseMap = response.getSourceAsMap();
-                Model model = Model.getModelFromSourceMap(responseMap);
-                actionListener.onResponse(new GetModelResponse(model));
+                getRequestBuilder.execute(ActionListener.wrap(response -> {
+                    if (response.isSourceEmpty()) {
+                        String errorMessage = String.format("Model \" %s \" does not exist", modelId);
+                        actionListener.onFailure(new ResourceNotFoundException(modelId, errorMessage));
+                        return;
+                    }
+                    final Map<String, Object> responseMap = response.getSourceAsMap();
+                    Model model = Model.getModelFromSourceMap(responseMap);
+                    actionListener.onResponse(new GetModelResponse(model));
 
-            }, actionListener::onFailure));
+                }, actionListener::onFailure));
+            } catch (Exception e) {
+                actionListener.onFailure(e);
+            }
         }
 
         /**
@@ -514,28 +540,34 @@ public interface ModelDao {
             );
 
             // Setup delete model request
-            DeleteRequestBuilder deleteRequestBuilder = new DeleteRequestBuilder(client, DeleteAction.INSTANCE, MODEL_INDEX_NAME);
-            deleteRequestBuilder.setId(modelId);
-            deleteRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+            // temporary setting thread context to default, this is needed to allow actions on model system index
+            // when security plugin is enabled
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                DeleteRequestBuilder deleteRequestBuilder = new DeleteRequestBuilder(client, DeleteAction.INSTANCE, MODEL_INDEX_NAME);
+                deleteRequestBuilder.setId(modelId);
+                deleteRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
 
-            // On model metadata removal, delete the model from the index
-            clearModelMetadataStep.whenComplete(
-                acknowledgedResponse -> deleteModelFromIndex(modelId, deleteModelFromIndexStep, deleteRequestBuilder),
-                listener::onFailure
-            );
+                // On model metadata removal, delete the model from the index
+                clearModelMetadataStep.whenComplete(
+                    acknowledgedResponse -> deleteModelFromIndex(modelId, deleteModelFromIndexStep, deleteRequestBuilder),
+                    listener::onFailure
+                );
 
-            deleteModelFromIndexStep.whenComplete(deleteResponse -> {
-                // If model is not deleted, remove modelId from model graveyard and return with error message
-                if (deleteResponse.getResult() != DocWriteResponse.Result.DELETED) {
-                    updateModelGraveyardToDelete(modelId, true, unblockModelIdStep, Optional.empty());
-                    String errorMessage = String.format("Model \" %s \" does not exist", modelId);
-                    listener.onResponse(new DeleteModelResponse(modelId, deleteResponse.getResult().getLowercase(), errorMessage));
-                    return;
-                }
+                deleteModelFromIndexStep.whenComplete(deleteResponse -> {
+                    // If model is not deleted, remove modelId from model graveyard and return with error message
+                    if (deleteResponse.getResult() != DocWriteResponse.Result.DELETED) {
+                        updateModelGraveyardToDelete(modelId, true, unblockModelIdStep, Optional.empty());
+                        String errorMessage = String.format("Model \" %s \" does not exist", modelId);
+                        listener.onResponse(new DeleteModelResponse(modelId, deleteResponse.getResult().getLowercase(), errorMessage));
+                        return;
+                    }
 
-                // After model is deleted from the index, make sure the model is evicted from every cache in the cluster
-                removeModelFromCache(modelId, clearModelFromCacheStep);
-            }, e -> listener.onFailure(new OpenSearchException(e)));
+                    // After model is deleted from the index, make sure the model is evicted from every cache in the cluster
+                    removeModelFromCache(modelId, clearModelFromCacheStep);
+                }, e -> listener.onFailure(new OpenSearchException(e)));
+            } catch (Exception e) {
+                listener.onFailure(e);
+            }
 
             clearModelFromCacheStep.whenComplete(removeModelFromCacheResponse -> {
 
@@ -592,59 +624,76 @@ public interface ModelDao {
             StepListener<AcknowledgedResponse> step,
             Optional<Exception> exception
         ) {
+            // temporary setting thread context to default, this is needed to allow actions on model system index
+            // when security plugin is enabled
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                client.execute(
+                    UpdateModelGraveyardAction.INSTANCE,
+                    new UpdateModelGraveyardRequest(modelId, isRemoveRequest),
+                    ActionListener.wrap(acknowledgedResponse -> {
+                        if (exception.isEmpty()) {
+                            step.onResponse(acknowledgedResponse);
+                            return;
+                        }
+                        throw exception.get();
 
-            client.execute(
-                UpdateModelGraveyardAction.INSTANCE,
-                new UpdateModelGraveyardRequest(modelId, isRemoveRequest),
-                ActionListener.wrap(acknowledgedResponse -> {
-                    if (exception.isEmpty()) {
-                        step.onResponse(acknowledgedResponse);
-                        return;
-                    }
-                    throw exception.get();
+                    }, e -> {
+                        // If it fails to remove the modelId from Model Graveyard, then log the error message
+                        String errorMessage = String.format("Failed to remove \" %s \" from Model Graveyard", modelId);
+                        String failureMessage = String.format("%s%s%s", errorMessage, "\n", e.getMessage());
+                        logger.error(failureMessage);
 
-                }, e -> {
-                    // If it fails to remove the modelId from Model Graveyard, then log the error message
-                    String errorMessage = String.format("Failed to remove \" %s \" from Model Graveyard", modelId);
-                    String failureMessage = String.format("%s%s%s", errorMessage, "\n", e.getMessage());
-                    logger.error(failureMessage);
-
-                    if (exception.isEmpty()) {
-                        step.onFailure(e);
-                        return;
-                    }
-                    step.onFailure(exception.get());
-                })
-            );
+                        if (exception.isEmpty()) {
+                            step.onFailure(e);
+                            return;
+                        }
+                        step.onFailure(exception.get());
+                    })
+                );
+            } catch (Exception e) {
+                step.onFailure(e);
+            }
         }
 
         // Clear the metadata of the model for a given modelId
         private void clearModelMetadata(String modelId, StepListener<AcknowledgedResponse> clearModelMetadataStep) {
-            client.execute(
-                UpdateModelMetadataAction.INSTANCE,
-                new UpdateModelMetadataRequest(modelId, true, null),
-                ActionListener.wrap(
-                    clearModelMetadataStep::onResponse,
-                    exception -> removeModelIdFromGraveyardOnFailure(modelId, exception, clearModelMetadataStep)
-                )
-            );
+            // temporary setting thread context to default, this is needed to allow actions on model system index
+            // when security plugin is enabled
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                client.execute(
+                    UpdateModelMetadataAction.INSTANCE,
+                    new UpdateModelMetadataRequest(modelId, true, null),
+                    ActionListener.wrap(
+                        clearModelMetadataStep::onResponse,
+                        exception -> removeModelIdFromGraveyardOnFailure(modelId, exception, clearModelMetadataStep)
+                    )
+                );
+            } catch (Exception e) {
+                clearModelMetadataStep.onFailure(e);
+            }
         }
 
         // This function helps to remove the model from model graveyard and return the exception from previous step
         // when the delete request fails while executing after adding modelId to model graveyard
         private void removeModelIdFromGraveyardOnFailure(String modelId, Exception exceptionFromPreviousStep, StepListener<?> step) {
-            client.execute(
-                UpdateModelGraveyardAction.INSTANCE,
-                new UpdateModelGraveyardRequest(modelId, true),
-                ActionListener.wrap(acknowledgedResponse -> { throw exceptionFromPreviousStep; }, unblockingFailedException -> {
-                    // If it fails to remove the modelId from Model Graveyard, then log the error message and
-                    // throw the exception that was passed as a parameter from previous step
-                    String errorMessage = String.format("Failed to remove \" %s \" from Model Graveyard", modelId);
-                    String failureMessage = String.format("%s%s%s", errorMessage, "\n", unblockingFailedException.getMessage());
-                    logger.error(failureMessage);
-                    step.onFailure(exceptionFromPreviousStep);
-                })
-            );
+            // temporary setting thread context to default, this is needed to allow actions on model system index
+            // when security plugin is enabled
+            try (ThreadContext.StoredContext context = client.threadPool().getThreadContext().stashContext()) {
+                client.execute(
+                    UpdateModelGraveyardAction.INSTANCE,
+                    new UpdateModelGraveyardRequest(modelId, true),
+                    ActionListener.wrap(acknowledgedResponse -> { throw exceptionFromPreviousStep; }, unblockingFailedException -> {
+                        // If it fails to remove the modelId from Model Graveyard, then log the error message and
+                        // throw the exception that was passed as a parameter from previous step
+                        String errorMessage = String.format("Failed to remove \" %s \" from Model Graveyard", modelId);
+                        String failureMessage = String.format("%s%s%s", errorMessage, "\n", unblockingFailedException.getMessage());
+                        logger.error(failureMessage);
+                        step.onFailure(exceptionFromPreviousStep);
+                    })
+                );
+            } catch (Exception e) {
+                step.onFailure(e);
+            }
         }
 
         private String buildRemoveModelErrorMessage(String modelId, RemoveModelFromCacheResponse response) {
