@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
@@ -32,6 +33,7 @@ import java.io.IOException;
 /**
  * Transport action that trains a model and serializes it to model system index
  */
+@Log4j2
 public class TrainingModelTransportAction extends HandledTransportAction<TrainingModelRequest, TrainingModelResponse> {
 
     private final ClusterService clusterService;
@@ -82,6 +84,7 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
         KNNCounter.TRAINING_REQUESTS.increment();
         ActionListener<TrainingModelResponse> wrappedListener = ActionListener.wrap(listener::onResponse, ex -> {
             KNNCounter.TRAINING_ERRORS.increment();
+            log.error("Unable to initialize model serialization for model [{}]", trainingJob.getModelId(), ex);
             listener.onFailure(ex);
         });
         ThreadContextHelper.runWithStashedThreadContext(client, () -> {

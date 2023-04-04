@@ -100,7 +100,6 @@ public class TrainingJobRunner {
                 // Serialization failed. Let listener handle the exception, but free up resources.
                 jobCount.decrementAndGet();
                 semaphore.release();
-                log.error("Unable to initialize model serialization", e);
                 listener.onFailure(e);
             }), false);
         } catch (IOException ioe) {
@@ -123,12 +122,12 @@ public class TrainingJobRunner {
         );
 
         try {
-            log.info("Submitting job to training thread pool");
+            log.debug("Submitting training job for model [{}] to thread pool", trainingJob.getModelId());
             threadPool.executor(TRAIN_THREAD_POOL).execute(() -> {
                 try {
                     log.info("Running training job for model [{}]", trainingJob.getModelId());
                     trainingJob.run();
-                    log.info("Training job for model [{}] has completed", trainingJob.getModelId());
+                    log.debug("Training job for model [{}] has completed", trainingJob.getModelId());
                     serializeModel(trainingJob, loggingListener, true);
                 } catch (IOException e) {
                     log.error("Unable to serialize model [{}]", trainingJob.getModelId(), e);
