@@ -178,6 +178,7 @@ dependencies {
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.14.3'
     testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.2'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.14.3'
+    api "org.opensearch:common-utils:${version}"
 }
 
 
