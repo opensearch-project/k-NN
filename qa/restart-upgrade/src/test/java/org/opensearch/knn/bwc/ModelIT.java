@@ -21,14 +21,12 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
-import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Locale;
 import java.util.Map;
 
 import static org.opensearch.knn.TestUtils.KNN_BWC_PREFIX;
@@ -165,7 +163,10 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
         if (!isRunningAgainstOldCluster()) {
             deleteKNNModel(TEST_MODEL_ID);
             deleteKNNModel(TEST_MODEL_ID_DEFAULT);
-            deleteKNNModel(TEST_MODEL_ID_TRAINING);
+            Request request = new Request("DELETE", "/" + MODEL_INDEX_NAME);
+
+            Response response = client().performRequest(request);
+            assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
         }
     }
 
