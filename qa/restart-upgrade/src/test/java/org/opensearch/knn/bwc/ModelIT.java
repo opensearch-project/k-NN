@@ -10,6 +10,7 @@ import org.junit.AfterClass;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.opensearch.common.Strings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -153,25 +154,8 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, TEST_MODEL_ID_TRAINING);
             Request request = new Request("DELETE", restURI);
 
-            Response response = client().performRequest(request);
-            assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-            assertEquals(3, getDocCount(MODEL_INDEX_NAME));
-
-            String responseBody = EntityUtils.toString(response.getEntity());
-            assertNotNull(responseBody);
-
-            Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
-
-            assertEquals(TEST_MODEL_ID_TRAINING, responseMap.get(MODEL_ID));
-            assertEquals("failed", responseMap.get(DeleteModelResponse.RESULT));
-
-            String errorMessage = String.format(
-                Locale.ROOT,
-                "Cannot delete model \"%s\". Model is still in " + "training",
-                TEST_MODEL_ID_TRAINING
-            );
-            assertEquals(errorMessage, responseMap.get(DeleteModelResponse.ERROR_MSG));
+            ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+            assertEquals(RestStatus.CONFLICT.getStatus(), ex.getResponse().getStatusLine().getStatusCode());
         }
     }
 
