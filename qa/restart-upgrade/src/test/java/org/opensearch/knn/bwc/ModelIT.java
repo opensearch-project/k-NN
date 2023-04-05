@@ -182,11 +182,6 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             deleteKNNModel(TEST_MODEL_ID);
             deleteKNNModel(TEST_MODEL_ID_DEFAULT);
             deleteKNNModel(TEST_MODEL_ID_TRAINING);
-
-            Request request = new Request("DELETE", "/" + MODEL_INDEX_NAME);
-
-            Response response = client().performRequest(request);
-            assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
         }
     }
 

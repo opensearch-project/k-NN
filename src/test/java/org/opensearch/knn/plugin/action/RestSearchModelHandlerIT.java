@@ -16,7 +16,6 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNRestTestCase;
@@ -39,6 +38,8 @@ import static org.opensearch.knn.common.KNNConstants.MODELS;
 import static org.opensearch.knn.common.KNNConstants.PARAM_SIZE;
 import static org.opensearch.knn.common.KNNConstants.SEARCH_MODEL_MAX_SIZE;
 import static org.opensearch.knn.common.KNNConstants.SEARCH_MODEL_MIN_SIZE;
+import static org.opensearch.knn.index.SpaceType.L2;
+import static org.opensearch.knn.index.util.KNNEngine.FAISS;
 
 /**
  * Integration tests to check the correctness of {@link org.opensearch.knn.plugin.rest.RestSearchModelHandler}
@@ -98,13 +99,23 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
 
     public void testSearchModelExists() throws Exception {
         createModelSystemIndex();
-        createIndex("irrelevant-index", Settings.EMPTY);
-        addDocWithBinaryField("irrelevant-index", "id1", "field-name", "value");
+        String trainingIndex = "irrelevant-index";
+        String trainingFieldName = "train-field";
+        int dimension = 8;
+        String modelDescription = "dummy description";
+        createBasicKnnIndex(trainingIndex, trainingFieldName, dimension);
+
         List<String> testModelID = Arrays.asList("test-modelid1", "test-modelid2");
-        byte[] testModelBlob = "hello".getBytes();
-        ModelMetadata testModelMetadata = getModelMetadata();
-        for (String modelID : testModelID) {
-            addModelToSystemIndex(modelID, testModelMetadata, testModelBlob);
+        for (String modelId : testModelID) {
+            ingestDataAndTrainModel(
+                modelId,
+                trainingIndex,
+                trainingFieldName,
+                dimension,
+                modelDescription,
+                xContentBuilderToMap(getModelMethodBuilder())
+            );
+            assertTrainingSucceeds(modelId, NUM_OF_ATTEMPTS, DELAY_MILLI_SEC);
         }
 
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
@@ -128,21 +139,25 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             for (SearchHit hit : searchResponse.getHits().getHits()) {
                 assertTrue(testModelID.contains(hit.getId()));
                 Model model = Model.getModelFromSourceMap(hit.getSourceAsMap());
-                assertEquals(getModelMetadata(), model.getModelMetadata());
-                assertArrayEquals(testModelBlob, model.getModelBlob());
+                assertEquals(modelDescription, model.getModelMetadata().getDescription());
+                assertEquals(FAISS, model.getModelMetadata().getKnnEngine());
+                assertEquals(L2, model.getModelMetadata().getSpaceType());
             }
         }
     }
 
     public void testSearchModelWithoutSource() throws Exception {
         createModelSystemIndex();
-        createIndex("irrelevant-index", Settings.EMPTY);
-        addDocWithBinaryField("irrelevant-index", "id1", "field-name", "value");
-        List<String> testModelID = Arrays.asList("test-modelid1", "test-modelid2");
-        byte[] testModelBlob = "hello".getBytes();
-        ModelMetadata testModelMetadata = getModelMetadata();
-        for (String modelID : testModelID) {
-            addModelToSystemIndex(modelID, testModelMetadata, testModelBlob);
+        String trainingIndex = "irrelevant-index";
+        String trainingFieldName = "train-field";
+        int dimension = 8;
+        createBasicKnnIndex(trainingIndex, trainingFieldName, dimension);
+
+        List<String> testModelIds = Arrays.asList("test-modelid1", "test-modelid2");
+        for (String modelId : testModelIds) {
+            String modelDescription = "dummy description";
+            ingestDataAndTrainModel(modelId, trainingIndex, trainingFieldName, dimension, modelDescription);
+            assertTrainingSucceeds(modelId, NUM_OF_ATTEMPTS, DELAY_MILLI_SEC);
         }
 
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
@@ -163,10 +178,10 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             assertNotNull(searchResponse);
 
             // returns only model from ModelIndex
-            assertEquals(searchResponse.getHits().getHits().length, testModelID.size());
+            assertEquals(searchResponse.getHits().getHits().length, testModelIds.size());
 
             for (SearchHit hit : searchResponse.getHits().getHits()) {
-                assertTrue(testModelID.contains(hit.getId()));
+                assertTrue(testModelIds.contains(hit.getId()));
                 assertNull(hit.getSourceAsMap());
             }
         }
@@ -174,13 +189,16 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
 
     public void testSearchModelWithSourceFilteringIncludes() throws Exception {
         createModelSystemIndex();
-        createIndex("irrelevant-index", Settings.EMPTY);
-        addDocWithBinaryField("irrelevant-index", "id1", "field-name", "value");
-        List<String> testModelID = Arrays.asList("test-modelid1", "test-modelid2");
-        byte[] testModelBlob = "hello".getBytes();
-        ModelMetadata testModelMetadata = getModelMetadata();
-        for (String modelID : testModelID) {
-            addModelToSystemIndex(modelID, testModelMetadata, testModelBlob);
+        String trainingIndex = "irrelevant-index";
+        String trainingFieldName = "train-field";
+        int dimension = 8;
+        createBasicKnnIndex(trainingIndex, trainingFieldName, dimension);
+
+        List<String> testModelIds = Arrays.asList("test-modelid1", "test-modelid2");
+        for (String modelId : testModelIds) {
+            String modelDescription = "dummy description";
+            ingestDataAndTrainModel(modelId, trainingIndex, trainingFieldName, dimension, modelDescription);
+            assertTrainingSucceeds(modelId, NUM_OF_ATTEMPTS, DELAY_MILLI_SEC);
         }
 
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
@@ -208,10 +226,10 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             assertNotNull(searchResponse);
 
             // returns only model from ModelIndex
-            assertEquals(searchResponse.getHits().getHits().length, testModelID.size());
+            assertEquals(searchResponse.getHits().getHits().length, testModelIds.size());
 
             for (SearchHit hit : searchResponse.getHits().getHits()) {
-                assertTrue(testModelID.contains(hit.getId()));
+                assertTrue(testModelIds.contains(hit.getId()));
                 Map<String, Object> sourceAsMap = hit.getSourceAsMap();
                 assertFalse(sourceAsMap.containsKey("model_blob"));
                 assertTrue(sourceAsMap.containsKey("state"));
@@ -223,13 +241,16 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
 
     public void testSearchModelWithSourceFilteringExcludes() throws Exception {
         createModelSystemIndex();
-        createIndex("irrelevant-index", Settings.EMPTY);
-        addDocWithBinaryField("irrelevant-index", "id1", "field-name", "value");
-        List<String> testModelID = Arrays.asList("test-modelid1", "test-modelid2");
-        byte[] testModelBlob = "hello".getBytes();
-        ModelMetadata testModelMetadata = getModelMetadata();
-        for (String modelID : testModelID) {
-            addModelToSystemIndex(modelID, testModelMetadata, testModelBlob);
+        String trainingIndex = "irrelevant-index";
+        String trainingFieldName = "train-field";
+        int dimension = 8;
+        createBasicKnnIndex(trainingIndex, trainingFieldName, dimension);
+
+        List<String> testModelIds = Arrays.asList("test-modelid1", "test-modelid2");
+        for (String modelId : testModelIds) {
+            String modelDescription = "dummy description";
+            ingestDataAndTrainModel(modelId, trainingIndex, trainingFieldName, dimension, modelDescription);
+            assertTrainingSucceeds(modelId, NUM_OF_ATTEMPTS, DELAY_MILLI_SEC);
         }
 
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
@@ -257,10 +278,10 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             assertNotNull(searchResponse);
 
             // returns only model from ModelIndex
-            assertEquals(searchResponse.getHits().getHits().length, testModelID.size());
+            assertEquals(searchResponse.getHits().getHits().length, testModelIds.size());
 
             for (SearchHit hit : searchResponse.getHits().getHits()) {
-                assertTrue(testModelID.contains(hit.getId()));
+                assertTrue(testModelIds.contains(hit.getId()));
                 Map<String, Object> sourceAsMap = hit.getSourceAsMap();
                 assertFalse(sourceAsMap.containsKey("model_blob"));
                 assertTrue(sourceAsMap.containsKey("state"));

@@ -48,6 +48,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -341,20 +342,23 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
     public void testModelIndexHealthMetricsStats() throws Exception {
         // Create request that filters only model index
         String modelIndexStatusName = StatNames.MODEL_INDEX_STATUS.getName();
+        // index can be created in one of previous tests, and as we do not delete it each test the check below became optional
+        if (!systemIndexExists(MODEL_INDEX_NAME)) {
+
+            final Response response = getKnnStats(Collections.emptyList(), Arrays.asList(modelIndexStatusName));
+            final String responseBody = EntityUtils.toString(response.getEntity());
+            final Map<String, Object> statsMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+
+            // Check that model health status is null since model index is not created to system yet
+            assertNull(statsMap.get(StatNames.MODEL_INDEX_STATUS.getName()));
+
+            createModelSystemIndex();
+        }
 
         Response response = getKnnStats(Collections.emptyList(), Arrays.asList(modelIndexStatusName));
-        String responseBody = EntityUtils.toString(response.getEntity());
-        Map<String, Object> statsMap = createParser(XContentType.JSON.xContent(), responseBody).map();
 
-        // Check that model health status is null since model index is not created to system yet
-        assertNull(statsMap.get(StatNames.MODEL_INDEX_STATUS.getName()));
-
-        createModelSystemIndex();
-
-        response = getKnnStats(Collections.emptyList(), Arrays.asList(modelIndexStatusName));
-
-        responseBody = EntityUtils.toString(response.getEntity());
-        statsMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        final String responseBody = EntityUtils.toString(response.getEntity());
+        final Map<String, Object> statsMap = createParser(XContentType.JSON.xContent(), responseBody).map();
 
         // Check that model health status is not null
         assertNotNull(statsMap.get(modelIndexStatusName));

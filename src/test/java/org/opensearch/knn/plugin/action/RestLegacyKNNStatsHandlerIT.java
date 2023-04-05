@@ -319,10 +319,15 @@ public class RestLegacyKNNStatsHandlerIT extends KNNRestTestCase {
     // Useful settings when debugging to prevent timeouts
     @Override
     protected Settings restClientSettings() {
+        final Settings.Builder builder = Settings.builder();
         if (isDebuggingTest || isDebuggingRemoteCluster) {
-            return Settings.builder().put(CLIENT_SOCKET_TIMEOUT, TimeValue.timeValueMinutes(10)).build();
+            builder.put(CLIENT_SOCKET_TIMEOUT, TimeValue.timeValueMinutes(10));
         } else {
-            return super.restClientSettings();
+            if (System.getProperty("tests.rest.client_path_prefix") != null) {
+                builder.put(CLIENT_PATH_PREFIX, System.getProperty("tests.rest.client_path_prefix"));
+            }
         }
+        builder.put("strictDeprecationMode", false);
+        return builder.build();
     }
 }
