@@ -175,9 +175,9 @@ dependencies {
     api group: 'com.google.guava', name: 'guava', version:'30.0-jre'
     api group: 'commons-lang', name: 'commons-lang', version: '2.6'
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
-    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.14.2'
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.14.3'
     testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.2'
-    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.14.2'
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.14.3'
 }
 
 

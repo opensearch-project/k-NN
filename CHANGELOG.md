@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Enhancements
 ### Bug Fixes
 ### Infrastructure
+* Bump byte-buddy version to 1.14.3 ([#839](https://github.com/opensearch-project/k-NN/pull/839))
 ### Documentation
 ### Maintenance
 ### Refactoring
