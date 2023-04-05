@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add 2.6.0 to BWC Version Matrix ([#810](https://github.com/opensearch-project/k-NN/pull/810))
 * Update BWC Version with OpenSearch Version Bump ([#813](https://github.com/opensearch-project/k-NN/pull/813))
 * Bump numpy version from 1.22.x to 1.24.2 ([#811](https://github.com/opensearch-project/k-NN/pull/811))
+* Support .opensearch-knn-model index as system index with security enabled ([#827](https://github.com/opensearch-project/k-NN/pull/827))
 ### Documentation
 ### Maintenance
 ### Refactoring
