@@ -43,7 +43,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
-import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 
 public class ModelIT extends AbstractRestartUpgradeTestCase {
     private static final String TEST_MODEL_INDEX = KNN_BWC_PREFIX + "test-model-index";
@@ -163,10 +162,6 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
         if (!isRunningAgainstOldCluster()) {
             deleteKNNModel(TEST_MODEL_ID);
             deleteKNNModel(TEST_MODEL_ID_DEFAULT);
-            Request request = new Request("DELETE", "/" + MODEL_INDEX_NAME);
-
-            Response response = client().performRequest(request);
-            assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
         }
     }
 
