@@ -63,8 +63,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
@@ -92,7 +96,9 @@ import static org.opensearch.knn.TestUtils.FIELD;
 import static org.opensearch.knn.TestUtils.QUERY_VALUE;
 import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
 
+import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
+import static org.opensearch.knn.index.util.KNNEngine.FAISS;
 import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 
 /**
@@ -103,6 +109,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
     public static final String FIELD_NAME = "test_field";
     private static final String DOCUMENT_FIELD_SOURCE = "_source";
     private static final String DOCUMENT_FIELD_FOUND = "found";
+    protected static final int DELAY_MILLI_SEC = 1000;
+    protected static final int NUM_OF_ATTEMPTS = 30;
 
     @AfterClass
     public static void dumpCoverage() throws IOException, MalformedObjectNameException {
@@ -638,7 +646,9 @@ public class KNNRestTestCase extends ODFERestTestCase {
         String mapping = Resources.toString(url, Charsets.UTF_8);
         mapping = mapping.substring(1, mapping.length() - 1);
 
-        createIndex(MODEL_INDEX_NAME, Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).build(), mapping);
+        if (!systemIndexExists(MODEL_INDEX_NAME)) {
+            createIndex(MODEL_INDEX_NAME, Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).build(), mapping);
+        }
     }
 
     protected void addModelToSystemIndex(String modelId, ModelMetadata modelMetadata, byte[] model) throws IOException {
@@ -1162,6 +1172,83 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
 
         fail("Training did not succeed after " + attempts + " attempts with a delay of " + delayInMillis + " ms.");
+    }
+
+    protected boolean systemIndexExists(final String indexName) throws IOException {
+        Response response = adminClient().performRequest(new Request("HEAD", "/" + indexName));
+        return RestStatus.OK.getStatus() == response.getStatusLine().getStatusCode();
+    }
+
+    protected Settings.Builder noStrictDeprecationModeSettingsBuilder() {
+        Settings.Builder builder = Settings.builder().put("strictDeprecationMode", false);
+        if (System.getProperty("tests.rest.client_path_prefix") != null) {
+            builder.put(CLIENT_PATH_PREFIX, System.getProperty("tests.rest.client_path_prefix"));
+        }
+        return builder;
+    }
+
+    protected void ingestDataAndTrainModel(
+        String modelId,
+        String trainingIndexName,
+        String trainingFieldName,
+        int dimension,
+        String modelDescription
+    ) throws Exception {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, "ivf")
+            .field(KNN_ENGINE, "faiss")
+            .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 1)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "pq")
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+            .field(ENCODER_PARAMETER_PQ_M, 2)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Map<String, Object> method = xContentBuilderToMap(builder);
+        ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, method);
+    }
+
+    protected void ingestDataAndTrainModel(
+        String modelId,
+        String trainingIndexName,
+        String trainingFieldName,
+        int dimension,
+        String modelDescription,
+        Map<String, Object> method
+    ) throws Exception {
+        int trainingDataCount = 40;
+        bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
+
+        Response trainResponse = trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, modelDescription);
+
+        assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
+    }
+
+    protected XContentBuilder getModelMethodBuilder() throws IOException {
+        XContentBuilder modelMethodBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, "ivf")
+            .field(KNN_ENGINE, FAISS.getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, L2.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 1)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "pq")
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+            .field(ENCODER_PARAMETER_PQ_M, 2)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        return modelMethodBuilder;
     }
 
     /**

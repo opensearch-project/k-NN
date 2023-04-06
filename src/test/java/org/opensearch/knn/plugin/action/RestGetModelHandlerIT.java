@@ -18,10 +18,6 @@ import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNRestTestCase;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.rest.RestStatus;
 
@@ -39,6 +35,8 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
+import static org.opensearch.knn.index.SpaceType.L2;
+import static org.opensearch.knn.index.util.KNNEngine.FAISS;
 
 /**
  * Integration tests to check the correctness of {@link org.opensearch.knn.plugin.rest.RestGetModelHandler}
@@ -46,19 +44,28 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 
 public class RestGetModelHandlerIT extends KNNRestTestCase {
 
-    private ModelMetadata getModelMetadata() {
-        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED, "2021-03-27", "test model", "");
-    }
-
-    public void testGetModelExists() throws IOException {
+    public void testGetModelExists() throws Exception {
         createModelSystemIndex();
-        String testModelID = "test-model-id";
-        byte[] testModelBlob = "hello".getBytes();
-        ModelMetadata testModelMetadata = getModelMetadata();
 
-        addModelToSystemIndex(testModelID, testModelMetadata, testModelBlob);
+        String modelId = "test-model-id";
+        String trainingIndexName = "train-index";
+        String trainingFieldName = "train-field";
+        int dimension = 8;
+        String modelDescription = "dummy description";
 
-        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, testModelID);
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+
+        ingestDataAndTrainModel(
+            modelId,
+            trainingIndexName,
+            trainingFieldName,
+            dimension,
+            modelDescription,
+            xContentBuilderToMap(getModelMethodBuilder())
+        );
+        assertTrainingSucceeds(modelId, NUM_OF_ATTEMPTS, DELAY_MILLI_SEC);
+
+        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
         Request request = new Request("GET", restURI);
 
         Response response = client().performRequest(request);
@@ -68,30 +75,30 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         assertNotNull(responseBody);
 
         Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
-
-        assertEquals(testModelID, responseMap.get(MODEL_ID));
-        assertEquals(testModelMetadata.getDescription(), responseMap.get(MODEL_DESCRIPTION));
-        assertEquals(testModelMetadata.getDimension(), responseMap.get(DIMENSION));
-        assertEquals(testModelMetadata.getError(), responseMap.get(MODEL_ERROR));
-        assertEquals(testModelMetadata.getKnnEngine().getName(), responseMap.get(KNN_ENGINE));
-        assertEquals(testModelMetadata.getSpaceType().getValue(), responseMap.get(METHOD_PARAMETER_SPACE_TYPE));
-        assertEquals(testModelMetadata.getState().getName(), responseMap.get(MODEL_STATE));
-        assertEquals(testModelMetadata.getTimestamp(), responseMap.get(MODEL_TIMESTAMP));
+        assertEquals(modelId, responseMap.get(MODEL_ID));
+        assertEquals(modelDescription, responseMap.get(MODEL_DESCRIPTION));
+        assertEquals(FAISS.getName(), responseMap.get(KNN_ENGINE));
+        assertEquals(L2.getValue(), responseMap.get(METHOD_PARAMETER_SPACE_TYPE));
     }
 
-    public void testGetModelExistsWithFilter() throws IOException {
+    public void testGetModelExistsWithFilter() throws Exception {
         createModelSystemIndex();
-        String testModelID = "test-model-id";
-        byte[] testModelBlob = "hello".getBytes();
-        ModelMetadata testModelMetadata = getModelMetadata();
+        String modelId = "test-model-id";
+        String trainingIndexName = "train-index";
+        String trainingFieldName = "train-field";
+        int dimension = 8;
+        String modelDescription = "dummy description";
 
-        addModelToSystemIndex(testModelID, testModelMetadata, testModelBlob);
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        Map<String, Object> method = xContentBuilderToMap(getModelMethodBuilder());
+        ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, method);
+        assertTrainingSucceeds(modelId, NUM_OF_ATTEMPTS, DELAY_MILLI_SEC);
 
-        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, testModelID);
+        String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
         Request request = new Request("GET", restURI);
 
-        List<String> filterdPath = Arrays.asList(MODEL_ID, MODEL_DESCRIPTION, MODEL_TIMESTAMP, KNN_ENGINE);
-        request.addParameter("filter_path", Strings.join(filterdPath, ","));
+        List<String> filteredPath = Arrays.asList(MODEL_ID, MODEL_DESCRIPTION, MODEL_TIMESTAMP, KNN_ENGINE);
+        request.addParameter("filter_path", Strings.join(filteredPath, ","));
 
         Response response = client().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -101,11 +108,10 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
 
         Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
 
-        assertTrue(responseMap.size() == filterdPath.size());
-        assertEquals(testModelID, responseMap.get(MODEL_ID));
-        assertEquals(testModelMetadata.getDescription(), responseMap.get(MODEL_DESCRIPTION));
-        assertEquals(testModelMetadata.getTimestamp(), responseMap.get(MODEL_TIMESTAMP));
-        assertEquals(testModelMetadata.getKnnEngine().getName(), responseMap.get(KNN_ENGINE));
+        assertTrue(responseMap.size() == filteredPath.size());
+        assertEquals(modelId, responseMap.get(MODEL_ID));
+        assertEquals(modelDescription, responseMap.get(MODEL_DESCRIPTION));
+        assertEquals(FAISS.getName(), responseMap.get(KNN_ENGINE));
         assertFalse(responseMap.containsKey(DIMENSION));
         assertFalse(responseMap.containsKey(MODEL_ERROR));
         assertFalse(responseMap.containsKey(METHOD_PARAMETER_SPACE_TYPE));
