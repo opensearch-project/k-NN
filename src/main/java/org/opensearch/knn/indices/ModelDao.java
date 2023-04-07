@@ -13,7 +13,6 @@ package org.opensearch.knn.indices;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
-import lombok.SneakyThrows;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchException;
@@ -359,7 +358,6 @@ public interface ModelDao {
             );
         }
 
-        @SneakyThrows
         @Override
         public Model get(String modelId) throws ExecutionException, InterruptedException {
             /*
@@ -381,7 +379,16 @@ public interface ModelDao {
             } catch (RuntimeException runtimeException) {
                 // we need to use RuntimeException as container for real exception to keep signature
                 // of runWithStashedThreadContext generic
-                throw runtimeException.getCause();
+                Throwable throwable = runtimeException.getCause();
+                if (throwable != null) {
+                    if (throwable instanceof InterruptedException) {
+                        throw (InterruptedException) throwable;
+                    }
+                    if (throwable instanceof ExecutionException) {
+                        throw (ExecutionException) throwable;
+                    }
+                }
+                throw runtimeException;
             }
         }
 
