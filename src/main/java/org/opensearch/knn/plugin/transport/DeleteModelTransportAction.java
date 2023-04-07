@@ -14,7 +14,9 @@ package org.opensearch.knn.plugin.transport;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
+import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.knn.common.ThreadContextHelper;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
@@ -22,16 +24,20 @@ import org.opensearch.transport.TransportService;
 public class DeleteModelTransportAction extends HandledTransportAction<DeleteModelRequest, DeleteModelResponse> {
 
     private final ModelDao modelDao;
+    private final Client client;
 
     @Inject
-    public DeleteModelTransportAction(TransportService transportService, ActionFilters filters) {
+    public DeleteModelTransportAction(TransportService transportService, ActionFilters filters, Client client) {
         super(DeleteModelAction.NAME, transportService, filters, DeleteModelRequest::new);
         this.modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
+        this.client = client;
     }
 
     @Override
     protected void doExecute(Task task, DeleteModelRequest request, ActionListener<DeleteModelResponse> listener) {
-        String modelID = request.getModelID();
-        modelDao.delete(modelID, listener);
+        ThreadContextHelper.runWithStashedThreadContext(client, () -> {
+            String modelID = request.getModelID();
+            modelDao.delete(modelID, listener);
+        });
     }
 }
