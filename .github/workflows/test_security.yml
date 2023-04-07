@@ -1,5 +1,7 @@
-name: Security test workflow for k-NN
+name: Test k-NN on Secure Cluster
 on:
+  schedule:
+    - cron: '0 0 * * *'  # every night
   push:
     branches:
       - "*"
@@ -15,9 +17,9 @@ jobs:
       matrix:
         java: [ 11,17 ]
         os: [ubuntu-latest]
-      fail-fast: false
+      fail-fast: true
 
-    name: Security test workflow for k-NN Plugin
+    name: Test k-NN on Secure Cluster
     runs-on: ${{ matrix.os }}
 
     steps:
