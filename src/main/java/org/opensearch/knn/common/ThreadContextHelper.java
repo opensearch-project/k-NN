@@ -13,7 +13,7 @@ import java.util.function.Supplier;
 /**
  * Class abstracts execution of runnable or function in specific context
  */
-public class TaskRunner {
+public class ThreadContextHelper {
 
     /**
      * Sets the thread context to default and execute function, this needed to allow actions on model system index

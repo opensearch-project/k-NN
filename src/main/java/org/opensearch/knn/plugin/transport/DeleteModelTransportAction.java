@@ -16,7 +16,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.knn.common.TaskRunner;
+import org.opensearch.knn.common.ThreadContextHelper;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
@@ -35,7 +35,7 @@ public class DeleteModelTransportAction extends HandledTransportAction<DeleteMod
 
     @Override
     protected void doExecute(Task task, DeleteModelRequest request, ActionListener<DeleteModelResponse> listener) {
-        TaskRunner.runWithStashedThreadContext(client, () -> {
+        ThreadContextHelper.runWithStashedThreadContext(client, () -> {
             String modelID = request.getModelID();
             modelDao.delete(modelID, listener);
         });

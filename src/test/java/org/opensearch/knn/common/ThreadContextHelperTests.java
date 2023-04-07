@@ -13,7 +13,7 @@ import org.opensearch.threadpool.ThreadPool;
 
 import java.util.function.Supplier;
 
-public class TaskRunnerTests extends KNNTestCase {
+public class ThreadContextHelperTests extends KNNTestCase {
 
     public void testRunWithStashedContextRunnable() {
         ThreadPool threadPool = new TestThreadPool(this.getClass().getSimpleName() + "ThreadPool");
@@ -23,7 +23,7 @@ public class TaskRunnerTests extends KNNTestCase {
         assertTrue(client.threadPool().getThreadContext().getHeaders().containsKey("key"));
 
         Runnable runnable = () -> { assertFalse(client.threadPool().getThreadContext().getHeaders().containsKey("key")); };
-        TaskRunner.runWithStashedThreadContext(client, () -> runnable);
+        ThreadContextHelper.runWithStashedThreadContext(client, () -> runnable);
 
         assertTrue(client.threadPool().getThreadContext().getHeaders().containsKey("key"));
 
@@ -42,7 +42,7 @@ public class TaskRunnerTests extends KNNTestCase {
             assertFalse(client.threadPool().getThreadContext().getHeaders().containsKey("key"));
             return this.getClass().getName();
         };
-        TaskRunner.runWithStashedThreadContext(client, () -> supplier);
+        ThreadContextHelper.runWithStashedThreadContext(client, () -> supplier);
 
         assertTrue(client.threadPool().getThreadContext().getHeaders().containsKey("key"));
 

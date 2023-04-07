@@ -17,7 +17,7 @@ import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.knn.common.TaskRunner;
+import org.opensearch.knn.common.ThreadContextHelper;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
@@ -40,7 +40,7 @@ public class GetModelTransportAction extends HandledTransportAction<GetModelRequ
 
     @Override
     protected void doExecute(Task task, GetModelRequest request, ActionListener<GetModelResponse> actionListener) {
-        TaskRunner.runWithStashedThreadContext(client, () -> {
+        ThreadContextHelper.runWithStashedThreadContext(client, () -> {
             String modelID = request.getModelID();
             modelDao.get(modelID, actionListener);
         });

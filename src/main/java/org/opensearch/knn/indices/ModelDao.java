@@ -45,7 +45,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.common.TaskRunner;
+import org.opensearch.knn.common.ThreadContextHelper;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
@@ -366,7 +366,7 @@ public interface ModelDao {
                 GET /<model_index>/<modelId>?_local
             */
             try {
-                return TaskRunner.runWithStashedThreadContext(client, () -> {
+                return ThreadContextHelper.runWithStashedThreadContext(client, () -> {
                     GetRequestBuilder getRequestBuilder = new GetRequestBuilder(client, GetAction.INSTANCE, MODEL_INDEX_NAME).setId(modelId)
                         .setPreference("_local");
                     GetResponse getResponse;
@@ -420,7 +420,7 @@ public interface ModelDao {
          */
         @Override
         public void search(SearchRequest request, ActionListener<SearchResponse> actionListener) {
-            TaskRunner.runWithStashedThreadContext(client, () -> {
+            ThreadContextHelper.runWithStashedThreadContext(client, () -> {
                 request.indices(MODEL_INDEX_NAME);
                 client.search(request, actionListener);
             });

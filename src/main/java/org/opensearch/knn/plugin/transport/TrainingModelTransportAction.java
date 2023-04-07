@@ -17,7 +17,7 @@ import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.knn.common.TaskRunner;
+import org.opensearch.knn.common.ThreadContextHelper;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
@@ -84,7 +84,7 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
             KNNCounter.TRAINING_ERRORS.increment();
             listener.onFailure(ex);
         });
-        TaskRunner.runWithStashedThreadContext(client, () -> {
+        ThreadContextHelper.runWithStashedThreadContext(client, () -> {
             try {
                 TrainingJobRunner.getInstance()
                     .execute(
