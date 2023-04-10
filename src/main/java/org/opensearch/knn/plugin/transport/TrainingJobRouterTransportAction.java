@@ -84,7 +84,7 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
                     return;
                 }
 
-                log.info("Routing training job to node [{}]", node.getId());
+                log.debug("Routing training job to node [{}]", node.getId());
                 transportService.sendRequest(
                     node,
                     TrainingModelAction.NAME,

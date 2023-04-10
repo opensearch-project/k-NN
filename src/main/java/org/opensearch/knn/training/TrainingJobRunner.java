@@ -114,9 +114,9 @@ public class TrainingJobRunner {
 
         // Listener for update model after training index action
         ActionListener<IndexResponse> loggingListener = ActionListener.wrap(
-            indexResponse -> log.info("[KNN] Model serialization update for model [{}] was successful", trainingJob.getModelId()),
+            indexResponse -> log.info("Model serialization update for model [{}] was successful", trainingJob.getModelId()),
             e -> {
-                log.error("[KNN] Model serialization update for model [{}] failed", trainingJob.getModelId(), e);
+                log.error("Model serialization update for model [{}] failed", trainingJob.getModelId(), e);
                 KNNCounter.TRAINING_ERRORS.increment();
             }
         );
