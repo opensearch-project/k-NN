@@ -487,9 +487,7 @@ public interface ModelDao {
             // If the index is not created, there is no need to delete the model
             if (!isCreated()) {
                 String errorMessage = String.format("Cannot delete model [%s]. Model index [%s] does not exist", modelId, MODEL_INDEX_NAME);
-                Exception e = new ResourceNotFoundException(errorMessage);
-                logger.error(e);
-                listener.onFailure(e);
+                listener.onFailure(new ResourceNotFoundException(errorMessage));
                 return;
             }
 
@@ -502,7 +500,6 @@ public interface ModelDao {
 
             // Get Model to check if model is in TRAINING
             get(modelId, ActionListener.wrap(getModelStep::onResponse, exception -> {
-                logger.error(exception);
                 if (exception instanceof ResourceNotFoundException) {
                     String errorMessage = String.format("Unable to delete model [%s]. Model does not exist", modelId);
                     ResourceNotFoundException resourceNotFoundException = new ResourceNotFoundException(errorMessage);
@@ -516,9 +513,7 @@ public interface ModelDao {
                 // If model is in Training state, fail delete model request
                 if (ModelState.TRAINING == getModelResponse.getModel().getModelMetadata().getState()) {
                     String errorMessage = String.format("Cannot delete model [%s]. Model is still in training", modelId);
-                    Exception e = new DeleteModelWhenInTrainStateException(errorMessage);
-                    logger.error(e);
-                    listener.onFailure(e);
+                    listener.onFailure(new DeleteModelWhenInTrainStateException(errorMessage));
                     return;
                 }
 
@@ -548,9 +543,7 @@ public interface ModelDao {
                 if (deleteResponse.getResult() != DocWriteResponse.Result.DELETED) {
                     updateModelGraveyardToDelete(modelId, true, unblockModelIdStep, Optional.empty());
                     String errorMessage = String.format("Model [%s] does not exist", modelId);
-                    Exception e = new ResourceNotFoundException(errorMessage);
-                    logger.error(e);
-                    listener.onFailure(e);
+                    listener.onFailure(new ResourceNotFoundException(errorMessage));
                     return;
                 }
 
@@ -565,7 +558,6 @@ public interface ModelDao {
                 if (removeModelFromCacheResponse.hasFailures()) {
                     String failureMessage = buildRemoveModelErrorMessage(modelId, removeModelFromCacheResponse);
                     exception = new OpenSearchException(failureMessage);
-                    logger.error(exception);
                 }
 
                 // Remove modelId from model graveyard
