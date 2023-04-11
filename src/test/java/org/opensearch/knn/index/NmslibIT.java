@@ -383,4 +383,9 @@ public class NmslibIT extends KNNRestTestCase {
         );
         assertThat(ex.getMessage(), containsString("Failed to parse value [-1] for setting [index.knn.algo_param.ef_search]"));
     }
+
+    @Override
+    protected Settings restClientSettings() {
+        return noStrictDeprecationModeSettingsBuilder().build();
+    }
 }
