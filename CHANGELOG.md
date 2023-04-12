@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Support .opensearch-knn-model index as system index with security enabled ([#827](https://github.com/opensearch-project/k-NN/pull/827))
 * Set gradle dependency scope for common-utils to testFixturesImplementation ([#844](https://github.com/opensearch-project/k-NN/pull/844))
 * Add support of .opensearch-knn-model as system index to transport actions ([#847](https://github.com/opensearch-project/k-NN/pull/847))
+* Add github action for secure integ tests ([#836](https://github.com/opensearch-project/k-NN/pull/836))
 * Add client setting to ignore warning exceptions ([#850](https://github.com/opensearch-project/k-NN/pull/850))
 ### Documentation
 ### Maintenance
