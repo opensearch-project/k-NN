@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
@@ -21,6 +22,7 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
+@Log4j2
 public class DeleteModelTransportAction extends HandledTransportAction<DeleteModelRequest, DeleteModelResponse> {
 
     private final ModelDao modelDao;
@@ -37,7 +39,10 @@ public class DeleteModelTransportAction extends HandledTransportAction<DeleteMod
     protected void doExecute(Task task, DeleteModelRequest request, ActionListener<DeleteModelResponse> listener) {
         ThreadContextHelper.runWithStashedThreadContext(client, () -> {
             String modelID = request.getModelID();
-            modelDao.delete(modelID, listener);
+            modelDao.delete(modelID, ActionListener.wrap(listener::onResponse, e -> {
+                log.error(e);
+                listener.onFailure(e);
+            }));
         });
     }
 }

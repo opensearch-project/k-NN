@@ -10,6 +10,7 @@ import org.junit.AfterClass;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.opensearch.common.Strings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -20,14 +21,12 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
-import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Locale;
 import java.util.Map;
 
 import static org.opensearch.knn.TestUtils.KNN_BWC_PREFIX;
@@ -44,7 +43,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
-import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 
 public class ModelIT extends AbstractRestartUpgradeTestCase {
     private static final String TEST_MODEL_INDEX = KNN_BWC_PREFIX + "test-model-index";
@@ -153,25 +151,8 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, TEST_MODEL_ID_TRAINING);
             Request request = new Request("DELETE", restURI);
 
-            Response response = client().performRequest(request);
-            assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-            assertEquals(3, getDocCount(MODEL_INDEX_NAME));
-
-            String responseBody = EntityUtils.toString(response.getEntity());
-            assertNotNull(responseBody);
-
-            Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
-
-            assertEquals(TEST_MODEL_ID_TRAINING, responseMap.get(MODEL_ID));
-            assertEquals("failed", responseMap.get(DeleteModelResponse.RESULT));
-
-            String errorMessage = String.format(
-                Locale.ROOT,
-                "Cannot delete model \"%s\". Model is still in " + "training",
-                TEST_MODEL_ID_TRAINING
-            );
-            assertEquals(errorMessage, responseMap.get(DeleteModelResponse.ERROR_MSG));
+            ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+            assertEquals(RestStatus.CONFLICT.getStatus(), ex.getResponse().getStatusLine().getStatusCode());
         }
     }
 
@@ -181,7 +162,6 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
         if (!isRunningAgainstOldCluster()) {
             deleteKNNModel(TEST_MODEL_ID);
             deleteKNNModel(TEST_MODEL_ID_DEFAULT);
-            deleteKNNModel(TEST_MODEL_ID_TRAINING);
         }
     }
 
