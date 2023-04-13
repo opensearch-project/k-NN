@@ -45,6 +45,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.common.ThreadContextHelper;
+import org.opensearch.knn.common.exception.DeleteModelWhenInTrainStateException;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
@@ -174,8 +175,6 @@ public interface ModelDao {
     final class OpenSearchKNNModelDao implements ModelDao {
 
         public static Logger logger = LogManager.getLogger(ModelDao.class);
-        private static final String DELETED = "deleted";
-        private static final String FAILED = "failed";
 
         private int numberOfShards;
         private int numberOfReplicas;
@@ -487,9 +486,8 @@ public interface ModelDao {
         public void delete(String modelId, ActionListener<DeleteModelResponse> listener) {
             // If the index is not created, there is no need to delete the model
             if (!isCreated()) {
-                logger.error("Cannot delete model \"" + modelId + "\". Model index " + MODEL_INDEX_NAME + "does not exist.");
-                String errorMessage = String.format("Cannot delete model \"%s\". Model index does not exist", modelId);
-                listener.onResponse(new DeleteModelResponse(modelId, FAILED, errorMessage));
+                String errorMessage = String.format("Cannot delete model [%s]. Model index [%s] does not exist", modelId, MODEL_INDEX_NAME);
+                listener.onFailure(new ResourceNotFoundException(errorMessage));
                 return;
             }
 
@@ -503,7 +501,7 @@ public interface ModelDao {
             // Get Model to check if model is in TRAINING
             get(modelId, ActionListener.wrap(getModelStep::onResponse, exception -> {
                 if (exception instanceof ResourceNotFoundException) {
-                    String errorMessage = String.format("Unable to delete model \"%s\". Model does not exist", modelId);
+                    String errorMessage = String.format("Unable to delete model [%s]. Model does not exist", modelId);
                     ResourceNotFoundException resourceNotFoundException = new ResourceNotFoundException(errorMessage);
                     removeModelIdFromGraveyardOnFailure(modelId, resourceNotFoundException, getModelStep);
                 } else {
@@ -514,8 +512,8 @@ public interface ModelDao {
             getModelStep.whenComplete(getModelResponse -> {
                 // If model is in Training state, fail delete model request
                 if (ModelState.TRAINING == getModelResponse.getModel().getModelMetadata().getState()) {
-                    String errorMessage = String.format("Cannot delete model \"%s\". Model is still in training", modelId);
-                    listener.onResponse(new DeleteModelResponse(modelId, FAILED, errorMessage));
+                    String errorMessage = String.format("Cannot delete model [%s]. Model is still in training", modelId);
+                    listener.onFailure(new DeleteModelWhenInTrainStateException(errorMessage));
                     return;
                 }
 
@@ -544,8 +542,8 @@ public interface ModelDao {
                 // If model is not deleted, remove modelId from model graveyard and return with error message
                 if (deleteResponse.getResult() != DocWriteResponse.Result.DELETED) {
                     updateModelGraveyardToDelete(modelId, true, unblockModelIdStep, Optional.empty());
-                    String errorMessage = String.format("Model \" %s \" does not exist", modelId);
-                    listener.onResponse(new DeleteModelResponse(modelId, deleteResponse.getResult().getLowercase(), errorMessage));
+                    String errorMessage = String.format("Model [%s] does not exist", modelId);
+                    listener.onFailure(new ResourceNotFoundException(errorMessage));
                     return;
                 }
 
@@ -569,7 +567,7 @@ public interface ModelDao {
 
             unblockModelIdStep.whenComplete(acknowledgedResponse -> {
                 // After clearing the cache, if there are no errors return the response
-                listener.onResponse(new DeleteModelResponse(modelId, DELETED, null));
+                listener.onResponse(new DeleteModelResponse(modelId));
 
             }, listener::onFailure);
 
