@@ -12,7 +12,6 @@ package org.opensearch.knn.plugin.transport;
 
 import org.opensearch.action.ActionResponse;
 import org.opensearch.common.Nullable;
-import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.StreamInput;
 import org.opensearch.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.ToXContentObject;
@@ -29,14 +28,38 @@ public class DeleteModelResponse extends ActionResponse implements ToXContentObj
 
     public static final String RESULT = "result";
     public static final String ERROR_MSG = "error";
+    private static final String DELETED = "deleted";
     private final String modelID;
     private final String result;
     private final String errorMessage;
 
+    /**
+     * Ctor to build delete model response.
+     * @deprecated
+     * Returning errors through {@link DeleteModelResponse} should not be done. Instead, if there is an
+     * error, throw/return a suitable exception. Use {@link DeleteModelResponse#DeleteModelResponse(String)} to
+     * construct valid responses instead.
+     *
+     * @param modelID ID of the model that is deleted
+     * @param result Resulting action of the deletion.
+     * @param errorMessage Error message to be returned to the user
+     */
+    @Deprecated
     public DeleteModelResponse(String modelID, String result, @Nullable String errorMessage) {
         this.modelID = modelID;
         this.result = result;
         this.errorMessage = errorMessage;
+    }
+
+    /**
+     * Ctor to build delete model response
+     *
+     * @param modelID ID of the model that is deleted
+     */
+    public DeleteModelResponse(String modelID) {
+        this.modelID = modelID;
+        this.result = DELETED;
+        this.errorMessage = null;
     }
 
     public DeleteModelResponse(StreamInput in) throws IOException {
@@ -63,16 +86,12 @@ public class DeleteModelResponse extends ActionResponse implements ToXContentObj
         /* Response should look like below:
             {
                 "model_id": "my_model_id"
-                "result": "not_found",
-                "error": "Model my_model_id doesn't exist"
+                "result": "deleted"
         }
          */
         builder.startObject();
         builder.field(MODEL_ID, getModelID());
         builder.field(RESULT, getResult());
-        if (Strings.hasText(errorMessage)) {
-            builder.field(ERROR_MSG, getErrorMessage());
-        }
         builder.endObject();
         return builder;
 
