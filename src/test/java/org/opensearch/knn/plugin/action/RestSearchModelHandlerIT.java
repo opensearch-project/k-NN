@@ -87,11 +87,15 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             Request request = new Request("GET", restURI);
 
             ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+            String messageExpected = String.format(
+                "%s must be between %s and %s inclusive",
+                PARAM_SIZE,
+                SEARCH_MODEL_MIN_SIZE,
+                SEARCH_MODEL_MAX_SIZE
+            );
             assertTrue(
-                ex.getMessage()
-                    .contains(
-                        String.format("%s must be between %d and %d inclusive", PARAM_SIZE, SEARCH_MODEL_MIN_SIZE, SEARCH_MODEL_MAX_SIZE)
-                    )
+                String.format("FAILED - Expected  \"%s\" to have \"%s\"", ex.getMessage(), messageExpected),
+                ex.getMessage().contains(messageExpected)
             );
         }
 

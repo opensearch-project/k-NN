@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Features
 ### Enhancements
 ### Bug Fixes
+* Throw errors on model deletion failures ([#834](https://github.com/opensearch-project/k-NN/pull/834))
 ### Infrastructure
 * Adding filter type to filtering release configs ([#792](https://github.com/opensearch-project/k-NN/pull/792))
 * Add CHANGELOG ([#800](https://github.com/opensearch-project/k-NN/pull/800))
