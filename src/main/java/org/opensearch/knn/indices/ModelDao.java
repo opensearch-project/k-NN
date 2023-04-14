@@ -302,9 +302,7 @@ public interface ModelDao {
                 parameters.put(KNNConstants.MODEL_BLOB_PARAMETER, base64Model);
             }
 
-            final IndexRequestBuilder indexRequestBuilder = ModelDao.runWithStashedThreadContext(
-                () -> client.prepareIndex(MODEL_INDEX_NAME)
-            );
+            final IndexRequestBuilder indexRequestBuilder = client.prepareIndex(MODEL_INDEX_NAME);
             indexRequestBuilder.setId(model.getModelID());
             indexRequestBuilder.setSource(parameters);
 
@@ -340,14 +338,18 @@ public interface ModelDao {
             }
 
             // Create the model index if it does not already exist
+            Runnable indexModelRunnable = () -> indexRequestBuilder.execute(onIndexListener);
             if (!isCreated()) {
                 create(
-                    ActionListener.wrap(createIndexResponse -> indexRequestBuilder.execute(onIndexListener), onIndexListener::onFailure)
+                    ActionListener.wrap(
+                        createIndexResponse -> ModelDao.runWithStashedThreadContext(indexModelRunnable),
+                        onIndexListener::onFailure
+                    )
                 );
                 return;
             }
 
-            indexRequestBuilder.execute(onIndexListener);
+            ModelDao.runWithStashedThreadContext(indexModelRunnable);
         }
 
         private ActionListener<IndexResponse> getUpdateModelMetadataListener(
@@ -531,17 +533,13 @@ public interface ModelDao {
             );
 
             // Setup delete model request
-            ModelDao.runWithStashedThreadContext(() -> {
+            clearModelMetadataStep.whenComplete(acknowledgedResponse -> {
                 DeleteRequestBuilder deleteRequestBuilder = new DeleteRequestBuilder(client, DeleteAction.INSTANCE, MODEL_INDEX_NAME);
                 deleteRequestBuilder.setId(modelId);
                 deleteRequestBuilder.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+                deleteModelFromIndex(modelId, deleteModelFromIndexStep, deleteRequestBuilder);
+            }, listener::onFailure);
 
-                // On model metadata removal, delete the model from the index
-                clearModelMetadataStep.whenComplete(
-                    acknowledgedResponse -> deleteModelFromIndex(modelId, deleteModelFromIndexStep, deleteRequestBuilder),
-                    listener::onFailure
-                );
-            });
             deleteModelFromIndexStep.whenComplete(deleteResponse -> {
                 // If model is not deleted, remove modelId from model graveyard and return with error message
                 if (deleteResponse.getResult() != DocWriteResponse.Result.DELETED) {
@@ -595,10 +593,12 @@ public interface ModelDao {
             StepListener<DeleteResponse> deleteModelFromIndexStep,
             DeleteRequestBuilder deleteRequestBuilder
         ) {
-            deleteRequestBuilder.execute(
-                ActionListener.wrap(
-                    deleteModelFromIndexStep::onResponse,
-                    exception -> removeModelIdFromGraveyardOnFailure(modelId, exception, deleteModelFromIndexStep)
+            ModelDao.runWithStashedThreadContext(
+                () -> deleteRequestBuilder.execute(
+                    ActionListener.wrap(
+                        deleteModelFromIndexStep::onResponse,
+                        exception -> removeModelIdFromGraveyardOnFailure(modelId, exception, deleteModelFromIndexStep)
+                    )
                 )
             );
         }
