@@ -27,6 +27,10 @@
 
 std::string TranslateSpaceType(const std::string& spaceType);
 
+// We do not use label functionality of nmslib so we pass default label. Setting as a const allows us to avoid a few
+// allocations
+const similarity::LabelType DEFAULT_LABEL = -1;
+
 void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
                                           jobjectArray vectorsJ, jstring indexPathJ, jobject parametersJ) {
 
@@ -96,6 +100,7 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, J
 
     // Read dataset
     similarity::ObjectVector dataset;
+    dataset.reserve(numVectors);
     int* idsCpp;
     try {
         // Read in data set
@@ -103,17 +108,41 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, J
 
         float* floatArrayCpp;
         jfloatArray floatArrayJ;
-        for (int i = 0; i < numVectors; i++) {
-            floatArrayJ = (jfloatArray)jniUtil->GetObjectArrayElement(env, vectorsJ, i);
+        size_t vectorSizeInBytes = dim*sizeof(float);
 
+        // Allocate a large buffer that will contain all the vectors. Allocating the objects in one large buffer as
+        // opposed to individually will prevent heap fragmentation. We have observed that allocating individual
+        // objects causes RSS to rise throughout the lifetime of a process
+        // (see https://github.com/opensearch-project/k-NN/issues/772 and
+        // https://github.com/opensearch-project/k-NN/issues/72). This is because, in typical systems, small
+        // allocations will reside on some kind of heap managed by an allocator. Once freed, the allocator does not
+        // always return the memory to the OS. If the heap gets fragmented, this will cause the allocator
+        // to ask for more memory, causing RSS to grow. On large allocations (> 128 kb), most allocators will
+        // internally use mmap. Once freed, unmap will be called, which will immediately return memory to the OS
+        // which in turn prevents RSS from growing out of control. Wrap with a smart pointer so that buffer will be
+        // freed once variable goes out of scope. For reference, the code that specifies the layout of the buffer can be
+        // found: https://github.com/nmslib/nmslib/blob/v2.1.1/similarity_search/include/object.h#L61-L75
+        std::unique_ptr<char[]> objectBuffer(new char[(similarity::ID_SIZE + similarity::LABEL_SIZE + similarity::DATALENGTH_SIZE + vectorSizeInBytes) * numVectors]);
+        char* ptr = objectBuffer.get();
+        for (int i = 0; i < numVectors; i++) {
+            dataset.push_back(new similarity::Object(ptr));
+
+            memcpy(ptr, &idsCpp[i], similarity::ID_SIZE);
+            ptr += similarity::ID_SIZE;
+            memcpy(ptr, &DEFAULT_LABEL, similarity::LABEL_SIZE);
+            ptr += similarity::LABEL_SIZE;
+            memcpy(ptr, &vectorSizeInBytes, similarity::DATALENGTH_SIZE);
+            ptr += similarity::DATALENGTH_SIZE;
+
+            floatArrayJ = (jfloatArray)jniUtil->GetObjectArrayElement(env, vectorsJ, i);
             if (dim != jniUtil->GetJavaFloatArrayLength(env, floatArrayJ)) {
                 throw std::runtime_error("Dimension of vectors is inconsistent");
             }
 
             floatArrayCpp = jniUtil->GetFloatArrayElements(env, floatArrayJ, nullptr);
-
-            dataset.push_back(new similarity::Object(idsCpp[i], -1, dim*sizeof(float), floatArrayCpp));
+            memcpy(ptr, floatArrayCpp, vectorSizeInBytes);
             jniUtil->ReleaseFloatArrayElements(env, floatArrayJ, floatArrayCpp, JNI_ABORT);
+            ptr += vectorSizeInBytes;
         }
         jniUtil->ReleaseIntArrayElements(env, idsJ, idsCpp, JNI_ABORT);
 
