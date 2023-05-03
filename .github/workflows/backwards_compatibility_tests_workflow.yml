@@ -14,11 +14,21 @@ jobs:
     strategy:
       matrix:
         java: [ 11, 17 ]
-        bwc_version : [ "1.1.0", "1.2.4", "1.3.8", "2.0.1", "2.1.0", "2.2.1", "2.3.0", "2.4.1", "2.5.0", "2.6.0", "2.7.0", "2.8.0" ]
-        opensearch_version : [ "2.9.0-SNAPSHOT" ]
+        os: [ubuntu-latest]
+        bwc_version : [ "2.0.1", "2.1.0", "2.2.1", "2.3.0", "2.4.1", "2.5.0", "2.6.0", "2.7.0", "2.8.0", "2.9.0-SNAPSHOT" ]
+        opensearch_version : [ "3.0.0-SNAPSHOT" ]
+        exclude:
+          - os: windows-latest
+            bwc_version: "2.0.1"
+          - os: windows-latest
+            bwc_version: "2.1.0"
+          - os: windows-latest
+            bwc_version: "2.2.1"
+          - os: windows-latest
+            bwc_version: "2.3.0"
 
     name: k-NN Restart-Upgrade BWC Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     env:
       BWC_VERSION_RESTART_UPGRADE: ${{ matrix.bwc_version }}
 
@@ -31,12 +41,43 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
 
-      - name: Install dependencies
+      - if: startsWith(matrix.os,'ubuntu')
+        name: Install dependencies on ubuntu
         run: |
           sudo apt-get install libopenblas-dev gfortran -y
 
+      - if: startsWith(matrix.os,'windows')
+        name: Install MinGW Using Scoop on Windows
+        run: |
+          iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
+          scoop bucket add main
+          scoop install mingw
 
-      - name: Run k-NN Restart-Upgrade BWC Tests from BWCVersion-${{ matrix.bwc_version }} to OpenSearch Version-${{ matrix.opensearch_version }}
+      - if: startsWith(matrix.os,'windows')
+        name: Add MinGW to PATH on Windows
+        run: |
+          echo "C:/Users/runneradmin/scoop/apps/mingw/current/bin" >> $env:GITHUB_PATH
+          refreshenv
+
+      - if: startsWith(matrix.os,'windows')
+        name: Download OpenBLAS on Windows
+        run: |
+          curl -L -O https://github.com/xianyi/OpenBLAS/releases/download/v0.3.21/OpenBLAS-0.3.21-x64.zip
+          mkdir OpenBLAS
+          Expand-Archive -Path .\OpenBLAS-0.3.21-x64.zip -DestinationPath .\OpenBLAS\
+          mkdir ./src/main/resources/windowsDependencies
+          cp ./OpenBLAS/bin/libopenblas.dll ./src/main/resources/windowsDependencies/
+          rm .\OpenBLAS-0.3.21-x64.zip
+          rm -r .\OpenBLAS\
+
+      - if: startsWith(matrix.os,'windows')
+        name: Run k-NN Restart-Upgrade BWC Tests from BWCVersion-${{ matrix.bwc_version }} to OpenSearch Version-${{ matrix.opensearch_version }} on Windows
+        run: |
+          echo "Running restart-upgrade backwards compatibility tests ..."
+          ./gradlew :qa:restart-upgrade:testRestartUpgrade -D'tests.bwc.version=${{ matrix.bwc_version }}'
+
+      - if: startsWith(matrix.os,'ubuntu')
+        name: Run k-NN Restart-Upgrade BWC Tests from BWCVersion-${{ matrix.bwc_version }} to OpenSearch Version-${{ matrix.opensearch_version }} on Ubuntu
         run: |
           echo "Running restart-upgrade backwards compatibility tests ..."
           ./gradlew :qa:restart-upgrade:testRestartUpgrade -Dtests.bwc.version=$BWC_VERSION_RESTART_UPGRADE
@@ -46,11 +87,12 @@ jobs:
     strategy:
       matrix:
         java: [ 11, 17 ]
-        bwc_version: [ "1.3.8", "2.0.1", "2.1.0", "2.2.1", "2.3.0", "2.4.1", "2.5.0", "2.6.0", "2.7.0", "2.8.0"]
-        opensearch_version: [ "2.9.0-SNAPSHOT" ]
+        os: [ubuntu-latest]
+        bwc_version: [ "2.9.0-SNAPSHOT" ]
+        opensearch_version: [ "3.0.0-SNAPSHOT" ]
 
     name: k-NN Rolling-Upgrade BWC Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     env:
       BWC_VERSION_ROLLING_UPGRADE: ${{ matrix.bwc_version }}
 
@@ -63,11 +105,43 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
 
-      - name: Install dependencies
+      - if: startsWith(matrix.os,'ubuntu')
+        name: Install dependencies on ubuntu
         run: |
           sudo apt-get install libopenblas-dev gfortran -y
 
-      - name: Run k-NN Rolling-Upgrade BWC Tests from BWCVersion-${{ matrix.bwc_version }} to OpenSearch Version-${{ matrix.opensearch_version }}
+      - if: startsWith(matrix.os,'windows')
+        name: Install MinGW Using Scoop on Windows
+        run: |
+          iex "& {$(irm get.scoop.sh)} -RunAsAdmin"
+          scoop bucket add main
+          scoop install mingw
+
+      - if: startsWith(matrix.os,'windows')
+        name: Add MinGW to PATH on Windows
+        run: |
+          echo "C:/Users/runneradmin/scoop/apps/mingw/current/bin" >> $env:GITHUB_PATH
+          refreshenv
+
+      - if: startsWith(matrix.os,'windows')
+        name: Download OpenBLAS on Windows
+        run: |
+          curl -L -O https://github.com/xianyi/OpenBLAS/releases/download/v0.3.21/OpenBLAS-0.3.21-x64.zip
+          mkdir OpenBLAS
+          Expand-Archive -Path .\OpenBLAS-0.3.21-x64.zip -DestinationPath .\OpenBLAS\
+          mkdir ./src/main/resources/windowsDependencies
+          cp ./OpenBLAS/bin/libopenblas.dll ./src/main/resources/windowsDependencies/
+          rm .\OpenBLAS-0.3.21-x64.zip
+          rm -r .\OpenBLAS\
+
+      - if: startsWith(matrix.os,'windows')
+        name: Run k-NN Rolling-Upgrade BWC Tests from BWCVersion-${{ matrix.bwc_version }} to OpenSearch Version-${{ matrix.opensearch_version }} on Windows
+        run: |
+          echo "Running rolling-upgrade backwards compatibility tests ..."
+          ./gradlew :qa:rolling-upgrade:testRollingUpgrade -D'tests.bwc.version=${{ matrix.bwc_version }}'
+
+      - if: startsWith(matrix.os,'ubuntu')
+        name: Run k-NN Rolling-Upgrade BWC Tests from BWCVersion-${{ matrix.bwc_version }} to OpenSearch Version-${{ matrix.opensearch_version }} on Ubuntu
         run: |
           echo "Running rolling-upgrade backwards compatibility tests ..."
           ./gradlew :qa:rolling-upgrade:testRollingUpgrade -Dtests.bwc.version=$BWC_VERSION_ROLLING_UPGRADE

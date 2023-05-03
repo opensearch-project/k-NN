@@ -21,12 +21,14 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
 import org.opensearch.common.ValidationException;
-import org.opensearch.common.collect.ImmutableOpenMap;
+// import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
+
+import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 import static org.opensearch.search.internal.SearchContext.DEFAULT_TERMINATE_AFTER;
@@ -94,7 +96,7 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
 
         DiscoveryNode selectedNode = null;
 
-        ImmutableOpenMap<String, DiscoveryNode> eligibleNodes = clusterService.state().nodes().getDataNodes();
+        Map<String, DiscoveryNode> eligibleNodes = clusterService.state().nodes().getDataNodes();
         DiscoveryNode currentNode;
 
         for (TrainingJobRouteDecisionInfoNodeResponse response : jobInfo.getNodes()) {
