@@ -21,7 +21,6 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Strings;
 import org.opensearch.common.ValidationException;
-// import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
