@@ -38,7 +38,7 @@ plugins {
     id 'idea'
     id 'jacoco'
     id "com.diffplug.spotless" version "6.3.0" apply false
-    id 'io.freefair.lombok' version '6.4.3'
+    id 'io.freefair.lombok' version '8.0.1'
 }
 
 apply from: 'gradle/formatting.gradle'
