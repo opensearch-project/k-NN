@@ -19,10 +19,16 @@
 
 apply plugin: 'jacoco'
 
+jacoco {
+    toolVersion = "0.8.9"
+}
+
+check.dependsOn jacocoTestReport
+
 // Get gradle to generate the required jvm agent arg for us using a dummy tasks of type Test. Unfortunately Elastic's
 // testing tasks don't derive from Test so the jacoco plugin can't do this automatically.
 def jacocoDir = "${buildDir}/jacoco"
-tasks.register("dummyTest", Test) {
+task dummyTest(type: Test) {
     enabled = false
     workingDir = file("/") // Force absolute path to jacoco agent jar
     jacoco {
@@ -32,7 +38,7 @@ tasks.register("dummyTest", Test) {
     }
 }
 
-tasks.register("dummyIntegTest", Test) {
+task dummyIntegTest(type: Test) {
     enabled = false
     workingDir = file("/") // Force absolute path to jacoco agent jar
     jacoco {
@@ -44,7 +50,6 @@ tasks.register("dummyIntegTest", Test) {
 
 integTest {
     systemProperty 'jacoco.dir', "${jacocoDir}"
-    systemProperty 'jmx.serviceUrl', "service:jmx:rmi:///jndi/rmi://127.0.0.1:7777/jmxrmi"
 }
 
 jacocoTestReport {
