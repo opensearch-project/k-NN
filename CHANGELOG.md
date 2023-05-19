@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Enhancements
 ### Bug Fixes
 ### Infrastructure
+* Fix build errors after refactoring of Strings class in core ([#904](https://github.com/opensearch-project/k-NN/pull/904))
 ### Documentation
 ### Maintenance
 ### Refactoring
