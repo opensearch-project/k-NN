@@ -13,8 +13,8 @@ package org.opensearch.knn.training;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.common.Strings;
 import org.opensearch.common.UUIDs;
+import org.opensearch.core.common.Strings;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.jni.JNIService;

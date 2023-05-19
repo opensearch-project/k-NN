@@ -6,7 +6,7 @@
 package org.opensearch.knn.common.exception;
 
 import org.opensearch.OpenSearchException;
-import org.opensearch.common.logging.LoggerMessageFormat;
+import org.opensearch.core.common.logging.LoggerMessageFormat;
 import org.opensearch.rest.RestStatus;
 
 /**

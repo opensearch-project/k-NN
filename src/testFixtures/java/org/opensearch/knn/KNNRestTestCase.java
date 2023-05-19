@@ -10,6 +10,7 @@ import com.google.common.io.Resources;
 import com.google.common.primitives.Floats;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.opensearch.common.Strings;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -26,7 +27,6 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
-import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -118,7 +118,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         // jacoco.dir is set in esplugin-coverage.gradle, if it doesn't exist we don't
         // want to collect coverage so we can return early
         String jacocoBuildPath = System.getProperty("jacoco.dir");
-        if (Strings.isNullOrEmpty(jacocoBuildPath)) {
+        if (org.opensearch.core.common.Strings.isNullOrEmpty(jacocoBuildPath)) {
             return;
         }
 
@@ -653,7 +653,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     protected void addModelToSystemIndex(String modelId, ModelMetadata modelMetadata, byte[] model) throws IOException {
-        assertFalse(Strings.isNullOrEmpty(modelId));
+        assertFalse(org.opensearch.core.common.Strings.isNullOrEmpty(modelId));
         String modelBase64 = Base64.getEncoder().encodeToString(model);
 
         Request request = new Request("POST", "/" + MODEL_INDEX_NAME + "/_doc/" + modelId + "?refresh=true");
