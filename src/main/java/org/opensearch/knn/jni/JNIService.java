@@ -94,14 +94,19 @@ public class JNIService {
      * Query an index
      *
      * @param indexPointer pointer to index in memory
-     * @param queryVector vector to be used for query
-     * @param k neighbors to be returned
-     * @param engineName name of engine to query index
+     * @param queryVector  vector to be used for query
+     * @param k            neighbors to be returned
+     * @param engineName   name of engine to query index
+     * @param filteredIds  array of ints on which should be used for search.
      * @return KNNQueryResult array of k neighbors
      */
-    public static KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k, String engineName) {
+    public static KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k, String engineName, int[] filteredIds) {
         if (KNNEngine.NMSLIB.getName().equals(engineName)) {
             return NmslibService.queryIndex(indexPointer, queryVector, k);
+        }
+
+        if (filteredIds != null && filteredIds.length != 0 && KNNEngine.FAISS.getName().equals(engineName)) {
+            return FaissService.queryIndex_WithFilter(indexPointer, queryVector, k, filteredIds);
         }
 
         if (KNNEngine.FAISS.getName().equals(engineName)) {

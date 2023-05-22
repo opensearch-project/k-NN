@@ -12,8 +12,8 @@
 package org.opensearch.knn.plugin.rest;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.commons.lang.StringUtils;
 import org.opensearch.client.node.NodeClient;
-import org.opensearch.common.Strings;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.GetModelAction;
 import org.opensearch.knn.plugin.transport.GetModelRequest;
@@ -50,7 +50,7 @@ public class RestGetModelHandler extends BaseRestHandler {
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest restRequest, NodeClient client) throws IOException {
         String modelID = restRequest.param(MODEL_ID);
-        if (!Strings.hasText(modelID)) {
+        if (StringUtils.isBlank(modelID)) {
             throw new IllegalArgumentException("model ID cannot be empty");
         }
 

@@ -283,7 +283,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             );
         }
 
-        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine) && filter != null) {
+        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine) && filter != null && knnEngine != KNNEngine.FAISS) {
             throw new IllegalArgumentException(String.format("Engine [%s] does not support filters", knnEngine));
         }
 

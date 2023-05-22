@@ -18,6 +18,8 @@
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIVFFlat.h"
 #include "faiss/MetaIndexes.h"
+#include "faiss/Index.h"
+#include "faiss/impl/IDSelector.h"
 
 #include <algorithm>
 #include <jni.h>
@@ -33,7 +35,12 @@ void SetExtraParameters(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env,
                         const std::unordered_map<std::string, jobject>& parametersCpp, faiss::Index * index);
 
 // Train an index with data provided
-void InternalTrainIndex(faiss::Index * index, faiss::Index::idx_t n, const float* x);
+void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x);
+
+// Create the SearchParams based on the Index Type
+faiss::SearchParameters* buildSearchParams(const faiss::IndexIDMap *indexReader, const std::shared_ptr<faiss::IDSelector>&idSelector);
+
+faiss::IDSelector* getIdSelector(const int* filterIds, int filterIdsLength);
 
 void knn_jni::faiss_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
                                          jobjectArray vectorsJ, jstring indexPathJ, jobject parametersJ) {
@@ -181,12 +188,73 @@ jlong knn_jni::faiss_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
 
 jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
                                                 jfloatArray queryVectorJ, jint kJ) {
+    return knn_jni::faiss_wrapper::QueryIndex_WithFilter(jniUtil, env, indexPointerJ, queryVectorJ, kJ, nullptr);
+}
+
+/**
+ * This function takes a call on what ID Selector to use:
+ * https://github.com/facebookresearch/faiss/wiki/Setting-search-parameters-for-one-query#idselectorarray-idselectorbatch-and-idselectorbitmap
+ *
+ * class	       storage	lookup     construction(Opensearch + Faiss)
+ * IDSelectorArray	O(k)	O(k)          O(2k)
+ * IDSelectorBatch	O(k)	O(1)          O(2k)
+ * IDSelectorBitmap	O(n/8)	O(1)          O(k) -> n is the max value of id in the index
+ *
+ * TODO: We need to ideally decide when we can take another hit of K iterations in latency. Some facts:
+ * an OpenSearch Index can have max segment size as 5GB which, which on a vector with dimension of 128 boils down to
+ * 7.5M vectors.
+ * Ref: https://opensearch.org/docs/latest/search-plugins/knn/knn-index/#hnsw-memory-estimation
+ * M = 16
+ * Dimension = 128
+ * (1.1 * ( 4 * 128 + 8 * 16) * 7000000)/(1000*1000*1000) ~ 4.9GB
+ * Ids are sequential in a Segment which means for IDSelectorBitmap total size if the max ID has value of 7M will be
+ * 7000000/(8*1000) = 875KBs in worst case.
+ *
+ * in 875KB how many ids can be represented as an array of 64-bit longs : 109,375 ids
+ * So iterating on 110k ids for 1 single pass is also time consuming
+ *
+ * @param filterIds
+ * @param filterIdsLength
+ * @return faiss::IDSelector
+ */
+faiss::IDSelector* getIdSelector(const int* filterIds, const int filterIdsLength) {
+    // filterIds array comes sorted
+    const int maxIdValue = filterIds[filterIdsLength - 1];
+    if(filterIdsLength * sizeof(faiss::idx_t) * 8 <= maxIdValue ) {
+        static std::vector<faiss::idx_t> convertedFilterIds(filterIdsLength);
+        for (int i = 0; i < filterIdsLength; i++) {
+            convertedFilterIds[i] = filterIds[i];
+        }
+        static faiss::IDSelectorBatch idSelectorBatch(filterIdsLength, convertedFilterIds.data());
+        return &idSelectorBatch;
+    }
+    // Now we do the bitmap because it is efficient
+    const int bitsetArraySize = maxIdValue % 8 == 0 ? maxIdValue / 8 : (maxIdValue / 8) + 1;
+    static std::vector<uint8_t> bitsetVector(bitsetArraySize, 0);
+
+    /**
+     * Coming from Faiss IDSelectorBitmap::is_member function bitmap id will be selected
+     * iff id / 8 < n and bit number (i%8) of bitmap[floor(i / 8)] is 1.
+     */
+    for(int i = 0 ; i < filterIdsLength ; i ++) {
+        int value = filterIds[i];
+        int bitsetArrayIndex = floor(value/8);
+        // this set the bit at required position
+        bitsetVector[bitsetArrayIndex] |= 1 << (value % 8);
+    }
+    static faiss::IDSelectorBitmap idSelectorBitmap(bitsetArraySize,bitsetVector.data());
+    return &idSelectorBitmap;
+}
+
+
+jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
+                                                jfloatArray queryVectorJ, jint kJ, jintArray filterIdsJ) {
 
     if (queryVectorJ == nullptr) {
         throw std::runtime_error("Query Vector cannot be null");
     }
 
-    auto *indexReader = reinterpret_cast<faiss::Index*>(indexPointerJ);
+    auto *indexReader = reinterpret_cast<faiss::IndexIDMap *>(indexPointerJ);
 
     if (indexReader == nullptr) {
         throw std::runtime_error("Invalid pointer to index");
@@ -195,11 +263,21 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniU
     // The ids vector will hold the top k ids from the search and the dis vector will hold the top k distances from
     // the query point
     std::vector<float> dis(kJ);
-    std::vector<faiss::Index::idx_t> ids(kJ);
+    std::vector<faiss::idx_t> ids(kJ);
     float* rawQueryvector = jniUtil->GetFloatArrayElements(env, queryVectorJ, nullptr);
+    std::shared_ptr<faiss::SearchParameters>sharedSearchParams = nullptr;
+    // create the filterSearch params if the filterIdsJ is not a null pointer
+    if(filterIdsJ != nullptr) {
+        int *filteredIdsArray = jniUtil->GetIntArrayElements(env, filterIdsJ, nullptr);
+        int filterIdsLength = env->GetArrayLength(filterIdsJ);
+        std::shared_ptr<faiss::IDSelector> filteredIdSelector(getIdSelector(filteredIdsArray, filterIdsLength));
+        sharedSearchParams.reset(buildSearchParams(indexReader, filteredIdSelector));
+        // free the filterIdsArray
+        jniUtil->ReleaseIntArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
+    }
 
     try {
-        indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data());
+        indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data(), sharedSearchParams.get());
     } catch (...) {
         jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
         throw;
@@ -225,6 +303,33 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniU
         jniUtil->SetObjectArrayElement(env, results, i, result);
     }
     return results;
+}
+
+/**
+ * Based on the type of the index reader we need to return the SearchParameters. The way we do this by dynamically
+ * casting the IndexReader.
+ * @param indexReader
+ * @param idSelector
+ * @return SearchParameters
+ */
+faiss::SearchParameters* buildSearchParams(const faiss::IndexIDMap *indexReader, const std::shared_ptr<faiss::IDSelector>&idSelector) {
+    auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
+    if(hnswReader) {
+        // we need to make this variable static so that the scope can be shared with caller function.
+        static faiss::SearchParametersHNSW hnswParams;
+        hnswParams.sel = idSelector.get();
+        return &hnswParams;
+    }
+
+    auto ivfReader = dynamic_cast<const faiss::IndexIVF*>(indexReader->index);
+    auto ivfFlatReader = dynamic_cast<const faiss::IndexIVFFlat*>(indexReader->index);
+    if(ivfReader || ivfFlatReader) {
+        // we need to make this variable static so that the scope can be shared with caller function.
+        static faiss::SearchParametersIVF ivfParams;
+        ivfParams.sel = idSelector.get();
+        return &ivfParams;
+    }
+    throw std::runtime_error("Invalid Index Type supported for Filtered Search on Faiss");
 }
 
 void knn_jni::faiss_wrapper::Free(jlong indexPointer) {
@@ -344,7 +449,7 @@ void SetExtraParameters(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env,
     }
 }
 
-void InternalTrainIndex(faiss::Index * index, faiss::Index::idx_t n, const float* x) {
+void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x) {
     if (auto * indexIvf = dynamic_cast<faiss::IndexIVF*>(index)) {
         if (indexIvf->quantizer_trains_alone == 2) {
             InternalTrainIndex(indexIvf->quantizer, n, x);
