@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import org.apache.commons.lang.StringUtils;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.ActionListenerResponseHandler;
 import org.opensearch.action.search.SearchRequest;
@@ -19,7 +20,6 @@ import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.Strings;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.inject.Inject;
@@ -107,7 +107,7 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
             if (response.getTrainingJobCount() < 1) {
                 selectedNode = currentNode;
                 // Return right away if the user didnt pass a preferred node or this is the preferred node
-                if (Strings.isEmpty(preferredNode) || selectedNode.getId().equals(preferredNode)) {
+                if (StringUtils.isEmpty(preferredNode) || selectedNode.getId().equals(preferredNode)) {
                     return selectedNode;
                 }
             }

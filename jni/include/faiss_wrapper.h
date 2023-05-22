@@ -40,6 +40,12 @@ namespace knn_jni {
         jobjectArray QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
                                 jfloatArray queryVectorJ, jint kJ);
 
+        // Execute a query against the index located in memory at indexPointerJ along with Filters
+        //
+        // Return an array of KNNQueryResults
+        jobjectArray QueryIndex_WithFilter(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
+                                                                jfloatArray queryVectorJ, jint kJ, jintArray filterIdsJ);
+
         // Free the index located in memory at indexPointerJ
         void Free(jlong indexPointer);
 

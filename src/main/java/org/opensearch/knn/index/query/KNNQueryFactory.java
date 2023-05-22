@@ -59,27 +59,53 @@ public class KNNQueryFactory {
         final String fieldName = createQueryRequest.getFieldName();
         final int k = createQueryRequest.getK();
         final float[] vector = createQueryRequest.getVector();
+        final Query filterQuery = getFilterQuery(createQueryRequest);
 
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
+            if (filterQuery != null && KNNEngine.getEnginesThatSupportsFilters().contains(createQueryRequest.getKnnEngine())) {
+                log.debug(
+                    String.format(
+                        "Creating custom k-NN query with filters for index: %s \"\", field: %s \"\", " + "k: %d",
+                        indexName,
+                        fieldName,
+                        k
+                    )
+                );
+                return new KNNQuery(fieldName, vector, k, indexName, filterQuery);
+            }
             log.debug(String.format("Creating custom k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
             return new KNNQuery(fieldName, vector, k, indexName);
         }
 
+        if (filterQuery != null) {
+            log.debug(
+                String.format("Creating Lucene k-NN query with filters for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k)
+            );
+            return new KnnFloatVectorQuery(fieldName, vector, k, filterQuery);
+        }
+        log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
+        return new KnnFloatVectorQuery(fieldName, vector, k);
+    }
+
+    private static Query getFilterQuery(CreateQueryRequest createQueryRequest) {
         if (createQueryRequest.getFilter().isPresent()) {
             final QueryShardContext queryShardContext = createQueryRequest.getContext()
                 .orElseThrow(() -> new RuntimeException("Shard context cannot be null"));
             log.debug(
-                String.format("Creating Lucene k-NN query with filter for index [%s], field [%s] and k [%d]", indexName, fieldName, k)
+                String.format(
+                    "Creating k-NN query with filter for index [%s], field [%s] and k [%d]",
+                    createQueryRequest.getIndexName(),
+                    createQueryRequest.fieldName,
+                    createQueryRequest.k
+                )
             );
             try {
-                final Query filterQuery = createQueryRequest.getFilter().get().toQuery(queryShardContext);
-                return new KnnFloatVectorQuery(fieldName, vector, k, filterQuery);
+                return createQueryRequest.getFilter().get().toQuery(queryShardContext);
             } catch (IOException e) {
                 throw new RuntimeException("Cannot create knn query with filter", e);
             }
         }
-        log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
-        return new KnnFloatVectorQuery(fieldName, vector, k);
+        return null;
     }
 
     /**

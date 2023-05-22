@@ -5,6 +5,12 @@
 
 package org.opensearch.knn.index.query;
 
+import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.search.FilteredDocIdSetIterator;
+import org.apache.lucene.util.BitSet;
+import org.apache.lucene.util.BitSetIterator;
+import org.apache.lucene.util.Bits;
+import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.jni.JNIService;
@@ -13,8 +19,6 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.util.KNNEngine;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FilterLeafReader;
 import org.apache.lucene.index.LeafReaderContext;
@@ -49,20 +53,30 @@ import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 /**
  * Calculate query weights and build query scorers.
  */
+@Log4j2
 public class KNNWeight extends Weight {
-    private static Logger logger = LogManager.getLogger(KNNWeight.class);
     private static ModelDao modelDao;
 
     private final KNNQuery knnQuery;
     private final float boost;
 
-    private NativeMemoryCacheManager nativeMemoryCacheManager;
+    private final NativeMemoryCacheManager nativeMemoryCacheManager;
+    private final Weight filterWeight;
 
     public KNNWeight(KNNQuery query, float boost) {
         super(query);
         this.knnQuery = query;
         this.boost = boost;
         this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
+        this.filterWeight = null;
+    }
+
+    public KNNWeight(KNNQuery query, float boost, Weight filterWeight) {
+        super(query);
+        this.knnQuery = query;
+        this.boost = boost;
+        this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
+        this.filterWeight = filterWeight;
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -76,13 +90,20 @@ public class KNNWeight extends Weight {
 
     @Override
     public Scorer scorer(LeafReaderContext context) throws IOException {
+        final int[] filterIdsArray = getFilterIdsArray(context);
+        // We don't need to go to JNI layer if no documents are found which satisfy the filters
+        // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
+        // place,
+        if (filterWeight != null && filterIdsArray.length == 0) {
+            return KNNScorer.emptyScorer(this);
+        }
         SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(context.reader());
         String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
 
         FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
 
         if (fieldInfo == null) {
-            logger.debug("[KNN] Field info not found for {}:{}", knnQuery.getField(), reader.getSegmentName());
+            log.debug("[KNN] Field info not found for {}:{}", knnQuery.getField(), reader.getSegmentName());
             return null;
         }
 
@@ -121,7 +142,7 @@ public class KNNWeight extends Weight {
             .collect(Collectors.toList());
 
         if (engineFiles.isEmpty()) {
-            logger.debug("[KNN] No engine index found for field {} for segment {}", knnQuery.getField(), reader.getSegmentName());
+            log.debug("[KNN] No engine index found for field {} for segment {}", knnQuery.getField(), reader.getSegmentName());
             return null;
         }
 
@@ -148,7 +169,6 @@ public class KNNWeight extends Weight {
 
         // Now that we have the allocation, we need to readLock it
         indexAllocation.readLock();
-
         try {
             if (indexAllocation.isClosed()) {
                 throw new RuntimeException("Index has already been closed");
@@ -158,8 +178,10 @@ public class KNNWeight extends Weight {
                 indexAllocation.getMemoryAddress(),
                 knnQuery.getQueryVector(),
                 knnQuery.getK(),
-                knnEngine.getName()
+                knnEngine.getName(),
+                filterIdsArray
             );
+
         } catch (Exception e) {
             GRAPH_QUERY_ERRORS.increment();
             throw new RuntimeException(e);
@@ -174,7 +196,7 @@ public class KNNWeight extends Weight {
          * neighbors we are inverting the scores.
          */
         if (results.length == 0) {
-            logger.debug("[KNN] Query yielded 0 results");
+            log.debug("[KNN] Query yielded 0 results");
             return null;
         }
 
@@ -189,6 +211,59 @@ public class KNNWeight extends Weight {
         Arrays.stream(results).forEach(result -> setAdder.add(result.getId()));
         DocIdSetIterator docIdSetIter = docIdSetBuilder.build().iterator();
         return new KNNScorer(this, docIdSetIter, scores, boost);
+    }
+
+    private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx, final Weight filterWeight) throws IOException {
+        final Bits liveDocs = ctx.reader().getLiveDocs();
+        final int maxDoc = ctx.reader().maxDoc();
+
+        final Scorer scorer = filterWeight.scorer(ctx);
+        if (scorer == null) {
+            return new FixedBitSet(0);
+        }
+
+        final BitSet acceptDocs = createBitSet(scorer.iterator(), liveDocs, maxDoc);
+        // TODO: Based on this cost shift to exact search, because even in ANN search you have to calculate the
+        // distance for K vectors. This can avoid calls to native layer and save some latency.
+        final int cost = acceptDocs.cardinality();
+        log.debug("Number of docs valid for filter is = Cost for filtered k-nn is : {}", cost);
+        return acceptDocs;
+    }
+
+    private BitSet createBitSet(final DocIdSetIterator filteredDocIdsIterator, final Bits liveDocs, int maxDoc) throws IOException {
+        if (liveDocs == null && filteredDocIdsIterator instanceof BitSetIterator) {
+            // If we already have a BitSet and no deletions, reuse the BitSet
+            return ((BitSetIterator) filteredDocIdsIterator).getBitSet();
+        }
+        // Create a new BitSet from matching and live docs
+        FilteredDocIdSetIterator filterIterator = new FilteredDocIdSetIterator(filteredDocIdsIterator) {
+            @Override
+            protected boolean match(int doc) {
+                return liveDocs == null || liveDocs.get(doc);
+            }
+        };
+        return BitSet.of(filterIterator, maxDoc);
+    }
+
+    private int[] getFilterIdsArray(final LeafReaderContext context) throws IOException {
+        if (filterWeight == null) {
+            return new int[0];
+        }
+        final BitSet filteredDocsBitSet = getFilteredDocsBitSet(context, this.filterWeight);
+        final int[] filteredIds = new int[filteredDocsBitSet.cardinality()];
+        int filteredIdsIndex = 0;
+        int docId = 0;
+        while (true) {
+            docId = filteredDocsBitSet.nextSetBit(docId);
+            if (docId == DocIdSetIterator.NO_MORE_DOCS || docId + 1 == DocIdSetIterator.NO_MORE_DOCS) {
+                break;
+            }
+            log.debug("Docs in filtered docs id set is : {}", docId);
+            filteredIds[filteredIdsIndex] = docId;
+            filteredIdsIndex++;
+            docId++;
+        }
+        return filteredIds;
     }
 
     @Override

@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.jni;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -94,20 +95,27 @@ public class JNIService {
      * Query an index
      *
      * @param indexPointer pointer to index in memory
-     * @param queryVector vector to be used for query
-     * @param k neighbors to be returned
-     * @param engineName name of engine to query index
+     * @param queryVector  vector to be used for query
+     * @param k            neighbors to be returned
+     * @param engineName   name of engine to query index
+     * @param filteredIds  array of ints on which should be used for search.
      * @return KNNQueryResult array of k neighbors
      */
-    public static KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k, String engineName) {
+    public static KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k, String engineName, int[] filteredIds) {
         if (KNNEngine.NMSLIB.getName().equals(engineName)) {
             return NmslibService.queryIndex(indexPointer, queryVector, k);
         }
 
         if (KNNEngine.FAISS.getName().equals(engineName)) {
+            // This code assumes that if filteredIds == null / filteredIds.length == 0 if filter is specified then empty
+            // k-NN results are already returned. Otherwise, it's a filter case and we need to run search with
+            // filterIds. FilterIds is coming as empty then its the case where we need to do search with Faiss engine
+            // normally.
+            if (ArrayUtils.isNotEmpty(filteredIds)) {
+                return FaissService.queryIndexWithFilter(indexPointer, queryVector, k, filteredIds);
+            }
             return FaissService.queryIndex(indexPointer, queryVector, k);
         }
-
         throw new IllegalArgumentException("QueryIndex not supported for provided engine");
     }
 
