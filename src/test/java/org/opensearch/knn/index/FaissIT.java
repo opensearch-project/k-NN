@@ -55,7 +55,7 @@ public class FaissIT extends KNNRestTestCase {
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());
     }
 
-    public void testEndToEnd_fromMethod() throws IOException, InterruptedException {
+    public void testEndToEnd_fromMethod() throws Exception {
         String indexName = "test-index-1";
         String fieldName = "test-field-1";
 
@@ -106,7 +106,7 @@ public class FaissIT extends KNNRestTestCase {
         }
 
         // Assert we have the right number of documents in the index
-        refreshAllIndices();
+        refreshAllNonSystemIndices();
         assertEquals(testData.indexData.docs.length, getDocCount(indexName));
 
         int k = 10;
