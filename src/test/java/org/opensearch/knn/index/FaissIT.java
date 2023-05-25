@@ -106,7 +106,7 @@ public class FaissIT extends KNNRestTestCase {
         }
 
         // Assert we have the right number of documents in the index
-        refreshAllIndices();
+        refreshAllNonSystemIndices();
         assertEquals(testData.indexData.docs.length, getDocCount(indexName));
 
         int k = 10;

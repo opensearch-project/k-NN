@@ -13,6 +13,9 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.common.Strings;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
@@ -22,7 +25,6 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.opensearch.client.Request;
@@ -60,6 +62,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -112,6 +115,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     private static final String DOCUMENT_FIELD_FOUND = "found";
     protected static final int DELAY_MILLI_SEC = 1000;
     protected static final int NUM_OF_ATTEMPTS = 30;
+    private static final String SYSTEM_INDEX_PREFIX = ".opendistro";
 
     @AfterClass
     public static void dumpCoverage() throws IOException, MalformedObjectNameException {
@@ -1266,5 +1270,40 @@ public class KNNRestTestCase extends ODFERestTestCase {
         void dump(boolean reset);
 
         void reset();
+    }
+
+    protected void refreshAllNonSystemIndices() throws Exception {
+        Response response = adminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
+        XContentType xContentType = XContentType.fromMediaType(response.getEntity().getContentType());
+        try (
+            XContentParser parser = xContentType.xContent()
+                .createParser(
+                    NamedXContentRegistry.EMPTY,
+                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                    response.getEntity().getContent()
+                )
+        ) {
+            XContentParser.Token token = parser.nextToken();
+            List<Map<String, Object>> parserList;
+            if (token == XContentParser.Token.START_ARRAY) {
+                parserList = parser.listOrderedMap().stream().map(obj -> (Map<String, Object>) obj).collect(Collectors.toList());
+            } else {
+                parserList = Collections.singletonList(parser.mapOrdered());
+            }
+            Set<String> indices = parserList.stream()
+                .map(index -> (String) index.get("index"))
+                .filter(index -> !index.startsWith(SYSTEM_INDEX_PREFIX))
+                .collect(Collectors.toSet());
+            for (String index : indices) {
+                refreshIndex(index);
+            }
+        }
+    }
+
+    protected void refreshIndex(final String index) throws IOException {
+        Request request = new Request("POST", "/" + index + "/_refresh");
+
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 }
