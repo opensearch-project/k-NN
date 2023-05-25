@@ -19,7 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Bulk allocate objects for nmslib index creation to avoid malloc fragmentation ([#773](https://github.com/opensearch-project/k-NN/pull/773))
 ### Bug Fixes
 ### Infrastructure
-Disable index refresh for system indices ([#773](https://github.com/opensearch-project/k-NN/pull/915))
+* Bump requests version from 2.26.0 to 2.31.0 ([#913](https://github.com/opensearch-project/k-NN/pull/913))
+* Disable index refresh for system indices ([#773](https://github.com/opensearch-project/k-NN/pull/915))
 ### Documentation
 ### Maintenance
 ### Refactoring
