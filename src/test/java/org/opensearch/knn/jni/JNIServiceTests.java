@@ -583,12 +583,12 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testQueryIndex_invalidEngine() {
-        expectThrows(IllegalArgumentException.class, () -> JNIService.queryIndex(0L, new float[] {}, 0, "invalid-engine"));
+        expectThrows(IllegalArgumentException.class, () -> JNIService.queryIndex(0L, new float[] {}, 0, "invalid" + "-engine", null));
     }
 
     public void testQueryIndex_nmslib_invalid_badPointer() {
 
-        expectThrows(Exception.class, () -> JNIService.queryIndex(0L, new float[] {}, 0, KNNEngine.NMSLIB.getName()));
+        expectThrows(Exception.class, () -> JNIService.queryIndex(0L, new float[] {}, 0, KNNEngine.NMSLIB.getName(), null));
     }
 
     public void testQueryIndex_nmslib_invalid_nullQueryVector() throws IOException {
@@ -611,7 +611,7 @@ public class JNIServiceTests extends KNNTestCase {
         );
         assertNotEquals(0, pointer);
 
-        expectThrows(Exception.class, () -> JNIService.queryIndex(pointer, null, 10, KNNEngine.NMSLIB.getName()));
+        expectThrows(Exception.class, () -> JNIService.queryIndex(pointer, null, 10, KNNEngine.NMSLIB.getName(), null));
     }
 
     public void testQueryIndex_nmslib_valid() throws IOException {
@@ -637,7 +637,7 @@ public class JNIServiceTests extends KNNTestCase {
             assertNotEquals(0, pointer);
 
             for (float[] query : testData.queries) {
-                KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, KNNEngine.NMSLIB.getName());
+                KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, KNNEngine.NMSLIB.getName(), null);
                 assertEquals(k, results.length);
             }
         }
@@ -645,7 +645,7 @@ public class JNIServiceTests extends KNNTestCase {
 
     public void testQueryIndex_faiss_invalid_badPointer() {
 
-        expectThrows(Exception.class, () -> JNIService.queryIndex(0L, new float[] {}, 0, FAISS_NAME));
+        expectThrows(Exception.class, () -> JNIService.queryIndex(0L, new float[] {}, 0, FAISS_NAME, null));
     }
 
     public void testQueryIndex_faiss_invalid_nullQueryVector() throws IOException {
@@ -664,7 +664,7 @@ public class JNIServiceTests extends KNNTestCase {
         long pointer = JNIService.loadIndex(tmpFile.toAbsolutePath().toString(), Collections.emptyMap(), FAISS_NAME);
         assertNotEquals(0, pointer);
 
-        expectThrows(Exception.class, () -> JNIService.queryIndex(pointer, null, 10, FAISS_NAME));
+        expectThrows(Exception.class, () -> JNIService.queryIndex(pointer, null, 10, FAISS_NAME, null));
     }
 
     public void testQueryIndex_faiss_valid() throws IOException {
@@ -693,7 +693,7 @@ public class JNIServiceTests extends KNNTestCase {
                 assertNotEquals(0, pointer);
 
                 for (float[] query : testData.queries) {
-                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME);
+                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, null);
                     assertEquals(k, results.length);
                 }
             }

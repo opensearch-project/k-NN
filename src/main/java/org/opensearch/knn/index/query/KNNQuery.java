@@ -5,6 +5,11 @@
 
 package org.opensearch.knn.index.query;
 
+import lombok.Getter;
+import lombok.Setter;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.FieldExistsQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryVisitor;
@@ -25,11 +30,23 @@ public class KNNQuery extends Query {
     private final int k;
     private final String indexName;
 
+    @Getter
+    @Setter
+    private Query filterQuery;
+
     public KNNQuery(String field, float[] queryVector, int k, String indexName) {
         this.field = field;
         this.queryVector = queryVector;
         this.k = k;
         this.indexName = indexName;
+    }
+
+    public KNNQuery(String field, float[] queryVector, int k, String indexName, Query filterQuery) {
+        this.field = field;
+        this.queryVector = queryVector;
+        this.k = k;
+        this.indexName = indexName;
+        this.filterQuery = filterQuery;
     }
 
     public String getField() {
@@ -61,7 +78,23 @@ public class KNNQuery extends Query {
         if (!KNNSettings.isKNNPluginEnabled()) {
             throw new IllegalStateException("KNN plugin is disabled. To enable update knn.plugin.enabled to true");
         }
+        final Weight filterWeight = getFilterWeight(searcher);
+        if (filterWeight != null) {
+            return new KNNWeight(this, boost, filterWeight);
+        }
         return new KNNWeight(this, boost);
+    }
+
+    private Weight getFilterWeight(IndexSearcher searcher) throws IOException {
+        if (this.getFilterQuery() != null) {
+            // Run the filter query
+            final BooleanQuery booleanQuery = new BooleanQuery.Builder().add(this.getFilterQuery(), BooleanClause.Occur.FILTER)
+                .add(new FieldExistsQuery(this.getField()), BooleanClause.Occur.FILTER)
+                .build();
+            final Query rewritten = searcher.rewrite(booleanQuery);
+            return searcher.createWeight(rewritten, ScoreMode.COMPLETE_NO_SCORES, 1f);
+        }
+        return null;
     }
 
     @Override

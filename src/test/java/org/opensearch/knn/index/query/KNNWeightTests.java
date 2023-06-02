@@ -133,7 +133,8 @@ public class KNNWeightTests extends KNNTestCase {
         SpaceType spaceType = SpaceType.L2;
         final Function<Float, Float> scoreTranslator = spaceType::scoreTranslation;
         final String modelId = "modelId";
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString())).thenReturn(getKNNQueryResults());
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any()))
+            .thenReturn(getKNNQueryResults());
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME);
 
@@ -272,7 +273,8 @@ public class KNNWeightTests extends KNNTestCase {
     @SneakyThrows
     public void testEmptyQueryResults() {
         final KNNQueryResult[] knnQueryResults = new KNNQueryResult[] {};
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString())).thenReturn(knnQueryResults);
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any()))
+            .thenReturn(knnQueryResults);
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME);
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
@@ -316,7 +318,8 @@ public class KNNWeightTests extends KNNTestCase {
         final Set<String> segmentFiles,
         final Map<String, String> fileAttributes
     ) throws IOException {
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString())).thenReturn(getKNNQueryResults());
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any()))
+            .thenReturn(getKNNQueryResults());
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME);
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
