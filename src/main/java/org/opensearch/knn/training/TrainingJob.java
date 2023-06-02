@@ -11,10 +11,10 @@
 
 package org.opensearch.knn.training;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.common.UUIDs;
-import org.opensearch.core.common.Strings;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.jni.JNIService;
@@ -68,7 +68,7 @@ public class TrainingJob implements Runnable {
         String description
     ) {
         // Generate random base64 string if one is not provided
-        this.modelId = Strings.hasText(modelId) ? modelId : UUIDs.randomBase64UUID();
+        this.modelId = StringUtils.isNotBlank(modelId) ? modelId : UUIDs.randomBase64UUID();
         this.knnMethodContext = Objects.requireNonNull(knnMethodContext, "MethodContext cannot be null.");
         this.nativeMemoryCacheManager = Objects.requireNonNull(nativeMemoryCacheManager, "NativeMemoryCacheManager cannot be null.");
         this.trainingDataEntryContext = Objects.requireNonNull(trainingDataEntryContext, "TrainingDataEntryContext cannot be null.");

@@ -1306,4 +1306,20 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
+
+    protected void addKnnDocWithAttributes(String docId, float[] vector, Map<String, String> fieldValues) throws IOException {
+        Request request = new Request("POST", "/" + INDEX_NAME + "/_doc/" + docId + "?refresh=true");
+
+        final XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(FIELD_NAME, vector);
+        for (String fieldName : fieldValues.keySet()) {
+            builder.field(fieldName, fieldValues.get(fieldName));
+        }
+        builder.endObject();
+        request.setJsonEntity(Strings.toString(builder));
+        client().performRequest(request);
+
+        request = new Request("POST", "/" + INDEX_NAME + "/_refresh");
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
 }

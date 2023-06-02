@@ -18,12 +18,18 @@
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIVFFlat.h"
 #include "faiss/MetaIndexes.h"
+#include "faiss/Index.h"
+#include "faiss/impl/IDSelector.h"
 
 #include <algorithm>
 #include <jni.h>
 #include <string>
 #include <vector>
 
+// Defines type of IDSelector
+enum FilterIdsSelectorType{
+    BITMAP, BATCH
+};
 
 // Translate space type to faiss metric
 faiss::MetricType TranslateSpaceToMetric(const std::string& spaceType);
@@ -33,7 +39,19 @@ void SetExtraParameters(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env,
                         const std::unordered_map<std::string, jobject>& parametersCpp, faiss::Index * index);
 
 // Train an index with data provided
-void InternalTrainIndex(faiss::Index * index, faiss::Index::idx_t n, const float* x);
+void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x);
+
+// Create the SearchParams based on the Index Type
+std::unique_ptr<faiss::SearchParameters> buildSearchParams(const faiss::IndexIDMap *indexReader, faiss::IDSelector* idSelector);
+
+// Helps to choose the right FilterIdsSelectorType for Faiss
+FilterIdsSelectorType getIdSelectorType(const int* filterIds, int filterIdsLength);
+
+// Converts the int FilterIds to Faiss ids type array.
+void convertFilterIdsToFaissIdType(const int* filterIds, int filterIdsLength, faiss::idx_t* convertedFilterIds);
+
+// Concerts the FilterIds to BitMap
+void buildFilterIdsBitMap(const int* filterIds, int filterIdsLength, uint8_t* bitsetVector);
 
 void knn_jni::faiss_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
                                          jobjectArray vectorsJ, jstring indexPathJ, jobject parametersJ) {
@@ -181,12 +199,17 @@ jlong knn_jni::faiss_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
 
 jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
                                                 jfloatArray queryVectorJ, jint kJ) {
+    return knn_jni::faiss_wrapper::QueryIndex_WithFilter(jniUtil, env, indexPointerJ, queryVectorJ, kJ, nullptr);
+}
+
+jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
+                                                jfloatArray queryVectorJ, jint kJ, jintArray filterIdsJ) {
 
     if (queryVectorJ == nullptr) {
         throw std::runtime_error("Query Vector cannot be null");
     }
 
-    auto *indexReader = reinterpret_cast<faiss::Index*>(indexPointerJ);
+    auto *indexReader = reinterpret_cast<faiss::IndexIDMap *>(indexPointerJ);
 
     if (indexReader == nullptr) {
         throw std::runtime_error("Invalid pointer to index");
@@ -195,14 +218,49 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniU
     // The ids vector will hold the top k ids from the search and the dis vector will hold the top k distances from
     // the query point
     std::vector<float> dis(kJ);
-    std::vector<faiss::Index::idx_t> ids(kJ);
+    std::vector<faiss::idx_t> ids(kJ);
     float* rawQueryvector = jniUtil->GetFloatArrayElements(env, queryVectorJ, nullptr);
-
-    try {
-        indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data());
-    } catch (...) {
-        jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
-        throw;
+    // create the filterSearch params if the filterIdsJ is not a null pointer
+    if(filterIdsJ != nullptr) {
+        int *filteredIdsArray = jniUtil->GetIntArrayElements(env, filterIdsJ, nullptr);
+        int filterIdsLength = env->GetArrayLength(filterIdsJ);
+        std::unique_ptr<faiss::IDSelector> idSelector;
+        FilterIdsSelectorType idSelectorType = getIdSelectorType(filteredIdsArray, filterIdsLength);
+        // start with empty vectors for 2 different types of empty Selectors. We need define them here to avoid copying of data
+        // during the returns. We could have used pass by reference, but we choose pointers. Returning reference to local
+        // vector is also an option which can be efficient than copying during returns but it requires upto date C++ compilers.
+        // To avoid all those confusions, its better to work with pointers here. Ref: https://cplusplus.com/forum/general/56177/
+        std::vector<faiss::idx_t> convertedIds;
+        std::vector<uint8_t> bitmap;
+        // Choose a selector which suits best
+        if(idSelectorType == BATCH) {
+            convertedIds.resize(filterIdsLength);
+            convertFilterIdsToFaissIdType(filteredIdsArray, filterIdsLength, convertedIds.data());
+            idSelector.reset(new faiss::IDSelectorBatch(convertedIds.size(), convertedIds.data()));
+        } else {
+            int maxIdValue = filteredIdsArray[filterIdsLength - 1];
+            // >> 3 is equivalent to value / 8
+            const int bitsetArraySize = (maxIdValue >> 3) + 1;
+            bitmap.resize(bitsetArraySize, 0);
+            buildFilterIdsBitMap(filteredIdsArray, filterIdsLength, bitmap.data());
+            idSelector.reset(new faiss::IDSelectorBitmap(filterIdsLength, bitmap.data()));
+        }
+        std::unique_ptr<faiss::SearchParameters> searchParameters = buildSearchParams(indexReader, idSelector.get());
+        try {
+            indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data(), searchParameters.get());
+        } catch (...) {
+            jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
+            jniUtil->ReleaseIntArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
+            throw;
+        }
+        jniUtil->ReleaseIntArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
+    } else {
+        try {
+            indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data());
+        } catch (...) {
+            jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
+            throw;
+        }
     }
     jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
 
@@ -344,7 +402,7 @@ void SetExtraParameters(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env,
     }
 }
 
-void InternalTrainIndex(faiss::Index * index, faiss::Index::idx_t n, const float* x) {
+void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x) {
     if (auto * indexIvf = dynamic_cast<faiss::IndexIVF*>(index)) {
         if (indexIvf->quantizer_trains_alone == 2) {
             InternalTrainIndex(indexIvf->quantizer, n, x);
@@ -355,4 +413,91 @@ void InternalTrainIndex(faiss::Index * index, faiss::Index::idx_t n, const float
     if (!index->is_trained) {
         index->train(n, x);
     }
+}
+
+/**
+ * This function takes a call on what ID Selector to use:
+ * https://github.com/facebookresearch/faiss/wiki/Setting-search-parameters-for-one-query#idselectorarray-idselectorbatch-and-idselectorbitmap
+ *
+ * class	       storage	lookup     construction(Opensearch + Faiss)
+ * IDSelectorArray	O(k)	O(k)          O(2k)
+ * IDSelectorBatch	O(k)	O(1)          O(2k)
+ * IDSelectorBitmap	O(n/8)	O(1)          O(k) -> n is the max value of id in the index
+ *
+ * TODO: We need to ideally decide when we can take another hit of K iterations in latency. Some facts:
+ * an OpenSearch Index can have max segment size as 5GB which, which on a vector with dimension of 128 boils down to
+ * 7.5M vectors.
+ * Ref: https://opensearch.org/docs/latest/search-plugins/knn/knn-index/#hnsw-memory-estimation
+ * M = 16
+ * Dimension = 128
+ * (1.1 * ( 4 * 128 + 8 * 16) * 7500000)/(1024*1024*1024) ~ 4.9GB
+ * Ids are sequential in a Segment which means for IDSelectorBitmap total size if the max ID has value of 7.5M will be
+ * 7500000/(8*1024) = 915KBs in worst case. But with larger dimensions this worst case value will decrease.
+ *
+ * With 915KB how many ids can be represented as an array of 64-bit longs : 117,120 ids
+ * So iterating on 117k ids for 1 single pass is also time consuming. So, we are currently concluding to consider only size
+ * as factor. We need to improve on this.
+ *
+ * TODO: Best way is to implement a SparseBitSet in C++. This can be done by extending the IDSelector Interface of Faiss.
+ *
+ * @param filterIds
+ * @param filterIdsLength
+ * @return std::string
+ */
+FilterIdsSelectorType getIdSelectorType(const int* filterIds, int filterIdsLength) {
+    int maxIdValue = filterIds[filterIdsLength - 1];
+    if(filterIdsLength * sizeof(faiss::idx_t) * 8 <= maxIdValue ) {
+        return BATCH;
+    }
+    return BITMAP;
+}
+
+void convertFilterIdsToFaissIdType(const int* filterIds, int filterIdsLength, faiss::idx_t* convertedFilterIds) {
+    for (int i = 0; i < filterIdsLength; i++) {
+        convertedFilterIds[i] = filterIds[i];
+    }
+}
+
+void buildFilterIdsBitMap(const int* filterIds, int filterIdsLength, uint8_t* bitsetVector) {
+    /**
+     * Coming from Faiss IDSelectorBitmap::is_member function bitmap id will be selected
+     * iff id / 8 < n and bit number (i%8) of bitmap[floor(i / 8)] is 1.
+     */
+    for(int i = 0 ; i < filterIdsLength ; i ++) {
+        int value = filterIds[i];
+        // / , % are expensive operation. Hence, using BitShift operation as they are fast.
+        int bitsetArrayIndex = value >> 3 ; // is equivalent to value / 8
+        // (value & 7) equivalent to value % 8
+        bitsetVector[bitsetArrayIndex] = bitsetVector[bitsetArrayIndex] |  (1 << (value & 7));
+    }
+}
+
+/**
+ * Based on the type of the index reader we need to return the SearchParameters. The way we do this by dynamically
+ * casting the IndexReader.
+ * @param indexReader
+ * @param idSelector
+ * @return SearchParameters
+ */
+std::unique_ptr<faiss::SearchParameters> buildSearchParams(const faiss::IndexIDMap *indexReader, faiss::IDSelector* idSelector) {
+    auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
+    if(hnswReader) {
+        // we need to make this variable unique_ptr so that the scope can be shared with caller function.
+        std::unique_ptr<faiss::SearchParametersHNSW> hnswParams(new faiss::SearchParametersHNSW);
+        // Setting the ef_search value equal to what was provided during index creation. SearchParametersHNSW has a default
+        // value of ef_search = 16 which will then be used.
+        hnswParams->efSearch = hnswReader->hnsw.efSearch;
+        hnswParams->sel = idSelector;
+        return hnswParams;
+    }
+
+    auto ivfReader = dynamic_cast<const faiss::IndexIVF*>(indexReader->index);
+    auto ivfFlatReader = dynamic_cast<const faiss::IndexIVFFlat*>(indexReader->index);
+    if(ivfReader || ivfFlatReader) {
+        // we need to make this variable unique_ptr so that the scope can be shared with caller function.
+        std::unique_ptr<faiss::SearchParametersIVF> ivfParams(new faiss::SearchParametersIVF);
+        ivfParams->sel = idSelector;
+        return ivfParams;
+    }
+    throw std::runtime_error("Invalid Index Type supported for Filtered Search on Faiss");
 }

@@ -5,8 +5,11 @@
 
 package org.opensearch.knn.index.query;
 
+import org.apache.lucene.index.Term;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.TermQuery;
+import org.mockito.Mockito;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
@@ -23,6 +26,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class KNNQueryFactoryTests extends KNNTestCase {
+    private static final String FILTER_FILED_NAME = "foo";
+    private static final String FILTER_FILED_VALUE = "fooval";
+    private static final QueryBuilder FILTER_QUERY_BUILDER = new TermQueryBuilder(FILTER_FILED_NAME, FILTER_FILED_VALUE);
+    private static final Query FILTER_QUERY = new TermQuery(new Term(FILTER_FILED_NAME, FILTER_FILED_VALUE));
     private final int testQueryDimension = 17;
     private final float[] testQueryVector = new float[testQueryDimension];
     private final String testIndexName = "test-index";
@@ -59,7 +66,6 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
             MappedFieldType testMapper = mock(MappedFieldType.class);
             when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
-            QueryBuilder filter = new TermQueryBuilder("foo", "fooval");
             final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
                 .indexName(testIndexName)
@@ -67,10 +73,35 @@ public class KNNQueryFactoryTests extends KNNTestCase {
                 .vector(testQueryVector)
                 .k(testK)
                 .context(mockQueryShardContext)
-                .filter(filter)
+                .filter(FILTER_QUERY_BUILDER)
                 .build();
             Query query = KNNQueryFactory.create(createQueryRequest);
             assertTrue(query.getClass().isAssignableFrom(KnnFloatVectorQuery.class));
         }
+    }
+
+    public void testCreateFaissQueryWithFilter_withValidValues_thenSuccess() {
+        final KNNEngine knnEngine = KNNEngine.FAISS;
+        final QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        MappedFieldType testMapper = mock(MappedFieldType.class);
+        when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
+        when(testMapper.termQuery(Mockito.any(), Mockito.eq(mockQueryShardContext))).thenReturn(FILTER_QUERY);
+        final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(knnEngine)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .k(testK)
+            .context(mockQueryShardContext)
+            .filter(FILTER_QUERY_BUILDER)
+            .build();
+        final Query query = KNNQueryFactory.create(createQueryRequest);
+        assertTrue(query instanceof KNNQuery);
+
+        assertEquals(testIndexName, ((KNNQuery) query).getIndexName());
+        assertEquals(testFieldName, ((KNNQuery) query).getField());
+        assertEquals(testQueryVector, ((KNNQuery) query).getQueryVector());
+        assertEquals(testK, ((KNNQuery) query).getK());
+        assertEquals(FILTER_QUERY, ((KNNQuery) query).getFilterQuery());
     }
 }
