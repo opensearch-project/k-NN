@@ -1,6 +1,6 @@
 endpoint: [ENDPOINT]
-test_name: "Lucene HNSW Relaxed Filter Test"
-test_id: "Lucene HNSW Relaxed Filter Test"
+test_name: "Faiss HNSW Restrictive Filter Test"
+test_id: "Faiss HNSW Restrictive Filter Test"
 num_runs: 10
 show_runs: false
 steps:
@@ -19,6 +19,9 @@ steps:
     attribute_spec: [ { name: 'color', type: 'str' }, { name: 'taste', type: 'str' }, { name: 'age', type: 'int' } ]
   - name: refresh_index
     index_name: target_index
+  - name: force_merge
+    index_name: target_index
+    max_num_segments: 1
   - name: query_with_filter
     k: 100
     r: 1
@@ -29,6 +32,6 @@ steps:
     dataset_path: [DATASET_PATH]/sift-128-euclidean-with-attr.hdf5
     neighbors_format: hdf5
     neighbors_path: [DATASET_PATH]/sift-128-euclidean-with-filters.hdf5
-    neighbors_dataset: neighbors_filter_5
-    filter_spec: [INDEX_SPEC_PATH]/relaxed-filter-spec.json
+    neighbors_dataset: neighbors_filter_4
+    filter_spec: [INDEX_SPEC_PATH]/restrictive-filter-spec.json
     filter_type: FILTER
