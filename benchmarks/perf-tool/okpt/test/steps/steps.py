@@ -5,7 +5,7 @@
 # compatible open source license.
 """Provides steps for OpenSearch tests.
 
-Some of the OpenSearch operations return a `took` field in the response body,
+Some OpenSearch operations return a `took` field in the response body,
 so the profiling decorators aren't needed for some functions.
 """
 import json
@@ -454,8 +454,7 @@ class BaseQueryStep(OpenSearchStep):
         results['took'] = [
             float(query_response['took']) for query_response in query_responses
         ]
-        port = 9200 if self.endpoint == 'localhost' else 80
-        results['memory_kb'] = get_cache_size_in_kb(self.endpoint, port)
+        results['memory_kb'] = get_cache_size_in_kb(self.endpoint, self.port)
 
         if self.calculate_recall:
             ids = [[int(hit['_id'])
@@ -614,7 +613,6 @@ class GetStatsStep(OpenSearchStep):
         num_of_search_segments = 0;
         for shard_key in shards.keys():
             for segment in shards[shard_key]:
-
                 num_of_committed_segments += segment["num_committed_segments"]
                 num_of_search_segments += segment["num_search_segments"]
 
@@ -689,12 +687,13 @@ def delete_model(endpoint, port, model_id):
     return response.json()
 
 
-def get_opensearch_client(endpoint: str, port: int):
+def get_opensearch_client(endpoint: str, port: int, timeout=60):
     """
     Get an opensearch client from an endpoint and port
     Args:
         endpoint: Endpoint OpenSearch is running on
         port: Port OpenSearch is running on
+        timeout: timeout for OpenSearch client, default value 60
     Returns:
         OpenSearch client
 
@@ -708,7 +707,7 @@ def get_opensearch_client(endpoint: str, port: int):
         use_ssl=False,
         verify_certs=False,
         connection_class=RequestsHttpConnection,
-        timeout=60,
+        timeout=timeout,
     )
 
 
