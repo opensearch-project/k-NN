@@ -11,12 +11,15 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.net.URIBuilder;
 import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.indices.replication.common.ReplicationType;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
@@ -93,6 +96,7 @@ import static org.opensearch.knn.TestUtils.FIELD;
 import static org.opensearch.knn.TestUtils.QUERY_VALUE;
 import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
 
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
 import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 import static org.opensearch.knn.index.util.KNNEngine.FAISS;
@@ -610,6 +614,18 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected Settings getKNNDefaultIndexSettings() {
         return Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", true).build();
+    }
+
+    /**
+     * Return default segment replication enabled index settings
+     */
+    protected Settings getKNNSegrepIndexSettings() {
+        return Settings.builder()
+            .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, 1)
+            .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, 1)
+            .put(IndexMetadata.SETTING_REPLICATION_TYPE, ReplicationType.SEGMENT)
+            .put(KNN_INDEX, true)
+            .build();
     }
 
     /**
