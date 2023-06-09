@@ -454,6 +454,9 @@ class BaseQueryStep(OpenSearchStep):
         results['took'] = [
             float(query_response['took']) for query_response in query_responses
         ]
+        results['client_time'] = [
+            float(query_response['client_time']) for query_response in query_responses
+        ]
         results['memory_kb'] = get_cache_size_in_kb(self.endpoint, self.port)
 
         if self.calculate_recall:
@@ -472,7 +475,7 @@ class BaseQueryStep(OpenSearchStep):
         return results
 
     def _get_measures(self) -> List[str]:
-        measures = ['took', 'memory_kb']
+        measures = ['took', 'memory_kb', 'client_time']
 
         if self.calculate_recall:
             measures.extend(['recall@K', f'recall@{str(self.r)}'])
@@ -783,9 +786,13 @@ def get_cache_size_in_kb(endpoint, port):
 
 def query_index(opensearch: OpenSearch, index_name: str, body: dict,
                 excluded_fields: list):
-    return opensearch.search(index=index_name,
+    start_time = round(time.time()*1000)
+    queryResponse = opensearch.search(index=index_name,
                              body=body,
                              _source_excludes=excluded_fields)
+    end_time = round(time.time() * 1000)
+    queryResponse['client_time'] = end_time - start_time
+    return queryResponse
 
 
 def bulk_index(opensearch: OpenSearch, index_name: str, body: List):
