@@ -9,6 +9,8 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.search.FilteredDocIdSetIterator;
+import org.apache.lucene.search.HitQueue;
+import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
@@ -291,18 +293,40 @@ public class KNNWeight extends Weight {
         try {
             final BinaryDocValues values = DocValues.getBinary(leafReaderContext.reader(), fieldInfo.name);
             final SpaceType spaceType = SpaceType.getSpace(fieldInfo.getAttribute(SPACE_TYPE));
-
+            //Creating min heap and init with MAX DocID and Score as -INF.
+            final HitQueue queue = new HitQueue(this.knnQuery.getK(), true);
+            ScoreDoc topDoc = queue.top();
             final Map<Integer, Float> docToScore = new HashMap<>();
-            for (int j : filterIdsArray) {
-                int docId = values.advance(j);
-                BytesRef value = values.binaryValue();
-                ByteArrayInputStream byteStream = new ByteArrayInputStream(value.bytes, value.offset, value.length);
+            for (int filterId : filterIdsArray) {
+                int docId = values.advance(filterId);
+                final BytesRef value = values.binaryValue();
+                final ByteArrayInputStream byteStream = new ByteArrayInputStream(value.bytes, value.offset,
+                        value.length);
                 final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
                 final float[] vector = vectorSerializer.byteToFloatArray(byteStream);
-                // making min score as high score as this is closest to the vector
+                // Calculates a similarity score between the two vectors with a specified function. Higher similarity
+                // scores correspond to closer vectors.
                 float score = spaceType.getVectorSimilarityFunction().compare(queryVector, vector);
-                docToScore.put(docId, score);
+                if(score > topDoc.score) {
+                    topDoc.score = score;
+                    topDoc.doc = docId;
+                    // As the HitQueue is min heap, updating top will bring the doc with -INF score or worst score we
+                    // have seen till now on top.
+                    topDoc = queue.updateTop();
+                }
             }
+            // If scores are negative we will remove them.
+            // This is done, because there can be negative values in the Heap as we init the heap with Score as -INF.
+            // If filterIds < k, the some values in heap can have a negative score.
+            while (queue.size() > 0 && queue.top().score < 0) {
+                queue.pop();
+            }
+
+            while (queue.size() > 0) {
+                final ScoreDoc doc = queue.pop();
+                docToScore.put(doc.doc, doc.score);
+            }
+
             return docToScore;
         } catch (Exception e) {
             log.error("Error while getting the doc values to do the k-NN Search for query : {}", this.knnQuery);
