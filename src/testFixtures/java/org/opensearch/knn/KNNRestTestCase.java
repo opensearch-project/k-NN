@@ -6,6 +6,7 @@
 package org.opensearch.knn;
 
 import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.common.primitives.Floats;
 import org.apache.commons.lang.StringUtils;
@@ -16,9 +17,11 @@ import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -1303,6 +1306,22 @@ public class KNNRestTestCase extends ODFERestTestCase {
     protected void refreshIndex(final String index) throws IOException {
         Request request = new Request("POST", "/" + index + "/_refresh");
 
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
+    protected void addKnnDocWithAttributes(String docId, float[] vector, Map<String, String> fieldValues) throws IOException {
+        Request request = new Request("POST", "/" + INDEX_NAME + "/_doc/" + docId + "?refresh=true");
+
+        final XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(FIELD_NAME, vector);
+        for (String fieldName : fieldValues.keySet()) {
+            builder.field(fieldName, fieldValues.get(fieldName));
+        }
+        builder.endObject();
+        request.setJsonEntity(Strings.toString(builder));
+        client().performRequest(request);
+
+        request = new Request("POST", "/" + INDEX_NAME + "/_refresh");
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }

@@ -122,6 +122,9 @@ public class KNNWeight extends Weight {
             }
             docIdsToScoreMap.putAll(annResults);
         }
+        if (docIdsToScoreMap.isEmpty()) {
+            return KNNScorer.emptyScorer(this);
+        }
         return convertSearchResponseToScorer(docIdsToScoreMap);
     }
 
@@ -134,12 +137,7 @@ public class KNNWeight extends Weight {
             return new FixedBitSet(0);
         }
 
-        final BitSet acceptDocs = createBitSet(scorer.iterator(), liveDocs, maxDoc);
-        // TODO: Based on this cost shift to exact search, because even in ANN search you have to calculate the
-        // distance for K vectors. This can avoid calls to native layer and save some latency.
-        final int cost = acceptDocs.cardinality();
-        log.debug("Number of docs valid for filter is = Cost for filtered k-nn is : {}", cost);
-        return acceptDocs;
+        return createBitSet(scorer.iterator(), liveDocs, maxDoc);
     }
 
     private BitSet createBitSet(final DocIdSetIterator filteredDocIdsIterator, final Bits liveDocs, int maxDoc) throws IOException {
@@ -165,7 +163,7 @@ public class KNNWeight extends Weight {
         final int[] filteredIds = new int[filteredDocsBitSet.cardinality()];
         int filteredIdsIndex = 0;
         int docId = 0;
-        while (true) {
+        while (docId < filteredDocsBitSet.length()) {
             docId = filteredDocsBitSet.nextSetBit(docId);
             if (docId == DocIdSetIterator.NO_MORE_DOCS || docId + 1 == DocIdSetIterator.NO_MORE_DOCS) {
                 break;
@@ -291,23 +289,22 @@ public class KNNWeight extends Weight {
         final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
         float[] queryVector = this.knnQuery.getQueryVector();
         try {
-            final BinaryDocValues values = DocValues.getBinary(leafReaderContext.reader(), fieldInfo.name);
+            final BinaryDocValues values = DocValues.getBinary(leafReaderContext.reader(), fieldInfo.getName());
             final SpaceType spaceType = SpaceType.getSpace(fieldInfo.getAttribute(SPACE_TYPE));
-            //Creating min heap and init with MAX DocID and Score as -INF.
+            // Creating min heap and init with MAX DocID and Score as -INF.
             final HitQueue queue = new HitQueue(this.knnQuery.getK(), true);
             ScoreDoc topDoc = queue.top();
             final Map<Integer, Float> docToScore = new HashMap<>();
             for (int filterId : filterIdsArray) {
                 int docId = values.advance(filterId);
                 final BytesRef value = values.binaryValue();
-                final ByteArrayInputStream byteStream = new ByteArrayInputStream(value.bytes, value.offset,
-                        value.length);
+                final ByteArrayInputStream byteStream = new ByteArrayInputStream(value.bytes, value.offset, value.length);
                 final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
                 final float[] vector = vectorSerializer.byteToFloatArray(byteStream);
                 // Calculates a similarity score between the two vectors with a specified function. Higher similarity
                 // scores correspond to closer vectors.
                 float score = spaceType.getVectorSimilarityFunction().compare(queryVector, vector);
-                if(score > topDoc.score) {
+                if (score > topDoc.score) {
                     topDoc.score = score;
                     topDoc.doc = docId;
                     // As the HitQueue is min heap, updating top will bring the doc with -INF score or worst score we
@@ -329,7 +326,7 @@ public class KNNWeight extends Weight {
 
             return docToScore;
         } catch (Exception e) {
-            log.error("Error while getting the doc values to do the k-NN Search for query : {}", this.knnQuery);
+            log.error("Error while getting the doc values to do the k-NN Search for query : {}", this.knnQuery, e);
         }
         return Collections.emptyMap();
     }

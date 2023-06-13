@@ -696,8 +696,21 @@ public class JNIServiceTests extends KNNTestCase {
                     KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, null);
                     assertEquals(k, results.length);
                 }
+
+                // Filter will result in no ids
+                for (float[] query : testData.queries) {
+                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, new int[] { 0 });
+                    assertEquals(0, results.length);
+                }
             }
         }
+    }
+
+    public void testQueryIndexWithFilterIds_whenNMSLibEngine_thenException() throws IOException {
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> JNIService.queryIndex(0L, new float[] { 0.1f, 0.2f, 0.33f }, 10, KNNEngine.NMSLIB.getName(), new int[] { 1, 2, 3 })
+        );
     }
 
     public void testFree_invalidEngine() {
