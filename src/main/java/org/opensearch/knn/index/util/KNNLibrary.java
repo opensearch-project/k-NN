@@ -122,6 +122,6 @@ public interface KNNLibrary {
      * @return list of file extensions that will be read/write with mmap
      */
     default List<String> mmapFileExtensions() {
-        return Collections.EMPTY_LIST;
+        return Collections.emptyList();
     }
 }
