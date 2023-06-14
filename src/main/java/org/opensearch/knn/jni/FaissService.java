@@ -24,7 +24,7 @@ import java.util.Map;
  *
  * In order to compile C++ header file, run:
  * javac -h jni/include src/main/java/org/opensearch/knn/jni/FaissService.java
- *      src/main/java/org/opensearch/knn/index/KNNQueryResult.java
+ *      src/main/java/org/opensearch/knn/index/query/KNNQueryResult.java
  *      src/main/java/org/opensearch/knn/common/KNNConstants.java
  */
 class FaissService {
@@ -82,6 +82,8 @@ class FaissService {
      * @return KNNQueryResult array of k neighbors
      */
     public static native KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k);
+
+    public static native KNNQueryResult[] queryIndexWithFilter(long indexPointer, float[] queryVector, int k, int[] filterIds);
 
     /**
      * Free native memory pointer

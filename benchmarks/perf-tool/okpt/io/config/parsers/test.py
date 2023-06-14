@@ -23,6 +23,7 @@ class TestConfig:
     test_name: str
     test_id: str
     endpoint: str
+    port: int
     num_runs: int
     show_runs: bool
     setup: List[Step]
@@ -48,6 +49,9 @@ class TestParser(base.BaseParser):
         if 'endpoint' in config_obj:
             implicit_step_config['endpoint'] = config_obj['endpoint']
 
+        if 'port' in config_obj:
+            implicit_step_config['port'] = config_obj['port']
+
         # Each step should have its own parse - take the config object and check if its valid
         setup = []
         if 'setup' in config_obj:
@@ -62,6 +66,7 @@ class TestParser(base.BaseParser):
 
         test_config = TestConfig(
             endpoint=config_obj['endpoint'],
+            port=config_obj['port'],
             test_name=config_obj['test_name'],
             test_id=config_obj['test_id'],
             num_runs=config_obj['num_runs'],
