@@ -6,17 +6,24 @@
 package org.opensearch.knn.index.query;
 
 import com.google.common.collect.Comparators;
+import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
+import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentCommitInfo;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReader;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.Weight;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
 import org.junit.BeforeClass;
@@ -28,6 +35,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
+import org.opensearch.knn.index.codec.util.KNNVectorAsArraySerializer;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -70,6 +78,10 @@ public class KNNWeightTests extends KNNTestCase {
     private static final String CIRCUIT_BREAKER_LIMIT_100KB = "100Kb";
 
     private static final Map<Integer, Float> DOC_ID_TO_SCORES = Map.of(10, 0.4f, 101, 0.05f, 100, 0.8f, 50, 0.52f);
+    private static final Map<Integer, Float> FILTERED_DOC_ID_TO_SCORES = Map.of(101, 0.05f, 100, 0.8f, 50, 0.52f);
+    private static final Map<Integer, Float> EXACT_SEARCH_DOC_ID_TO_SCORES = Map.of(0, 0.12048191f);
+
+    private static final Query FILTER_QUERY = new TermQuery(new Term("foo", "fooValue"));
 
     private static MockedStatic<NativeMemoryCacheManager> nativeMemoryCacheManagerMockedStatic;
     private static MockedStatic<JNIService> jniServiceMockedStatic;
@@ -133,7 +145,8 @@ public class KNNWeightTests extends KNNTestCase {
         SpaceType spaceType = SpaceType.L2;
         final Function<Float, Float> scoreTranslator = spaceType::scoreTranslation;
         final String modelId = "modelId";
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString())).thenReturn(getKNNQueryResults());
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any()))
+            .thenReturn(getKNNQueryResults());
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME);
 
@@ -272,7 +285,8 @@ public class KNNWeightTests extends KNNTestCase {
     @SneakyThrows
     public void testEmptyQueryResults() {
         final KNNQueryResult[] knnQueryResults = new KNNQueryResult[] {};
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString())).thenReturn(knnQueryResults);
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any()))
+            .thenReturn(knnQueryResults);
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME);
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
@@ -311,12 +325,152 @@ public class KNNWeightTests extends KNNTestCase {
         assertNull(knnScorer);
     }
 
+    @SneakyThrows
+    public void testANNWithFilterQuery_whenDoingANN_thenSuccess() {
+        final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), eq(filterDocIds)))
+            .thenReturn(getFilteredKNNQueryResults());
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        final SegmentReader reader = mock(SegmentReader.class);
+        when(reader.maxDoc()).thenReturn(K + 1);
+        when(leafReaderContext.reader()).thenReturn(reader);
+
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY);
+        final Weight filterQueryWeight = mock(Weight.class);
+        final Scorer filterScorer = mock(Scorer.class);
+        when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
+        // Just to make sure that we are not hitting the exact search condition
+        when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(K + 1));
+
+        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
+
+        final FSDirectory directory = mock(FSDirectory.class);
+        when(reader.directory()).thenReturn(directory);
+        final SegmentInfo segmentInfo = new SegmentInfo(
+            directory,
+            Version.LATEST,
+            Version.LATEST,
+            SEGMENT_NAME,
+            100,
+            true,
+            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            Map.of(),
+            new byte[StringHelper.ID_LENGTH],
+            Map.of(),
+            Sort.RELEVANCE
+        );
+        segmentInfo.setFiles(SEGMENT_FILES_FAISS);
+        final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
+        when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
+
+        final Path path = mock(Path.class);
+        when(directory.getDirectory()).thenReturn(path);
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName());
+
+        when(reader.getFieldInfos()).thenReturn(fieldInfos);
+        when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
+        when(fieldInfo.attributes()).thenReturn(attributesMap);
+
+        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        assertNotNull(knnScorer);
+
+        final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
+        assertNotNull(docIdSetIterator);
+        assertEquals(FILTERED_DOC_ID_TO_SCORES.size(), docIdSetIterator.cost());
+        jniServiceMockedStatic.verify(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), eq(filterDocIds)));
+
+        final List<Integer> actualDocIds = new ArrayList<>();
+        final Map<Integer, Float> translatedScores = getTranslatedScores(SpaceType.L2::scoreTranslation);
+        for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
+            actualDocIds.add(docId);
+            assertEquals(translatedScores.get(docId), knnScorer.score(), 0.01f);
+        }
+        assertEquals(docIdSetIterator.cost(), actualDocIds.size());
+        assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
+    }
+
+    @SneakyThrows
+    public void testANNWithFilterQuery_whenExactSearch_thenSuccess() {
+        float[] vector = new float[] { 0.1f, 0.3f };
+        int filterDocId = 0;
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        final SegmentReader reader = mock(SegmentReader.class);
+        when(leafReaderContext.reader()).thenReturn(reader);
+
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY);
+        final Weight filterQueryWeight = mock(Weight.class);
+        final Scorer filterScorer = mock(Scorer.class);
+        when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
+        // scorer will return 2 documents
+        when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(1));
+        when(reader.maxDoc()).thenReturn(1);
+
+        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
+        final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.L2.name());
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        final BinaryDocValues binaryDocValues = mock(BinaryDocValues.class);
+        when(reader.getFieldInfos()).thenReturn(fieldInfos);
+        when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
+        when(fieldInfo.attributes()).thenReturn(attributesMap);
+        when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.name());
+        when(fieldInfo.getName()).thenReturn(FIELD_NAME);
+        when(reader.getBinaryDocValues(FIELD_NAME)).thenReturn(binaryDocValues);
+        when(binaryDocValues.advance(filterDocId)).thenReturn(filterDocId);
+        BytesRef vectorByteRef = new BytesRef(new KNNVectorAsArraySerializer().floatToByteArray(vector));
+        when(binaryDocValues.binaryValue()).thenReturn(vectorByteRef);
+
+        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        assertNotNull(knnScorer);
+        final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
+        assertNotNull(docIdSetIterator);
+        assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.size(), docIdSetIterator.cost());
+
+        final List<Integer> actualDocIds = new ArrayList<>();
+        for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
+            actualDocIds.add(docId);
+            assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId), knnScorer.score(), 0.01f);
+        }
+        assertEquals(docIdSetIterator.cost(), actualDocIds.size());
+        assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
+    }
+
+    @SneakyThrows
+    public void testANNWithFilterQuery_whenEmptyFilterIds_thenReturnEarly() {
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        final SegmentReader reader = mock(SegmentReader.class);
+        when(leafReaderContext.reader()).thenReturn(reader);
+
+        final Weight filterQueryWeight = mock(Weight.class);
+        final Scorer filterScorer = mock(Scorer.class);
+        when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
+        when(filterScorer.iterator()).thenReturn(DocIdSetIterator.empty());
+
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY);
+        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
+
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(reader.getFieldInfos()).thenReturn(fieldInfos);
+        when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
+
+        final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
+        assertNotNull(knnScorer);
+        final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
+        assertNotNull(docIdSetIterator);
+        assertEquals(0, docIdSetIterator.cost());
+        assertEquals(0, docIdSetIterator.cost());
+    }
+
     private void testQueryScore(
         final Function<Float, Float> scoreTranslator,
         final Set<String> segmentFiles,
         final Map<String, String> fileAttributes
     ) throws IOException {
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString())).thenReturn(getKNNQueryResults());
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any()))
+            .thenReturn(getKNNQueryResults());
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME);
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
@@ -376,6 +530,14 @@ public class KNNWeightTests extends KNNTestCase {
 
     private KNNQueryResult[] getKNNQueryResults() {
         return DOC_ID_TO_SCORES.entrySet()
+            .stream()
+            .map(entry -> new KNNQueryResult(entry.getKey(), entry.getValue()))
+            .collect(Collectors.toList())
+            .toArray(new KNNQueryResult[0]);
+    }
+
+    private KNNQueryResult[] getFilteredKNNQueryResults() {
+        return FILTERED_DOC_ID_TO_SCORES.entrySet()
             .stream()
             .map(entry -> new KNNQueryResult(entry.getKey(), entry.getValue()))
             .collect(Collectors.toList())

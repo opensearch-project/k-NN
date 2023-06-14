@@ -25,7 +25,6 @@ import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -45,8 +44,6 @@ public class LuceneEngineIT extends KNNRestTestCase {
     private static final String DOC_ID_2 = "doc2";
     private static final String DOC_ID_3 = "doc3";
     private static final int EF_CONSTRUCTION = 128;
-    private static final String INDEX_NAME = "test-index-1";
-    private static final String FIELD_NAME = "test-field-1";
     private static final String COLOR_FIELD_NAME = "color";
     private static final String TASTE_FIELD_NAME = "taste";
     private static final int M = 16;
@@ -359,22 +356,6 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final List<Float[]> knnResultsAfterIndexClosure = queryResults(searchVector, k);
 
         assertArrayEquals(knnResultsBeforeIndexClosure.toArray(), knnResultsAfterIndexClosure.toArray());
-    }
-
-    private void addKnnDocWithAttributes(String docId, float[] vector, Map<String, String> fieldValues) throws IOException {
-        Request request = new Request("POST", "/" + INDEX_NAME + "/_doc/" + docId + "?refresh=true");
-
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(FIELD_NAME, vector);
-        for (String fieldName : fieldValues.keySet()) {
-            builder.field(fieldName, fieldValues.get(fieldName));
-        }
-        builder.endObject();
-        request.setJsonEntity(Strings.toString(builder));
-        client().performRequest(request);
-
-        request = new Request("POST", "/" + INDEX_NAME + "/_refresh");
-        Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
     private void createKnnIndexMappingWithLuceneEngine(int dimension, SpaceType spaceType) throws Exception {

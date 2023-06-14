@@ -1,6 +1,6 @@
 endpoint: [ENDPOINT]
-test_name: "Lucene HNSW Relaxed Filter Test"
-test_id: "Lucene HNSW Relaxed Filter Test"
+test_name: "Faiss HNSW Relaxed Filter Test"
+test_id: "Faiss HNSW Relaxed Filter Test"
 num_runs: 10
 show_runs: false
 steps:
@@ -8,7 +8,7 @@ steps:
     index_name: target_index
   - name: create_index
     index_name: target_index
-    index_spec: [INDEX_SPEC_PATH]/index.json
+    index_spec: [INDEX_SPEC_PATH]/relaxed-filter/index.json
   - name: ingest_multi_field
     index_name: target_index
     field_name: target_field

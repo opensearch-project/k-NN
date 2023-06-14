@@ -13,17 +13,35 @@ file.
 
 ## Install Prerequisites
 
-### Python
+### Setup
 
-Python 3.7 or above is required.
+K-NN perf requires Python 3.8 or greater to be installed. One of 
+the easier ways to do this is through Conda, a package and environment 
+management system for Python.
 
-### Pip
+First, follow the 
+[installation instructions](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) 
+to install Conda on your system.
 
-Use pip to install the necessary requirements:
-
+Next, create a Python 3.8 environment:
 ```
+conda create -n knn-perf python=3.8
+```
+
+After the environment is created, activate it:
+```
+source activate knn-perf
+```
+
+Lastly, clone the k-NN repo and install all required python packages:
+```
+git clone https://github.com/opensearch-project/k-NN.git
+cd k-NN/benchmarks/perf-tool
 pip install -r requirements.txt
 ```
+
+After all of this completes, you should be ready to run your first performance benchmarks!
+
 
 ## Usage
 
@@ -72,16 +90,17 @@ The output will be the delta between the two metrics.
 
 ### Test Parameters
 
-| Parameter Name | Description | Default |  
-| ----------- | ----------- | ----------- |
-| endpoint | Endpoint OpenSearch cluster is running on | localhost |
-| test_name | Name of test | No default |
-| test_id | String ID of test | No default |
-| num_runs | Number of runs to execute steps | 1 |
-| show_runs | Whether to output each run in addition to the total summary | false |
-| setup | List of steps to run once before metric collection starts | [] |
-| steps | List of steps that make up one test run. Metrics will be collected on these steps. | No default |
-| cleanup | List of steps to run after each test run | [] |
+| Parameter Name | Description                                                                        | Default    |  
+|----------------|------------------------------------------------------------------------------------|------------|
+| endpoint       | Endpoint OpenSearch cluster is running on                                          | localhost  |
+| port           | Port on which OpenSearch Cluster is running on                                     | 9200       |
+| test_name      | Name of test                                                                       | No default |
+| test_id        | String ID of test                                                                  | No default |
+| num_runs       | Number of runs to execute steps                                                    | 1          |
+| show_runs      | Whether to output each run in addition to the total summary                        | false      |
+| setup          | List of steps to run once before metric collection starts                          | []         |
+| steps          | List of steps that make up one test run. Metrics will be collected on these steps. | No default |
+| cleanup        | List of steps to run after each test run                                           | []         |
 
 ### Steps
 

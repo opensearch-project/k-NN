@@ -56,4 +56,37 @@ public class KNNScorer extends Scorer {
     public int docID() {
         return docIdsIter.docID();
     }
+
+    /**
+     * Returns the Empty Scorer implementation. We use this scorer to short circuit the actual search when it is not
+     * required.
+     * @param knnWeight {@link KNNWeight}
+     * @return {@link KNNScorer}
+     */
+    public static Scorer emptyScorer(KNNWeight knnWeight) {
+        return new Scorer(knnWeight) {
+            private final DocIdSetIterator docIdsIter = DocIdSetIterator.empty();
+
+            @Override
+            public DocIdSetIterator iterator() {
+                return docIdsIter;
+            }
+
+            @Override
+            public float getMaxScore(int upTo) throws IOException {
+                return 0;
+            }
+
+            @Override
+            public float score() throws IOException {
+                assert docID() != DocIdSetIterator.NO_MORE_DOCS;
+                return 0;
+            }
+
+            @Override
+            public int docID() {
+                return docIdsIter.docID();
+            }
+        };
+    }
 }
