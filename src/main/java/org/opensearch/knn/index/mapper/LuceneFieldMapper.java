@@ -9,13 +9,14 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
 import org.apache.lucene.document.FieldType;
+import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnVectorField;
 import org.apache.lucene.document.StoredField;
-import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -23,7 +24,6 @@ import java.io.IOException;
 import java.util.Optional;
 
 import static org.apache.lucene.index.VectorValues.MAX_DIMENSIONS;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 
 /**
  * Field mapper for case when Lucene has been set as an engine.
@@ -34,6 +34,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
 
     /** FieldType used for initializing VectorField, which is used for creating binary doc values. **/
     private final FieldType vectorFieldType;
+    private final VectorDataType vectorDataType;
 
     LuceneFieldMapper(final CreateLuceneFieldMapperInput input) {
         super(
@@ -46,6 +47,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             input.isHasDocValues()
         );
 
+        vectorDataType = input.getVectorDataType();
         this.knnMethod = input.getKnnMethodContext();
         final VectorSimilarityFunction vectorSimilarityFunction = this.knnMethod.getSpaceType().getVectorSimilarityFunction();
 
@@ -61,21 +63,13 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             );
         }
 
-        this.fieldType = KnnVectorField.createFieldType(dimension, vectorSimilarityFunction);
+        this.fieldType = vectorDataType.createKnnVectorFieldType(dimension, vectorSimilarityFunction);
 
         if (this.hasDocValues) {
-            this.vectorFieldType = buildDocValuesFieldType(this.knnMethod.getKnnEngine());
+            this.vectorFieldType = vectorDataType.buildDocValuesFieldType(this.knnMethod.getKnnEngine());
         } else {
             this.vectorFieldType = null;
         }
-    }
-
-    private static FieldType buildDocValuesFieldType(KNNEngine knnEngine) {
-        FieldType field = new FieldType();
-        field.putAttribute(KNN_ENGINE, knnEngine.getName());
-        field.setDocValuesType(DocValuesType.BINARY);
-        field.freeze();
-        return field;
     }
 
     @Override
@@ -84,22 +78,38 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         validateIfKNNPluginEnabled();
         validateIfCircuitBreakerIsNotTriggered();
 
-        Optional<float[]> arrayOptional = getFloatsFromContext(context, dimension);
+        if (vectorDataType.equals(VectorDataType.BYTE)) {
+            Optional<byte[]> arrayOptional = getBytesFromContext(context, dimension);
+            if (arrayOptional.isEmpty()) {
+                return;
+            }
+            final byte[] array = arrayOptional.get();
+            KnnByteVectorField point = new KnnByteVectorField(name(), array, fieldType);
+            context.doc().add(point);
+            if (fieldType.stored()) {
+                context.doc().add(new StoredField(name(), point.toString()));
+            }
+            if (hasDocValues && vectorFieldType != null) {
+                context.doc().add(new VectorField(name(), array, vectorFieldType));
+            }
+        } else {
+            Optional<float[]> arrayOptional = getFloatsFromContext(context, dimension);
 
-        if (arrayOptional.isEmpty()) {
-            return;
-        }
-        final float[] array = arrayOptional.get();
+            if (arrayOptional.isEmpty()) {
+                return;
+            }
+            final float[] array = arrayOptional.get();
 
-        KnnVectorField point = new KnnVectorField(name(), array, fieldType);
+            KnnVectorField point = new KnnVectorField(name(), array, fieldType);
 
-        context.doc().add(point);
-        if (fieldType.stored()) {
-            context.doc().add(new StoredField(name(), point.toString()));
-        }
+            context.doc().add(point);
+            if (fieldType.stored()) {
+                context.doc().add(new StoredField(name(), point.toString()));
+            }
 
-        if (hasDocValues && vectorFieldType != null) {
-            context.doc().add(new VectorField(name(), array, vectorFieldType));
+            if (hasDocValues && vectorFieldType != null) {
+                context.doc().add(new VectorField(name(), array, vectorFieldType));
+            }
         }
 
         context.path().remove();
@@ -126,6 +136,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed;
         boolean stored;
         boolean hasDocValues;
+        VectorDataType vectorDataType;
         @NonNull
         KNNMethodContext knnMethodContext;
     }

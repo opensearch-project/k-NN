@@ -23,4 +23,19 @@ public class VectorField extends Field {
             throw new RuntimeException(e);
         }
     }
+
+    /**
+     * @param name FieldType name
+     * @param value an array of byte vector values
+     * @param type FieldType to build DocValues
+     */
+    public VectorField(String name, byte[] value, IndexableFieldType type) {
+        super(name, new BytesRef(), type);
+        try {
+            this.setBytesValue(value);
+        } catch (Exception e) {
+            throw new IllegalArgumentException(e);
+        }
+
+    }
 }
