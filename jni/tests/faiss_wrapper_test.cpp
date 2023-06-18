@@ -23,8 +23,8 @@ using ::testing::Return;
 
 TEST(FaissCreateIndexTest, BasicAssertions) {
     // Define the data
-    faiss::Index::idx_t numIds = 200;
-    std::vector<faiss::Index::idx_t> ids;
+    faiss::idx_t numIds = 200;
+    std::vector<faiss::idx_t> ids;
     std::vector<std::vector<float>> vectors;
     int dim = 2;
     for (int64_t i = 0; i < numIds; ++i) {
@@ -70,8 +70,8 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
 
 TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
     // Define the data
-    faiss::Index::idx_t numIds = 100;
-    std::vector<faiss::Index::idx_t> ids;
+    faiss::idx_t numIds = 100;
+    std::vector<faiss::idx_t> ids;
     std::vector<std::vector<float>> vectors;
     int dim = 2;
     for (int64_t i = 0; i < numIds; ++i) {
@@ -122,8 +122,8 @@ TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
 
 TEST(FaissLoadIndexTest, BasicAssertions) {
     // Define the data
-    faiss::Index::idx_t numIds = 100;
-    std::vector<faiss::Index::idx_t> ids;
+    faiss::idx_t numIds = 100;
+    std::vector<faiss::idx_t> ids;
     std::vector<float> vectors;
     int dim = 2;
     for (int64_t i = 0; i < numIds; i++) {
@@ -174,8 +174,8 @@ TEST(FaissLoadIndexTest, BasicAssertions) {
 
 TEST(FaissQueryIndexTest, BasicAssertions) {
     // Define the index data
-    faiss::Index::idx_t numIds = 100;
-    std::vector<faiss::Index::idx_t> ids;
+    faiss::idx_t numIds = 100;
+    std::vector<faiss::idx_t> ids;
     std::vector<float> vectors;
     int dim = 16;
     for (int64_t i = 0; i < numIds; i++) {
@@ -283,4 +283,111 @@ TEST(FaissTrainIndexTest, BasicAssertions) {
 
     // Confirm that training succeeded
     ASSERT_TRUE(trainedIndex->is_trained);
+}
+
+TEST(FaissCreateNSGIndexTest, BasicAssertions) {
+    /** TODO:
+     * when numIds is too small, NSG graph would core/throw exception
+     * because There are too much invalid entries in the knn graph.
+     */
+    faiss::idx_t numIds = 200;
+    std::vector<faiss::idx_t> ids;
+    std::vector<std::vector<float>> vectors;
+    int dim = 128;
+    for (int64_t i = 0; i < numIds; ++i) {
+        ids.push_back(i);
+
+        std::vector<float> vect;
+        vect.reserve(dim);
+        for (int j = 0; j < dim; ++j) {
+            vect.push_back(test_util::RandomFloat(1.0, 1.0));
+        }
+        vectors.push_back(vect);
+    }
+
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    std::string spaceType = knn_jni::L2;
+    std::string index_description = "NSG64,Flat";
+    std::unordered_map<std::string, jobject> parametersMap;
+    parametersMap[knn_jni::SPACE_TYPE] = (jobject)&spaceType;
+    parametersMap[knn_jni::INDEX_DESCRIPTION] = (jobject)&index_description;
+
+    // Set up jni
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+
+    EXPECT_CALL(mockJNIUtil,
+                GetJavaObjectArrayLength(
+                        jniEnv, reinterpret_cast<jobjectArray>(&vectors)))
+            .WillRepeatedly(Return(vectors.size()));
+
+    // Create the index
+    knn_jni::faiss_wrapper::CreateIndex(
+            &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
+            reinterpret_cast<jobjectArray>(&vectors), (jstring)&indexPath,
+            (jobject)&parametersMap);
+
+    // Make sure index can be loaded
+    std::unique_ptr<faiss::Index> index(test_util::FaissLoadIndex(indexPath));
+
+    // Clean up
+    std::remove(indexPath.c_str());
+}
+
+TEST(FaissQueryNSGIndexTest, BasicAssertions) {
+    // Define the index data
+    faiss::idx_t numIds = 200;
+    std::vector<faiss::idx_t> ids;
+    std::vector<float> vectors;
+    int dim = 16;
+    for (int64_t i = 0; i < numIds; i++) {
+        ids.push_back(i);
+        for (int j = 0; j < dim; j++) {
+            vectors.push_back(test_util::RandomFloat(-500.0, 500.0));
+        }
+    }
+
+    faiss::MetricType metricType = faiss::METRIC_L2;
+    std::string method = "NSG64,Flat";  // TODO: Revert bach to NSG64,Flat
+
+    // Define query data
+    int k = 10;
+    int numQueries = 100;
+    std::vector<std::vector<float>> queries;
+
+    for (int i = 0; i < numQueries; i++) {
+        std::vector<float> query;
+        query.reserve(dim);
+        for (int j = 0; j < dim; j++) {
+            query.push_back(test_util::RandomFloat(-500.0, 500.0));
+        }
+        queries.push_back(query);
+    }
+
+    // Create the index
+    std::unique_ptr<faiss::Index> createdIndex(
+            test_util::FaissCreateIndex(2, method, metricType));
+    auto createdIndexWithData =
+            test_util::FaissAddData(createdIndex.get(), ids, vectors);
+
+    // Setup jni
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    for (auto query : queries) {
+        std::unique_ptr<std::vector<std::pair<int, float> *>> results(
+                reinterpret_cast<std::vector<std::pair<int, float> *> *>(
+                        knn_jni::faiss_wrapper::QueryIndex(
+                                &mockJNIUtil, jniEnv,
+                                reinterpret_cast<jlong>(&createdIndexWithData),
+                                reinterpret_cast<jfloatArray>(&query), k)));
+
+        ASSERT_EQ(k, results->size());
+
+        // Need to free up each result
+        for (auto it : *results.get()) {
+            delete it;
+        }
+    }
 }

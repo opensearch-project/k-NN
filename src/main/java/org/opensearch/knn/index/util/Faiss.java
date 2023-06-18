@@ -29,10 +29,12 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_S
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.FAISS_IVF_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.FAISS_NSG_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.FAISS_PQ_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
+import static org.opensearch.knn.common.KNNConstants.METHOD_NSG;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
@@ -226,7 +228,28 @@ class Faiss extends NativeLibrary {
                     return ((4L * centroids * dimension) / BYTES_PER_KILOBYTES) + 1;
                 })
                 .build()
-        ).addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build()
+        ).addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build(),
+        METHOD_NSG,
+        KNNMethod.Builder.builder(
+            MethodComponent.Builder.builder(METHOD_NSG)
+                .addParameter(
+                    METHOD_PARAMETER_M,
+                    new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0)
+                )
+                .addParameter(
+                        METHOD_ENCODER_PARAMETER,
+                        new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, ENCODER_DEFAULT, encoderComponents)
+                )
+                .setMapGenerator(
+                        ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+                                FAISS_NSG_DESCRIPTION,
+                                methodComponent,
+                                methodComponentContext
+                        ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build())
+                )
+                .build()
+        ).addSpaces(SpaceType.L2, SpaceType.COSINESIMIL).build()
+
     );
 
     final static Faiss INSTANCE = new Faiss(METHODS, SCORE_TRANSLATIONS, CURRENT_VERSION, KNNConstants.FAISS_EXTENSION);

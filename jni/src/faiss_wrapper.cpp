@@ -17,6 +17,7 @@
 #include "faiss/index_io.h"
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIVFFlat.h"
+#include "faiss/IndexNSG.h"
 #include "faiss/MetaIndexes.h"
 #include "faiss/Index.h"
 #include "faiss/impl/IDSelector.h"
@@ -491,6 +492,11 @@ std::unique_ptr<faiss::SearchParameters> buildSearchParams(const faiss::IndexIDM
         return hnswParams;
     }
 
+    auto nsgReader = dynamic_cast<const faiss::IndexNSG*>(indexReader->index);
+    if(nsgReader) {
+        // Search params not supported for the NSG index
+        return nullptr;
+    }
     auto ivfReader = dynamic_cast<const faiss::IndexIVF*>(indexReader->index);
     auto ivfFlatReader = dynamic_cast<const faiss::IndexIVFFlat*>(indexReader->index);
     if(ivfReader || ivfFlatReader) {
