@@ -234,7 +234,7 @@ faiss::Index *test_util::FaissLoadFromSerializedIndex(
 }
 
 faiss::IndexIDMap test_util::FaissAddData(faiss::Index *index,
-                                          std::vector<faiss::Index::idx_t> ids,
+                                          std::vector<faiss::idx_t> ids,
                                           std::vector<float> dataset) {
     faiss::IndexIDMap idMap = faiss::IndexIDMap(index);
     idMap.add_with_ids(ids.size(), dataset.data(), ids.data());
@@ -251,11 +251,11 @@ faiss::Index *test_util::FaissLoadIndex(const std::string &indexPath) {
 }
 
 void test_util::FaissQueryIndex(faiss::Index *index, float *query, int k,
-                                float *distances, faiss::Index::idx_t *ids) {
+                                float *distances, faiss::idx_t *ids) {
     index->search(1, query, k, distances, ids);
 }
 
-void test_util::FaissTrainIndex(faiss::Index *index, faiss::Index::idx_t n,
+void test_util::FaissTrainIndex(faiss::Index *index, faiss::idx_t n,
                                 const float *x) {
     if (auto *indexIvf = dynamic_cast<faiss::IndexIVF *>(index)) {
         if (indexIvf->quantizer_trains_alone == 2) {
