@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Features
 ### Enhancements
 ### Bug Fixes
-* Fixed jni test and compile error ([#940](https://github.com/opensearch-project/k-NN/pull/940))
+* Fixed jni test and compile warnings ([#940](https://github.com/opensearch-project/k-NN/pull/940))
 ### Infrastructure
 * Fix build errors after refactoring of Strings class in core ([#904](https://github.com/opensearch-project/k-NN/pull/904))
 ### Documentation
