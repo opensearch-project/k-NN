@@ -2,6 +2,7 @@
   "settings": {
     "index": {
       "knn": true,
+      "refresh_interval": "10s",
       "number_of_shards": 3,
       "number_of_replicas": 0
     }
@@ -16,7 +17,7 @@
           "space_type": "l2",
           "engine": "faiss",
           "parameters": {
-            "m": 16
+            "m": 32
           }
         }
       }
