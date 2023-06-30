@@ -34,7 +34,7 @@ public class VectorField extends Field {
         try {
             this.setBytesValue(value);
         } catch (Exception e) {
-            throw new IllegalArgumentException(e);
+            throw new RuntimeException(e);
         }
 
     }

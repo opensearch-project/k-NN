@@ -52,8 +52,8 @@ public class KNNConstants {
     public static final String MAX_VECTOR_COUNT_PARAMETER = "max_training_vector_count";
     public static final String SEARCH_SIZE_PARAMETER = "search_size";
 
-    public static final String VECTOR_DATA_TYPE = "data_type";
-    public static final VectorDataType DEFAULT_VECTOR_DATA_TYPE = VectorDataType.FLOAT;
+    public static final String VECTOR_DATA_TYPE_FIELD = "data_type";
+    public static final VectorDataType DEFAULT_VECTOR_DATA_TYPE_FIELD = VectorDataType.FLOAT;
 
     // Lucene specific constants
     public static final String LUCENE_NAME = "lucene";

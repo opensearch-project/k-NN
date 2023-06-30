@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index;
 
+import lombok.SneakyThrows;
 import org.junit.After;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.Strings;
@@ -14,13 +15,13 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.util.KNNEngine;
 
-import java.io.IOException;
+import java.util.Locale;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE;
-import static org.opensearch.knn.index.VectorDataType.getValues;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 
 public class VectorDataTypeIT extends KNNRestTestCase {
     private static final String INDEX_NAME = "test-index-vec-dt";
@@ -33,12 +34,14 @@ public class VectorDataTypeIT extends KNNRestTestCase {
     private static final int M = 16;
 
     @After
-    public final void cleanUp() throws IOException {
+    @SneakyThrows
+    public final void cleanUp() {
         deleteKNNIndex(INDEX_NAME);
     }
 
     // Validate if we are able to create an index by setting data_type field as byte and add a doc to it
-    public void testAddDocWithByteVector() throws Exception {
+    @SneakyThrows
+    public void testAddDocWithByteVector() {
         createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
         Byte[] vector = { 6, 6 };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
@@ -48,7 +51,8 @@ public class VectorDataTypeIT extends KNNRestTestCase {
     }
 
     // Validate by creating an index by setting data_type field as byte, add a doc to it and update it later.
-    public void testUpdateDocWithByteVector() throws Exception {
+    @SneakyThrows
+    public void testUpdateDocWithByteVector() {
         createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
         Byte[] vector = { -36, 78 };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
@@ -61,7 +65,8 @@ public class VectorDataTypeIT extends KNNRestTestCase {
     }
 
     // Validate by creating an index by setting data_type field as byte, add a doc to it and delete it later.
-    public void testDeleteDocWithByteVector() throws Exception {
+    @SneakyThrows
+    public void testDeleteDocWithByteVector() {
         createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
         Byte[] vector = { 35, -46 };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
@@ -75,7 +80,6 @@ public class VectorDataTypeIT extends KNNRestTestCase {
     // Set an invalid value for data_type field while creating the index which should throw an exception
     public void testInvalidVectorDataType() {
         String vectorDataType = "invalidVectorType";
-        String supportedTypes = String.join(",", getValues());
         ResponseException ex = expectThrows(
             ResponseException.class,
             () -> createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, vectorDataType)
@@ -84,10 +88,10 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             ex.getMessage()
                 .contains(
                     String.format(
-                        "[%s] field was set as [%s] in index mapping. But, supported values are [%s]",
-                        VECTOR_DATA_TYPE,
-                        vectorDataType,
-                        supportedTypes
+                        Locale.ROOT,
+                        "Invalid value provided for [%s] field. Supported values are [%s]",
+                        VECTOR_DATA_TYPE_FIELD,
+                        SUPPORTED_VECTOR_DATA_TYPES
                     )
                 )
         );
@@ -100,8 +104,9 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             ex.getMessage()
                 .contains(
                     String.format(
+                        Locale.ROOT,
                         "[%s] on mapper [%s] of type [%s] must not have a [null] value",
-                        VECTOR_DATA_TYPE,
+                        VECTOR_DATA_TYPE_FIELD,
                         FIELD_NAME,
                         KNN_VECTOR_TYPE
                     )
@@ -110,7 +115,8 @@ public class VectorDataTypeIT extends KNNRestTestCase {
     }
 
     // Create an index with byte vector data_type and add a doc with decimal values which should throw exception
-    public void testInvalidVectorData() throws Exception {
+    @SneakyThrows
+    public void testInvalidVectorData() {
         createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
         Float[] vector = { -10.76f, 15.89f };
 
@@ -118,13 +124,19 @@ public class VectorDataTypeIT extends KNNRestTestCase {
         assertTrue(
             ex.getMessage()
                 .contains(
-                    "[data_type] field was set as [byte] in index mapping. But, KNN vector values are floats instead of byte integers"
+                    String.format(
+                        Locale.ROOT,
+                        "[%s] field was set as [%s] in index mapping. But, KNN vector values are floats instead of byte integers",
+                        VECTOR_DATA_TYPE_FIELD,
+                        VectorDataType.BYTE.getValue()
+                    )
                 )
         );
     }
 
     // Create an index with byte vector data_type and add a doc with values out of byte range which should throw exception
-    public void testInvalidByteVectorRange() throws Exception {
+    @SneakyThrows
+    public void testInvalidByteVectorRange() {
         createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
         Float[] vector = { -1000f, 155f };
 
@@ -133,8 +145,9 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             ex.getMessage()
                 .contains(
                     String.format(
-                        "[%s] field was set as [%s] in index mapping. But, KNN vector values are not within in the byte range [{}, {}]",
-                        VECTOR_DATA_TYPE,
+                        Locale.ROOT,
+                        "[%s] field was set as [%s] in index mapping. But, KNN vector values are not within in the byte range [%d, %d]",
+                        VECTOR_DATA_TYPE_FIELD,
                         VectorDataType.BYTE.getValue(),
                         Byte.MIN_VALUE,
                         Byte.MAX_VALUE
@@ -149,7 +162,18 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             ResponseException.class,
             () -> createKnnIndexMappingWithNmslibEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue())
         );
-        assertTrue(ex.getMessage().contains(String.format("[%s] is only supported for [%s] engine", VECTOR_DATA_TYPE, LUCENE_NAME)));
+        assertTrue(
+            ex.getMessage()
+                .contains(
+                    String.format(
+                        Locale.ROOT,
+                        "[%s] field with value [%s] is only supported for [%s] engine",
+                        VECTOR_DATA_TYPE_FIELD,
+                        VectorDataType.BYTE.getValue(),
+                        LUCENE_NAME
+                    )
+                )
+        );
     }
 
     private void createKnnIndexMappingWithNmslibEngine(int dimension, SpaceType spaceType, String vectorDataType) throws Exception {
@@ -168,7 +192,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             .startObject(FIELD_NAME)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
             .field(DIMENSION, dimension)
-            .field(VECTOR_DATA_TYPE, vectorDataType)
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())

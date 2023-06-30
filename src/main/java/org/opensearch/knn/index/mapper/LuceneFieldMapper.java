@@ -11,7 +11,6 @@ import lombok.NonNull;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnVectorField;
-import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
@@ -21,9 +20,13 @@ import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Optional;
 
 import static org.apache.lucene.index.VectorValues.MAX_DIMENSIONS;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.buildDocValuesFieldType;
 
 /**
  * Field mapper for case when Lucene has been set as an engine.
@@ -55,6 +58,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         if (dimension > LUCENE_MAX_DIMENSION) {
             throw new IllegalArgumentException(
                 String.format(
+                    Locale.ROOT,
                     "Dimension value cannot be greater than [%s] but got [%s] for vector [%s]",
                     LUCENE_MAX_DIMENSION,
                     dimension,
@@ -66,7 +70,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         this.fieldType = vectorDataType.createKnnVectorFieldType(dimension, vectorSimilarityFunction);
 
         if (this.hasDocValues) {
-            this.vectorFieldType = vectorDataType.buildDocValuesFieldType(this.knnMethod.getKnnEngine());
+            this.vectorFieldType = buildDocValuesFieldType(this.knnMethod.getKnnEngine());
         } else {
             this.vectorFieldType = null;
         }
@@ -78,38 +82,40 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         validateIfKNNPluginEnabled();
         validateIfCircuitBreakerIsNotTriggered();
 
-        if (vectorDataType.equals(VectorDataType.BYTE)) {
-            Optional<byte[]> arrayOptional = getBytesFromContext(context, dimension);
-            if (arrayOptional.isEmpty()) {
+        if (VectorDataType.BYTE.equals(vectorDataType)) {
+            Optional<byte[]> bytesArrayOptional = getBytesFromContext(context, dimension);
+            if (bytesArrayOptional.isEmpty()) {
                 return;
             }
-            final byte[] array = arrayOptional.get();
+            final byte[] array = bytesArrayOptional.get();
             KnnByteVectorField point = new KnnByteVectorField(name(), array, fieldType);
+
             context.doc().add(point);
-            if (fieldType.stored()) {
-                context.doc().add(new StoredField(name(), point.toString()));
-            }
+            addStoredFieldForVectorField(context, fieldType, name(), point.toString());
+
             if (hasDocValues && vectorFieldType != null) {
                 context.doc().add(new VectorField(name(), array, vectorFieldType));
             }
-        } else {
-            Optional<float[]> arrayOptional = getFloatsFromContext(context, dimension);
+        } else if (VectorDataType.FLOAT.equals(vectorDataType)) {
+            Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
 
-            if (arrayOptional.isEmpty()) {
+            if (floatsArrayOptional.isEmpty()) {
                 return;
             }
-            final float[] array = arrayOptional.get();
+            final float[] array = floatsArrayOptional.get();
 
             KnnVectorField point = new KnnVectorField(name(), array, fieldType);
 
             context.doc().add(point);
-            if (fieldType.stored()) {
-                context.doc().add(new StoredField(name(), point.toString()));
-            }
+            addStoredFieldForVectorField(context, fieldType, name(), point.toString());
 
             if (hasDocValues && vectorFieldType != null) {
                 context.doc().add(new VectorField(name(), array, vectorFieldType));
             }
+        } else {
+            throw new IllegalArgumentException(
+                String.format(Locale.ROOT, "Cannot parse context for unsupported values provided for field [%s]", VECTOR_DATA_TYPE_FIELD)
+            );
         }
 
         context.path().remove();
