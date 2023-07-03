@@ -108,7 +108,7 @@ namespace test_util {
     faiss::Index* FaissLoadFromSerializedIndex(std::vector<uint8_t>* indexSerial);
 
     faiss::IndexIDMap FaissAddData(faiss::Index* index,
-                                   std::vector<faiss::Index::idx_t> ids,
+                                   std::vector<faiss::idx_t> ids,
                                    std::vector<float> dataset);
 
     void FaissWriteIndex(faiss::Index* index, const std::string& indexPath);
@@ -116,9 +116,9 @@ namespace test_util {
     faiss::Index* FaissLoadIndex(const std::string& indexPath);
 
     void FaissQueryIndex(faiss::Index* index, float* query, int k, float* distances,
-                         faiss::Index::idx_t* ids);
+                         faiss::idx_t* ids);
 
-    void FaissTrainIndex(faiss::Index* index, faiss::Index::idx_t n,
+    void FaissTrainIndex(faiss::Index* index, faiss::idx_t n,
                          const float* x);
 
 // -------------------------------------------------------------------------------
