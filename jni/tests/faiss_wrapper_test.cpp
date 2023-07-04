@@ -23,8 +23,8 @@ using ::testing::Return;
 
 TEST(FaissCreateIndexTest, BasicAssertions) {
     // Define the data
-    faiss::Index::idx_t numIds = 200;
-    std::vector<faiss::Index::idx_t> ids;
+    faiss::idx_t numIds = 200;
+    std::vector<faiss::idx_t> ids;
     std::vector<std::vector<float>> vectors;
     int dim = 2;
     for (int64_t i = 0; i < numIds; ++i) {
@@ -70,8 +70,8 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
 
 TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
     // Define the data
-    faiss::Index::idx_t numIds = 100;
-    std::vector<faiss::Index::idx_t> ids;
+    faiss::idx_t numIds = 100;
+    std::vector<faiss::idx_t> ids;
     std::vector<std::vector<float>> vectors;
     int dim = 2;
     for (int64_t i = 0; i < numIds; ++i) {
@@ -122,8 +122,8 @@ TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
 
 TEST(FaissLoadIndexTest, BasicAssertions) {
     // Define the data
-    faiss::Index::idx_t numIds = 100;
-    std::vector<faiss::Index::idx_t> ids;
+    faiss::idx_t numIds = 100;
+    std::vector<faiss::idx_t> ids;
     std::vector<float> vectors;
     int dim = 2;
     for (int64_t i = 0; i < numIds; i++) {
@@ -174,8 +174,8 @@ TEST(FaissLoadIndexTest, BasicAssertions) {
 
 TEST(FaissQueryIndexTest, BasicAssertions) {
     // Define the index data
-    faiss::Index::idx_t numIds = 100;
-    std::vector<faiss::Index::idx_t> ids;
+    faiss::idx_t numIds = 100;
+    std::vector<faiss::idx_t> ids;
     std::vector<float> vectors;
     int dim = 16;
     for (int64_t i = 0; i < numIds; i++) {
