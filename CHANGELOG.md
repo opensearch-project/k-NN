@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased 3.0](https://github.com/opensearch-project/k-NN/compare/2.x...HEAD)
 ### Features
+* Introduce New NSG Graph into KNN for faiss Engine ([#945](https://github.com/opensearch-project/k-NN/pull/945))
 ### Enhancements
 ### Bug Fixes
 ### Infrastructure

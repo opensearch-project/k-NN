@@ -201,7 +201,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                 parameters.put(INDEX_DESCRIPTION_PARAMETER, FAISS_FLAT_DESCRIPTION);
             }
         }
-        log.debug(String.format("parameters:[%s]",parameters.toString()));
+        log.debug(String.format("docSize:[%d], parameters:[%s]",pair.docs.length, parameters.toString()));
 
         // Pass the path for the nms library to save the file
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {

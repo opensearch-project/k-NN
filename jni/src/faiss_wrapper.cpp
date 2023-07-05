@@ -495,7 +495,7 @@ std::unique_ptr<faiss::SearchParameters> buildSearchParams(const faiss::IndexIDM
     auto nsgReader = dynamic_cast<const faiss::IndexNSG*>(indexReader->index);
     if(nsgReader) {
         // Search params not supported for the NSG index
-        return nullptr;
+        throw std::runtime_error("NSG Index Type do not support for Filtered Search on Faiss");
     }
     auto ivfReader = dynamic_cast<const faiss::IndexIVF*>(indexReader->index);
     auto ivfFlatReader = dynamic_cast<const faiss::IndexIVFFlat*>(indexReader->index);

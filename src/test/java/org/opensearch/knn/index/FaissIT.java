@@ -187,19 +187,9 @@ public class FaissIT extends KNNRestTestCase {
         String mapping = Strings.toString(builder);
 
         createKnnIndex(indexName, mapping);
-        Map<String, Object>  maping = getIndexMappingAsMap(indexName);
-//        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(maping));
 
         // Index the test data
         bulkAddKnnDocs(indexName, fieldName, testData.indexData.vectors, testData.indexData.docs.length);
-//        for (int i = 0; i < testData.indexData.docs.length; i++) {
-//            addKnnDoc(
-//                indexName,
-//                Integer.toString(testData.indexData.docs[i]),
-//                fieldName,
-//                Floats.asList(testData.indexData.vectors[i]).toArray()
-//            );
-//        }
 
         // Assert we have the right number of documents in the index
         refreshAllNonSystemIndices();
