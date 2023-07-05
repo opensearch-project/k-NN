@@ -190,18 +190,18 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
         Object name = parameters.get(NAME);
         if (name != null && name.equals(METHOD_NSG)) {
-            if(parameters.containsKey(PARAMETERS)) {
+            if (parameters.containsKey(PARAMETERS)) {
                 parameters.remove(PARAMETERS);
             }
             /** TODO:
              * when numIds is too small, NSG graph would core/throw exception
              * because There are too much invalid entries in the knn graph.
              */
-            if(pair.docs.length < 256) {
+            if (pair.docs.length < 256) {
                 parameters.put(INDEX_DESCRIPTION_PARAMETER, FAISS_FLAT_DESCRIPTION);
             }
         }
-        log.debug(String.format("docSize:[%d], parameters:[%s]",pair.docs.length, parameters.toString()));
+        log.debug(String.format("docSize:[%d], parameters:[%s]", pair.docs.length, parameters.toString()));
 
         // Pass the path for the nms library to save the file
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {

@@ -237,15 +237,15 @@ class Faiss extends NativeLibrary {
                     new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0)
                 )
                 .addParameter(
-                        METHOD_ENCODER_PARAMETER,
-                        new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, ENCODER_DEFAULT, encoderComponents)
+                    METHOD_ENCODER_PARAMETER,
+                    new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, ENCODER_DEFAULT, encoderComponents)
                 )
                 .setMapGenerator(
-                        ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
-                                FAISS_NSG_DESCRIPTION,
-                                methodComponent,
-                                methodComponentContext
-                        ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build())
+                    ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+                        FAISS_NSG_DESCRIPTION,
+                        methodComponent,
+                        methodComponentContext
+                    ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build())
                 )
                 .build()
         ).addSpaces(SpaceType.L2, SpaceType.COSINESIMIL).build()
