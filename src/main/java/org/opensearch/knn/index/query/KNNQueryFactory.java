@@ -11,14 +11,20 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.search.KnnByteVectorQuery;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Optional;
+
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 
 /**
  * Creates the Lucene k-NN queries
@@ -36,12 +42,20 @@ public class KNNQueryFactory {
      * @param k the number of nearest neighbors to return
      * @return Lucene Query
      */
-    public static Query create(KNNEngine knnEngine, String indexName, String fieldName, float[] vector, int k) {
+    public static Query create(
+        KNNEngine knnEngine,
+        String indexName,
+        String fieldName,
+        float[] vector,
+        int k,
+        VectorDataType vectorDataType
+    ) {
         final CreateQueryRequest createQueryRequest = CreateQueryRequest.builder()
             .knnEngine(knnEngine)
             .indexName(indexName)
             .fieldName(fieldName)
             .vector(vector)
+            .vectorDataType(vectorDataType)
             .k(k)
             .build();
         return create(createQueryRequest);
@@ -59,6 +73,8 @@ public class KNNQueryFactory {
         final String fieldName = createQueryRequest.getFieldName();
         final int k = createQueryRequest.getK();
         final float[] vector = createQueryRequest.getVector();
+        final byte[] byteVector = createQueryRequest.getByteVector();
+        final VectorDataType vectorDataType = createQueryRequest.getVectorDataType();
         final Query filterQuery = getFilterQuery(createQueryRequest);
 
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
@@ -81,10 +97,37 @@ public class KNNQueryFactory {
             log.debug(
                 String.format("Creating Lucene k-NN query with filters for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k)
             );
-            return new KnnFloatVectorQuery(fieldName, vector, k, filterQuery);
+            if (VectorDataType.BYTE.equals(vectorDataType)) {
+                return new KnnByteVectorQuery(fieldName, byteVector, k, filterQuery);
+            } else if (VectorDataType.FLOAT.equals(vectorDataType)) {
+                return new KnnFloatVectorQuery(fieldName, vector, k, filterQuery);
+            } else {
+                throw new IllegalArgumentException(
+                    String.format(
+                        Locale.ROOT,
+                        "Invalid value provided for [%s] field. Supported values are [%s]",
+                        VECTOR_DATA_TYPE_FIELD,
+                        SUPPORTED_VECTOR_DATA_TYPES
+                    )
+                );
+            }
+
         }
         log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
-        return new KnnFloatVectorQuery(fieldName, vector, k);
+        if (VectorDataType.BYTE.equals(vectorDataType)) {
+            return new KnnByteVectorQuery(fieldName, byteVector, k);
+        } else if (VectorDataType.FLOAT.equals(vectorDataType)) {
+            return new KnnFloatVectorQuery(fieldName, vector, k);
+        } else {
+            throw new IllegalArgumentException(
+                String.format(
+                    Locale.ROOT,
+                    "Invalid value provided for [%s] field. Supported values are [%s]",
+                    VECTOR_DATA_TYPE_FIELD,
+                    SUPPORTED_VECTOR_DATA_TYPES
+                )
+            );
+        }
     }
 
     private static Query getFilterQuery(CreateQueryRequest createQueryRequest) {
@@ -125,6 +168,10 @@ public class KNNQueryFactory {
         private String fieldName;
         @Getter
         private float[] vector;
+        @Getter
+        private byte[] byteVector;
+        @Getter
+        private VectorDataType vectorDataType;
         @Getter
         private int k;
         // can be null in cases filter not passed with the knn query

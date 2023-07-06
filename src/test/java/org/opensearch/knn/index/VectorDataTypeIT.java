@@ -6,15 +6,20 @@
 package org.opensearch.knn.index;
 
 import lombok.SneakyThrows;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.After;
+import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.util.KNNEngine;
 
+import java.util.List;
 import java.util.Locale;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
@@ -75,6 +80,73 @@ public class VectorDataTypeIT extends KNNRestTestCase {
         refreshAllIndices();
 
         assertEquals(0, getDocCount(INDEX_NAME));
+    }
+
+    @SneakyThrows
+    public void testSearchWithByteVector() {
+        createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
+        ingestL2ByteTestData();
+
+        Byte[] queryVector = { 1, 1 };
+        Response response = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, convertByteToFloatArray(queryVector), 4), 4);
+
+        validateL2SearchResults(response);
+    }
+
+    @SneakyThrows
+    public void testSearchWithInvalidByteVector() {
+        createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue());
+        ingestL2ByteTestData();
+
+        // Validate search with floats instead of byte vectors
+        float[] queryVector = { -10.76f, 15.89f };
+        ResponseException ex = expectThrows(
+            ResponseException.class,
+            () -> searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, queryVector, 4), 4)
+        );
+        assertTrue(
+            ex.getMessage()
+                .contains(
+                    String.format(
+                        Locale.ROOT,
+                        "[%s] field was set as [%s] in index mapping. But, KNN vector values are floats instead of byte integers",
+                        VECTOR_DATA_TYPE_FIELD,
+                        VectorDataType.BYTE.getValue()
+                    )
+                )
+        );
+
+        // validate search with search vectors outside of byte range
+        float[] queryVector1 = { -1000.0f, 200.0f };
+        ResponseException ex1 = expectThrows(
+            ResponseException.class,
+            () -> searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, queryVector1, 4), 4)
+        );
+
+        assertTrue(
+            ex1.getMessage()
+                .contains(
+                    String.format(
+                        Locale.ROOT,
+                        "[%s] field was set as [%s] in index mapping. But, KNN vector values are not within in the byte range [%d, %d]",
+                        VECTOR_DATA_TYPE_FIELD,
+                        VectorDataType.BYTE.getValue(),
+                        Byte.MIN_VALUE,
+                        Byte.MAX_VALUE
+                    )
+                )
+        );
+    }
+
+    @SneakyThrows
+    public void testSearchWithFloatVectorDataType() {
+        createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.FLOAT.getValue());
+        ingestL2FloatTestData();
+
+        float[] queryVector = { 1.0f, 1.0f };
+        Response response = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, queryVector, 4), 4);
+
+        validateL2SearchResults(response);
     }
 
     // Set an invalid value for data_type field while creating the index which should throw an exception
@@ -176,6 +248,36 @@ public class VectorDataTypeIT extends KNNRestTestCase {
         );
     }
 
+    @SneakyThrows
+    private void ingestL2ByteTestData() {
+        Byte[] b1 = { 6, 6 };
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, b1);
+
+        Byte[] b2 = { 2, 2 };
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, b2);
+
+        Byte[] b3 = { 4, 4 };
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, b3);
+
+        Byte[] b4 = { 3, 3 };
+        addKnnDoc(INDEX_NAME, "4", FIELD_NAME, b4);
+    }
+
+    @SneakyThrows
+    private void ingestL2FloatTestData() {
+        Float[] f1 = { 6.0f, 6.0f };
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, f1);
+
+        Float[] f2 = { 2.0f, 2.0f };
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, f2);
+
+        Float[] f3 = { 4.0f, 4.0f };
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, f3);
+
+        Float[] f4 = { 3.0f, 3.0f };
+        addKnnDoc(INDEX_NAME, "4", FIELD_NAME, f4);
+    }
+
     private void createKnnIndexMappingWithNmslibEngine(int dimension, SpaceType spaceType, String vectorDataType) throws Exception {
         createKnnIndexMappingWithCustomEngine(dimension, spaceType, vectorDataType, KNNEngine.NMSLIB.getName());
     }
@@ -208,5 +310,26 @@ public class VectorDataTypeIT extends KNNRestTestCase {
 
         String mapping = Strings.toString(builder);
         createKnnIndex(INDEX_NAME, mapping);
+    }
+
+    @SneakyThrows
+    private void validateL2SearchResults(Response response) {
+
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+
+        assertEquals(4, results.size());
+
+        String[] expectedDocIDs = { "2", "4", "3", "1" };
+        for (int i = 0; i < results.size(); i++) {
+            assertEquals(expectedDocIDs[i], results.get(i).getDocId());
+        }
+    }
+
+    private float[] convertByteToFloatArray(Byte[] arr) {
+        float[] floatArray = new float[arr.length];
+        for (int i = 0; i < arr.length; i++) {
+            floatArray[i] = arr[i];
+        }
+        return floatArray;
     }
 }
