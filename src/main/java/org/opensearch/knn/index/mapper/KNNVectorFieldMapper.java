@@ -11,7 +11,6 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 
 import org.apache.lucene.document.FieldType;
-import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.search.DocValuesFieldExistsQuery;
@@ -35,6 +34,7 @@ import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
@@ -49,7 +49,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFloatVectorValue;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithEngine;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDimension;
 
 /**
  * Field Mapper for KNN vector type.
@@ -95,6 +102,18 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             return value;
         }, m -> toType(m).dimension);
+
+        /**
+         * data_type which defines the datatype of the vector values. This is an optional parameter and
+         * this is right now only relevant for lucene engine. The default value is float.
+         */
+        private final Parameter<VectorDataType> vectorDataType = new Parameter<>(
+            VECTOR_DATA_TYPE_FIELD,
+            false,
+            () -> DEFAULT_VECTOR_DATA_TYPE_FIELD,
+            (n, c, o) -> VectorDataType.get((String) o),
+            m -> toType(m).vectorDataType
+        );
 
         /**
          * modelId provides a way for a user to generate the underlying library indices from an already serialized
@@ -168,7 +187,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         @Override
         protected List<Parameter<?>> getParameters() {
-            return Arrays.asList(stored, hasDocValues, dimension, meta, knnMethodContext, modelId);
+            return Arrays.asList(stored, hasDocValues, dimension, vectorDataType, meta, knnMethodContext, modelId);
         }
 
         protected Explicit<Boolean> ignoreMalformed(BuilderContext context) {
@@ -203,7 +222,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     buildFullName(context),
                     metaValue,
                     dimension.getValue(),
-                    knnMethodContext
+                    knnMethodContext,
+                    vectorDataType.getValue()
                 );
                 if (knnMethodContext.getKnnEngine() == KNNEngine.LUCENE) {
                     log.debug(String.format("Use [LuceneFieldMapper] mapper for field [%s]", name));
@@ -216,6 +236,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                             .ignoreMalformed(ignoreMalformed)
                             .stored(stored.get())
                             .hasDocValues(hasDocValues.get())
+                            .vectorDataType(vectorDataType.getValue())
                             .knnMethodContext(knnMethodContext)
                             .build();
                     return new LuceneFieldMapper(createLuceneFieldMapperInput);
@@ -327,6 +348,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 throw new IllegalArgumentException(String.format("Dimension value missing for vector: %s", name));
             }
 
+            // Validates and throws exception if data_type field is set in the index mapping
+            // using any VectorDataType (other than float, which is default) with any engine (except lucene).
+            validateVectorDataTypeWithEngine(builder.knnMethodContext, builder.vectorDataType);
+
             return builder;
         }
     }
@@ -336,20 +361,43 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         int dimension;
         String modelId;
         KNNMethodContext knnMethodContext;
+        VectorDataType vectorDataType;
 
         public KNNVectorFieldType(String name, Map<String, String> meta, int dimension) {
-            this(name, meta, dimension, null, null);
+            this(name, meta, dimension, null, null, DEFAULT_VECTOR_DATA_TYPE_FIELD);
         }
 
         public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, KNNMethodContext knnMethodContext) {
-            this(name, meta, dimension, knnMethodContext, null);
+            this(name, meta, dimension, knnMethodContext, null, DEFAULT_VECTOR_DATA_TYPE_FIELD);
         }
 
         public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, KNNMethodContext knnMethodContext, String modelId) {
+            this(name, meta, dimension, knnMethodContext, modelId, DEFAULT_VECTOR_DATA_TYPE_FIELD);
+        }
+
+        public KNNVectorFieldType(
+            String name,
+            Map<String, String> meta,
+            int dimension,
+            KNNMethodContext knnMethodContext,
+            VectorDataType vectorDataType
+        ) {
+            this(name, meta, dimension, knnMethodContext, null, vectorDataType);
+        }
+
+        public KNNVectorFieldType(
+            String name,
+            Map<String, String> meta,
+            int dimension,
+            KNNMethodContext knnMethodContext,
+            String modelId,
+            VectorDataType vectorDataType
+        ) {
             super(name, false, false, true, TextSearchInfo.NONE, meta);
             this.dimension = dimension;
             this.modelId = modelId;
             this.knnMethodContext = knnMethodContext;
+            this.vectorDataType = vectorDataType;
         }
 
         @Override
@@ -386,6 +434,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected boolean stored;
     protected boolean hasDocValues;
     protected Integer dimension;
+    protected VectorDataType vectorDataType;
     protected ModelDao modelDao;
 
     // These members map to parameters in the builder. They need to be declared in the abstract class due to the
@@ -408,6 +457,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         this.stored = stored;
         this.hasDocValues = hasDocValues;
         this.dimension = mappedFieldType.getDimension();
+        this.vectorDataType = mappedFieldType.getVectorDataType();
         updateEngineStats();
     }
 
@@ -439,9 +489,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         VectorField point = new VectorField(name(), array, fieldType);
 
         context.doc().add(point);
-        if (fieldType.stored()) {
-            context.doc().add(new StoredField(name(), point.toString()));
-        }
+        addStoredFieldForVectorField(context, fieldType, name(), point.toString());
         context.path().remove();
     }
 
@@ -459,6 +507,41 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }
     }
 
+    // Returns an optional array of byte values where each value in the vector is parsed as a float and validated
+    // if it is a finite number without any decimals and within the byte range of [-128 to 127].
+    Optional<byte[]> getBytesFromContext(ParseContext context, int dimension) throws IOException {
+        context.path().add(simpleName());
+
+        ArrayList<Byte> vector = new ArrayList<>();
+        XContentParser.Token token = context.parser().currentToken();
+        float value;
+
+        if (token == XContentParser.Token.START_ARRAY) {
+            token = context.parser().nextToken();
+            while (token != XContentParser.Token.END_ARRAY) {
+                value = context.parser().floatValue();
+                validateByteVectorValue(value);
+                vector.add((byte) value);
+                token = context.parser().nextToken();
+            }
+        } else if (token == XContentParser.Token.VALUE_NUMBER) {
+            value = context.parser().floatValue();
+            validateByteVectorValue(value);
+            vector.add((byte) value);
+            context.parser().nextToken();
+        } else if (token == XContentParser.Token.VALUE_NULL) {
+            context.path().remove();
+            return Optional.empty();
+        }
+        validateVectorDimension(dimension, vector.size());
+        byte[] array = new byte[vector.size()];
+        int i = 0;
+        for (Byte f : vector) {
+            array[i++] = f;
+        }
+        return Optional.of(array);
+    }
+
     Optional<float[]> getFloatsFromContext(ParseContext context, int dimension) throws IOException {
         context.path().add(simpleName());
 
@@ -469,40 +552,20 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             token = context.parser().nextToken();
             while (token != XContentParser.Token.END_ARRAY) {
                 value = context.parser().floatValue();
-
-                if (Float.isNaN(value)) {
-                    throw new IllegalArgumentException("KNN vector values cannot be NaN");
-                }
-
-                if (Float.isInfinite(value)) {
-                    throw new IllegalArgumentException("KNN vector values cannot be infinity");
-                }
-
+                validateFloatVectorValue(value);
                 vector.add(value);
                 token = context.parser().nextToken();
             }
         } else if (token == XContentParser.Token.VALUE_NUMBER) {
             value = context.parser().floatValue();
-
-            if (Float.isNaN(value)) {
-                throw new IllegalArgumentException("KNN vector values cannot be NaN");
-            }
-
-            if (Float.isInfinite(value)) {
-                throw new IllegalArgumentException("KNN vector values cannot be infinity");
-            }
-
+            validateFloatVectorValue(value);
             vector.add(value);
             context.parser().nextToken();
         } else if (token == XContentParser.Token.VALUE_NULL) {
             context.path().remove();
             return Optional.empty();
         }
-
-        if (dimension != vector.size()) {
-            String errorMessage = String.format("Vector dimension mismatch. Expected: %d, Given: %d", dimension, vector.size());
-            throw new IllegalArgumentException(errorMessage);
-        }
+        validateVectorDimension(dimension, vector.size());
 
         float[] array = new float[vector.size()];
         int i = 0;

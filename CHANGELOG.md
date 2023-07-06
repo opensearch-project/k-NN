@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.8...2.x)
 ### Features
 * Added efficient filtering support for Faiss Engine ([#936](https://github.com/opensearch-project/k-NN/pull/936))
+* Add Indexing Support for Lucene Byte Sized Vector ([#937](https://github.com/opensearch-project/k-NN/pull/937))
 ### Enhancements
 ### Bug Fixes
 ### Infrastructure
