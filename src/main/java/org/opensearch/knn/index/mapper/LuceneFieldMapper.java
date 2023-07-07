@@ -82,7 +82,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         validateIfKNNPluginEnabled();
         validateIfCircuitBreakerIsNotTriggered();
 
-        if (VectorDataType.BYTE.equals(vectorDataType)) {
+        if (VectorDataType.BYTE == vectorDataType) {
             Optional<byte[]> bytesArrayOptional = getBytesFromContext(context, dimension);
             if (bytesArrayOptional.isEmpty()) {
                 return;
@@ -96,7 +96,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             if (hasDocValues && vectorFieldType != null) {
                 context.doc().add(new VectorField(name(), array, vectorFieldType));
             }
-        } else if (VectorDataType.FLOAT.equals(vectorDataType)) {
+        } else if (VectorDataType.FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
 
             if (floatsArrayOptional.isEmpty()) {

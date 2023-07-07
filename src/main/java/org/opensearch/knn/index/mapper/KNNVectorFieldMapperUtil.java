@@ -96,7 +96,7 @@ public class KNNVectorFieldMapperUtil {
      * @param vectorDataType VectorDataType Parameter
      */
     public static void validateVectorDataTypeWithEngine(ParametrizedFieldMapper.Parameter<VectorDataType> vectorDataType) {
-        if (VectorDataType.FLOAT.equals(vectorDataType.getValue())) {
+        if (VectorDataType.FLOAT == vectorDataType.getValue()) {
             return;
         }
         throw new IllegalArgumentException(
@@ -123,7 +123,7 @@ public class KNNVectorFieldMapperUtil {
         ParametrizedFieldMapper.Parameter<VectorDataType> vectorDataType
     ) {
 
-        if (VectorDataType.FLOAT.equals(vectorDataType.getValue())) {
+        if (VectorDataType.FLOAT == vectorDataType.getValue()) {
             return;
         }
         if (knnIndexSetting) {

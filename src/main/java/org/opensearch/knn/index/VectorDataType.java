@@ -11,7 +11,11 @@ import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnVectorField;
 import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.util.BytesRef;
+import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
+import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
@@ -31,12 +35,31 @@ public enum VectorDataType {
         public FieldType createKnnVectorFieldType(int dimension, VectorSimilarityFunction vectorSimilarityFunction) {
             return KnnByteVectorField.createFieldType(dimension, vectorSimilarityFunction);
         }
+
+        @Override
+        public float[] getVectorFromDocValues(BytesRef binaryValue) {
+            float[] vector = new float[binaryValue.length];
+            int i = 0;
+            int j = binaryValue.offset;
+
+            while (i < binaryValue.length) {
+                vector[i++] = binaryValue.bytes[j++];
+            }
+            return vector;
+        }
     },
     FLOAT("float") {
 
         @Override
         public FieldType createKnnVectorFieldType(int dimension, VectorSimilarityFunction vectorSimilarityFunction) {
             return KnnVectorField.createFieldType(dimension, vectorSimilarityFunction);
+        }
+
+        @Override
+        public float[] getVectorFromDocValues(BytesRef binaryValue) {
+            ByteArrayInputStream byteStream = new ByteArrayInputStream(binaryValue.bytes, binaryValue.offset, binaryValue.length);
+            final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
+            return vectorSerializer.byteToFloatArray(byteStream);
         }
 
     };
@@ -56,6 +79,14 @@ public enum VectorDataType {
      * @return FieldType
      */
     public abstract FieldType createKnnVectorFieldType(int dimension, VectorSimilarityFunction vectorSimilarityFunction);
+
+    /**
+     * Deserializes float vector from doc values binary value.
+     *
+     * @param binaryValue Binary Value of DocValues
+     * @return float vector deserialized from binary value
+     */
+    public abstract float[] getVectorFromDocValues(BytesRef binaryValue);
 
     /**
      * Validates if given VectorDataType is in the list of supported data types.

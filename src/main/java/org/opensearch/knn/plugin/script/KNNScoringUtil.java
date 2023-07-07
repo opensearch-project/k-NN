@@ -63,7 +63,7 @@ public class KNNScoringUtil {
         int index = 0;
         for (final Number val : inputVector) {
             float floatValue = val.floatValue();
-            if (VectorDataType.BYTE.equals(vectorDataType)) {
+            if (VectorDataType.BYTE == vectorDataType) {
                 validateByteVectorValue(floatValue);
             }
             value[index++] = floatValue;

@@ -490,7 +490,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         validateIfKNNPluginEnabled();
         validateIfCircuitBreakerIsNotTriggered();
 
-        if (VectorDataType.BYTE.equals(vectorDataType)) {
+        if (VectorDataType.BYTE == vectorDataType) {
             Optional<byte[]> bytesArrayOptional = getBytesFromContext(context, dimension);
 
             if (!bytesArrayOptional.isPresent()) {
@@ -501,7 +501,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             context.doc().add(point);
             addStoredFieldForVectorField(context, fieldType, name(), point.toString());
-        } else if (VectorDataType.FLOAT.equals(vectorDataType)) {
+        } else if (VectorDataType.FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
 
             if (!floatsArrayOptional.isPresent()) {
