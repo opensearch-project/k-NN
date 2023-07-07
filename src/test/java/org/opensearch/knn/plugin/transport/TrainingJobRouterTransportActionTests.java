@@ -22,7 +22,6 @@ import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.search.SearchHit;
@@ -31,7 +30,9 @@ import org.opensearch.transport.TransportService;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
@@ -45,7 +46,7 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         // Mock datanodes in the cluster through mocking the cluster service
         List<String> nodeIds = ImmutableList.of("node-1");
 
-        ImmutableOpenMap<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
+        Map<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
         ClusterService clusterService = generateMockedClusterService(discoveryNodesMap);
 
         // Create a response to be returned with job route decision info
@@ -85,7 +86,7 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         // Mock datanodes in the cluster through mocking the cluster service
         List<String> nodeIds = ImmutableList.of("node-1");
 
-        ImmutableOpenMap<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
+        Map<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
         ClusterService clusterService = generateMockedClusterService(discoveryNodesMap);
 
         // Create a response to be returned with job route decision info
@@ -125,7 +126,7 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         // Mock datanodes in the cluster through mocking the cluster service
         List<String> nodeIds = ImmutableList.of("node-1", "node-2", "node-3");
 
-        ImmutableOpenMap<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
+        Map<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
         ClusterService clusterService = generateMockedClusterService(discoveryNodesMap);
 
         // Create a response to be returned with job route decision info
@@ -168,7 +169,7 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
 
         String preferredNode = nodeIds.get(2);
 
-        ImmutableOpenMap<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
+        Map<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
         ClusterService clusterService = generateMockedClusterService(discoveryNodesMap);
 
         // Create a response to be returned with job route decision info
@@ -211,7 +212,7 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
 
         String preferredNode = nodeIds.get(2);
 
-        ImmutableOpenMap<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
+        Map<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
         ClusterService clusterService = generateMockedClusterService(discoveryNodesMap);
 
         // Create a response to be returned with job route decision info
@@ -253,7 +254,7 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         // Mock datanodes in the cluster through mocking the cluster service
         List<String> nodeIds = ImmutableList.of("node-1", "node-2", "node-3");
 
-        ImmutableOpenMap<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
+        Map<String, DiscoveryNode> discoveryNodesMap = generateDiscoveryNodes(nodeIds);
         ClusterService clusterService = generateMockedClusterService(discoveryNodesMap);
 
         // Create a response to be returned with job route decision info
@@ -338,19 +339,19 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         transportAction.getTrainingIndexSizeInKB(trainingModelRequest, listener);
     }
 
-    private ImmutableOpenMap<String, DiscoveryNode> generateDiscoveryNodes(List<String> dataNodeIds) {
-        ImmutableOpenMap.Builder<String, DiscoveryNode> builder = ImmutableOpenMap.builder();
+    private Map<String, DiscoveryNode> generateDiscoveryNodes(List<String> dataNodeIds) {
+        Map<String, DiscoveryNode> nodes = new HashMap<>();
 
         for (String nodeId : dataNodeIds) {
             DiscoveryNode discoveryNode = mock(DiscoveryNode.class);
             when(discoveryNode.getId()).thenReturn(nodeId);
-            builder.put(nodeId, discoveryNode);
+            nodes.put(nodeId, discoveryNode);
         }
 
-        return builder.build();
+        return nodes;
     }
 
-    private ClusterService generateMockedClusterService(ImmutableOpenMap<String, DiscoveryNode> discoveryNodeMap) {
+    private ClusterService generateMockedClusterService(Map<String, DiscoveryNode> discoveryNodeMap) {
         DiscoveryNodes discoveryNodes = mock(DiscoveryNodes.class);
         when(discoveryNodes.getDataNodes()).thenReturn(discoveryNodeMap);
         ClusterState clusterState = mock(ClusterState.class);
