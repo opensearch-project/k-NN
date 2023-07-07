@@ -8,10 +8,13 @@ package org.opensearch.knn.plugin.script;
 import org.opensearch.knn.index.KNNVectorScriptDocValues;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.knn.index.VectorDataType;
 
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Objects;
+
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
 
 public class KNNScoringUtil {
     private static Logger logger = LogManager.getLogger(KNNScoringUtil.class);
@@ -54,12 +57,16 @@ public class KNNScoringUtil {
         return squaredDistance;
     }
 
-    private static float[] toFloat(List<Number> inputVector) {
+    private static float[] toFloat(List<Number> inputVector, VectorDataType vectorDataType) {
         Objects.requireNonNull(inputVector);
         float[] value = new float[inputVector.size()];
         int index = 0;
         for (final Number val : inputVector) {
-            value[index++] = val.floatValue();
+            float floatValue = val.floatValue();
+            if (VectorDataType.BYTE.equals(vectorDataType)) {
+                validateByteVectorValue(floatValue);
+            }
+            value[index++] = floatValue;
         }
         return value;
     }
@@ -81,7 +88,7 @@ public class KNNScoringUtil {
      * @return L2 score
      */
     public static float l2Squared(List<Number> queryVector, KNNVectorScriptDocValues docValues) {
-        return l2Squared(toFloat(queryVector), docValues.getValue());
+        return l2Squared(toFloat(queryVector, docValues.getVectorDataType()), docValues.getValue());
     }
 
     /**
@@ -127,7 +134,11 @@ public class KNNScoringUtil {
      * @return cosine score
      */
     public static float cosineSimilarity(List<Number> queryVector, KNNVectorScriptDocValues docValues, Number queryVectorMagnitude) {
-        return cosinesimilOptimized(toFloat(queryVector), docValues.getValue(), queryVectorMagnitude.floatValue());
+        return cosinesimilOptimized(
+            toFloat(queryVector, docValues.getVectorDataType()),
+            docValues.getValue(),
+            queryVectorMagnitude.floatValue()
+        );
     }
 
     /**
@@ -172,7 +183,7 @@ public class KNNScoringUtil {
      * @return cosine score
      */
     public static float cosineSimilarity(List<Number> queryVector, KNNVectorScriptDocValues docValues) {
-        return cosinesimil(toFloat(queryVector), docValues.getValue());
+        return cosinesimil(toFloat(queryVector, docValues.getVectorDataType()), docValues.getValue());
     }
 
     /**
@@ -232,7 +243,7 @@ public class KNNScoringUtil {
      * @return L1 score
      */
     public static float l1Norm(List<Number> queryVector, KNNVectorScriptDocValues docValues) {
-        return l1Norm(toFloat(queryVector), docValues.getValue());
+        return l1Norm(toFloat(queryVector, docValues.getVectorDataType()), docValues.getValue());
     }
 
     /**
@@ -270,7 +281,7 @@ public class KNNScoringUtil {
      * @return L-inf score
      */
     public static float lInfNorm(List<Number> queryVector, KNNVectorScriptDocValues docValues) {
-        return lInfNorm(toFloat(queryVector), docValues.getValue());
+        return lInfNorm(toFloat(queryVector, docValues.getVectorDataType()), docValues.getValue());
     }
 
     /**
@@ -307,6 +318,6 @@ public class KNNScoringUtil {
      * @return inner product score
      */
     public static float innerProduct(List<Number> queryVector, KNNVectorScriptDocValues docValues) {
-        return innerProduct(toFloat(queryVector), docValues.getValue());
+        return innerProduct(toFloat(queryVector, docValues.getVectorDataType()), docValues.getValue());
     }
 }

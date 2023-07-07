@@ -16,13 +16,11 @@ import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.DocValuesType;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
 import org.opensearch.index.mapper.ParseContext;
-import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Locale;
 
-import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
@@ -92,20 +90,43 @@ public class KNNVectorFieldMapperUtil {
 
     /**
      * Validates and throws exception if data_type field is set in the index mapping
-     * using any VectorDataType (other than float, which is default) with any engine (except lucene).
+     * using any VectorDataType (other than float, which is default) because other
+     * VectorDataTypes are only supported for lucene engine.
      *
-     * @param knnMethodContext KNNMethodContext Parameter
      * @param vectorDataType VectorDataType Parameter
      */
-    public static void validateVectorDataTypeWithEngine(
-        ParametrizedFieldMapper.Parameter<KNNMethodContext> knnMethodContext,
-        ParametrizedFieldMapper.Parameter<VectorDataType> vectorDataType
-    ) {
-        if (vectorDataType.getValue() == DEFAULT_VECTOR_DATA_TYPE_FIELD) {
+    public static void validateVectorDataTypeWithEngine(ParametrizedFieldMapper.Parameter<VectorDataType> vectorDataType) {
+        if (VectorDataType.FLOAT.equals(vectorDataType.getValue())) {
             return;
         }
-        if ((knnMethodContext.getValue() == null && KNNEngine.DEFAULT != KNNEngine.LUCENE)
-            || knnMethodContext.getValue().getKnnEngine() != KNNEngine.LUCENE) {
+        throw new IllegalArgumentException(
+            String.format(
+                Locale.ROOT,
+                "[%s] field with value [%s] is only supported for [%s] engine",
+                VECTOR_DATA_TYPE_FIELD,
+                vectorDataType.getValue().getValue(),
+                LUCENE_NAME
+            )
+        );
+    }
+
+    /**
+     * Validates and throws exception if index.knn is set to true in the index settings
+     * using any VectorDataType (other than float, which is default) because we are using NMSLIB engine
+     * for LegacyFieldMapper, and it only supports float VectorDataType
+     *
+     * @param knnIndexSetting index.knn setting in the index settings
+     * @param vectorDataType VectorDataType Parameter
+     */
+    public static void validateVectorDataTypeWithKnnIndexSetting(
+        boolean knnIndexSetting,
+        ParametrizedFieldMapper.Parameter<VectorDataType> vectorDataType
+    ) {
+
+        if (VectorDataType.FLOAT.equals(vectorDataType.getValue())) {
+            return;
+        }
+        if (knnIndexSetting) {
             throw new IllegalArgumentException(
                 String.format(
                     Locale.ROOT,

@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin.script;
 
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.index.mapper.BinaryFieldMapper;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 
 import static org.opensearch.index.mapper.NumberFieldMapper.NumberType.LONG;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
 
 public class KNNScoringSpaceUtil {
 
@@ -85,8 +87,8 @@ public class KNNScoringSpaceUtil {
      * @param expectedDimensions int representing the expected dimension of this array.
      * @return float[] of the object
      */
-    public static float[] parseToFloatArray(Object object, int expectedDimensions) {
-        float[] floatArray = convertVectorToPrimitive(object);
+    public static float[] parseToFloatArray(Object object, int expectedDimensions, VectorDataType vectorDataType) {
+        float[] floatArray = convertVectorToPrimitive(object, vectorDataType);
         if (expectedDimensions != floatArray.length) {
             KNNCounter.SCRIPT_QUERY_ERRORS.increment();
             throw new IllegalStateException(
@@ -103,13 +105,17 @@ public class KNNScoringSpaceUtil {
      * @return Float array representing the vector
      */
     @SuppressWarnings("unchecked")
-    public static float[] convertVectorToPrimitive(Object vector) {
+    public static float[] convertVectorToPrimitive(Object vector, VectorDataType vectorDataType) {
         float[] primitiveVector = null;
         if (vector != null) {
-            final ArrayList<Double> tmp = (ArrayList<Double>) vector;
+            final ArrayList<Number> tmp = (ArrayList<Number>) vector;
             primitiveVector = new float[tmp.size()];
             for (int i = 0; i < primitiveVector.length; i++) {
-                primitiveVector[i] = tmp.get(i).floatValue();
+                float value = tmp.get(i).floatValue();
+                if (VectorDataType.BYTE.equals(vectorDataType)) {
+                    validateByteVectorValue(value);
+                }
+                primitiveVector[i] = value;
             }
         }
         return primitiveVector;

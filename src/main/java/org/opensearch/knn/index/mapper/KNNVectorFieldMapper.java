@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -52,10 +53,12 @@ import java.util.function.Supplier;
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithEngine;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithKnnIndexSetting;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFloatVectorValue;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithEngine;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDimension;
 
 /**
@@ -241,6 +244,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                             .build();
                     return new LuceneFieldMapper(createLuceneFieldMapperInput);
                 }
+
+                // Validates and throws exception if data_type field is set in the index mapping
+                // using any VectorDataType (other than float, which is default) because other
+                // VectorDataTypes are only supported for lucene engine.
+                validateVectorDataTypeWithEngine(vectorDataType);
+
                 return new MethodFieldMapper(
                     name,
                     mappedFieldType,
@@ -286,9 +295,14 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 this.efConstruction = LegacyFieldMapper.getEfConstruction(context.indexSettings());
             }
 
+            // Validates and throws exception if index.knn is set to true in the index settings
+            // using any VectorDataType (other than float, which is default) because we are using NMSLIB engine for LegacyFieldMapper
+            // and it only supports float VectorDataType
+            validateVectorDataTypeWithKnnIndexSetting(context.indexSettings().getAsBoolean(KNN_INDEX, false), vectorDataType);
+
             return new LegacyFieldMapper(
                 name,
-                new KNNVectorFieldType(buildFullName(context), metaValue, dimension.getValue()),
+                new KNNVectorFieldType(buildFullName(context), metaValue, dimension.getValue(), vectorDataType.getValue()),
                 multiFieldsBuilder,
                 copyToBuilder,
                 ignoreMalformed,
@@ -348,10 +362,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 throw new IllegalArgumentException(String.format("Dimension value missing for vector: %s", name));
             }
 
-            // Validates and throws exception if data_type field is set in the index mapping
-            // using any VectorDataType (other than float, which is default) with any engine (except lucene).
-            validateVectorDataTypeWithEngine(builder.knnMethodContext, builder.vectorDataType);
-
             return builder;
         }
     }
@@ -363,8 +373,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         KNNMethodContext knnMethodContext;
         VectorDataType vectorDataType;
 
-        public KNNVectorFieldType(String name, Map<String, String> meta, int dimension) {
-            this(name, meta, dimension, null, null, DEFAULT_VECTOR_DATA_TYPE_FIELD);
+        public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, VectorDataType vectorDataType) {
+            this(name, meta, dimension, null, null, vectorDataType);
         }
 
         public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, KNNMethodContext knnMethodContext) {
@@ -426,7 +436,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         @Override
         public IndexFieldData.Builder fielddataBuilder(String fullyQualifiedIndexName, Supplier<SearchLookup> searchLookup) {
             failIfNoDocValues();
-            return new KNNVectorIndexFieldData.Builder(name(), CoreValuesSourceType.BYTES);
+            return new KNNVectorIndexFieldData.Builder(name(), CoreValuesSourceType.BYTES, this.vectorDataType);
         }
     }
 
@@ -480,16 +490,34 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         validateIfKNNPluginEnabled();
         validateIfCircuitBreakerIsNotTriggered();
 
-        Optional<float[]> arrayOptional = getFloatsFromContext(context, dimension);
+        if (VectorDataType.BYTE.equals(vectorDataType)) {
+            Optional<byte[]> bytesArrayOptional = getBytesFromContext(context, dimension);
 
-        if (!arrayOptional.isPresent()) {
-            return;
+            if (!bytesArrayOptional.isPresent()) {
+                return;
+            }
+            final byte[] array = bytesArrayOptional.get();
+            VectorField point = new VectorField(name(), array, fieldType);
+
+            context.doc().add(point);
+            addStoredFieldForVectorField(context, fieldType, name(), point.toString());
+        } else if (VectorDataType.FLOAT.equals(vectorDataType)) {
+            Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
+
+            if (!floatsArrayOptional.isPresent()) {
+                return;
+            }
+            final float[] array = floatsArrayOptional.get();
+            VectorField point = new VectorField(name(), array, fieldType);
+
+            context.doc().add(point);
+            addStoredFieldForVectorField(context, fieldType, name(), point.toString());
+        } else {
+            throw new IllegalArgumentException(
+                String.format(Locale.ROOT, "Cannot parse context for unsupported values provided for field [%s]", VECTOR_DATA_TYPE_FIELD)
+            );
         }
-        final float[] array = arrayOptional.get();
-        VectorField point = new VectorField(name(), array, fieldType);
 
-        context.doc().add(point);
-        addStoredFieldForVectorField(context, fieldType, name(), point.toString());
         context.path().remove();
     }
 
