@@ -6,6 +6,7 @@
 package org.opensearch.knn.plugin.script;
 
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.index.mapper.BinaryFieldMapper;
 import org.opensearch.index.mapper.NumberFieldMapper;
@@ -64,11 +65,14 @@ public class KNNScoringSpaceUtilTests extends KNNTestCase {
         KNNVectorFieldMapper.KNNVectorFieldType fieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
 
         when(fieldType.getDimension()).thenReturn(3);
-        assertArrayEquals(arrayFloat, KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject, 3), 0.1f);
+        assertArrayEquals(arrayFloat, KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject, 3, VectorDataType.FLOAT), 0.1f);
 
-        expectThrows(IllegalStateException.class, () -> KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject, 4));
+        expectThrows(
+            IllegalStateException.class,
+            () -> KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject, 4, VectorDataType.FLOAT)
+        );
 
         String invalidObject = "invalidObject";
-        expectThrows(ClassCastException.class, () -> KNNScoringSpaceUtil.parseToFloatArray(invalidObject, 3));
+        expectThrows(ClassCastException.class, () -> KNNScoringSpaceUtil.parseToFloatArray(invalidObject, 3, VectorDataType.FLOAT));
     }
 }

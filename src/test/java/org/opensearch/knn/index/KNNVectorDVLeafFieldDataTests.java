@@ -62,30 +62,38 @@ public class KNNVectorDVLeafFieldDataTests extends KNNTestCase {
     }
 
     public void testGetScriptValues() {
-        KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(leafReaderContext.reader(), MOCK_INDEX_FIELD_NAME);
+        KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(
+            leafReaderContext.reader(),
+            MOCK_INDEX_FIELD_NAME,
+            VectorDataType.FLOAT
+        );
         ScriptDocValues<float[]> scriptValues = leafFieldData.getScriptValues();
         assertNotNull(scriptValues);
         assertTrue(scriptValues instanceof KNNVectorScriptDocValues);
     }
 
     public void testGetScriptValuesWrongFieldName() {
-        KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(leafReaderContext.reader(), "invalid");
+        KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(leafReaderContext.reader(), "invalid", VectorDataType.FLOAT);
         ScriptDocValues<float[]> scriptValues = leafFieldData.getScriptValues();
         assertNotNull(scriptValues);
     }
 
     public void testGetScriptValuesWrongFieldType() {
-        KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(leafReaderContext.reader(), MOCK_NUMERIC_INDEX_FIELD_NAME);
+        KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(
+            leafReaderContext.reader(),
+            MOCK_NUMERIC_INDEX_FIELD_NAME,
+            VectorDataType.FLOAT
+        );
         expectThrows(IllegalStateException.class, () -> leafFieldData.getScriptValues());
     }
 
     public void testRamBytesUsed() {
-        KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(leafReaderContext.reader(), "");
+        KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(leafReaderContext.reader(), "", VectorDataType.FLOAT);
         assertEquals(0, leafFieldData.ramBytesUsed());
     }
 
     public void testGetBytesValues() {
-        KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(leafReaderContext.reader(), "");
+        KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(leafReaderContext.reader(), "", VectorDataType.FLOAT);
         expectThrows(UnsupportedOperationException.class, () -> leafFieldData.getBytesValues());
     }
 }
