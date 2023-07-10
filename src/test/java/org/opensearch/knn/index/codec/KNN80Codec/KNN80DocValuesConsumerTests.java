@@ -19,7 +19,6 @@ import org.apache.lucene.store.IOContext;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.Strings;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -163,7 +162,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
 
-        String parameterString = TestUtils.xContentBuilderToString(XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)));
+        String parameterString = TestUtils.xContentBuilderToString(
+            XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext))
+        );
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
             KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
@@ -258,7 +259,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
 
-        String parameterString = TestUtils.xContentBuilderToString(XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)));
+        String parameterString = TestUtils.xContentBuilderToString(
+            XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext))
+        );
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
             KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)

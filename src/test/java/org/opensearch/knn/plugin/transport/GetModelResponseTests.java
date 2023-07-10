@@ -11,7 +11,6 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;

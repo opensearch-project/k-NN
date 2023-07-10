@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.bwc;
 
-import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.SpaceType;
