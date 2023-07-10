@@ -7,8 +7,10 @@ package org.opensearch.knn.index.mapper;
 
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
+import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnVectorField;
+import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.util.BytesRef;
@@ -218,6 +220,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .startObject()
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
             .field(DIMENSION_FIELD_NAME, dimension)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BYTE.getValue())
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
@@ -237,6 +240,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         builder.build(builderContext);
 
         assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponent().getName());
+        assertEquals(VectorDataType.BYTE.getValue(), builder.vectorDataType.getValue().getValue());
         assertEquals(
             efConstruction,
             builder.knnMethodContext.get().getMethodComponent().getParameters().get(METHOD_PARAMETER_EF_CONSTRUCTION)
@@ -869,6 +873,13 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertTrue(field instanceof KnnByteVectorField);
         knnByteVectorField = (KnnByteVectorField) field;
         assertArrayEquals(TEST_BYTE_VECTOR, knnByteVectorField.vectorValue());
+    }
+
+    public void testBuildDocValuesFieldType() {
+        FieldType fieldType = KNNVectorFieldMapperUtil.buildDocValuesFieldType(KNNEngine.LUCENE);
+        assertNotNull(fieldType);
+        assertEquals(KNNEngine.LUCENE.getName(), fieldType.getAttributes().get(KNN_ENGINE));
+        assertEquals(DocValuesType.BINARY, fieldType.docValuesType());
     }
 
     private LuceneFieldMapper.CreateLuceneFieldMapperInput.CreateLuceneFieldMapperInputBuilder createLuceneFieldMapperInputBuilder(

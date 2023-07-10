@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.lucene.search.KnnByteVectorQuery;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.opensearch.Version;
@@ -146,7 +147,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         return new NamedWriteableRegistry(entries);
     }
 
-    public void testDoToQuery_Normal() throws Exception {
+    public void testDoToQuery_Normal() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K);
         Index dummyIndex = new Index("dummy", "dummy");
@@ -160,6 +161,26 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertEquals(knnQueryBuilder.getK(), query.getK());
         assertEquals(knnQueryBuilder.fieldName(), query.getField());
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
+    }
+
+    public void testDoToQuery_Normal_ByteVectorDataType() {
+        // Validate doToQuery with Byte vector data type
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        KNNMethodContext mockKNNMethodContext = mock(KNNMethodContext.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(mockKNNMethodContext);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BYTE);
+        when(mockKNNMethodContext.getKnnEngine()).thenReturn(KNNEngine.LUCENE);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+
+        Query query = knnQueryBuilder.doToQuery(mockQueryShardContext);
+        assertNotNull(query);
+        assertTrue(query.getClass().isAssignableFrom(KnnByteVectorQuery.class));
     }
 
     public void testDoToQuery_KnnQueryWithFilter() throws Exception {
