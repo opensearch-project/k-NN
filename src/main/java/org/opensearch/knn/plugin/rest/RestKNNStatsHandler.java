@@ -6,12 +6,12 @@
 package org.opensearch.knn.plugin.rest;
 
 import lombok.AllArgsConstructor;
+import org.apache.commons.lang.StringUtils;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.KNNStatsAction;
 import org.opensearch.knn.plugin.transport.KNNStatsRequest;
 import com.google.common.collect.ImmutableList;
 import org.opensearch.client.node.NodeClient;
-import org.opensearch.common.Strings;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestRequest;
 import org.opensearch.rest.action.RestActions;
@@ -83,7 +83,7 @@ public class RestKNNStatsHandler extends BaseRestHandler {
         // parse the nodes the user wants to query
         String[] nodeIdsArr = null;
         String nodesIdsStr = request.param("nodeId");
-        if (!Strings.isEmpty(nodesIdsStr)) {
+        if (StringUtils.isNotEmpty(nodesIdsStr)) {
             nodeIdsArr = nodesIdsStr.split(",");
         }
 
@@ -93,7 +93,7 @@ public class RestKNNStatsHandler extends BaseRestHandler {
         // parse the stats the customer wants to see
         Set<String> statsSet = null;
         String statsStr = request.param("stat");
-        if (!Strings.isEmpty(statsStr)) {
+        if (StringUtils.isNotEmpty(statsStr)) {
             statsSet = new HashSet<>(Arrays.asList(statsStr.split(",")));
         }
 

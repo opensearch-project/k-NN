@@ -122,7 +122,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         // jacoco.dir is set in esplugin-coverage.gradle, if it doesn't exist we don't
         // want to collect coverage so we can return early
         String jacocoBuildPath = System.getProperty("jacoco.dir");
-        if (Strings.isNullOrEmpty(jacocoBuildPath)) {
+        if (StringUtils.isBlank(jacocoBuildPath)) {
             return;
         }
 
@@ -657,7 +657,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     protected void addModelToSystemIndex(String modelId, ModelMetadata modelMetadata, byte[] model) throws IOException {
-        assertFalse(Strings.isNullOrEmpty(modelId));
+        assertFalse(StringUtils.isBlank(modelId));
         String modelBase64 = Base64.getEncoder().encodeToString(model);
 
         Request request = new Request("POST", "/" + MODEL_INDEX_NAME + "/_doc/" + modelId + "?refresh=true");

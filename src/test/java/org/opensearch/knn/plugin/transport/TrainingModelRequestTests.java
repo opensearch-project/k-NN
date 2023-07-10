@@ -20,7 +20,6 @@ import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ValidationException;
-import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
@@ -529,7 +528,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
 
         // Empty set of data nodes to produce exception
         DiscoveryNodes discoveryNodes = mock(DiscoveryNodes.class);
-        when(discoveryNodes.getDataNodes()).thenReturn(ImmutableOpenMap.of());
+        when(discoveryNodes.getDataNodes()).thenReturn(Map.of());
 
         ClusterState clusterState = mock(ClusterState.class);
         when(clusterState.metadata()).thenReturn(metadata);
@@ -679,7 +678,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
         Metadata metadata = mock(Metadata.class);
         when(metadata.index(trainingIndex)).thenReturn(indexMetadata);
         DiscoveryNodes discoveryNodes = mock(DiscoveryNodes.class);
-        when(discoveryNodes.getDataNodes()).thenReturn(ImmutableOpenMap.of());
+        when(discoveryNodes.getDataNodes()).thenReturn(Map.of());
 
         ClusterState clusterState = mock(ClusterState.class);
         when(clusterState.metadata()).thenReturn(metadata);

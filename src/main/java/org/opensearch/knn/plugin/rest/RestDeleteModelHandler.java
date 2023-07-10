@@ -11,9 +11,9 @@
 
 package org.opensearch.knn.plugin.rest;
 
+import org.apache.commons.lang.StringUtils;
 import com.google.common.collect.ImmutableList;
 import org.opensearch.client.node.NodeClient;
-import org.opensearch.common.Strings;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.DeleteModelAction;
 import org.opensearch.knn.plugin.transport.DeleteModelRequest;
@@ -58,7 +58,7 @@ public class RestDeleteModelHandler extends BaseRestHandler {
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) {
         String modelID = request.param(MODEL_ID);
-        if (!Strings.hasText(modelID)) {
+        if (StringUtils.isBlank(modelID)) {
             throw new IllegalArgumentException("model ID cannot be empty");
         }
         DeleteModelRequest deleteModelRequest = new DeleteModelRequest(modelID);
