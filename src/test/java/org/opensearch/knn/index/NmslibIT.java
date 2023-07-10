@@ -85,7 +85,7 @@ public class NmslibIT extends KNNRestTestCase {
             .endObject();
 
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
-        String mapping = Strings.toString(builder);
+        String mapping = TestUtils.xContentBuilderToString(builder);
 
         createKnnIndex(indexName, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
@@ -187,7 +187,7 @@ public class NmslibIT extends KNNRestTestCase {
             int efConstruction = 14;
             int m = 13;
 
-            String mapping = Strings.toString(
+            String mapping = TestUtils.xContentBuilderToString(
                 XContentFactory.jsonBuilder()
                     .startObject()
                     .startObject("properties")
@@ -243,7 +243,7 @@ public class NmslibIT extends KNNRestTestCase {
                 .put("index.knn.algo_param.ef_construction", efConstruction1)
                 .build();
 
-            String mapping = Strings.toString(
+            String mapping = TestUtils.xContentBuilderToString(
                 XContentFactory.jsonBuilder()
                     .startObject()
                     .startObject("properties")
@@ -271,7 +271,7 @@ public class NmslibIT extends KNNRestTestCase {
             int efConstruction2 = 114;
             int m2 = 113;
 
-            mapping = Strings.toString(
+            mapping = TestUtils.xContentBuilderToString(
                 XContentFactory.jsonBuilder()
                     .startObject()
                     .startObject("properties")
@@ -330,7 +330,7 @@ public class NmslibIT extends KNNRestTestCase {
     public void testInvalidIndexHnswAlgoParams_mapping() throws IOException {
         Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).build();
 
-        String mapping = Strings.toString(
+        String mapping = TestUtils.xContentBuilderToString(
             XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")
@@ -354,7 +354,7 @@ public class NmslibIT extends KNNRestTestCase {
     public void testInvalidIndexHnswAlgoParams_mappingAndSettings() throws IOException {
         Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).put("index.knn.algo_param.m", "-1").build();
 
-        String mapping = Strings.toString(
+        String mapping = TestUtils.xContentBuilderToString(
             XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")

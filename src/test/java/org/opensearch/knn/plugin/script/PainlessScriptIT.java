@@ -8,6 +8,7 @@ package org.opensearch.knn.plugin.script;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
+import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.MethodComponentContext;
@@ -63,7 +64,7 @@ public class PainlessScriptIT extends KNNRestTestCase {
             builder.endObject();
         }
         xContentBuilder.endObject().endObject();
-        return Strings.toString(xContentBuilder);
+        return TestUtils.xContentBuilderToString(xContentBuilder);
     }
 
     /*

@@ -6,10 +6,12 @@
 package org.opensearch.knn;
 
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -310,5 +312,9 @@ public class TestUtils {
             }
             return queryArray;
         }
+    }
+
+    public static String xContentBuilderToString(XContentBuilder builder) {
+        return BytesReference.bytes(builder).utf8ToString();
     }
 }

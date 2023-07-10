@@ -7,6 +7,7 @@ package org.opensearch.knn.plugin.script;
 
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
+import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.SpaceType;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.client.Request;
@@ -282,7 +283,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         builder.endObject();
         Request request = new Request("POST", "/" + INDEX_NAME + "/_search");
 
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
         assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString("Unknown script name Dummy_source"));
     }
@@ -413,7 +414,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     @SuppressWarnings("unchecked")
     public void testHammingScriptScore_Long() throws Exception {
         createIndex(INDEX_NAME, Settings.EMPTY);
-        String longMapping = Strings.toString(
+        String longMapping = TestUtils.xContentBuilderToString(
             XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")
@@ -519,7 +520,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     @SuppressWarnings("unchecked")
     public void testHammingScriptScore_Base64() throws Exception {
         createIndex(INDEX_NAME, Settings.EMPTY);
-        String longMapping = Strings.toString(
+        String longMapping = TestUtils.xContentBuilderToString(
             XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")

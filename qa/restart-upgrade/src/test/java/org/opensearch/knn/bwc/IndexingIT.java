@@ -7,6 +7,7 @@ package org.opensearch.knn.bwc;
 
 import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.SpaceType;
 
 import static org.opensearch.knn.TestUtils.KNN_ALGO_PARAM_EF_CONSTRUCTION_MIN_VALUE;
@@ -96,7 +97,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     // test null parameters
     public void testNullParametersOnUpgrade() throws Exception {
         if (isRunningAgainstOldCluster()) {
-            String mapping = Strings.toString(
+            String mapping = TestUtils.xContentBuilderToString(
                 XContentFactory.jsonBuilder()
                     .startObject()
                     .startObject(PROPERTIES)
@@ -121,7 +122,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     // test empty parameters
     public void testEmptyParametersOnUpgrade() throws Exception {
         if (isRunningAgainstOldCluster()) {
-            String mapping = Strings.toString(
+            String mapping = TestUtils.xContentBuilderToString(
                 XContentFactory.jsonBuilder()
                     .startObject()
                     .startObject(PROPERTIES)
@@ -146,7 +147,7 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     // test no parameters
     public void testNoParametersOnUpgrade() throws Exception {
         if (isRunningAgainstOldCluster()) {
-            String mapping = Strings.toString(
+            String mapping = TestUtils.xContentBuilderToString(
                 XContentFactory.jsonBuilder()
                     .startObject()
                     .startObject(PROPERTIES)

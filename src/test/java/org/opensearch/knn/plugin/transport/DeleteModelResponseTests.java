@@ -17,6 +17,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.TestUtils;
 
 import java.io.IOException;
 
@@ -41,6 +42,6 @@ public class DeleteModelResponseTests extends KNNTestCase {
         String expectedResponseString = "{\"model_id\":\"test-model\",\"result\":\"deleted\"}";
         XContentBuilder xContentBuilder = XContentFactory.contentBuilder(XContentType.JSON);
         deleteModelResponse.toXContent(xContentBuilder, null);
-        assertEquals(expectedResponseString, Strings.toString(xContentBuilder));
+        assertEquals(expectedResponseString, TestUtils.xContentBuilderToString(xContentBuilder));
     }
 }

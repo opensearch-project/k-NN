@@ -7,7 +7,7 @@ package org.opensearch.knn.index.mapper;
 
 import org.apache.lucene.document.FieldType;
 import org.opensearch.common.Explicit;
-import org.opensearch.common.Strings;
+import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -50,7 +50,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         try {
             this.fieldType.putAttribute(
                 PARAMETERS,
-                Strings.toString(XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)))
+                BytesReference.bytes(XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext))).utf8ToString()
             );
         } catch (IOException ioe) {
             throw new RuntimeException(String.format("Unable to create KNNVectorFieldMapper: %s", ioe));

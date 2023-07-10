@@ -16,6 +16,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -245,7 +246,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
 
     // mapping to create index from model
     public String modelIndexMapping(String fieldName, String modelId) throws IOException {
-        return Strings.toString(
+        return TestUtils.xContentBuilderToString(
             XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject(PROPERTIES)

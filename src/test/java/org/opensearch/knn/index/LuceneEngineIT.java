@@ -101,7 +101,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = TestUtils.xContentBuilderToString(builder);
 
         createIndex(INDEX_NAME, getKNNDefaultIndexSettings());
 
@@ -179,7 +179,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject()
             .endObject()
             .endObject();
-        String mapping = Strings.toString(builder);
+        String mapping = TestUtils.xContentBuilderToString(builder);
         createKnnIndex(INDEX_NAME, mapping);
 
         for (int i = 0; i < TEST_INDEX_VECTORS.length; i++) {
@@ -219,7 +219,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject();
 
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
-        String mapping = Strings.toString(builder);
+        String mapping = TestUtils.xContentBuilderToString(builder);
 
         createKnnIndex(INDEX_NAME, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(INDEX_NAME)));
@@ -316,7 +316,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = TestUtils.xContentBuilderToString(builder);
         createKnnIndex(INDEX_NAME, mapping);
 
         addKnnDocWithAttributes(
@@ -369,7 +369,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             builder.field(fieldName, fieldValues.get(fieldName));
         }
         builder.endObject();
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
         client().performRequest(request);
 
         request = new Request("POST", "/" + INDEX_NAME + "/_refresh");
@@ -397,7 +397,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = TestUtils.xContentBuilderToString(builder);
         createKnnIndex(INDEX_NAME, mapping);
     }
 

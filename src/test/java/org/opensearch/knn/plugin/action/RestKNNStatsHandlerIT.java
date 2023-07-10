@@ -24,6 +24,7 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.plugin.stats.KNNStats;
@@ -459,7 +460,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
     // mapping to create index from model
     public String modelIndexMapping(String fieldName, String modelId) throws IOException {
-        return Strings.toString(
+        return TestUtils.xContentBuilderToString(
             XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject(PROPERTIES)

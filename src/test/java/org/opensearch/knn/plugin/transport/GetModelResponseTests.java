@@ -17,6 +17,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
@@ -51,7 +52,7 @@ public class GetModelResponseTests extends KNNTestCase {
             "{\"model_id\":\"test-model\",\"model_blob\":\"aGVsbG8=\",\"state\":\"created\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\"}";
         XContentBuilder xContentBuilder = XContentFactory.contentBuilder(XContentType.JSON);
         getModelResponse.toXContent(xContentBuilder, null);
-        assertEquals(expectedResponseString, Strings.toString(xContentBuilder));
+        assertEquals(expectedResponseString, TestUtils.xContentBuilderToString(xContentBuilder));
     }
 
     public void testXContentWithNoModelBlob() throws IOException {
@@ -62,6 +63,6 @@ public class GetModelResponseTests extends KNNTestCase {
             "{\"model_id\":\"test-model\",\"model_blob\":\"\",\"state\":\"failed\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\"}";
         XContentBuilder xContentBuilder = XContentFactory.contentBuilder(XContentType.JSON);
         getModelResponse.toXContent(xContentBuilder, null);
-        assertEquals(expectedResponseString, Strings.toString(xContentBuilder));
+        assertEquals(expectedResponseString, TestUtils.xContentBuilderToString(xContentBuilder));
     }
 }

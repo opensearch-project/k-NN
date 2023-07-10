@@ -24,6 +24,7 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -162,7 +163,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
 
-        String parameterString = Strings.toString(XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)));
+        String parameterString = TestUtils.xContentBuilderToString(XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)));
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
             KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
@@ -257,7 +258,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
 
-        String parameterString = Strings.toString(XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)));
+        String parameterString = TestUtils.xContentBuilderToString(XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)));
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
             KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)

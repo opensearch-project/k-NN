@@ -90,7 +90,7 @@ public class FaissIT extends KNNRestTestCase {
             .endObject();
 
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
-        String mapping = Strings.toString(builder);
+        String mapping = TestUtils.xContentBuilderToString(builder);
 
         createKnnIndex(indexName, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
@@ -167,7 +167,7 @@ public class FaissIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = TestUtils.xContentBuilderToString(builder);
         createKnnIndex(indexName, mapping);
 
         Float[] vector = { 6.0f, 6.0f };
@@ -203,7 +203,7 @@ public class FaissIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = TestUtils.xContentBuilderToString(builder);
         createKnnIndex(indexName, mapping);
 
         Float[] vector = { 6.0f, 6.0f };
@@ -245,7 +245,7 @@ public class FaissIT extends KNNRestTestCase {
         // Create knn index from model
         String fieldName = "test-field-name";
         String indexName = "test-index-name";
-        String indexMapping = Strings.toString(
+        String indexMapping = TestUtils.xContentBuilderToString(
             XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")

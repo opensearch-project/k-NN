@@ -18,6 +18,7 @@ import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNSingleNodeTestCase;
+import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
@@ -75,7 +76,7 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
         String indexName = "test-index";
         String fieldName = "test-field";
 
-        final String mapping = Strings.toString(
+        final String mapping = TestUtils.xContentBuilderToString(
             XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")

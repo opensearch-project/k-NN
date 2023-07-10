@@ -108,7 +108,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject();
 
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
-        String mapping = Strings.toString(builder);
+        String mapping = TestUtils.xContentBuilderToString(builder);
         createKnnIndex(indexName, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
 
@@ -267,7 +267,7 @@ public class OpenSearchIT extends KNNRestTestCase {
     public void testVectorMappingValidation_noDimension() throws Exception {
         Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).build();
 
-        String mapping = Strings.toString(
+        String mapping = TestUtils.xContentBuilderToString(
             XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")
@@ -338,7 +338,7 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         String f4 = FIELD_NAME + "-4";
         String f5 = FIELD_NAME + "-5";
-        String mapping = Strings.toString(
+        String mapping = TestUtils.xContentBuilderToString(
             XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")
@@ -384,7 +384,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         Request request = new Request("POST", "/" + INDEX_NAME + "/_doc/7?refresh=true");
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field("non-knn-field", "test").endObject();
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.CREATED, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 

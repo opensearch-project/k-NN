@@ -12,6 +12,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
@@ -28,7 +29,6 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
-import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -164,7 +164,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     protected void createBasicKnnIndex(String index, String fieldName, int dimension) throws IOException {
-        String mapping = Strings.toString(
+        String mapping = TestUtils.xContentBuilderToString(
             XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")
@@ -193,7 +193,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         request.addParameter("size", Integer.toString(resultSize));
         request.addParameter("explain", Boolean.toString(true));
         request.addParameter("search_type", "query_then_fetch");
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -214,7 +214,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         builder.endObject();
 
         request.addParameter("size", Integer.toString(resultSize));
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -297,7 +297,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Utility to create a Knn Index Mapping
      */
     protected String createKnnIndexMapping(String fieldName, Integer dimensions) throws IOException {
-        return Strings.toString(
+        return TestUtils.xContentBuilderToString(
             XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")
@@ -314,7 +314,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Utility to create a Knn Index Mapping with specific algorithm and engine
      */
     protected String createKnnIndexMapping(String fieldName, Integer dimensions, String algoName, String knnEngine) throws IOException {
-        return Strings.toString(
+        return TestUtils.xContentBuilderToString(
             XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject("properties")
@@ -347,7 +347,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
         xContentBuilder.endObject().endObject();
 
-        return Strings.toString(xContentBuilder);
+        return TestUtils.xContentBuilderToString(xContentBuilder);
     }
 
     /**
@@ -409,7 +409,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vector).endObject();
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
         client().performRequest(request);
 
         request = new Request("POST", "/" + index + "/_refresh");
@@ -429,7 +429,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
         builder.endObject();
 
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.CREATED, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
@@ -442,7 +442,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, value).endObject();
 
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
 
         Response response = client().performRequest(request);
 
@@ -457,7 +457,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, base64String).endObject();
 
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
 
         Response response = client().performRequest(request);
 
@@ -472,7 +472,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vector).endObject();
 
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -519,7 +519,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .endObject()
             .endObject();
         Request request = new Request("PUT", "_cluster/settings");
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
         Response response = client().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
@@ -675,7 +675,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .field(MODEL_ERROR, modelMetadata.getError())
             .endObject();
 
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
 
         Response response = client().performRequest(request);
 
@@ -755,7 +755,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         builder.endObject();
         String endpoint = String.format(Locale.getDefault(), "/%s/_search?size=0&filter_path=aggregations", INDEX_NAME);
         Request request = new Request("POST", endpoint);
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
         return request;
     }
 
@@ -778,7 +778,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         builder.endObject();
         builder.endObject();
         Request request = new Request("POST", "/" + indexName + "/_search");
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
         return request;
     }
 
@@ -794,7 +794,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         builder.endObject();
         builder.endObject();
         Request request = new Request("POST", "/" + indexName + "/_search");
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
         return request;
     }
 
@@ -864,7 +864,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
         builder.field("query", qb);
         builder.endObject();
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -944,7 +944,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     public String createKNNIndexMethodFieldMapping(String fieldName, Integer dimensions) throws IOException {
-        return Strings.toString(
+        return TestUtils.xContentBuilderToString(
             XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject(PROPERTIES)
@@ -968,7 +968,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Integer m,
         Integer ef_construction
     ) throws IOException {
-        return Strings.toString(
+        return TestUtils.xContentBuilderToString(
             XContentFactory.jsonBuilder()
                 .startObject()
                 .startObject(PROPERTIES)
@@ -1100,7 +1100,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
 
         Request request = new Request("POST", "/_plugins/_knn/models" + modelId + "/_train");
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(builder));
         return client().performRequest(request);
     }
 

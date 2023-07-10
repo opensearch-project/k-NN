@@ -240,7 +240,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
             .endObject()
             .endObject();
 
-        request.setJsonEntity(Strings.toString(matchAllDocsQuery));
+        request.setJsonEntity(TestUtils.xContentBuilderToString(matchAllDocsQuery));
         adminClient().performRequest(request);
     }
 
