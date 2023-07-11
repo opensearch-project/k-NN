@@ -220,6 +220,10 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
     std::vector<float> dis(kJ);
     std::vector<faiss::idx_t> ids(kJ);
     float* rawQueryvector = jniUtil->GetFloatArrayElements(env, queryVectorJ, nullptr);
+    /*
+        Setting the omp_set_num_threads to 1 to make sure that no new OMP threads are getting created.
+    */
+    omp_set_num_threads(1);
     // create the filterSearch params if the filterIdsJ is not a null pointer
     if(filterIdsJ != nullptr) {
         int *filteredIdsArray = jniUtil->GetIntArrayElements(env, filterIdsJ, nullptr);
