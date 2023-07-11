@@ -257,7 +257,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         byte[] byteVector = new byte[0];
-        if (VectorDataType.BYTE.equals(vectorDataType)) {
+        if (VectorDataType.BYTE == vectorDataType) {
             byteVector = new byte[vector.length];
             for (int i = 0; i < vector.length; i++) {
                 validateByteVectorValue(vector[i]);
@@ -274,8 +274,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             .knnEngine(knnEngine)
             .indexName(indexName)
             .fieldName(this.fieldName)
-            .vector(VectorDataType.FLOAT.equals(vectorDataType) ? this.vector : null)
-            .byteVector(VectorDataType.BYTE.equals(vectorDataType) ? byteVector : null)
+            .vector(VectorDataType.FLOAT == vectorDataType ? this.vector : null)
+            .byteVector(VectorDataType.BYTE == vectorDataType ? byteVector : null)
             .vectorDataType(vectorDataType)
             .k(this.k)
             .filter(this.filter)

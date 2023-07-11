@@ -93,31 +93,10 @@ public class KNNQueryFactory {
             return new KNNQuery(fieldName, vector, k, indexName);
         }
 
-        if (filterQuery != null) {
-            log.debug(
-                String.format("Creating Lucene k-NN query with filters for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k)
-            );
-            if (VectorDataType.BYTE.equals(vectorDataType)) {
-                return new KnnByteVectorQuery(fieldName, byteVector, k, filterQuery);
-            } else if (VectorDataType.FLOAT.equals(vectorDataType)) {
-                return new KnnFloatVectorQuery(fieldName, vector, k, filterQuery);
-            } else {
-                throw new IllegalArgumentException(
-                    String.format(
-                        Locale.ROOT,
-                        "Invalid value provided for [%s] field. Supported values are [%s]",
-                        VECTOR_DATA_TYPE_FIELD,
-                        SUPPORTED_VECTOR_DATA_TYPES
-                    )
-                );
-            }
-
-        }
-        log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
-        if (VectorDataType.BYTE.equals(vectorDataType)) {
-            return new KnnByteVectorQuery(fieldName, byteVector, k);
-        } else if (VectorDataType.FLOAT.equals(vectorDataType)) {
-            return new KnnFloatVectorQuery(fieldName, vector, k);
+        if (VectorDataType.BYTE == vectorDataType) {
+            return getKnnByteVectorQuery(indexName, fieldName, byteVector, k, filterQuery);
+        } else if (VectorDataType.FLOAT == vectorDataType) {
+            return getKnnFloatVectorQuery(indexName, fieldName, vector, k, filterQuery);
         } else {
             throw new IllegalArgumentException(
                 String.format(
@@ -128,6 +107,40 @@ public class KNNQueryFactory {
                 )
             );
         }
+    }
+
+    private static Query getKnnByteVectorQuery(String indexName, String fieldName, byte[] byteVector, int k, Query filterQuery) {
+        if (filterQuery != null) {
+            log.debug(
+                String.format(
+                    Locale.ROOT,
+                    "Creating Lucene k-NN query with filters for index: %s \"\", field: %s \"\", k: %d",
+                    indexName,
+                    fieldName,
+                    k
+                )
+            );
+            return new KnnByteVectorQuery(fieldName, byteVector, k, filterQuery);
+        }
+        log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
+        return new KnnByteVectorQuery(fieldName, byteVector, k);
+    }
+
+    private static Query getKnnFloatVectorQuery(String indexName, String fieldName, float[] floatVector, int k, Query filterQuery) {
+        if (filterQuery != null) {
+            log.debug(
+                String.format(
+                    Locale.ROOT,
+                    "Creating Lucene k-NN query with filters for index: %s \"\", field: %s \"\", k: %d",
+                    indexName,
+                    fieldName,
+                    k
+                )
+            );
+            return new KnnFloatVectorQuery(fieldName, floatVector, k, filterQuery);
+        }
+        log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
+        return new KnnFloatVectorQuery(fieldName, floatVector, k);
     }
 
     private static Query getFilterQuery(CreateQueryRequest createQueryRequest) {

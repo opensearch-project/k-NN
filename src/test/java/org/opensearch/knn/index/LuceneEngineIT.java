@@ -227,7 +227,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         Float[] vector = new Float[] { 2.0f, 4.5f, 6.5f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
 
-        refreshAllIndices();
+        refreshIndex(INDEX_NAME);
         assertEquals(1, getDocCount(INDEX_NAME));
     }
 
@@ -239,7 +239,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         Float[] updatedVector = { 8.0f, 8.0f };
         updateKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, updatedVector);
 
-        refreshAllIndices();
+        refreshIndex(INDEX_NAME);
         assertEquals(1, getDocCount(INDEX_NAME));
     }
 
@@ -250,7 +250,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
         deleteKnnDoc(INDEX_NAME, DOC_ID);
 
-        refreshAllIndices();
+        refreshIndex(INDEX_NAME);
         assertEquals(0, getDocCount(INDEX_NAME));
     }
 
@@ -265,7 +265,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.2f, 2.1f, 4.8f }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
         addKnnDocWithAttributes(DOC_ID_3, new float[] { 4.1f, 5.0f, 7.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
 
-        refreshAllIndices();
+        refreshIndex(INDEX_NAME);
 
         final float[] searchVector = { 6.0f, 6.0f, 4.1f };
         List<String> expectedDocIdsKGreaterThanFilterResult = Arrays.asList(DOC_ID, DOC_ID_3);
@@ -281,7 +281,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.0f, 2.0f, 4.0f }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
         addKnnDocWithAttributes(DOC_ID_3, new float[] { 4.0f, 5.0f, 7.0f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
 
-        refreshAllIndices();
+        refreshIndex(INDEX_NAME);
 
         final float[] searchVector = { 6.0f, 6.0f, 4.0f };
         List<String> expectedDocIdsKGreaterThanFilterResult = Arrays.asList(DOC_ID, DOC_ID_3);
