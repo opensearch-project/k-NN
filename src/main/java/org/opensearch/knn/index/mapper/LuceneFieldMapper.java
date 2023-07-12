@@ -9,21 +9,24 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
 import org.apache.lucene.document.FieldType;
+import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnVectorField;
-import org.apache.lucene.document.StoredField;
-import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
+import java.util.Locale;
 import java.util.Optional;
 
 import static org.apache.lucene.index.VectorValues.MAX_DIMENSIONS;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.buildDocValuesFieldType;
 
 /**
  * Field mapper for case when Lucene has been set as an engine.
@@ -34,6 +37,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
 
     /** FieldType used for initializing VectorField, which is used for creating binary doc values. **/
     private final FieldType vectorFieldType;
+    private final VectorDataType vectorDataType;
 
     LuceneFieldMapper(final CreateLuceneFieldMapperInput input) {
         super(
@@ -46,6 +50,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             input.isHasDocValues()
         );
 
+        vectorDataType = input.getVectorDataType();
         this.knnMethod = input.getKnnMethodContext();
         final VectorSimilarityFunction vectorSimilarityFunction = this.knnMethod.getSpaceType().getVectorSimilarityFunction();
 
@@ -53,6 +58,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         if (dimension > LUCENE_MAX_DIMENSION) {
             throw new IllegalArgumentException(
                 String.format(
+                    Locale.ROOT,
                     "Dimension value cannot be greater than [%s] but got [%s] for vector [%s]",
                     LUCENE_MAX_DIMENSION,
                     dimension,
@@ -61,7 +67,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             );
         }
 
-        this.fieldType = KnnVectorField.createFieldType(dimension, vectorSimilarityFunction);
+        this.fieldType = vectorDataType.createKnnVectorFieldType(dimension, vectorSimilarityFunction);
 
         if (this.hasDocValues) {
             this.vectorFieldType = buildDocValuesFieldType(this.knnMethod.getKnnEngine());
@@ -70,36 +76,46 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         }
     }
 
-    private static FieldType buildDocValuesFieldType(KNNEngine knnEngine) {
-        FieldType field = new FieldType();
-        field.putAttribute(KNN_ENGINE, knnEngine.getName());
-        field.setDocValuesType(DocValuesType.BINARY);
-        field.freeze();
-        return field;
-    }
-
     @Override
     protected void parseCreateField(ParseContext context, int dimension) throws IOException {
 
         validateIfKNNPluginEnabled();
         validateIfCircuitBreakerIsNotTriggered();
 
-        Optional<float[]> arrayOptional = getFloatsFromContext(context, dimension);
+        if (VectorDataType.BYTE == vectorDataType) {
+            Optional<byte[]> bytesArrayOptional = getBytesFromContext(context, dimension);
+            if (bytesArrayOptional.isEmpty()) {
+                return;
+            }
+            final byte[] array = bytesArrayOptional.get();
+            KnnByteVectorField point = new KnnByteVectorField(name(), array, fieldType);
 
-        if (arrayOptional.isEmpty()) {
-            return;
-        }
-        final float[] array = arrayOptional.get();
+            context.doc().add(point);
+            addStoredFieldForVectorField(context, fieldType, name(), point.toString());
 
-        KnnVectorField point = new KnnVectorField(name(), array, fieldType);
+            if (hasDocValues && vectorFieldType != null) {
+                context.doc().add(new VectorField(name(), array, vectorFieldType));
+            }
+        } else if (VectorDataType.FLOAT == vectorDataType) {
+            Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
 
-        context.doc().add(point);
-        if (fieldType.stored()) {
-            context.doc().add(new StoredField(name(), point.toString()));
-        }
+            if (floatsArrayOptional.isEmpty()) {
+                return;
+            }
+            final float[] array = floatsArrayOptional.get();
 
-        if (hasDocValues && vectorFieldType != null) {
-            context.doc().add(new VectorField(name(), array, vectorFieldType));
+            KnnVectorField point = new KnnVectorField(name(), array, fieldType);
+
+            context.doc().add(point);
+            addStoredFieldForVectorField(context, fieldType, name(), point.toString());
+
+            if (hasDocValues && vectorFieldType != null) {
+                context.doc().add(new VectorField(name(), array, vectorFieldType));
+            }
+        } else {
+            throw new IllegalArgumentException(
+                String.format(Locale.ROOT, "Cannot parse context for unsupported values provided for field [%s]", VECTOR_DATA_TYPE_FIELD)
+            );
         }
 
         context.path().remove();
@@ -126,6 +142,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed;
         boolean stored;
         boolean hasDocValues;
+        VectorDataType vectorDataType;
         @NonNull
         KNNMethodContext knnMethodContext;
     }

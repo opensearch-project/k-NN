@@ -5,26 +5,22 @@
 
 package org.opensearch.knn.index;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.apache.lucene.index.BinaryDocValues;
-import org.apache.lucene.util.BytesRef;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.index.fielddata.ScriptDocValues;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
+@RequiredArgsConstructor
 public final class KNNVectorScriptDocValues extends ScriptDocValues<float[]> {
 
     private final BinaryDocValues binaryDocValues;
     private final String fieldName;
-    private boolean docExists;
-
-    public KNNVectorScriptDocValues(BinaryDocValues binaryDocValues, String fieldName) {
-        this.binaryDocValues = binaryDocValues;
-        this.fieldName = fieldName;
-    }
+    @Getter
+    private final VectorDataType vectorDataType;
+    private boolean docExists = false;
 
     @Override
     public void setNextDocId(int docId) throws IOException {
@@ -47,11 +43,7 @@ public final class KNNVectorScriptDocValues extends ScriptDocValues<float[]> {
             throw new IllegalStateException(errorMessage);
         }
         try {
-            BytesRef value = binaryDocValues.binaryValue();
-            ByteArrayInputStream byteStream = new ByteArrayInputStream(value.bytes, value.offset, value.length);
-            final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
-            final float[] vector = vectorSerializer.byteToFloatArray(byteStream);
-            return vector;
+            return vectorDataType.getVectorFromDocValues(binaryDocValues.binaryValue());
         } catch (IOException e) {
             throw ExceptionsHelper.convertToOpenSearchException(e);
         }
