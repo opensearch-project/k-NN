@@ -54,7 +54,11 @@ public interface KNNScoringSpace {
                 throw new IllegalArgumentException("Incompatible field_type for l2 space. The field type must " + "be knn_vector.");
             }
 
-            this.processedQuery = parseToFloatArray(query, ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
+            this.processedQuery = parseToFloatArray(
+                query,
+                ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension(),
+                ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getVectorDataType()
+            );
             this.scoringMethod = (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.l2Squared(q, v));
         }
 
@@ -81,7 +85,11 @@ public interface KNNScoringSpace {
                 throw new IllegalArgumentException("Incompatible field_type for cosine space. The field type must " + "be knn_vector.");
             }
 
-            this.processedQuery = parseToFloatArray(query, ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
+            this.processedQuery = parseToFloatArray(
+                query,
+                ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension(),
+                ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getVectorDataType()
+            );
             float qVectorSquaredMagnitude = getVectorMagnitudeSquared(this.processedQuery);
             this.scoringMethod = (float[] q, float[] v) -> 1 + KNNScoringUtil.cosinesimilOptimized(q, v, qVectorSquaredMagnitude);
         }
@@ -159,7 +167,11 @@ public interface KNNScoringSpace {
                 throw new IllegalArgumentException("Incompatible field_type for l1 space. The field type must " + "be knn_vector.");
             }
 
-            this.processedQuery = parseToFloatArray(query, ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
+            this.processedQuery = parseToFloatArray(
+                query,
+                ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension(),
+                ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getVectorDataType()
+            );
             this.scoringMethod = (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.l1Norm(q, v));
         }
 
@@ -185,7 +197,11 @@ public interface KNNScoringSpace {
                 throw new IllegalArgumentException("Incompatible field_type for l-inf space. The field type must " + "be knn_vector.");
             }
 
-            this.processedQuery = parseToFloatArray(query, ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
+            this.processedQuery = parseToFloatArray(
+                query,
+                ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension(),
+                ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getVectorDataType()
+            );
             this.scoringMethod = (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.lInfNorm(q, v));
         }
 
@@ -213,7 +229,11 @@ public interface KNNScoringSpace {
                 );
             }
 
-            this.processedQuery = parseToFloatArray(query, ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension());
+            this.processedQuery = parseToFloatArray(
+                query,
+                ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension(),
+                ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getVectorDataType()
+            );
             this.scoringMethod = (float[] q, float[] v) -> KNNWeight.normalizeScore(-KNNScoringUtil.innerProduct(q, v));
         }
 

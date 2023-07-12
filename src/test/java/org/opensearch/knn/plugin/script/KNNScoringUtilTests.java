@@ -7,6 +7,7 @@ package org.opensearch.knn.plugin.script;
 
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNVectorScriptDocValues;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.apache.lucene.tests.analysis.MockAnalyzer;
 import org.apache.lucene.document.BinaryDocValuesField;
@@ -81,7 +82,7 @@ public class KNNScoringUtilTests extends KNNTestCase {
 
     public void testConvertInvalidVectorToPrimitive() {
         float[] primitiveVector = null;
-        assertEquals(primitiveVector, KNNScoringSpaceUtil.convertVectorToPrimitive(primitiveVector));
+        assertEquals(primitiveVector, KNNScoringSpaceUtil.convertVectorToPrimitive(primitiveVector, VectorDataType.FLOAT));
     }
 
     public void testCosineSimilQueryVectorZeroMagnitude() {
@@ -243,7 +244,11 @@ public class KNNScoringUtilTests extends KNNTestCase {
             if (scriptDocValues == null) {
                 reader = DirectoryReader.open(directory);
                 LeafReaderContext leafReaderContext = reader.getContext().leaves().get(0);
-                scriptDocValues = new KNNVectorScriptDocValues(leafReaderContext.reader().getBinaryDocValues(fieldName), fieldName);
+                scriptDocValues = new KNNVectorScriptDocValues(
+                    leafReaderContext.reader().getBinaryDocValues(fieldName),
+                    fieldName,
+                    VectorDataType.FLOAT
+                );
             }
             return scriptDocValues;
         }
