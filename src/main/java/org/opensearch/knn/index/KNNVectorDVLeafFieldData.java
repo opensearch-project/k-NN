@@ -18,10 +18,12 @@ public class KNNVectorDVLeafFieldData implements LeafFieldData {
 
     private final LeafReader reader;
     private final String fieldName;
+    private final VectorDataType vectorDataType;
 
-    public KNNVectorDVLeafFieldData(LeafReader reader, String fieldName) {
+    public KNNVectorDVLeafFieldData(LeafReader reader, String fieldName, VectorDataType vectorDataType) {
         this.reader = reader;
         this.fieldName = fieldName;
+        this.vectorDataType = vectorDataType;
     }
 
     @Override
@@ -38,7 +40,7 @@ public class KNNVectorDVLeafFieldData implements LeafFieldData {
     public ScriptDocValues<float[]> getScriptValues() {
         try {
             BinaryDocValues values = DocValues.getBinary(reader, fieldName);
-            return new KNNVectorScriptDocValues(values, fieldName);
+            return new KNNVectorScriptDocValues(values, fieldName, vectorDataType);
         } catch (IOException e) {
             throw new IllegalStateException("Cannot load doc values for knn vector field: " + fieldName, e);
         }

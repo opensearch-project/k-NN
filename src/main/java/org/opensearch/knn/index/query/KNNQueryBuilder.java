@@ -12,6 +12,7 @@ import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
@@ -31,6 +32,8 @@ import org.opensearch.index.query.QueryShardContext;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
+
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
 
 /**
  * Helper class to build the KNN query
@@ -266,6 +269,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         int fieldDimension = knnVectorFieldType.getDimension();
         KNNMethodContext knnMethodContext = knnVectorFieldType.getKnnMethodContext();
         KNNEngine knnEngine = KNNEngine.DEFAULT;
+        VectorDataType vectorDataType = knnVectorFieldType.getVectorDataType();
 
         if (fieldDimension == -1) {
             // If dimension is not set, the field uses a model and the information needs to be retrieved from there
@@ -283,6 +287,15 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             );
         }
 
+        byte[] byteVector = new byte[0];
+        if (VectorDataType.BYTE == vectorDataType) {
+            byteVector = new byte[vector.length];
+            for (int i = 0; i < vector.length; i++) {
+                validateByteVectorValue(vector[i]);
+                byteVector[i] = (byte) vector[i];
+            }
+        }
+
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine)
             && filter != null
             && !KNNEngine.getEnginesThatSupportsFilters().contains(knnEngine)) {
@@ -294,7 +307,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             .knnEngine(knnEngine)
             .indexName(indexName)
             .fieldName(this.fieldName)
-            .vector(this.vector)
+            .vector(VectorDataType.FLOAT == vectorDataType ? this.vector : null)
+            .byteVector(VectorDataType.BYTE == vectorDataType ? byteVector : null)
+            .vectorDataType(vectorDataType)
             .k(this.k)
             .filter(this.filter)
             .context(context)
