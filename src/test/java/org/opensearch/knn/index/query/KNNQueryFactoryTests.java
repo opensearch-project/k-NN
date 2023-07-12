@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 
 public class KNNQueryFactoryTests extends KNNTestCase {
     private static final String FILTER_FILED_NAME = "foo";
@@ -38,7 +39,14 @@ public class KNNQueryFactoryTests extends KNNTestCase {
 
     public void testCreateCustomKNNQuery() {
         for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
-            Query query = KNNQueryFactory.create(knnEngine, testIndexName, testFieldName, testQueryVector, testK);
+            Query query = KNNQueryFactory.create(
+                knnEngine,
+                testIndexName,
+                testFieldName,
+                testQueryVector,
+                testK,
+                DEFAULT_VECTOR_DATA_TYPE_FIELD
+            );
             assertTrue(query instanceof KNNQuery);
 
             assertEquals(testIndexName, ((KNNQuery) query).getIndexName());
@@ -53,7 +61,14 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
             .collect(Collectors.toList());
         for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
-            Query query = KNNQueryFactory.create(knnEngine, testIndexName, testFieldName, testQueryVector, testK);
+            Query query = KNNQueryFactory.create(
+                knnEngine,
+                testIndexName,
+                testFieldName,
+                testQueryVector,
+                testK,
+                DEFAULT_VECTOR_DATA_TYPE_FIELD
+            );
             assertTrue(query.getClass().isAssignableFrom(KnnFloatVectorQuery.class));
         }
     }
@@ -71,6 +86,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
                 .indexName(testIndexName)
                 .fieldName(testFieldName)
                 .vector(testQueryVector)
+                .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
                 .k(testK)
                 .context(mockQueryShardContext)
                 .filter(FILTER_QUERY_BUILDER)

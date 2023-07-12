@@ -27,7 +27,7 @@ public class KNNVectorIndexFieldDataTests extends KNNTestCase {
     @Before
     public void setUp() throws Exception {
         super.setUp();
-        indexFieldData = new KNNVectorIndexFieldData(MOCK_INDEX_FIELD_NAME, CoreValuesSourceType.BYTES);
+        indexFieldData = new KNNVectorIndexFieldData(MOCK_INDEX_FIELD_NAME, CoreValuesSourceType.BYTES, VectorDataType.FLOAT);
         directory = newDirectory();
         createEmptyDocument(directory);
     }
