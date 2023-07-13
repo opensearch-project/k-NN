@@ -13,7 +13,7 @@ package org.opensearch.knn.training;
 
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
-import org.opensearch.index.shard.ShardId;
+import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;

@@ -7,7 +7,7 @@ package org.opensearch.knn.common.exception;
 
 import org.opensearch.OpenSearchException;
 import org.opensearch.core.common.logging.LoggerMessageFormat;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 
 /**
  * Exception thrown when a model is deleted while it is in the training state. The RestStatus associated with this
