@@ -106,6 +106,7 @@ if [ "$JAVA_HOME" = "" ]; then
 fi
 
 # Ensure gcc version is above 4.9.0 for faiss 1.7.4+ compilation
+# https://github.com/opensearch-project/k-NN/issues/975
 GCC_VERSION=`gcc --version | head -n 1 | cut -d ' ' -f3`
 GCC_REQUIRED_VERSION=4.9.0
 COMPARE_VERSION=`echo $GCC_REQUIRED_VERSION $GCC_VERSION | tr ' ' '\n' | sort -V | uniq | head -n 1`
@@ -113,6 +114,16 @@ if [ ! "$COMPARE_VERSION" = "$GCC_REQUIRED_VERSION" ]; then
     echo "gcc version on this env is older than $GCC_REQUIRED_VERSION, exit 1"
     exit 1
 fi
+
+# Ensure gcc version is below 8.0.0 for faiss 1.7.4+ compilation so it will not crash on arm64 CentOS7
+# https://github.com/opensearch-project/k-NN/issues/975
+GCC_REQUIRED_VERSION_CEILING=8.0.0
+COMPARE_VERSION_CEILING=`echo $GCC_REQUIRED_VERSION_CEILING $GCC_VERSION | tr ' ' '\n' | sort -V | uniq | tail -n 1`
+if [ ! "$COMPARE_VERSION_CEILING" = "$GCC_REQUIRED_VERSION_CEILING" ]; then
+    echo "gcc version on this env is newer than $GCC_REQUIRED_VERSION_CEILING, exit 1"
+    exit 1
+fi
+
 
 # Build k-NN lib and plugin through gradle tasks
 cd $work_dir
