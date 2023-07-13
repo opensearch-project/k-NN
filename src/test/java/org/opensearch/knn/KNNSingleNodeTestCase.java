@@ -5,7 +5,7 @@
 
 package org.opensearch.knn;
 
-import org.opensearch.common.bytes.BytesReference;
+import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
@@ -25,7 +25,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.IndexService;
 import org.opensearch.plugins.Plugin;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.test.hamcrest.OpenSearchAssertions;
 

@@ -25,7 +25,7 @@ import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 
 import java.io.IOException;
