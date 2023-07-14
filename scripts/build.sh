@@ -110,7 +110,7 @@ fi
 GCC_VERSION=`gcc --version | head -n 1 | cut -d ' ' -f3`
 GCC_REQUIRED_VERSION=4.9.0
 COMPARE_VERSION=`echo $GCC_REQUIRED_VERSION $GCC_VERSION | tr ' ' '\n' | sort -V | uniq | head -n 1`
-if [ ! "$COMPARE_VERSION" = "$GCC_REQUIRED_VERSION" ]; then
+if [ "$COMPARE_VERSION" != "$GCC_REQUIRED_VERSION" ]; then
     echo "gcc version on this env is older than $GCC_REQUIRED_VERSION, exit 1"
     exit 1
 fi
@@ -119,7 +119,7 @@ fi
 # https://github.com/opensearch-project/k-NN/issues/975
 GCC_REQUIRED_VERSION_CEILING=8.0.0
 COMPARE_VERSION_CEILING=`echo $GCC_REQUIRED_VERSION_CEILING $GCC_VERSION | tr ' ' '\n' | sort -V | uniq | tail -n 1`
-if [ ! "$COMPARE_VERSION_CEILING" = "$GCC_REQUIRED_VERSION_CEILING" ]; then
+if [ "$COMPARE_VERSION_CEILING" != "$GCC_REQUIRED_VERSION_CEILING" ] && (echo "$OSTYPE" | grep -i linux); then
     echo "gcc version on this env is newer than $GCC_REQUIRED_VERSION_CEILING, exit 1"
     exit 1
 fi
