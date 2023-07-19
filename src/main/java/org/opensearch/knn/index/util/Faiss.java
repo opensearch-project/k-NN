@@ -248,7 +248,7 @@ class Faiss extends NativeLibrary {
                     ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build())
                 )
                 .build()
-        ).addSpaces(SpaceType.L2, SpaceType.COSINESIMIL).build()
+        ).addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build()
 
     );
 
