@@ -28,7 +28,7 @@ steps:
     dataset_format: hdf5
     dataset_path: [DATASET_PATH]/sift-128-euclidean-with-attr.hdf5
     neighbors_format: hdf5
-    neighbors_path: [DATASET_PATH]/sift-128-euclidean-with-filters.hdf5
+    neighbors_path: [DATASET_PATH]/sift-128-euclidean-with-filters-updated.hdf5
     neighbors_dataset: neighbors_filter_5
     filter_spec: [INDEX_SPEC_PATH]/relaxed-filter-spec.json
     filter_type: FILTER
