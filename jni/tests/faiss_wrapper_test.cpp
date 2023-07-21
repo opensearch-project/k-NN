@@ -300,7 +300,7 @@ TEST(FaissCreateNSGIndexTest, BasicAssertions) {
         std::vector<float> vect;
         vect.reserve(dim);
         for (int j = 0; j < dim; ++j) {
-            vect.push_back(test_util::RandomFloat(1.0, 1.0));
+            vect.push_back(test_util::RandomFloat(-1.0, 1.0));
         }
         vectors.push_back(vect);
     }
