@@ -17,7 +17,7 @@ import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.MediaTypeParserRegistry;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.core.rest.RestStatus;
@@ -62,7 +62,7 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(getModelResponse.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), responseBody).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
 
@@ -99,7 +99,7 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(getModelResponse.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), responseBody).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
 
@@ -205,7 +205,7 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), responseBody).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
 
