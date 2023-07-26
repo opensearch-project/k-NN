@@ -16,7 +16,7 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.MediaTypeParserRegistry;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.core.rest.RestStatus;
@@ -74,7 +74,7 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(response.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), responseBody).map();
         assertEquals(modelId, responseMap.get(MODEL_ID));
         assertEquals(modelDescription, responseMap.get(MODEL_DESCRIPTION));
         assertEquals(FAISS.getName(), responseMap.get(KNN_ENGINE));
@@ -106,7 +106,7 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(response.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), responseBody).map();
 
         assertTrue(responseMap.size() == filteredPath.size());
         assertEquals(modelId, responseMap.get(MODEL_ID));
