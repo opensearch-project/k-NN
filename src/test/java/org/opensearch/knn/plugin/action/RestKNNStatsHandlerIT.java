@@ -28,7 +28,7 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.plugin.stats.KNNStats;
 import org.opensearch.knn.plugin.stats.StatNames;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 
 import java.io.IOException;
 import java.util.Arrays;

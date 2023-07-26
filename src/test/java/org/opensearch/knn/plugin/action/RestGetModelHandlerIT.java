@@ -19,7 +19,7 @@ import org.opensearch.client.ResponseException;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.plugin.KNNPlugin;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 
 import java.io.IOException;
 import java.util.Arrays;

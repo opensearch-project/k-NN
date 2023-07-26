@@ -13,7 +13,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.IDVectorProducer;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 
 import java.util.HashMap;
 import java.util.List;

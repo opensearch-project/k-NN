@@ -17,7 +17,7 @@ import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.index.Index;
+import org.opensearch.core.index.Index;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestRequest;

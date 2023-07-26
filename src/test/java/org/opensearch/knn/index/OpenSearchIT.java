@@ -30,7 +30,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 
 import java.io.IOException;
 import java.net.URL;
