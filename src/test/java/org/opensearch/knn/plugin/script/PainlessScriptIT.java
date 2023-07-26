@@ -23,7 +23,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.script.Script;
 
 import java.io.IOException;

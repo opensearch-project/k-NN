@@ -16,7 +16,7 @@ import org.opensearch.cluster.routing.ShardsIterator;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.index.IndexService;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 
 import java.io.IOException;
 import java.util.EnumSet;
