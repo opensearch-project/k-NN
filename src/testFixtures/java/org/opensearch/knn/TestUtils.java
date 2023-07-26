@@ -9,7 +9,7 @@ import com.google.common.collect.ImmutableMap;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.MediaTypeParserRegistry;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -252,7 +252,7 @@ public class TestUtils {
             BufferedReader reader = new BufferedReader(new FileReader(path));
             String line = reader.readLine();
             while (line != null) {
-                Map<String, Object> doc = XContentFactory.xContent(XContentType.JSON)
+                Map<String, Object> doc = XContentFactory.xContent(MediaTypeParserRegistry.getDefaultMediaType())
                     .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, line)
                     .map();
                 idsList.add((Integer) doc.get("id"));

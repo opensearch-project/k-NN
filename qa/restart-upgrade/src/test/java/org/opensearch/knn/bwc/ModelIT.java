@@ -15,7 +15,7 @@ import org.opensearch.common.Strings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.MediaTypeParserRegistry;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -186,7 +186,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             String responseBody = EntityUtils.toString(response.getEntity());
             assertNotNull(responseBody);
 
-            XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+            XContentParser parser = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), responseBody);
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
             assertEquals(EXP_NUM_OF_MODELS, searchResponse.getHits().getHits().length);
@@ -203,7 +203,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), responseBody).map();
         assertEquals(modelId, responseMap.get(MODEL_ID));
         assertTrainingSucceeds(modelId, NUM_OF_ATTEMPTS, DELAY_MILLI_SEC);
     }

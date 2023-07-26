@@ -30,10 +30,10 @@ import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.xcontent.MediaTypeParserRegistry;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
@@ -227,8 +227,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected List<KNNResult> parseSearchResponse(String responseBody, String fieldName) throws IOException {
         @SuppressWarnings("unchecked")
-        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(XContentType.JSON.xContent(), responseBody).map()
-            .get("hits")).get("hits");
+        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
+            MediaTypeParserRegistry.getDefaultMediaType().xContent(),
+            responseBody
+        ).map().get("hits")).get("hits");
 
         @SuppressWarnings("unchecked")
         List<KNNResult> knnSearchResponses = hits.stream().map(hit -> {
@@ -244,8 +246,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     protected List<Float> parseSearchResponseScore(String responseBody, String fieldName) throws IOException {
         @SuppressWarnings("unchecked")
-        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(XContentType.JSON.xContent(), responseBody).map()
-            .get("hits")).get("hits");
+        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
+            MediaTypeParserRegistry.getDefaultMediaType().xContent(),
+            responseBody
+        ).map().get("hits")).get("hits");
 
         @SuppressWarnings("unchecked")
         List<Float> knnSearchResponses = hits.stream()
@@ -260,8 +264,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected Double parseAggregationResponse(String responseBody, String aggregationName) throws IOException {
         @SuppressWarnings("unchecked")
-        Map<String, Object> aggregations = ((Map<String, Object>) createParser(XContentType.JSON.xContent(), responseBody).map()
-            .get("aggregations"));
+        Map<String, Object> aggregations = ((Map<String, Object>) createParser(
+            MediaTypeParserRegistry.getDefaultMediaType().xContent(),
+            responseBody
+        ).map().get("aggregations"));
 
         final Map<String, Object> values = (Map<String, Object>) aggregations.get(aggregationName);
         return Double.valueOf(String.valueOf(values.get("value")));
@@ -366,7 +372,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         String responseBody = EntityUtils.toString(response.getEntity());
 
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), responseBody).map();
 
         return (Map<String, Object>) ((Map<String, Object>) responseMap.get(index)).get("mappings");
     }
@@ -380,7 +386,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         String responseBody = EntityUtils.toString(response.getEntity());
 
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), responseBody).map();
         return (Integer) responseMap.get("count");
     }
 
@@ -496,8 +502,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
         final Request request = new Request("GET", "/" + index + "/_doc/" + docId);
         final Response response = client().performRequest(request);
 
-        final Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), EntityUtils.toString(response.getEntity()))
-            .map();
+        final Map<String, Object> responseMap = createParser(
+            MediaTypeParserRegistry.getDefaultMediaType().xContent(),
+            EntityUtils.toString(response.getEntity())
+        ).map();
 
         assertNotNull(responseMap);
         assertTrue((Boolean) responseMap.get(DOCUMENT_FIELD_FOUND));
@@ -573,7 +581,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Parse KNN Cluster stats from response
      */
     protected Map<String, Object> parseClusterStatsResponse(String responseBody) throws IOException {
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), responseBody).map();
         responseMap.remove("cluster_name");
         responseMap.remove("_nodes");
         responseMap.remove("nodes");
@@ -585,7 +593,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected List<Map<String, Object>> parseNodeStatsResponse(String responseBody) throws IOException {
         @SuppressWarnings("unchecked")
-        Map<String, Object> responseMap = (Map<String, Object>) createParser(XContentType.JSON.xContent(), responseBody).map().get("nodes");
+        Map<String, Object> responseMap = (Map<String, Object>) createParser(
+            MediaTypeParserRegistry.getDefaultMediaType().xContent(),
+            responseBody
+        ).map().get("nodes");
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> nodeResponses = responseMap.keySet()
@@ -601,8 +612,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     @SuppressWarnings("unchecked")
     protected int parseTotalSearchHits(String searchResponseBody) throws IOException {
-        Map<String, Object> responseMap = (Map<String, Object>) createParser(XContentType.JSON.xContent(), searchResponseBody).map()
-            .get("hits");
+        Map<String, Object> responseMap = (Map<String, Object>) createParser(
+            MediaTypeParserRegistry.getDefaultMediaType().xContent(),
+            searchResponseBody
+        ).map().get("hits");
 
         return (int) ((Map<String, Object>) responseMap.get("total")).get("value");
     }
@@ -1142,7 +1155,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
             response = getModel(modelId, null);
 
-            responseMap = createParser(XContentType.JSON.xContent(), EntityUtils.toString(response.getEntity())).map();
+            responseMap = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), EntityUtils.toString(response.getEntity()))
+                .map();
 
             modelState = ModelState.getModelState((String) responseMap.get(MODEL_STATE));
             if (modelState == ModelState.CREATED) {
@@ -1166,7 +1180,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
             response = getModel(modelId, null);
 
-            responseMap = createParser(XContentType.JSON.xContent(), EntityUtils.toString(response.getEntity())).map();
+            responseMap = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), EntityUtils.toString(response.getEntity()))
+                .map();
 
             modelState = ModelState.getModelState((String) responseMap.get(MODEL_STATE));
             if (modelState == ModelState.FAILED) {

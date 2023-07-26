@@ -19,7 +19,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.MediaTypeParserRegistry;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -347,7 +347,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
             final Response response = getKnnStats(Collections.emptyList(), Arrays.asList(modelIndexStatusName));
             final String responseBody = EntityUtils.toString(response.getEntity());
-            final Map<String, Object> statsMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+            final Map<String, Object> statsMap = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), responseBody).map();
 
             // Check that model health status is null since model index is not created to system yet
             assertNull(statsMap.get(StatNames.MODEL_INDEX_STATUS.getName()));
@@ -358,7 +358,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         Response response = getKnnStats(Collections.emptyList(), Arrays.asList(modelIndexStatusName));
 
         final String responseBody = EntityUtils.toString(response.getEntity());
-        final Map<String, Object> statsMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        final Map<String, Object> statsMap = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), responseBody).map();
 
         // Check that model health status is not null
         assertNotNull(statsMap.get(modelIndexStatusName));
@@ -452,7 +452,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), responseBody).map();
         assertEquals(modelId, responseMap.get(MODEL_ID));
         assertTrainingSucceeds(modelId, NUM_OF_ATTEMPTS, DELAY_MILLI_SEC);
     }
