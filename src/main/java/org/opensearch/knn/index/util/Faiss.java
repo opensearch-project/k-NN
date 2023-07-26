@@ -44,6 +44,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST_LIMI
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_DEFAULT;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_LIMIT;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_R;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
@@ -233,8 +234,8 @@ class Faiss extends NativeLibrary {
         KNNMethod.Builder.builder(
             MethodComponent.Builder.builder(METHOD_NSG)
                 .addParameter(
-                    METHOD_PARAMETER_M,
-                    new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0)
+                    METHOD_PARAMETER_R,
+                    new Parameter.IntegerParameter(METHOD_PARAMETER_R, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_R, v -> v > 0)
                 )
                 .addParameter(
                     METHOD_ENCODER_PARAMETER,
@@ -245,7 +246,7 @@ class Faiss extends NativeLibrary {
                         FAISS_NSG_DESCRIPTION,
                         methodComponent,
                         methodComponentContext
-                    ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build())
+                    ).addParameter(METHOD_PARAMETER_R, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build())
                 )
                 .build()
         ).addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build()
