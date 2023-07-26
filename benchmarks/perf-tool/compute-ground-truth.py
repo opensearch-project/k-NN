@@ -18,7 +18,6 @@ import multiprocessing
 
 cpus = multiprocessing.cpu_count()
 
-
 class MyVector:
 
     def __init__(self, vector, id, color=None, taste=None, age=None):
@@ -27,9 +26,6 @@ class MyVector:
         self.age = age
         self.color = color
         self.taste = taste
-
-    def apply_filter(self):
-        return (30 <= self.age <= 70) or self.color in ["green", "blue", "yellow"] or self.taste in ["sweet"]
 
     def __str__(self):
         return f'Vector : {self.vector}, id : {self.id}, color: {self.color}, taste: {self.taste}, age: {self.age}\n'
@@ -45,103 +41,87 @@ class HDF5DataSet:
         self.file = h5py.File(self.file_name)
         self.key = key
         self.data = cast(h5py.Dataset, self.file[key])
-        self.metadata = cast(h5py.Dataset, self.file["attributes"]) if key == "train" else None
         print(f'Keys in the file are {self.file.keys()}')
 
-    def read(self, start, end):
+    def read_as_vector(self, start, end=None):
+        if end is None:
+            end = self.data.len()
         values = cast(np.ndarray, self.data[start:end])
-        metadata = cast(list, self.metadata[start:end]) if self.metadata is not None else None
-        print(f'Given length {end - start}, actual length : {len(values)}')
-        if metadata is not None:
-            print(metadata)
         vectors = []
         i = 0
         for value in values:
-            if self.metadata is None:
-                vector = MyVector(value, i)
-            else:
-                # color, taste, age
-                vector = MyVector(value, i, str(metadata[i][0].decode()), str(metadata[i][1].decode()),
-                                  int(metadata[i][2]))
+            vector = MyVector(value, i)
             vectors.append(vector)
             i = i + 1
         return vectors
 
-    def read_neighbors(self, start, end):
+    def read(self, start, end=None):
+        if end is None:
+            end = self.data.len()
         return cast(np.ndarray, self.data[start:end])
+
+    def size(self):
+        return self.data.len()
 
 
 def calculateL2Distance(point1, point2):
     return np.linalg.norm(point1 - point2)
 
 
-filter5 = {
-    "bool":
-        {
-            "should":
-                [
-                    {
-                        "range":
-                            {
-                                "age":
-                                    {
-                                        "gte": 30,
-                                        "lte": 70
-                                    }
-                            }
-                    },
-                    {
-                        "term":
-                            {
-                                "color": "green"
-                            }
-                    },
-                    {
-                        "term":
-                            {
-                                "color": "blue"
-                            }
-                    },
-                    {
-                        "term":
-                            {
-                                "color": "yellow"
-                            }
-                    },
-                    {
-                        "term":
-                            {
-                                "color": "sweet"
-                            }
-                    }
-                ]
-        }
-}
-
-
-def create_dataset_file(file_name, data_set_dir) -> h5py.File:
-    data_set_file_name = "{}.{}".format(file_name, "hdf5")
-    data_set_path = os.path.join(data_set_dir, data_set_file_name)
-
-    data_set_w_filtering = h5py.File(data_set_path, 'a')
+def create_dataset_file(output_file) -> h5py.File:
+    if os.path.isfile(output_file):
+        os.remove(output_file)
+    else:
+        print(f"Creating the output file at {output_file}")
+    data_set_w_filtering = h5py.File(output_file, 'a')
 
     return data_set_w_filtering
 
 
-def main(argv):
-    opts, args = getopt.getopt(argv, "")
-    in_file_path = args[0]
-    out_file_path = args[1]
-    if out_file_path is None:
-        print("out_file_path is not provided")
-        return
+def query_task_only_vector_search(train_vectors, test_vectors, startIndex, endIndex, process_number, total_queries,
+                                  tasks_that_are_done):
+    print(f'Starting Process number : {process_number}')
+    allDistances = [] * total_queries
+    for i in range(total_queries):
+        allDistances.insert(i, [])
+    try:
+        test_vectors = test_vectors[startIndex:endIndex]
+        i = startIndex
+        for test in test_vectors:
+            distances = []
+            for value in train_vectors:
+                distances.append({
+                    "dis": calculateL2Distance(test.vector, value.vector),
+                    "id": value.id
+                })
+
+            distances.sort(key=lambda vector: vector['dis'])
+            if len(distances) > 1000:
+                del distances[1000:]
+            allDistances[i] = distances
+            print(f"Process {process_number} queries completed: {i + 1}, queries left: {endIndex - i - 1}")
+            i = i + 1
+    except:
+        print(
+            f"Got exception while running the thread: {process_number} with startIndex: {startIndex} endIndex: {endIndex} ")
+        traceback.print_exc()
+    tasks_that_are_done.put(allDistances)
+    print(f'Exiting Process number : {process_number}')
+
+
+def generate_ground_truth(in_file_path, out_file_path, corpus_size=None):
+    data_set_file = create_dataset_file(out_file_path)
     total_clients = min(8, cpus)  # 1  # 10
-    hdf5Data_train = HDF5DataSet(os.path.join(in_file_path, "sift-128-euclidean-with-attr.hdf5"), "train")
-    train_vectors = hdf5Data_train.read(0, 1000000)
+    hdf5Data_train = HDF5DataSet(in_file_path, "train")
+
+    if corpus_size is None:
+        corpus_size = hdf5Data_train.size()
+
+    train_vectors = hdf5Data_train.read_as_vector(0, corpus_size)
     print(f'Train vector size: {len(train_vectors)}')
 
-    hdf5Data_test = HDF5DataSet(os.path.join(in_file_path, "sift-128-euclidean-with-attr.hdf5"), "test")
-    total_queries = 8  # 10000
+    hdf5Data_test = HDF5DataSet(in_file_path, "test")
+    total_queries = 1
     dis = [] * total_queries
 
     for i in range(total_queries):
@@ -152,7 +132,7 @@ def main(argv):
         queries_per_client = total_queries
 
     processes = []
-    test_vectors = hdf5Data_test.read(0, total_queries)
+    test_vectors = hdf5Data_test.read_as_vector(0, total_queries)
     tasks_that_are_done = multiprocessing.Queue()
     for client in range(total_clients):
         start_index = int(client * queries_per_client)
@@ -161,9 +141,8 @@ def main(argv):
         else:
             end_index = total_queries - start_index
 
-        print(f'Start Index: {start_index}, end Index: {end_index}')
-        print(f'client is  : {client}')
-        p = Process(target=queryTask, args=(
+        print(f'Client {client} will process from start Index: {start_index}, end Index: {end_index}')
+        p = Process(target=query_task_only_vector_search, args=(
             train_vectors, test_vectors, start_index, end_index, client, total_queries, tasks_that_are_done))
         processes.append(p)
         p.start()
@@ -182,7 +161,6 @@ def main(argv):
             i = 0
             for d in calculatedDis:
                 if d:
-                    print("Dis is not null")
                     dis[i] = d
                     j = j + 1
                 i = i + 1
@@ -193,66 +171,51 @@ def main(argv):
         else:
             print("Process was not alive hence shutting down")
 
-
-    validationDataSet = HDF5DataSet(os.path.join(in_file_path, "sift-128-euclidean-with-filters.hdf5"),
-                                    "neighbors_filter_5")
-    actualNeighbors = validationDataSet.read_neighbors(0, 10000)
-
     results = []
+    ids_distance = []
     for d in dis:
         r = []
-        for i in range(min(10000, len(d))):
+        ids_dis = []
+        for i in range(min(1000, len(d))):
             r.append(d[i]['id'])
+            ids_dis.append(d[i]['dis'])
         results.append(r)
+        ids_distance.append(ids_dis)
 
-    print(actualNeighbors)
-    print(f"I am in here {len(dis)}")
-    for i in range(len(actualNeighbors[0])):
-        if actualNeighbors[0][i] != results[0][i]:
-            print(f'Failed at {i}, a : {actualNeighbors[0][i]} r: {results[0][i]}')
-
-    with open(os.path.join(in_file_path, 'sift-128-euclidean-with-filters-updated.txt'), 'a') as file:
-        for res in results:
-            for r in res:
-                file.write(str(r) + " ")
-            file.write("\n")
-
-    data_set_file = create_dataset_file("sift-128-euclidean-with-filters-updated", out_file_path)
-
-    data_set_file.create_dataset("neighbors_filter_5", (len(results), len(results[0])), data=results)
+    data_set_file.create_dataset("neighbors", (len(results), len(results[0])), data=results)
+    data_set_file.create_dataset("distances", (len(results), len(results[0])), data=ids_distance)
     data_set_file.flush()
     data_set_file.close()
+    print(f"The ground truth file is generated and added at : {out_file_path}")
 
 
-def queryTask(train_vectors, test_vectors, startIndex, endIndex, process_number, total_queries, tasks_that_are_done):
-    print(f'Starting Process number : {process_number}')
-    allDistances = [] * total_queries
-    for i in range(total_queries):
-        allDistances.insert(i, [])
-    try:
-        test_vectors = test_vectors[startIndex:endIndex]
-        i = startIndex
-        for test in test_vectors:
-            distances = []
-            for value in train_vectors:
-                if value.apply_filter():
-                    distances.append({
-                        "dis": calculateL2Distance(test.vector, value.vector),
-                        "id": value.id
-                    })
+def main(argv):
+    opts, args = getopt.getopt(argv, "", ["input_file=", "output_file=", "corpus_size="])
+    print(f'Options provided are: {opts}')
+    print(f'Arguments provided are: {args}')
+    inputfile = None
+    outputfile = None
+    corpus_size = None
+    for opt, arg in opts:
+        if opt == '-h':
+            print('--input_file <inputfile> --output_file <outputfile>')
+            sys.exit()
+        elif opt in "--input_file":
+            inputfile = arg
+        elif opt in "--output_file":
+            outputfile = arg
+        elif opt in "--corpus_size":
+            corpus_size = int(arg)
 
-            distances.sort(key=lambda vector: vector['dis'])
-            if len(distances) > 1000:
-                del distances[1000:]
-            allDistances[i] = distances
-            print(f"Process {process_number} queries completed: {i + 1}, queries left: {endIndex - i - 1}")
-            i = i + 1
-    except:
-        print(
-            f"Got exception while running the thread: {process_number} with startIndex: {startIndex} endIndex: {endIndex} ")
-        traceback.print_exc()
-    tasks_that_are_done.put(allDistances)
-    print(f'Exiting Process number : {process_number}')
+    if inputfile is None:
+        print(f"The input file is not provided.")
+        sys.exit()
+
+    if outputfile is None:
+        print(f"The output file is not provided.")
+        sys.exit()
+
+    generate_ground_truth(in_file_path=inputfile, out_file_path=outputfile, corpus_size=corpus_size)
 
 
 if __name__ == "__main__":
