@@ -111,7 +111,7 @@ def query_task_only_vector_search(train_vectors, test_vectors, startIndex, endIn
 
 def generate_ground_truth(in_file_path, out_file_path, corpus_size=None):
     data_set_file = create_dataset_file(out_file_path)
-    total_clients = min(8, cpus)  # 1  # 10
+    total_clients = max(8, cpus)  # 1  # 10
     hdf5Data_train = HDF5DataSet(in_file_path, "train")
 
     if corpus_size is None:
@@ -121,7 +121,7 @@ def generate_ground_truth(in_file_path, out_file_path, corpus_size=None):
     print(f'Train vector size: {len(train_vectors)}')
 
     hdf5Data_test = HDF5DataSet(in_file_path, "test")
-    total_queries = 1
+    total_queries = hdf5Data_test.size()
     dis = [] * total_queries
 
     for i in range(total_queries):
