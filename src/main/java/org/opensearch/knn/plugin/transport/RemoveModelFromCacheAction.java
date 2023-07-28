@@ -12,7 +12,7 @@
 package org.opensearch.knn.plugin.transport;
 
 import org.opensearch.action.ActionType;
-import org.opensearch.common.io.stream.Writeable;
+import org.opensearch.core.common.io.stream.Writeable;
 
 /**
  * Action used to remove a model from the cache on some or all nodes

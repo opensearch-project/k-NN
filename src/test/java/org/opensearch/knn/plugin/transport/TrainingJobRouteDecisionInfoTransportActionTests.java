@@ -15,7 +15,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.opensearch.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
-import org.opensearch.index.shard.ShardId;
+import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;
