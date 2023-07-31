@@ -15,6 +15,7 @@ import numpy as np
 import traceback
 import h5py
 import multiprocessing
+from heapq import heapify, heappop, heappush
 
 cpus = multiprocessing.cpu_count()
 
@@ -78,23 +79,36 @@ def create_dataset_file(output_file) -> h5py.File:
     return data_set_w_filtering
 
 
-def query_task_only_vector_search(train_vectors, test_vectors, startIndex, endIndex, process_number, total_queries,
+def query_task_only_vector_search(train_vectors, hdf5Data_test, startIndex, endIndex, process_number, total_queries,
                                   tasks_that_are_done):
     print(f'Starting Process number : {process_number}')
     allDistances = [] * total_queries
+    k = 1000
     for i in range(total_queries):
         allDistances.insert(i, [])
     try:
-        test_vectors = test_vectors[startIndex:endIndex]
+        test_vectors = hdf5Data_test.read_as_vector(startIndex, endIndex)
         i = startIndex
         for test in test_vectors:
             distances = []
+            dis_heap = [] # in python heaps are min heap. so we multiply the dis with -1 to make it max heap
             for value in train_vectors:
-                distances.append({
-                    "dis": calculateL2Distance(test.vector, value.vector),
-                    "id": value.id
-                })
+                cal_dis = calculateL2Distance(test.vector, value.vector) * -1
+                if len(dis_heap) == 0 or len(dis_heap) <= k:
+                    heappush(dis_heap, (cal_dis, value.id))
+                else:
+                    top_element_dis = dis_heap[0][0]
+                    if top_element_dis < cal_dis:
+                        heappop(dis_heap)
+                        heappush(dis_heap, (cal_dis, value.id))
 
+            # Get all the elements from the heap array
+            for ele in dis_heap:
+                distances.append({
+                    "dis": ele[0] * -1,
+                    "id": ele[1]
+                })
+            # sort the elements
             distances.sort(key=lambda vector: vector['dis'])
             if len(distances) > 1000:
                 del distances[1000:]
@@ -111,7 +125,7 @@ def query_task_only_vector_search(train_vectors, test_vectors, startIndex, endIn
 
 def generate_ground_truth(in_file_path, out_file_path, corpus_size=None):
     data_set_file = create_dataset_file(out_file_path)
-    total_clients = max(8, cpus)  # 1  # 10
+    total_clients = max(8, 20)  # hard coding max cpus here as when we tested for 40m documents the process was killed by OOM killer
     hdf5Data_train = HDF5DataSet(in_file_path, "train")
 
     if corpus_size is None:
@@ -132,7 +146,7 @@ def generate_ground_truth(in_file_path, out_file_path, corpus_size=None):
         queries_per_client = total_queries
 
     processes = []
-    test_vectors = hdf5Data_test.read_as_vector(0, total_queries)
+    #test_vectors = hdf5Data_test.read_as_vector(0, total_queries)
     tasks_that_are_done = multiprocessing.Queue()
     for client in range(total_clients):
         start_index = int(client * queries_per_client)
@@ -143,7 +157,7 @@ def generate_ground_truth(in_file_path, out_file_path, corpus_size=None):
 
         print(f'Client {client} will process from start Index: {start_index}, end Index: {end_index}')
         p = Process(target=query_task_only_vector_search, args=(
-            train_vectors, test_vectors, start_index, end_index, client, total_queries, tasks_that_are_done))
+            train_vectors, hdf5Data_test, start_index, end_index, client, total_queries, tasks_that_are_done))
         processes.append(p)
         p.start()
         if end_index >= total_queries:
