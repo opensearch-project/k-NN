@@ -10,7 +10,7 @@ import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.network.NetworkModule;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.unit.ByteSizeValue;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.env.Environment;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.plugin.KNNPlugin;
