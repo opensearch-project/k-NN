@@ -221,7 +221,9 @@ public class FaissIT extends KNNRestTestCase {
         deleteKnnDoc(INDEX_NAME, "1");
     }
 
-    public void testEndToEnd_fromModel() throws Exception {
+    @SneakyThrows
+    public void testKNNQuery_withModelDifferentCombination_thenSuccess() {
+
         String modelId = "test-model";
         int dimension = 128;
 
@@ -270,10 +272,9 @@ public class FaissIT extends KNNRestTestCase {
         // Index some documents
         int numDocs = 100;
         for (int i = 0; i < numDocs; i++) {
-            Float[] indexVector = new Float[dimension];
+            float[] indexVector = new float[dimension];
             Arrays.fill(indexVector, (float) i);
-
-            addKnnDoc(indexName, Integer.toString(i), fieldName, indexVector);
+            addKnnDocWithAttributes(indexName, Integer.toString(i), fieldName, indexVector, ImmutableMap.of("rating", String.valueOf(i)));
         }
 
         // Run search and ensure that the values returned are expected
@@ -286,6 +287,34 @@ public class FaissIT extends KNNRestTestCase {
 
         for (int i = 0; i < k; i++) {
             assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
+        }
+
+        // doing exact search with filters
+        Response exactSearchFilteredResponse = searchKNNIndex(
+            indexName,
+            new KNNQueryBuilder(fieldName, queryVector, k, QueryBuilders.rangeQuery("rating").gte("90").lte("99")),
+            k
+        );
+        List<KNNResult> exactSearchFilteredResults = parseSearchResponse(
+            EntityUtils.toString(exactSearchFilteredResponse.getEntity()),
+            fieldName
+        );
+        for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(exactSearchFilteredResults.get(i).getDocId()));
+        }
+
+        // doing exact search with filters
+        Response aNNSearchFilteredResponse = searchKNNIndex(
+            indexName,
+            new KNNQueryBuilder(fieldName, queryVector, k, QueryBuilders.rangeQuery("rating").gte("80").lte("99")),
+            k
+        );
+        List<KNNResult> aNNSearchFilteredResults = parseSearchResponse(
+            EntityUtils.toString(aNNSearchFilteredResponse.getEntity()),
+            fieldName
+        );
+        for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(aNNSearchFilteredResults.get(i).getDocId()));
         }
     }
 
