@@ -17,7 +17,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.core.xcontent.MediaTypeParserRegistry;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
@@ -391,7 +391,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
         String responseBody = EntityUtils.toString(response.getEntity());
         List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
-            MediaTypeParserRegistry.getDefaultMediaType().xContent(),
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
             responseBody
         ).map().get("hits")).get("hits");
 
@@ -459,7 +459,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
         String responseBody1 = EntityUtils.toString(response1.getEntity());
         List<Object> hits1 = (List<Object>) ((Map<String, Object>) createParser(
-            MediaTypeParserRegistry.getDefaultMediaType().xContent(),
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
             responseBody1
         ).map().get("hits")).get("hits");
 
@@ -499,7 +499,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
         String responseBody2 = EntityUtils.toString(response2.getEntity());
         List<Object> hits2 = (List<Object>) ((Map<String, Object>) createParser(
-            MediaTypeParserRegistry.getDefaultMediaType().xContent(),
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
             responseBody2
         ).map().get("hits")).get("hits");
 
@@ -570,7 +570,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
         String responseBody1 = EntityUtils.toString(response1.getEntity());
         List<Object> hits1 = (List<Object>) ((Map<String, Object>) createParser(
-            MediaTypeParserRegistry.getDefaultMediaType().xContent(),
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
             responseBody1
         ).map().get("hits")).get("hits");
 
@@ -610,7 +610,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
         String responseBody2 = EntityUtils.toString(response2.getEntity());
         List<Object> hits2 = (List<Object>) ((Map<String, Object>) createParser(
-            MediaTypeParserRegistry.getDefaultMediaType().xContent(),
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
             responseBody2
         ).map().get("hits")).get("hits");
 

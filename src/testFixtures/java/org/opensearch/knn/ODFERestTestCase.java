@@ -49,7 +49,7 @@ import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.core.xcontent.MediaTypeParserRegistry;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.core.rest.RestStatus;
@@ -234,7 +234,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         final String responseBody = EntityUtils.toString(response.getEntity());
         assertNotNull(responseBody);
 
-        final XContentParser parser = createParser(MediaTypeParserRegistry.getDefaultMediaType().xContent(), responseBody);
+        final XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
         final SearchResponse searchResponse = SearchResponse.fromXContent(parser);
 
         return Arrays.stream(searchResponse.getHits().getHits()).map(SearchHit::getId).collect(Collectors.toList());
