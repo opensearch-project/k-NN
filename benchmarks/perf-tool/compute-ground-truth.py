@@ -16,7 +16,7 @@ import numpy as np
 import traceback
 import h5py
 import multiprocessing
-from heapq import heappop, heappush
+import tqdm
 
 class MyVector:
 
@@ -26,6 +26,7 @@ class MyVector:
         self.age = age
         self.color = color
         self.taste = taste
+        self.length = 0
 
     def __str__(self):
         return f'Vector : {self.vector}, id : {self.id}, color: {self.color}, taste: {self.taste}, age: {self.age}\n'
@@ -33,6 +34,8 @@ class MyVector:
     def __repr__(self):
         return f'Vector : {self.vector}, id : {self.id}, color: {self.color}, taste: {self.taste}, age: {self.age}\n'
 
+    def setLength(self, leng):
+        self.length = leng
 
 class HDF5DataSet:
 
@@ -78,41 +81,31 @@ def create_dataset_file(output_file) -> h5py.File:
     return data_set_w_filtering
 
 
-def query_task_only_vector_search(train_vectors, hdf5Data_test, startIndex, endIndex, process_number, total_queries,
+def query_task_only_vector_search(train_vectors, trained_dis_vector, hdf5Data_test, startIndex, endIndex, process_number, total_queries,
                                   tasks_that_are_done):
     print(f'Starting Process number : {process_number}')
     allDistances = [] * total_queries
-    k = 1000
+    k = 100
     for i in range(total_queries):
         allDistances.insert(i, [])
     try:
-        test_vectors = hdf5Data_test.read_as_vector(startIndex, endIndex)
+        test_vectors = hdf5Data_test.read(startIndex, endIndex)
         i = startIndex
-        for test in test_vectors:
+        for test in tqdm.tqdm(test_vectors):
             distances = []
-            dis_heap = [] # in python heaps are min heap. so we multiply the dis with -1 to make it max heap
-            for value in train_vectors:
-                cal_dis = calculateL2Distance(test.vector, value.vector) * -1
-                if len(dis_heap) == 0 or len(dis_heap) <= k:
-                    heappush(dis_heap, (cal_dis, value.id))
-                else:
-                    top_element_dis = dis_heap[0][0]
-                    if top_element_dis < cal_dis:
-                        heappop(dis_heap)
-                        heappush(dis_heap, (cal_dis, value.id))
-
-            # Get all the elements from the heap array
-            for ele in dis_heap:
+            starttime = timeit.default_timer()
+            # reference: https://github.com/erikbern/ann-benchmarks/blob/main/ann_benchmarks/algorithms/bruteforce/module.py#L83-L85
+            # not computing query lengths as they are constant and will not impact the order
+            # argmin_a (a - b)^2 = argmin_a a^2 - 2ab + b^2 = argmin_a a^2 - 2ab  # noqa
+            dists = trained_dis_vector - 2 * np.dot(train_vectors, test)
+            nearest_indices = np.argpartition(dists, k)[:k]
+            for idx in nearest_indices:
                 distances.append({
-                    "dis": ele[0] * -1,
-                    "id": ele[1]
+                    "dis": 0,
+                    "id": idx
                 })
-            # sort the elements
-            distances.sort(key=lambda vector: vector['dis'])
-            if len(distances) > 1000:
-                del distances[1000:]
+            print("Total time to taken for getting top k neighbors is :", timeit.default_timer() - starttime)
             allDistances[i] = distances
-            print(f"Process {process_number} queries completed: {i + 1}, queries left: {endIndex - i - 1}")
             i = i + 1
     except:
         print(
@@ -130,8 +123,18 @@ def generate_ground_truth(in_file_path, out_file_path, query_clients, corpus_siz
     if corpus_size is None:
         corpus_size = hdf5Data_train.size()
 
-    train_vectors = hdf5Data_train.read_as_vector(0, corpus_size)
+    train_vectors = hdf5Data_train.read(0, corpus_size)
     print(f'Train vector size: {len(train_vectors)}')
+
+    print("Precomputing distance for the corpus")
+    trained_dis_vector = []
+    for vector in tqdm.tqdm(train_vectors):
+        lens = (vector**2).sum(-1)
+        trained_dis_vector.append(lens)
+
+    trained_dis_vector = np.asarray(trained_dis_vector)
+
+    print("Distance precomputation completed")
 
     hdf5Data_test = HDF5DataSet(in_file_path, "test")
     total_queries = hdf5Data_test.size()
@@ -145,7 +148,6 @@ def generate_ground_truth(in_file_path, out_file_path, query_clients, corpus_siz
         queries_per_client = total_queries
 
     processes = []
-    #test_vectors = hdf5Data_test.read_as_vector(0, total_queries)
     tasks_that_are_done = multiprocessing.Queue()
     for client in range(total_clients):
         start_index = int(client * queries_per_client)
@@ -156,7 +158,7 @@ def generate_ground_truth(in_file_path, out_file_path, query_clients, corpus_siz
 
         print(f'Client {client} will process from start Index: {start_index}, end Index: {end_index}')
         p = Process(target=query_task_only_vector_search, args=(
-            train_vectors, hdf5Data_test, start_index, end_index, client, total_queries, tasks_that_are_done))
+            train_vectors, trained_dis_vector, hdf5Data_test, start_index, end_index, client, total_queries, tasks_that_are_done))
         processes.append(p)
         p.start()
         if end_index >= total_queries:
@@ -183,7 +185,7 @@ def generate_ground_truth(in_file_path, out_file_path, query_clients, corpus_siz
             p.join()
         else:
             print("Process was not alive hence shutting down")
-
+    print("All processes completed now adding data in file")
     results = []
     ids_distance = []
     for d in dis:
@@ -209,7 +211,8 @@ def main(argv):
     inputfile = None
     outputfile = None
     corpus_size = None
-    query_clients = min(8, multiprocessing.cpu_count())
+    # given that distance calculations are going to use most of the processors so its better to use less number of cores.
+    query_clients = min(2, multiprocessing.cpu_count())
     for opt, arg in opts:
         if opt == '-h':
             print('--input_file <inputfile> --output_file <outputfile>')
