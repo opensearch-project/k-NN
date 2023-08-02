@@ -9,15 +9,14 @@
 import os
 import getopt
 import sys
+import timeit
 from multiprocessing import Process
 from typing import cast
 import numpy as np
 import traceback
 import h5py
 import multiprocessing
-from heapq import heapify, heappop, heappush
-
-cpus = multiprocessing.cpu_count()
+from heapq import heappop, heappush
 
 class MyVector:
 
@@ -123,9 +122,9 @@ def query_task_only_vector_search(train_vectors, hdf5Data_test, startIndex, endI
     print(f'Exiting Process number : {process_number}')
 
 
-def generate_ground_truth(in_file_path, out_file_path, corpus_size=None):
+def generate_ground_truth(in_file_path, out_file_path, query_clients, corpus_size=None):
     data_set_file = create_dataset_file(out_file_path)
-    total_clients = max(8, 20)  # hard coding max cpus here as when we tested for 40m documents the process was killed by OOM killer
+    total_clients = query_clients
     hdf5Data_train = HDF5DataSet(in_file_path, "train")
 
     if corpus_size is None:
@@ -204,12 +203,13 @@ def generate_ground_truth(in_file_path, out_file_path, corpus_size=None):
 
 
 def main(argv):
-    opts, args = getopt.getopt(argv, "", ["input_file=", "output_file=", "corpus_size="])
+    opts, args = getopt.getopt(argv, "", ["input_file=", "output_file=", "corpus_size=", "query_client="])
     print(f'Options provided are: {opts}')
     print(f'Arguments provided are: {args}')
     inputfile = None
     outputfile = None
     corpus_size = None
+    query_clients = min(8, multiprocessing.cpu_count())
     for opt, arg in opts:
         if opt == '-h':
             print('--input_file <inputfile> --output_file <outputfile>')
@@ -220,6 +220,8 @@ def main(argv):
             outputfile = arg
         elif opt in "--corpus_size":
             corpus_size = int(arg)
+        elif opt in "--query_client":
+            query_clients = int(arg)
 
     if inputfile is None:
         print(f"The input file is not provided.")
@@ -228,8 +230,9 @@ def main(argv):
     if outputfile is None:
         print(f"The output file is not provided.")
         sys.exit()
-
-    generate_ground_truth(in_file_path=inputfile, out_file_path=outputfile, corpus_size=corpus_size)
+    starttime = timeit.default_timer()
+    generate_ground_truth(in_file_path=inputfile, out_file_path=outputfile, corpus_size=corpus_size, query_clients=query_clients)
+    print("Total time to generate the dataset is :", timeit.default_timer() - starttime)
 
 
 if __name__ == "__main__":
