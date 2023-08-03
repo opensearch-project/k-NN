@@ -21,3 +21,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Documentation
 ### Maintenance
 ### Refactoring
+* Fix TransportAddress Refactoring Changes in Core [#1020](https://github.com/opensearch-project/k-NN/pull/1020)
