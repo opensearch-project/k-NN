@@ -18,24 +18,6 @@ import h5py
 import multiprocessing
 import tqdm
 
-class MyVector:
-
-    def __init__(self, vector, id, color=None, taste=None, age=None):
-        self.vector = vector
-        self.id = id
-        self.age = age
-        self.color = color
-        self.taste = taste
-        self.length = 0
-
-    def __str__(self):
-        return f'Vector : {self.vector}, id : {self.id}, color: {self.color}, taste: {self.taste}, age: {self.age}\n'
-
-    def __repr__(self):
-        return f'Vector : {self.vector}, id : {self.id}, color: {self.color}, taste: {self.taste}, age: {self.age}\n'
-
-    def setLength(self, leng):
-        self.length = leng
 
 class HDF5DataSet:
 
@@ -46,18 +28,6 @@ class HDF5DataSet:
         self.data = cast(h5py.Dataset, self.file[key])
         print(f'Keys in the file are {self.file.keys()}')
 
-    def read_as_vector(self, start, end=None):
-        if end is None:
-            end = self.data.len()
-        values = cast(np.ndarray, self.data[start:end])
-        vectors = []
-        i = 0
-        for value in values:
-            vector = MyVector(value, i)
-            vectors.append(vector)
-            i = i + 1
-        return vectors
-
     def read(self, start, end=None):
         if end is None:
             end = self.data.len()
@@ -65,10 +35,6 @@ class HDF5DataSet:
 
     def size(self):
         return self.data.len()
-
-
-def calculateL2Distance(point1, point2):
-    return np.linalg.norm(point1 - point2)
 
 
 def create_dataset_file(output_file) -> h5py.File:
@@ -81,7 +47,8 @@ def create_dataset_file(output_file) -> h5py.File:
     return data_set_w_filtering
 
 
-def query_task_only_vector_search(train_vectors, trained_dis_vector, hdf5Data_test, startIndex, endIndex, process_number, total_queries,
+def query_task_only_vector_search(train_vectors, trained_dis_vector, hdf5Data_test, startIndex, endIndex,
+                                  process_number, total_queries,
                                   tasks_that_are_done):
     print(f'Starting Process number : {process_number}')
     allDistances = [] * total_queries
@@ -94,8 +61,8 @@ def query_task_only_vector_search(train_vectors, trained_dis_vector, hdf5Data_te
         for test in tqdm.tqdm(test_vectors):
             distances = []
             starttime = timeit.default_timer()
-            # reference: https://github.com/erikbern/ann-benchmarks/blob/main/ann_benchmarks/algorithms/bruteforce/module.py#L83-L85
-            # not computing query lengths as they are constant and will not impact the order
+            # reference: https://github.com/erikbern/ann-benchmarks/blob/main/ann_benchmarks/algorithms/bruteforce
+            # /module.py#L83-L85 not computing query lengths as they are constant and will not impact the order
             # argmin_a (a - b)^2 = argmin_a a^2 - 2ab + b^2 = argmin_a a^2 - 2ab  # noqa
             dists = trained_dis_vector - 2 * np.dot(train_vectors, test)
             nearest_indices = np.argpartition(dists, k)[:k]
@@ -123,29 +90,33 @@ def generate_ground_truth(in_file_path, out_file_path, query_clients, corpus_siz
     if corpus_size is None:
         corpus_size = hdf5Data_train.size()
 
+    hdf5Data_test = HDF5DataSet(in_file_path, "test")
+    total_queries = hdf5Data_test.size()
+    if total_queries % total_clients != 0:
+        print(f"Total queries: {total_queries} is not divisible by total clients {total_clients}, exiting.")
+        sys.exit()
+    queries_per_client = int(total_queries / total_clients)
+
+    if queries_per_client == 0:
+        queries_per_client = total_queries
     train_vectors = hdf5Data_train.read(0, corpus_size)
     print(f'Train vector size: {len(train_vectors)}')
 
     print("Precomputing distance for the corpus")
     trained_dis_vector = []
     for vector in tqdm.tqdm(train_vectors):
-        lens = (vector**2).sum(-1)
+        lens = (vector ** 2).sum(-1)
         trained_dis_vector.append(lens)
 
     trained_dis_vector = np.asarray(trained_dis_vector)
 
     print("Distance precomputation completed")
 
-    hdf5Data_test = HDF5DataSet(in_file_path, "test")
-    total_queries = hdf5Data_test.size()
+
     dis = [] * total_queries
 
     for i in range(total_queries):
         dis.insert(i, [])
-
-    queries_per_client = int(total_queries / total_clients)
-    if queries_per_client == 0:
-        queries_per_client = total_queries
 
     processes = []
     tasks_that_are_done = multiprocessing.Queue()
@@ -158,7 +129,8 @@ def generate_ground_truth(in_file_path, out_file_path, query_clients, corpus_siz
 
         print(f'Client {client} will process from start Index: {start_index}, end Index: {end_index}')
         p = Process(target=query_task_only_vector_search, args=(
-            train_vectors, trained_dis_vector, hdf5Data_test, start_index, end_index, client, total_queries, tasks_that_are_done))
+            train_vectors, trained_dis_vector, hdf5Data_test, start_index, end_index, client, total_queries,
+            tasks_that_are_done))
         processes.append(p)
         p.start()
         if end_index >= total_queries:
@@ -234,7 +206,8 @@ def main(argv):
         print(f"The output file is not provided.")
         sys.exit()
     starttime = timeit.default_timer()
-    generate_ground_truth(in_file_path=inputfile, out_file_path=outputfile, corpus_size=corpus_size, query_clients=query_clients)
+    generate_ground_truth(in_file_path=inputfile, out_file_path=outputfile, corpus_size=corpus_size,
+                          query_clients=query_clients)
     print("Total time to generate the dataset is :", timeit.default_timer() - starttime)
 
 
