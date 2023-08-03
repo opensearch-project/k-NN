@@ -13,6 +13,7 @@ import org.apache.http.util.EntityUtils;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -1274,7 +1275,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     protected void refreshAllNonSystemIndices() throws Exception {
         Response response = adminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
-        XContentType xContentType = XContentType.fromMediaType(response.getEntity().getContentType().getValue());
+        MediaType xContentType = MediaType.fromMediaType(response.getEntity().getContentType().getValue());
         try (
             XContentParser parser = xContentType.xContent()
                 .createParser(
