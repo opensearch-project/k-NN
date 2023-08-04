@@ -17,7 +17,7 @@ import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -73,7 +73,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(response.getEntity());
         assertNotNull(responseBody);
 
-        XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+        XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
         SearchResponse searchResponse = SearchResponse.fromXContent(parser);
         assertNotNull(searchResponse);
         assertEquals(searchResponse.getHits().getHits().length, 0);
@@ -133,7 +133,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             String responseBody = EntityUtils.toString(response.getEntity());
             assertNotNull(responseBody);
 
-            XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+            XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
 
@@ -177,7 +177,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             String responseBody = EntityUtils.toString(response.getEntity());
             assertNotNull(responseBody);
 
-            XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+            XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
 
@@ -225,7 +225,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             String responseBody = EntityUtils.toString(response.getEntity());
             assertNotNull(responseBody);
 
-            XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+            XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
 
@@ -277,7 +277,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             String responseBody = EntityUtils.toString(response.getEntity());
             assertNotNull(responseBody);
 
-            XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+            XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
 

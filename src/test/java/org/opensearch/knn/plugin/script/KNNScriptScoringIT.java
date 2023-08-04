@@ -17,7 +17,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
@@ -390,8 +390,10 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         String responseBody = EntityUtils.toString(response.getEntity());
-        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(XContentType.JSON.xContent(), responseBody).map()
-            .get("hits")).get("hits");
+        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            responseBody
+        ).map().get("hits")).get("hits");
 
         List<String> docIds = hits.stream().map(hit -> {
             String id = ((String) ((Map<String, Object>) hit).get("_id"));
@@ -456,8 +458,10 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         assertEquals(request1.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response1.getStatusLine().getStatusCode()));
 
         String responseBody1 = EntityUtils.toString(response1.getEntity());
-        List<Object> hits1 = (List<Object>) ((Map<String, Object>) createParser(XContentType.JSON.xContent(), responseBody1).map()
-            .get("hits")).get("hits");
+        List<Object> hits1 = (List<Object>) ((Map<String, Object>) createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            responseBody1
+        ).map().get("hits")).get("hits");
 
         List<String> docIds1 = hits1.stream().map(hit -> ((String) ((Map<String, Object>) hit).get("_id"))).collect(Collectors.toList());
 
@@ -494,8 +498,10 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         assertEquals(request2.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response2.getStatusLine().getStatusCode()));
 
         String responseBody2 = EntityUtils.toString(response2.getEntity());
-        List<Object> hits2 = (List<Object>) ((Map<String, Object>) createParser(XContentType.JSON.xContent(), responseBody2).map()
-            .get("hits")).get("hits");
+        List<Object> hits2 = (List<Object>) ((Map<String, Object>) createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            responseBody2
+        ).map().get("hits")).get("hits");
 
         List<String> docIds2 = hits2.stream().map(hit -> ((String) ((Map<String, Object>) hit).get("_id"))).collect(Collectors.toList());
 
@@ -563,8 +569,10 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         assertEquals(request1.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response1.getStatusLine().getStatusCode()));
 
         String responseBody1 = EntityUtils.toString(response1.getEntity());
-        List<Object> hits1 = (List<Object>) ((Map<String, Object>) createParser(XContentType.JSON.xContent(), responseBody1).map()
-            .get("hits")).get("hits");
+        List<Object> hits1 = (List<Object>) ((Map<String, Object>) createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            responseBody1
+        ).map().get("hits")).get("hits");
 
         List<String> docIds1 = hits1.stream().map(hit -> ((String) ((Map<String, Object>) hit).get("_id"))).collect(Collectors.toList());
 
@@ -601,8 +609,10 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         assertEquals(request2.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response2.getStatusLine().getStatusCode()));
 
         String responseBody2 = EntityUtils.toString(response2.getEntity());
-        List<Object> hits2 = (List<Object>) ((Map<String, Object>) createParser(XContentType.JSON.xContent(), responseBody2).map()
-            .get("hits")).get("hits");
+        List<Object> hits2 = (List<Object>) ((Map<String, Object>) createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            responseBody2
+        ).map().get("hits")).get("hits");
 
         List<String> docIds2 = hits2.stream().map(hit -> ((String) ((Map<String, Object>) hit).get("_id"))).collect(Collectors.toList());
 

@@ -15,7 +15,7 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Response;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.core.rest.RestStatus;
 
@@ -96,7 +96,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         String trainResponseBody = EntityUtils.toString(trainResponse.getEntity());
         assertNotNull(trainResponseBody);
 
-        Map<String, Object> trainResponseMap = createParser(XContentType.JSON.xContent(), trainResponseBody).map();
+        Map<String, Object> trainResponseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), trainResponseBody).map();
         String modelId = (String) trainResponseMap.get(MODEL_ID);
         assertNotNull(modelId);
 
@@ -105,7 +105,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
 
@@ -176,7 +176,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         String trainResponseBody = EntityUtils.toString(trainResponse.getEntity());
         assertNotNull(trainResponseBody);
 
-        Map<String, Object> trainResponseMap = createParser(XContentType.JSON.xContent(), trainResponseBody).map();
+        Map<String, Object> trainResponseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), trainResponseBody).map();
         String modelId = (String) trainResponseMap.get(MODEL_ID);
         assertNotNull(modelId);
 
@@ -185,7 +185,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
 
@@ -256,7 +256,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
 
@@ -326,7 +326,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         String trainResponseBody = EntityUtils.toString(trainResponse.getEntity());
         assertNotNull(trainResponseBody);
 
-        Map<String, Object> trainResponseMap = createParser(XContentType.JSON.xContent(), trainResponseBody).map();
+        Map<String, Object> trainResponseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), trainResponseBody).map();
         String modelId = (String) trainResponseMap.get(MODEL_ID);
         assertNotNull(modelId);
 
@@ -335,7 +335,7 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);
 
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
 
         assertEquals(modelId, responseMap.get(MODEL_ID));
 

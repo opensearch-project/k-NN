@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.search.FilteredDocIdSetIterator;
@@ -49,6 +50,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -290,7 +292,7 @@ public class KNNWeight extends Weight {
         float[] queryVector = this.knnQuery.getQueryVector();
         try {
             final BinaryDocValues values = DocValues.getBinary(leafReaderContext.reader(), fieldInfo.getName());
-            final SpaceType spaceType = SpaceType.getSpace(fieldInfo.getAttribute(SPACE_TYPE));
+            final SpaceType spaceType = getSpaceType(fieldInfo);
             // Creating min heap and init with MAX DocID and Score as -INF.
             final HitQueue queue = new HitQueue(this.knnQuery.getK(), true);
             ScoreDoc topDoc = queue.top();
@@ -350,5 +352,21 @@ public class KNNWeight extends Weight {
     public static float normalizeScore(float score) {
         if (score >= 0) return 1 / (1 + score);
         return -score + 1;
+    }
+
+    private SpaceType getSpaceType(final FieldInfo fieldInfo) {
+        final String spaceTypeString = fieldInfo.getAttribute(SPACE_TYPE);
+        if (StringUtils.isNotEmpty(spaceTypeString)) {
+            return SpaceType.getSpace(spaceTypeString);
+        }
+
+        final String modelId = fieldInfo.getAttribute(MODEL_ID);
+        if (StringUtils.isNotEmpty(modelId)) {
+            ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+            return modelMetadata.getSpaceType();
+        }
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "Unable to find the Space Type from Field Info attribute for field %s", fieldInfo.getName())
+        );
     }
 }
