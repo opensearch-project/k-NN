@@ -19,7 +19,7 @@ steps:
   index_name: target_index
   - name: force_merge
     index_name: target_index
-    max_num_segments: 10
+    max_num_segments: 1
   - name: query
     k: 100
     r: 1

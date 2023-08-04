@@ -49,7 +49,8 @@ import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
+import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.search.SearchHit;
@@ -133,24 +134,24 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         builder.setDefaultHeaders(defaultHeaders);
         builder.setHttpClientConfigCallback(httpClientBuilder -> {
             String userName = Optional.ofNullable(System.getProperty("user"))
-                .orElseThrow(() -> new RuntimeException("user name is missing"));
+                    .orElseThrow(() -> new RuntimeException("user name is missing"));
             String password = Optional.ofNullable(System.getProperty("password"))
-                .orElseThrow(() -> new RuntimeException("password is missing"));
+                    .orElseThrow(() -> new RuntimeException("password is missing"));
             BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
             final AuthScope anyScope = new AuthScope(null, -1);
             credentialsProvider.setCredentials(anyScope, new UsernamePasswordCredentials(userName, password.toCharArray()));
             try {
                 final TlsStrategy tlsStrategy = ClientTlsStrategyBuilder.create()
-                    .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
-                    .setSslContext(SSLContextBuilder.create().loadTrustMaterial(null, (chains, authType) -> true).build())
-                    // See https://issues.apache.org/jira/browse/HTTPCLIENT-2219
-                    .setTlsDetailsFactory(sslEngine -> new TlsDetails(sslEngine.getSession(), sslEngine.getApplicationProtocol()))
-                    .build();
+                        .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
+                        .setSslContext(SSLContextBuilder.create().loadTrustMaterial(null, (chains, authType) -> true).build())
+                        // See https://issues.apache.org/jira/browse/HTTPCLIENT-2219
+                        .setTlsDetailsFactory(sslEngine -> new TlsDetails(sslEngine.getSession(), sslEngine.getApplicationProtocol()))
+                        .build();
                 final PoolingAsyncClientConnectionManager connectionManager = PoolingAsyncClientConnectionManagerBuilder.create()
-                    .setMaxConnPerRoute(DEFAULT_MAX_CONN_PER_ROUTE)
-                    .setMaxConnTotal(DEFAULT_MAX_CONN_TOTAL)
-                    .setTlsStrategy(tlsStrategy)
-                    .build();
+                        .setMaxConnPerRoute(DEFAULT_MAX_CONN_PER_ROUTE)
+                        .setMaxConnTotal(DEFAULT_MAX_CONN_TOTAL)
+                        .setTlsStrategy(tlsStrategy)
+                        .build();
                 return httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider).setConnectionManager(connectionManager);
             } catch (Exception e) {
                 throw new RuntimeException(e);
@@ -159,8 +160,8 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
 
         final String socketTimeoutString = settings.get(CLIENT_SOCKET_TIMEOUT);
         final TimeValue socketTimeout = TimeValue.parseTimeValue(
-            socketTimeoutString == null ? "60s" : socketTimeoutString,
-            CLIENT_SOCKET_TIMEOUT
+                socketTimeoutString == null ? "60s" : socketTimeoutString,
+                CLIENT_SOCKET_TIMEOUT
         );
         builder.setRequestConfigCallback(conf -> {
             Timeout timeout = Timeout.ofMilliseconds(Math.toIntExact(socketTimeout.getMillis()));
@@ -185,14 +186,14 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
     @After
     protected void wipeAllODFEIndices() throws Exception {
         Response response = adminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
-        XContentType xContentType = XContentType.fromMediaType(response.getEntity().getContentType());
+        MediaType mediaType = MediaType.fromMediaType(response.getEntity().getContentType());
         try (
-            XContentParser parser = xContentType.xContent()
-                .createParser(
-                    NamedXContentRegistry.EMPTY,
-                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                    response.getEntity().getContent()
-                )
+                XContentParser parser = mediaType.xContent()
+                        .createParser(
+                                NamedXContentRegistry.EMPTY,
+                                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                                response.getEntity().getContent()
+                        )
         ) {
             XContentParser.Token token = parser.nextToken();
             List<Map<String, Object>> parserList = null;
@@ -233,7 +234,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         final String responseBody = EntityUtils.toString(response.getEntity());
         assertNotNull(responseBody);
 
-        final XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+        final XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
         final SearchResponse searchResponse = SearchResponse.fromXContent(parser);
 
         return Arrays.stream(searchResponse.getHits().getHits()).map(SearchHit::getId).collect(Collectors.toList());
@@ -255,12 +256,12 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         final String restURIDeleteByQuery = String.join("/", indexName, "_delete_by_query");
         final Request request = new Request("POST", restURIDeleteByQuery);
         final XContentBuilder matchAllDocsQuery = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("query")
-            .startObject("match_all")
-            .endObject()
-            .endObject()
-            .endObject();
+                .startObject()
+                .startObject("query")
+                .startObject("match_all")
+                .endObject()
+                .endObject()
+                .endObject();
 
         request.setJsonEntity(Strings.toString(matchAllDocsQuery));
         adminClient().performRequest(request);
@@ -276,9 +277,9 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
 
     private boolean skipDeleteIndex(String indexName) {
         if (indexName != null
-            && !OPENDISTRO_SECURITY.equals(indexName)
-            && IMMUTABLE_INDEX_PREFIXES.stream().noneMatch(indexName::startsWith)
-            && !skipDeleteModelIndex(indexName)) {
+                && !OPENDISTRO_SECURITY.equals(indexName)
+                && IMMUTABLE_INDEX_PREFIXES.stream().noneMatch(indexName::startsWith)
+                && !skipDeleteModelIndex(indexName)) {
             return false;
         }
 
@@ -288,14 +289,14 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
     @Override
     protected Settings restAdminSettings() {
         return Settings.builder()
-            // disable the warning exception for admin client since it's only used for cleanup.
-            .put("strictDeprecationMode", false)
-            .put("http.port", 9200)
-            .put(OPENSEARCH_SECURITY_SSL_HTTP_ENABLED, isHttps())
-            .put(OPENSEARCH_SECURITY_SSL_HTTP_PEMCERT_FILEPATH, "sample.pem")
-            .put(OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH, "test-kirk.jks")
-            .put(OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_PASSWORD, "changeit")
-            .put(OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_KEYPASSWORD, "changeit")
-            .build();
+                // disable the warning exception for admin client since it's only used for cleanup.
+                .put("strictDeprecationMode", false)
+                .put("http.port", 9200)
+                .put(OPENSEARCH_SECURITY_SSL_HTTP_ENABLED, isHttps())
+                .put(OPENSEARCH_SECURITY_SSL_HTTP_PEMCERT_FILEPATH, "sample.pem")
+                .put(OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_FILEPATH, "test-kirk.jks")
+                .put(OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_PASSWORD, "changeit")
+                .put(OPENSEARCH_SECURITY_SSL_HTTP_KEYSTORE_KEYPASSWORD, "changeit")
+                .build();
     }
 }

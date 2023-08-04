@@ -16,7 +16,7 @@ import com.google.common.net.InetAddresses;
 import org.opensearch.Version;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.common.io.stream.BytesStreamOutput;
-import org.opensearch.common.transport.TransportAddress;
+import org.opensearch.core.common.transport.TransportAddress;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -65,9 +65,9 @@ public class TrainingJobRouteDecisionInfoNodeResponseTests extends KNNTestCase {
         // "training_job_count": 13
         // }
         XContentBuilder expectedXContentBuilder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(TRAINING_JOB_COUNT_FIELD_NAME, trainingJobCount)
-            .endObject();
+                .startObject()
+                .field(TRAINING_JOB_COUNT_FIELD_NAME, trainingJobCount)
+                .endObject();
 
         Map<String, Object> expected = xContentBuilderToMap(expectedXContentBuilder);
 

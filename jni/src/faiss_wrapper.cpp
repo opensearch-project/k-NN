@@ -16,6 +16,7 @@
 #include "faiss/index_factory.h"
 #include "faiss/index_io.h"
 #include "faiss/IndexHNSW.h"
+#include "faiss/IndexNSG.h"
 #include "faiss/IndexIVFFlat.h"
 #include "faiss/MetaIndexes.h"
 #include "faiss/Index.h"
@@ -212,7 +213,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         throw std::runtime_error("Invalid pointer to index");
     }
 
-    auto nsgReader = dynamic_cast<const faiss::IndexNSG*>(indexReader->index);
+    auto nsgReader = dynamic_cast<const faiss::IndexNSG *>(indexReader->index);
     if(nsgReader) {
         // Search params not supported for the NSG index
         throw std::runtime_error("NSG Index Type do not support for Filtered Search on Faiss");

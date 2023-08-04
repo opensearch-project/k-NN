@@ -17,7 +17,7 @@
           "space_type": "l2",
           "engine": "faiss",
           "parameters": {
-            "m": 32
+            "r": 32
           }
         }
       }

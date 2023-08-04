@@ -16,7 +16,7 @@
           "space_type": "{{ target_index_space_type }}",
           "engine": "faiss",
           "parameters": {
-            "m": {{ hnsw_m }}
+            "r": {{ hnsw_m }}
           }
         }
       }

@@ -15,7 +15,6 @@ import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNTestCase;
 
 import java.io.IOException;
@@ -39,7 +38,7 @@ public class DeleteModelResponseTests extends KNNTestCase {
         BytesStreamOutput streamOutput = new BytesStreamOutput();
         deleteModelResponse.writeTo(streamOutput);
         String expectedResponseString = "{\"model_id\":\"test-model\",\"result\":\"deleted\"}";
-        XContentBuilder xContentBuilder = XContentFactory.contentBuilder(XContentType.JSON);
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
         deleteModelResponse.toXContent(xContentBuilder, null);
         assertEquals(expectedResponseString, Strings.toString(xContentBuilder));
     }

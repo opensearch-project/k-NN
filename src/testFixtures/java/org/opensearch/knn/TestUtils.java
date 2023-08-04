@@ -6,10 +6,11 @@
 package org.opensearch.knn;
 
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -61,16 +62,16 @@ class DistComparator implements Comparator<DistVector> {
 public class TestUtils {
 
     public static Map<SpaceType, BiFunction<float[], float[], Float>> KNN_SCORING_SPACE_TYPE = ImmutableMap.of(
-        SpaceType.L1,
-        KNNScoringUtil::l1Norm,
-        SpaceType.L2,
-        KNNScoringUtil::l2Squared,
-        SpaceType.LINF,
-        KNNScoringUtil::lInfNorm,
-        SpaceType.COSINESIMIL,
-        KNNScoringUtil::cosinesimil,
-        SpaceType.INNER_PRODUCT,
-        KNNScoringUtil::innerProduct
+            SpaceType.L1,
+            KNNScoringUtil::l1Norm,
+            SpaceType.L2,
+            KNNScoringUtil::l2Squared,
+            SpaceType.LINF,
+            KNNScoringUtil::lInfNorm,
+            SpaceType.COSINESIMIL,
+            KNNScoringUtil::cosinesimil,
+            SpaceType.INNER_PRODUCT,
+            KNNScoringUtil::innerProduct
     );
 
     public static final String KNN_BWC_PREFIX = "knn-bwc-";
@@ -209,10 +210,10 @@ public class TestUtils {
         float dist;
         if (spaceType != null) {
             dist = KNN_SCORING_SPACE_TYPE.getOrDefault(
-                spaceType,
-                (defaultQueryVector, defaultIndexVector) -> {
-                    throw new IllegalArgumentException(String.format("Invalid SpaceType function: \"%s\"", spaceType));
-                }
+                    spaceType,
+                    (defaultQueryVector, defaultIndexVector) -> {
+                        throw new IllegalArgumentException(String.format("Invalid SpaceType function: \"%s\"", spaceType));
+                    }
             ).apply(queryVector, indexVector);
         } else {
             throw new NullPointerException("SpaceType is null. Provide a valid SpaceType.");
@@ -252,9 +253,12 @@ public class TestUtils {
             BufferedReader reader = new BufferedReader(new FileReader(path));
             String line = reader.readLine();
             while (line != null) {
-                Map<String, Object> doc = XContentFactory.xContent(XContentType.JSON)
-                    .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, line)
-                    .map();
+                Map<String, Object> doc = XContentHelper.createParser(
+                        NamedXContentRegistry.EMPTY,
+                        DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                        new BytesArray(line),
+                        MediaTypeRegistry.getDefaultMediaType()
+                ).map();
                 idsList.add((Integer) doc.get("id"));
 
                 @SuppressWarnings("unchecked")

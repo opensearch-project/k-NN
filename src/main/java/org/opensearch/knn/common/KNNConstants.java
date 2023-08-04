@@ -83,6 +83,7 @@ public class KNNConstants {
     public static final String FAISS_IVF_DESCRIPTION = "IVF";
     public static final String FAISS_FLAT_DESCRIPTION = "Flat";
     public static final String FAISS_PQ_DESCRIPTION = "PQ";
+    public static final Integer FAISS_NSG_MIN_DOC_TO_FLAT = 256;
 
     // Parameter defaults/limits
     public static final Integer ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT = 1;

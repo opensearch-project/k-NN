@@ -14,6 +14,7 @@ import org.opensearch.common.Strings;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.MatchAllQueryBuilder;
@@ -33,7 +34,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
@@ -129,10 +130,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
         String serverUrl = System.getProperty("jmx.serviceUrl");
         try (JMXConnector connector = JMXConnectorFactory.connect(new JMXServiceURL(serverUrl))) {
             IProxy proxy = MBeanServerInvocationHandler.newProxyInstance(
-                connector.getMBeanServerConnection(),
-                new ObjectName("org.jacoco:type=Runtime"),
-                IProxy.class,
-                false
+                    connector.getMBeanServerConnection(),
+                    new ObjectName("org.jacoco:type=Runtime"),
+                    IProxy.class,
+                    false
             );
 
             Path path = Paths.get(jacocoBuildPath + "/integTest.exec");
@@ -165,15 +166,15 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     protected void createBasicKnnIndex(String index, String fieldName, int dimension) throws IOException {
         String mapping = Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(fieldName)
-                .field("type", "knn_vector")
-                .field("dimension", Integer.toString(dimension))
-                .endObject()
-                .endObject()
-                .endObject()
+                XContentFactory.jsonBuilder()
+                        .startObject()
+                        .startObject("properties")
+                        .startObject(fieldName)
+                        .field("type", "knn_vector")
+                        .field("dimension", Integer.toString(dimension))
+                        .endObject()
+                        .endObject()
+                        .endObject()
         );
 
         mapping = mapping.substring(1, mapping.length() - 1);
@@ -227,14 +228,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected List<KNNResult> parseSearchResponse(String responseBody, String fieldName) throws IOException {
         @SuppressWarnings("unchecked")
-        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(XContentType.JSON.xContent(), responseBody).map()
-            .get("hits")).get("hits");
+        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
+                MediaTypeRegistry.getDefaultMediaType().xContent(),
+                responseBody
+        ).map().get("hits")).get("hits");
 
         @SuppressWarnings("unchecked")
         List<KNNResult> knnSearchResponses = hits.stream().map(hit -> {
             @SuppressWarnings("unchecked")
             Float[] vector = Arrays.stream(
-                ((ArrayList<Float>) ((Map<String, Object>) ((Map<String, Object>) hit).get("_source")).get(fieldName)).toArray()
+                    ((ArrayList<Float>) ((Map<String, Object>) ((Map<String, Object>) hit).get("_source")).get(fieldName)).toArray()
             ).map(Object::toString).map(Float::valueOf).toArray(Float[]::new);
             return new KNNResult((String) ((Map<String, Object>) hit).get("_id"), vector);
         }).collect(Collectors.toList());
@@ -244,13 +247,15 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     protected List<Float> parseSearchResponseScore(String responseBody, String fieldName) throws IOException {
         @SuppressWarnings("unchecked")
-        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(XContentType.JSON.xContent(), responseBody).map()
-            .get("hits")).get("hits");
+        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
+                MediaTypeRegistry.getDefaultMediaType().xContent(),
+                responseBody
+        ).map().get("hits")).get("hits");
 
         @SuppressWarnings("unchecked")
         List<Float> knnSearchResponses = hits.stream()
-            .map(hit -> ((Double) ((Map<String, Object>) hit).get("_score")).floatValue())
-            .collect(Collectors.toList());
+                .map(hit -> ((Double) ((Map<String, Object>) hit).get("_score")).floatValue())
+                .collect(Collectors.toList());
 
         return knnSearchResponses;
     }
@@ -260,8 +265,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected Double parseAggregationResponse(String responseBody, String aggregationName) throws IOException {
         @SuppressWarnings("unchecked")
-        Map<String, Object> aggregations = ((Map<String, Object>) createParser(XContentType.JSON.xContent(), responseBody).map()
-            .get("aggregations"));
+        Map<String, Object> aggregations = ((Map<String, Object>) createParser(
+                MediaTypeRegistry.getDefaultMediaType().xContent(),
+                responseBody
+        ).map().get("aggregations"));
 
         final Map<String, Object> values = (Map<String, Object>) aggregations.get(aggregationName);
         return Double.valueOf(String.valueOf(values.get("value")));
@@ -298,15 +305,15 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected String createKnnIndexMapping(String fieldName, Integer dimensions) throws IOException {
         return Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(fieldName)
-                .field("type", "knn_vector")
-                .field("dimension", dimensions.toString())
-                .endObject()
-                .endObject()
-                .endObject()
+                XContentFactory.jsonBuilder()
+                        .startObject()
+                        .startObject("properties")
+                        .startObject(fieldName)
+                        .field("type", "knn_vector")
+                        .field("dimension", dimensions.toString())
+                        .endObject()
+                        .endObject()
+                        .endObject()
         );
     }
 
@@ -315,19 +322,19 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected String createKnnIndexMapping(String fieldName, Integer dimensions, String algoName, String knnEngine) throws IOException {
         return Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(fieldName)
-                .field("type", "knn_vector")
-                .field("dimension", dimensions.toString())
-                .startObject("method")
-                .field("name", algoName)
-                .field("engine", knnEngine)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
+                XContentFactory.jsonBuilder()
+                        .startObject()
+                        .startObject("properties")
+                        .startObject(fieldName)
+                        .field("type", "knn_vector")
+                        .field("dimension", dimensions.toString())
+                        .startObject("method")
+                        .field("name", algoName)
+                        .field("engine", knnEngine)
+                        .endObject()
+                        .endObject()
+                        .endObject()
+                        .endObject()
         );
     }
 
@@ -341,9 +348,9 @@ public class KNNRestTestCase extends ODFERestTestCase {
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject().startObject("properties");
         for (int i = 0; i < fieldNames.size(); i++) {
             xContentBuilder.startObject(fieldNames.get(i))
-                .field("type", "knn_vector")
-                .field("dimension", dimensions.get(i).toString())
-                .endObject();
+                    .field("type", "knn_vector")
+                    .field("dimension", dimensions.get(i).toString())
+                    .endObject();
         }
         xContentBuilder.endObject().endObject();
 
@@ -366,7 +373,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         String responseBody = EntityUtils.toString(response.getEntity());
 
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
 
         return (Map<String, Object>) ((Map<String, Object>) responseMap.get(index)).get("mappings");
     }
@@ -380,7 +387,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         String responseBody = EntityUtils.toString(response.getEntity());
 
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
         return (Integer) responseMap.get("count");
     }
 
@@ -496,8 +503,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
         final Request request = new Request("GET", "/" + index + "/_doc/" + docId);
         final Response response = client().performRequest(request);
 
-        final Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), EntityUtils.toString(response.getEntity()))
-            .map();
+        final Map<String, Object> responseMap = createParser(
+                MediaTypeRegistry.getDefaultMediaType().xContent(),
+                EntityUtils.toString(response.getEntity())
+        ).map();
 
         assertNotNull(responseMap);
         assertTrue((Boolean) responseMap.get(DOCUMENT_FIELD_FOUND));
@@ -513,11 +522,11 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected void updateClusterSettings(String settingKey, Object value) throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("persistent")
-            .field(settingKey, value)
-            .endObject()
-            .endObject();
+                .startObject()
+                .startObject("persistent")
+                .field(settingKey, value)
+                .endObject()
+                .endObject();
         Request request = new Request("PUT", "_cluster/settings");
         request.setJsonEntity(Strings.toString(builder));
         Response response = client().performRequest(request);
@@ -573,7 +582,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Parse KNN Cluster stats from response
      */
     protected Map<String, Object> parseClusterStatsResponse(String responseBody) throws IOException {
-        Map<String, Object> responseMap = createParser(XContentType.JSON.xContent(), responseBody).map();
+        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
         responseMap.remove("cluster_name");
         responseMap.remove("_nodes");
         responseMap.remove("nodes");
@@ -585,13 +594,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected List<Map<String, Object>> parseNodeStatsResponse(String responseBody) throws IOException {
         @SuppressWarnings("unchecked")
-        Map<String, Object> responseMap = (Map<String, Object>) createParser(XContentType.JSON.xContent(), responseBody).map().get("nodes");
+        Map<String, Object> responseMap = (Map<String, Object>) createParser(
+                MediaTypeRegistry.getDefaultMediaType().xContent(),
+                responseBody
+        ).map().get("nodes");
 
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> nodeResponses = responseMap.keySet()
-            .stream()
-            .map(key -> (Map<String, Object>) responseMap.get(key))
-            .collect(Collectors.toList());
+                .stream()
+                .map(key -> (Map<String, Object>) responseMap.get(key))
+                .collect(Collectors.toList());
 
         return nodeResponses;
     }
@@ -601,8 +613,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     @SuppressWarnings("unchecked")
     protected int parseTotalSearchHits(String searchResponseBody) throws IOException {
-        Map<String, Object> responseMap = (Map<String, Object>) createParser(XContentType.JSON.xContent(), searchResponseBody).map()
-            .get("hits");
+        Map<String, Object> responseMap = (Map<String, Object>) createParser(
+                MediaTypeRegistry.getDefaultMediaType().xContent(),
+                searchResponseBody
+        ).map().get("hits");
 
         return (int) ((Map<String, Object>) responseMap.get("total")).get("value");
     }
@@ -620,15 +634,15 @@ public class KNNRestTestCase extends ODFERestTestCase {
         logger.info("[KNN] Node stats:  " + nodesStats);
 
         return nodesStats.stream()
-            .filter(nodeStats -> nodeStats.get(INDICES_IN_CACHE.getName()) != null)
-            .map(nodeStats -> nodeStats.get(INDICES_IN_CACHE.getName()))
-            .mapToInt(
-                nodeIndicesStats -> ((Map<String, Map<String, Object>>) nodeIndicesStats).values()
-                    .stream()
-                    .mapToInt(nodeIndexStats -> (int) nodeIndexStats.get(GRAPH_COUNT))
-                    .sum()
-            )
-            .sum();
+                .filter(nodeStats -> nodeStats.get(INDICES_IN_CACHE.getName()) != null)
+                .map(nodeStats -> nodeStats.get(INDICES_IN_CACHE.getName()))
+                .mapToInt(
+                        nodeIndicesStats -> ((Map<String, Map<String, Object>>) nodeIndicesStats).values()
+                                .stream()
+                                .mapToInt(nodeIndexStats -> (int) nodeIndexStats.get(GRAPH_COUNT))
+                                .sum()
+                )
+                .sum();
     }
 
     /**
@@ -637,7 +651,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     protected String getIndexSettingByName(String indexName, String settingName) throws IOException {
         @SuppressWarnings("unchecked")
         Map<String, Object> settings = (Map<String, Object>) ((Map<String, Object>) getIndexSettings(indexName).get(indexName)).get(
-            "settings"
+                "settings"
         );
         return (String) settings.get(settingName);
     }
@@ -663,17 +677,17 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Request request = new Request("POST", "/" + MODEL_INDEX_NAME + "/_doc/" + modelId + "?refresh=true");
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(MODEL_ID, modelId)
-            .field(MODEL_STATE, modelMetadata.getState().getName())
-            .field(KNN_ENGINE, modelMetadata.getKnnEngine().getName())
-            .field(METHOD_PARAMETER_SPACE_TYPE, modelMetadata.getSpaceType().getValue())
-            .field(DIMENSION, modelMetadata.getDimension())
-            .field(MODEL_BLOB_PARAMETER, modelBase64)
-            .field(MODEL_TIMESTAMP, modelMetadata.getTimestamp())
-            .field(MODEL_DESCRIPTION, modelMetadata.getDescription())
-            .field(MODEL_ERROR, modelMetadata.getError())
-            .endObject();
+                .startObject()
+                .field(MODEL_ID, modelId)
+                .field(MODEL_STATE, modelMetadata.getState().getName())
+                .field(KNN_ENGINE, modelMetadata.getKnnEngine().getName())
+                .field(METHOD_PARAMETER_SPACE_TYPE, modelMetadata.getSpaceType().getValue())
+                .field(DIMENSION, modelMetadata.getDimension())
+                .field(MODEL_BLOB_PARAMETER, modelBase64)
+                .field(MODEL_TIMESTAMP, modelMetadata.getTimestamp())
+                .field(MODEL_DESCRIPTION, modelMetadata.getDescription())
+                .field(MODEL_ERROR, modelMetadata.getError())
+                .endObject();
 
         request.setJsonEntity(Strings.toString(builder));
 
@@ -709,12 +723,12 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     private ScriptedMetricAggregationBuilder getScriptedMetricAggregationBuilder(
-        String initScriptSource,
-        String mapScriptSource,
-        String combineScriptSource,
-        String reduceScriptSource,
-        String language,
-        String aggName
+            String initScriptSource,
+            String mapScriptSource,
+            String combineScriptSource,
+            String reduceScriptSource,
+            String language,
+            String aggName
     ) {
         String scriptLanguage = language != null ? language : Script.DEFAULT_SCRIPT_LANG;
         Script initScript = buildScript(initScriptSource, scriptLanguage, Collections.emptyMap());
@@ -722,19 +736,19 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Script combineScript = buildScript(combineScriptSource, scriptLanguage, Collections.emptyMap());
         Script reduceScript = buildScript(reduceScriptSource, scriptLanguage, Collections.emptyMap());
         return new ScriptedMetricAggregationBuilder(aggName).mapScript(mapScript)
-            .combineScript(combineScript)
-            .reduceScript(reduceScript)
-            .initScript(initScript);
+                .combineScript(combineScript)
+                .reduceScript(reduceScript)
+                .initScript(initScript);
     }
 
     protected Request constructScriptedMetricAggregationSearchRequest(
-        String aggName,
-        String language,
-        String initScriptSource,
-        String mapScriptSource,
-        String combineScriptSource,
-        String reduceScriptSource,
-        int size
+            String aggName,
+            String language,
+            String initScriptSource,
+            String mapScriptSource,
+            String combineScriptSource,
+            String reduceScriptSource,
+            int size
     ) throws Exception {
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field("size", size).startObject("query");
@@ -743,12 +757,12 @@ public class KNNRestTestCase extends ODFERestTestCase {
         builder.endObject();
         builder.startObject("aggs");
         final ScriptedMetricAggregationBuilder scriptedMetricAggregationBuilder = getScriptedMetricAggregationBuilder(
-            initScriptSource,
-            mapScriptSource,
-            combineScriptSource,
-            reduceScriptSource,
-            language,
-            aggName
+                initScriptSource,
+                mapScriptSource,
+                combineScriptSource,
+                reduceScriptSource,
+                language,
+                aggName
         );
         scriptedMetricAggregationBuilder.toXContent(builder, ToXContent.EMPTY_PARAMS);
         builder.endObject();
@@ -760,12 +774,12 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     protected Request constructScriptScoreContextSearchRequest(
-        String indexName,
-        QueryBuilder qb,
-        Map<String, Object> params,
-        String language,
-        String source,
-        int size
+            String indexName,
+            QueryBuilder qb,
+            Map<String, Object> params,
+            String language,
+            String source,
+            int size
     ) throws Exception {
         Script script = buildScript(source, language, params);
         ScriptScoreQueryBuilder sc = new ScriptScoreQueryBuilder(qb, script);
@@ -799,14 +813,14 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     protected Request constructKNNScriptQueryRequest(String indexName, QueryBuilder qb, Map<String, Object> params, int size)
-        throws Exception {
+            throws Exception {
         return constructScriptScoreContextSearchRequest(
-            indexName,
-            qb,
-            params,
-            KNNScoringScriptEngine.NAME,
-            KNNScoringScriptEngine.SCRIPT_SOURCE,
-            size
+                indexName,
+                qb,
+                params,
+                KNNScoringScriptEngine.NAME,
+                KNNScoringScriptEngine.SCRIPT_SOURCE,
+                size
         );
     }
 
@@ -835,15 +849,15 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         for (int i = 0; i < docCount; i++) {
             sb.append("{ \"index\" : { \"_index\" : \"")
-                .append(index)
-                .append("\", \"_id\" : \"")
-                .append(i)
-                .append("\" } }\n")
-                .append("{ \"")
-                .append(fieldName)
-                .append("\" : ")
-                .append(Arrays.toString(indexVectors[i]))
-                .append(" }\n");
+                    .append(index)
+                    .append("\", \"_id\" : \"")
+                    .append(i)
+                    .append("\" } }\n")
+                    .append("{ \"")
+                    .append(fieldName)
+                    .append("\" : ")
+                    .append(Arrays.toString(indexVectors[i]))
+                    .append(" }\n");
         }
 
         request.setJsonEntity(sb.toString());
@@ -934,59 +948,59 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     protected Settings createKNNIndexCustomLegacyFieldMappingSettings(SpaceType spaceType, Integer m, Integer ef_construction) {
         return Settings.builder()
-            .put(NUMBER_OF_SHARDS, 1)
-            .put(NUMBER_OF_REPLICAS, 0)
-            .put(INDEX_KNN, true)
-            .put(KNNSettings.KNN_SPACE_TYPE, spaceType.getValue())
-            .put(KNNSettings.KNN_ALGO_PARAM_M, m)
-            .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, ef_construction)
-            .build();
+                .put(NUMBER_OF_SHARDS, 1)
+                .put(NUMBER_OF_REPLICAS, 0)
+                .put(INDEX_KNN, true)
+                .put(KNNSettings.KNN_SPACE_TYPE, spaceType.getValue())
+                .put(KNNSettings.KNN_ALGO_PARAM_M, m)
+                .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, ef_construction)
+                .build();
     }
 
     public String createKNNIndexMethodFieldMapping(String fieldName, Integer dimensions) throws IOException {
         return Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject(PROPERTIES)
-                .startObject(fieldName)
-                .field(VECTOR_TYPE, KNN_VECTOR)
-                .field(DIMENSION, dimensions.toString())
-                .startObject(KNN_METHOD)
-                .field(NAME, METHOD_HNSW)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
+                XContentFactory.jsonBuilder()
+                        .startObject()
+                        .startObject(PROPERTIES)
+                        .startObject(fieldName)
+                        .field(VECTOR_TYPE, KNN_VECTOR)
+                        .field(DIMENSION, dimensions.toString())
+                        .startObject(KNN_METHOD)
+                        .field(NAME, METHOD_HNSW)
+                        .endObject()
+                        .endObject()
+                        .endObject()
+                        .endObject()
         );
     }
 
     public String createKNNIndexCustomMethodFieldMapping(
-        String fieldName,
-        Integer dimensions,
-        SpaceType spaceType,
-        String engine,
-        Integer m,
-        Integer ef_construction
+            String fieldName,
+            Integer dimensions,
+            SpaceType spaceType,
+            String engine,
+            Integer m,
+            Integer ef_construction
     ) throws IOException {
         return Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject(PROPERTIES)
-                .startObject(fieldName)
-                .field(VECTOR_TYPE, KNN_VECTOR)
-                .field(DIMENSION, dimensions.toString())
-                .startObject(KNN_METHOD)
-                .field(NAME, METHOD_HNSW)
-                .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-                .field(KNN_ENGINE, engine)
-                .startObject(PARAMETERS)
-                .field(METHOD_PARAMETER_EF_CONSTRUCTION, ef_construction)
-                .field(METHOD_PARAMETER_M, m)
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
+                XContentFactory.jsonBuilder()
+                        .startObject()
+                        .startObject(PROPERTIES)
+                        .startObject(fieldName)
+                        .field(VECTOR_TYPE, KNN_VECTOR)
+                        .field(DIMENSION, dimensions.toString())
+                        .startObject(KNN_METHOD)
+                        .field(NAME, METHOD_HNSW)
+                        .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+                        .field(KNN_ENGINE, engine)
+                        .startObject(PARAMETERS)
+                        .field(METHOD_PARAMETER_EF_CONSTRUCTION, ef_construction)
+                        .field(METHOD_PARAMETER_M, m)
+                        .endObject()
+                        .endObject()
+                        .endObject()
+                        .endObject()
+                        .endObject()
         );
     }
 
@@ -997,7 +1011,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     // Validate script score search for these space_types : {"l2", "l1", "linf"}
     protected void validateKNNScriptScoreSearch(String testIndex, String testField, int dimension, int numDocs, int k, SpaceType spaceType)
-        throws Exception {
+            throws Exception {
 
         IDVectorProducer idVectorProducer = new IDVectorProducer(dimension, numDocs);
         float[] queryVector = idVectorProducer.getVector(numDocs);
@@ -1026,15 +1040,15 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     // validate KNN painless script score search for the space_types : "l2", "l1"
     protected void validateKNNPainlessScriptScoreSearch(String testIndex, String testField, String source, int numDocs, int k)
-        throws Exception {
+            throws Exception {
         QueryBuilder qb = new MatchAllQueryBuilder();
         Request request = constructScriptScoreContextSearchRequest(
-            testIndex,
-            qb,
-            Collections.emptyMap(),
-            Script.DEFAULT_SCRIPT_LANG,
-            source,
-            k
+                testIndex,
+                qb,
+                Collections.emptyMap(),
+                Script.DEFAULT_SCRIPT_LANG,
+                source,
+                k
         );
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -1076,22 +1090,22 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * @throws IOException if request cannot be performed
      */
     public Response trainModel(
-        String modelId,
-        String trainingIndexName,
-        String trainingFieldName,
-        int dimension,
-        Map<String, Object> method,
-        String description
+            String modelId,
+            String trainingIndexName,
+            String trainingFieldName,
+            int dimension,
+            Map<String, Object> method,
+            String description
     ) throws IOException {
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(TRAIN_INDEX_PARAMETER, trainingIndexName)
-            .field(TRAIN_FIELD_PARAMETER, trainingFieldName)
-            .field(DIMENSION, dimension)
-            .field(KNN_METHOD, method)
-            .field(MODEL_DESCRIPTION, description)
-            .endObject();
+                .startObject()
+                .field(TRAIN_INDEX_PARAMETER, trainingIndexName)
+                .field(TRAIN_FIELD_PARAMETER, trainingFieldName)
+                .field(DIMENSION, dimension)
+                .field(KNN_METHOD, method)
+                .field(MODEL_DESCRIPTION, description)
+                .endObject();
 
         if (modelId == null) {
             modelId = "";
@@ -1142,7 +1156,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
             response = getModel(modelId, null);
 
-            responseMap = createParser(XContentType.JSON.xContent(), EntityUtils.toString(response.getEntity())).map();
+            responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), EntityUtils.toString(response.getEntity()))
+                    .map();
 
             modelState = ModelState.getModelState((String) responseMap.get(MODEL_STATE));
             if (modelState == ModelState.CREATED) {
@@ -1166,7 +1181,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
             response = getModel(modelId, null);
 
-            responseMap = createParser(XContentType.JSON.xContent(), EntityUtils.toString(response.getEntity())).map();
+            responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), EntityUtils.toString(response.getEntity()))
+                    .map();
 
             modelState = ModelState.getModelState((String) responseMap.get(MODEL_STATE));
             if (modelState == ModelState.FAILED) {
@@ -1193,40 +1209,40 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     protected void ingestDataAndTrainModel(
-        String modelId,
-        String trainingIndexName,
-        String trainingFieldName,
-        int dimension,
-        String modelDescription
+            String modelId,
+            String trainingIndexName,
+            String trainingFieldName,
+            int dimension,
+            String modelDescription
     ) throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, "ivf")
-            .field(KNN_ENGINE, "faiss")
-            .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_NLIST, 1)
-            .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, "pq")
-            .startObject(PARAMETERS)
-            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-            .field(ENCODER_PARAMETER_PQ_M, 2)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
+                .startObject()
+                .field(NAME, "ivf")
+                .field(KNN_ENGINE, "faiss")
+                .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_NLIST, 1)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "pq")
+                .startObject(PARAMETERS)
+                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+                .field(ENCODER_PARAMETER_PQ_M, 2)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
 
         Map<String, Object> method = xContentBuilderToMap(builder);
         ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, method);
     }
 
     protected void ingestDataAndTrainModel(
-        String modelId,
-        String trainingIndexName,
-        String trainingFieldName,
-        int dimension,
-        String modelDescription,
-        Map<String, Object> method
+            String modelId,
+            String trainingIndexName,
+            String trainingFieldName,
+            int dimension,
+            String modelDescription,
+            Map<String, Object> method
     ) throws Exception {
         int trainingDataCount = 40;
         bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
@@ -1238,21 +1254,21 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     protected XContentBuilder getModelMethodBuilder() throws IOException {
         XContentBuilder modelMethodBuilder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, "ivf")
-            .field(KNN_ENGINE, FAISS.getName())
-            .field(METHOD_PARAMETER_SPACE_TYPE, L2.getValue())
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_NLIST, 1)
-            .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, "pq")
-            .startObject(PARAMETERS)
-            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
-            .field(ENCODER_PARAMETER_PQ_M, 2)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
+                .startObject()
+                .field(NAME, "ivf")
+                .field(KNN_ENGINE, FAISS.getName())
+                .field(METHOD_PARAMETER_SPACE_TYPE, L2.getValue())
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_NLIST, 1)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, "pq")
+                .startObject(PARAMETERS)
+                .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+                .field(ENCODER_PARAMETER_PQ_M, 2)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
         return modelMethodBuilder;
     }
 
@@ -1274,14 +1290,14 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
     protected void refreshAllNonSystemIndices() throws Exception {
         Response response = adminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
-        XContentType xContentType = XContentType.fromMediaType(response.getEntity().getContentType());
+        MediaType mediaType = MediaType.fromMediaType(response.getEntity().getContentType());
         try (
-            XContentParser parser = xContentType.xContent()
-                .createParser(
-                    NamedXContentRegistry.EMPTY,
-                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                    response.getEntity().getContent()
-                )
+                XContentParser parser = mediaType.xContent()
+                        .createParser(
+                                NamedXContentRegistry.EMPTY,
+                                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                                response.getEntity().getContent()
+                        )
         ) {
             XContentParser.Token token = parser.nextToken();
             List<Map<String, Object>> parserList;
@@ -1291,9 +1307,9 @@ public class KNNRestTestCase extends ODFERestTestCase {
                 parserList = Collections.singletonList(parser.mapOrdered());
             }
             Set<String> indices = parserList.stream()
-                .map(index -> (String) index.get("index"))
-                .filter(index -> !index.startsWith(SYSTEM_INDEX_PREFIX))
-                .collect(Collectors.toSet());
+                    .map(index -> (String) index.get("index"))
+                    .filter(index -> !index.startsWith(SYSTEM_INDEX_PREFIX))
+                    .collect(Collectors.toSet());
             for (String index : indices) {
                 refreshIndex(index);
             }
@@ -1319,6 +1335,28 @@ public class KNNRestTestCase extends ODFERestTestCase {
         client().performRequest(request);
 
         request = new Request("POST", "/" + INDEX_NAME + "/_refresh");
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
+    protected void addKnnDocWithAttributes(
+            String indexName,
+            String docId,
+            String vectorFieldName,
+            float[] vector,
+            Map<String, String> fieldValues
+    ) throws IOException {
+        Request request = new Request("POST", "/" + indexName + "/_doc/" + docId + "?refresh=true");
+
+        final XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(vectorFieldName, vector);
+        for (String fieldName : fieldValues.keySet()) {
+            builder.field(fieldName, fieldValues.get(fieldName));
+        }
+        builder.endObject();
+        request.setJsonEntity(Strings.toString(builder));
+        client().performRequest(request);
+
+        request = new Request("POST", "/" + indexName + "/_refresh");
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
