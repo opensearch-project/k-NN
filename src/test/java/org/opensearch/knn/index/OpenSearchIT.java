@@ -20,7 +20,6 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
-import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -108,7 +107,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             .endObject();
 
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
         createKnnIndex(indexName, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
 
@@ -267,16 +266,15 @@ public class OpenSearchIT extends KNNRestTestCase {
     public void testVectorMappingValidation_noDimension() throws Exception {
         Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).build();
 
-        String mapping = Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(FIELD_NAME)
-                .field("type", "knn_vector")
-                .endObject()
-                .endObject()
-                .endObject()
-        );
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
 
         Exception ex = expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, settings, mapping));
         assertThat(ex.getMessage(), containsString("Dimension value missing for vector: " + FIELD_NAME));
@@ -338,21 +336,20 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         String f4 = FIELD_NAME + "-4";
         String f5 = FIELD_NAME + "-5";
-        String mapping = Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(f4)
-                .field("type", "knn_vector")
-                .field("dimension", "4")
-                .endObject()
-                .startObject(f5)
-                .field("type", "knn_vector")
-                .field("dimension", "5")
-                .endObject()
-                .endObject()
-                .endObject()
-        );
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(f4)
+            .field("type", "knn_vector")
+            .field("dimension", "4")
+            .endObject()
+            .startObject(f5)
+            .field("type", "knn_vector")
+            .field("dimension", "5")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
 
         createKnnIndex(INDEX_NAME, settings, mapping);
 
@@ -384,7 +381,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         Request request = new Request("POST", "/" + INDEX_NAME + "/_doc/7?refresh=true");
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field("non-knn-field", "test").endObject();
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(builder.toString());
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.CREATED, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 

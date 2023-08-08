@@ -11,7 +11,6 @@ import org.junit.After;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
-import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -274,7 +273,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
 
         ResponseException ex = expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, mapping));
         assertTrue(
@@ -484,7 +483,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
         createKnnIndex(INDEX_NAME, mapping);
     }
 
@@ -500,7 +499,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
         createKnnIndex(INDEX_NAME, Settings.EMPTY, mapping);
     }
 
