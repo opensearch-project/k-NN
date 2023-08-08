@@ -14,7 +14,6 @@ import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.cluster.health.ClusterHealthStatus;
-import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -459,17 +458,16 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
 
     // mapping to create index from model
     public String modelIndexMapping(String fieldName, String modelId) throws IOException {
-        return Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject(PROPERTIES)
-                .startObject(fieldName)
-                .field(VECTOR_TYPE, KNN_VECTOR)
-                .field(MODEL_ID, modelId)
-                .endObject()
-                .endObject()
-                .endObject()
-        );
+        return XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES)
+            .startObject(fieldName)
+            .field(VECTOR_TYPE, KNN_VECTOR)
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
     }
 
     @Override

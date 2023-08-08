@@ -12,7 +12,6 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
-import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -282,7 +281,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         builder.endObject();
         Request request = new Request("POST", "/" + INDEX_NAME + "/_search");
 
-        request.setJsonEntity(Strings.toString(builder));
+        request.setJsonEntity(builder.toString());
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
         assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString("Unknown script name Dummy_source"));
     }
@@ -415,16 +414,15 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     @SuppressWarnings("unchecked")
     public void testHammingScriptScore_Long() throws Exception {
         createIndex(INDEX_NAME, Settings.EMPTY);
-        String longMapping = Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(FIELD_NAME)
-                .field("type", "long")
-                .endObject()
-                .endObject()
-                .endObject()
-        );
+        String longMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "long")
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
         putMappingRequest(INDEX_NAME, longMapping);
 
         addDocWithNumericField(INDEX_NAME, "0", FIELD_NAME, 8L);
@@ -525,17 +523,16 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     @SuppressWarnings("unchecked")
     public void testHammingScriptScore_Base64() throws Exception {
         createIndex(INDEX_NAME, Settings.EMPTY);
-        String longMapping = Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(FIELD_NAME)
-                .field("type", "binary")
-                .field("doc_values", true)
-                .endObject()
-                .endObject()
-                .endObject()
-        );
+        String longMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "binary")
+            .field("doc_values", true)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
         putMappingRequest(INDEX_NAME, longMapping);
 
         addDocWithBinaryField(INDEX_NAME, "0", FIELD_NAME, "AAAAAAAAAAk=");
