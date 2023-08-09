@@ -391,3 +391,65 @@ TEST(FaissQueryNSGIndexTest, BasicAssertions) {
         }
     }
 }
+
+TEST(FaissQueryNSGIndexWithIDFilterTest, BasicAssertions) {
+    // Define the index data
+    faiss::idx_t numIds = 200;
+    std::vector<faiss::idx_t> ids;
+    std::vector<float> vectors;
+    int dim = 16;
+    for (int64_t i = 0; i < numIds; i++) {
+        ids.push_back(i);
+        for (int j = 0; j < dim; j++) {
+            vectors.push_back(test_util::RandomFloat(-500.0, 500.0));
+        }
+    }
+
+    faiss::MetricType metricType = faiss::METRIC_L2;
+    std::string method = "NSG64,Flat";  // TODO: Revert bach to NSG64,Flat
+
+    // Define query data
+    int k = 10;
+    int numQueries = 100;
+    std::vector<std::vector<float>> queries;
+
+    for (int i = 0; i < numQueries; i++) {
+        std::vector<float> query;
+        query.reserve(dim);
+        for (int j = 0; j < dim; j++) {
+            query.push_back(test_util::RandomFloat(-500.0, 500.0));
+        }
+        queries.push_back(query);
+    }
+
+    // Create the index
+    std::unique_ptr<faiss::Index> createdIndex(
+            test_util::FaissCreateIndex(2, method, metricType));
+    auto createdIndexWithData =
+            test_util::FaissAddData(createdIndex.get(), ids, vectors);
+
+    // Setup jni
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    // filterID
+    std::vector<int> filterIds;
+    for (int i = 0; i < k; i++) {
+        filterIds.push_back(i);
+    }
+
+    for (auto query : queries) {
+
+        try {
+           knn_jni::faiss_wrapper::QueryIndex_WithFilter(
+            &mockJNIUtil, jniEnv,
+            reinterpret_cast<jlong>(&createdIndexWithData),
+            reinterpret_cast<jfloatArray>(&query),
+            k, reinterpret_cast<jintArray>(&filterIds));
+        } catch (std::runtime_error const &err) {
+            EXPECT_EQ(err.what(), std::string("NSG Index Type do not support for Filtered Search on Faiss"));
+        } catch (...) {
+            FAIL() << "Expected runtime_error";
+        }
+    }
+}

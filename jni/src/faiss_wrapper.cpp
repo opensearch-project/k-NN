@@ -214,7 +214,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
     }
 
     auto nsgReader = dynamic_cast<const faiss::IndexNSG *>(indexReader->index);
-    if(nsgReader) {
+    if(nsgReader && filterIdsJ != nullptr) {
         // Search params not supported for the NSG index
         throw std::runtime_error("NSG Index Type do not support for Filtered Search on Faiss");
     }
