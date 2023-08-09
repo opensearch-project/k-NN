@@ -183,7 +183,7 @@ public class FaissIT extends KNNRestTestCase {
             .endObject();
 
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
 
         createKnnIndex(indexName, mapping);
 
@@ -261,7 +261,7 @@ public class FaissIT extends KNNRestTestCase {
             .endObject();
 
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
 
         createKnnIndex(indexName, mapping);
         Map<String, Object> maping = getIndexMappingAsMap(indexName);
