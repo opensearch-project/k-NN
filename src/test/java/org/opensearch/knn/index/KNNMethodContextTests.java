@@ -31,6 +31,7 @@ import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
+import static org.opensearch.knn.common.KNNConstants.METHOD_NSG;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -137,6 +138,10 @@ public class KNNMethodContextTests extends KNNTestCase {
 
         MethodComponentContext ivfMethodPq = new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_ENCODER_PARAMETER, pq));
         knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, ivfMethodPq);
+        assertTrue(knnMethodContext.isTrainingRequired());
+
+        MethodComponentContext nsgMethodPq = new MethodComponentContext(METHOD_NSG, ImmutableMap.of(METHOD_ENCODER_PARAMETER, pq));
+        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, nsgMethodPq);
         assertTrue(knnMethodContext.isTrainingRequired());
     }
 
