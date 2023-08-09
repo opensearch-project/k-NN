@@ -21,7 +21,6 @@ import org.opensearch.client.Response;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNRestTestCase;
-import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
@@ -98,7 +97,7 @@ public class FaissIT extends KNNRestTestCase {
             .endObject();
 
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
 
         createKnnIndex(indexName, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
@@ -340,7 +339,7 @@ public class FaissIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
         createKnnIndex(indexName, mapping);
 
         Float[] vector = { 6.0f, 6.0f };
@@ -376,7 +375,7 @@ public class FaissIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
         createKnnIndex(indexName, mapping);
 
         Float[] vector = { 6.0f, 6.0f };
@@ -420,17 +419,16 @@ public class FaissIT extends KNNRestTestCase {
         // Create knn index from model
         String fieldName = "test-field-name";
         String indexName = "test-index-name";
-        String indexMapping = Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(fieldName)
-                .field("type", "knn_vector")
-                .field(MODEL_ID, modelId)
-                .endObject()
-                .endObject()
-                .endObject()
-        );
+        String indexMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
 
         createKnnIndex(indexName, getKNNDefaultIndexSettings(), indexMapping);
 
@@ -554,7 +552,7 @@ public class FaissIT extends KNNRestTestCase {
             .endObject()
             .endObject()
             .endObject();
-        final String mapping = Strings.toString(builder);
+        final String mapping = builder.toString();
 
         createKnnIndex(INDEX_NAME, mapping);
 
