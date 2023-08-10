@@ -16,6 +16,7 @@
 #include "faiss/index_factory.h"
 #include "faiss/index_io.h"
 #include "faiss/IndexHNSW.h"
+#include "faiss/IndexNSG.h"
 #include "faiss/IndexIVFFlat.h"
 #include "faiss/MetaIndexes.h"
 #include "faiss/Index.h"
@@ -212,6 +213,11 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         throw std::runtime_error("Invalid pointer to index");
     }
 
+    auto nsgReader = dynamic_cast<const faiss::IndexNSG *>(indexReader->index);
+    if(nsgReader && filterIdsJ != nullptr) {
+        // Search params not supported for the NSG index
+        throw std::runtime_error("NSG Index Type do not support for Filtered Search on Faiss");
+    }
     // The ids vector will hold the top k ids from the search and the dis vector will hold the top k distances from
     // the query point
     std::vector<float> dis(kJ);
@@ -249,6 +255,8 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         faiss::SearchParameters *searchParameters;
         faiss::SearchParametersHNSW hnswParams;
         faiss::SearchParametersIVF ivfParams;
+
+
         auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
         if(hnswReader) {
             // Setting the ef_search value equal to what was provided during index creation. SearchParametersHNSW has a default

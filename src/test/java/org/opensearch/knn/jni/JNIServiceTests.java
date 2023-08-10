@@ -44,6 +44,7 @@ public class JNIServiceTests extends KNNTestCase {
 
     static TestUtils.TestData testData;
     private String faissMethod = "HNSW32,Flat";
+    private String faissNSGMethod = "NSG64,Flat";
 
     @BeforeClass
     public static void setUpClass() throws IOException {
@@ -478,7 +479,7 @@ public class JNIServiceTests extends KNNTestCase {
 
     public void testCreateIndex_faiss_valid() throws IOException {
 
-        List<String> methods = ImmutableList.of(faissMethod);
+        List<String> methods = ImmutableList.of(faissMethod, faissNSGMethod);
         List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
         for (String method : methods) {
             for (SpaceType spaceType : spaces) {
@@ -671,7 +672,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         int k = 10;
 
-        List<String> methods = ImmutableList.of(faissMethod);
+        List<String> methods = ImmutableList.of(faissMethod, faissNSGMethod);
         List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
         for (String method : methods) {
             for (SpaceType spaceType : spaces) {
@@ -697,10 +698,12 @@ public class JNIServiceTests extends KNNTestCase {
                     assertEquals(k, results.length);
                 }
 
-                // Filter will result in no ids
-                for (float[] query : testData.queries) {
-                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, new int[] { 0 });
-                    assertEquals(0, results.length);
+                // Filter will result in no ids, But NSG not supported Search params
+                if (!method.contains(faissNSGMethod)) {
+                    for (float[] query : testData.queries) {
+                        KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, new int[] { 0 });
+                        assertEquals(0, results.length);
+                    }
                 }
             }
         }

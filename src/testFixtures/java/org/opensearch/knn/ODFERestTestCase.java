@@ -39,7 +39,6 @@ import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestClientBuilder;
-import org.opensearch.common.Strings;
 import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -263,7 +262,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
             .endObject()
             .endObject();
 
-        request.setJsonEntity(Strings.toString(matchAllDocsQuery));
+        request.setJsonEntity(matchAllDocsQuery.toString());
         adminClient().performRequest(request);
     }
 

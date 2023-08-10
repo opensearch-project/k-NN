@@ -18,9 +18,11 @@ public class KNNConstants {
     public static final String METHOD_PARAMETER_EF_SEARCH = "ef_search";
     public static final String METHOD_PARAMETER_EF_CONSTRUCTION = "ef_construction";
     public static final String METHOD_PARAMETER_M = "m";
+    public static final String METHOD_PARAMETER_R = "r";
     public static final String METHOD_IVF = "ivf";
     public static final String METHOD_PARAMETER_NLIST = "nlist";
     public static final String METHOD_PARAMETER_SPACE_TYPE = "space_type"; // used for mapping parameter
+    public static final String METHOD_NSG = "nsg";
     public static final String COMPOUND_EXTENSION = "c";
     public static final String MODEL = "model";
     public static final String MODELS = "models";
@@ -77,9 +79,11 @@ public class KNNConstants {
     public static final String ENCODER_PARAMETER_PQ_M = "m";
     public static final String ENCODER_PARAMETER_PQ_CODE_SIZE = "code_size";
     public static final String FAISS_HNSW_DESCRIPTION = "HNSW";
+    public static final String FAISS_NSG_DESCRIPTION = "NSG";
     public static final String FAISS_IVF_DESCRIPTION = "IVF";
     public static final String FAISS_FLAT_DESCRIPTION = "Flat";
     public static final String FAISS_PQ_DESCRIPTION = "PQ";
+    public static final Integer FAISS_NSG_MIN_DOC_TO_FLAT = 256;
 
     // Parameter defaults/limits
     public static final Integer ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT = 1;

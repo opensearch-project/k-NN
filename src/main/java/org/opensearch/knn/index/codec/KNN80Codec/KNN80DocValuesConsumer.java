@@ -50,6 +50,11 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.apache.lucene.codecs.CodecUtil.FOOTER_MAGIC;
+import static org.opensearch.knn.common.KNNConstants.FAISS_FLAT_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.FAISS_NSG_MIN_DOC_TO_FLAT;
+import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_NSG;
+import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
@@ -188,6 +193,24 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
         // Used to determine how many threads to use when indexing
         parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
+        Object name = parameters.get(NAME);
+        if (name != null && name.equals(METHOD_NSG)) {
+            /**
+             * TODO:
+             * Search params not supported for the NSG index
+             */
+            if (parameters.containsKey(PARAMETERS)) {
+                parameters.remove(PARAMETERS);
+            }
+            /** TODO:
+             * when numIds is too small, NSG graph would core/throw exception
+             * because There are too much invalid entries in the knn graph.
+             */
+            if (pair.docs.length < FAISS_NSG_MIN_DOC_TO_FLAT) {
+                parameters.put(INDEX_DESCRIPTION_PARAMETER, FAISS_FLAT_DESCRIPTION);
+            }
+        }
+        log.debug(String.format("docSize:[%d], parameters:[%s]", pair.docs.length, parameters.toString()));
 
         // Pass the path for the nms library to save the file
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {

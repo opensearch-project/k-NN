@@ -19,7 +19,6 @@ import org.opensearch.client.Response;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.client.ResponseException;
-import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNResult;
@@ -85,7 +84,7 @@ public class NmslibIT extends KNNRestTestCase {
             .endObject();
 
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
 
         createKnnIndex(indexName, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
@@ -187,25 +186,24 @@ public class NmslibIT extends KNNRestTestCase {
             int efConstruction = 14;
             int m = 13;
 
-            String mapping = Strings.toString(
-                XContentFactory.jsonBuilder()
-                    .startObject()
-                    .startObject("properties")
-                    .startObject(FIELD_NAME)
-                    .field("type", "knn_vector")
-                    .field("dimension", 2)
-                    .startObject(KNNConstants.KNN_METHOD)
-                    .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType)
-                    .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-                    .startObject(KNNConstants.PARAMETERS)
-                    .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
-                    .field(KNNConstants.METHOD_PARAMETER_M, m)
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .endObject()
-            );
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(FIELD_NAME)
+                .field("type", "knn_vector")
+                .field("dimension", 2)
+                .startObject(KNNConstants.KNN_METHOD)
+                .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType)
+                .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+                .startObject(KNNConstants.PARAMETERS)
+                .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
+                .field(KNNConstants.METHOD_PARAMETER_M, m)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
 
             createKnnIndex(INDEX_NAME, settings, mapping);
 
@@ -243,25 +241,24 @@ public class NmslibIT extends KNNRestTestCase {
                 .put("index.knn.algo_param.ef_construction", efConstruction1)
                 .build();
 
-            String mapping = Strings.toString(
-                XContentFactory.jsonBuilder()
-                    .startObject()
-                    .startObject("properties")
-                    .startObject(FIELD_NAME)
-                    .field("type", "knn_vector")
-                    .field("dimension", 2)
-                    .startObject(KNNConstants.KNN_METHOD)
-                    .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType1)
-                    .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-                    .startObject(KNNConstants.PARAMETERS)
-                    .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction1)
-                    .field(KNNConstants.METHOD_PARAMETER_M, m1)
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .endObject()
-            );
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(FIELD_NAME)
+                .field("type", "knn_vector")
+                .field("dimension", 2)
+                .startObject(KNNConstants.KNN_METHOD)
+                .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType1)
+                .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+                .startObject(KNNConstants.PARAMETERS)
+                .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction1)
+                .field(KNNConstants.METHOD_PARAMETER_M, m1)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
 
             createKnnIndex(INDEX_NAME + "1", settings, mapping);
             Float[] vector = { 6.0f, 6.0f };
@@ -271,37 +268,36 @@ public class NmslibIT extends KNNRestTestCase {
             int efConstruction2 = 114;
             int m2 = 113;
 
-            mapping = Strings.toString(
-                XContentFactory.jsonBuilder()
-                    .startObject()
-                    .startObject("properties")
-                    .startObject(FIELD_NAME + "1")
-                    .field("type", "knn_vector")
-                    .field("dimension", 2)
-                    .startObject(KNNConstants.KNN_METHOD)
-                    .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType1)
-                    .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-                    .startObject(KNNConstants.PARAMETERS)
-                    .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction1)
-                    .field(KNNConstants.METHOD_PARAMETER_M, m1)
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .startObject(FIELD_NAME + "2")
-                    .field("type", "knn_vector")
-                    .field("dimension", 2)
-                    .startObject(KNNConstants.KNN_METHOD)
-                    .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType2)
-                    .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-                    .startObject(KNNConstants.PARAMETERS)
-                    .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction2)
-                    .field(KNNConstants.METHOD_PARAMETER_M, m2)
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .endObject()
-            );
+            mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(FIELD_NAME + "1")
+                .field("type", "knn_vector")
+                .field("dimension", 2)
+                .startObject(KNNConstants.KNN_METHOD)
+                .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType1)
+                .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+                .startObject(KNNConstants.PARAMETERS)
+                .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction1)
+                .field(KNNConstants.METHOD_PARAMETER_M, m1)
+                .endObject()
+                .endObject()
+                .endObject()
+                .startObject(FIELD_NAME + "2")
+                .field("type", "knn_vector")
+                .field("dimension", 2)
+                .startObject(KNNConstants.KNN_METHOD)
+                .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType2)
+                .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+                .startObject(KNNConstants.PARAMETERS)
+                .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction2)
+                .field(KNNConstants.METHOD_PARAMETER_M, m2)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
 
             createKnnIndex(INDEX_NAME + "2", settings, mapping);
             addKnnDoc(INDEX_NAME + "2", "1", FIELD_NAME, vector);
@@ -330,23 +326,22 @@ public class NmslibIT extends KNNRestTestCase {
     public void testInvalidIndexHnswAlgoParams_mapping() throws IOException {
         Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).build();
 
-        String mapping = Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(FIELD_NAME)
-                .field("type", "knn_vector")
-                .field("dimension", 2)
-                .startObject(KNNConstants.KNN_METHOD)
-                .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-                .startObject(KNNConstants.PARAMETERS)
-                .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, "-1")
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-        );
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", 2)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+            .startObject(KNNConstants.PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, "-1")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
 
         expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, settings, mapping));
     }
@@ -354,23 +349,22 @@ public class NmslibIT extends KNNRestTestCase {
     public void testInvalidIndexHnswAlgoParams_mappingAndSettings() throws IOException {
         Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).put("index.knn.algo_param.m", "-1").build();
 
-        String mapping = Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(FIELD_NAME)
-                .field("type", "knn_vector")
-                .field("dimension", 2)
-                .startObject(KNNConstants.KNN_METHOD)
-                .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
-                .startObject(KNNConstants.PARAMETERS)
-                .field(KNNConstants.METHOD_PARAMETER_M, "-1")
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-                .endObject()
-        );
+        String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", 2)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
+            .startObject(KNNConstants.PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, "-1")
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
 
         expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, settings, mapping));
     }

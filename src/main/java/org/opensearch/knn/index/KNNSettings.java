@@ -79,6 +79,7 @@ public class KNNSettings {
      */
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE = "l2";
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_M = 16;
+    public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_R = 32;
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH = 512;
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION = 512;
     public static final Integer KNN_DEFAULT_ALGO_PARAM_INDEX_THREAD_QTY = 1;

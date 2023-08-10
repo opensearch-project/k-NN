@@ -65,9 +65,9 @@ public class TrainingJobRouteDecisionInfoNodeResponseTests extends KNNTestCase {
         // "training_job_count": 13
         // }
         XContentBuilder expectedXContentBuilder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(TRAINING_JOB_COUNT_FIELD_NAME, trainingJobCount)
-            .endObject();
+                .startObject()
+                .field(TRAINING_JOB_COUNT_FIELD_NAME, trainingJobCount)
+                .endObject();
 
         Map<String, Object> expected = xContentBuilderToMap(expectedXContentBuilder);
 

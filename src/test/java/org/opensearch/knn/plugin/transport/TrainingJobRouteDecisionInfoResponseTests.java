@@ -46,8 +46,8 @@ public class TrainingJobRouteDecisionInfoResponseTests extends KNNTestCase {
         DiscoveryNode discoveryNode1 = new DiscoveryNode(node1Id, new TransportAddress(inetAddress1, 9200), Version.CURRENT);
         Integer trainingJobCount1 = 1;
         TrainingJobRouteDecisionInfoNodeResponse nodeResponse1 = new TrainingJobRouteDecisionInfoNodeResponse(
-            discoveryNode1,
-            trainingJobCount1
+                discoveryNode1,
+                trainingJobCount1
         );
 
         InetAddress inetAddress2 = InetAddresses.fromInteger(randomInt());
@@ -55,8 +55,8 @@ public class TrainingJobRouteDecisionInfoResponseTests extends KNNTestCase {
         DiscoveryNode discoveryNode2 = new DiscoveryNode(node2Id, new TransportAddress(inetAddress2, 9200), Version.CURRENT);
         Integer trainingJobCount2 = 2;
         TrainingJobRouteDecisionInfoNodeResponse nodeResponse2 = new TrainingJobRouteDecisionInfoNodeResponse(
-            discoveryNode2,
-            trainingJobCount2
+                discoveryNode2,
+                trainingJobCount2
         );
 
         InetAddress inetAddress3 = InetAddresses.fromInteger(randomInt());
@@ -64,8 +64,8 @@ public class TrainingJobRouteDecisionInfoResponseTests extends KNNTestCase {
         DiscoveryNode discoveryNode3 = new DiscoveryNode(node3Id, new TransportAddress(inetAddress3, 9200), Version.CURRENT);
         Integer trainingJobCount3 = 3;
         TrainingJobRouteDecisionInfoNodeResponse nodeResponse3 = new TrainingJobRouteDecisionInfoNodeResponse(
-            discoveryNode3,
-            trainingJobCount3
+                discoveryNode3,
+                trainingJobCount3
         );
 
         List<TrainingJobRouteDecisionInfoNodeResponse> nodeResponses = ImmutableList.of(nodeResponse1, nodeResponse2, nodeResponse3);
@@ -76,9 +76,9 @@ public class TrainingJobRouteDecisionInfoResponseTests extends KNNTestCase {
         BytesStreamOutput streamOutput = new BytesStreamOutput();
 
         TrainingJobRouteDecisionInfoResponse original = new TrainingJobRouteDecisionInfoResponse(
-            ClusterName.DEFAULT,
-            nodeResponses,
-            failedNodeExceptions
+                ClusterName.DEFAULT,
+                nodeResponses,
+                failedNodeExceptions
         );
 
         original.writeTo(streamOutput);
@@ -101,8 +101,8 @@ public class TrainingJobRouteDecisionInfoResponseTests extends KNNTestCase {
         when(discoveryNode1.getId()).thenReturn(id1);
         Integer trainingJobCount1 = 1;
         TrainingJobRouteDecisionInfoNodeResponse nodeResponse1 = new TrainingJobRouteDecisionInfoNodeResponse(
-            discoveryNode1,
-            trainingJobCount1
+                discoveryNode1,
+                trainingJobCount1
         );
 
         String id2 = "id_2";
@@ -110,8 +110,8 @@ public class TrainingJobRouteDecisionInfoResponseTests extends KNNTestCase {
         when(discoveryNode2.getId()).thenReturn(id2);
         Integer trainingJobCount2 = 2;
         TrainingJobRouteDecisionInfoNodeResponse nodeResponse2 = new TrainingJobRouteDecisionInfoNodeResponse(
-            discoveryNode2,
-            trainingJobCount2
+                discoveryNode2,
+                trainingJobCount2
         );
 
         String id3 = "id_3";
@@ -119,8 +119,8 @@ public class TrainingJobRouteDecisionInfoResponseTests extends KNNTestCase {
         when(discoveryNode3.getId()).thenReturn(id3);
         Integer trainingJobCount3 = 3;
         TrainingJobRouteDecisionInfoNodeResponse nodeResponse3 = new TrainingJobRouteDecisionInfoNodeResponse(
-            discoveryNode3,
-            trainingJobCount3
+                discoveryNode3,
+                trainingJobCount3
         );
 
         // We expect this:
@@ -138,19 +138,19 @@ public class TrainingJobRouteDecisionInfoResponseTests extends KNNTestCase {
         // }
         // }
         XContentBuilder expectedXContentBuilder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject(NODES_KEY)
-            .startObject(id1)
-            .field(TRAINING_JOB_COUNT_FIELD_NAME, trainingJobCount1)
-            .endObject()
-            .startObject(id2)
-            .field(TRAINING_JOB_COUNT_FIELD_NAME, trainingJobCount2)
-            .endObject()
-            .startObject(id3)
-            .field(TRAINING_JOB_COUNT_FIELD_NAME, trainingJobCount3)
-            .endObject()
-            .endObject()
-            .endObject();
+                .startObject()
+                .startObject(NODES_KEY)
+                .startObject(id1)
+                .field(TRAINING_JOB_COUNT_FIELD_NAME, trainingJobCount1)
+                .endObject()
+                .startObject(id2)
+                .field(TRAINING_JOB_COUNT_FIELD_NAME, trainingJobCount2)
+                .endObject()
+                .startObject(id3)
+                .field(TRAINING_JOB_COUNT_FIELD_NAME, trainingJobCount3)
+                .endObject()
+                .endObject()
+                .endObject();
         Map<String, Object> expected = xContentBuilderToMap(expectedXContentBuilder);
 
         // Configure response
@@ -159,9 +159,9 @@ public class TrainingJobRouteDecisionInfoResponseTests extends KNNTestCase {
         List<FailedNodeException> failedNodeExceptions = Collections.emptyList();
 
         TrainingJobRouteDecisionInfoResponse response = new TrainingJobRouteDecisionInfoResponse(
-            ClusterName.DEFAULT,
-            nodeResponses,
-            failedNodeExceptions
+                ClusterName.DEFAULT,
+                nodeResponses,
+                failedNodeExceptions
         );
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject();

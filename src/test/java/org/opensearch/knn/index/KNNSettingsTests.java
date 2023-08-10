@@ -37,13 +37,13 @@ public class KNNSettingsTests extends KNNTestCase {
     public void testGetSettingValueFromConfig() {
         long expectedKNNCircuitBreakerLimit = 13;
         Node mockNode = createMockNode(
-            Map.of(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT, "\"" + expectedKNNCircuitBreakerLimit + "kb\"")
+                Map.of(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT, "\"" + expectedKNNCircuitBreakerLimit + "kb\"")
         );
         mockNode.start();
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
         KNNSettings.state().setClusterService(clusterService);
         long actualKNNCircuitBreakerLimit = ((ByteSizeValue) KNNSettings.state()
-            .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
+                .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
         mockNode.close();
         assertEquals(expectedKNNCircuitBreakerLimit, actualKNNCircuitBreakerLimit);
     }
@@ -55,12 +55,12 @@ public class KNNSettingsTests extends KNNTestCase {
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
         KNNSettings.state().setClusterService(clusterService);
         long actualKNNCircuitBreakerLimit = ((ByteSizeValue) KNNSettings.state()
-            .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
+                .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
         mockNode.close();
         assertEquals(
-            ((ByteSizeValue) KNNSettings.dynamicCacheSettings.get(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT).getDefault(Settings.EMPTY))
-                .getKb(),
-            actualKNNCircuitBreakerLimit
+                ((ByteSizeValue) KNNSettings.dynamicCacheSettings.get(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT).getDefault(Settings.EMPTY))
+                        .getKb(),
+                actualKNNCircuitBreakerLimit
 
         );
     }
@@ -88,9 +88,9 @@ public class KNNSettingsTests extends KNNTestCase {
     private static Settings.Builder baseSettings() {
         final Path tempDir = createTempDir();
         return Settings.builder()
-            .put(ClusterName.CLUSTER_NAME_SETTING.getKey(), InternalTestCluster.clusterName("single-node-cluster", randomLong()))
-            .put(Environment.PATH_HOME_SETTING.getKey(), tempDir)
-            .put(NetworkModule.TRANSPORT_TYPE_KEY, getTestTransportType())
-            .put(dataNode());
+                .put(ClusterName.CLUSTER_NAME_SETTING.getKey(), InternalTestCluster.clusterName("single-node-cluster", randomLong()))
+                .put(Environment.PATH_HOME_SETTING.getKey(), tempDir)
+                .put(NetworkModule.TRANSPORT_TYPE_KEY, getTestTransportType())
+                .put(dataNode());
     }
 }
