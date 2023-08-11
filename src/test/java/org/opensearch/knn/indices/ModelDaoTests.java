@@ -17,7 +17,7 @@ import org.junit.BeforeClass;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.ResourceNotFoundException;
-import org.opensearch.action.ActionListener;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.DocWriteResponse;
 import org.opensearch.action.StepListener;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;

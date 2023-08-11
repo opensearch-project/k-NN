@@ -12,7 +12,7 @@
 package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
-import org.opensearch.action.ActionListener;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
