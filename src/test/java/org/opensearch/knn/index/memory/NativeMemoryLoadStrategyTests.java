@@ -12,7 +12,7 @@
 package org.opensearch.knn.index.memory;
 
 import com.google.common.collect.ImmutableMap;
-import org.opensearch.action.ActionListener;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
