@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import lombok.SneakyThrows;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlockException;
@@ -16,9 +17,7 @@ import org.opensearch.index.IndexService;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 
-import java.io.IOException;
 import java.util.EnumSet;
-import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -27,7 +26,8 @@ public class ClearCacheTransportActionTests extends KNNSingleNodeTestCase {
     private static final String TEST_FIELD = "test-field";
     private static final int DIMENSIONS = 2;
 
-    public void testShardOperation() throws IOException, ExecutionException, InterruptedException {
+    @SneakyThrows
+    public void testShardOperation() {
         String testIndex = getTestName().toLowerCase();
         KNNWarmupRequest knnWarmupRequest = new KNNWarmupRequest(testIndex);
         KNNWarmupTransportAction knnWarmupTransportAction = node().injector().getInstance(KNNWarmupTransportAction.class);
@@ -47,7 +47,8 @@ public class ClearCacheTransportActionTests extends KNNSingleNodeTestCase {
         assertEquals(0, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().size());
     }
 
-    public void testShards() throws InterruptedException, ExecutionException, IOException {
+    @SneakyThrows
+    public void testShards() {
         String testIndex = getTestName().toLowerCase();
         ClusterService clusterService = node().injector().getInstance(ClusterService.class);
         ClearCacheTransportAction clearCacheTransportAction = node().injector().getInstance(ClearCacheTransportAction.class);

@@ -5,9 +5,8 @@
 
 package org.opensearch.knn.index;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.FilterLeafReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
@@ -40,12 +39,11 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileSu
 /**
  * KNNIndexShard wraps IndexShard and adds methods to perform k-NN related operations against the shard
  */
+@Log4j2
 public class KNNIndexShard {
     private IndexShard indexShard;
     private NativeMemoryCacheManager nativeMemoryCacheManager;
     private static final String INDEX_SHARD_CLEAR_CACHE_SEARCHER = "knn-clear-cache";
-
-    private static Logger logger = LogManager.getLogger(KNNIndexShard.class);
 
     /**
      * Constructor to generate KNNIndexShard. We do not perform validation that the index the shard is from
@@ -83,7 +81,7 @@ public class KNNIndexShard {
      * @throws IOException Thrown when getting the HNSW Paths to be loaded in
      */
     public void warmup() throws IOException {
-        logger.info("[KNN] Warming up index: " + getIndexName());
+        log.info("[KNN] Warming up index: [{}]", getIndexName());
         try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-warmup")) {
             getAllEnginePaths(searcher.getIndexReader()).forEach((key, value) -> {
                 try {
@@ -117,12 +115,11 @@ public class KNNIndexShard {
         if (indexAllocationOptional.isPresent()) {
             indexAllocation = indexAllocationOptional.get();
             indexAllocation.writeLock();
-            logger.info("[KNN] Evicting index from cache: [{}]", indexName);
+            log.info("[KNN] Evicting index from cache: [{}]", indexName);
             try (Engine.Searcher searcher = indexShard.acquireSearcher(INDEX_SHARD_CLEAR_CACHE_SEARCHER)) {
                 getAllEnginePaths(searcher.getIndexReader()).forEach((key, value) -> nativeMemoryCacheManager.invalidate(key));
             } catch (IOException ex) {
-                logger.error("[KNN] Failed to evict index from cache: [{}]", indexName);
-                logger.error(ex.getMessage());
+                log.error("[KNN] Failed to evict index from cache: [{}]", indexName, ex);
                 throw new RuntimeException(ex);
             } finally {
                 indexAllocation.writeUnlock();

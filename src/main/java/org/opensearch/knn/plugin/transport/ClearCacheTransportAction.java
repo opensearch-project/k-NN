@@ -5,10 +5,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.action.support.ActionFilters;
-import org.opensearch.core.action.support.DefaultShardOperationFailedException;
 import org.opensearch.action.support.broadcast.node.TransportBroadcastByNodeAction;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.block.ClusterBlockException;
@@ -18,6 +15,7 @@ import org.opensearch.cluster.routing.ShardRouting;
 import org.opensearch.cluster.routing.ShardsIterator;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.core.action.support.DefaultShardOperationFailedException;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.index.Index;
 import org.opensearch.index.IndexService;
@@ -39,8 +37,6 @@ public class ClearCacheTransportAction extends TransportBroadcastByNodeAction<
     ClearCacheRequest,
     ClearCacheResponse,
     TransportBroadcastByNodeAction.EmptyResult> {
-
-    public static Logger logger = LogManager.getLogger(ClearCacheTransportAction.class);
 
     private IndicesService indicesService;
 

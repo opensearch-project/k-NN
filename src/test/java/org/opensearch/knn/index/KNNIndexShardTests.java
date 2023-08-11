@@ -7,6 +7,7 @@ package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import lombok.SneakyThrows;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.engine.Engine;
@@ -153,7 +154,8 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         included.keySet().forEach(o -> assertTrue(includedFileNames.contains(o)));
     }
 
-    public void testClearCache_emptyIndex() throws IOException {
+    @SneakyThrows
+    public void testClearCache_emptyIndex() {
         IndexService indexService = createKNNIndex(testIndexName);
         createKnnIndexMapping(testIndexName, testFieldName, dimensions);
 
@@ -163,7 +165,8 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         assertNull(NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName));
     }
 
-    public void testClearCache_shardPresentInCache() throws InterruptedException, ExecutionException, IOException {
+    @SneakyThrows
+    public void testClearCache_shardPresentInCache() {
         IndexService indexService = createKNNIndex(testIndexName);
         createKnnIndexMapping(testIndexName, testFieldName, dimensions);
         addKnnDoc(testIndexName, String.valueOf(randomInt()), testFieldName, new Float[] { randomFloat(), randomFloat() });

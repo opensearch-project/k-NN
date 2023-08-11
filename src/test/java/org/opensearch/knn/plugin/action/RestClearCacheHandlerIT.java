@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin.action;
 
+import lombok.SneakyThrows;
 import org.opensearch.client.Request;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.settings.Settings;
@@ -12,7 +13,6 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.rest.RestRequest;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -27,7 +27,8 @@ public class RestClearCacheHandlerIT extends KNNRestTestCase {
     private static final int DIMENSIONS = 2;
     private static final String ALL_INDICES = "_all";
 
-    public void testNonExistentIndex() throws IOException {
+    @SneakyThrows
+    public void testNonExistentIndex() {
         String nonExistentIndex = "non-existent-index";
 
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, CLEAR_CACHE, nonExistentIndex);
@@ -37,7 +38,8 @@ public class RestClearCacheHandlerIT extends KNNRestTestCase {
         assertTrue(ex.getMessage().contains(nonExistentIndex));
     }
 
-    public void testNotKnnIndex() throws IOException {
+    @SneakyThrows
+    public void testNotKnnIndex() {
         String notKNNIndex = "not-knn-index";
         createIndex(notKNNIndex, Settings.EMPTY);
 
@@ -48,7 +50,8 @@ public class RestClearCacheHandlerIT extends KNNRestTestCase {
         assertTrue(ex.getMessage().contains(notKNNIndex));
     }
 
-    public void testClearCacheSingleIndex() throws Exception {
+    @SneakyThrows
+    public void testClearCacheSingleIndex() {
         String testIndex = getTestName().toLowerCase();
         int graphCountBefore = getTotalGraphsInCache();
         createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
@@ -62,7 +65,8 @@ public class RestClearCacheHandlerIT extends KNNRestTestCase {
         assertEquals(graphCountBefore, getTotalGraphsInCache());
     }
 
-    public void testClearCacheMultipleIndices() throws Exception {
+    @SneakyThrows
+    public void testClearCacheMultipleIndices() {
         String testIndex1 = getTestName().toLowerCase();
         String testIndex2 = getTestName().toLowerCase() + 1;
         int graphCountBefore = getTotalGraphsInCache();
@@ -81,7 +85,8 @@ public class RestClearCacheHandlerIT extends KNNRestTestCase {
         assertEquals(graphCountBefore, getTotalGraphsInCache());
     }
 
-    public void testClearCacheMultipleIndicesWithPatterns() throws Exception {
+    @SneakyThrows
+    public void testClearCacheMultipleIndicesWithPatterns() {
         String testIndex1 = getTestName().toLowerCase();
         String testIndex2 = getTestName().toLowerCase() + 1;
         String testIndex3 = "abc" + getTestName().toLowerCase();

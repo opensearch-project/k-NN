@@ -7,8 +7,7 @@ package org.opensearch.knn.plugin.rest;
 
 import com.google.common.collect.ImmutableList;
 import lombok.AllArgsConstructor;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
@@ -35,9 +34,8 @@ import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
  * RestHandler for k-NN Clear Cache API. API provides the ability for a user to evict those indices from Cache.
  */
 @AllArgsConstructor
+@Log4j2
 public class RestClearCacheHandler extends BaseRestHandler {
-    private static final Logger logger = LogManager.getLogger(RestClearCacheHandler.class);
-
     private static final String INDEX = "index";
     public static String NAME = "knn_clear_cache_action";
     private final ClusterService clusterService;
@@ -69,7 +67,7 @@ public class RestClearCacheHandler extends BaseRestHandler {
     @Override
     protected RestChannelConsumer prepareRequest(RestRequest request, NodeClient client) {
         ClearCacheRequest clearCacheRequest = createClearCacheRequest(request);
-        logger.info("[KNN] ClearCache started for the following indices: [{}]", String.join(",", clearCacheRequest.indices()));
+        log.info("[KNN] ClearCache started for the following indices: [{}]", String.join(",", clearCacheRequest.indices()));
         return channel -> client.execute(ClearCacheAction.INSTANCE, clearCacheRequest, new RestToXContentListener<>(channel));
     }
 
