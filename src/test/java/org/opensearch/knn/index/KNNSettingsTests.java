@@ -63,6 +63,13 @@ public class KNNSettingsTests extends KNNTestCase {
             actualKNNCircuitBreakerLimit
 
         );
+        // set warning for deprecation of index.store.hybrid.mmap.extensions as expected temporarily, need to work on proper strategy of
+        // switching to new setting in core
+        // no-jdk distributions expected warning is a workaround for running tests locally
+        assertWarnings(
+            "[index.store.hybrid.mmap.extensions] setting was deprecated in OpenSearch and will be removed in a future release! See the breaking changes documentation for the next major version.",
+            "no-jdk distributions that do not bundle a JDK are deprecated and will be removed in a future release"
+        );
     }
 
     private Node createMockNode(Map<String, Object> configSettings) throws IOException {

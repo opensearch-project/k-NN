@@ -12,7 +12,7 @@
 package org.opensearch.knn.plugin.transport;
 
 import lombok.extern.log4j.Log4j2;
-import org.opensearch.action.ActionListener;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.common.inject.Inject;
