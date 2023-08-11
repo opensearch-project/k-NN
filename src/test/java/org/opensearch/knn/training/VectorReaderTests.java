@@ -11,7 +11,7 @@
 
 package org.opensearch.knn.training;
 
-import org.opensearch.action.ActionListener;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ValidationException;

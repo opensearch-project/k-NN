@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.opensearch.action.ActionListener;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.common.io.stream.BytesStreamOutput;

@@ -8,6 +8,7 @@ package org.opensearch.knn.plugin;
 import org.opensearch.cluster.NamedDiff;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.core.ParseField;
+import org.opensearch.core.action.ActionResponse;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.indices.SystemIndexDescriptor;
@@ -43,7 +44,6 @@ import org.opensearch.knn.plugin.transport.KNNWarmupTransportAction;
 import com.google.common.collect.ImmutableList;
 
 import org.opensearch.action.ActionRequest;
-import org.opensearch.action.ActionResponse;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNodes;

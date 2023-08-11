@@ -13,7 +13,7 @@ package org.opensearch.knn.plugin.transport;
 
 import com.google.common.collect.ImmutableList;
 import org.apache.lucene.search.TotalHits;
-import org.opensearch.action.ActionListener;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.client.Client;
