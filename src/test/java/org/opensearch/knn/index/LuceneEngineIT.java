@@ -16,7 +16,6 @@ import org.junit.After;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
-import org.opensearch.common.Strings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.query.QueryBuilders;
@@ -101,7 +100,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
 
         createIndex(INDEX_NAME, getKNNDefaultIndexSettings());
 
@@ -179,7 +178,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject()
             .endObject()
             .endObject();
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
         createKnnIndex(INDEX_NAME, mapping);
 
         for (int i = 0; i < TEST_INDEX_VECTORS.length; i++) {
@@ -219,7 +218,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject();
 
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
 
         createKnnIndex(INDEX_NAME, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(INDEX_NAME)));
@@ -305,7 +304,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
         createKnnIndex(INDEX_NAME, mapping);
 
         addKnnDocWithAttributes(
@@ -371,7 +370,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
         createKnnIndex(INDEX_NAME, mapping);
     }
 

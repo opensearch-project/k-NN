@@ -11,7 +11,6 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -41,6 +40,6 @@ public class DeleteModelResponseTests extends KNNTestCase {
         String expectedResponseString = "{\"model_id\":\"test-model\",\"result\":\"deleted\"}";
         XContentBuilder xContentBuilder = MediaTypeRegistry.contentBuilder(XContentType.JSON);
         deleteModelResponse.toXContent(xContentBuilder, null);
-        assertEquals(expectedResponseString, Strings.toString(xContentBuilder));
+        assertEquals(expectedResponseString, xContentBuilder.toString());
     }
 }

@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.bwc;
 
-import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.SpaceType;
 
@@ -96,21 +95,20 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     // test null parameters
     public void testNullParametersOnUpgrade() throws Exception {
         if (isRunningAgainstOldCluster()) {
-            String mapping = Strings.toString(
-                XContentFactory.jsonBuilder()
-                    .startObject()
-                    .startObject(PROPERTIES)
-                    .startObject(TEST_FIELD)
-                    .field(VECTOR_TYPE, KNN_VECTOR)
-                    .field(DIMENSION, String.valueOf(DIMENSIONS))
-                    .startObject(KNN_METHOD)
-                    .field(NAME, METHOD_HNSW)
-                    .field(PARAMETERS, (String) null)
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .endObject()
-            );
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, String.valueOf(DIMENSIONS))
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .field(PARAMETERS, (String) null)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
 
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
         } else {
@@ -121,21 +119,20 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     // test empty parameters
     public void testEmptyParametersOnUpgrade() throws Exception {
         if (isRunningAgainstOldCluster()) {
-            String mapping = Strings.toString(
-                XContentFactory.jsonBuilder()
-                    .startObject()
-                    .startObject(PROPERTIES)
-                    .startObject(TEST_FIELD)
-                    .field(VECTOR_TYPE, KNN_VECTOR)
-                    .field(DIMENSION, String.valueOf(DIMENSIONS))
-                    .startObject(KNN_METHOD)
-                    .field(NAME, METHOD_HNSW)
-                    .field(PARAMETERS, "")
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .endObject()
-            );
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, String.valueOf(DIMENSIONS))
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .field(PARAMETERS, "")
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
 
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
         } else {
@@ -146,20 +143,19 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
     // test no parameters
     public void testNoParametersOnUpgrade() throws Exception {
         if (isRunningAgainstOldCluster()) {
-            String mapping = Strings.toString(
-                XContentFactory.jsonBuilder()
-                    .startObject()
-                    .startObject(PROPERTIES)
-                    .startObject(TEST_FIELD)
-                    .field(VECTOR_TYPE, KNN_VECTOR)
-                    .field(DIMENSION, String.valueOf(DIMENSIONS))
-                    .startObject(KNN_METHOD)
-                    .field(NAME, METHOD_HNSW)
-                    .endObject()
-                    .endObject()
-                    .endObject()
-                    .endObject()
-            );
+            String mapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject(PROPERTIES)
+                .startObject(TEST_FIELD)
+                .field(VECTOR_TYPE, KNN_VECTOR)
+                .field(DIMENSION, String.valueOf(DIMENSIONS))
+                .startObject(KNN_METHOD)
+                .field(NAME, METHOD_HNSW)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
 
             createKnnIndex(testIndex, getKNNDefaultIndexSettings(), mapping);
         } else {
