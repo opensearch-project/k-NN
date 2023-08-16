@@ -26,7 +26,7 @@ git submodule update --init -- jni/external/faiss
 #  #ifndef __MINGW32__
 #    #include <sys/mman.h>
 #  #endif
-(Get-Content jni/external/faiss/faiss/OnDiskInvertedLists.cpp).replace('#include <sys/mman.h>', "#ifndef __MINGW32__`n#include <sys/mman.h>`n#endif") | Set-Content jni/external/faiss/faiss/OnDiskInvertedLists.cpp
+(Get-Content jni/external/faiss/faiss/invlists/OnDiskInvertedLists.cpp).replace('#include <sys/mman.h>', "#ifndef __MINGW32__`n#include <sys/mman.h>`n#endif") | Set-Content jni/external/faiss/faiss/invlists/OnDiskInvertedLists.cpp
 # intrin.h function like __builtin_ctz, __builtin_clzll is not available in MINGW32. So, adding condition to include it if not running on Windows
 # Replace '#include <intrin.h>' with
 #  #ifndef __MINGW32__
