@@ -22,3 +22,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Maintenance
 * Update Guava Version to 32.0.1 [#1019](https://github.com/opensearch-project/k-NN/pull/1019)
 ### Refactoring
+* Fix TransportAddress Refactoring Changes in Core [#1020](https://github.com/opensearch-project/k-NN/pull/1020)
