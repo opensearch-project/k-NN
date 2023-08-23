@@ -18,6 +18,7 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.opensearch.Version;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
@@ -283,6 +284,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             spaceType,
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
+        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 
         String parameterString = XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)).toString();
 

@@ -63,7 +63,7 @@ public class KNNMethod {
             );
         }
 
-        ValidationException methodValidation = methodComponent.validate(knnMethodContext.getMethodComponent());
+        ValidationException methodValidation = methodComponent.validate(knnMethodContext.getMethodComponentContext());
         if (methodValidation != null) {
             errorMessages.addAll(methodValidation.validationErrors());
         }
@@ -84,7 +84,7 @@ public class KNNMethod {
      * @return true if training is required; false otherwise
      */
     public boolean isTrainingRequired(KNNMethodContext knnMethodContext) {
-        return methodComponent.isTrainingRequired(knnMethodContext.getMethodComponent());
+        return methodComponent.isTrainingRequired(knnMethodContext.getMethodComponentContext());
     }
 
     /**
@@ -95,7 +95,7 @@ public class KNNMethod {
      * @return estimate overhead in KB
      */
     public int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension) {
-        return methodComponent.estimateOverheadInKB(knnMethodContext.getMethodComponent(), dimension);
+        return methodComponent.estimateOverheadInKB(knnMethodContext.getMethodComponentContext(), dimension);
     }
 
     /**
@@ -105,7 +105,7 @@ public class KNNMethod {
      * @return KNNMethod as a map
      */
     public Map<String, Object> getAsMap(KNNMethodContext knnMethodContext) {
-        Map<String, Object> parameterMap = new HashMap<>(methodComponent.getAsMap(knnMethodContext.getMethodComponent()));
+        Map<String, Object> parameterMap = new HashMap<>(methodComponent.getAsMap(knnMethodContext.getMethodComponentContext()));
         parameterMap.put(KNNConstants.SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
         return parameterMap;
     }

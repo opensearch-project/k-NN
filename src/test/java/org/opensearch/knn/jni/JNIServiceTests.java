@@ -14,6 +14,7 @@ package org.opensearch.knn.jni;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.junit.BeforeClass;
+import org.opensearch.Version;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNTestCase;
@@ -840,6 +841,7 @@ public class JNIServiceTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
         Map<String, Object> parameters = KNNEngine.FAISS.getMethodAsMap(knnMethodContext);
 
         byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, FAISS_NAME);

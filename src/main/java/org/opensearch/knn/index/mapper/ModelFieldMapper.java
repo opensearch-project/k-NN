@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.mapper;
 
 import org.apache.lucene.document.FieldType;
+import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.indices.ModelDao;
@@ -29,9 +30,10 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         boolean stored,
         boolean hasDocValues,
         ModelDao modelDao,
-        String modelId
+        String modelId,
+        Version indexCreatedVersion
     ) {
-        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues);
+        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues, indexCreatedVersion);
 
         this.modelId = modelId;
         this.modelDao = modelDao;

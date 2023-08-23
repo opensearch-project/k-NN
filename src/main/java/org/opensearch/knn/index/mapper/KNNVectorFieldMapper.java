@@ -7,6 +7,7 @@ package org.opensearch.knn.index.mapper;
 
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
+import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 
@@ -79,6 +80,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         return (KNNVectorFieldMapper) in;
     }
 
+    // We store the version of the index with the mapper as different version of Opensearch has different default
+    // values of KNN engine Algorithms hyperparameters.
+    protected Version indexCreatedVersion;
+
     /**
      * Builder for KNNVectorFieldMapper. This class defines the set of parameters that can be applied to the knn_vector
      * field type
@@ -139,7 +144,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             b.startObject(n);
             v.toXContent(b, ToXContent.EMPTY_PARAMS);
             b.endObject();
-        }), m -> m.getMethodComponent().getName()).setValidator(v -> {
+        }), m -> m.getMethodComponentContext().getName()).setValidator(v -> {
             if (v == null) return;
 
             ValidationException validationException = null;
@@ -167,9 +172,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         protected ModelDao modelDao;
 
-        public Builder(String name, ModelDao modelDao) {
+        protected Version indexCreatedVersion;
+
+        public Builder(String name, ModelDao modelDao, Version indexCreatedVersion) {
             super(name);
             this.modelDao = modelDao;
+            this.indexCreatedVersion = indexCreatedVersion;
         }
 
         /**
@@ -181,11 +189,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
          * @param m m value of field
          * @param efConstruction efConstruction value of field
          */
-        public Builder(String name, String spaceType, String m, String efConstruction) {
+        public Builder(String name, String spaceType, String m, String efConstruction, Version indexCreatedVersion) {
             super(name);
             this.spaceType = spaceType;
             this.m = m;
             this.efConstruction = efConstruction;
+            this.indexCreatedVersion = indexCreatedVersion;
         }
 
         @Override
@@ -221,6 +230,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             final Map<String, String> metaValue = meta.getValue();
 
             if (knnMethodContext != null) {
+                knnMethodContext.getMethodComponentContext().setIndexVersion(indexCreatedVersion);
                 final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
                     buildFullName(context),
                     metaValue,
@@ -278,7 +288,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     stored.get(),
                     hasDocValues.get(),
                     modelDao,
-                    modelIdAsString
+                    modelIdAsString,
+                    indexCreatedVersion
                 );
             }
 
@@ -292,7 +303,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
 
             if (this.efConstruction == null) {
-                this.efConstruction = LegacyFieldMapper.getEfConstruction(context.indexSettings());
+                this.efConstruction = LegacyFieldMapper.getEfConstruction(context.indexSettings(), indexCreatedVersion);
             }
 
             // Validates and throws exception if index.knn is set to true in the index settings
@@ -310,7 +321,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 hasDocValues.get(),
                 spaceType,
                 m,
-                efConstruction
+                efConstruction,
+                indexCreatedVersion
             );
         }
 
@@ -346,7 +358,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         @Override
         public Mapper.Builder<?> parse(String name, Map<String, Object> node, ParserContext parserContext) throws MapperParsingException {
-            Builder builder = new KNNVectorFieldMapper.Builder(name, modelDaoSupplier.get());
+            Builder builder = new KNNVectorFieldMapper.Builder(name, modelDaoSupplier.get(), parserContext.indexVersionCreated());
             builder.parse(name, parserContext, node);
 
             // All <a
@@ -460,7 +472,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         CopyTo copyTo,
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
-        boolean hasDocValues
+        boolean hasDocValues,
+        Version indexCreatedVersion
     ) {
         super(simpleName, mappedFieldType, multiFields, copyTo);
         this.ignoreMalformed = ignoreMalformed;
@@ -469,6 +482,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         this.dimension = mappedFieldType.getDimension();
         this.vectorDataType = mappedFieldType.getVectorDataType();
         updateEngineStats();
+        this.indexCreatedVersion = indexCreatedVersion;
     }
 
     public KNNVectorFieldMapper clone() {
@@ -610,7 +624,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     @Override
     public ParametrizedFieldMapper.Builder getMergeBuilder() {
-        return new KNNVectorFieldMapper.Builder(simpleName(), modelDao).init(this);
+        return new KNNVectorFieldMapper.Builder(simpleName(), modelDao, indexCreatedVersion).init(this);
     }
 
     @Override

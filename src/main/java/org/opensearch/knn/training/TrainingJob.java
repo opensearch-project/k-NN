@@ -174,7 +174,7 @@ public class TrainingJob implements Runnable {
             if (trainingDataAllocation.isClosed()) {
                 throw new RuntimeException("Unable to load training data into memory: allocation is already closed");
             }
-
+            setVersionInKnnMethodContext();
             Map<String, Object> trainParameters = model.getModelMetadata().getKnnEngine().getMethodAsMap(knnMethodContext);
             trainParameters.put(
                 KNNConstants.INDEX_THREAD_QTY,
@@ -192,7 +192,7 @@ public class TrainingJob implements Runnable {
             model.setModelBlob(modelBlob);
             modelMetadata.setState(ModelState.CREATED);
         } catch (Exception e) {
-            logger.error("Failed to run training job for model \"" + modelId + "\": " + e.getMessage());
+            logger.error("Failed to run training job for model \"" + modelId + "\": ", e);
             modelMetadata.setState(ModelState.FAILED);
             modelMetadata.setError(
                 "Failed to execute training. May be caused by an invalid method definition or " + "not enough memory to perform training."
@@ -207,5 +207,11 @@ public class TrainingJob implements Runnable {
             nativeMemoryCacheManager.invalidate(trainingDataEntryContext.getKey());
             nativeMemoryCacheManager.invalidate(modelAnonymousEntryContext.getKey());
         }
+    }
+
+    private void setVersionInKnnMethodContext() {
+        // We are picking up the node version here. For more details why we did this please check below conversation
+        // Ref: https://github.com/opensearch-project/k-NN/pull/1353#discussion_r1434428542
+        knnMethodContext.getMethodComponentContext().setIndexVersion(trainingDataEntryContext.getClusterService().localNode().getVersion());
     }
 }
