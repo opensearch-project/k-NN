@@ -46,6 +46,7 @@ public class KNNSettingsTests extends KNNTestCase {
             .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
         mockNode.close();
         assertEquals(expectedKNNCircuitBreakerLimit, actualKNNCircuitBreakerLimit);
+        assertWarnings();
     }
 
     @SneakyThrows
@@ -63,6 +64,10 @@ public class KNNSettingsTests extends KNNTestCase {
             actualKNNCircuitBreakerLimit
 
         );
+        // set warning for deprecation of index.store.hybrid.mmap.extensions as expected temporarily, need to work on proper strategy of
+        // switching to new setting in core
+        // no-jdk distributions expected warning is a workaround for running tests locally
+        assertWarnings();
     }
 
     private Node createMockNode(Map<String, Object> configSettings) throws IOException {
@@ -92,5 +97,15 @@ public class KNNSettingsTests extends KNNTestCase {
             .put(Environment.PATH_HOME_SETTING.getKey(), tempDir)
             .put(NetworkModule.TRANSPORT_TYPE_KEY, getTestTransportType())
             .put(dataNode());
+    }
+
+    private void assertWarnings() {
+        // set warning for deprecation of index.store.hybrid.mmap.extensions as expected temporarily, need to work on proper strategy of
+        // switching to new setting in core
+        // no-jdk distributions expected warning is a workaround for running tests locally
+        assertWarnings(
+            "[index.store.hybrid.mmap.extensions] setting was deprecated in OpenSearch and will be removed in a future release! See the breaking changes documentation for the next major version.",
+            "no-jdk distributions that do not bundle a JDK are deprecated and will be removed in a future release"
+        );
     }
 }
