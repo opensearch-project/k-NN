@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin.script;
 
+import org.apache.lucene.search.IndexSearcher;
 import org.opensearch.knn.index.KNNVectorScriptDocValues;
 import org.apache.lucene.index.LeafReaderContext;
 import org.opensearch.index.fielddata.ScriptDocValues;
@@ -32,9 +33,10 @@ public abstract class KNNScoreScript<T> extends ScoreScript {
         String field,
         BiFunction<T, T, Float> scoringMethod,
         SearchLookup lookup,
-        LeafReaderContext leafContext
+        LeafReaderContext leafContext,
+        IndexSearcher searcher
     ) {
-        super(params, lookup, leafContext);
+        super(params, lookup, searcher, leafContext);
         this.queryValue = queryValue;
         this.field = field;
         this.scoringMethod = scoringMethod;
@@ -51,9 +53,10 @@ public abstract class KNNScoreScript<T> extends ScoreScript {
             String field,
             BiFunction<Long, Long, Float> scoringMethod,
             SearchLookup lookup,
-            LeafReaderContext leafContext
+            LeafReaderContext leafContext,
+            IndexSearcher searcher
         ) {
-            super(params, queryValue, field, scoringMethod, lookup, leafContext);
+            super(params, queryValue, field, scoringMethod, lookup, leafContext, searcher);
         }
 
         /**
@@ -84,9 +87,10 @@ public abstract class KNNScoreScript<T> extends ScoreScript {
             String field,
             BiFunction<BigInteger, BigInteger, Float> scoringMethod,
             SearchLookup lookup,
-            LeafReaderContext leafContext
+            LeafReaderContext leafContext,
+            IndexSearcher searcher
         ) {
-            super(params, queryValue, field, scoringMethod, lookup, leafContext);
+            super(params, queryValue, field, scoringMethod, lookup, leafContext, searcher);
         }
 
         /**
@@ -118,9 +122,10 @@ public abstract class KNNScoreScript<T> extends ScoreScript {
             String field,
             BiFunction<float[], float[], Float> scoringMethod,
             SearchLookup lookup,
-            LeafReaderContext leafContext
+            LeafReaderContext leafContext,
+            IndexSearcher searcher
         ) throws IOException {
-            super(params, queryValue, field, scoringMethod, lookup, leafContext);
+            super(params, queryValue, field, scoringMethod, lookup, leafContext, searcher);
         }
 
         /**

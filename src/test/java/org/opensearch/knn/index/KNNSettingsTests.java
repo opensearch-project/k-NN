@@ -122,30 +122,33 @@ public class KNNSettingsTests extends KNNTestCase {
 
         // validate if we are able to set MinValues for the setting
         final Settings filteredSearchAdvanceSettingsWithMinValues = Settings.builder()
-                .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, userDefinedThresholdMinValue)
-                .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT, userDefinedPctThresholdMinValue)
-                .build();
+            .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, userDefinedThresholdMinValue)
+            .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT, userDefinedPctThresholdMinValue)
+            .build();
 
         mockNode.client()
-                .admin()
-                .indices()
-                .updateSettings(new UpdateSettingsRequest(filteredSearchAdvanceSettingsWithMinValues, INDEX_NAME))
-                .actionGet();
+            .admin()
+            .indices()
+            .updateSettings(new UpdateSettingsRequest(filteredSearchAdvanceSettingsWithMinValues, INDEX_NAME))
+            .actionGet();
 
         int filteredSearchThresholdPctMinValue = KNNSettings.getFilteredExactSearchThresholdPct(INDEX_NAME);
         int filteredSearchThresholdMinValue = KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME);
 
         // Validate if less than MinValues are set then Exception Happens
         final Settings filteredSearchAdvanceSettingsWithLessThanMinValues = Settings.builder()
-                .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, -1)
-                .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT, -1)
-                .build();
+            .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, -1)
+            .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT, -1)
+            .build();
 
-        Assert.assertThrows(IllegalArgumentException.class, () -> mockNode.client()
+        Assert.assertThrows(
+            IllegalArgumentException.class,
+            () -> mockNode.client()
                 .admin()
                 .indices()
                 .updateSettings(new UpdateSettingsRequest(filteredSearchAdvanceSettingsWithLessThanMinValues, INDEX_NAME))
-                .actionGet());
+                .actionGet()
+        );
 
         mockNode.close();
         assertEquals(userDefinedPctThreshold, filteredSearchThresholdPct);
