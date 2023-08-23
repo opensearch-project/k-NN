@@ -105,7 +105,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static java.util.Collections.singletonList;
 import static org.opensearch.knn.common.KNNConstants.KNN_THREAD_POOL_PREFIX;
@@ -348,17 +347,19 @@ public class KNNPlugin extends Plugin
      */
     @Override
     public Settings additionalSettings() {
-        // We add engine specific extensions to the core list for HybridFS store type. We read existing values
-        // and append ours because in core setting will be replaced by override.
+        // We are removing the engine specific file extensions from INDEX_STORE_HYBRID_NIO_EXTENSIONS settings. This
+        // is to ensure that the engine specific files are getting mmaped for best performance. We read existing values
+        // and remove ours because in core setting will be replaced by override.
         // Values are set as cluster defaults and are used at index creation time. Index specific overrides will take priority over values
         // that are set here.
         final List<String> engineSettings = Arrays.stream(KNNEngine.values())
             .flatMap(engine -> engine.mmapFileExtensions().stream())
             .collect(Collectors.toList());
-        final List<String> combinedSettings = Stream.concat(
-            IndexModule.INDEX_STORE_HYBRID_MMAP_EXTENSIONS.getDefault(Settings.EMPTY).stream(),
-            engineSettings.stream()
-        ).collect(Collectors.toList());
-        return Settings.builder().putList(IndexModule.INDEX_STORE_HYBRID_MMAP_EXTENSIONS.getKey(), combinedSettings).build();
+
+        List<String> finalSettings = IndexModule.INDEX_STORE_HYBRID_NIO_EXTENSIONS.getDefault(Settings.EMPTY)
+            .stream()
+            .filter(str -> !engineSettings.contains(str))
+            .collect(Collectors.toList());
+        return Settings.builder().putList(IndexModule.INDEX_STORE_HYBRID_NIO_EXTENSIONS.getKey(), finalSettings).build();
     }
 }
