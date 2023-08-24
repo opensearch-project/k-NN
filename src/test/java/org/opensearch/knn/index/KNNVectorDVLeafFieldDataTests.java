@@ -61,15 +61,12 @@ public class KNNVectorDVLeafFieldDataTests extends KNNTestCase {
         directory.close();
     }
 
-    public void testGetScriptValues() {
-        KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(
-            leafReaderContext.reader(),
-            MOCK_INDEX_FIELD_NAME,
-            VectorDataType.FLOAT
-        );
-        ScriptDocValues<float[]> scriptValues = leafFieldData.getScriptValues();
-        assertNotNull(scriptValues);
-        assertTrue(scriptValues instanceof KNNVectorScriptDocValues);
+    public void testGetScriptValuesFloatVectorDataType() {
+        validateGetScriptValuesWithVectorDataType(VectorDataType.FLOAT);
+    }
+
+    public void testGetScriptValuesByteVectorDataType() {
+        validateGetScriptValuesWithVectorDataType(VectorDataType.BYTE);
     }
 
     public void testGetScriptValuesWrongFieldName() {
@@ -85,6 +82,17 @@ public class KNNVectorDVLeafFieldDataTests extends KNNTestCase {
             VectorDataType.FLOAT
         );
         expectThrows(IllegalStateException.class, () -> leafFieldData.getScriptValues());
+    }
+
+    private void validateGetScriptValuesWithVectorDataType(VectorDataType vectorDataType) {
+        KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(
+            leafReaderContext.reader(),
+            MOCK_INDEX_FIELD_NAME,
+            vectorDataType
+        );
+        ScriptDocValues<float[]> scriptValues = leafFieldData.getScriptValues();
+        assertNotNull(scriptValues);
+        assertTrue(scriptValues instanceof KNNVectorScriptDocValues);
     }
 
     public void testRamBytesUsed() {

@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.mapper;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.ValidationException;
@@ -110,7 +111,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
          * data_type which defines the datatype of the vector values. This is an optional parameter and
          * this is right now only relevant for lucene engine. The default value is float.
          */
-        private final Parameter<VectorDataType> vectorDataType = new Parameter<>(
+        @VisibleForTesting
+        protected final Parameter<VectorDataType> vectorDataType = new Parameter<>(
             VECTOR_DATA_TYPE_FIELD,
             false,
             () -> DEFAULT_VECTOR_DATA_TYPE_FIELD,

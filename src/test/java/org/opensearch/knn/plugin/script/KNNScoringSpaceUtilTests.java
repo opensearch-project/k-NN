@@ -75,4 +75,27 @@ public class KNNScoringSpaceUtilTests extends KNNTestCase {
         String invalidObject = "invalidObject";
         expectThrows(ClassCastException.class, () -> KNNScoringSpaceUtil.parseToFloatArray(invalidObject, 3, VectorDataType.FLOAT));
     }
+
+    public void testParseKNNVectorQueryByteVectorDataType() {
+        float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
+        List<Number> arrayListQueryObject = new ArrayList<>(Arrays.asList(1, 2, 3));
+        KNNVectorFieldMapper.KNNVectorFieldType fieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(fieldType.getDimension()).thenReturn(3);
+        // Query vector is a byte vector, so test should succeed
+        assertArrayEquals(arrayFloat, KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject, 3, VectorDataType.BYTE), 0.1f);
+
+        // Query vector is a float vector for byte vector data type, so test should throw IllegalArgumentException
+        List<Double> arrayListQueryObject1 = new ArrayList<>(Arrays.asList(1.1, 2.56, 3.67));
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject1, 3, VectorDataType.BYTE)
+        );
+
+        // Query vector is not within the byte range for byte vector data type, so test should throw IllegalArgumentException
+        List<Number> arrayListQueryObject2 = new ArrayList<>(Arrays.asList(1000, 2, 3));
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject2, 3, VectorDataType.BYTE)
+        );
+    }
 }

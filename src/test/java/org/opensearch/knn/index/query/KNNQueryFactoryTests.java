@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import org.apache.lucene.index.Term;
+import org.apache.lucene.search.KnnByteVectorQuery;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
@@ -15,6 +16,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Arrays;
@@ -71,6 +73,24 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             );
             assertTrue(query.getClass().isAssignableFrom(KnnFloatVectorQuery.class));
         }
+    }
+
+    public void testCreateLuceneQueryByteVectorDataType() {
+        byte[] byteQueryVector = { 1, 2, 3, 4 };
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.LUCENE)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(null)
+            .byteVector(byteQueryVector)
+            .vectorDataType(VectorDataType.BYTE)
+            .k(testK)
+            .filter(null)
+            .context(mockQueryShardContext)
+            .build();
+        Query query = KNNQueryFactory.create(createQueryRequest);
+        assertTrue(query.getClass().isAssignableFrom(KnnByteVectorQuery.class));
     }
 
     public void testCreateLuceneQueryWithFilter() {
