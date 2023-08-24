@@ -12,7 +12,7 @@
 package org.opensearch.knn.index.memory;
 
 import com.google.common.collect.ImmutableMap;
-import org.opensearch.action.ActionListener;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
@@ -74,7 +74,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         // Confirm that the file was loaded by querying
         float[] query = new float[dimension];
         Arrays.fill(query, numVectors + 1);
-        KNNQueryResult[] results = JNIService.queryIndex(indexAllocation.getMemoryAddress(), query, 2, knnEngine.getName());
+        KNNQueryResult[] results = JNIService.queryIndex(indexAllocation.getMemoryAddress(), query, 2, knnEngine.getName(), null);
         assertTrue(results.length > 0);
     }
 

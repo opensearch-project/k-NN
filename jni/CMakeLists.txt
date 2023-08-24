@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-cmake_minimum_required(VERSION 3.17)
+cmake_minimum_required(VERSION 3.23.1)
 
 project(KNNPlugin_JNI)
 
@@ -66,7 +66,7 @@ target_include_directories(${TARGET_LIB_COMMON} PRIVATE ${CMAKE_CURRENT_SOURCE_D
 set_target_properties(${TARGET_LIB_COMMON} PROPERTIES SUFFIX ${LIB_EXT})
 set_target_properties(${TARGET_LIB_COMMON} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-if (WIN32)
+if (NOT "${WIN32}" STREQUAL "")
 # Use RUNTIME_OUTPUT_DIRECTORY, to build the target library (opensearchknn_common) in the specified directory at runtime.
     set_target_properties(${TARGET_LIB_COMMON} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
 else()
@@ -95,7 +95,7 @@ if (${CONFIG_NMSLIB} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} 
     set_target_properties(${TARGET_LIB_NMSLIB} PROPERTIES SUFFIX ${LIB_EXT})
     set_target_properties(${TARGET_LIB_NMSLIB} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-    if (WIN32)
+    if (NOT "${WIN32}" STREQUAL "")
     # Use RUNTIME_OUTPUT_DIRECTORY, to build the target library (opensearchknn_nmslib) in the specified directory at runtime.
         set_target_properties(${TARGET_LIB_NMSLIB} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
     else()
@@ -152,7 +152,7 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
     set_target_properties(${TARGET_LIB_FAISS} PROPERTIES SUFFIX ${LIB_EXT})
     set_target_properties(${TARGET_LIB_FAISS} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-    if (WIN32)
+    if (NOT "${WIN32}" STREQUAL "")
     # Use RUNTIME_OUTPUT_DIRECTORY, to build the target library (opensearchknn_faiss) in the specified directory at runtime.
         set_target_properties(${TARGET_LIB_FAISS} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
     else()
@@ -167,7 +167,7 @@ endif ()
 # --------------------------------- TESTS -----------------------------------
 # Windows : Comment the TESTS for now because the tests are failing(failing to build jni_tests.exe) if we are building our target libraries as SHARED libraries.
 # TODO: Fix the failing JNI TESTS on Windows
-if (!WIN32)
+if ("${WIN32}" STREQUAL "")
     if (${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} STREQUAL ON)
         # Reference - https://crascit.com/2015/07/25/cmake-gtest/
         configure_file(CMakeLists.txt.in googletest-download/CMakeLists.txt)

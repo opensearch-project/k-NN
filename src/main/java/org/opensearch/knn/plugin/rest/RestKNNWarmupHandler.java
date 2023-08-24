@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin.rest;
 
+import org.apache.commons.lang.StringUtils;
 import org.opensearch.knn.common.exception.KNNInvalidIndicesException;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.KNNWarmupAction;
@@ -15,9 +16,8 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.index.Index;
+import org.opensearch.core.index.Index;
 import org.opensearch.rest.BaseRestHandler;
 import org.opensearch.rest.RestController;
 import org.opensearch.rest.RestRequest;
@@ -81,7 +81,7 @@ public class RestKNNWarmupHandler extends BaseRestHandler {
     }
 
     private KNNWarmupRequest createKNNWarmupRequest(RestRequest request) {
-        String[] indexNames = Strings.splitStringByCommaToArray(request.param("index"));
+        String[] indexNames = StringUtils.split(request.param("index"), ",");
         Index[] indices = indexNameExpressionResolver.concreteIndices(clusterService.state(), strictExpandOpen(), indexNames);
         List<String> invalidIndexNames = new ArrayList<>();
 

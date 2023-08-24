@@ -12,13 +12,15 @@
 package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Floats;
+import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNRestTestCase;
-import org.opensearch.common.Strings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
@@ -43,6 +45,11 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class FaissIT extends KNNRestTestCase {
+    private static final String DOC_ID_1 = "doc1";
+    private static final String DOC_ID_2 = "doc2";
+    private static final String DOC_ID_3 = "doc3";
+    private static final String COLOR_FIELD_NAME = "color";
+    private static final String TASTE_FIELD_NAME = "taste";
 
     static TestUtils.TestData testData;
 
@@ -90,7 +97,7 @@ public class FaissIT extends KNNRestTestCase {
             .endObject();
 
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
 
         createKnnIndex(indexName, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
@@ -106,7 +113,7 @@ public class FaissIT extends KNNRestTestCase {
         }
 
         // Assert we have the right number of documents in the index
-        refreshAllIndices();
+        refreshAllNonSystemIndices();
         assertEquals(testData.indexData.docs.length, getDocCount(indexName));
 
         int k = 10;
@@ -167,7 +174,7 @@ public class FaissIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
         createKnnIndex(indexName, mapping);
 
         Float[] vector = { 6.0f, 6.0f };
@@ -203,7 +210,7 @@ public class FaissIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
         createKnnIndex(indexName, mapping);
 
         Float[] vector = { 6.0f, 6.0f };
@@ -213,7 +220,9 @@ public class FaissIT extends KNNRestTestCase {
         deleteKnnDoc(INDEX_NAME, "1");
     }
 
-    public void testEndToEnd_fromModel() throws Exception {
+    @SneakyThrows
+    public void testKNNQuery_withModelDifferentCombination_thenSuccess() {
+
         String modelId = "test-model";
         int dimension = 128;
 
@@ -245,27 +254,25 @@ public class FaissIT extends KNNRestTestCase {
         // Create knn index from model
         String fieldName = "test-field-name";
         String indexName = "test-index-name";
-        String indexMapping = Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(fieldName)
-                .field("type", "knn_vector")
-                .field(MODEL_ID, modelId)
-                .endObject()
-                .endObject()
-                .endObject()
-        );
+        String indexMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
 
         createKnnIndex(indexName, getKNNDefaultIndexSettings(), indexMapping);
 
         // Index some documents
         int numDocs = 100;
         for (int i = 0; i < numDocs; i++) {
-            Float[] indexVector = new Float[dimension];
+            float[] indexVector = new float[dimension];
             Arrays.fill(indexVector, (float) i);
-
-            addKnnDoc(indexName, Integer.toString(i), fieldName, indexVector);
+            addKnnDocWithAttributes(indexName, Integer.toString(i), fieldName, indexVector, ImmutableMap.of("rating", String.valueOf(i)));
         }
 
         // Run search and ensure that the values returned are expected
@@ -279,5 +286,119 @@ public class FaissIT extends KNNRestTestCase {
         for (int i = 0; i < k; i++) {
             assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
         }
+
+        // doing exact search with filters
+        Response exactSearchFilteredResponse = searchKNNIndex(
+            indexName,
+            new KNNQueryBuilder(fieldName, queryVector, k, QueryBuilders.rangeQuery("rating").gte("90").lte("99")),
+            k
+        );
+        List<KNNResult> exactSearchFilteredResults = parseSearchResponse(
+            EntityUtils.toString(exactSearchFilteredResponse.getEntity()),
+            fieldName
+        );
+        for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(exactSearchFilteredResults.get(i).getDocId()));
+        }
+
+        // doing exact search with filters
+        Response aNNSearchFilteredResponse = searchKNNIndex(
+            indexName,
+            new KNNQueryBuilder(fieldName, queryVector, k, QueryBuilders.rangeQuery("rating").gte("80").lte("99")),
+            k
+        );
+        List<KNNResult> aNNSearchFilteredResults = parseSearchResponse(
+            EntityUtils.toString(aNNSearchFilteredResponse.getEntity()),
+            fieldName
+        );
+        for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(aNNSearchFilteredResults.get(i).getDocId()));
+        }
+    }
+
+    @SneakyThrows
+    public void testQueryWithFilter_withDifferentCombination_thenSuccess() {
+        setupKNNIndexForFilterQuery();
+        final float[] searchVector = { 6.0f, 6.0f, 4.1f };
+        // K > filteredResults
+        int kGreaterThanFilterResult = 5;
+        List<String> expectedDocIds = Arrays.asList(DOC_ID_1, DOC_ID_3);
+        final Response response = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(FIELD_NAME, searchVector, kGreaterThanFilterResult, QueryBuilders.termQuery(COLOR_FIELD_NAME, "red")),
+            kGreaterThanFilterResult
+        );
+        final String responseBody = EntityUtils.toString(response.getEntity());
+        final List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(expectedDocIds.size(), knnResults.size());
+        assertTrue(knnResults.stream().map(KNNResult::getDocId).collect(Collectors.toList()).containsAll(expectedDocIds));
+
+        // K Limits Filter results
+        int kLimitsFilterResult = 1;
+        List<String> expectedDocIdsKLimitsFilterResult = List.of(DOC_ID_1);
+        final Response responseKLimitsFilterResult = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(FIELD_NAME, searchVector, kLimitsFilterResult, QueryBuilders.termQuery(COLOR_FIELD_NAME, "red")),
+            kLimitsFilterResult
+        );
+        final String responseBodyKLimitsFilterResult = EntityUtils.toString(responseKLimitsFilterResult.getEntity());
+        final List<KNNResult> knnResultsKLimitsFilterResult = parseSearchResponse(responseBodyKLimitsFilterResult, FIELD_NAME);
+
+        assertEquals(expectedDocIdsKLimitsFilterResult.size(), knnResultsKLimitsFilterResult.size());
+        assertTrue(
+            knnResultsKLimitsFilterResult.stream()
+                .map(KNNResult::getDocId)
+                .collect(Collectors.toList())
+                .containsAll(expectedDocIdsKLimitsFilterResult)
+        );
+
+        // Empty filter docIds
+        int k = 10;
+        final Response emptyFilterResponse = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(
+                FIELD_NAME,
+                searchVector,
+                kLimitsFilterResult,
+                QueryBuilders.termQuery(COLOR_FIELD_NAME, "color_not_present")
+            ),
+            k
+        );
+        final String responseBodyForEmptyDocIds = EntityUtils.toString(emptyFilterResponse.getEntity());
+        final List<KNNResult> emptyKNNFilteredResultsFromResponse = parseSearchResponse(responseBodyForEmptyDocIds, FIELD_NAME);
+
+        assertEquals(0, emptyKNNFilteredResultsFromResponse.size());
+    }
+
+    protected void setupKNNIndexForFilterQuery() throws Exception {
+        // Create Mappings
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", 3)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW).getMethodComponent().getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        final String mapping = builder.toString();
+
+        createKnnIndex(INDEX_NAME, mapping);
+
+        addKnnDocWithAttributes(
+            DOC_ID_1,
+            new float[] { 6.0f, 7.9f, 3.1f },
+            ImmutableMap.of(COLOR_FIELD_NAME, "red", TASTE_FIELD_NAME, "sweet")
+        );
+        addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.2f, 2.1f, 4.8f }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
+        addKnnDocWithAttributes(DOC_ID_3, new float[] { 4.1f, 5.0f, 7.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
+
+        refreshIndex(INDEX_NAME);
     }
 }

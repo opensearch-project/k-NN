@@ -1,6 +1,6 @@
 endpoint: [ENDPOINT]
-test_name: "index-workflow"
-test_id: "Index workflow"
+test_name: "Lucene HNSW Relaxed Filter Test"
+test_id: "Lucene HNSW Relaxed Filter Test"
 num_runs: 10
 show_runs: false
 steps:
@@ -28,7 +28,7 @@ steps:
     dataset_format: hdf5
     dataset_path: [DATASET_PATH]/sift-128-euclidean-with-attr.hdf5
     neighbors_format: hdf5
-    neighbors_path: [DATASET_PATH]/sift-128-euclidean-with-filters.hdf5
+    neighbors_path: [DATASET_PATH]/sift-128-euclidean-with-filters-updated.hdf5
     neighbors_dataset: neighbors_filter_5
     filter_spec: [INDEX_SPEC_PATH]/relaxed-filter-spec.json
     filter_type: FILTER

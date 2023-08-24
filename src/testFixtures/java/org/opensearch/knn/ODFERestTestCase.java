@@ -39,7 +39,6 @@ import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestClientBuilder;
-import org.opensearch.common.Strings;
 import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
@@ -49,9 +48,10 @@ import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
+import org.opensearch.core.xcontent.MediaType;
 import org.opensearch.knn.plugin.KNNPlugin;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 import org.opensearch.test.rest.OpenSearchRestTestCase;
 import org.junit.After;
@@ -185,9 +185,9 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
     @After
     protected void wipeAllODFEIndices() throws Exception {
         Response response = adminClient().performRequest(new Request("GET", "/_cat/indices?format=json&expand_wildcards=all"));
-        XContentType xContentType = XContentType.fromMediaType(response.getEntity().getContentType());
+        MediaType mediaType = MediaType.fromMediaType(response.getEntity().getContentType());
         try (
-            XContentParser parser = xContentType.xContent()
+            XContentParser parser = mediaType.xContent()
                 .createParser(
                     NamedXContentRegistry.EMPTY,
                     DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
@@ -233,7 +233,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         final String responseBody = EntityUtils.toString(response.getEntity());
         assertNotNull(responseBody);
 
-        final XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+        final XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
         final SearchResponse searchResponse = SearchResponse.fromXContent(parser);
 
         return Arrays.stream(searchResponse.getHits().getHits()).map(SearchHit::getId).collect(Collectors.toList());
@@ -262,7 +262,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
             .endObject()
             .endObject();
 
-        request.setJsonEntity(Strings.toString(matchAllDocsQuery));
+        request.setJsonEntity(matchAllDocsQuery.toString());
         adminClient().performRequest(request);
     }
 

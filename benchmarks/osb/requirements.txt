@@ -4,7 +4,7 @@
 #
 #    pip-compile
 #
-aiohttp==3.8.1
+aiohttp==3.8.5
     # via opensearch-py
 aiosignal==1.2.0
     # via aiohttp
@@ -16,7 +16,7 @@ attrs==21.4.0
     #   jsonschema
 cachetools==4.2.4
     # via google-auth
-certifi==2022.12.7
+certifi==2023.7.22
     # via
     #   opensearch-benchmark
     #   opensearch-py

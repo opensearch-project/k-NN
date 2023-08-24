@@ -11,7 +11,8 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.opensearch.action.ActionListener;
+import org.apache.commons.lang.StringUtils;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.ActionListenerResponseHandler;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.support.ActionFilters;
@@ -19,15 +20,14 @@ import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.Strings;
 import org.opensearch.common.ValidationException;
-import org.opensearch.common.collect.ImmutableOpenMap;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.knn.common.ThreadContextHelper;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportRequestOptions;
 import org.opensearch.transport.TransportService;
+
+import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 import static org.opensearch.search.internal.SearchContext.DEFAULT_TERMINATE_AFTER;
@@ -59,12 +59,10 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
         // Get the size of the training request and then route the request. We get/set this here, as opposed to in
         // TrainingModelTransportAction, because in the future, we may want to use size to factor into our routing
         // decision.
-        ThreadContextHelper.runWithStashedThreadContext(client, () -> {
-            getTrainingIndexSizeInKB(request, ActionListener.wrap(size -> {
-                request.setTrainingDataSizeInKB(size);
-                routeRequest(request, listener);
-            }, listener::onFailure));
-        });
+        getTrainingIndexSizeInKB(request, ActionListener.wrap(size -> {
+            request.setTrainingDataSizeInKB(size);
+            routeRequest(request, listener);
+        }, listener::onFailure));
     }
 
     protected void routeRequest(TrainingModelRequest request, ActionListener<TrainingModelResponse> listener) {
@@ -97,7 +95,7 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
 
         DiscoveryNode selectedNode = null;
 
-        ImmutableOpenMap<String, DiscoveryNode> eligibleNodes = clusterService.state().nodes().getDataNodes();
+        Map<String, DiscoveryNode> eligibleNodes = clusterService.state().nodes().getDataNodes();
         DiscoveryNode currentNode;
 
         for (TrainingJobRouteDecisionInfoNodeResponse response : jobInfo.getNodes()) {
@@ -110,7 +108,7 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
             if (response.getTrainingJobCount() < 1) {
                 selectedNode = currentNode;
                 // Return right away if the user didnt pass a preferred node or this is the preferred node
-                if (Strings.isEmpty(preferredNode) || selectedNode.getId().equals(preferredNode)) {
+                if (StringUtils.isEmpty(preferredNode) || selectedNode.getId().equals(preferredNode)) {
                     return selectedNode;
                 }
             }

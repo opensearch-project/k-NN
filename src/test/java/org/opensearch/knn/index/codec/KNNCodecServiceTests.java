@@ -8,7 +8,7 @@ package org.opensearch.knn.index.codec;
 import org.apache.lucene.codecs.Codec;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.index.Index;
+import org.opensearch.core.index.Index;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.codec.CodecServiceConfig;
 import org.opensearch.index.mapper.MapperService;

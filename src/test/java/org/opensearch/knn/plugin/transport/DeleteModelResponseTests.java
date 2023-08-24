@@ -11,11 +11,9 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.opensearch.common.Strings;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.KNNTestCase;
 
 import java.io.IOException;
@@ -24,7 +22,7 @@ public class DeleteModelResponseTests extends KNNTestCase {
 
     public void testStreams() throws IOException {
         String modelId = "test-model";
-        DeleteModelResponse deleteModelResponse = new DeleteModelResponse(modelId, "delete action failed", "error message");
+        DeleteModelResponse deleteModelResponse = new DeleteModelResponse(modelId);
         BytesStreamOutput streamOutput = new BytesStreamOutput();
         deleteModelResponse.writeTo(streamOutput);
         DeleteModelResponse deleteModelResponseCopy = new DeleteModelResponse(streamOutput.bytes().streamInput());
@@ -33,25 +31,14 @@ public class DeleteModelResponseTests extends KNNTestCase {
         assertEquals(deleteModelResponse.getErrorMessage(), deleteModelResponseCopy.getErrorMessage());
     }
 
-    public void testXContentWithError() throws IOException {
-        String modelId = "test-model";
-        DeleteModelResponse deleteModelResponse = new DeleteModelResponse(modelId, "not_found", "model id not found");
-        BytesStreamOutput streamOutput = new BytesStreamOutput();
-        deleteModelResponse.writeTo(streamOutput);
-        String expectedResponseString = "{\"model_id\":\"test-model\",\"result\":\"not_found\",\"error\":\"model id not found\"}";
-        XContentBuilder xContentBuilder = XContentFactory.contentBuilder(XContentType.JSON);
-        deleteModelResponse.toXContent(xContentBuilder, null);
-        assertEquals(expectedResponseString, Strings.toString(xContentBuilder));
-    }
-
     public void testXContentWithoutError() throws IOException {
         String modelId = "test-model";
-        DeleteModelResponse deleteModelResponse = new DeleteModelResponse(modelId, "deleted", null);
+        DeleteModelResponse deleteModelResponse = new DeleteModelResponse(modelId);
         BytesStreamOutput streamOutput = new BytesStreamOutput();
         deleteModelResponse.writeTo(streamOutput);
         String expectedResponseString = "{\"model_id\":\"test-model\",\"result\":\"deleted\"}";
-        XContentBuilder xContentBuilder = XContentFactory.contentBuilder(XContentType.JSON);
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
         deleteModelResponse.toXContent(xContentBuilder, null);
-        assertEquals(expectedResponseString, Strings.toString(xContentBuilder));
+        assertEquals(expectedResponseString, xContentBuilder.toString());
     }
 }

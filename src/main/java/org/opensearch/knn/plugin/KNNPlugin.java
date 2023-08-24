@@ -8,6 +8,7 @@ package org.opensearch.knn.plugin;
 import org.opensearch.cluster.NamedDiff;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.core.ParseField;
+import org.opensearch.core.action.ActionResponse;
 import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.indices.SystemIndexDescriptor;
@@ -30,6 +31,7 @@ import org.opensearch.knn.plugin.rest.RestKNNStatsHandler;
 import org.opensearch.knn.plugin.rest.RestKNNWarmupHandler;
 import org.opensearch.knn.plugin.rest.RestSearchModelHandler;
 import org.opensearch.knn.plugin.rest.RestTrainModelHandler;
+import org.opensearch.knn.plugin.rest.RestClearCacheHandler;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.plugin.stats.KNNStats;
 import org.opensearch.knn.plugin.transport.DeleteModelAction;
@@ -40,15 +42,16 @@ import org.opensearch.knn.plugin.transport.KNNStatsAction;
 import org.opensearch.knn.plugin.transport.KNNStatsTransportAction;
 import org.opensearch.knn.plugin.transport.KNNWarmupAction;
 import org.opensearch.knn.plugin.transport.KNNWarmupTransportAction;
+import org.opensearch.knn.plugin.transport.ClearCacheAction;
+import org.opensearch.knn.plugin.transport.ClearCacheTransportAction;
 import com.google.common.collect.ImmutableList;
 
 import org.opensearch.action.ActionRequest;
-import org.opensearch.action.ActionResponse;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexNameExpressionResolver;
 import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.io.stream.NamedWriteableRegistry;
+import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Setting;
@@ -231,6 +234,7 @@ public class KNNPlugin extends Plugin
         RestDeleteModelHandler restDeleteModelHandler = new RestDeleteModelHandler();
         RestTrainModelHandler restTrainModelHandler = new RestTrainModelHandler();
         RestSearchModelHandler restSearchModelHandler = new RestSearchModelHandler();
+        RestClearCacheHandler restClearCacheHandler = new RestClearCacheHandler(clusterService, indexNameExpressionResolver);
 
         return ImmutableList.of(
             restKNNStatsHandler,
@@ -238,7 +242,8 @@ public class KNNPlugin extends Plugin
             restGetModelHandler,
             restDeleteModelHandler,
             restTrainModelHandler,
-            restSearchModelHandler
+            restSearchModelHandler,
+            restClearCacheHandler
         );
     }
 
@@ -258,7 +263,8 @@ public class KNNPlugin extends Plugin
             new ActionHandler<>(TrainingModelAction.INSTANCE, TrainingModelTransportAction.class),
             new ActionHandler<>(RemoveModelFromCacheAction.INSTANCE, RemoveModelFromCacheTransportAction.class),
             new ActionHandler<>(SearchModelAction.INSTANCE, SearchModelTransportAction.class),
-            new ActionHandler<>(UpdateModelGraveyardAction.INSTANCE, UpdateModelGraveyardTransportAction.class)
+            new ActionHandler<>(UpdateModelGraveyardAction.INSTANCE, UpdateModelGraveyardTransportAction.class),
+            new ActionHandler<>(ClearCacheAction.INSTANCE, ClearCacheTransportAction.class)
         );
     }
 

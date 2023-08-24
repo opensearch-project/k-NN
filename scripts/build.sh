@@ -105,6 +105,16 @@ if [ "$JAVA_HOME" = "" ]; then
     echo "SET JAVA_HOME=$JAVA_HOME"
 fi
 
+# Ensure gcc version is above 4.9.0 and is not 8.3.1 for faiss 1.7.4+ compilation
+# https://github.com/opensearch-project/k-NN/issues/975
+GCC_VERSION=`gcc --version | head -n 1 | cut -d ' ' -f3`
+GCC_REQUIRED_VERSION=4.9.0
+COMPARE_VERSION=`echo $GCC_REQUIRED_VERSION $GCC_VERSION | tr ' ' '\n' | sort -V | uniq | head -n 1`
+if [ "$COMPARE_VERSION" != "$GCC_REQUIRED_VERSION" ] || [ "$GCC_VERSION" = "8.3.1" ]; then
+    echo "gcc version on this env is either older than $GCC_REQUIRED_VERSION, or equals 8.3.1, exit 1"
+    exit 1
+fi
+
 # Build k-NN lib and plugin through gradle tasks
 cd $work_dir
 # Gradle build is used here to replace gradle assemble due to build will also call cmake and make before generating jars

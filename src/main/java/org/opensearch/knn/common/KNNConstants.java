@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.common;
 
+import org.opensearch.knn.index.VectorDataType;
+
 public class KNNConstants {
     // shared across library constants
     public static final String DIMENSION = "dimension";
@@ -50,6 +52,9 @@ public class KNNConstants {
     public static final String MAX_VECTOR_COUNT_PARAMETER = "max_training_vector_count";
     public static final String SEARCH_SIZE_PARAMETER = "search_size";
 
+    public static final String VECTOR_DATA_TYPE_FIELD = "data_type";
+    public static final VectorDataType DEFAULT_VECTOR_DATA_TYPE_FIELD = VectorDataType.FLOAT;
+
     // Lucene specific constants
     public static final String LUCENE_NAME = "lucene";
 
@@ -93,4 +98,7 @@ public class KNNConstants {
     private static final String JNI_LIBRARY_PREFIX = "opensearchknn_";
     public static final String FAISS_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + FAISS_NAME;
     public static final String NMSLIB_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + NMSLIB_NAME;
+
+    // API Constants
+    public static final String CLEAR_CACHE = "clear_cache";
 }

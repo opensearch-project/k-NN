@@ -12,12 +12,10 @@ package org.opensearch.knn.plugin.transport;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.action.ActionListener;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
-import org.opensearch.client.Client;
 import org.opensearch.common.inject.Inject;
-import org.opensearch.knn.common.ThreadContextHelper;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
@@ -29,20 +27,17 @@ public class GetModelTransportAction extends HandledTransportAction<GetModelRequ
     private static final Logger LOG = LogManager.getLogger(GetModelTransportAction.class);
     private ModelDao modelDao;
 
-    private final Client client;
-
     @Inject
-    public GetModelTransportAction(TransportService transportService, ActionFilters actionFilters, Client client) {
+    public GetModelTransportAction(TransportService transportService, ActionFilters actionFilters) {
         super(GetModelAction.NAME, transportService, actionFilters, GetModelRequest::new);
         this.modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
-        this.client = client;
     }
 
     @Override
     protected void doExecute(Task task, GetModelRequest request, ActionListener<GetModelResponse> actionListener) {
-        ThreadContextHelper.runWithStashedThreadContext(client, () -> {
-            String modelID = request.getModelID();
-            modelDao.get(modelID, actionListener);
-        });
+        String modelID = request.getModelID();
+
+        modelDao.get(modelID, actionListener);
+
     }
 }

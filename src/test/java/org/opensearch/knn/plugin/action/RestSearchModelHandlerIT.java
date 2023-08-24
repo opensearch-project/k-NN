@@ -17,7 +17,7 @@ import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -25,7 +25,7 @@ import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
-import org.opensearch.rest.RestStatus;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 
 import java.io.IOException;
@@ -73,7 +73,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
         String responseBody = EntityUtils.toString(response.getEntity());
         assertNotNull(responseBody);
 
-        XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+        XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
         SearchResponse searchResponse = SearchResponse.fromXContent(parser);
         assertNotNull(searchResponse);
         assertEquals(searchResponse.getHits().getHits().length, 0);
@@ -87,11 +87,15 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             Request request = new Request("GET", restURI);
 
             ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+            String messageExpected = String.format(
+                "%s must be between %s and %s inclusive",
+                PARAM_SIZE,
+                SEARCH_MODEL_MIN_SIZE,
+                SEARCH_MODEL_MAX_SIZE
+            );
             assertTrue(
-                ex.getMessage()
-                    .contains(
-                        String.format("%s must be between %d and %d inclusive", PARAM_SIZE, SEARCH_MODEL_MIN_SIZE, SEARCH_MODEL_MAX_SIZE)
-                    )
+                String.format("FAILED - Expected  \"%s\" to have \"%s\"", ex.getMessage(), messageExpected),
+                ex.getMessage().contains(messageExpected)
             );
         }
 
@@ -129,7 +133,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             String responseBody = EntityUtils.toString(response.getEntity());
             assertNotNull(responseBody);
 
-            XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+            XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
 
@@ -173,7 +177,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             String responseBody = EntityUtils.toString(response.getEntity());
             assertNotNull(responseBody);
 
-            XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+            XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
 
@@ -221,7 +225,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             String responseBody = EntityUtils.toString(response.getEntity());
             assertNotNull(responseBody);
 
-            XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+            XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
 
@@ -273,7 +277,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
             String responseBody = EntityUtils.toString(response.getEntity());
             assertNotNull(responseBody);
 
-            XContentParser parser = createParser(XContentType.JSON.xContent(), responseBody);
+            XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
             SearchResponse searchResponse = SearchResponse.fromXContent(parser);
             assertNotNull(searchResponse);
 

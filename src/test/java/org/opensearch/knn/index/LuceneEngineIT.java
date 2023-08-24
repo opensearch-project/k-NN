@@ -8,6 +8,7 @@ package org.opensearch.knn.index;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Floats;
+import lombok.SneakyThrows;
 import org.apache.commons.lang.math.RandomUtils;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.lucene.index.VectorSimilarityFunction;
@@ -15,7 +16,6 @@ import org.junit.After;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
-import org.opensearch.common.Strings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.query.QueryBuilders;
@@ -25,7 +25,6 @@ import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.rest.RestStatus;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -35,8 +34,10 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 public class LuceneEngineIT extends KNNRestTestCase {
 
@@ -45,8 +46,6 @@ public class LuceneEngineIT extends KNNRestTestCase {
     private static final String DOC_ID_2 = "doc2";
     private static final String DOC_ID_3 = "doc3";
     private static final int EF_CONSTRUCTION = 128;
-    private static final String INDEX_NAME = "test-index-1";
-    private static final String FIELD_NAME = "test-field-1";
     private static final String COLOR_FIELD_NAME = "color";
     private static final String TASTE_FIELD_NAME = "taste";
     private static final int M = 16;
@@ -101,7 +100,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
 
         createIndex(INDEX_NAME, getKNNDefaultIndexSettings());
 
@@ -113,7 +112,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
     public void testQuery_invalidVectorDimensionInQuery() throws Exception {
 
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2);
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
         for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
             addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
         }
@@ -130,7 +129,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
         SpaceType spaceType = SpaceType.L2;
 
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, spaceType);
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, spaceType, VectorDataType.FLOAT);
         for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
             addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
         }
@@ -179,7 +178,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject()
             .endObject()
             .endObject();
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
         createKnnIndex(INDEX_NAME, mapping);
 
         for (int i = 0; i < TEST_INDEX_VECTORS.length; i++) {
@@ -219,7 +218,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject();
 
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
 
         createKnnIndex(INDEX_NAME, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(INDEX_NAME)));
@@ -227,35 +226,35 @@ public class LuceneEngineIT extends KNNRestTestCase {
         Float[] vector = new Float[] { 2.0f, 4.5f, 6.5f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
 
-        refreshAllIndices();
+        refreshIndex(INDEX_NAME);
         assertEquals(1, getDocCount(INDEX_NAME));
     }
 
     public void testUpdateDoc() throws Exception {
-        createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2);
+        createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.FLOAT);
         Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
 
         Float[] updatedVector = { 8.0f, 8.0f };
         updateKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, updatedVector);
 
-        refreshAllIndices();
+        refreshIndex(INDEX_NAME);
         assertEquals(1, getDocCount(INDEX_NAME));
     }
 
     public void testDeleteDoc() throws Exception {
-        createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2);
+        createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.FLOAT);
         Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
 
         deleteKnnDoc(INDEX_NAME, DOC_ID);
 
-        refreshAllIndices();
+        refreshIndex(INDEX_NAME);
         assertEquals(0, getDocCount(INDEX_NAME));
     }
 
-    public void testQueryWithFilter() throws Exception {
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2);
+    public void testQueryWithFilterUsingFloatVectorDataType() throws Exception {
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
 
         addKnnDocWithAttributes(
             DOC_ID,
@@ -265,39 +264,28 @@ public class LuceneEngineIT extends KNNRestTestCase {
         addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.2f, 2.1f, 4.8f }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
         addKnnDocWithAttributes(DOC_ID_3, new float[] { 4.1f, 5.0f, 7.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
 
-        refreshAllIndices();
+        refreshIndex(INDEX_NAME);
 
         final float[] searchVector = { 6.0f, 6.0f, 4.1f };
-        int kGreaterThanFilterResult = 5;
-        List<String> expectedDocIds = Arrays.asList(DOC_ID, DOC_ID_3);
-        final Response response = searchKNNIndex(
-            INDEX_NAME,
-            new KNNQueryBuilder(FIELD_NAME, searchVector, kGreaterThanFilterResult, QueryBuilders.termQuery(COLOR_FIELD_NAME, "red")),
-            kGreaterThanFilterResult
-        );
-        final String responseBody = EntityUtils.toString(response.getEntity());
-        final List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
-
-        assertEquals(expectedDocIds.size(), knnResults.size());
-        assertTrue(knnResults.stream().map(KNNResult::getDocId).collect(Collectors.toList()).containsAll(expectedDocIds));
-
-        int kLimitsFilterResult = 1;
+        List<String> expectedDocIdsKGreaterThanFilterResult = Arrays.asList(DOC_ID, DOC_ID_3);
         List<String> expectedDocIdsKLimitsFilterResult = Arrays.asList(DOC_ID);
-        final Response responseKLimitsFilterResult = searchKNNIndex(
-            INDEX_NAME,
-            new KNNQueryBuilder(FIELD_NAME, searchVector, kLimitsFilterResult, QueryBuilders.termQuery(COLOR_FIELD_NAME, "red")),
-            kLimitsFilterResult
-        );
-        final String responseBodyKLimitsFilterResult = EntityUtils.toString(responseKLimitsFilterResult.getEntity());
-        final List<KNNResult> knnResultsKLimitsFilterResult = parseSearchResponse(responseBodyKLimitsFilterResult, FIELD_NAME);
+        validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
+    }
 
-        assertEquals(expectedDocIdsKLimitsFilterResult.size(), knnResultsKLimitsFilterResult.size());
-        assertTrue(
-            knnResultsKLimitsFilterResult.stream()
-                .map(KNNResult::getDocId)
-                .collect(Collectors.toList())
-                .containsAll(expectedDocIdsKLimitsFilterResult)
-        );
+    @SneakyThrows
+    public void testQueryWithFilterUsingByteVectorDataType() {
+        createKnnIndexMappingWithLuceneEngine(3, SpaceType.L2, VectorDataType.BYTE);
+
+        addKnnDocWithAttributes(DOC_ID, new float[] { 6.0f, 7.0f, 3.0f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
+        addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.0f, 2.0f, 4.0f }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
+        addKnnDocWithAttributes(DOC_ID_3, new float[] { 4.0f, 5.0f, 7.0f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
+
+        refreshIndex(INDEX_NAME);
+
+        final float[] searchVector = { 6.0f, 6.0f, 4.0f };
+        List<String> expectedDocIdsKGreaterThanFilterResult = Arrays.asList(DOC_ID, DOC_ID_3);
+        List<String> expectedDocIdsKLimitsFilterResult = Arrays.asList(DOC_ID);
+        validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
     }
 
     public void testQuery_filterWithNonLuceneEngine() throws Exception {
@@ -316,7 +304,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
         createKnnIndex(INDEX_NAME, mapping);
 
         addKnnDocWithAttributes(
@@ -340,7 +328,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
     }
 
     public void testIndexReopening() throws Exception {
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2);
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
 
         for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
             addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
@@ -361,29 +349,14 @@ public class LuceneEngineIT extends KNNRestTestCase {
         assertArrayEquals(knnResultsBeforeIndexClosure.toArray(), knnResultsAfterIndexClosure.toArray());
     }
 
-    private void addKnnDocWithAttributes(String docId, float[] vector, Map<String, String> fieldValues) throws IOException {
-        Request request = new Request("POST", "/" + INDEX_NAME + "/_doc/" + docId + "?refresh=true");
-
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(FIELD_NAME, vector);
-        for (String fieldName : fieldValues.keySet()) {
-            builder.field(fieldName, fieldValues.get(fieldName));
-        }
-        builder.endObject();
-        request.setJsonEntity(Strings.toString(builder));
-        client().performRequest(request);
-
-        request = new Request("POST", "/" + INDEX_NAME + "/_refresh");
-        Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-    }
-
-    private void createKnnIndexMappingWithLuceneEngine(int dimension, SpaceType spaceType) throws Exception {
+    private void createKnnIndexMappingWithLuceneEngine(int dimension, SpaceType spaceType, VectorDataType vectorDataType) throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
             .startObject(PROPERTIES_FIELD_NAME)
             .startObject(FIELD_NAME)
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
             .field(DIMENSION_FIELD_NAME, dimension)
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, KNNEngine.LUCENE.getMethod(METHOD_HNSW).getMethodComponent().getName())
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
@@ -397,13 +370,13 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .endObject()
             .endObject();
 
-        String mapping = Strings.toString(builder);
+        String mapping = builder.toString();
         createKnnIndex(INDEX_NAME, mapping);
     }
 
     private void baseQueryTest(SpaceType spaceType) throws Exception {
 
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, spaceType);
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, spaceType, VectorDataType.FLOAT);
         for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
             addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
         }
@@ -437,5 +410,43 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
         assertNotNull(knnResults);
         return knnResults.stream().map(KNNResult::getVector).collect(Collectors.toUnmodifiableList());
+    }
+
+    @SneakyThrows
+    private void validateQueryResultsWithFilters(
+        float[] searchVector,
+        int kGreaterThanFilterResult,
+        int kLimitsFilterResult,
+        List<String> expectedDocIdsKGreaterThanFilterResult,
+        List<String> expectedDocIdsKLimitsFilterResult
+    ) {
+        final Response response = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(FIELD_NAME, searchVector, kGreaterThanFilterResult, QueryBuilders.termQuery(COLOR_FIELD_NAME, "red")),
+            kGreaterThanFilterResult
+        );
+        final String responseBody = EntityUtils.toString(response.getEntity());
+        final List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(expectedDocIdsKGreaterThanFilterResult.size(), knnResults.size());
+        assertTrue(
+            knnResults.stream().map(KNNResult::getDocId).collect(Collectors.toList()).containsAll(expectedDocIdsKGreaterThanFilterResult)
+        );
+
+        final Response responseKLimitsFilterResult = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(FIELD_NAME, searchVector, kLimitsFilterResult, QueryBuilders.termQuery(COLOR_FIELD_NAME, "red")),
+            kLimitsFilterResult
+        );
+        final String responseBodyKLimitsFilterResult = EntityUtils.toString(responseKLimitsFilterResult.getEntity());
+        final List<KNNResult> knnResultsKLimitsFilterResult = parseSearchResponse(responseBodyKLimitsFilterResult, FIELD_NAME);
+
+        assertEquals(expectedDocIdsKLimitsFilterResult.size(), knnResultsKLimitsFilterResult.size());
+        assertTrue(
+            knnResultsKLimitsFilterResult.stream()
+                .map(KNNResult::getDocId)
+                .collect(Collectors.toList())
+                .containsAll(expectedDocIdsKLimitsFilterResult)
+        );
     }
 }

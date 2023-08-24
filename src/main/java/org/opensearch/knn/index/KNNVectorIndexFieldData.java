@@ -10,7 +10,7 @@ import org.apache.lucene.search.SortField;
 import org.opensearch.common.util.BigArrays;
 import org.opensearch.index.fielddata.IndexFieldData;
 import org.opensearch.index.fielddata.IndexFieldDataCache;
-import org.opensearch.indices.breaker.CircuitBreakerService;
+import org.opensearch.core.indices.breaker.CircuitBreakerService;
 import org.opensearch.search.DocValueFormat;
 import org.opensearch.search.MultiValueMode;
 import org.opensearch.search.aggregations.support.ValuesSourceType;
@@ -21,10 +21,12 @@ public class KNNVectorIndexFieldData implements IndexFieldData<KNNVectorDVLeafFi
 
     private final String fieldName;
     private final ValuesSourceType valuesSourceType;
+    private final VectorDataType vectorDataType;
 
-    public KNNVectorIndexFieldData(String fieldName, ValuesSourceType valuesSourceType) {
+    public KNNVectorIndexFieldData(String fieldName, ValuesSourceType valuesSourceType, VectorDataType vectorDataType) {
         this.fieldName = fieldName;
         this.valuesSourceType = valuesSourceType;
+        this.vectorDataType = vectorDataType;
     }
 
     @Override
@@ -39,7 +41,7 @@ public class KNNVectorIndexFieldData implements IndexFieldData<KNNVectorDVLeafFi
 
     @Override
     public KNNVectorDVLeafFieldData load(LeafReaderContext context) {
-        return new KNNVectorDVLeafFieldData(context.reader(), fieldName);
+        return new KNNVectorDVLeafFieldData(context.reader(), fieldName, vectorDataType);
     }
 
     @Override
@@ -70,15 +72,17 @@ public class KNNVectorIndexFieldData implements IndexFieldData<KNNVectorDVLeafFi
 
         private final String name;
         private final ValuesSourceType valuesSourceType;
+        private final VectorDataType vectorDataType;
 
-        public Builder(String name, ValuesSourceType valuesSourceType) {
+        public Builder(String name, ValuesSourceType valuesSourceType, VectorDataType vectorDataType) {
             this.name = name;
             this.valuesSourceType = valuesSourceType;
+            this.vectorDataType = vectorDataType;
         }
 
         @Override
         public IndexFieldData<?> build(IndexFieldDataCache cache, CircuitBreakerService breakerService) {
-            return new KNNVectorIndexFieldData(name, valuesSourceType);
+            return new KNNVectorIndexFieldData(name, valuesSourceType, vectorDataType);
         }
     }
 }

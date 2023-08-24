@@ -9,8 +9,9 @@ import com.google.common.collect.ImmutableMap;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.store.ChecksumIndexInput;
-import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.core.common.bytes.BytesArray;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.knn.index.KNNSettings;
@@ -176,9 +177,12 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             parameters.put(PARAMETERS, algoParams);
         } else {
             parameters.putAll(
-                XContentFactory.xContent(XContentType.JSON)
-                    .createParser(NamedXContentRegistry.EMPTY, DeprecationHandler.THROW_UNSUPPORTED_OPERATION, parametersString)
-                    .map()
+                XContentHelper.createParser(
+                    NamedXContentRegistry.EMPTY,
+                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                    new BytesArray(parametersString),
+                    MediaTypeRegistry.getDefaultMediaType()
+                ).map()
             );
         }
 

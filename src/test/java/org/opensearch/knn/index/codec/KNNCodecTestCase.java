@@ -69,6 +69,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.opensearch.Version.CURRENT;
+import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_M;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
@@ -338,7 +339,14 @@ public class KNNCodecTestCase extends KNNTestCase {
         verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getKnnVectorsFormatForField(eq(FIELD_NAME_ONE));
 
         IndexSearcher searcher = new IndexSearcher(reader);
-        Query query = KNNQueryFactory.create(KNNEngine.LUCENE, "dummy", FIELD_NAME_ONE, new float[] { 1.0f, 0.0f, 0.0f }, 1);
+        Query query = KNNQueryFactory.create(
+            KNNEngine.LUCENE,
+            "dummy",
+            FIELD_NAME_ONE,
+            new float[] { 1.0f, 0.0f, 0.0f },
+            1,
+            DEFAULT_VECTOR_DATA_TYPE_FIELD
+        );
 
         assertEquals(1, searcher.count(query));
 
@@ -365,7 +373,14 @@ public class KNNCodecTestCase extends KNNTestCase {
         verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getKnnVectorsFormatForField(eq(FIELD_NAME_TWO));
 
         IndexSearcher searcher1 = new IndexSearcher(reader1);
-        Query query1 = KNNQueryFactory.create(KNNEngine.LUCENE, "dummy", FIELD_NAME_TWO, new float[] { 1.0f, 0.0f }, 1);
+        Query query1 = KNNQueryFactory.create(
+            KNNEngine.LUCENE,
+            "dummy",
+            FIELD_NAME_TWO,
+            new float[] { 1.0f, 0.0f },
+            1,
+            DEFAULT_VECTOR_DATA_TYPE_FIELD
+        );
 
         assertEquals(1, searcher1.count(query1));
 

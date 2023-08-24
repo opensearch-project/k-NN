@@ -12,9 +12,8 @@
 package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
-import org.opensearch.action.ActionListener;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.admin.indices.create.CreateIndexRequestBuilder;
-import org.opensearch.common.Strings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNSingleNodeTestCase;
@@ -75,17 +74,16 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
         String indexName = "test-index";
         String fieldName = "test-field";
 
-        final String mapping = Strings.toString(
-            XContentFactory.jsonBuilder()
-                .startObject()
-                .startObject("properties")
-                .startObject(fieldName)
-                .field("type", "knn_vector")
-                .field("model_id", modelId)
-                .endObject()
-                .endObject()
-                .endObject()
-        );
+        final String mapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("model_id", modelId)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
 
         modelDao.put(model, ActionListener.wrap(indexResponse -> {
             CreateIndexRequestBuilder createIndexRequestBuilder = client().admin()
