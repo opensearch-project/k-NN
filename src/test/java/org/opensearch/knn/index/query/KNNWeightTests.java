@@ -487,7 +487,6 @@ public class KNNWeightTests extends KNNTestCase {
 
         when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(filterDocIds.length));
 
-
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, k, INDEX_NAME, FILTER_QUERY);
 
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
