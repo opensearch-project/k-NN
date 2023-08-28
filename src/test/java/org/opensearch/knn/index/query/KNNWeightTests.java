@@ -125,7 +125,6 @@ public class KNNWeightTests extends KNNTestCase {
     @Before
     public void setupBeforeTest() {
         knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(0);
-        knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThresholdPct(INDEX_NAME)).thenReturn(0);
     }
 
     @SneakyThrows
@@ -471,7 +470,6 @@ public class KNNWeightTests extends KNNTestCase {
     @SneakyThrows
     public void testANNWithFilterQuery_whenExactSearchViaThresholdSetting_thenSuccess() {
         knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(10);
-        knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThresholdPct(INDEX_NAME)).thenReturn(10);
         float[] vector = new float[] { 0.1f, 0.3f };
         int k = 1;
         final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
