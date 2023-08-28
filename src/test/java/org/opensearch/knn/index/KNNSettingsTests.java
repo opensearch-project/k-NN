@@ -6,7 +6,6 @@
 package org.opensearch.knn.index;
 
 import lombok.SneakyThrows;
-import org.junit.Assert;
 import org.opensearch.action.admin.cluster.state.ClusterStateRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
@@ -85,19 +84,15 @@ public class KNNSettingsTests extends KNNTestCase {
         mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME)).actionGet();
         KNNSettings.state().setClusterService(clusterService);
 
-        int filteredSearchThresholdPct = KNNSettings.getFilteredExactSearchThresholdPct(INDEX_NAME);
-        int filteredSearchThreshold = KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME);
+        Integer filteredSearchThreshold = KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME);
         mockNode.close();
-        assertEquals((int) KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT_DEFAULT_VALUE, filteredSearchThresholdPct);
-        assertEquals((int) KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE, filteredSearchThreshold);
+        assertEquals(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE, filteredSearchThreshold);
         assertWarnings();
     }
 
     @SneakyThrows
     public void testFilteredSearchAdvanceSetting_whenValuesProvidedByUsers_thenValidateSameValues() {
-        int userDefinedPctThreshold = 20;
         int userDefinedThreshold = 1000;
-        int userDefinedPctThresholdMinValue = 0;
         int userDefinedThresholdMinValue = 0;
         Node mockNode = createMockNode(Collections.emptyMap());
         mockNode.start();
@@ -108,7 +103,6 @@ public class KNNSettingsTests extends KNNTestCase {
 
         final Settings filteredSearchAdvanceSettings = Settings.builder()
             .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, userDefinedThreshold)
-            .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT, userDefinedPctThreshold)
             .build();
 
         mockNode.client()
@@ -117,13 +111,11 @@ public class KNNSettingsTests extends KNNTestCase {
             .updateSettings(new UpdateSettingsRequest(filteredSearchAdvanceSettings, INDEX_NAME))
             .actionGet();
 
-        int filteredSearchThresholdPct = KNNSettings.getFilteredExactSearchThresholdPct(INDEX_NAME);
         int filteredSearchThreshold = KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME);
 
         // validate if we are able to set MinValues for the setting
         final Settings filteredSearchAdvanceSettingsWithMinValues = Settings.builder()
             .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, userDefinedThresholdMinValue)
-            .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT, userDefinedPctThresholdMinValue)
             .build();
 
         mockNode.client()
@@ -132,28 +124,14 @@ public class KNNSettingsTests extends KNNTestCase {
             .updateSettings(new UpdateSettingsRequest(filteredSearchAdvanceSettingsWithMinValues, INDEX_NAME))
             .actionGet();
 
-        int filteredSearchThresholdPctMinValue = KNNSettings.getFilteredExactSearchThresholdPct(INDEX_NAME);
         int filteredSearchThresholdMinValue = KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME);
 
         // Validate if less than MinValues are set then Exception Happens
         final Settings filteredSearchAdvanceSettingsWithLessThanMinValues = Settings.builder()
             .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, -1)
-            .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT, -1)
             .build();
-
-        Assert.assertThrows(
-            IllegalArgumentException.class,
-            () -> mockNode.client()
-                .admin()
-                .indices()
-                .updateSettings(new UpdateSettingsRequest(filteredSearchAdvanceSettingsWithLessThanMinValues, INDEX_NAME))
-                .actionGet()
-        );
-
         mockNode.close();
-        assertEquals(userDefinedPctThreshold, filteredSearchThresholdPct);
         assertEquals(userDefinedThreshold, filteredSearchThreshold);
-        assertEquals(userDefinedPctThresholdMinValue, filteredSearchThresholdPctMinValue);
         assertEquals(userDefinedThresholdMinValue, filteredSearchThresholdMinValue);
         assertWarnings();
     }
