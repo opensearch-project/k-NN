@@ -7,6 +7,7 @@ package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import lombok.SneakyThrows;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.index.IndexService;
 import org.opensearch.index.engine.Engine;
@@ -151,5 +152,31 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
 
         assertEquals(includedFileNames.size(), included.size());
         included.keySet().forEach(o -> assertTrue(includedFileNames.contains(o)));
+    }
+
+    @SneakyThrows
+    public void testClearCache_emptyIndex() {
+        IndexService indexService = createKNNIndex(testIndexName);
+        createKnnIndexMapping(testIndexName, testFieldName, dimensions);
+
+        IndexShard indexShard = indexService.iterator().next();
+        KNNIndexShard knnIndexShard = new KNNIndexShard(indexShard);
+        knnIndexShard.clearCache();
+        assertNull(NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName));
+    }
+
+    @SneakyThrows
+    public void testClearCache_shardPresentInCache() {
+        IndexService indexService = createKNNIndex(testIndexName);
+        createKnnIndexMapping(testIndexName, testFieldName, dimensions);
+        addKnnDoc(testIndexName, String.valueOf(randomInt()), testFieldName, new Float[] { randomFloat(), randomFloat() });
+
+        IndexShard indexShard = indexService.iterator().next();
+        KNNIndexShard knnIndexShard = new KNNIndexShard(indexShard);
+        knnIndexShard.warmup();
+        assertEquals(1, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
+
+        knnIndexShard.clearCache();
+        assertNull(NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName));
     }
 }

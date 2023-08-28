@@ -6,6 +6,12 @@
 package org.opensearch.knn;
 
 import org.opensearch.core.common.bytes.BytesReference;
+import org.opensearch.cluster.ClusterName;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.block.ClusterBlock;
+import org.opensearch.cluster.block.ClusterBlockLevel;
+import org.opensearch.cluster.block.ClusterBlocks;
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
@@ -32,8 +38,11 @@ import org.opensearch.test.hamcrest.OpenSearchAssertions;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+
+import static org.mockito.Mockito.when;
 
 public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
     @Override
@@ -153,5 +162,26 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
         }
 
         fail("Training did not succeed after " + attempts + " attempts with a delay of " + delayInMillis + " ms.");
+    }
+
+    // Add Global Cluster Block with the given ClusterBlockLevel
+    protected void addGlobalClusterBlock(ClusterService clusterService, String description, EnumSet<ClusterBlockLevel> clusterBlockLevels) {
+        ClusterBlock block = new ClusterBlock(randomInt(), description, false, false, false, RestStatus.FORBIDDEN, clusterBlockLevels);
+        ClusterBlocks clusterBlocks = ClusterBlocks.builder().addGlobalBlock(block).build();
+        ClusterState state = ClusterState.builder(ClusterName.DEFAULT).blocks(clusterBlocks).build();
+        when(clusterService.state()).thenReturn(state);
+    }
+
+    // Add Cluster Block for an Index with given ClusterBlockLevel
+    protected void addIndexClusterBlock(
+        ClusterService clusterService,
+        String description,
+        EnumSet<ClusterBlockLevel> clusterBlockLevels,
+        String testIndex
+    ) {
+        ClusterBlock block = new ClusterBlock(randomInt(), description, false, false, false, RestStatus.FORBIDDEN, clusterBlockLevels);
+        ClusterBlocks clusterBlocks = ClusterBlocks.builder().addIndexBlock(testIndex, block).build();
+        ClusterState state = ClusterState.builder(ClusterName.DEFAULT).blocks(clusterBlocks).build();
+        when(clusterService.state()).thenReturn(state);
     }
 }

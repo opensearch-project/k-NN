@@ -27,6 +27,7 @@ import org.opensearch.knn.plugin.stats.StatNames;
 import java.io.Closeable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -301,6 +302,23 @@ public class NativeMemoryCacheManager implements Closeable {
         }
 
         return cache.get(nativeMemoryEntryContext.getKey(), nativeMemoryEntryContext::load);
+    }
+
+    /**
+     * Returns the NativeMemoryAllocation associated with given index
+     * @param indexName name of OpenSearch index
+     * @return NativeMemoryAllocation associated with given index
+     */
+    public Optional<NativeMemoryAllocation> getIndexMemoryAllocation(String indexName) {
+        Validate.notNull(indexName, "Index name cannot be null");
+        return cache.asMap()
+            .values()
+            .stream()
+            .filter(nativeMemoryAllocation -> nativeMemoryAllocation instanceof NativeMemoryAllocation.IndexAllocation)
+            .filter(
+                indexAllocation -> indexName.equals(((NativeMemoryAllocation.IndexAllocation) indexAllocation).getOpenSearchIndexName())
+            )
+            .findFirst();
     }
 
     /**
