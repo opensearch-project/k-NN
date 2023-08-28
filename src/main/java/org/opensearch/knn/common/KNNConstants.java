@@ -98,4 +98,9 @@ public class KNNConstants {
     private static final String JNI_LIBRARY_PREFIX = "opensearchknn_";
     public static final String FAISS_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + FAISS_NAME;
     public static final String NMSLIB_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + NMSLIB_NAME;
+
+    // Filtered Search Constants
+    // Please refer this github issue for more details for choosing this value:
+    // https://github.com/opensearch-project/k-NN/issues/1049#issuecomment-1694741092
+    public static int MAX_DISTANCE_COMPUTATIONS = 2048000;
 }
