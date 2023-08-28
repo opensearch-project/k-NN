@@ -375,18 +375,32 @@ public class KNNWeight extends Weight {
 
     private boolean canDoExactSearch(final int filterIdsCount, final int searchableDocs) {
         log.debug(
-            "Info for doing exact search Live Docs: {}, filterIdsLength : {}, Threshold value: {} , Threshold %age : {}",
+            "Info for doing exact search Live Docs: {}, filterIdsLength : {}, Threshold value: {}",
             searchableDocs,
             filterIdsCount,
-            KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName()),
-            KNNSettings.getFilteredExactSearchThresholdPct(knnQuery.getIndexName())
+            KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName())
         );
+        int filterThresholdValue = KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName());
         // Refer this GitHub around more details https://github.com/opensearch-project/k-NN/issues/1049 on the logic
-        return filterIdsCount <= knnQuery.getK()
-            || (filterIdsCount <= KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName())
-                && (((float) filterIdsCount / (float) searchableDocs) * 100) <= (float) KNNSettings.getFilteredExactSearchThresholdPct(
-                    knnQuery.getIndexName()
-                ));
+        if (filterIdsCount <= knnQuery.getK()) {
+            return true;
+        }
+        // See user has defined Exact Search filtered threshold. if yes, then use that setting.
+        if (isExactSearchThresholdSettingSet(filterThresholdValue)) {
+            return filterThresholdValue >= filterIdsCount;
+        }
+        // if no setting is set, then use the default max distance computation value to see if we can do exact search.
+        return KNNConstants.MAX_DISTANCE_COMPUTATIONS <= filterIdsCount * knnQuery.getQueryVector().length;
+    }
+
+    /**
+     *  This function validates if {@link KNNSettings#ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD} is set or not. This
+     *  is done by validating if the setting value is equal to the default value.
+     * @param filterThresholdValue value of the Index Setting: {@link KNNSettings#ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING}
+     * @return boolean true if the setting is set.
+     */
+    private boolean isExactSearchThresholdSettingSet(int filterThresholdValue) {
+        return filterThresholdValue != KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE;
     }
 
     /**

@@ -74,7 +74,6 @@ public class KNNSettings {
     public static final String MODEL_INDEX_NUMBER_OF_REPLICAS = "knn.model.index.number_of_replicas";
     public static final String MODEL_CACHE_SIZE_LIMIT = "knn.model.cache.size.limit";
     public static final String ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD = "index.knn.advanced.filtered_exact_search_threshold";
-    public static final String ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT = "index.knn.advanced.filtered_exact_search_threshold_pct";
 
     /**
      * Default setting values
@@ -89,8 +88,7 @@ public class KNNSettings {
     public static final Integer KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE = 25; // Model cache limit cannot exceed 25% of the JVM heap
     public static final String KNN_DEFAULT_MEMORY_CIRCUIT_BREAKER_LIMIT = "50%";
 
-    public static final Integer ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE = 2000;
-    public static final Integer ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT_DEFAULT_VALUE = 10;
+    public static final Integer ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE = -1;
 
     /**
      * Settings Definition
@@ -162,15 +160,6 @@ public class KNNSettings {
     public static final Setting<Integer> ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING = Setting.intSetting(
         ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD,
         ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE,
-        0,
-        IndexScope,
-        Setting.Property.Dynamic
-    );
-
-    public static final Setting<Integer> ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT_SETTING = Setting.intSetting(
-        ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT,
-        ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT_DEFAULT_VALUE,
-        0,
         IndexScope,
         Setting.Property.Dynamic
     );
@@ -348,10 +337,6 @@ public class KNNSettings {
             return ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING;
         }
 
-        if (ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT.equals(key)) {
-            return ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT_SETTING;
-        }
-
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -368,8 +353,7 @@ public class KNNSettings {
             MODEL_INDEX_NUMBER_OF_SHARDS_SETTING,
             MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
             MODEL_CACHE_SIZE_LIMIT_SETTING,
-            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
-            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT_SETTING
+            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING
         );
         return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream()).collect(Collectors.toList());
     }
@@ -390,20 +374,12 @@ public class KNNSettings {
         return KNNSettings.state().getSettingValue(KNNSettings.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE);
     }
 
-    public static int getFilteredExactSearchThreshold(final String indexName) {
+    public static Integer getFilteredExactSearchThreshold(final String indexName) {
         return KNNSettings.state().clusterService.state()
             .getMetadata()
             .index(indexName)
             .getSettings()
             .getAsInt(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE);
-    }
-
-    public static int getFilteredExactSearchThresholdPct(final String indexName) {
-        return KNNSettings.state().clusterService.state()
-            .getMetadata()
-            .index(indexName)
-            .getSettings()
-            .getAsInt(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT, ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_PCT_DEFAULT_VALUE);
     }
 
     public void initialize(Client client, ClusterService clusterService) {
