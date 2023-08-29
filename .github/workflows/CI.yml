@@ -37,9 +37,7 @@ jobs:
 
       - name: Run build
         run: |
-          pwd
           chown -R opensearch.opensearch ./* `pwd`
-          ls -l ./ ../
           su opensearch -c "whoami && java -version && ./gradlew build"
 
       - name: Upload Coverage Report
