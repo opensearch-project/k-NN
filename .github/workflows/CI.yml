@@ -38,7 +38,7 @@ jobs:
           java-version: ${{ matrix.java }}
 
       - name: Run build
-        # switching the user, as OpenSearch cluster cannot only be started as root/Administrator on linux-deb/linux-rpm/windows-zip.
+        # switching the user, as OpenSearch cluster can only be started as root/Administrator on linux-deb/linux-rpm/windows-zip.
         run: |
           chown -R opensearch.opensearch `pwd`
           su opensearch -c "whoami && java -version && ./gradlew build"
