@@ -231,7 +231,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return this;
     }
 
-    public boolean isIgnoreUnmapped() { return this.ignoreUnmapped; }
+    public boolean isIgnoreUnmapped() {
+        return this.ignoreUnmapped;
+    }
 
     @Override
     public void doXContent(XContentBuilder builder, Params params) throws IOException {
@@ -253,10 +255,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     protected Query doToQuery(QueryShardContext context) {
         MappedFieldType mappedFieldType = context.fieldMapper(this.fieldName);
 
-        if (mappedFieldType == null) {
-            if (ignoreUnmapped) {
-                return new MatchNoDocsQuery();
-            }
+        if (mappedFieldType == null && ignoreUnmapped) {
+            return new MatchNoDocsQuery();
         }
 
         if (!(mappedFieldType instanceof KNNVectorFieldMapper.KNNVectorFieldType)) {
