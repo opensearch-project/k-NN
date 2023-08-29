@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Improved the logic to switch to exact search for restrictive filters search for better recall. [#1059](https://github.com/opensearch-project/k-NN/pull/1059)
 * Added max distance computation logic to enhance the switch to exact search in filtered Nearest Neighbor Search. [#1066](https://github.com/opensearch-project/k-NN/pull/1066)
 ### Bug Fixes
+* Update Faiss parameter construction to allow HNSW+PQ to work [#1074](https://github.com/opensearch-project/k-NN/pull/1074) 
 ### Infrastructure
 ### Documentation
 ### Maintenance

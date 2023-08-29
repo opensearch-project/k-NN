@@ -1154,6 +1154,24 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return client().performRequest(request);
     }
 
+    /**
+     * Delete the model
+     *
+     * @param modelId Id of model to be retrieved
+     * @throws IOException if request cannot be performed
+     */
+    public void deleteModel(String modelId) throws IOException {
+        if (modelId == null) {
+            modelId = "";
+        } else {
+            modelId = "/" + modelId;
+        }
+
+        Request request = new Request("DELETE", "/_plugins/_knn/models" + modelId);
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
     public void assertTrainingSucceeds(String modelId, int attempts, int delayInMillis) throws InterruptedException, Exception {
         int attemptNum = 0;
         Response response;
@@ -1254,6 +1272,18 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Map<String, Object> method
     ) throws Exception {
         int trainingDataCount = 40;
+        ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, method, trainingDataCount);
+    }
+
+    protected void ingestDataAndTrainModel(
+        String modelId,
+        String trainingIndexName,
+        String trainingFieldName,
+        int dimension,
+        String modelDescription,
+        Map<String, Object> method,
+        int trainingDataCount
+    ) throws Exception {
         bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
 
         Response trainResponse = trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, modelDescription);
