@@ -21,8 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       # using the same image which is used by opensearch-build team to build the OpenSearch Distribution
+      # this image tag is subject to change as more dependencies and updates will arrive over time
       image: public.ecr.aws/opensearchstaging/ci-runner:ci-runner-rockylinux8-opensearch-build-v4
-      # need to add this option so that docker image can be pulled and run.
+      # need to switch to root so that github actions can install runner binary on container without permission issues.
       options: --user root
 
     steps:
@@ -37,9 +38,9 @@ jobs:
           java-version: ${{ matrix.java }}
 
       - name: Run build
-        # switching the user, as OpenSearch cluster cannot be started as root.
+        # switching the user, as OpenSearch cluster cannot only be started as root/Administrator on linux-deb/linux-rpm/windows-zip.
         run: |
-          chown -R opensearch.opensearch ./* `pwd`
+          chown -R opensearch.opensearch `pwd`
           su opensearch -c "whoami && java -version && ./gradlew build"
 
       - name: Upload Coverage Report
