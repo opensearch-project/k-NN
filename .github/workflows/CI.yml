@@ -16,10 +16,45 @@ jobs:
     strategy:
       matrix:
         java: [11, 17]
-        os: [ubuntu-latest, macos-latest]
 
-    name: Build and Test k-NN Plugin
-    runs-on: ${{ matrix.os }}
+    name: Build and Test k-NN Plugin on Linux
+    runs-on: ubuntu-latest
+    container:
+      # using the same image which is used by opensearch-build team to build the OpenSearch Distribution
+      # this image tag is subject to change as more dependencies and updates will arrive over time
+      image: public.ecr.aws/opensearchstaging/ci-runner:ci-runner-rockylinux8-opensearch-build-v4
+      # need to switch to root so that github actions can install runner binary on container without permission issues.
+      options: --user root
+
+    steps:
+      - name: Checkout k-NN
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+
+      - name: Setup Java ${{ matrix.java }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java }}
+
+      - name: Run build
+        # switching the user, as OpenSearch cluster can only be started as root/Administrator on linux-deb/linux-rpm/windows-zip.
+        run: |
+          chown -R opensearch.opensearch `pwd`
+          su opensearch -c "whoami && java -version && ./gradlew build"
+
+      - name: Upload Coverage Report
+        uses: codecov/codecov-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  Build-k-NN-MacOS:
+    strategy:
+      matrix:
+        java: [ 11, 17 ]
+
+    name: Build and Test k-NN Plugin on MacOS
+    runs-on: macos-latest
 
     steps:
       - name: Checkout k-NN
@@ -30,13 +65,7 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
 
-      - name: Install dependencies on ubuntu
-        if: startsWith(matrix.os,'ubuntu')
-        run: |
-          sudo apt-get install libopenblas-dev gfortran -y
-
       - name: Install dependencies on macos
-        if: startsWith(matrix.os, 'macos')
         run: |
           brew reinstall gcc
           export FC=/usr/local/Cellar/gcc/12.2.0/bin/gfortran
@@ -44,12 +73,6 @@ jobs:
       - name: Run build
         run: |
           ./gradlew build
-
-      - name: Upload Coverage Report
-        if: startsWith(matrix.os,'ubuntu')
-        uses: codecov/codecov-action@v1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
 
   Build-k-NN-Windows:
     strategy:
