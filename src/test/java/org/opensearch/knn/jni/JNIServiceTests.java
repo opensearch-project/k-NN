@@ -14,6 +14,8 @@ package org.opensearch.knn.jni;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.junit.BeforeClass;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
@@ -36,9 +38,13 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QTY;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
+import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class JNIServiceTests extends KNNTestCase {
 
@@ -765,28 +771,94 @@ public class JNIServiceTests extends KNNTestCase {
         JNIService.freeVectors(trainPointer1);
     }
 
-    public void testTrain() {
+    public void testTrain_whenConfigurationIsIVFFlat_thenSucceed() throws IOException {
+        long trainPointer = transferVectors(10);
+        int ivfNlistParam = 16;
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, ivfNlistParam)
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        Map<String, Object> parameters = KNNEngine.FAISS.getMethodAsMap(knnMethodContext);
 
+        byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, FAISS_NAME);
+
+        assertNotEquals(0, faissIndex.length);
+        JNIService.freeVectors(trainPointer);
+    }
+
+    public void testTrain_whenConfigurationIsIVFPQ_thenSucceed() throws IOException {
+        long trainPointer = transferVectors(10);
+        int ivfNlistParam = 16;
+        int pqMParam = 4;
+        int pqCodeSizeParam = 4;
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, ivfNlistParam)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_PQ)
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_M, pqMParam)
+            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, pqCodeSizeParam)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        Map<String, Object> parameters = KNNEngine.FAISS.getMethodAsMap(knnMethodContext);
+
+        byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, FAISS_NAME);
+
+        assertNotEquals(0, faissIndex.length);
+        JNIService.freeVectors(trainPointer);
+    }
+
+    public void testTrain_whenConfigurationIsHNSWPQ_thenSucceed() throws IOException {
+        long trainPointer = transferVectors(10);
+        int pqMParam = 4;
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_PQ)
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_M, pqMParam)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        Map<String, Object> parameters = KNNEngine.FAISS.getMethodAsMap(knnMethodContext);
+
+        byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, FAISS_NAME);
+
+        assertNotEquals(0, faissIndex.length);
+        JNIService.freeVectors(trainPointer);
+    }
+
+    private long transferVectors(int numDuplicates) {
         long trainPointer1 = JNIService.transferVectors(0, testData.indexData.vectors);
         assertNotEquals(0, trainPointer1);
 
         long trainPointer2;
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < numDuplicates; i++) {
             trainPointer2 = JNIService.transferVectors(trainPointer1, testData.indexData.vectors);
             assertEquals(trainPointer1, trainPointer2);
         }
 
-        Map<String, Object> parameters = ImmutableMap.of(
-            INDEX_DESCRIPTION_PARAMETER,
-            "IVF16,PQ4",
-            KNNConstants.SPACE_TYPE,
-            SpaceType.L2.getValue()
-        );
-
-        byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer1, FAISS_NAME);
-
-        assertNotEquals(0, faissIndex.length);
-        JNIService.freeVectors(trainPointer1);
+        return trainPointer1;
     }
 
     public void testCreateIndexFromTemplate() throws IOException {
