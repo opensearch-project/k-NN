@@ -231,7 +231,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return this;
     }
 
-    public boolean isIgnoreUnmapped() {
+    public boolean getIgnoreUnmapped() {
         return this.ignoreUnmapped;
     }
 
