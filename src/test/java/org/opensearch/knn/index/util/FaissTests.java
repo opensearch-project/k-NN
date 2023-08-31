@@ -15,6 +15,7 @@ import org.opensearch.knn.index.Parameter;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
@@ -35,7 +36,7 @@ public class FaissTests extends KNNTestCase {
 
     public void testGetMethodAsMap_whenMethodIsHNSWFlat_thenCreateCorrectIndexDescription() throws IOException {
         int mParam = 65;
-        String expectedIndexDescription = String.format("HNSW%d,Flat", mParam);
+        String expectedIndexDescription = String.format(Locale.ROOT, "HNSW%d,Flat", mParam);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
@@ -57,7 +58,7 @@ public class FaissTests extends KNNTestCase {
     public void testGetMethodAsMap_whenMethodIsHNSWPQ_thenCreateCorrectIndexDescription() throws IOException {
         int hnswMParam = 65;
         int pqMParam = 17;
-        String expectedIndexDescription = String.format("HNSW%d,PQ%d", hnswMParam, pqMParam);
+        String expectedIndexDescription = String.format(Locale.ROOT, "HNSW%d,PQ%d", hnswMParam, pqMParam);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
@@ -84,7 +85,7 @@ public class FaissTests extends KNNTestCase {
 
     public void testGetMethodAsMap_whenMethodIsIVFFlat_thenCreateCorrectIndexDescription() throws IOException {
         int nlists = 88;
-        String expectedIndexDescription = String.format("IVF%d,Flat", nlists);
+        String expectedIndexDescription = String.format(Locale.ROOT, "IVF%d,Flat", nlists);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
@@ -107,7 +108,7 @@ public class FaissTests extends KNNTestCase {
         int ivfNlistsParam = 88;
         int pqMParam = 17;
         int pqCodeSizeParam = 53;
-        String expectedIndexDescription = String.format("IVF%d,PQ%dx%d", ivfNlistsParam, pqMParam, pqCodeSizeParam);
+        String expectedIndexDescription = String.format(Locale.ROOT, "IVF%d,PQ%dx%d", ivfNlistsParam, pqMParam, pqCodeSizeParam);
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
