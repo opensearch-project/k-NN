@@ -79,14 +79,7 @@ public class KNNQueryFactory {
 
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
             if (filterQuery != null && KNNEngine.getEnginesThatSupportsFilters().contains(createQueryRequest.getKnnEngine())) {
-                log.debug(
-                    String.format(
-                        "Creating custom k-NN query with filters for index: %s \"\", field: %s \"\", " + "k: %d",
-                        indexName,
-                        fieldName,
-                        k
-                    )
-                );
+                log.debug("Creating custom k-NN query with filters for index: {}, field: {} , k: {}", indexName, fieldName, k);
                 return new KNNQuery(fieldName, vector, k, indexName, filterQuery);
             }
             log.debug(String.format("Creating custom k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
