@@ -124,6 +124,13 @@ public class KNNWeight extends Weight {
                 return null;
             }
             if (canDoExactSearchAfterANNSearch(filterIdsArray.length, annResults.size())) {
+                log.debug(
+                    "Doing ExactSearch after doing ANNSearch as the number of documents returned are less than "
+                        + "K, even when we have more than K filtered Ids. K: {}, ANNResults: {}, filteredIdCount: {}",
+                    knnQuery.getK(),
+                    annResults.size(),
+                    filterIdsArray.length
+                );
                 annResults = doExactSearch(context, filterIdsArray);
             }
             docIdsToScoreMap.putAll(annResults);
@@ -390,7 +397,7 @@ public class KNNWeight extends Weight {
             return filterThresholdValue >= filterIdsCount;
         }
         // if no setting is set, then use the default max distance computation value to see if we can do exact search.
-        return KNNConstants.MAX_DISTANCE_COMPUTATIONS <= filterIdsCount * knnQuery.getQueryVector().length;
+        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= filterIdsCount * knnQuery.getQueryVector().length;
     }
 
     /**
