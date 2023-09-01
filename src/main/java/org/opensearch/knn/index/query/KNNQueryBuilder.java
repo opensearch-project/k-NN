@@ -117,7 +117,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             vector = in.readFloatArray();
             k = in.readInt();
             filter = in.readOptionalNamedWriteable(QueryBuilder.class);
-            ignoreUnmapped = in.readBoolean();
+            ignoreUnmapped = in.readOptionalBoolean();
         } catch (IOException ex) {
             throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder", ex);
         }
