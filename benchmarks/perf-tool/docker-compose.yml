@@ -1,0 +1,51 @@
+version: '3'
+services:
+  os-node1:
+    #image: opensearchproject/opensearch:latest 
+    image: opensearchstaging/opensearch:3.0.0
+    container_name: os-node1
+    environment:
+      - cluster.name=os-benchmark
+      - node.name=os-node1
+      - discovery.type=single-node
+      - bootstrap.memory_lock=false 
+      - "OPENSEARCH_JAVA_OPTS=-Xms2048m -Xmx2048m"
+      - plugins.security.disabled=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536 
+        hard: 65536
+    volumes:
+      - os-data1:/usr/share/opensearch/data
+      - "[KNN PLUGIN PATH]:/usr/share/opensearch/knn-plugins"
+    ports:
+      - 9200:9200
+      - 9900:9900
+    healthcheck: 
+      test: curl -f http://os-node1:9200
+    networks:
+      - opensearch-net-benchmark
+    entrypoint: "/bin/bash /usr/share/opensearch/knn-plugins/benchmarks/perf-tool/entrypoint_server.sh"
+  os-client1:
+    image: continuumio/miniconda3:4.10.3 
+    #image: opensearchstaging/ci-runner:ci-runner-centos7-performance-test-v3
+    container_name: os-client1
+    volumes:
+      - "[KNN PLUGIN PATH]/benchmarks/perf-tool:/home/opensearch"
+    #working_dir: /home/opensearch
+    #entrypoint: "/bin/bash"
+    command: [  "bash", "/home/opensearch/entrypoint.sh"]
+    privileged: true
+    networks:
+      - opensearch-net-benchmark
+    depends_on:
+      os-node1:
+        condition: service_healthy
+volumes:
+  os-data1:
+
+networks:
+  opensearch-net-benchmark:
