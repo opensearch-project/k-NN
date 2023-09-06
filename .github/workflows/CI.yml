@@ -12,17 +12,42 @@ on:
       - "feature/**"
 
 jobs:
-  Build-k-NN:
+  Get-CI-Image-Tag:
+    runs-on: ubuntu-latest
+    outputs:
+      ci-image-version-linux: ${{ steps.step-ci-image-version-linux.outputs.ci-image-version-linux }}
+    steps:
+      - name: Install crane
+        uses: iarekylew00t/crane-installer@v1
+        with:
+          crane-release: v0.15.2
+      - name: Checkout opensearch-build repository
+        uses: actions/checkout@v2
+        with:
+            repository: 'opensearch-project/opensearch-build'
+            ref: 'main'
+            path: 'opensearch-build'
+      - name: Get ci image version from opensearch-build repository scripts
+        id: step-ci-image-version-linux
+        run: |
+          crane version
+          CI_IMAGE_VERSION=`opensearch-build/docker/ci/get-ci-images.sh -p rockylinux8 -u opensearch -t build | head -1`
+          echo $CI_IMAGE_VERSION
+          echo "ci-image-version-linux=$CI_IMAGE_VERSION" >> $GITHUB_OUTPUT
+        
+
+  Build-k-NN-Linux:
     strategy:
       matrix:
         java: [11, 17]
 
     name: Build and Test k-NN Plugin on Linux
     runs-on: ubuntu-latest
+    needs: Get-CI-Image-Tag
     container:
       # using the same image which is used by opensearch-build team to build the OpenSearch Distribution
       # this image tag is subject to change as more dependencies and updates will arrive over time
-      image: public.ecr.aws/opensearchstaging/ci-runner:ci-runner-rockylinux8-opensearch-build-v4
+      image: ${{ needs.Get-CI-Image-Tag.outputs.ci-image-version-linux }}
       # need to switch to root so that github actions can install runner binary on container without permission issues.
       options: --user root
 
@@ -54,6 +79,7 @@ jobs:
         java: [ 11, 17 ]
 
     name: Build and Test k-NN Plugin on MacOS
+    needs: Get-CI-Image-Tag
     runs-on: macos-latest
 
     steps:
@@ -80,6 +106,7 @@ jobs:
         java: [ 11, 17 ]
 
     name: Build and Test k-NN Plugin on Windows
+    needs: Get-CI-Image-Tag
     runs-on: windows-latest
 
     steps:
