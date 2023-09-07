@@ -3,5 +3,5 @@ opensearch-py
 PyYAML
 numpy
 h5py
-requests
+requests>=2.1.0,<2.6.0
 psutil
