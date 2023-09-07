@@ -796,7 +796,7 @@ def query_index(opensearch: OpenSearch, index_name: str, body: dict,
 
 
 def bulk_index(opensearch: OpenSearch, index_name: str, body: List):
-    return opensearch.bulk(index=index_name, body=body)
+    return opensearch.bulk(index=index_name, body=body, timeout='5m')
 
 def get_segment_stats(opensearch: OpenSearch, index_name: str):
     return opensearch.indices.segments(index=index_name)
