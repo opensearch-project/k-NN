@@ -24,6 +24,7 @@ import org.opensearch.knn.plugin.stats.suppliers.NativeMemoryCacheManagerSupplie
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * Class represents all stats the plugin keeps track of
@@ -84,6 +85,7 @@ public class KNNStats {
         addEngineStats(builder);
         addScriptStats(builder);
         addModelStats(builder);
+        addGraphStats(builder);
         return builder.build();
     }
 
@@ -168,5 +170,27 @@ public class KNNStats {
                 StatNames.TRAINING_MEMORY_USAGE_PERCENTAGE.getName(),
                 new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getTrainingSizeAsPercentage))
             );
+    }
+
+    private void addGraphStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {
+        builder.put(StatNames.GRAPH_STATS.getName(), new KNNStat<>(false, new Supplier<Map<String, Map<String, Object>>>() {
+            @Override
+            public Map<String, Map<String, Object>> get() {
+                return createGraphStatsMap();
+            }
+        }));
+    }
+
+    private Map<String, Map<String, Object>> createGraphStatsMap() {
+        Map<String, Object> refreshMap = new HashMap<>();
+        refreshMap.put(KNNCounter.REFRESH_CURRENT_OPERATIONS.getName(), KNNCounter.REFRESH_CURRENT_OPERATIONS.getCount());
+        refreshMap.put(KNNCounter.REFRESH_CURRENT_DOCS.getName(), KNNCounter.REFRESH_CURRENT_DOCS.getCount());
+        refreshMap.put(KNNCounter.REFRESH_CURRENT_SIZE_IN_BYTES.getName(), KNNCounter.REFRESH_CURRENT_SIZE_IN_BYTES.getCount());
+        refreshMap.put(KNNCounter.REFRESH_TOTAL_OPERATIONS.getName(), KNNCounter.REFRESH_TOTAL_OPERATIONS.getCount());
+        refreshMap.put(KNNCounter.REFRESH_TOTAL_TIME_IN_MILLIS.getName(), KNNCounter.REFRESH_TOTAL_TIME_IN_MILLIS.getCount());
+        refreshMap.put(KNNCounter.REFRESH_TOTAL_DOCS.getName(), KNNCounter.REFRESH_TOTAL_DOCS.getCount());
+        Map<String, Map<String, Object>> graphStatsMap = new HashMap<>();
+        graphStatsMap.put(StatNames.REFRESH.getName(), refreshMap);
+        return graphStatsMap;
     }
 }

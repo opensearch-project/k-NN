@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableMap;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.store.ChecksumIndexInput;
+import org.opensearch.common.StopWatch;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
@@ -74,9 +75,13 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
     @Override
     public void addBinaryField(FieldInfo field, DocValuesProducer valuesProducer) throws IOException {
-        delegatee.addBinaryField(field, valuesProducer);
         if (isKNNBinaryFieldRequired(field)) {
+            StopWatch stopWatch = new StopWatch();
+            stopWatch.start();
             addKNNBinaryField(field, valuesProducer);
+            stopWatch.stop();
+            long time_in_millis = stopWatch.totalTime().millis();
+            KNNCounter.REFRESH_TOTAL_TIME_IN_MILLIS.set(KNNCounter.REFRESH_TOTAL_TIME_IN_MILLIS.getCount() + time_in_millis);
         }
     }
 
@@ -98,13 +103,19 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     }
 
     public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer) throws IOException {
-        // Get values to be indexed
+        // Get values to be index
         BinaryDocValues values = valuesProducer.getBinary(field);
         KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
         if (pair.vectors.length == 0 || pair.docs.length == 0) {
             logger.info("Skipping engine index creation as there are no vectors or docs in the documents");
             return;
         }
+        KNNCounter.REFRESH_CURRENT_OPERATIONS.increment();
+        KNNCounter.REFRESH_CURRENT_DOCS.set(KNNCounter.REFRESH_CURRENT_DOCS.getCount() + pair.docs.length);
+        KNNCounter.REFRESH_CURRENT_SIZE_IN_BYTES.set(
+            KNNCounter.REFRESH_CURRENT_SIZE_IN_BYTES.getCount() + calculateArraySize(pair.vectors)
+        );
+
         // Increment counter for number of graph index requests
         KNNCounter.GRAPH_INDEX_REQUESTS.increment();
         // Create library index either from model or from scratch
@@ -135,12 +146,39 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             indexCreator = () -> createKNNIndexFromScratch(field, pair, knnEngine, indexPath);
         }
 
+        KNNCounter.REFRESH_CURRENT_OPERATIONS.set(KNNCounter.REFRESH_CURRENT_OPERATIONS.getCount() - 1);
+        KNNCounter.REFRESH_CURRENT_DOCS.set(KNNCounter.REFRESH_CURRENT_DOCS.getCount() - pair.docs.length);
+        KNNCounter.REFRESH_CURRENT_SIZE_IN_BYTES.set(
+                KNNCounter.REFRESH_CURRENT_SIZE_IN_BYTES.getCount() - calculateArraySize(pair.vectors)
+        );
+        KNNCounter.REFRESH_TOTAL_OPERATIONS.increment();
+        System.out.println(KNNCounter.REFRESH_TOTAL_OPERATIONS.getCount());
+        KNNCounter.REFRESH_TOTAL_DOCS.set(KNNCounter.REFRESH_TOTAL_DOCS.getCount() + pair.docs.length);
+
         // This is a bit of a hack. We have to create an output here and then immediately close it to ensure that
         // engineFileName is added to the tracked files by Lucene's TrackingDirectoryWrapper. Otherwise, the file will
         // not be marked as added to the directory.
         state.directory.createOutput(engineFileName, state.context).close();
         indexCreator.createIndex();
         writeFooter(indexPath, engineFileName);
+    }
+
+    private int calculateArraySize(float[][] vectors) {
+        int vectorLength = vectors[0].length;
+        int numVectors = vectors.length;
+        int floatByteSize = 4;
+        int javaReferenceSize = 4;
+        int javaArrayHeaderSize = 12;
+        int javaRoundingNumber = 8;
+        int vectorSize = vectorLength * floatByteSize + javaArrayHeaderSize;
+        if (vectorSize % javaRoundingNumber != 0) {
+            vectorSize += vectorSize % javaRoundingNumber;
+        }
+        int vectorsSize = numVectors * (vectorSize + javaReferenceSize) + javaArrayHeaderSize;
+        if (vectorsSize % javaRoundingNumber != 0) {
+            vectorsSize += vectorsSize % javaRoundingNumber;
+        }
+        return vectorsSize;
     }
 
     private void createKNNIndexFromTemplate(byte[] model, KNNCodecUtil.Pair pair, KNNEngine knnEngine, String indexPath) {
@@ -204,6 +242,8 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     @Override
     public void merge(MergeState mergeState) {
         try {
+            System.out.println("#######");
+            System.out.println(mergeState);
             delegatee.merge(mergeState);
             assert mergeState != null;
             assert mergeState.mergeFieldInfos != null;
