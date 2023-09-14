@@ -457,6 +457,57 @@ public class KNNWeightTests extends KNNTestCase {
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
     }
 
+    @SneakyThrows
+    public void testANNWithFilterQuery_whenExactSearchAndThresholdComputations_thenSuccess() {
+        knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(-1);
+        float[] vector = new float[] { 0.1f, 0.3f };
+        int filterDocId = 0;
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        final SegmentReader reader = mock(SegmentReader.class);
+        when(leafReaderContext.reader()).thenReturn(reader);
+
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY);
+        final Weight filterQueryWeight = mock(Weight.class);
+        final Scorer filterScorer = mock(Scorer.class);
+        when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
+        // scorer will return 2 documents
+        when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(1));
+        when(reader.maxDoc()).thenReturn(1);
+        final Bits liveDocsBits = mock(Bits.class);
+        when(reader.getLiveDocs()).thenReturn(liveDocsBits);
+        when(liveDocsBits.get(filterDocId)).thenReturn(true);
+        when(liveDocsBits.length()).thenReturn(1000);
+
+        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
+        final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.L2.name());
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        final BinaryDocValues binaryDocValues = mock(BinaryDocValues.class);
+        when(reader.getFieldInfos()).thenReturn(fieldInfos);
+        when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
+        when(fieldInfo.attributes()).thenReturn(attributesMap);
+        when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.name());
+        when(fieldInfo.getName()).thenReturn(FIELD_NAME);
+        when(reader.getBinaryDocValues(FIELD_NAME)).thenReturn(binaryDocValues);
+        when(binaryDocValues.advance(filterDocId)).thenReturn(filterDocId);
+        BytesRef vectorByteRef = new BytesRef(new KNNVectorAsArraySerializer().floatToByteArray(vector));
+        when(binaryDocValues.binaryValue()).thenReturn(vectorByteRef);
+
+        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        assertNotNull(knnScorer);
+        final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
+        assertNotNull(docIdSetIterator);
+        assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.size(), docIdSetIterator.cost());
+
+        final List<Integer> actualDocIds = new ArrayList<>();
+        for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
+            actualDocIds.add(docId);
+            assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId), knnScorer.score(), 0.01f);
+        }
+        assertEquals(docIdSetIterator.cost(), actualDocIds.size());
+        assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
+    }
+
     /**
      * This test ensure that we do the exact search when threshold settings are correct and not using filteredIds<=K
      * condition to do exact search.

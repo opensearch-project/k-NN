@@ -18,6 +18,7 @@ import org.opensearch.knn.index.SpaceType;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
@@ -64,9 +65,7 @@ class Faiss extends NativeLibrary {
         Collections.emptyMap()
     );
 
-    // TODO: To think about in future: for PQ, if dimension is not divisible by code count, PQ will fail. Right now,
-    // we do not have a way to base validation off of dimension. Failure will happen during training in JNI.
-    private final static Map<String, MethodComponent> encoderComponents = ImmutableMap.of(
+    private final static Map<String, MethodComponent> COMMON_ENCODERS = ImmutableMap.of(
         KNNConstants.ENCODER_FLAT,
         MethodComponent.Builder.builder(KNNConstants.ENCODER_FLAT)
             .setMapGenerator(
@@ -76,62 +75,111 @@ class Faiss extends NativeLibrary {
                     methodComponentContext
                 ).build())
             )
-            .build(),
-        KNNConstants.ENCODER_PQ,
-        MethodComponent.Builder.builder(KNNConstants.ENCODER_PQ)
-            .addParameter(
-                ENCODER_PARAMETER_PQ_M,
-                new Parameter.IntegerParameter(
-                    ENCODER_PARAMETER_PQ_M,
-                    ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT,
-                    v -> v > 0 && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT
-                )
-            )
-            .addParameter(
-                ENCODER_PARAMETER_PQ_CODE_SIZE,
-                new Parameter.IntegerParameter(
-                    ENCODER_PARAMETER_PQ_CODE_SIZE,
-                    ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT,
-                    v -> v > 0 && v < ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT
-                )
-            )
-            .setRequiresTraining(true)
-            .setMapGenerator(
-                ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
-                    FAISS_PQ_DESCRIPTION,
-                    methodComponent,
-                    methodComponentContext
-                ).addParameter(ENCODER_PARAMETER_PQ_M, "", "").addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, "x", "").build())
-            )
-            .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
-                // Size estimate formula: (4 * d * 2^code_size) / 1024 + 1
-
-                // Get value of code size passed in by user
-                Object codeSizeObject = methodComponentContext.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
-
-                // If not specified, get default value of code size
-                if (codeSizeObject == null) {
-                    Parameter<?> codeSizeParameter = methodComponent.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
-                    if (codeSizeParameter == null) {
-                        throw new IllegalStateException(
-                            String.format("%s  is not a valid parameter. This is a bug.", ENCODER_PARAMETER_PQ_CODE_SIZE)
-                        );
-                    }
-
-                    codeSizeObject = codeSizeParameter.getDefaultValue();
-                }
-
-                if (!(codeSizeObject instanceof Integer)) {
-                    throw new IllegalStateException(String.format("%s must be an integer.", ENCODER_PARAMETER_PQ_CODE_SIZE));
-                }
-
-                int codeSize = (Integer) codeSizeObject;
-                return ((4L * (1L << codeSize) * dimension) / BYTES_PER_KILOBYTES) + 1;
-            })
             .build()
     );
 
-    // Define methods supported by faiss
+    // TODO: To think about in future: for PQ, if dimension is not divisible by code count, PQ will fail. Right now,
+    // we do not have a way to base validation off of dimension. Failure will happen during training in JNI.
+    // Define methods supported by faiss. See issue here: https://github.com/opensearch-project/k-NN/issues/1075
+    private final static Map<String, MethodComponent> HNSW_ENCODERS = ImmutableMap.<String, MethodComponent>builder()
+        .putAll(
+            ImmutableMap.of(
+                KNNConstants.ENCODER_PQ,
+                MethodComponent.Builder.builder(KNNConstants.ENCODER_PQ)
+                    .addParameter(
+                        ENCODER_PARAMETER_PQ_M,
+                        new Parameter.IntegerParameter(
+                            ENCODER_PARAMETER_PQ_M,
+                            ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT,
+                            v -> v > 0 && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT
+                        )
+                    )
+                    .addParameter(
+                        ENCODER_PARAMETER_PQ_CODE_SIZE,
+                        new Parameter.IntegerParameter(
+                            ENCODER_PARAMETER_PQ_CODE_SIZE,
+                            ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT,
+                            v -> Objects.equals(v, ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT)
+                        )
+                    )
+                    .setRequiresTraining(true)
+                    .setMapGenerator(
+                        ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+                            FAISS_PQ_DESCRIPTION,
+                            methodComponent,
+                            methodComponentContext
+                        ).addParameter(ENCODER_PARAMETER_PQ_M, "", "").build())
+                    )
+                    .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
+                        int codeSize = ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT;
+                        return ((4L * (1L << codeSize) * dimension) / BYTES_PER_KILOBYTES) + 1;
+                    })
+                    .build()
+            )
+        )
+        .putAll(COMMON_ENCODERS)
+        .build();
+
+    private final static Map<String, MethodComponent> IVF_ENCODERS = ImmutableMap.<String, MethodComponent>builder()
+        .putAll(
+            ImmutableMap.of(
+                KNNConstants.ENCODER_PQ,
+                MethodComponent.Builder.builder(KNNConstants.ENCODER_PQ)
+                    .addParameter(
+                        ENCODER_PARAMETER_PQ_M,
+                        new Parameter.IntegerParameter(
+                            ENCODER_PARAMETER_PQ_M,
+                            ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT,
+                            v -> v > 0 && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT
+                        )
+                    )
+                    .addParameter(
+                        ENCODER_PARAMETER_PQ_CODE_SIZE,
+                        new Parameter.IntegerParameter(
+                            ENCODER_PARAMETER_PQ_CODE_SIZE,
+                            ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT,
+                            v -> v > 0 && v < ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT
+                        )
+                    )
+                    .setRequiresTraining(true)
+                    .setMapGenerator(
+                        ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+                            FAISS_PQ_DESCRIPTION,
+                            methodComponent,
+                            methodComponentContext
+                        ).addParameter(ENCODER_PARAMETER_PQ_M, "", "").addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, "x", "").build())
+                    )
+                    .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
+                        // Size estimate formula: (4 * d * 2^code_size) / 1024 + 1
+
+                        // Get value of code size passed in by user
+                        Object codeSizeObject = methodComponentContext.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
+
+                        // If not specified, get default value of code size
+                        if (codeSizeObject == null) {
+                            Parameter<?> codeSizeParameter = methodComponent.getParameters().get(ENCODER_PARAMETER_PQ_CODE_SIZE);
+                            if (codeSizeParameter == null) {
+                                throw new IllegalStateException(
+                                    String.format("%s  is not a valid parameter. This is a bug.", ENCODER_PARAMETER_PQ_CODE_SIZE)
+                                );
+                            }
+
+                            codeSizeObject = codeSizeParameter.getDefaultValue();
+                        }
+
+                        if (!(codeSizeObject instanceof Integer)) {
+                            throw new IllegalStateException(String.format("%s must be an integer.", ENCODER_PARAMETER_PQ_CODE_SIZE));
+                        }
+
+                        int codeSize = (Integer) codeSizeObject;
+                        return ((4L * (1L << codeSize) * dimension) / BYTES_PER_KILOBYTES) + 1;
+                    })
+                    .build()
+            )
+        )
+        .putAll(COMMON_ENCODERS)
+        .build();
+
     private final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
         METHOD_HNSW,
         KNNMethod.Builder.builder(
@@ -158,7 +206,7 @@ class Faiss extends NativeLibrary {
                 )
                 .addParameter(
                     METHOD_ENCODER_PARAMETER,
-                    new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, ENCODER_DEFAULT, encoderComponents)
+                    new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, ENCODER_DEFAULT, HNSW_ENCODERS)
                 )
                 .setMapGenerator(
                     ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
@@ -190,7 +238,7 @@ class Faiss extends NativeLibrary {
                 )
                 .addParameter(
                     METHOD_ENCODER_PARAMETER,
-                    new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, ENCODER_DEFAULT, encoderComponents)
+                    new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, ENCODER_DEFAULT, IVF_ENCODERS)
                 )
                 .setRequiresTraining(true)
                 .setMapGenerator(
