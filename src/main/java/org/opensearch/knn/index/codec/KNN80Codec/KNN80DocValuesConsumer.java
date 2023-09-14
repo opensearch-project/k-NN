@@ -36,6 +36,7 @@ import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -78,10 +79,10 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         if (isKNNBinaryFieldRequired(field)) {
             StopWatch stopWatch = new StopWatch();
             stopWatch.start();
-            addKNNBinaryField(field, valuesProducer);
+            addKNNBinaryField(field, valuesProducer, false, true);
             stopWatch.stop();
             long time_in_millis = stopWatch.totalTime().millis();
-            KNNCounter.REFRESH_TOTAL_TIME_IN_MILLIS.set(KNNCounter.REFRESH_TOTAL_TIME_IN_MILLIS.getCount() + time_in_millis);
+            KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.set(KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.getValue() + time_in_millis);
         }
     }
 
@@ -102,7 +103,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         return KNNEngine.getEngine(engineName);
     }
 
-    public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer) throws IOException {
+    public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge, boolean isRefresh) throws IOException {
         // Get values to be index
         BinaryDocValues values = valuesProducer.getBinary(field);
         KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
@@ -110,12 +111,14 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             logger.info("Skipping engine index creation as there are no vectors or docs in the documents");
             return;
         }
-        KNNCounter.REFRESH_CURRENT_OPERATIONS.increment();
-        KNNCounter.REFRESH_CURRENT_DOCS.set(KNNCounter.REFRESH_CURRENT_DOCS.getCount() + pair.docs.length);
-        KNNCounter.REFRESH_CURRENT_SIZE_IN_BYTES.set(
-            KNNCounter.REFRESH_CURRENT_SIZE_IN_BYTES.getCount() + calculateArraySize(pair.vectors)
-        );
-
+        long arraySize = calculateArraySize(pair.vectors);
+        if (isMerge) {
+            KNNGraphValue.MERGE_CURRENT_OPERATIONS.increment();
+            KNNGraphValue.MERGE_CURRENT_DOCS.set(KNNGraphValue.MERGE_CURRENT_DOCS.getValue() + pair.docs.length);
+            KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.set(
+                    KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.getValue() + arraySize
+            );
+        }
         // Increment counter for number of graph index requests
         KNNCounter.GRAPH_INDEX_REQUESTS.increment();
         // Create library index either from model or from scratch
@@ -146,14 +149,22 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             indexCreator = () -> createKNNIndexFromScratch(field, pair, knnEngine, indexPath);
         }
 
-        KNNCounter.REFRESH_CURRENT_OPERATIONS.set(KNNCounter.REFRESH_CURRENT_OPERATIONS.getCount() - 1);
-        KNNCounter.REFRESH_CURRENT_DOCS.set(KNNCounter.REFRESH_CURRENT_DOCS.getCount() - pair.docs.length);
-        KNNCounter.REFRESH_CURRENT_SIZE_IN_BYTES.set(
-                KNNCounter.REFRESH_CURRENT_SIZE_IN_BYTES.getCount() - calculateArraySize(pair.vectors)
-        );
-        KNNCounter.REFRESH_TOTAL_OPERATIONS.increment();
-        System.out.println(KNNCounter.REFRESH_TOTAL_OPERATIONS.getCount());
-        KNNCounter.REFRESH_TOTAL_DOCS.set(KNNCounter.REFRESH_TOTAL_DOCS.getCount() + pair.docs.length);
+        if (isMerge) {
+            KNNGraphValue.MERGE_CURRENT_OPERATIONS.set(KNNGraphValue.MERGE_CURRENT_OPERATIONS.getValue() - 1);
+            KNNGraphValue.MERGE_CURRENT_DOCS.set(KNNGraphValue.MERGE_CURRENT_DOCS.getValue() - pair.docs.length);
+            KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.set(
+                    KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.getValue() - calculateArraySize(pair.vectors)
+            );
+            KNNGraphValue.MERGE_TOTAL_OPERATIONS.increment();
+            KNNGraphValue.MERGE_TOTAL_DOCS.set(KNNGraphValue.MERGE_TOTAL_DOCS.getValue() + pair.docs.length);
+            KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.set(
+                    KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue() + arraySize
+            );
+        }
+
+        if (isRefresh) {
+            KNNGraphValue.REFRESH_TOTAL_OPERATIONS.increment();
+        }
 
         // This is a bit of a hack. We have to create an output here and then immediately close it to ensure that
         // engineFileName is added to the tracked files by Lucene's TrackingDirectoryWrapper. Otherwise, the file will
@@ -242,15 +253,23 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     @Override
     public void merge(MergeState mergeState) {
         try {
-            System.out.println("#######");
-            System.out.println(mergeState);
+            System.out.println("!!!!!!!#.25");
             delegatee.merge(mergeState);
+            System.out.println("!!!!!!!#.5");
             assert mergeState != null;
             assert mergeState.mergeFieldInfos != null;
             for (FieldInfo fieldInfo : mergeState.mergeFieldInfos) {
+                System.out.println("!!!!!!!!#1");
                 DocValuesType type = fieldInfo.getDocValuesType();
+                System.out.println("!!!!!!!!#2");
                 if (type == DocValuesType.BINARY && fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
-                    addKNNBinaryField(fieldInfo, new KNN80DocValuesReader(mergeState));
+                    System.out.println("!!!!!!!!#3");
+                    StopWatch stopWatch = new StopWatch();
+                    stopWatch.start();
+                    addKNNBinaryField(fieldInfo, new KNN80DocValuesReader(mergeState), true, false);
+                    stopWatch.stop();
+                    long time_in_millis = stopWatch.totalTime().millis();
+                    KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.set(KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.getValue() + time_in_millis);
                 }
             }
         } catch (Exception e) {

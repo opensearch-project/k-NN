@@ -39,9 +39,11 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
+import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -348,7 +350,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         // Add documents to the field
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
         RandomVectorDocValuesProducer randomVectorDocValuesProducer = new RandomVectorDocValuesProducer(docsInSegment, dimension);
-        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer);
+        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, false, true);
 
         // The document should be created in the correct location
         String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
@@ -359,6 +361,11 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         // The document should be readable by faiss
         assertLoadableByEngine(state, expectedFile, knnEngine, spaceType, dimension);
+
+        // The refresh statistics should be updated
+        assertEquals(1, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
+        assertNotEquals(0, (long) KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.getValue());
+
     }
 
     public void testMerge_exception() throws IOException {
@@ -426,6 +433,6 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         knn80DocValuesConsumer.addBinaryField(fieldInfo, docValuesProducer);
 
         verify(delegate, times(1)).addBinaryField(fieldInfo, docValuesProducer);
-        verify(knn80DocValuesConsumer, never()).addKNNBinaryField(any(), any());
+        verify(knn80DocValuesConsumer, never()).addKNNBinaryField(any(), any(), false, false);
     }
 }

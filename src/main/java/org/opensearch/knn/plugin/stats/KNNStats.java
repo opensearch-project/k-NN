@@ -182,14 +182,19 @@ public class KNNStats {
     }
 
     private Map<String, Map<String, Object>> createGraphStatsMap() {
+        Map<String, Object> mergeMap = new HashMap<>();
+        mergeMap.put(KNNGraphValue.MERGE_CURRENT_OPERATIONS.getName(), KNNGraphValue.MERGE_CURRENT_OPERATIONS.getValue());
+        mergeMap.put(KNNGraphValue.MERGE_CURRENT_DOCS.getName(), KNNGraphValue.MERGE_CURRENT_DOCS.getValue());
+        mergeMap.put(KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.getName(), KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.getValue());
+        mergeMap.put(KNNGraphValue.MERGE_TOTAL_OPERATIONS.getName(), KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
+        mergeMap.put(KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.getName(), KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.getValue());
+        mergeMap.put(KNNGraphValue.MERGE_TOTAL_DOCS.getName(), KNNGraphValue.MERGE_TOTAL_DOCS.getValue());
+        mergeMap.put(KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getName(), KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
         Map<String, Object> refreshMap = new HashMap<>();
-        refreshMap.put(KNNCounter.REFRESH_CURRENT_OPERATIONS.getName(), KNNCounter.REFRESH_CURRENT_OPERATIONS.getCount());
-        refreshMap.put(KNNCounter.REFRESH_CURRENT_DOCS.getName(), KNNCounter.REFRESH_CURRENT_DOCS.getCount());
-        refreshMap.put(KNNCounter.REFRESH_CURRENT_SIZE_IN_BYTES.getName(), KNNCounter.REFRESH_CURRENT_SIZE_IN_BYTES.getCount());
-        refreshMap.put(KNNCounter.REFRESH_TOTAL_OPERATIONS.getName(), KNNCounter.REFRESH_TOTAL_OPERATIONS.getCount());
-        refreshMap.put(KNNCounter.REFRESH_TOTAL_TIME_IN_MILLIS.getName(), KNNCounter.REFRESH_TOTAL_TIME_IN_MILLIS.getCount());
-        refreshMap.put(KNNCounter.REFRESH_TOTAL_DOCS.getName(), KNNCounter.REFRESH_TOTAL_DOCS.getCount());
+        refreshMap.put(KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getName(), KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
+        refreshMap.put(KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.getName(), KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.getValue());
         Map<String, Map<String, Object>> graphStatsMap = new HashMap<>();
+        graphStatsMap.put(StatNames.MERGE.getName(), mergeMap);
         graphStatsMap.put(StatNames.REFRESH.getName(), refreshMap);
         return graphStatsMap;
     }
