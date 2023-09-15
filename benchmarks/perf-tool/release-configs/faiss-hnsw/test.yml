@@ -20,6 +20,8 @@ steps:
   - name: force_merge
     index_name: target_index
     max_num_segments: 1
+  - name: warmup_operation
+    index_name: target_index
   - name: query
     k: 100
     r: 1
