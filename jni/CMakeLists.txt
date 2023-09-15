@@ -187,9 +187,24 @@ if ("${WIN32}" STREQUAL "")
                 tests/faiss_wrapper_test.cpp
                 tests/nmslib_wrapper_test.cpp
                 tests/test_util.cpp)
+        add_executable(
+                jni_memory_test
+                tests/faiss_memory_test.cpp
+                tests/test_util.cpp)
 
         target_link_libraries(
                 jni_test
+                gtest_main
+                gmock_main
+                faiss
+                NonMetricSpaceLib
+                OpenMP::OpenMP_CXX
+                ${TARGET_LIB_FAISS}
+                ${TARGET_LIB_NMSLIB}
+                ${TARGET_LIB_COMMON}
+        )
+        target_link_libraries(
+                jni_memory_test
                 gtest_main
                 gmock_main
                 faiss
@@ -209,9 +224,18 @@ if ("${WIN32}" STREQUAL "")
                 ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search/include
                 ${gtest_SOURCE_DIR}/include
                 ${gmock_SOURCE_DIR}/include)
-
+        target_include_directories(jni_memory_test PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests
+                ${CMAKE_CURRENT_SOURCE_DIR}/include
+                $ENV{JAVA_HOME}/include
+                $ENV{JAVA_HOME}/include/${JVM_OS_TYPE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss
+                ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search/include
+                ${gtest_SOURCE_DIR}/include
+                ${gmock_SOURCE_DIR}/include)
 
         set_target_properties(jni_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+        set_target_properties(jni_memory_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
     endif ()
 endif()
 

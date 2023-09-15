@@ -150,6 +150,9 @@ namespace test_util {
 
     float RandomFloat(float min, float max);
 
+    // Read vector file formats
+    void load_data(char* filename, float*& data, unsigned& num, unsigned& dim);
+
 // -------------------------------------------------------------------------------
 }  // namespace test_util
 

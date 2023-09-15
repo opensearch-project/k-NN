@@ -14,6 +14,7 @@
 #include <jni.h>
 
 #include <random>
+#include <stdio.h>
 #include <utility>
 
 #include "faiss/Index.h"
@@ -346,4 +347,25 @@ float test_util::RandomFloat(float min, float max) {
     std::default_random_engine e1(r());
     std::uniform_real_distribution<float> distribution(min, max);
     return distribution(e1);
+}
+
+void test_util::load_data(char* filename, float*& data, unsigned& num, unsigned& dim) {
+    std::ifstream in(filename, std::ios::binary);
+    if (!in.is_open()) {
+        std::cout << "open file error" << std::endl;
+        exit(-1);
+    }
+    in.read((char*)&dim, 4);
+    in.seekg(0, std::ios::end);
+    std::ios::pos_type ss = in.tellg();
+    size_t fsize = (size_t)ss;
+    num = (unsigned)(fsize / (dim + 1) / 4);
+    data = new float[(size_t)num * (size_t)dim];
+
+    in.seekg(0, std::ios::beg);
+    for (size_t i = 0; i < num; i++) {
+        in.seekg(4, std::ios::cur);
+        in.read((char*)(data + i * dim), dim * 4);
+    }
+    in.close();
 }
