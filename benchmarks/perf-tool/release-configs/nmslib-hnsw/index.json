@@ -4,7 +4,7 @@
       "knn": true,
       "number_of_shards": 24,
       "number_of_replicas": 1,
-      "knn.algo_param.ef_search": 256
+      "knn.algo_param.ef_search": 100
     }
   },
   "mappings": {

@@ -1,0 +1,9 @@
+{
+  "name":"ivf",
+  "engine":"faiss",
+  "space_type": "l2",
+    "parameters":{
+      "nlist": 128,
+      "nprobes": 8
+  }
+}
