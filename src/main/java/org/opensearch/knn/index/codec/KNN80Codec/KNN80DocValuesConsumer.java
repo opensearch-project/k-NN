@@ -106,7 +106,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
     public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge, boolean isRefresh)
         throws IOException {
-        // Get values to be index
+        // Get values to be indexed
         BinaryDocValues values = valuesProducer.getBinary(field);
         KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
         if (pair.vectors.length == 0 || pair.docs.length == 0) {

@@ -44,7 +44,6 @@ public enum StatNames {
     KNN_QUERY_WITH_FILTER_REQUESTS(KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS.getName()),
     GRAPH_STATS("graph_stats"),
     REFRESH("refresh"),
-
     MERGE("merge");
 
     private String name;
