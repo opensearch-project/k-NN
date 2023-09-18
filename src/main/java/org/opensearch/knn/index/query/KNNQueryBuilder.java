@@ -7,9 +7,11 @@ package org.opensearch.knn.index.query;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.MatchNoDocsQuery;
+import org.opensearch.Version;
 import org.opensearch.core.common.Strings;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -29,7 +31,9 @@ import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
@@ -58,6 +62,12 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private int k = 0;
     private QueryBuilder filter;
     private boolean ignoreUnmapped = false;
+    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED = Version.V_2_11_0;
+    private static final Map<String, Version> minimalRequiredVersionMap = new HashMap<String, Version>() {
+        {
+            put("ignore_unmapped", MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED);
+        }
+    };
 
     /**
      * Constructs a new knn query
@@ -117,7 +127,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             vector = in.readFloatArray();
             k = in.readInt();
             filter = in.readOptionalNamedWriteable(QueryBuilder.class);
-            ignoreUnmapped = in.readOptionalBoolean();
+            if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
+                ignoreUnmapped = in.readOptionalBoolean();
+            }
         } catch (IOException ex) {
             throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder", ex);
         }
@@ -151,7 +163,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                         } else if (K_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                             k = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
                         } else if (IGNORE_UNMAPPED_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
-                            ignoreUnmapped = parser.booleanValue();
+                            if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
+                                ignoreUnmapped = parser.booleanValue();
+                            }
                         } else if (AbstractQueryBuilder.NAME_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                             queryName = parser.text();
                         } else {
@@ -196,7 +210,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         out.writeFloatArray(vector);
         out.writeInt(k);
         out.writeOptionalNamedWriteable(filter);
-        out.writeBoolean(ignoreUnmapped);
+        if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
+            out.writeOptionalBoolean(ignoreUnmapped);
+        }
     }
 
     /**
@@ -342,5 +358,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     @Override
     public String getWriteableName() {
         return NAME;
+    }
+
+    private static boolean isClusterOnOrAfterMinRequiredVersion(String key) {
+        Version minimalRequiredVersion = minimalRequiredVersionMap.get(key);
+        if (minimalRequiredVersion == null) {
+            return false;
+        }
+        return KNNClusterUtil.instance().getClusterMinVersion().onOrAfter(minimalRequiredVersion);
     }
 }
