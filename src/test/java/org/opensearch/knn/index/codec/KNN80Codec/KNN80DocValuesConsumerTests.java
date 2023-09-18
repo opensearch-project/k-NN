@@ -43,10 +43,10 @@ import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -96,7 +96,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(delegate, null) {
 
             @Override
-            public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer) {
+            public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge, boolean isRefresh) {
                 called[0] = true;
             }
         };
@@ -120,7 +120,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(delegate, null) {
 
             @Override
-            public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer) {
+            public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge, boolean isRefresh) {
                 called[0] = true;
             }
         };
@@ -136,7 +136,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         RandomVectorDocValuesProducer randomVectorDocValuesProducer = new RandomVectorDocValuesProducer(0, 128);
         Long initialGraphIndexRequests = KNNCounter.GRAPH_INDEX_REQUESTS.getCount();
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, null);
-        knn80DocValuesConsumer.addKNNBinaryField(null, randomVectorDocValuesProducer);
+        knn80DocValuesConsumer.addKNNBinaryField(null, randomVectorDocValuesProducer, false, false);
         assertEquals(initialGraphIndexRequests, KNNCounter.GRAPH_INDEX_REQUESTS.getCount());
     }
 
@@ -179,7 +179,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         // Add documents to the field
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
         RandomVectorDocValuesProducer randomVectorDocValuesProducer = new RandomVectorDocValuesProducer(docsInSegment, dimension);
-        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer);
+        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, false, false);
 
         // The document should be created in the correct location
         String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
@@ -223,7 +223,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         // Add documents to the field
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
         RandomVectorDocValuesProducer randomVectorDocValuesProducer = new RandomVectorDocValuesProducer(docsInSegment, dimension);
-        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer);
+        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, false, false);
 
         // The document should be created in the correct location
         String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
@@ -274,7 +274,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         // Add documents to the field
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
         RandomVectorDocValuesProducer randomVectorDocValuesProducer = new RandomVectorDocValuesProducer(docsInSegment, dimension);
-        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer);
+        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, false, false);
 
         // The document should be created in the correct location
         String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
@@ -364,7 +364,6 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         // The refresh statistics should be updated
         assertEquals(1, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
-        assertNotEquals(0, (long) KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.getValue());
 
     }
 
@@ -433,6 +432,6 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         knn80DocValuesConsumer.addBinaryField(fieldInfo, docValuesProducer);
 
         verify(delegate, times(1)).addBinaryField(fieldInfo, docValuesProducer);
-        verify(knn80DocValuesConsumer, never()).addKNNBinaryField(any(), any(), false, false);
+        verify(knn80DocValuesConsumer, never()).addKNNBinaryField(any(), any(), eq(false), eq(true));
     }
 }

@@ -22,13 +22,7 @@ public enum KNNCounter {
     SCRIPT_QUERY_ERRORS("script_query_errors"),
     TRAINING_REQUESTS("training_requests"),
     TRAINING_ERRORS("training_errors"),
-    KNN_QUERY_WITH_FILTER_REQUESTS("knn_query_with_filter_requests"),
-    REFRESH_CURRENT_OPERATIONS("current_operations"),
-    REFRESH_CURRENT_DOCS("current_docs"),
-    REFRESH_CURRENT_SIZE_IN_BYTES("current_size_in_bytes"),
-    REFRESH_TOTAL_OPERATIONS("total_operations"),
-    REFRESH_TOTAL_TIME_IN_MILLIS("total_time_in_millis"),
-    REFRESH_TOTAL_DOCS("total_docs");
+    KNN_QUERY_WITH_FILTER_REQUESTS("knn_query_with_filter_requests");
 
     private String name;
     private AtomicLong count;

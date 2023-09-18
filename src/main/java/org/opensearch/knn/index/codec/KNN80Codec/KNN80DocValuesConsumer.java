@@ -76,6 +76,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
     @Override
     public void addBinaryField(FieldInfo field, DocValuesProducer valuesProducer) throws IOException {
+        delegatee.addBinaryField(field, valuesProducer);
         if (isKNNBinaryFieldRequired(field)) {
             StopWatch stopWatch = new StopWatch();
             stopWatch.start();
@@ -103,7 +104,8 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         return KNNEngine.getEngine(engineName);
     }
 
-    public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge, boolean isRefresh) throws IOException {
+    public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge, boolean isRefresh)
+        throws IOException {
         // Get values to be index
         BinaryDocValues values = valuesProducer.getBinary(field);
         KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
@@ -115,9 +117,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         if (isMerge) {
             KNNGraphValue.MERGE_CURRENT_OPERATIONS.increment();
             KNNGraphValue.MERGE_CURRENT_DOCS.set(KNNGraphValue.MERGE_CURRENT_DOCS.getValue() + pair.docs.length);
-            KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.set(
-                    KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.getValue() + arraySize
-            );
+            KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.set(KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.getValue() + arraySize);
         }
         // Increment counter for number of graph index requests
         KNNCounter.GRAPH_INDEX_REQUESTS.increment();
@@ -153,13 +153,11 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             KNNGraphValue.MERGE_CURRENT_OPERATIONS.set(KNNGraphValue.MERGE_CURRENT_OPERATIONS.getValue() - 1);
             KNNGraphValue.MERGE_CURRENT_DOCS.set(KNNGraphValue.MERGE_CURRENT_DOCS.getValue() - pair.docs.length);
             KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.set(
-                    KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.getValue() - calculateArraySize(pair.vectors)
+                KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.getValue() - calculateArraySize(pair.vectors)
             );
             KNNGraphValue.MERGE_TOTAL_OPERATIONS.increment();
             KNNGraphValue.MERGE_TOTAL_DOCS.set(KNNGraphValue.MERGE_TOTAL_DOCS.getValue() + pair.docs.length);
-            KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.set(
-                    KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue() + arraySize
-            );
+            KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.set(KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue() + arraySize);
         }
 
         if (isRefresh) {
@@ -253,17 +251,12 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     @Override
     public void merge(MergeState mergeState) {
         try {
-            System.out.println("!!!!!!!#.25");
             delegatee.merge(mergeState);
-            System.out.println("!!!!!!!#.5");
             assert mergeState != null;
             assert mergeState.mergeFieldInfos != null;
             for (FieldInfo fieldInfo : mergeState.mergeFieldInfos) {
-                System.out.println("!!!!!!!!#1");
                 DocValuesType type = fieldInfo.getDocValuesType();
-                System.out.println("!!!!!!!!#2");
                 if (type == DocValuesType.BINARY && fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
-                    System.out.println("!!!!!!!!#3");
                     StopWatch stopWatch = new StopWatch();
                     stopWatch.start();
                     addKNNBinaryField(fieldInfo, new KNN80DocValuesReader(mergeState), true, false);
