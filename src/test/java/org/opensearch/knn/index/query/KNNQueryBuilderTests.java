@@ -48,6 +48,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
+import static org.opensearch.knn.index.query.KNNQueryBuilder.IGNORE_UNMAPPED_FIELD;
 
 public class KNNQueryBuilderTests extends KNNTestCase {
 
@@ -314,6 +315,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K);
         knnQueryBuilder.ignoreUnmapped(true);
+        assertTrue(knnQueryBuilder.getIgnoreUnmapped());
         Query query = knnQueryBuilder.doToQuery(mock(QueryShardContext.class));
         assertNotNull(query);
         assertThat(query, instanceOf(MatchNoDocsQuery.class));
