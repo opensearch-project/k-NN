@@ -19,6 +19,8 @@ steps:
     attribute_spec: [ { name: 'color', type: 'str' }, { name: 'taste', type: 'str' }, { name: 'age', type: 'int' } ]
   - name: refresh_index
     index_name: target_index
+  - name: warmup_operation
+    index_name: target_index
   - name: query_with_filter
     k: 100
     r: 1
