@@ -153,6 +153,13 @@ namespace test_util {
     // Read vector file formats
     void load_data(char* filename, float*& data, unsigned& num, unsigned& dim);
 
+    // asign data into vector
+    void set_vectors(std::vector<std::vector<float>>& vectors, 
+                    std::vector<int>& ids, 
+                    int points_num, 
+                    int dim,
+                    float* dataptr);
+
 // -------------------------------------------------------------------------------
 }  // namespace test_util
 

@@ -369,3 +369,20 @@ void test_util::load_data(char* filename, float*& data, unsigned& num, unsigned&
     }
     in.close();
 }
+
+void test_util::set_vectors(std::vector<std::vector<float>>& vectors, 
+                            std::vector<int>& ids, 
+                            int points_num, 
+                            int dim, 
+                            float* dataptr) {
+    ids.resize(points_num);
+    for (int i = 0; i < points_num; ++i) {
+        ids[i] = i;
+        std::vector<float> vect;
+        for (int j = 0; j < dim; ++j) {
+            vect.push_back(*dataptr);
+            dataptr++;
+        }
+        vectors.push_back(vect);
+    }
+}
