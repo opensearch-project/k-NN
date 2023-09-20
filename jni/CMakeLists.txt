@@ -189,7 +189,7 @@ if ("${WIN32}" STREQUAL "")
                 tests/test_util.cpp)
         add_executable(
                 jni_memory_test
-                tests/faiss_memory_test.cpp
+                tests/memory_test.cpp
                 tests/test_util.cpp)
 
         target_link_libraries(
