@@ -134,7 +134,6 @@ TEST(NmslibHNSWIndexMemoryTest, BasicAssertions) {
     vectors.clear();
     vectors.shrink_to_fit();
 
-    malloc_trim(0);
     size_t mem_usage = faiss::get_mem_usage_kb() / (1 << 10);
 
     GTEST_COUT<<"======Memory Usage:[" << mem_usage << "mb]======" << std::endl;
@@ -192,7 +191,6 @@ TEST(FaissNSGIndexMemoryTest, BasicAssertions) {
     vectors.clear();
     vectors.shrink_to_fit();
 
-    malloc_trim(0);
     size_t mem_usage = faiss::get_mem_usage_kb() / (1 << 10);
     GTEST_COUT<<"======Memory Usage:[" << mem_usage << "mb]======" << std::endl;
 }
