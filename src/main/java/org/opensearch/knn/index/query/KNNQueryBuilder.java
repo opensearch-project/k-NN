@@ -173,8 +173,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                             if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
                                 ignoreUnmapped = parser.booleanValue();
                             }
-                        }
-                        else if (AbstractQueryBuilder.NAME_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
+                        } else if (AbstractQueryBuilder.NAME_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                             queryName = parser.text();
                         } else {
                             throw new ParsingException(
