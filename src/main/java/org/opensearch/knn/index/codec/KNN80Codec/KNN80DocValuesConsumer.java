@@ -55,6 +55,7 @@ import static org.apache.lucene.codecs.CodecUtil.FOOTER_MAGIC;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.calculateArraySize;
 
 /**
  * This class writes the KNN docvalues to the segments
@@ -116,8 +117,8 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         long arraySize = calculateArraySize(pair.vectors);
         if (isMerge) {
             KNNGraphValue.MERGE_CURRENT_OPERATIONS.increment();
-            KNNGraphValue.MERGE_CURRENT_DOCS.set(KNNGraphValue.MERGE_CURRENT_DOCS.getValue() + pair.docs.length);
-            KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.set(KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.getValue() + arraySize);
+            KNNGraphValue.MERGE_CURRENT_DOCS.incrementBy(pair.docs.length);
+            KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.incrementBy(arraySize);
         }
         // Increment counter for number of graph index requests
         KNNCounter.GRAPH_INDEX_REQUESTS.increment();
@@ -150,18 +151,11 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         }
 
         if (isMerge) {
-            KNNGraphValue.MERGE_CURRENT_OPERATIONS.set(KNNGraphValue.MERGE_CURRENT_OPERATIONS.getValue() - 1);
-            KNNGraphValue.MERGE_CURRENT_DOCS.set(KNNGraphValue.MERGE_CURRENT_DOCS.getValue() - pair.docs.length);
-            KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.set(
-                KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.getValue() - calculateArraySize(pair.vectors)
-            );
-            KNNGraphValue.MERGE_TOTAL_OPERATIONS.increment();
-            KNNGraphValue.MERGE_TOTAL_DOCS.set(KNNGraphValue.MERGE_TOTAL_DOCS.getValue() + pair.docs.length);
-            KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.set(KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue() + arraySize);
+            recordMergeStats(pair.docs.length, arraySize);
         }
 
         if (isRefresh) {
-            KNNGraphValue.REFRESH_TOTAL_OPERATIONS.increment();
+            recordRefreshStats();
         }
 
         // This is a bit of a hack. We have to create an output here and then immediately close it to ensure that
@@ -172,22 +166,17 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         writeFooter(indexPath, engineFileName);
     }
 
-    private int calculateArraySize(float[][] vectors) {
-        int vectorLength = vectors[0].length;
-        int numVectors = vectors.length;
-        int floatByteSize = 4;
-        int javaReferenceSize = 4;
-        int javaArrayHeaderSize = 12;
-        int javaRoundingNumber = 8;
-        int vectorSize = vectorLength * floatByteSize + javaArrayHeaderSize;
-        if (vectorSize % javaRoundingNumber != 0) {
-            vectorSize += vectorSize % javaRoundingNumber;
-        }
-        int vectorsSize = numVectors * (vectorSize + javaReferenceSize) + javaArrayHeaderSize;
-        if (vectorsSize % javaRoundingNumber != 0) {
-            vectorsSize += vectorsSize % javaRoundingNumber;
-        }
-        return vectorsSize;
+    private void recordMergeStats(int length, long arraySize) {
+        KNNGraphValue.MERGE_CURRENT_OPERATIONS.decrement();
+        KNNGraphValue.MERGE_CURRENT_DOCS.decrementBy(length);
+        KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.decrementBy(arraySize);
+        KNNGraphValue.MERGE_TOTAL_OPERATIONS.increment();
+        KNNGraphValue.MERGE_TOTAL_DOCS.incrementBy(length);
+        KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.incrementBy(arraySize);
+    }
+
+    private void recordRefreshStats() {
+        KNNGraphValue.REFRESH_TOTAL_OPERATIONS.increment();
     }
 
     private void createKNNIndexFromTemplate(byte[] model, KNNCodecUtil.Pair pair, KNNEngine knnEngine, String indexPath) {

@@ -8,7 +8,7 @@ package org.opensearch.knn.plugin.stats;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Contains a map of counters to keep track of different values
+ * Contains a map to keep track of different graph values
  */
 public enum KNNGraphValue {
 
@@ -28,7 +28,7 @@ public enum KNNGraphValue {
     /**
      * Constructor
      *
-     * @param name name of the counter
+     * @param name name of the graph value
      */
     KNNGraphValue(String name) {
         this.name = name;
@@ -45,24 +45,49 @@ public enum KNNGraphValue {
     }
 
     /**
-     * Get the value of count
+     * Get the graph value
      *
-     * @return count
+     * @return value
      */
     public Long getValue() {
         return value.get();
     }
 
     /**
-     * Increment the value of a counter
+     * Increment the graph value
      */
     public void increment() {
         value.getAndIncrement();
     }
 
     /**
-     * @param value counter value
-     * Set the value of a counter
+     * Decrement the graph value
+     */
+    public void decrement() {
+        value.getAndDecrement();
+    }
+
+    /**
+     * Increment the graph value by a specified amount
+     *
+     * @param delta The amount to increment
+     */
+    public void incrementBy(long delta) {
+        value.getAndAdd(delta);
+    }
+
+    /**
+     * Decrement the graph value by a specified amount
+     *
+     * @param delta The amount to decrement
+     */
+    public void decrementBy(long delta) {
+        value.set(value.get() - delta);
+    }
+
+    /**
+     * @param value graph value
+     * Set the graph value
      */
     public void set(long value) {
         this.value.set(value);
