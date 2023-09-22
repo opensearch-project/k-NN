@@ -6,6 +6,8 @@
 package org.opensearch.knn.index.query;
 
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.search.MatchNoDocsQuery;
+import org.opensearch.Version;
 import org.apache.commons.lang.StringUtils;
 import org.opensearch.Version;
 import org.opensearch.index.mapper.NumberFieldMapper;
@@ -30,7 +32,9 @@ import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
@@ -45,6 +49,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     public static final ParseField VECTOR_FIELD = new ParseField("vector");
     public static final ParseField K_FIELD = new ParseField("k");
     public static final ParseField FILTER_FIELD = new ParseField("filter");
+    public static final ParseField IGNORE_UNMAPPED_FIELD = new ParseField("ignore_unmapped");
     public static int K_MAX = 10000;
     /**
      * The name for the knn query
@@ -57,7 +62,15 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private final float[] vector;
     private int k = 0;
     private QueryBuilder filter;
+    private boolean ignoreUnmapped = false;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER = Version.V_2_4_0;
+    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED = Version.V_2_10_0;
+    private static final Map<String, Version> minimalRequiredVersionMap = new HashMap<String, Version>() {
+        {
+            put("filter", MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER);
+            put("ignore_unmapped", MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED);
+        }
+    };
 
     /**
      * Constructs a new knn query
@@ -91,6 +104,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         this.vector = vector;
         this.k = k;
         this.filter = filter;
+        this.ignoreUnmapped = false;
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -117,8 +131,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             k = in.readInt();
             // We're checking if all cluster nodes has at least that version or higher. This check is required
             // to avoid issues with cluster upgrade
-            if (isClusterOnOrAfterMinRequiredVersion()) {
+            if (isClusterOnOrAfterMinRequiredVersion("filter")) {
                 filter = in.readOptionalNamedWriteable(QueryBuilder.class);
+            }
+            if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
+                ignoreUnmapped = in.readOptionalBoolean();
             }
         } catch (IOException ex) {
             throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder", ex);
@@ -131,6 +148,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         float boost = AbstractQueryBuilder.DEFAULT_BOOST;
         int k = 0;
         QueryBuilder filter = null;
+        boolean ignoreUnmapped = false;
         String queryName = null;
         String currentFieldName = null;
         XContentParser.Token token;
@@ -151,7 +169,12 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                             boost = parser.floatValue();
                         } else if (K_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                             k = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
-                        } else if (AbstractQueryBuilder.NAME_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
+                        } else if (IGNORE_UNMAPPED_FIELD.getPreferredName().equals(currentFieldName)) {
+                            if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
+                                ignoreUnmapped = parser.booleanValue();
+                            }
+                        }
+                        else if (AbstractQueryBuilder.NAME_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                             queryName = parser.text();
                         } else {
                             throw new ParsingException(
@@ -168,7 +191,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                             // MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER variable.
                             // Here we're checking if all cluster nodes has at least that version or higher. This check is required
                             // to avoid issues with rolling cluster upgrade
-                            if (isClusterOnOrAfterMinRequiredVersion()) {
+                            if (isClusterOnOrAfterMinRequiredVersion("filter")) {
                                 filter = parseInnerQueryBuilder(parser);
                             } else {
                                 log.debug(
@@ -204,6 +227,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector), k, filter);
         knnQueryBuilder.queryName(queryName);
+        if (isClusterOnOrAfterMinRequiredVersion("ignoreUnmapped")) {
+            knnQueryBuilder.ignoreUnmapped(ignoreUnmapped);
+        }
         knnQueryBuilder.boost(boost);
         return knnQueryBuilder;
     }
@@ -215,8 +241,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         out.writeInt(k);
         // We're checking if all cluster nodes has at least that version or higher. This check is required
         // to avoid issues with cluster upgrade
-        if (isClusterOnOrAfterMinRequiredVersion()) {
+        if (isClusterOnOrAfterMinRequiredVersion("filter")) {
             out.writeOptionalNamedWriteable(filter);
+        }
+        if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
+            out.writeOptionalBoolean(ignoreUnmapped);
         }
     }
 
@@ -242,6 +271,20 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return this.filter;
     }
 
+    /**
+     * Sets whether the query builder should ignore unmapped paths (and run a
+     * {@link MatchNoDocsQuery} in place of this query) or throw an exception if
+     * the path is unmapped.
+     */
+    public KNNQueryBuilder ignoreUnmapped(boolean ignoreUnmapped) {
+        this.ignoreUnmapped = ignoreUnmapped;
+        return this;
+    }
+
+    public boolean getIgnoreUnmapped() {
+        return this.ignoreUnmapped;
+    }
+
     @Override
     public void doXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject(NAME);
@@ -252,6 +295,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (filter != null) {
             builder.field(FILTER_FIELD.getPreferredName(), filter);
         }
+        if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
+            builder.field(IGNORE_UNMAPPED_FIELD.getPreferredName(), ignoreUnmapped);
+        }
         printBoostAndQueryName(builder);
         builder.endObject();
         builder.endObject();
@@ -260,6 +306,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     @Override
     protected Query doToQuery(QueryShardContext context) {
         MappedFieldType mappedFieldType = context.fieldMapper(this.fieldName);
+
+        if (mappedFieldType == null && ignoreUnmapped) {
+            return new MatchNoDocsQuery();
+        }
 
         if (!(mappedFieldType instanceof KNNVectorFieldMapper.KNNVectorFieldType)) {
             throw new IllegalArgumentException(String.format("Field '%s' is not knn_vector type.", this.fieldName));
@@ -346,7 +396,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return NAME;
     }
 
-    private static boolean isClusterOnOrAfterMinRequiredVersion() {
-        return KNNClusterUtil.instance().getClusterMinVersion().onOrAfter(MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER);
+    private static boolean isClusterOnOrAfterMinRequiredVersion(String key) {
+        Version minimalRequiredVersion = minimalRequiredVersionMap.get(key);
+        if (minimalRequiredVersion == null) {
+            return false;
+        }
+        return KNNClusterUtil.instance().getClusterMinVersion().onOrAfter(minimalRequiredVersion);
     }
 }
