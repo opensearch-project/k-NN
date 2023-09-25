@@ -85,6 +85,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             stopWatch.stop();
             long time_in_millis = stopWatch.totalTime().millis();
             KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.set(KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.getValue() + time_in_millis);
+            logger.warn("Refresh operation complete in " + time_in_millis + " ms");
         }
     }
 
@@ -252,6 +253,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                     stopWatch.stop();
                     long time_in_millis = stopWatch.totalTime().millis();
                     KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.set(KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.getValue() + time_in_millis);
+                    logger.warn("Merge operation complete in " + time_in_millis + " ms");
                 }
             }
         } catch (Exception e) {
