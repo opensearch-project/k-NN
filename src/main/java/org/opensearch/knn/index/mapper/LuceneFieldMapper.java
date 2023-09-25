@@ -23,7 +23,7 @@ import java.io.IOException;
 import java.util.Locale;
 import java.util.Optional;
 
-import static org.apache.lucene.index.VectorValues.MAX_DIMENSIONS;
+import org.apache.lucene.codecs.KnnVectorsFormat;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.buildDocValuesFieldType;
@@ -33,7 +33,7 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.buildDocV
  */
 public class LuceneFieldMapper extends KNNVectorFieldMapper {
 
-    private static final int LUCENE_MAX_DIMENSION = MAX_DIMENSIONS;
+    private static final int LUCENE_MAX_DIMENSION = KnnVectorsFormat.DEFAULT_MAX_DIMENSIONS;
 
     /** FieldType used for initializing VectorField, which is used for creating binary doc values. **/
     private final FieldType vectorFieldType;
