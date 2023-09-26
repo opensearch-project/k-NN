@@ -294,7 +294,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (filter != null) {
             builder.field(FILTER_FIELD.getPreferredName(), filter);
         }
-        builder.field(IGNORE_UNMAPPED_FIELD.getPreferredName(), ignoreUnmapped);
+        if (ignoreUnmapped) {
+            builder.field(IGNORE_UNMAPPED_FIELD.getPreferredName(), ignoreUnmapped);
+        }
         printBoostAndQueryName(builder);
         builder.endObject();
         builder.endObject();
