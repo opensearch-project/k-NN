@@ -320,6 +320,5 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertThat(query, instanceOf(MatchNoDocsQuery.class));
         knnQueryBuilder.ignoreUnmapped(false);
         expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mock(QueryShardContext.class)));
-
     }
 }
