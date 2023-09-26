@@ -12,6 +12,9 @@ endpoint:
 port:
   type: integer
   default: 9200
+timeout:
+  type: integer
+  default: 60  
 test_name:
   type: string
 test_id:

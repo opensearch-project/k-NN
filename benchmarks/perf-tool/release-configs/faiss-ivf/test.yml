@@ -41,6 +41,8 @@ steps:
     dataset_path: /home/ec2-user/data/sift-128-euclidean.hdf5
   - name: refresh_index
     index_name: target_index
+  - name: warmup_operation
+    index_name: target_index  
   - name: query
     k: 100
     r: 1
