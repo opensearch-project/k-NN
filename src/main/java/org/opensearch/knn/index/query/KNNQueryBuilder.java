@@ -169,10 +169,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                             boost = parser.floatValue();
                         } else if (K_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                             k = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
-                        } else if (IGNORE_UNMAPPED_FIELD.getPreferredName().equals(currentFieldName)) {
-                            if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
-                                ignoreUnmapped = parser.booleanValue();
-                            }
                         } else if (AbstractQueryBuilder.NAME_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                             queryName = parser.text();
                         } else {
@@ -293,9 +289,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         builder.field(K_FIELD.getPreferredName(), k);
         if (filter != null) {
             builder.field(FILTER_FIELD.getPreferredName(), filter);
-        }
-        if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
-            builder.field(IGNORE_UNMAPPED_FIELD.getPreferredName(), ignoreUnmapped);
         }
         printBoostAndQueryName(builder);
         builder.endObject();
