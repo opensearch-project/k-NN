@@ -16,6 +16,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.codec.util.SerializationMode;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 import java.util.Comparator;
 import java.util.Random;
@@ -283,7 +284,7 @@ public class TestUtils {
                 }
             }
 
-            return new KNNCodecUtil.Pair(idsArray, vectorsArray);
+            return new KNNCodecUtil.Pair(idsArray, vectorsArray, SerializationMode.COLLECTION_OF_FLOATS);
         }
 
         private float[][] readQueries(String path) throws IOException {
