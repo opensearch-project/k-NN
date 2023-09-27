@@ -115,7 +115,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             logger.info("Skipping engine index creation as there are no vectors or docs in the documents");
             return;
         }
-        long arraySize = calculateArraySize(pair.vectors);
+        long arraySize = calculateArraySize(pair.vectors, pair.serializationMode);
         if (isMerge) {
             KNNGraphValue.MERGE_CURRENT_OPERATIONS.increment();
             KNNGraphValue.MERGE_CURRENT_DOCS.incrementBy(pair.docs.length);
