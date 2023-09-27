@@ -307,6 +307,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         Query query = knnQueryBuilder.doToQuery(mock(QueryShardContext.class));
         assertNotNull(query);
         assertThat(query, instanceOf(MatchNoDocsQuery.class));
+        knnQueryBuilder.ignoreUnmapped(false);
+        expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mock(QueryShardContext.class)));
     }
 
     private void assertSerialization(final Version version, final Optional<QueryBuilder> queryBuilderOptional) throws Exception {
