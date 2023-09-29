@@ -7,12 +7,9 @@ package org.opensearch.knn.index.query;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.MatchNoDocsQuery;
-import org.opensearch.Version;
 import org.apache.commons.lang.StringUtils;
-import org.opensearch.Version;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -32,11 +29,10 @@ import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
+import static org.opensearch.knn.index.IndexUtil.*;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
 
 /**
@@ -63,14 +59,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private int k = 0;
     private QueryBuilder filter;
     private boolean ignoreUnmapped = false;
-    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER = Version.V_2_4_0;
-    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED = Version.V_2_10_0;
-    private static final Map<String, Version> minimalRequiredVersionMap = new HashMap<String, Version>() {
-        {
-            put("filter", MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER);
-            put("ignore_unmapped", MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED);
-        }
-    };
 
     /**
      * Constructs a new knn query
@@ -196,14 +184,14 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                                 log.debug(
                                     String.format(
                                         "This version of k-NN doesn't support [filter] field, minimal required version is [%s]",
-                                        MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER
+                                        minimalRequiredVersionMap.get("filter")
                                     )
                                 );
                                 throw new IllegalArgumentException(
                                     String.format(
                                         "%s field is supported from version %s",
                                         FILTER_FIELD.getPreferredName(),
-                                        MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER
+                                        minimalRequiredVersionMap.get("filter")
                                     )
                                 );
                             }
@@ -393,13 +381,5 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     @Override
     public String getWriteableName() {
         return NAME;
-    }
-
-    private static boolean isClusterOnOrAfterMinRequiredVersion(String key) {
-        Version minimalRequiredVersion = minimalRequiredVersionMap.get(key);
-        if (minimalRequiredVersion == null) {
-            return false;
-        }
-        return KNNClusterUtil.instance().getClusterMinVersion().onOrAfter(minimalRequiredVersion);
     }
 }
