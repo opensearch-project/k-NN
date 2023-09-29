@@ -13,6 +13,7 @@ package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import org.opensearch.Version;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.ValidationException;
@@ -24,6 +25,7 @@ import org.opensearch.knn.indices.ModelMetadata;
 
 import java.io.File;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
@@ -31,6 +33,13 @@ import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 public class IndexUtil {
+
+    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED = Version.V_2_11_0;
+    private static final Map<String, Version> minimalRequiredVersionMap = new HashMap<String, Version>() {
+        {
+            put("ignore_unmapped", MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED);
+        }
+    };
 
     /**
      * Determines the size of a file on disk in kilobytes
@@ -194,5 +203,13 @@ public class IndexUtil {
         }
 
         return Collections.unmodifiableMap(loadParameters);
+    }
+
+    public static boolean isClusterOnOrAfterMinRequiredVersion(String key) {
+        Version minimalRequiredVersion = minimalRequiredVersionMap.get(key);
+        if (minimalRequiredVersion == null) {
+            return false;
+        }
+        return KNNClusterUtil.instance().getClusterMinVersion().onOrAfter(minimalRequiredVersion);
     }
 }

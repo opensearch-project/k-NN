@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.search.MatchNoDocsQuery;
 import org.opensearch.core.common.Strings;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.QueryBuilder;
@@ -31,6 +32,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 
+import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
 
 /**
@@ -43,6 +45,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     public static final ParseField VECTOR_FIELD = new ParseField("vector");
     public static final ParseField K_FIELD = new ParseField("k");
     public static final ParseField FILTER_FIELD = new ParseField("filter");
+    public static final ParseField IGNORE_UNMAPPED_FIELD = new ParseField("ignore_unmapped");
     public static int K_MAX = 10000;
     /**
      * The name for the knn query
@@ -55,6 +58,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private final float[] vector;
     private int k = 0;
     private QueryBuilder filter;
+    private boolean ignoreUnmapped = false;
 
     /**
      * Constructs a new knn query
@@ -88,6 +92,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         this.vector = vector;
         this.k = k;
         this.filter = filter;
+        this.ignoreUnmapped = false;
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -113,6 +118,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             vector = in.readFloatArray();
             k = in.readInt();
             filter = in.readOptionalNamedWriteable(QueryBuilder.class);
+            if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
+                ignoreUnmapped = in.readOptionalBoolean();
+            }
         } catch (IOException ex) {
             throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder", ex);
         }
@@ -126,6 +134,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         QueryBuilder filter = null;
         String queryName = null;
         String currentFieldName = null;
+        boolean ignoreUnmapped = false;
         XContentParser.Token token;
         KNNCounter.KNN_QUERY_REQUESTS.increment();
         while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
@@ -134,6 +143,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             } else if (token == XContentParser.Token.START_OBJECT) {
                 throwParsingExceptionOnMultipleFields(NAME, parser.getTokenLocation(), fieldName, currentFieldName);
                 fieldName = currentFieldName;
+                System.out.println(currentFieldName);
+                System.out.println(IGNORE_UNMAPPED_FIELD.getPreferredName());
                 while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
                     if (token == XContentParser.Token.FIELD_NAME) {
                         currentFieldName = parser.currentName();
@@ -144,6 +155,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                             boost = parser.floatValue();
                         } else if (K_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                             k = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
+                        } else if (IGNORE_UNMAPPED_FIELD.getPreferredName().equals(currentFieldName)) {
+                            if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
+                                ignoreUnmapped = parser.booleanValue();
+                            }
                         } else if (AbstractQueryBuilder.NAME_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                             queryName = parser.text();
                         } else {
@@ -176,6 +191,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector), k, filter);
+        knnQueryBuilder.ignoreUnmapped(ignoreUnmapped);
         knnQueryBuilder.queryName(queryName);
         knnQueryBuilder.boost(boost);
         return knnQueryBuilder;
@@ -187,6 +203,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         out.writeFloatArray(vector);
         out.writeInt(k);
         out.writeOptionalNamedWriteable(filter);
+        if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
+            out.writeOptionalBoolean(ignoreUnmapped);
+        }
     }
 
     /**
@@ -211,6 +230,20 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return this.filter;
     }
 
+    /**
+     * Sets whether the query builder should ignore unmapped paths (and run a
+     * {@link MatchNoDocsQuery} in place of this query) or throw an exception if
+     * the path is unmapped.
+     */
+    public KNNQueryBuilder ignoreUnmapped(boolean ignoreUnmapped) {
+        this.ignoreUnmapped = ignoreUnmapped;
+        return this;
+    }
+
+    public boolean getIgnoreUnmapped() {
+        return this.ignoreUnmapped;
+    }
+
     @Override
     public void doXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject(NAME);
@@ -221,6 +254,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (filter != null) {
             builder.field(FILTER_FIELD.getPreferredName(), filter);
         }
+        if (ignoreUnmapped) {
+            builder.field(IGNORE_UNMAPPED_FIELD.getPreferredName(), ignoreUnmapped);
+        }
         printBoostAndQueryName(builder);
         builder.endObject();
         builder.endObject();
@@ -229,6 +265,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     @Override
     protected Query doToQuery(QueryShardContext context) {
         MappedFieldType mappedFieldType = context.fieldMapper(this.fieldName);
+
+        if (mappedFieldType == null && ignoreUnmapped) {
+            return new MatchNoDocsQuery();
+        }
 
         if (!(mappedFieldType instanceof KNNVectorFieldMapper.KNNVectorFieldType)) {
             throw new IllegalArgumentException(String.format("Field '%s' is not knn_vector type.", this.fieldName));
