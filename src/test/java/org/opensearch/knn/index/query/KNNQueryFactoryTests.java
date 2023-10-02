@@ -9,12 +9,16 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.join.BitSetProducer;
+import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
+import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
 import org.mockito.Mockito;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Arrays;
@@ -33,6 +37,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     private static final Query FILTER_QUERY = new TermQuery(new Term(FILTER_FILED_NAME, FILTER_FILED_VALUE));
     private final int testQueryDimension = 17;
     private final float[] testQueryVector = new float[testQueryDimension];
+    private final byte[] testByteQueryVector = new byte[testQueryDimension];
     private final String testIndexName = "test-index";
     private final String testFieldName = "test-field";
     private final int testK = 10;
@@ -119,5 +124,35 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         assertEquals(testQueryVector, ((KNNQuery) query).getQueryVector());
         assertEquals(testK, ((KNNQuery) query).getK());
         assertEquals(FILTER_QUERY, ((KNNQuery) query).getFilterQuery());
+    }
+
+    public void testCreate_whenLuceneWithParentFilter_thenReturnDiversifyingQuery() {
+        validateDiversifyingQueryWithParentFilter(VectorDataType.BYTE, DiversifyingChildrenByteKnnVectorQuery.class);
+        validateDiversifyingQueryWithParentFilter(VectorDataType.FLOAT, DiversifyingChildrenFloatKnnVectorQuery.class);
+    }
+    private void validateDiversifyingQueryWithParentFilter(final VectorDataType type, final Class expectedQueryClass) {
+        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
+            .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
+            .collect(Collectors.toList());
+        for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
+            QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+            MappedFieldType testMapper = mock(MappedFieldType.class);
+            when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
+            BitSetProducer parentFilter = mock(BitSetProducer.class);
+            when(mockQueryShardContext.getParentFilter()).thenReturn(parentFilter);
+            final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(knnEngine)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .vector(testQueryVector)
+                .byteVector(testByteQueryVector)
+                .vectorDataType(type)
+                .k(testK)
+                .context(mockQueryShardContext)
+                .filter(FILTER_QUERY_BUILDER)
+                .build();
+            Query query = KNNQueryFactory.create(createQueryRequest);
+            assertTrue(query.getClass().isAssignableFrom(expectedQueryClass));
+        }
     }
 }
