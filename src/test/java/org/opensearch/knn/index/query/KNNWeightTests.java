@@ -425,7 +425,6 @@ public class KNNWeightTests extends KNNTestCase {
         final Bits liveDocsBits = mock(Bits.class);
         when(reader.getLiveDocs()).thenReturn(liveDocsBits);
         when(liveDocsBits.get(filterDocId)).thenReturn(true);
-        when(liveDocsBits.length()).thenReturn(1000);
 
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
         final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.L2.name());
@@ -476,7 +475,6 @@ public class KNNWeightTests extends KNNTestCase {
         final Bits liveDocsBits = mock(Bits.class);
         when(reader.getLiveDocs()).thenReturn(liveDocsBits);
         when(liveDocsBits.get(filterDocId)).thenReturn(true);
-        when(liveDocsBits.length()).thenReturn(1000);
 
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
         final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.L2.name());
