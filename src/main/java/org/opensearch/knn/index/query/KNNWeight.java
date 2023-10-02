@@ -116,7 +116,7 @@ public class KNNWeight extends Weight {
          * . Hence, if filtered results are less than K and filter query is present we should shift to exact search.
          * This improves the recall.
          */
-        if (filterWeight != null && canDoExactSearch(filterIdsArray.length, getTotalDocsInSegment(context))) {
+        if (filterWeight != null && canDoExactSearch(filterIdsArray.length)) {
             docIdsToScoreMap.putAll(doExactSearch(context, filterIdsArray));
         } else {
             Map<Integer, Float> annResults = doANNSearch(context, filterIdsArray);
@@ -380,10 +380,9 @@ public class KNNWeight extends Weight {
         );
     }
 
-    private boolean canDoExactSearch(final int filterIdsCount, final int searchableDocs) {
+    private boolean canDoExactSearch(final int filterIdsCount) {
         log.debug(
-            "Info for doing exact search Live Docs: {}, filterIdsLength : {}, Threshold value: {}",
-            searchableDocs,
+            "Info for doing exact search filterIdsLength : {}, Threshold value: {}",
             filterIdsCount,
             KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName())
         );
@@ -419,13 +418,5 @@ public class KNNWeight extends Weight {
      */
     private boolean canDoExactSearchAfterANNSearch(final int filterIdsCount, final int annResultCount) {
         return filterWeight != null && filterIdsCount >= knnQuery.getK() && knnQuery.getK() > annResultCount;
-    }
-
-    private int getTotalDocsInSegment(final LeafReaderContext context) {
-        // This means that there is no deleted documents, hence the live docs bitset is null
-        if (context.reader().getLiveDocs() == null) {
-            return context.reader().maxDoc();
-        }
-        return context.reader().getLiveDocs().length();
     }
 }
