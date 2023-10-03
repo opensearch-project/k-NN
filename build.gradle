@@ -10,7 +10,7 @@ buildscript {
     ext {
         // build.version_qualifier parameter applies to knn plugin artifacts only. OpenSearch version must be set
         // explicitly as 'opensearch.version' property, for instance opensearch.version=2.0.0-rc1-SNAPSHOT
-        opensearch_version = System.getProperty("opensearch.version", "2.10.0-SNAPSHOT")
+        opensearch_version = System.getProperty("opensearch.version", "2.11.0-SNAPSHOT")
         version_qualifier = System.getProperty("build.version_qualifier", "")
         opensearch_group = "org.opensearch"
     }
@@ -175,9 +175,9 @@ dependencies {
     api group: 'com.google.guava', name: 'guava', version:'32.0.1-jre'
     api group: 'commons-lang', name: 'commons-lang', version: '2.6'
     testFixturesImplementation "org.opensearch.test:framework:${opensearch_version}"
-    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.14.3'
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy', version: '1.14.7'
     testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.2'
-    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.14.3'
+    testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.14.7'
     testFixturesImplementation "org.opensearch:common-utils:${version}"
 }
 
