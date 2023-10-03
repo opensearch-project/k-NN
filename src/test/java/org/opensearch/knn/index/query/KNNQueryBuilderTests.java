@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.search.KnnFloatVectorQuery;
+import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterModule;
@@ -41,6 +42,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
+import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -295,6 +297,18 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY));
 
         assertSerialization(Version.V_2_3_0, Optional.empty());
+    }
+
+    public void testIgnoreUnmapped() throws IOException {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K);
+        knnQueryBuilder.ignoreUnmapped(true);
+        assertTrue(knnQueryBuilder.getIgnoreUnmapped());
+        Query query = knnQueryBuilder.doToQuery(mock(QueryShardContext.class));
+        assertNotNull(query);
+        assertThat(query, instanceOf(MatchNoDocsQuery.class));
+        knnQueryBuilder.ignoreUnmapped(false);
+        expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mock(QueryShardContext.class)));
     }
 
     private void assertSerialization(final Version version, final Optional<QueryBuilder> queryBuilderOptional) throws Exception {
