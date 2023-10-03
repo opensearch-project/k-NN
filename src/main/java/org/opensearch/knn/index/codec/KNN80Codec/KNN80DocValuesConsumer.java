@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableMap;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.store.ChecksumIndexInput;
+import org.opensearch.common.StopWatch;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
@@ -35,6 +36,7 @@ import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -53,6 +55,7 @@ import static org.apache.lucene.codecs.CodecUtil.FOOTER_MAGIC;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.calculateArraySize;
 
 /**
  * This class writes the KNN docvalues to the segments
@@ -76,7 +79,13 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     public void addBinaryField(FieldInfo field, DocValuesProducer valuesProducer) throws IOException {
         delegatee.addBinaryField(field, valuesProducer);
         if (isKNNBinaryFieldRequired(field)) {
-            addKNNBinaryField(field, valuesProducer);
+            StopWatch stopWatch = new StopWatch();
+            stopWatch.start();
+            addKNNBinaryField(field, valuesProducer, false, true);
+            stopWatch.stop();
+            long time_in_millis = stopWatch.totalTime().millis();
+            KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.set(KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.getValue() + time_in_millis);
+            logger.warn("Refresh operation complete in " + time_in_millis + " ms");
         }
     }
 
@@ -97,13 +106,20 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         return KNNEngine.getEngine(engineName);
     }
 
-    public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer) throws IOException {
+    public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge, boolean isRefresh)
+        throws IOException {
         // Get values to be indexed
         BinaryDocValues values = valuesProducer.getBinary(field);
         KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
         if (pair.vectors.length == 0 || pair.docs.length == 0) {
             logger.info("Skipping engine index creation as there are no vectors or docs in the documents");
             return;
+        }
+        long arraySize = calculateArraySize(pair.vectors, pair.serializationMode);
+        if (isMerge) {
+            KNNGraphValue.MERGE_CURRENT_OPERATIONS.increment();
+            KNNGraphValue.MERGE_CURRENT_DOCS.incrementBy(pair.docs.length);
+            KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.incrementBy(arraySize);
         }
         // Increment counter for number of graph index requests
         KNNCounter.GRAPH_INDEX_REQUESTS.increment();
@@ -135,12 +151,33 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             indexCreator = () -> createKNNIndexFromScratch(field, pair, knnEngine, indexPath);
         }
 
+        if (isMerge) {
+            recordMergeStats(pair.docs.length, arraySize);
+        }
+
+        if (isRefresh) {
+            recordRefreshStats();
+        }
+
         // This is a bit of a hack. We have to create an output here and then immediately close it to ensure that
         // engineFileName is added to the tracked files by Lucene's TrackingDirectoryWrapper. Otherwise, the file will
         // not be marked as added to the directory.
         state.directory.createOutput(engineFileName, state.context).close();
         indexCreator.createIndex();
         writeFooter(indexPath, engineFileName);
+    }
+
+    private void recordMergeStats(int length, long arraySize) {
+        KNNGraphValue.MERGE_CURRENT_OPERATIONS.decrement();
+        KNNGraphValue.MERGE_CURRENT_DOCS.decrementBy(length);
+        KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.decrementBy(arraySize);
+        KNNGraphValue.MERGE_TOTAL_OPERATIONS.increment();
+        KNNGraphValue.MERGE_TOTAL_DOCS.incrementBy(length);
+        KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.incrementBy(arraySize);
+    }
+
+    private void recordRefreshStats() {
+        KNNGraphValue.REFRESH_TOTAL_OPERATIONS.increment();
     }
 
     private void createKNNIndexFromTemplate(byte[] model, KNNCodecUtil.Pair pair, KNNEngine knnEngine, String indexPath) {
@@ -210,7 +247,13 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             for (FieldInfo fieldInfo : mergeState.mergeFieldInfos) {
                 DocValuesType type = fieldInfo.getDocValuesType();
                 if (type == DocValuesType.BINARY && fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
-                    addKNNBinaryField(fieldInfo, new KNN80DocValuesReader(mergeState));
+                    StopWatch stopWatch = new StopWatch();
+                    stopWatch.start();
+                    addKNNBinaryField(fieldInfo, new KNN80DocValuesReader(mergeState), true, false);
+                    stopWatch.stop();
+                    long time_in_millis = stopWatch.totalTime().millis();
+                    KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.set(KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.getValue() + time_in_millis);
+                    logger.warn("Merge operation complete in " + time_in_millis + " ms");
                 }
             }
         } catch (Exception e) {

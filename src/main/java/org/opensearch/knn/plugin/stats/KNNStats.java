@@ -24,6 +24,7 @@ import org.opensearch.knn.plugin.stats.suppliers.NativeMemoryCacheManagerSupplie
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * Class represents all stats the plugin keeps track of
@@ -84,6 +85,7 @@ public class KNNStats {
         addEngineStats(builder);
         addScriptStats(builder);
         addModelStats(builder);
+        addGraphStats(builder);
         return builder.build();
     }
 
@@ -168,5 +170,32 @@ public class KNNStats {
                 StatNames.TRAINING_MEMORY_USAGE_PERCENTAGE.getName(),
                 new KNNStat<>(false, new NativeMemoryCacheManagerSupplier<>(NativeMemoryCacheManager::getTrainingSizeAsPercentage))
             );
+    }
+
+    private void addGraphStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {
+        builder.put(StatNames.GRAPH_STATS.getName(), new KNNStat<>(false, new Supplier<Map<String, Map<String, Object>>>() {
+            @Override
+            public Map<String, Map<String, Object>> get() {
+                return createGraphStatsMap();
+            }
+        }));
+    }
+
+    private Map<String, Map<String, Object>> createGraphStatsMap() {
+        Map<String, Object> mergeMap = new HashMap<>();
+        mergeMap.put(KNNGraphValue.MERGE_CURRENT_OPERATIONS.getName(), KNNGraphValue.MERGE_CURRENT_OPERATIONS.getValue());
+        mergeMap.put(KNNGraphValue.MERGE_CURRENT_DOCS.getName(), KNNGraphValue.MERGE_CURRENT_DOCS.getValue());
+        mergeMap.put(KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.getName(), KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.getValue());
+        mergeMap.put(KNNGraphValue.MERGE_TOTAL_OPERATIONS.getName(), KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
+        mergeMap.put(KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.getName(), KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.getValue());
+        mergeMap.put(KNNGraphValue.MERGE_TOTAL_DOCS.getName(), KNNGraphValue.MERGE_TOTAL_DOCS.getValue());
+        mergeMap.put(KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getName(), KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
+        Map<String, Object> refreshMap = new HashMap<>();
+        refreshMap.put(KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getName(), KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
+        refreshMap.put(KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.getName(), KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.getValue());
+        Map<String, Map<String, Object>> graphStatsMap = new HashMap<>();
+        graphStatsMap.put(StatNames.MERGE.getName(), mergeMap);
+        graphStatsMap.put(StatNames.REFRESH.getName(), refreshMap);
+        return graphStatsMap;
     }
 }
