@@ -31,7 +31,7 @@ jobs:
         id: step-ci-image-version-linux
         run: |
           crane version
-          CI_IMAGE_VERSION=`opensearch-build/docker/ci/get-ci-images.sh -p rockylinux8 -u opensearch -t build | head -1`
+          CI_IMAGE_VERSION=`opensearch-build/docker/ci/get-ci-images.sh -p centos7 -u opensearch -t build | head -1`
           echo $CI_IMAGE_VERSION
           echo "ci-image-version-linux=$CI_IMAGE_VERSION" >> $GITHUB_OUTPUT
         
