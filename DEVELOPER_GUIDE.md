@@ -118,7 +118,7 @@ Next, obtain a minimum distribution tarball of the k-NN version you want to buil
 2. Clone the repository locally
 3. Run the following commands:
 ```cd OpenSearch && ./gradlew -p distribution/archives/darwin-tar assemble```
-4. You should see a opensearch-min-3.0.0-SNAPSHOT-darwin-x64.tar.gz file present in distribution/archives/darwin-tar/build/distributions/
+4. You should see a opensearch-min-<version>-SNAPSHOT-darwin-x64.tar.gz file present in distribution/archives/darwin-tar/build/distributions/
 5. Build k-NN by passing the OpenSearch distribution path in `./gradlew <integTest/run> -PcustomDistributionUrl="<Full path to .tar.gz file you noted above>"`
 
 #### Environment
