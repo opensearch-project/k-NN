@@ -170,8 +170,6 @@ Build OpenSearch k-NN using `gradlew build`
 ./gradlew build
 ```
 
-O
-
 ### JNI Library
 
 The plugin relies on 2 JNI libraries to perform approximate k-NN search. `./gradlew build` will first build the 
