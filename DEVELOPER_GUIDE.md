@@ -63,6 +63,11 @@ One easy way to install on mac or linux is to use pip:
 pip install cmake==3.23.3
 ```
 
+On Mac M1 machines, install cmake using:
+```bash
+brew install cmake
+```
+
 #### Faiss Dependencies
 
 To build the *faiss* JNI library, you need to have openmp, lapack and blas installed. For more information on *faiss* 
@@ -77,6 +82,44 @@ Additionally, the `gcc` toolchain needs to be installed on Mac. To install, run:
 ```bash
 brew install gcc
 ```
+
+#### Extra setup for Mac M1 Machines
+
+The following commands enable running/building k-NN on M1 machines:
+
+```bash
+// Go to jni folder
+cd k-NN/jni
+
+// File changes required
+sed -i -e 's/\/usr\/local\/opt\/libomp\//\/opt\/homebrew\/opt\/llvm\//g' CMakeLists.txt
+sed -i -e 's/-march=native/-mcpu=apple-m1/g' external/nmslib/similarity_search/CMakeLists.txt
+sed -i -e 's/pragma message WARN/pragma message /g' external/nmslib/similarity_search/src/distcomp_scalar.cc
+sed -i -e 's/-mcpu=apple-a14/-mcpu=apple-m1/g' external/nmslib/python_bindings/setup.py
+sed -i -e 's/__aarch64__/__undefine_aarch64__/g' external/faiss/faiss/utils/distances_simd.cpp
+
+// Install llvm
+brew install llvm
+echo 'export PATH="/opt/homebrew/opt/llvm/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+// Set compiler path for CMAKE
+export CC=/opt/homebrew/opt/llvm/bin/clang
+export CXX=/opt/homebrew/opt/llvm/bin/clang++
+
+// Build
+cmake . --fresh
+make
+```
+
+Next, obtain a minimum distribution tarball of the k-NN version you want to build:
+
+1. Fork the [OpenSearch Repo](https://github.com/opensearch-project/OpenSearch) into your github account.
+2. Clone the repository locally
+3. Run the following commands:
+```cd OpenSearch && ./gradlew -p distribution/archives/darwin-tar assemble```
+4. You should see a opensearch-min-3.0.0-SNAPSHOT-darwin-x64.tar.gz file present in distribution/archives/darwin-tar/build/distributions/
+5. Build k-NN by passing the OpenSearch distribution path in `./gradlew <integTest/run> -PcustomDistributionUrl="<Full path to .tar.gz file you noted above>"`
 
 #### Environment
 
@@ -114,7 +157,7 @@ Please follow these formatting guidelines:
 * Wildcard imports (`import foo.bar.baz.*`) are forbidden and will cause the build to fail.
 * If *absolutely* necessary, you can disable formatting for regions of code with the `// tag::NAME` and `// end::NAME` directives, but note that these are intended for use in documentation, so please make it clear what you have done, and only do this where the benefit clearly outweighs the decrease in consistency.
 * Note that JavaDoc and block comments i.e. `/* ... */` are not formatted, but line comments i.e `// ...` are.
-* There is an implicit rule that negative boolean expressions should use the form `foo == false` instead of `!foo` for better readability of the code. While this isn't strictly enforced, if might get called out in PR reviews as something to change.
+* There is an implicit rule that negative boolean expressions should use the form `foo == false` instead of `!foo` for better readability of the code. While this isn't strictly enforced, it might get called out in PR reviews as something to change.
 
 ## Build
 
@@ -126,6 +169,8 @@ Build OpenSearch k-NN using `gradlew build`
 ```
 ./gradlew build
 ```
+
+O
 
 ### JNI Library
 
