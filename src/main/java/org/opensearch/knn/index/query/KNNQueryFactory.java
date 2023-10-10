@@ -14,6 +14,9 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.KnnByteVectorQuery;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.join.BitSetProducer;
+import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
+import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
@@ -86,10 +89,12 @@ public class KNNQueryFactory {
             return new KNNQuery(fieldName, vector, k, indexName);
         }
 
+        log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
+        BitSetProducer parentFilter = createQueryRequest.context == null ? null : createQueryRequest.context.getParentFilter();
         if (VectorDataType.BYTE == vectorDataType) {
-            return getKnnByteVectorQuery(indexName, fieldName, byteVector, k, filterQuery);
+            return getKnnByteVectorQuery(fieldName, byteVector, k, filterQuery, parentFilter);
         } else if (VectorDataType.FLOAT == vectorDataType) {
-            return getKnnFloatVectorQuery(indexName, fieldName, vector, k, filterQuery);
+            return getKnnFloatVectorQuery(fieldName, vector, k, filterQuery, parentFilter);
         } else {
             throw new IllegalArgumentException(
                 String.format(
@@ -102,38 +107,40 @@ public class KNNQueryFactory {
         }
     }
 
-    private static Query getKnnByteVectorQuery(String indexName, String fieldName, byte[] byteVector, int k, Query filterQuery) {
-        if (filterQuery != null) {
-            log.debug(
-                String.format(
-                    Locale.ROOT,
-                    "Creating Lucene k-NN query with filters for index: %s \"\", field: %s \"\", k: %d",
-                    indexName,
-                    fieldName,
-                    k
-                )
-            );
+    /**
+     * If parentFilter is not null, it is a nested query. Therefore, we return {@link DiversifyingChildrenByteKnnVectorQuery}
+     * which will dedupe search result per parent so that we can get k parent results at the end.
+     */
+    private static Query getKnnByteVectorQuery(
+        final String fieldName,
+        final byte[] byteVector,
+        final int k,
+        final Query filterQuery,
+        final BitSetProducer parentFilter
+    ) {
+        if (parentFilter == null) {
             return new KnnByteVectorQuery(fieldName, byteVector, k, filterQuery);
+        } else {
+            return new DiversifyingChildrenByteKnnVectorQuery(fieldName, byteVector, filterQuery, k, parentFilter);
         }
-        log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
-        return new KnnByteVectorQuery(fieldName, byteVector, k);
     }
 
-    private static Query getKnnFloatVectorQuery(String indexName, String fieldName, float[] floatVector, int k, Query filterQuery) {
-        if (filterQuery != null) {
-            log.debug(
-                String.format(
-                    Locale.ROOT,
-                    "Creating Lucene k-NN query with filters for index: %s \"\", field: %s \"\", k: %d",
-                    indexName,
-                    fieldName,
-                    k
-                )
-            );
+    /**
+     * If parentFilter is not null, it is a nested query. Therefore, we return {@link DiversifyingChildrenFloatKnnVectorQuery}
+     * which will dedupe search result per parent so that we can get k parent results at the end.
+     */
+    private static Query getKnnFloatVectorQuery(
+        final String fieldName,
+        final float[] floatVector,
+        final int k,
+        final Query filterQuery,
+        final BitSetProducer parentFilter
+    ) {
+        if (parentFilter == null) {
             return new KnnFloatVectorQuery(fieldName, floatVector, k, filterQuery);
+        } else {
+            return new DiversifyingChildrenFloatKnnVectorQuery(fieldName, floatVector, filterQuery, k, parentFilter);
         }
-        log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
-        return new KnnFloatVectorQuery(fieldName, floatVector, k);
     }
 
     private static Query getFilterQuery(CreateQueryRequest createQueryRequest) {
@@ -181,6 +188,8 @@ public class KNNQueryFactory {
         @Getter
         private int k;
         // can be null in cases filter not passed with the knn query
+        @Getter
+        private BitSetProducer parentFilter;
         private QueryBuilder filter;
         // can be null in cases filter not passed with the knn query
         private QueryShardContext context;
