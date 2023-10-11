@@ -88,8 +88,14 @@ brew install gcc
 The following commands enable running/building k-NN on M1 machines:
 
 ```bash
-// Go to jni folder
-cd k-NN/jni
+// Go to k-NN folder
+cd k-NN
+
+// Build to generate the necessary files to be modified below (will fail)
+./gradlew build
+
+//Go to jni folder
+cd jni
 
 // File changes required
 sed -i -e 's/\/usr\/local\/opt\/libomp\//\/opt\/homebrew\/opt\/llvm\//g' CMakeLists.txt
