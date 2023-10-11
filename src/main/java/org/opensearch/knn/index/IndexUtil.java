@@ -35,7 +35,7 @@ import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 public class IndexUtil {
 
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER = Version.V_2_4_0;
-    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED = Version.V_2_10_0;
+    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED = Version.V_2_11_0;
     public static final Map<String, Version> minimalRequiredVersionMap = new HashMap<String, Version>() {
         {
             put("filter", MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER);
