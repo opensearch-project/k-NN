@@ -13,28 +13,9 @@ on:
 
 jobs:
   Get-CI-Image-Tag:
-    runs-on: ubuntu-latest
-    outputs:
-      ci-image-version-linux: ${{ steps.step-ci-image-version-linux.outputs.ci-image-version-linux }}
-    steps:
-      - name: Install crane
-        uses: iarekylew00t/crane-installer@v1
-        with:
-          crane-release: v0.15.2
-      - name: Checkout opensearch-build repository
-        uses: actions/checkout@v2
-        with:
-            repository: 'opensearch-project/opensearch-build'
-            ref: 'main'
-            path: 'opensearch-build'
-      - name: Get ci image version from opensearch-build repository scripts
-        id: step-ci-image-version-linux
-        run: |
-          crane version
-          CI_IMAGE_VERSION=`opensearch-build/docker/ci/get-ci-images.sh -p centos7 -u opensearch -t build | head -1`
-          echo $CI_IMAGE_VERSION
-          echo "ci-image-version-linux=$CI_IMAGE_VERSION" >> $GITHUB_OUTPUT
-        
+    uses: opensearch-project/opensearch-build/.github/workflows/get-ci-image-tag.yml@main
+    with:
+      product: opensearch
 
   Build-k-NN-Linux:
     strategy:
