@@ -2,7 +2,7 @@ endpoint: [ENDPOINT]
 port: [PORT]
 test_name: "Faiss HNSW PQ Test"
 test_id: "Faiss HNSW PQ Test"
-num_runs: 10
+num_runs: 3
 show_runs: false
 setup:
   - name: delete_index
