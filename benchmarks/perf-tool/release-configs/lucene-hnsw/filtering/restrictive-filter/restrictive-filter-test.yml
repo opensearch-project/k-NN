@@ -2,7 +2,7 @@ endpoint: [ENDPOINT]
 port: [PORT]
 test_name: "Lucene HNSW Restrictive Filter Test"
 test_id: "Lucene HNSW Restrictive Filter Test"
-num_runs: 10
+num_runs: 3
 show_runs: false
 steps:
   - name: delete_index

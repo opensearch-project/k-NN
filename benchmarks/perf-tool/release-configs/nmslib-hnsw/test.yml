@@ -2,7 +2,7 @@ endpoint: [ENDPOINT]
 port: [PORT]
 test_name: "Nmslib HNSW Test"
 test_id: "Nmslib HNSW Test"
-num_runs: 10
+num_runs: 3
 show_runs: false
 steps:
   - name: delete_index
