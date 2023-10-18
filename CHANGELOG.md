@@ -20,5 +20,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Infrastructure
 ### Documentation
 ### Maintenance
-- Update developer guide to include M1 Setup [#1222](https://github.com/opensearch-project/k-NN/pull/1222)
+* Update developer guide to include M1 Setup [#1222](https://github.com/opensearch-project/k-NN/pull/1222)
 ### Refactoring
