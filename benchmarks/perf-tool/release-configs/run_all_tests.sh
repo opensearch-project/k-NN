@@ -12,7 +12,7 @@ set -e
 # ./run-test.sh \
 #   --endpoint <your endpoint>
 #   --port 80 \
-#   --num-runs 10 \
+#   --num-runs 3 \
 #   --outputs ~/outputs
 
 while [ "$1" != "" ]; do
@@ -48,7 +48,7 @@ if [ ! -n "$PORT" ]; then
 fi
 
 if [ ! -n "$NUM_RUNS" ]; then
-        NUM_RUNS=10
+        NUM_RUNS=3
         echo "--num-runs is not specified. Using default values $NUM_RUNS"
 fi
 
