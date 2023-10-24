@@ -38,8 +38,9 @@ class OpenSearchStep(base.Step):
         default_port = 9200 if self.endpoint == 'localhost' else 80
         self.port = parse_int_param('port', step_config.config,
                                     step_config.implicit_config, default_port)
+        self.timeout = parse_int_param('timeout', step_config.config, {}, 60)
         self.opensearch = get_opensearch_client(str(self.endpoint),
-                                                int(self.port))
+                                                int(self.port), int(self.timeout))
 
 
 class CreateIndexStep(OpenSearchStep):
@@ -158,6 +159,25 @@ class ClearCacheStep(OpenSearchStep):
                 return {}
             except:
                 pass
+
+    def _get_measures(self) -> List[str]:
+        return ['took']
+
+
+class WarmupStep(OpenSearchStep):
+    """See base class."""
+
+    label = 'warmup_operation'
+
+    def __init__(self, step_config: StepConfig):
+        super().__init__(step_config)
+        self.index_name = parse_string_param('index_name', step_config.config, {},
+                                           None)
+
+    def _action(self):
+        """Performs warmup operation on an index."""
+        warmup_operation(self.endpoint, self.port, self.index_name)
+        return {}
 
     def _get_measures(self) -> List[str]:
         return ['took']
@@ -690,6 +710,23 @@ def delete_model(endpoint, port, model_id):
     return response.json()
 
 
+def warmup_operation(endpoint, port, index):
+    """
+    Performs warmup operation on index to load native library files
+    of that index to reduce query latencies.
+    Args:
+        endpoint: Endpoint OpenSearch is running on
+        port: Port OpenSearch is running on
+        index: index name
+    Returns:
+        number of shards the plugin succeeded and failed to warm up.
+    """
+    response = requests.get('http://' + endpoint + ':' + str(port) +
+                               '/_plugins/_knn/warmup/' + index,
+                               headers={'content-type': 'application/json'})
+    return response.json()
+
+
 def get_opensearch_client(endpoint: str, port: int, timeout=60):
     """
     Get an opensearch client from an endpoint and port
@@ -796,7 +833,7 @@ def query_index(opensearch: OpenSearch, index_name: str, body: dict,
 
 
 def bulk_index(opensearch: OpenSearch, index_name: str, body: List):
-    return opensearch.bulk(index=index_name, body=body, timeout='5m')
+    return opensearch.bulk(index=index_name, body=body)
 
 def get_segment_stats(opensearch: OpenSearch, index_name: str):
     return opensearch.indices.segments(index=index_name)
