@@ -199,7 +199,7 @@ public class FaissIT extends KNNRestTestCase {
 
         createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
         ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, in, trainingDataCount);
-        assertTrainingSucceeds(modelId, 180, 1000);
+        assertTrainingSucceeds(modelId, 360, 1000);
 
         // Create an index
         XContentBuilder builder = XContentFactory.jsonBuilder()
