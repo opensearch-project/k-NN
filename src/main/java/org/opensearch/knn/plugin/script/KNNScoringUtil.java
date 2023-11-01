@@ -143,21 +143,28 @@ public class KNNScoringUtil {
      */
     public static float cosinesimil(float[] queryVector, float[] inputVector) {
         requireEqualDimension(queryVector, inputVector);
-        float dotProduct = 0.0f;
-        float normQueryVector = 0.0f;
-        float normInputVector = 0.0f;
-        for (int i = 0; i < queryVector.length; i++) {
-            dotProduct += queryVector[i] * inputVector[i];
-            normQueryVector += queryVector[i] * queryVector[i];
-            normInputVector += inputVector[i] * inputVector[i];
+        int numZeroInInput = 0;
+        int numZeroInQuery = 0;
+        float cosine = 0.0f;
+        for (int i = 0; i < inputVector.length; i++) {
+            if (inputVector[i] == 0) {
+                numZeroInInput++;
+            }
+
+            if (queryVector[i] == 0) {
+                numZeroInQuery++;
+            }
         }
-        float normalizedProduct = normQueryVector * normInputVector;
-        if (normalizedProduct == 0) {
+        if (numZeroInInput == inputVector.length || numZeroInQuery == queryVector.length) {
+            return cosine;
+        }
+        try {
+            cosine = VectorUtil.cosine(queryVector, inputVector);
+        } catch (Exception e) {
             logger.debug("Invalid vectors for cosine. Returning minimum score to put this result to end");
             return 0.0f;
         }
-        // return (float) (dotProduct / (Math.sqrt(normalizedProduct)));
-        return (float) (VectorUtil.dotProduct(queryVector, inputVector) / (Math.sqrt(normalizedProduct)));
+        return cosine;
     }
 
     /**
