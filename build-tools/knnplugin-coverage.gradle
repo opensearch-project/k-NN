@@ -52,12 +52,12 @@ jacocoTestReport {
     dependsOn integTest, test
     executionData.from = [dummyTest.jacoco.destinationFile, dummyIntegTest.jacoco.destinationFile]
     sourceDirectories.from = sourceSets.main.java.sourceDirectories
-    classDirectories.from = files(sourceSets.main.java.outputDir)
+    classDirectories.from = files(sourceSets.main.java.classesDirectory)
 
     reports {
-        html.enabled = true // human readable
-        csv.enabled = true
-        xml.enabled = true // for coverlay
+        html.getRequired().set(true) // human readable
+        csv.getRequired().set(true)
+        xml.getRequired().set(true) // for coverlay
     }
 }
 
