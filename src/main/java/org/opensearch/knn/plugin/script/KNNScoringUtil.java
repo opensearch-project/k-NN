@@ -96,7 +96,6 @@ public class KNNScoringUtil {
      * @return cosine score
      */
     public static float cosinesimilOptimized(float[] queryVector, float[] inputVector, float normQueryVector) {
-        requireEqualDimension(queryVector, inputVector);
         float normInputVector = 0.0f;
         for (int i = 0; i < queryVector.length; i++) {
             normInputVector += inputVector[i] * inputVector[i];
@@ -218,7 +217,6 @@ public class KNNScoringUtil {
      * @return L1 score
      */
     public static float l1Norm(float[] queryVector, float[] inputVector) {
-        requireEqualDimension(queryVector, inputVector);
         float distance = 0;
         for (int i = 0; i < inputVector.length; i++) {
             float diff = queryVector[i] - inputVector[i];
@@ -256,7 +254,6 @@ public class KNNScoringUtil {
      * @return L-inf score
      */
     public static float lInfNorm(float[] queryVector, float[] inputVector) {
-        requireEqualDimension(queryVector, inputVector);
         float distance = 0;
         for (int i = 0; i < inputVector.length; i++) {
             float diff = queryVector[i] - inputVector[i];
@@ -294,7 +291,6 @@ public class KNNScoringUtil {
      * @return dot product score
      */
     public static float innerProduct(float[] queryVector, float[] inputVector) {
-        requireEqualDimension(queryVector, inputVector);
         return VectorUtil.dotProduct(queryVector, inputVector);
     }
 
