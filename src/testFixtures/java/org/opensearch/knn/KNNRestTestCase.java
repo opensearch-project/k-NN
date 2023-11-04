@@ -10,6 +10,8 @@ import com.google.common.io.Resources;
 import com.google.common.primitives.Floats;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.xcontent.DeprecationHandler;
@@ -52,7 +54,6 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -118,6 +119,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
     protected static final int NUM_OF_ATTEMPTS = 30;
     private static final String SYSTEM_INDEX_PREFIX = ".opendistro";
 
+    private static final Logger logger = LogManager.getLogger(KNNRestTestCase.class);
+
     @AfterClass
     public static void dumpCoverage() throws IOException, MalformedObjectNameException {
         // jacoco.dir is set in esplugin-coverage.gradle, if it doesn't exist we don't
@@ -136,9 +139,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
                 false
             );
 
-            Path path = Paths.get(jacocoBuildPath + "/integTest.exec");
+            Path path = Path.of(jacocoBuildPath, "integTest.exec");
             Files.write(path, proxy.getExecutionData(false));
         } catch (Exception ex) {
+            logger.error("Failed to dump coverage: ", ex);
             throw new RuntimeException("Failed to dump coverage: " + ex);
         }
     }

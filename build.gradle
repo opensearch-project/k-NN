@@ -36,7 +36,6 @@ plugins {
     id 'java-library'
     id 'java-test-fixtures'
     id 'idea'
-    id 'jacoco'
     id "com.diffplug.spotless" version "6.3.0" apply false
     id 'io.freefair.lombok' version '8.4'
 }
@@ -133,10 +132,6 @@ if (!usingRemoteCluster) {
     if (!usingMultiNode) {
         apply from: 'build-tools/knnplugin-coverage.gradle'
     }
-}
-
-jacoco {
-    toolVersion = "0.8.7"
 }
 
 check.dependsOn spotlessCheck
