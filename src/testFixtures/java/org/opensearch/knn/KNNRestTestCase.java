@@ -8,10 +8,9 @@ package org.opensearch.knn;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import com.google.common.primitives.Floats;
+import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.xcontent.DeprecationHandler;
@@ -110,6 +109,7 @@ import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 /**
  * Base class for integration tests for KNN plugin. Contains several methods for testing KNN ES functionality.
  */
+@Log4j2
 public class KNNRestTestCase extends ODFERestTestCase {
     public static final String INDEX_NAME = "test_index";
     public static final String FIELD_NAME = "test_field";
@@ -118,8 +118,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
     protected static final int DELAY_MILLI_SEC = 1000;
     protected static final int NUM_OF_ATTEMPTS = 30;
     private static final String SYSTEM_INDEX_PREFIX = ".opendistro";
-
-    private static final Logger logger = LogManager.getLogger(KNNRestTestCase.class);
 
     @AfterClass
     public static void dumpCoverage() throws IOException, MalformedObjectNameException {
@@ -142,7 +140,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             Path path = Path.of(jacocoBuildPath, "integTest.exec");
             Files.write(path, proxy.getExecutionData(false));
         } catch (Exception ex) {
-            logger.error("Failed to dump coverage: ", ex);
+            log.error("Failed to dump coverage: ", ex);
             throw new RuntimeException("Failed to dump coverage: " + ex);
         }
     }
