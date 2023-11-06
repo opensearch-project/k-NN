@@ -40,7 +40,7 @@ public enum KNNEngine implements KNNLibrary {
         KNNEngine.FAISS,
         16_000,
         KNNEngine.LUCENE,
-            KnnVectorsFormat.DEFAULT_MAX_DIMENSIONS
+        KnnVectorsFormat.DEFAULT_MAX_DIMENSIONS
     );
 
     /**
