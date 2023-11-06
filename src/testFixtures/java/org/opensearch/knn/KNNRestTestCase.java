@@ -8,6 +8,7 @@ package org.opensearch.knn;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import com.google.common.primitives.Floats;
+import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.core.common.bytes.BytesReference;
@@ -52,7 +53,6 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -108,6 +108,7 @@ import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 /**
  * Base class for integration tests for KNN plugin. Contains several methods for testing KNN ES functionality.
  */
+@Log4j2
 public class KNNRestTestCase extends ODFERestTestCase {
     public static final String INDEX_NAME = "test_index";
     public static final String FIELD_NAME = "test_field";
@@ -135,9 +136,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
                 false
             );
 
-            Path path = Paths.get(jacocoBuildPath + "/integTest.exec");
+            Path path = Path.of(jacocoBuildPath, "integTest.exec");
             Files.write(path, proxy.getExecutionData(false));
         } catch (Exception ex) {
+            log.error("Failed to dump coverage: ", ex);
             throw new RuntimeException("Failed to dump coverage: " + ex);
         }
     }
