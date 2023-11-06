@@ -81,7 +81,8 @@ public class TrainingJob implements Runnable {
                 ModelState.TRAINING,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 description,
-                ""
+                "",
+                    ""
             ),
             null,
             this.modelId

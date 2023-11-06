@@ -27,13 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.opensearch.knn.common.KNNConstants.DIMENSION;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
-import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
-import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
+import static org.opensearch.knn.common.KNNConstants.*;
 
 public class ModelMetadata implements Writeable, ToXContentObject {
 
@@ -47,6 +41,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     final private String timestamp;
     final private String description;
     private String error;
+    private String nodeAssignment;
 
     /**
      * Constructor
@@ -64,6 +59,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         // which is checked in constructor and setters
         this.description = in.readString();
         this.error = in.readString();
+        this.nodeAssignment = in.readString();
     }
 
     /**
@@ -84,7 +80,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         ModelState modelState,
         String timestamp,
         String description,
-        String error
+        String error,
+        String nodeAssignment
     ) {
         this.knnEngine = Objects.requireNonNull(knnEngine, "knnEngine must not be null");
         this.spaceType = Objects.requireNonNull(spaceType, "spaceType must not be null");
@@ -104,6 +101,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         this.timestamp = Objects.requireNonNull(timestamp, "timestamp must not be null");
         this.description = Objects.requireNonNull(description, "description must not be null");
         this.error = Objects.requireNonNull(error, "error must not be null");
+        this.nodeAssignment = nodeAssignment;
     }
 
     /**
@@ -170,6 +168,17 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     }
 
     /**
+     * getter for model's node assignment
+     *
+     * @return nodeAssignment
+     */
+    public String getNodeAssignment() {
+        return nodeAssignment;
+    }
+
+    public void setNodeAssignment(String nodeAssignment) { this.nodeAssignment = nodeAssignment; }
+
+    /**
      * setter for model's state
      *
      * @param state of the model
@@ -197,7 +206,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             getState().toString(),
             timestamp,
             description,
-            error
+            error,
+                nodeAssignment
         );
     }
 
@@ -255,7 +265,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         String description = modelMetadataArray[5];
         String error = modelMetadataArray[6];
 
-        return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error);
+        return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, "");
     }
 
     private static String objectToString(Object value) {
@@ -282,6 +292,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         Object timestamp = modelSourceMap.get(KNNConstants.MODEL_TIMESTAMP);
         Object description = modelSourceMap.get(KNNConstants.MODEL_DESCRIPTION);
         Object error = modelSourceMap.get(KNNConstants.MODEL_ERROR);
+        Object nodeAssignment = modelSourceMap.get(KNNConstants.MODEL_NODE_ASSIGNMENT);
 
         ModelMetadata modelMetadata = new ModelMetadata(
             KNNEngine.getEngine(objectToString(engine)),
@@ -290,7 +301,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             ModelState.getModelState(objectToString(state)),
             objectToString(timestamp),
             objectToString(description),
-            objectToString(error)
+            objectToString(error),
+                objectToString(nodeAssignment)
         );
         return modelMetadata;
     }
@@ -304,6 +316,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         out.writeString(getTimestamp());
         out.writeString(getDescription());
         out.writeString(getError());
+        out.writeString(getNodeAssignment());
     }
 
     @Override
@@ -316,6 +329,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         builder.field(METHOD_PARAMETER_SPACE_TYPE, getSpaceType().getValue());
         builder.field(DIMENSION, getDimension());
         builder.field(KNN_ENGINE, getKnnEngine().getName());
+        builder.field(MODEL_NODE_ASSIGNMENT, getNodeAssignment());
         return builder;
     }
 }
