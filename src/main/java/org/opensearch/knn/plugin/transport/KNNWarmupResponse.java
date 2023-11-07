@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.opensearch.core.action.support.DefaultShardOperationFailedException;;
+import org.opensearch.core.action.support.DefaultShardOperationFailedException;
 import org.opensearch.action.support.broadcast.BroadcastResponse;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.xcontent.ToXContentObject;
