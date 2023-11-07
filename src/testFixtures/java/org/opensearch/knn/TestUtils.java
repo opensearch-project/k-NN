@@ -208,12 +208,9 @@ public class TestUtils {
     public static float computeDistFromSpaceType(SpaceType spaceType, float[] indexVector, float[] queryVector) {
         float dist;
         if (spaceType != null) {
-            dist = KNN_SCORING_SPACE_TYPE.getOrDefault(
-                spaceType,
-                (defaultQueryVector, defaultIndexVector) -> {
-                    throw new IllegalArgumentException(String.format("Invalid SpaceType function: \"%s\"", spaceType));
-                }
-            ).apply(queryVector, indexVector);
+            dist = KNN_SCORING_SPACE_TYPE.getOrDefault(spaceType, (defaultQueryVector, defaultIndexVector) -> {
+                throw new IllegalArgumentException(String.format("Invalid SpaceType function: \"%s\"", spaceType));
+            }).apply(queryVector, indexVector);
         } else {
             throw new NullPointerException("SpaceType is null. Provide a valid SpaceType.");
         }
