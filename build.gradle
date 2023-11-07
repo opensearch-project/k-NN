@@ -36,7 +36,7 @@ plugins {
     id 'java-library'
     id 'java-test-fixtures'
     id 'idea'
-    id "com.diffplug.spotless" version "6.3.0" apply false
+    id "com.diffplug.spotless" version "6.20.0" apply false
     id 'io.freefair.lombok' version '8.4'
 }
 
