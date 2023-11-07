@@ -15,6 +15,14 @@ public class KNNConstants {
     public static final String NAME = "name";
     public static final String PARAMETERS = "parameters";
     public static final String METHOD_HNSW = "hnsw";
+    public static final String TYPE = "type";
+    public static final String TYPE_NESTED = "nested";
+    public static final String PATH = "path";
+    public static final String QUERY = "query";
+    public static final String KNN = "knn";
+    public static final String VECTOR = "vector";
+    public static final String K = "k";
+    public static final String TYPE_KNN_VECTOR = "knn_vector";
     public static final String METHOD_PARAMETER_EF_SEARCH = "ef_search";
     public static final String METHOD_PARAMETER_EF_CONSTRUCTION = "ef_construction";
     public static final String METHOD_PARAMETER_M = "m";
