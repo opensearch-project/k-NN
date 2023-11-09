@@ -127,6 +127,13 @@ Next, obtain a minimum distribution tarball of the k-NN version you want to buil
 4. You should see a opensearch-min-<version>-SNAPSHOT-darwin-x64.tar.gz file present in distribution/archives/darwin-tar/build/distributions/
 5. Build k-NN by passing the OpenSearch distribution path in `./gradlew <integTest/run> -PcustomDistributionUrl="<Full path to .tar.gz file you noted above>"`
 
+If you want to start OpenSearch directly on Mac M1, make sure JDK for ARM is used, if not you will see 'mach-o file, but is an incompatible architecture (have 'arm64', need 'x86_64')'. And it's better to start OpenSearch by running `bash opensearch-tar-install.sh`, if you want to run `./bin/opensearch`, the environment variable `JAVA_LIBRARY_PATH` should be set correctly so that OpenSearch can find the JNI library:
+
+```
+export OPENSEARCH_HOME=the directory of opensearch...
+export JAVA_LIBRARY_PATH=$JAVA_LIBRARY_PATH:$OPENSEARCH_HOME/plugins/opensearch-knn/lib
+```
+
 #### Environment
 
 Currently, the plugin only supports Linux on x64 and arm platforms.
