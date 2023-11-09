@@ -143,7 +143,7 @@ public class TrainingJobRunner implements ClusterStateListener {
         try {
             threadPool.executor(TRAIN_THREAD_POOL).execute(() -> {
                 try {
-                    Thread.sleep(300*1000);
+                    //Thread.sleep(300*1000);
                     trainingJob.run();
                     serializeModel(trainingJob, loggingListener, true);
                 } catch (IOException e) {

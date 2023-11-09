@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.training;
 
+import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.core.index.shard.ShardId;
@@ -73,8 +74,10 @@ public class TrainingJobRunnerTests extends KNNTestCase {
         // Function finishes when update is called
         doAnswer(invocationOnMock -> null).when(modelDao).update(any(Model.class), any(ActionListener.class));
 
+        ClusterService clusterService = mock(ClusterService.class);
+
         // Finally, initialize the singleton runner, execute the job.
-        TrainingJobRunner.initialize(threadPool, modelDao);
+        TrainingJobRunner.initialize(threadPool, modelDao, clusterService);
         trainingJobRunner.execute(trainingJob, responseListener);
 
         // Immediately, we shutdown the executor and await its termination.
@@ -131,8 +134,10 @@ public class TrainingJobRunnerTests extends KNNTestCase {
             )
         ).when(modelDao).update(model, responseListener);
 
+        ClusterService clusterService = mock(ClusterService.class);
+
         // Finally, initialize the singleton runner, execute the job.
-        TrainingJobRunner.initialize(threadPool, modelDao);
+        TrainingJobRunner.initialize(threadPool, modelDao, clusterService);
         trainingJobRunner.execute(trainingJob, responseListener);
 
         // Immediately, we shutdown the executor and await its termination.

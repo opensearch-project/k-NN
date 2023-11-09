@@ -167,7 +167,8 @@ public class TrainingModelRequestTests extends KNNTestCase {
             ModelState.CREATED,
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
-            ""
+            "",
+                ""
         );
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
 

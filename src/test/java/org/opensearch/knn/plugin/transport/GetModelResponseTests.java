@@ -26,7 +26,7 @@ import java.io.IOException;
 public class GetModelResponseTests extends KNNTestCase {
 
     private ModelMetadata getModelMetadata(ModelState state) {
-        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, state, "2021-03-27 10:15:30 AM +05:30", "test model", "");
+        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, state, "2021-03-27 10:15:30 AM +05:30", "test model", "", "");
     }
 
     public void testStreams() throws IOException {
