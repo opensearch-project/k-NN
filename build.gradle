@@ -6,6 +6,8 @@
 import org.opensearch.gradle.test.RestIntegTestTask
 import org.apache.tools.ant.taskdefs.condition.Os
 
+import java.util.concurrent.Callable
+
 buildscript {
     ext {
         // build.version_qualifier parameter applies to knn plugin artifacts only. OpenSearch version must be set
@@ -13,6 +15,19 @@ buildscript {
         opensearch_version = System.getProperty("opensearch.version", "3.0.0-SNAPSHOT")
         version_qualifier = System.getProperty("build.version_qualifier", "")
         opensearch_group = "org.opensearch"
+        isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+
+        version_tokens = opensearch_version.tokenize('-')
+        opensearch_build = version_tokens[0] + '.0'
+        plugin_no_snapshot = opensearch_build
+        if (version_qualifier) {
+            opensearch_build += "-${version_qualifier}"
+            plugin_no_snapshot += "-${version_qualifier}"
+        }
+        if (isSnapshot) {
+            opensearch_build += "-SNAPSHOT"
+        }
+        opensearch_no_snapshot = opensearch_build.replace("-SNAPSHOT","")
     }
 
     // This isn't applying from repositories.gradle so repeating git diff it here
@@ -52,7 +67,6 @@ apply plugin: 'opensearch.pluginzip'
 apply plugin: 'opensearch.repositories'
 
 ext {
-    isSnapshot = "true" == System.getProperty("build.snapshot", "true")
     projectSubstitutions = [:]
 }
 
@@ -85,6 +99,10 @@ allprojects {
         project.noticeFile = rootProject.file('NOTICE.txt')
         project.forbiddenApis.ignoreFailures = true
     }
+}
+
+configurations {
+    zipArchive
 }
 
 publishing {
@@ -182,6 +200,8 @@ dependencies {
     testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.2'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.14.7'
     testFixturesImplementation "org.opensearch:common-utils:${version}"
+
+    zipArchive group: 'org.opensearch.plugin', name:'opensearch-security', version: "${opensearch_build}"
 }
 
 
@@ -232,9 +252,13 @@ integTest {
     // allows integration test classes to access test resource from project root path
     systemProperty('project.root', project.rootDir.absolutePath)
 
-    systemProperty "https", System.getProperty("https")
-    systemProperty "user", System.getProperty("user")
-    systemProperty "password", System.getProperty("password")
+    systemProperty("tests.opensearch.https", "true")
+    systemProperty("tests.opensearch.username", "admin")
+    systemProperty("tests.opensearch.password", "admin")
+
+//    systemProperty "https", System.getProperty("https")
+//    systemProperty "user", System.getProperty("user")
+//    systemProperty "password", System.getProperty("password")
 
     doFirst {
         // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
@@ -245,6 +269,10 @@ integTest {
         systemProperty 'cluster.number_of_nodes', "${_numNodes}"
         // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
         // not being written, the waitForAllConditions ensures it's written
+
+
+
+
         getClusters().forEach { cluster ->
             cluster.waitForAllConditions()
         }
@@ -258,6 +286,57 @@ integTest {
 
 testClusters.integTest {
     testDistribution = "ARCHIVE"
+
+    // Optionally install security
+    if (System.getProperty("security.enabled") != null) {
+        configurations.zipArchive.asFileTree.each {
+            plugin(provider(new Callable<RegularFile>() {
+                @Override
+                RegularFile call() throws Exception {
+                    return new RegularFile() {
+                        @Override
+                        File getAsFile() {
+                            return it
+                        }
+                    }
+                }
+            }))
+        }
+
+//        systemProperty("tests.opensearch.https", "true")
+//        systemProperty("tests.opensearch.username", "admin")
+//        systemProperty("tests.opensearch.password", "admin")
+
+        systemProperty("secure", "true")
+        systemProperty("username", "admin")
+        systemProperty("password", "admin")
+
+        extraConfigFile("admin-cert.pem", new File("$rootDir/src/test/resources/security/admin-cert.pem"))
+        extraConfigFile("node-cert.pem", new File("$rootDir/src/test/resources/security/node-cert.pem"))
+        extraConfigFile("node-key.pem", new File("$rootDir/src/test/resources/security/node-key.pem"))
+        extraConfigFile("root-ca.pem", new File("$rootDir/src/test/resources/security/root-ca.pem"))
+
+        setting("plugins.security.ssl.transport.pemcert_filepath", "node-cert.pem")
+        setting("plugins.security.ssl.transport.pemkey_filepath", "node-key.pem")
+        setting("plugins.security.ssl.transport.pemtrustedcas_filepath", "root-ca.pem")
+        setting("plugins.security.ssl.transport.enforce_hostname_verification", "false")
+        setting("plugins.security.ssl.http.enabled", "true")
+        setting("plugins.security.ssl.http.pemcert_filepath", "node-cert.pem")
+        setting("plugins.security.ssl.http.pemkey_filepath", "node-key.pem")
+        setting("plugins.security.ssl.http.pemtrustedcas_filepath", "root-ca.pem")
+        setting("plugins.security.allow_unsafe_democertificates", "true")
+        setting("plugins.security.allow_default_init_securityindex", "true")
+        //setting("plugins.security.unsupported.inject_user.enabled", "true")
+
+
+        setting("plugins.security.authcz.admin_dn", "\n- CN=admin,OU=client,O=client,L=test, C=de")
+        setting('plugins.security.restapi.roles_enabled', '["all_access", "security_rest_api_access"]')
+        setting('plugins.security.system_indices.enabled', "true")
+        setting('plugins.security.system_indices.indices', '[".plugins-ml-config", ".plugins-ml-connector", ".plugins-ml-model-group", ".plugins-ml-model", ".plugins-ml-task", ".plugins-ml-conversation-meta", ".plugins-ml-conversation-interactions", ".opendistro-alerting-config", ".opendistro-alerting-alert*", ".opendistro-anomaly-results*", ".opendistro-anomaly-detector*", ".opendistro-anomaly-checkpoints", ".opendistro-anomaly-detection-state", ".opendistro-reports-*", ".opensearch-notifications-*", ".opensearch-notebooks", ".opensearch-observability", ".ql-datasources", ".opendistro-asynchronous-search-response*", ".replication-metadata-store", ".opensearch-knn-models", ".geospatial-ip2geo-data*"]')
+
+        setSecure(true)
+    }
+
     plugin(project.tasks.bundlePlugin.archiveFile)
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         // Add the paths of built JNI libraries and its dependent libraries to PATH variable in System variables
