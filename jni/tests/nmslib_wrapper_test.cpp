@@ -21,6 +21,17 @@
 using ::testing::NiceMock;
 using ::testing::Return;
 
+TEST(NmslibIndexWrapperSearchTest, BasicAssertions) {
+    similarity::initLibrary();
+    knn_jni::nmslib_wrapper::IndexWrapper indexWrapper = knn_jni::nmslib_wrapper::IndexWrapper("l2");
+    int k = 10;
+    int dim = 2;
+    std::unique_ptr<float> rawQueryvector(new float[dim]);
+    std::unique_ptr<similarity::Object> queryObject(new similarity::Object(-1, -1, dim*sizeof(float), rawQueryvector.get()));
+    similarity::KNNQuery<float> knnQuery(*(indexWrapper.space), queryObject.get(), k);
+    indexWrapper.index->Search((similarity::KNNQuery<float> *)nullptr);
+}
+
 TEST(NmslibCreateIndexTest, BasicAssertions) {
     // Initialize nmslib
     similarity::initLibrary();
