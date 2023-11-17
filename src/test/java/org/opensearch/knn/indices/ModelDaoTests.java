@@ -137,7 +137,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             modelBlob,
             modelId
@@ -156,7 +156,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             modelBlob,
             modelId
@@ -183,7 +183,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             modelBlob,
             modelId
@@ -243,7 +243,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             modelBlob,
             modelId
@@ -304,7 +304,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             modelBlob,
             "any-id"
@@ -340,7 +340,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             null,
             modelId
@@ -378,7 +378,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             modelBlob,
             modelId
@@ -428,7 +428,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             modelBlob,
             modelId
@@ -446,7 +446,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             null,
             modelId
@@ -482,7 +482,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-                ""
+            ""
         );
 
         Model model = new Model(modelMetadata, modelBlob, modelId);
@@ -559,7 +559,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             modelBlob,
             modelId
@@ -592,7 +592,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             modelBlob,
             modelId1
@@ -659,7 +659,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             modelBlob,
             modelId
@@ -700,7 +700,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             modelBlob,
             modelId

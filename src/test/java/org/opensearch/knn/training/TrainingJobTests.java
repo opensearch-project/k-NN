@@ -89,7 +89,7 @@ public class TrainingJobTests extends KNNTestCase {
                 trainingJob.getModel().getModelMetadata().getTimestamp(),
                 desciption,
                 error,
-                    ""
+                ""
             ),
             null,
             modelID

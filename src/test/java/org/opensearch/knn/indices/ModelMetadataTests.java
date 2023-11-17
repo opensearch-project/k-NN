@@ -39,7 +39,7 @@ public class ModelMetadataTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-                ""
+            ""
         );
 
         BytesStreamOutput streamOutput = new BytesStreamOutput();
@@ -60,7 +60,7 @@ public class ModelMetadataTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-                ""
+            ""
         );
 
         assertEquals(knnEngine, modelMetadata.getKnnEngine());
@@ -76,7 +76,7 @@ public class ModelMetadataTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-                ""
+            ""
         );
 
         assertEquals(spaceType, modelMetadata.getSpaceType());
@@ -92,7 +92,7 @@ public class ModelMetadataTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-                ""
+            ""
         );
 
         assertEquals(dimension, modelMetadata.getDimension());
@@ -108,7 +108,7 @@ public class ModelMetadataTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-                ""
+            ""
         );
 
         assertEquals(modelState, modelMetadata.getState());
@@ -131,7 +131,7 @@ public class ModelMetadataTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             description,
             "",
-                ""
+            ""
         );
 
         assertEquals(description, modelMetadata.getDescription());
@@ -147,7 +147,7 @@ public class ModelMetadataTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             error,
-                ""
+            ""
         );
 
         assertEquals(error, modelMetadata.getError());
@@ -163,7 +163,7 @@ public class ModelMetadataTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-                ""
+            ""
         );
 
         assertEquals(modelState, modelMetadata.getState());
@@ -183,7 +183,7 @@ public class ModelMetadataTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             error,
-                ""
+            ""
         );
 
         assertEquals(error, modelMetadata.getError());
@@ -242,9 +242,18 @@ public class ModelMetadataTests extends KNNTestCase {
             time1,
             "diff descript",
             "",
-                ""
+            ""
         );
-        ModelMetadata modelMetadata9 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED, time1, "", "diff error", "");
+        ModelMetadata modelMetadata9 = new ModelMetadata(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            128,
+            ModelState.CREATED,
+            time1,
+            "",
+            "diff error",
+            ""
+        );
 
         assertEquals(modelMetadata1, modelMetadata1);
         assertEquals(modelMetadata1, modelMetadata2);
@@ -280,9 +289,18 @@ public class ModelMetadataTests extends KNNTestCase {
             time1,
             "diff descript",
             "",
-                ""
+            ""
         );
-        ModelMetadata modelMetadata9 = new ModelMetadata(KNNEngine.FAISS, SpaceType.L2, 128, ModelState.CREATED, time1, "", "diff error", "");
+        ModelMetadata modelMetadata9 = new ModelMetadata(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            128,
+            ModelState.CREATED,
+            time1,
+            "",
+            "diff error",
+            ""
+        );
 
         assertEquals(modelMetadata1.hashCode(), modelMetadata1.hashCode());
         assertEquals(modelMetadata1.hashCode(), modelMetadata2.hashCode());

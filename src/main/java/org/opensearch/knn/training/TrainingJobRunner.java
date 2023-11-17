@@ -11,7 +11,6 @@
 
 package org.opensearch.knn.training;
 
-import lombok.SneakyThrows;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchRequest;
@@ -192,21 +191,31 @@ public class TrainingJobRunner implements ClusterStateListener {
         return jobCount.get();
     }
 
-    @SneakyThrows
     @Override
     public void clusterChanged(ClusterChangedEvent event) {
         if (event.localNodeClusterManager()) {
             if (event.isNewCluster()) {
-                threadPool.schedule(this::updateModelsNewCluster, TimeValue.timeValueSeconds(1), ThreadPool.Names.GENERIC);
+                threadPool.schedule(() -> {
+                    try {
+                        updateModelsNewCluster();
+                    } catch (IOException | InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                }, TimeValue.timeValueSeconds(1), ThreadPool.Names.GENERIC);
             } else if (event.nodesRemoved()) {
                 List<DiscoveryNode> removedNodes = event.nodesDelta().removedNodes();
-                threadPool.schedule(() -> updateModelsNodesRemoved(removedNodes), TimeValue.timeValueSeconds(0), ThreadPool.Names.GENERIC);
+                threadPool.schedule(() -> {
+                    try {
+                        updateModelsNodesRemoved(removedNodes);
+                    } catch (IOException | InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                }, TimeValue.timeValueSeconds(0), ThreadPool.Names.GENERIC);
             }
         }
     }
 
-    @SneakyThrows
-    public void updateModelsNewCluster() {
+    public void updateModelsNewCluster() throws IOException, InterruptedException, ExecutionException {
         if (modelDao.isCreated()) {
             List<String> modelIds = searchModelIds();
             for (String modelId : modelIds) {
@@ -216,7 +225,6 @@ public class TrainingJobRunner implements ClusterStateListener {
                     modelMetadata.setState(ModelState.FAILED);
                     modelMetadata.setError("Training failed due to a cluster crash");
                     modelDao.update(model, new ActionListener<IndexResponse>() {
-                        @SneakyThrows
                         @Override
                         public void onResponse(IndexResponse indexResponse) {
                             logger.info("Model " + indexResponse.getId() + " updated successfully");
@@ -232,19 +240,18 @@ public class TrainingJobRunner implements ClusterStateListener {
         }
     }
 
-    @SneakyThrows
-    public void updateModelsNodesRemoved(List<DiscoveryNode> removedNodes) {
+    public void updateModelsNodesRemoved(List<DiscoveryNode> removedNodes) throws IOException, InterruptedException, ExecutionException {
         if (modelDao.isCreated()) {
             List<String> modelIds = searchModelIds();
             for (DiscoveryNode removedNode : removedNodes) {
                 for (String modelId : modelIds) {
                     Model model = modelDao.get(modelId);
                     ModelMetadata modelMetadata = model.getModelMetadata();
-                    if (modelMetadata.getNodeAssignment().equals(removedNode.getEphemeralId()) && modelMetadata.getState().equals(ModelState.TRAINING)) {
+                    if (modelMetadata.getNodeAssignment().equals(removedNode.getEphemeralId())
+                        && modelMetadata.getState().equals(ModelState.TRAINING)) {
                         modelMetadata.setState(ModelState.ZOMBIE);
                         modelMetadata.setError("A node dropped and left the model training process in a zombie state");
                         modelDao.update(model, new ActionListener<IndexResponse>() {
-                            @SneakyThrows
                             @Override
                             public void onResponse(IndexResponse indexResponse) {
                                 logger.info("Model " + indexResponse.getId() + " updated successfully");
@@ -261,8 +268,7 @@ public class TrainingJobRunner implements ClusterStateListener {
         }
     }
 
-    @SneakyThrows
-    private List<String> searchModelIds() {
+    private List<String> searchModelIds() throws IOException, InterruptedException {
         List<String> modelIds = new ArrayList<String>();
         CountDownLatch latch = new CountDownLatch(1);
         modelDao.search(new SearchRequest(), new ActionListener<SearchResponse>() {

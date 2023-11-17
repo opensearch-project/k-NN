@@ -40,7 +40,7 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-                ""
+            ""
         );
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, isRemoveRequest, modelMetadata);
 
@@ -64,7 +64,7 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-                ""
+            ""
         );
 
         UpdateModelMetadataRequest updateModelMetadataRequest1 = new UpdateModelMetadataRequest("test", true, null);
@@ -103,7 +103,7 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-                ""
+            ""
         );
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest("test", true, modelMetadata);
 

@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.training;
 
+import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
@@ -18,6 +19,7 @@ import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
@@ -49,6 +51,7 @@ public class TrainingJobRunnerTests extends KNNTestCase {
 
         String modelId = "test-model-id";
         Model model = mock(Model.class);
+        when(model.getModelMetadata()).thenReturn(mock(ModelMetadata.class));
         TrainingJob trainingJob = mock(TrainingJob.class);
         when(trainingJob.getModelId()).thenReturn(modelId);
         when(trainingJob.getModel()).thenReturn(model);
@@ -75,6 +78,7 @@ public class TrainingJobRunnerTests extends KNNTestCase {
         doAnswer(invocationOnMock -> null).when(modelDao).update(any(Model.class), any(ActionListener.class));
 
         ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.localNode()).thenReturn(mock(DiscoveryNode.class));
 
         // Finally, initialize the singleton runner, execute the job.
         TrainingJobRunner.initialize(threadPool, modelDao, clusterService);
@@ -103,6 +107,7 @@ public class TrainingJobRunnerTests extends KNNTestCase {
 
         String modelId = "test-model-id";
         Model model = mock(Model.class);
+        when(model.getModelMetadata()).thenReturn(mock(ModelMetadata.class));
         TrainingJob trainingJob = mock(TrainingJob.class);
         when(trainingJob.getModelId()).thenReturn(modelId);
         when(trainingJob.getModel()).thenReturn(model);
@@ -135,6 +140,7 @@ public class TrainingJobRunnerTests extends KNNTestCase {
         ).when(modelDao).update(model, responseListener);
 
         ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.localNode()).thenReturn(mock(DiscoveryNode.class));
 
         // Finally, initialize the singleton runner, execute the job.
         TrainingJobRunner.initialize(threadPool, modelDao, clusterService);

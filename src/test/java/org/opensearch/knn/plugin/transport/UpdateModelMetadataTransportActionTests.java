@@ -66,7 +66,7 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-                ""
+            ""
         );
 
         // Get update transport action

@@ -205,7 +205,7 @@ public class KNNCodecTestCase extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-                ""
+            ""
         );
 
         Model mockModel = new Model(modelMetadata1, modelBlob, modelId);

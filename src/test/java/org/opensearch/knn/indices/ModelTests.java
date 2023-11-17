@@ -39,7 +39,7 @@ public class ModelTests extends KNNTestCase {
                     ZonedDateTime.now(ZoneOffset.UTC).toString(),
                     "",
                     "",
-                        ""
+                    ""
                 ),
                 null,
                 "test-model"
@@ -59,7 +59,7 @@ public class ModelTests extends KNNTestCase {
                     ZonedDateTime.now(ZoneOffset.UTC).toString(),
                     "",
                     "",
-                        ""
+                    ""
                 ),
                 new byte[16],
                 "test-model"
@@ -76,7 +76,7 @@ public class ModelTests extends KNNTestCase {
                     ZonedDateTime.now(ZoneOffset.UTC).toString(),
                     "",
                     "",
-                        ""
+                    ""
                 ),
                 new byte[16],
                 "test-model"
@@ -93,7 +93,7 @@ public class ModelTests extends KNNTestCase {
                     ZonedDateTime.now(ZoneOffset.UTC).toString(),
                     "",
                     "",
-                        ""
+                    ""
                 ),
                 new byte[16],
                 "test-model"
@@ -111,7 +111,7 @@ public class ModelTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-                ""
+            ""
         );
         Model model = new Model(modelMetadata, new byte[16], "test-model");
         assertEquals(modelMetadata, model.getModelMetadata());
@@ -128,7 +128,7 @@ public class ModelTests extends KNNTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             modelBlob,
             "test-model"
@@ -147,7 +147,7 @@ public class ModelTests extends KNNTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             new byte[size],
             "test-model"
@@ -163,7 +163,7 @@ public class ModelTests extends KNNTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                    ""
+                ""
             ),
             null,
             "test-model"
@@ -174,7 +174,16 @@ public class ModelTests extends KNNTestCase {
     public void testSetModelBlob() {
         byte[] blob1 = "Hello blob 1".getBytes();
         Model model = new Model(
-            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, ZonedDateTime.now(ZoneOffset.UTC).toString(), "", "", ""),
+            new ModelMetadata(
+                KNNEngine.DEFAULT,
+                SpaceType.L1,
+                2,
+                ModelState.CREATED,
+                ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
+                "",
+                ""
+            ),
             blob1,
             "test-model"
         );

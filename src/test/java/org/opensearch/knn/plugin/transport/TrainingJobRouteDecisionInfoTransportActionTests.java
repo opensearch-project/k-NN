@@ -13,6 +13,7 @@ package org.opensearch.knn.plugin.transport;
 
 import org.junit.After;
 import org.junit.Before;
+import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
@@ -20,6 +21,7 @@ import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.training.TrainingJob;
 import org.opensearch.knn.training.TrainingJobRunner;
 import org.opensearch.threadpool.ThreadPool;
@@ -65,6 +67,7 @@ public class TrainingJobRouteDecisionInfoTransportActionTests extends KNNSingleN
         // Setup mocked training job
         String modelId = "model-id";
         Model model = mock(Model.class);
+        when(model.getModelMetadata()).thenReturn(mock(ModelMetadata.class));
         TrainingJob trainingJob = mock(TrainingJob.class);
         when(trainingJob.getModelId()).thenReturn(modelId);
         when(trainingJob.getModel()).thenReturn(model);
@@ -98,6 +101,7 @@ public class TrainingJobRouteDecisionInfoTransportActionTests extends KNNSingleN
         when(threadPool.executor(TRAIN_THREAD_POOL)).thenReturn(executorService);
 
         ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.localNode()).thenReturn(mock(DiscoveryNode.class));
 
         // Initialize runner and execute job
         TrainingJobRunner.initialize(threadPool, modelDao, clusterService);

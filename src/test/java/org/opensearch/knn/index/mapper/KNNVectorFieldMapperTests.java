@@ -164,7 +164,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-                ""
+            ""
         );
         builder.modelId.setValue(modelId);
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
@@ -691,7 +691,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-                ""
+            ""
         );
         when(mockModelDao.getMetadata(modelId)).thenReturn(mockModelMetadata);
 

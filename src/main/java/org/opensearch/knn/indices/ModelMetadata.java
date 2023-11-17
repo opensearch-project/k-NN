@@ -60,7 +60,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         // which is checked in constructor and setters
         this.description = in.readString();
         this.error = in.readString();
-        this.nodeAssignment = in.readString();
+        this.nodeAssignment = in.readOptionalString();
     }
 
     /**
@@ -177,7 +177,9 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         return nodeAssignment;
     }
 
-    public void setNodeAssignment(String nodeAssignment) { this.nodeAssignment = nodeAssignment; }
+    public void setNodeAssignment(String nodeAssignment) {
+        this.nodeAssignment = nodeAssignment;
+    }
 
     /**
      * setter for model's state
@@ -199,17 +201,30 @@ public class ModelMetadata implements Writeable, ToXContentObject {
 
     @Override
     public String toString() {
-        return String.join(
-            DELIMITER,
-            knnEngine.getName(),
-            spaceType.getValue(),
-            Integer.toString(dimension),
-            getState().toString(),
-            timestamp,
-            description,
-            error,
+        if (nodeAssignment.isEmpty()) {
+            return String.join(
+                DELIMITER,
+                knnEngine.getName(),
+                spaceType.getValue(),
+                Integer.toString(dimension),
+                getState().toString(),
+                timestamp,
+                description,
+                error
+            );
+        } else {
+            return String.join(
+                DELIMITER,
+                knnEngine.getName(),
+                spaceType.getValue(),
+                Integer.toString(dimension),
+                getState().toString(),
+                timestamp,
+                description,
+                error,
                 nodeAssignment
-        );
+            );
+        }
     }
 
     @Override
@@ -303,7 +318,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             objectToString(timestamp),
             objectToString(description),
             objectToString(error),
-                objectToString(nodeAssignment)
+            objectToString(nodeAssignment)
         );
         return modelMetadata;
     }
