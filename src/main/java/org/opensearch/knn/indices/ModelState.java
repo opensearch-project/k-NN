@@ -23,7 +23,8 @@ import java.io.IOException;
 public enum ModelState implements Writeable {
     TRAINING("training"),
     CREATED("created"),
-    FAILED("failed");
+    FAILED("failed"),
+    ZOMBIE("zombie");
 
     private final String name;
 
@@ -77,6 +78,10 @@ public enum ModelState implements Writeable {
 
         if (FAILED.getName().equals(name)) {
             return FAILED;
+        }
+
+        if (ZOMBIE.getName().equals(name)) {
+            return ZOMBIE;
         }
 
         throw new IllegalArgumentException("Unable to find model state: \"" + name + "\"");

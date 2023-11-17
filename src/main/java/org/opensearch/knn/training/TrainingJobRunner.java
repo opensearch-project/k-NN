@@ -143,7 +143,6 @@ public class TrainingJobRunner implements ClusterStateListener {
         try {
             threadPool.executor(TRAIN_THREAD_POOL).execute(() -> {
                 try {
-                    Thread.sleep(300*1000);
                     trainingJob.run();
                     serializeModel(trainingJob, loggingListener, true);
                 } catch (IOException e) {
@@ -201,7 +200,7 @@ public class TrainingJobRunner implements ClusterStateListener {
                 threadPool.schedule(this::updateModelsNewCluster, TimeValue.timeValueSeconds(1), ThreadPool.Names.GENERIC);
             } else if (event.nodesRemoved()) {
                 List<DiscoveryNode> removedNodes = event.nodesDelta().removedNodes();
-                updateModelsNodesRemoved(removedNodes);
+                threadPool.schedule(() -> updateModelsNodesRemoved(removedNodes), TimeValue.timeValueSeconds(0), ThreadPool.Names.GENERIC);
             }
         }
     }
@@ -215,15 +214,17 @@ public class TrainingJobRunner implements ClusterStateListener {
                 ModelMetadata modelMetadata = model.getModelMetadata();
                 if (modelMetadata.getState().equals(ModelState.TRAINING)) {
                     modelMetadata.setState(ModelState.FAILED);
+                    modelMetadata.setError("Training failed due to a cluster crash");
                     modelDao.update(model, new ActionListener<IndexResponse>() {
+                        @SneakyThrows
                         @Override
                         public void onResponse(IndexResponse indexResponse) {
-                            System.out.println("Model updated successfully");
+                            logger.info("Model " + indexResponse.getId() + " updated successfully");
                         }
 
                         @Override
                         public void onFailure(Exception e) {
-                            System.out.println("Model not updated");
+                            logger.info("Failed to update model", e);
                         }
                     });
                 }
@@ -240,16 +241,18 @@ public class TrainingJobRunner implements ClusterStateListener {
                     Model model = modelDao.get(modelId);
                     ModelMetadata modelMetadata = model.getModelMetadata();
                     if (modelMetadata.getNodeAssignment().equals(removedNode.getEphemeralId()) && modelMetadata.getState().equals(ModelState.TRAINING)) {
-                        modelMetadata.setState(ModelState.FAILED);
+                        modelMetadata.setState(ModelState.ZOMBIE);
+                        modelMetadata.setError("A node dropped and left the model training process in a zombie state");
                         modelDao.update(model, new ActionListener<IndexResponse>() {
+                            @SneakyThrows
                             @Override
                             public void onResponse(IndexResponse indexResponse) {
-                                System.out.println("Model updated successfully");
+                                logger.info("Model " + indexResponse.getId() + " updated successfully");
                             }
 
                             @Override
                             public void onFailure(Exception e) {
-                                System.out.println("Model not updated");
+                                logger.info("Failed to update model", e);
                             }
                         });
                     }

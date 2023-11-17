@@ -35,9 +35,11 @@ import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 public class IndexUtil {
 
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED = Version.V_2_11_0;
+    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_NODE_ASSIGNMENT = Version.V_2_12_0;
     private static final Map<String, Version> minimalRequiredVersionMap = new HashMap<String, Version>() {
         {
             put("ignore_unmapped", MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED);
+            put("model_node_assignment", MINIMAL_SUPPORTED_VERSION_FOR_MODEL_NODE_ASSIGNMENT);
         }
     };
 

@@ -19,6 +19,7 @@ import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -316,7 +317,9 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         out.writeString(getTimestamp());
         out.writeString(getDescription());
         out.writeString(getError());
-        out.writeString(getNodeAssignment());
+        if (IndexUtil.isClusterOnOrAfterMinRequiredVersion("model_node_assignment")) {
+            out.writeString(getNodeAssignment());
+        }
     }
 
     @Override
@@ -329,7 +332,9 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         builder.field(METHOD_PARAMETER_SPACE_TYPE, getSpaceType().getValue());
         builder.field(DIMENSION, getDimension());
         builder.field(KNN_ENGINE, getKnnEngine().getName());
-        builder.field(MODEL_NODE_ASSIGNMENT, getNodeAssignment());
+        if (IndexUtil.isClusterOnOrAfterMinRequiredVersion("model_node_assignment")) {
+            builder.field(MODEL_NODE_ASSIGNMENT, getNodeAssignment());
+        }
         return builder;
     }
 }
