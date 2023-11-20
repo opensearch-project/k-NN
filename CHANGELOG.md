@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.11...2.x)
 ### Features
 * Add parent join support for lucene knn [#1182](https://github.com/opensearch-project/k-NN/pull/1182)
+* Properly designate model state for actively training models when nodes crash or leave cluster [#1317](https://github.com/opensearch-project/k-NN/pull/1317)
 ### Enhancements
 ### Bug Fixes 
 ### Infrastructure
