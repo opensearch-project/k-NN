@@ -4,7 +4,6 @@
  */
 
 import org.opensearch.gradle.test.RestIntegTestTask
-import org.opensearch.gradle.testclusters.StandaloneRestIntegTestTask
 import org.apache.tools.ant.taskdefs.condition.Os
 
 buildscript {
@@ -294,39 +293,6 @@ task integTestRemote(type: RestIntegTestTask) {
         filter {
             includeTestsMatching "org.opensearch.knn.*IT"
         }
-    }
-}
-
-task testTrainingBug (type: StandaloneRestIntegTestTask) {
-    useCluster project.testClusters.integTest
-
-    systemProperty 'tests.skip_delete_model_index', 'true'
-    systemProperty 'tests.security.manager', 'false'
-
-    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters.integTest.allHttpSocketURI.join(",")}")
-    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters.integTest.getName()}")
-
-    filter {
-        includeTestsMatching "org.opensearch.knn.model.TempModelIT.testStartTraining"
-    }
-
-    doLast {
-        testClusters.integTest.restart()
-    }
-}
-
-task testTrainingBug2 (type: StandaloneRestIntegTestTask) {
-    dependsOn(testTrainingBug)
-    useCluster project.testClusters.integTest
-
-    systemProperty 'tests.skip_delete_model_index', 'true'
-    systemProperty 'tests.security.manager', 'false'
-
-    nonInputProperties.systemProperty('tests.rest.cluster', "${-> testClusters.integTest.allHttpSocketURI.join(",")}")
-    nonInputProperties.systemProperty('tests.clustername', "${-> testClusters.integTest.getName()}")
-
-    filter {
-        includeTestsMatching "org.opensearch.knn.model.TempModelIT.testAfterTraining"
     }
 }
 
