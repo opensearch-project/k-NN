@@ -266,10 +266,10 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     public static ModelMetadata fromString(String modelMetadataString) {
         String[] modelMetadataArray = modelMetadataString.split(DELIMITER, -1);
 
-        if (modelMetadataArray.length != 7) {
+        if (modelMetadataArray.length != 8) {
             throw new IllegalArgumentException(
                 "Illegal format for model metadata. Must be of the form "
-                    + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>\"."
+                    + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>\"."
             );
         }
 
@@ -280,8 +280,9 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         String timestamp = modelMetadataArray[4];
         String description = modelMetadataArray[5];
         String error = modelMetadataArray[6];
+        String nodeAssignment = modelMetadataArray[7];
 
-        return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, "");
+        return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, nodeAssignment);
     }
 
     private static String objectToString(Object value) {
