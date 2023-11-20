@@ -491,7 +491,6 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         final CountDownLatch inProgressLatch1 = new CountDownLatch(1);
         ActionListener<IndexResponse> docCreationListener = ActionListener.wrap(response -> {
             assertEquals(modelId, response.getId());
-
             ModelMetadata modelMetadata1 = modelDao.getMetadata(modelId);
             assertEquals(modelMetadata, modelMetadata1);
 

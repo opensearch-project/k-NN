@@ -201,19 +201,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
 
     @Override
     public String toString() {
-        if (nodeAssignment.isEmpty()) {
-            return String.join(
-                DELIMITER,
-                knnEngine.getName(),
-                spaceType.getValue(),
-                Integer.toString(dimension),
-                getState().toString(),
-                timestamp,
-                description,
-                error
-            );
-        } else {
-            return String.join(
+        return String.join(
                 DELIMITER,
                 knnEngine.getName(),
                 spaceType.getValue(),
@@ -222,9 +210,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
                 timestamp,
                 description,
                 error,
-                nodeAssignment
-            );
-        }
+                nodeAssignment);
     }
 
     @Override
