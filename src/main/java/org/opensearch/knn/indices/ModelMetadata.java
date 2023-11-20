@@ -202,15 +202,16 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     @Override
     public String toString() {
         return String.join(
-                DELIMITER,
-                knnEngine.getName(),
-                spaceType.getValue(),
-                Integer.toString(dimension),
-                getState().toString(),
-                timestamp,
-                description,
-                error,
-                nodeAssignment);
+            DELIMITER,
+            knnEngine.getName(),
+            spaceType.getValue(),
+            Integer.toString(dimension),
+            getState().toString(),
+            timestamp,
+            description,
+            error,
+            nodeAssignment
+        );
     }
 
     @Override

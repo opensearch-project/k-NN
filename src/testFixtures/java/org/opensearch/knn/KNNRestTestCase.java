@@ -699,8 +699,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .field(MODEL_TIMESTAMP, modelMetadata.getTimestamp())
             .field(MODEL_DESCRIPTION, modelMetadata.getDescription())
             .field(MODEL_ERROR, modelMetadata.getError())
-                .field(MODEL_NODE_ASSIGNMENT, modelMetadata.getNodeAssignment())
-                .endObject();
+            .field(MODEL_NODE_ASSIGNMENT, modelMetadata.getNodeAssignment())
+            .endObject();
 
         request.setJsonEntity(builder.toString());
 

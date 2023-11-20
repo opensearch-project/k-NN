@@ -216,10 +216,19 @@ public class ModelMetadataTests extends KNNTestCase {
             + description
             + ","
             + error
-                + ","
+            + ","
             + nodeAssignment;
 
-        ModelMetadata modelMetadata = new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, nodeAssignment);
+        ModelMetadata modelMetadata = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            modelState,
+            timestamp,
+            description,
+            error,
+            nodeAssignment
+        );
 
         assertEquals(expected, modelMetadata.toString());
     }
@@ -341,10 +350,19 @@ public class ModelMetadataTests extends KNNTestCase {
             + description
             + ","
             + error
-                + ","
-                + nodeAssignment;
+            + ","
+            + nodeAssignment;
 
-        ModelMetadata expected = new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, nodeAssignment);
+        ModelMetadata expected = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            modelState,
+            timestamp,
+            description,
+            error,
+            nodeAssignment
+        );
         ModelMetadata fromString1 = ModelMetadata.fromString(stringRep1);
 
         assertEquals(expected, fromString1);

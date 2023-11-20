@@ -13,7 +13,6 @@ package org.opensearch.knn.training;
 
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.action.ActionListener;
@@ -183,9 +182,7 @@ public class TrainingJobRunnerTests extends KNNTestCase {
             ((ActionListener<SearchResponse>) invocationOnMock.getArguments()[1]).onResponse(searchResponse);
             return null;
         }).when(modelDao).search(any(SearchRequest.class), any(ActionListener.class));
-        doAnswer(invocationOnMock -> {
-            return null;
-        }).when(modelDao).update(any(Model.class), any(ActionListener.class));
+        doAnswer(invocationOnMock -> { return null; }).when(modelDao).update(any(Model.class), any(ActionListener.class));
 
         TrainingJobRunner.initialize(threadPool, modelDao, clusterService);
 
@@ -235,9 +232,7 @@ public class TrainingJobRunnerTests extends KNNTestCase {
             ((ActionListener<SearchResponse>) invocationOnMock.getArguments()[1]).onResponse(searchResponse);
             return null;
         }).when(modelDao).search(any(SearchRequest.class), any(ActionListener.class));
-        doAnswer(invocationOnMock -> {
-            return null;
-        }).when(modelDao).update(any(Model.class), any(ActionListener.class));
+        doAnswer(invocationOnMock -> { return null; }).when(modelDao).update(any(Model.class), any(ActionListener.class));
 
         TrainingJobRunner.initialize(threadPool, modelDao, clusterService);
 
