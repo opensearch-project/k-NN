@@ -11,6 +11,9 @@
 
 package org.opensearch.knn.training;
 
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.action.ActionListener;
@@ -20,13 +23,15 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.SearchHits;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.*;
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
@@ -34,8 +39,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
-import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
+import static org.opensearch.knn.common.KNNConstants.*;
 
 public class TrainingJobRunnerTests extends KNNTestCase {
 
@@ -149,5 +153,101 @@ public class TrainingJobRunnerTests extends KNNTestCase {
         // Immediately, we shutdown the executor and await its termination.
         executorService.shutdown();
         executorService.awaitTermination(10, TimeUnit.SECONDS);
+    }
+
+    public void testUpdateModelsNewCluster() throws IOException, InterruptedException, ExecutionException {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+        TrainingJobRunner trainingJobRunner = TrainingJobRunner.getInstance();
+
+        ThreadPool threadPool = mock(ThreadPool.class);
+        when(threadPool.executor(TRAIN_THREAD_POOL)).thenReturn(executorService);
+
+        String modelId = "test-model-id";
+        Model model = mock(Model.class);
+        ModelMetadata modelMetadata = mock(ModelMetadata.class);
+        when(modelMetadata.getState()).thenReturn(ModelState.TRAINING);
+        when(model.getModelMetadata()).thenReturn(modelMetadata);
+        ModelDao modelDao = mock(ModelDao.class);
+        when(modelDao.isCreated()).thenReturn(true);
+        when(modelDao.get(modelId)).thenReturn(model);
+        doAnswer(invocationOnMock -> {
+            SearchResponse searchResponse = mock(SearchResponse.class);
+            SearchHits searchHits = mock(SearchHits.class);
+            when(searchResponse.getHits()).thenReturn(searchHits);
+            SearchHit searchHit = mock(SearchHit.class);
+            when(searchHit.getId()).thenReturn(modelId);
+            SearchHit[] searchHitArray = new SearchHit[1];
+            searchHitArray[0] = searchHit;
+            when(searchHits.getHits()).thenReturn(searchHitArray);
+            ((ActionListener<SearchResponse>) invocationOnMock.getArguments()[1]).onResponse(searchResponse);
+            return null;
+        }).when(modelDao).search(any(SearchRequest.class), any(ActionListener.class));
+        doAnswer(invocationOnMock -> {
+            return null;
+        }).when(modelDao).update(any(Model.class), any(ActionListener.class));
+
+        TrainingJobRunner.initialize(threadPool, modelDao, clusterService);
+
+        trainingJobRunner.updateModelsNewCluster();
+
+        executorService.shutdown();
+        executorService.awaitTermination(10, TimeUnit.SECONDS);
+
+        verify(modelMetadata, times(1)).setState(ModelState.FAILED);
+        verify(modelMetadata, times(1)).setError("Training failed due to a cluster crash");
+        verify(modelDao, times(1)).update(any(Model.class), any(ActionListener.class));
+    }
+
+    public void testUpdateModelsNodesRemoved() throws IOException, InterruptedException, ExecutionException {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+        TrainingJobRunner trainingJobRunner = TrainingJobRunner.getInstance();
+
+        ThreadPool threadPool = mock(ThreadPool.class);
+        when(threadPool.executor(TRAIN_THREAD_POOL)).thenReturn(executorService);
+
+        String modelId = "test-model-id";
+        Model model = mock(Model.class);
+        ModelMetadata modelMetadata = mock(ModelMetadata.class);
+        when(modelMetadata.getState()).thenReturn(ModelState.TRAINING);
+        when(modelMetadata.getNodeAssignment()).thenReturn("test-node-model-match");
+        when(model.getModelMetadata()).thenReturn(modelMetadata);
+        ModelDao modelDao = mock(ModelDao.class);
+        when(modelDao.isCreated()).thenReturn(true);
+        when(modelDao.get(modelId)).thenReturn(model);
+        DiscoveryNode node1 = mock(DiscoveryNode.class);
+        when(node1.getEphemeralId()).thenReturn("test-node-model-match");
+        DiscoveryNode node2 = mock(DiscoveryNode.class);
+        when(node2.getEphemeralId()).thenReturn("test-node-not-model-match");
+        List<DiscoveryNode> nodes = new ArrayList<DiscoveryNode>();
+        nodes.add(node1);
+        nodes.add(node2);
+        doAnswer(invocationOnMock -> {
+            SearchResponse searchResponse = mock(SearchResponse.class);
+            SearchHits searchHits = mock(SearchHits.class);
+            when(searchResponse.getHits()).thenReturn(searchHits);
+            SearchHit searchHit = mock(SearchHit.class);
+            when(searchHit.getId()).thenReturn(modelId);
+            SearchHit[] searchHitArray = new SearchHit[1];
+            searchHitArray[0] = searchHit;
+            when(searchHits.getHits()).thenReturn(searchHitArray);
+            ((ActionListener<SearchResponse>) invocationOnMock.getArguments()[1]).onResponse(searchResponse);
+            return null;
+        }).when(modelDao).search(any(SearchRequest.class), any(ActionListener.class));
+        doAnswer(invocationOnMock -> {
+            return null;
+        }).when(modelDao).update(any(Model.class), any(ActionListener.class));
+
+        TrainingJobRunner.initialize(threadPool, modelDao, clusterService);
+
+        trainingJobRunner.updateModelsNodesRemoved(nodes);
+
+        executorService.shutdown();
+        executorService.awaitTermination(10, TimeUnit.SECONDS);
+
+        verify(modelMetadata, times(1)).setState(ModelState.ZOMBIE);
+        verify(modelMetadata, times(1)).setError("A node dropped and left the model training process in a zombie state");
+        verify(modelDao, times(1)).update(any(Model.class), any(ActionListener.class));
     }
 }

@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.training;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.action.search.SearchRequest;
@@ -215,7 +216,7 @@ public class TrainingJobRunner implements ClusterStateListener {
         }
     }
 
-    public void updateModelsNewCluster() throws IOException, InterruptedException, ExecutionException {
+    protected void updateModelsNewCluster() throws IOException, InterruptedException, ExecutionException {
         if (modelDao.isCreated()) {
             List<String> modelIds = searchModelIds();
             for (String modelId : modelIds) {
@@ -240,7 +241,7 @@ public class TrainingJobRunner implements ClusterStateListener {
         }
     }
 
-    public void updateModelsNodesRemoved(List<DiscoveryNode> removedNodes) throws IOException, InterruptedException, ExecutionException {
+    protected void updateModelsNodesRemoved(List<DiscoveryNode> removedNodes) throws IOException, InterruptedException, ExecutionException {
         if (modelDao.isCreated()) {
             List<String> modelIds = searchModelIds();
             for (DiscoveryNode removedNode : removedNodes) {
