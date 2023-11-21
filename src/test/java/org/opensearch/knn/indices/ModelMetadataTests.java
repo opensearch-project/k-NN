@@ -353,6 +353,20 @@ public class ModelMetadataTests extends KNNTestCase {
             + ","
             + nodeAssignment;
 
+        String stringRep2 = knnEngine.getName()
+            + ","
+            + spaceType.getValue()
+            + ","
+            + dimension
+            + ","
+            + modelState.getName()
+            + ","
+            + timestamp
+            + ","
+            + description
+            + ","
+            + error;
+
         ModelMetadata expected = new ModelMetadata(
             knnEngine,
             spaceType,
@@ -364,8 +378,10 @@ public class ModelMetadataTests extends KNNTestCase {
             nodeAssignment
         );
         ModelMetadata fromString1 = ModelMetadata.fromString(stringRep1);
+        ModelMetadata fromString2 = ModelMetadata.fromString(stringRep2);
 
         assertEquals(expected, fromString1);
+        assertEquals(expected, fromString2);
 
         expectThrows(IllegalArgumentException.class, () -> ModelMetadata.fromString("invalid"));
     }
