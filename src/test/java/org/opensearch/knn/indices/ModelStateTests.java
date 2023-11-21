@@ -31,5 +31,9 @@ public class ModelStateTests extends KNNTestCase {
 
     public void testGetModelState() {
         assertEquals(ModelState.CREATED, ModelState.getModelState(ModelState.CREATED.getName()));
+        assertEquals(ModelState.TRAINING, ModelState.getModelState(ModelState.TRAINING.getName()));
+        assertEquals(ModelState.FAILED, ModelState.getModelState(ModelState.FAILED.getName()));
+        assertEquals(ModelState.ZOMBIE, ModelState.getModelState(ModelState.ZOMBIE.getName()));
+        expectThrows(IllegalArgumentException.class, () -> ModelState.getModelState("throw-exception"));
     }
 }
