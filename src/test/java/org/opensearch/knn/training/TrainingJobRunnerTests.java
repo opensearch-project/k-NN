@@ -13,8 +13,11 @@ package org.opensearch.knn.training;
 
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.core.index.shard.ShardId;
@@ -155,6 +158,51 @@ public class TrainingJobRunnerTests extends KNNTestCase {
         trainingJobRunner.execute(trainingJob, responseListener);
 
         // Immediately, we shutdown the executor and await its termination.
+        executorService.shutdown();
+        executorService.awaitTermination(10, TimeUnit.SECONDS);
+    }
+
+    public void testClusterChanged() throws InterruptedException {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+        TrainingJobRunner trainingJobRunner = TrainingJobRunner.getInstance();
+
+        ThreadPool threadPool = mock(ThreadPool.class);
+        when(threadPool.executor(TRAIN_THREAD_POOL)).thenReturn(executorService);
+        doAnswer(invocationOnMock -> { return null; }).when(threadPool)
+            .schedule(any(Runnable.class), any(TimeValue.class), any(String.class));
+
+        ModelDao modelDao = mock(ModelDao.class);
+        ClusterChangedEvent clusterChangedEvent = mock(ClusterChangedEvent.class);
+        when(clusterChangedEvent.localNodeClusterManager()).thenReturn(true);
+        when(clusterChangedEvent.isNewCluster()).thenReturn(true);
+
+        TrainingJobRunner.initialize(threadPool, modelDao, clusterService);
+
+        trainingJobRunner.clusterChanged(clusterChangedEvent);
+
+        verify(threadPool, times(1)).schedule(any(Runnable.class), any(TimeValue.class), any(String.class));
+
+        when(clusterChangedEvent.isNewCluster()).thenReturn(false);
+        when(clusterChangedEvent.nodesRemoved()).thenReturn(true);
+        DiscoveryNodes.Delta delta = mock(DiscoveryNodes.Delta.class);
+        List<DiscoveryNode> nodes = new ArrayList<>();
+        when(clusterChangedEvent.nodesDelta()).thenReturn(delta);
+        when(delta.removedNodes()).thenReturn(nodes);
+
+        trainingJobRunner.clusterChanged(clusterChangedEvent);
+
+        verify(threadPool, times(2)).schedule(any(Runnable.class), any(TimeValue.class), any(String.class));
+        verify(clusterChangedEvent, times(1)).nodesDelta();
+
+        when(clusterChangedEvent.nodesRemoved()).thenReturn(false);
+        trainingJobRunner.clusterChanged(clusterChangedEvent);
+        verify(threadPool, times(2)).schedule(any(Runnable.class), any(TimeValue.class), any(String.class));
+
+        when(clusterChangedEvent.localNodeClusterManager()).thenReturn(false);
+        trainingJobRunner.clusterChanged(clusterChangedEvent);
+        verify(threadPool, times(2)).schedule(any(Runnable.class), any(TimeValue.class), any(String.class));
+
         executorService.shutdown();
         executorService.awaitTermination(10, TimeUnit.SECONDS);
     }
