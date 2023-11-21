@@ -253,18 +253,11 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     public static ModelMetadata fromString(String modelMetadataString) {
         String[] modelMetadataArray = modelMetadataString.split(DELIMITER, -1);
 
-        if (modelMetadataArray.length != 8) {
-            if (IndexUtil.isClusterOnOrAfterMinRequiredVersion("model_node_assignment")) {
-                throw new IllegalArgumentException(
-                        "Illegal format for model metadata. Must be of the form "
-                                + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>\"."
-                );
-            } else if (modelMetadataArray.length != 7) {
-                throw new IllegalArgumentException(
-                        "Illegal format for model metadata. Must be of the form "
-                                + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>\"."
-                );
-            }
+        if (modelMetadataArray.length != 8 && modelMetadataArray.length != 7) {
+            throw new IllegalArgumentException(
+                    "Illegal format for model metadata. Must be of the form "
+                        + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>\"."
+            );
         }
 
         KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
@@ -274,7 +267,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         String timestamp = modelMetadataArray[4];
         String description = modelMetadataArray[5];
         String error = modelMetadataArray[6];
-        if (IndexUtil.isClusterOnOrAfterMinRequiredVersion("model_node_assignment")) {
+        if (modelMetadataArray.length == 8) {
             String nodeAssignment = modelMetadataArray[7];
             return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, nodeAssignment);
         }
