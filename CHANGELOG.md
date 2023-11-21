@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Enhancements
 ### Bug Fixes
 * Fix use-after-free case on nmslib search path [#1305](https://github.com/opensearch-project/k-NN/pull/1305)
+* Allow nested knn field mapping when train model [#1318](https://github.com/opensearch-project/k-NN/pull/1318)
 ### Infrastructure
 * Upgrade gradle to 8.4 [1289](https://github.com/opensearch-project/k-NN/pull/1289)
 ### Documentation
