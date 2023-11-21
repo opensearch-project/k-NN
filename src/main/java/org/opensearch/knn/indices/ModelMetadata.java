@@ -255,8 +255,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
 
         if (modelMetadataArray.length != 8 && modelMetadataArray.length != 7) {
             throw new IllegalArgumentException(
-                    "Illegal format for model metadata. Must be of the form "
-                        + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>\"."
+                "Illegal format for model metadata. Must be of the form "
+                    + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>\"."
             );
         }
 
