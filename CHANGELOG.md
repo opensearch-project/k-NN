@@ -17,8 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Add parent join support for lucene knn [#1182](https://github.com/opensearch-project/k-NN/pull/1182)
 * Properly designate model state for actively training models when nodes crash or leave cluster [#1317](https://github.com/opensearch-project/k-NN/pull/1317)
 ### Enhancements
-### Bug Fixes 
+### Bug Fixes
+* Fix use-after-free case on nmslib search path [#1305](https://github.com/opensearch-project/k-NN/pull/1305)
 ### Infrastructure
+* Upgrade gradle to 8.4 [1289](https://github.com/opensearch-project/k-NN/pull/1289)
 ### Documentation
 ### Maintenance
 * Update developer guide to include M1 Setup [#1222](https://github.com/opensearch-project/k-NN/pull/1222)

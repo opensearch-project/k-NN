@@ -36,9 +36,8 @@ plugins {
     id 'java-library'
     id 'java-test-fixtures'
     id 'idea'
-    id 'jacoco'
-    id "com.diffplug.spotless" version "6.3.0" apply false
-    id 'io.freefair.lombok' version '6.4.3'
+    id "com.diffplug.spotless" version "6.20.0" apply false
+    id 'io.freefair.lombok' version '8.4'
 }
 
 apply from: 'gradle/formatting.gradle'
@@ -123,6 +122,9 @@ compileJava {
 compileTestJava {
     options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
 }
+compileTestFixturesJava {
+    options.compilerArgs.addAll(["-processor", 'lombok.launch.AnnotationProcessorHider$AnnotationProcessor'])
+}
 
 def usingRemoteCluster = System.properties.containsKey('tests.rest.cluster') || System.properties.containsKey('tests.cluster')
 def usingMultiNode = project.properties.containsKey('numNodes')
@@ -133,10 +135,6 @@ if (!usingRemoteCluster) {
     if (!usingMultiNode) {
         apply from: 'build-tools/knnplugin-coverage.gradle'
     }
-}
-
-jacoco {
-    toolVersion = "0.8.7"
 }
 
 check.dependsOn spotlessCheck

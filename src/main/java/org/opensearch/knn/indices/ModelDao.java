@@ -655,7 +655,9 @@ public interface ModelDao {
             client.execute(
                 UpdateModelGraveyardAction.INSTANCE,
                 new UpdateModelGraveyardRequest(modelId, true),
-                ActionListener.wrap(acknowledgedResponse -> { throw exceptionFromPreviousStep; }, unblockingFailedException -> {
+                ActionListener.wrap(acknowledgedResponse -> {
+                    throw exceptionFromPreviousStep;
+                }, unblockingFailedException -> {
                     // If it fails to remove the modelId from Model Graveyard, then log the error message and
                     // throw the exception that was passed as a parameter from previous step
                     String errorMessage = String.format("Failed to remove \" %s \" from Model Graveyard", modelId);
