@@ -30,7 +30,11 @@ import org.opensearch.threadpool.ThreadPool;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
@@ -38,7 +42,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.common.KNNConstants.*;
+import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
+import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
 
 public class TrainingJobRunnerTests extends KNNTestCase {
 

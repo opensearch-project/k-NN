@@ -28,7 +28,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.opensearch.knn.common.KNNConstants.*;
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
+import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
+import static org.opensearch.knn.common.KNNConstants.MODEL_NODE_ASSIGNMENT;
 
 public class ModelMetadata implements Writeable, ToXContentObject {
 
@@ -294,8 +301,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         Object engine = modelSourceMap.get(KNNConstants.KNN_ENGINE);
         Object space = modelSourceMap.get(KNNConstants.METHOD_PARAMETER_SPACE_TYPE);
         Object dimension = modelSourceMap.get(KNNConstants.DIMENSION);
-        Object state = modelSourceMap.get(KNNConstants.MODEL_STATE);
-        Object timestamp = modelSourceMap.get(KNNConstants.MODEL_TIMESTAMP);
+        Object state = modelSourceMap.get(MODEL_STATE);
+        Object timestamp = modelSourceMap.get(MODEL_TIMESTAMP);
         Object description = modelSourceMap.get(KNNConstants.MODEL_DESCRIPTION);
         Object error = modelSourceMap.get(KNNConstants.MODEL_ERROR);
         Object nodeAssignment = modelSourceMap.get(KNNConstants.MODEL_NODE_ASSIGNMENT);
