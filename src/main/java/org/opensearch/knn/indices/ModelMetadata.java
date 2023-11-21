@@ -254,10 +254,17 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         String[] modelMetadataArray = modelMetadataString.split(DELIMITER, -1);
 
         if (modelMetadataArray.length != 8) {
-            throw new IllegalArgumentException(
-                "Illegal format for model metadata. Must be of the form "
-                    + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>\"."
-            );
+            if (IndexUtil.isClusterOnOrAfterMinRequiredVersion("model_node_assignment")) {
+                throw new IllegalArgumentException(
+                        "Illegal format for model metadata. Must be of the form "
+                                + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>\"."
+                );
+            } else if (modelMetadataArray.length != 7) {
+                throw new IllegalArgumentException(
+                        "Illegal format for model metadata. Must be of the form "
+                                + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>\"."
+                );
+            }
         }
 
         KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
@@ -267,9 +274,11 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         String timestamp = modelMetadataArray[4];
         String description = modelMetadataArray[5];
         String error = modelMetadataArray[6];
-        String nodeAssignment = modelMetadataArray[7];
-
-        return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, nodeAssignment);
+        if (IndexUtil.isClusterOnOrAfterMinRequiredVersion("model_node_assignment")) {
+            String nodeAssignment = modelMetadataArray[7];
+            return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, nodeAssignment);
+        }
+        return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, "");
     }
 
     private static String objectToString(Object value) {
