@@ -194,6 +194,10 @@ public class TrainingJobRunner implements ClusterStateListener {
         return jobCount.get();
     }
 
+    /**
+     * This method is called whenever the cluster state changes. It is used to update models that are still training when a node leaves or the cluster crashes.
+     * @param event the event that changed the cluster change
+     */
     @Override
     public void clusterChanged(ClusterChangedEvent event) {
         if (event.localNodeClusterManager()) {
