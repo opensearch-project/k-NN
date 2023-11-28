@@ -4,7 +4,7 @@
 #
 #    pip-compile
 #
-aiohttp==3.8.6
+aiohttp==3.9.0
     # via opensearch-py
 aiosignal==1.2.0
     # via aiohttp
@@ -20,8 +20,6 @@ certifi==2023.7.22
     # via
     #   opensearch-benchmark
     #   opensearch-py
-charset-normalizer==2.0.12
-    # via aiohttp
 frozenlist==1.3.0
     # via
     #   aiohttp
