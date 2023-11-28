@@ -245,7 +245,7 @@ public class TrainingJobRunnerTests extends KNNTestCase {
         executorService.awaitTermination(10, TimeUnit.SECONDS);
 
         verify(modelMetadata, times(1)).setState(ModelState.FAILED);
-        verify(modelMetadata, times(1)).setError("Training failed due to a cluster crash");
+        verify(modelMetadata, times(1)).setError("Training failed to complete due to node drop");
         verify(modelDao, times(1)).update(any(Model.class), any(ActionListener.class));
     }
 
