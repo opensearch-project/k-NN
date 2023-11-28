@@ -1,0 +1,188 @@
+/*
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
+ */
+
+package org.opensearch.knn.training;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.opensearch.action.index.IndexResponse;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.cluster.ClusterChangedEvent;
+import org.opensearch.cluster.ClusterStateListener;
+import org.opensearch.cluster.node.DiscoveryNode;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.action.ActionListener;
+import org.opensearch.knn.indices.Model;
+import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
+import org.opensearch.search.SearchHit;
+import org.opensearch.threadpool.ThreadPool;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+
+public class TrainingJobClusterStateListener implements ClusterStateListener {
+
+    public static Logger logger = LogManager.getLogger(TrainingJobRunner.class);
+    private static TrainingJobClusterStateListener INSTANCE;
+
+    private static ModelDao modelDao;
+    private static ThreadPool threadPool;
+
+    /**
+     * Get singleton instance of TrainingJobRunner
+     *
+     * @return singleton instance of TrainingJobRunner
+     */
+    public static synchronized TrainingJobClusterStateListener getInstance() {
+        if (INSTANCE == null) {
+            INSTANCE = new TrainingJobClusterStateListener();
+        }
+        return INSTANCE;
+    }
+
+    /**
+     * Initializes static components.
+     *
+     * @param threadPool threadPool to use to schedule update of models
+     * @param modelDao modelDao used to get modelIds
+     * @param clusterService clusterService used to add a listener
+     */
+    public static void initialize(ThreadPool threadPool, ModelDao modelDao, ClusterService clusterService) {
+        TrainingJobClusterStateListener.threadPool = threadPool;
+        TrainingJobClusterStateListener.modelDao = modelDao;
+        clusterService.addListener(TrainingJobClusterStateListener.getInstance());
+    }
+
+    /**
+     * This method is called whenever the cluster state changes. It is used to update models that are still training when a node leaves or the cluster crashes.
+     * @param event the event that changed the cluster change
+     */
+    @Override
+    public void clusterChanged(ClusterChangedEvent event) {
+        if (event.localNodeClusterManager()) {
+            if (event.isNewCluster()) {
+                threadPool.schedule(() -> {
+                    try {
+                        updateModelsNewCluster();
+                    } catch (IOException | InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                }, TimeValue.timeValueSeconds(1), ThreadPool.Names.GENERIC);
+            } else if (event.nodesRemoved()) {
+                List<DiscoveryNode> removedNodes = event.nodesDelta().removedNodes();
+                threadPool.schedule(() -> {
+                    try {
+                        updateModelsNodesRemoved(removedNodes);
+                    } catch (IOException | InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                }, TimeValue.timeValueSeconds(0), ThreadPool.Names.GENERIC);
+            }
+        }
+    }
+
+    protected void updateModelsNewCluster() throws IOException, InterruptedException, ExecutionException {
+        if (modelDao.isCreated()) {
+            List<String> modelIds = searchModelIds();
+            for (String modelId : modelIds) {
+                Model model = modelDao.get(modelId);
+                ModelMetadata modelMetadata = model.getModelMetadata();
+                if (modelMetadata.getState().equals(ModelState.TRAINING)) {
+                    modelMetadata.setState(ModelState.FAILED);
+                    modelMetadata.setError("Training failed to complete due to node drop");
+                    modelDao.update(model, new ActionListener<IndexResponse>() {
+                        @Override
+                        public void onResponse(IndexResponse indexResponse) {
+                            logger.info(
+                                "Model "
+                                    + indexResponse.getId()
+                                    + " updated from "
+                                    + ModelState.TRAINING
+                                    + " to "
+                                    + ModelState.FAILED
+                                    + " due to node drop"
+                            );
+                        }
+
+                        @Override
+                        public void onFailure(Exception e) {
+                            logger.info("Failed to update model after node drop", e);
+                        }
+                    });
+                }
+            }
+        }
+    }
+
+    protected void updateModelsNodesRemoved(List<DiscoveryNode> removedNodes) throws IOException, InterruptedException, ExecutionException {
+        if (modelDao.isCreated()) {
+            List<String> modelIds = searchModelIds();
+            for (DiscoveryNode removedNode : removedNodes) {
+                for (String modelId : modelIds) {
+                    Model model = modelDao.get(modelId);
+                    ModelMetadata modelMetadata = model.getModelMetadata();
+                    if (modelMetadata.getNodeAssignment().equals(removedNode.getEphemeralId())
+                        && modelMetadata.getState().equals(ModelState.TRAINING)) {
+                        modelMetadata.setState(ModelState.ZOMBIE);
+                        modelMetadata.setError("A node dropped and left the model training process in a zombie state");
+                        modelDao.update(model, new ActionListener<IndexResponse>() {
+                            @Override
+                            public void onResponse(IndexResponse indexResponse) {
+                                logger.info(
+                                    "Model "
+                                        + indexResponse.getId()
+                                        + " updated from "
+                                        + ModelState.TRAINING
+                                        + " to "
+                                        + ModelState.ZOMBIE
+                                        + " due to node drop"
+                                );
+                            }
+
+                            @Override
+                            public void onFailure(Exception e) {
+                                logger.info("Failed to update model after node drop", e);
+                            }
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    private List<String> searchModelIds() throws IOException, InterruptedException {
+        List<String> modelIds = new ArrayList<String>();
+        CountDownLatch latch = new CountDownLatch(1);
+        modelDao.search(new SearchRequest(), new ActionListener<SearchResponse>() {
+            @Override
+            public void onResponse(SearchResponse searchResponse) {
+                for (SearchHit searchHit : searchResponse.getHits().getHits()) {
+                    modelIds.add(searchHit.getId());
+                }
+                latch.countDown();
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                latch.countDown();
+            }
+        });
+        latch.await();
+        return modelIds;
+    }
+}

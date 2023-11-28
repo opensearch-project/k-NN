@@ -13,29 +13,17 @@ package org.opensearch.knn.training;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.action.search.SearchRequest;
-import org.opensearch.action.search.SearchResponse;
-import org.opensearch.cluster.ClusterChangedEvent;
-import org.opensearch.cluster.ClusterStateListener;
-import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.common.ValidationException;
-import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.stats.KNNCounter;
-import org.opensearch.search.SearchHit;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -46,7 +34,7 @@ import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
  * TrainingJobRunner is a singleton class responsible for submitting TrainingJobs to the k-NN training pool executor.
  * Capacity of queue and number of threads of the executor can be configured from executor construction (in KNNPlugin).
  */
-public class TrainingJobRunner implements ClusterStateListener {
+public class TrainingJobRunner {
 
     public static Logger logger = LogManager.getLogger(TrainingJobRunner.class);
 
@@ -85,7 +73,6 @@ public class TrainingJobRunner implements ClusterStateListener {
         TrainingJobRunner.threadPool = threadPool;
         TrainingJobRunner.modelDao = modelDao;
         TrainingJobRunner.clusterService = clusterService;
-        clusterService.addListener(TrainingJobRunner.getInstance());
     }
 
     /**
@@ -112,6 +99,7 @@ public class TrainingJobRunner implements ClusterStateListener {
         // null. This notifies users that their model is training, but not yet ready for use.
         try {
             trainingJob.getModel().getModelMetadata().setNodeAssignment(clusterService.localNode().getEphemeralId());
+            logger.info(clusterService.localNode().getName());
             serializeModel(trainingJob, ActionListener.wrap(indexResponse -> {
                 // Respond to the request with the initial index response
                 listener.onResponse(indexResponse);
@@ -192,123 +180,5 @@ public class TrainingJobRunner implements ClusterStateListener {
      */
     public int getJobCount() {
         return jobCount.get();
-    }
-
-    /**
-     * This method is called whenever the cluster state changes. It is used to update models that are still training when a node leaves or the cluster crashes.
-     * @param event the event that changed the cluster change
-     */
-    @Override
-    public void clusterChanged(ClusterChangedEvent event) {
-        if (event.localNodeClusterManager()) {
-            if (event.isNewCluster()) {
-                threadPool.schedule(() -> {
-                    try {
-                        updateModelsNewCluster();
-                    } catch (IOException | InterruptedException | ExecutionException e) {
-                        throw new RuntimeException(e);
-                    }
-                }, TimeValue.timeValueSeconds(1), ThreadPool.Names.GENERIC);
-            } else if (event.nodesRemoved()) {
-                List<DiscoveryNode> removedNodes = event.nodesDelta().removedNodes();
-                threadPool.schedule(() -> {
-                    try {
-                        updateModelsNodesRemoved(removedNodes);
-                    } catch (IOException | InterruptedException | ExecutionException e) {
-                        throw new RuntimeException(e);
-                    }
-                }, TimeValue.timeValueSeconds(0), ThreadPool.Names.GENERIC);
-            }
-        }
-    }
-
-    protected void updateModelsNewCluster() throws IOException, InterruptedException, ExecutionException {
-        if (modelDao.isCreated()) {
-            List<String> modelIds = searchModelIds();
-            for (String modelId : modelIds) {
-                Model model = modelDao.get(modelId);
-                ModelMetadata modelMetadata = model.getModelMetadata();
-                if (modelMetadata.getState().equals(ModelState.TRAINING)) {
-                    modelMetadata.setState(ModelState.FAILED);
-                    modelMetadata.setError("Training failed to complete due to node drop");
-                    modelDao.update(model, new ActionListener<IndexResponse>() {
-                        @Override
-                        public void onResponse(IndexResponse indexResponse) {
-                            logger.info(
-                                "Model "
-                                    + indexResponse.getId()
-                                    + " updated from "
-                                    + ModelState.TRAINING
-                                    + " to "
-                                    + ModelState.FAILED
-                                    + " due to node drop"
-                            );
-                        }
-
-                        @Override
-                        public void onFailure(Exception e) {
-                            logger.info("Failed to update model after node drop", e);
-                        }
-                    });
-                }
-            }
-        }
-    }
-
-    protected void updateModelsNodesRemoved(List<DiscoveryNode> removedNodes) throws IOException, InterruptedException, ExecutionException {
-        if (modelDao.isCreated()) {
-            List<String> modelIds = searchModelIds();
-            for (DiscoveryNode removedNode : removedNodes) {
-                for (String modelId : modelIds) {
-                    Model model = modelDao.get(modelId);
-                    ModelMetadata modelMetadata = model.getModelMetadata();
-                    if (modelMetadata.getNodeAssignment().equals(removedNode.getEphemeralId())
-                        && modelMetadata.getState().equals(ModelState.TRAINING)) {
-                        modelMetadata.setState(ModelState.ZOMBIE);
-                        modelMetadata.setError("A node dropped and left the model training process in a zombie state");
-                        modelDao.update(model, new ActionListener<IndexResponse>() {
-                            @Override
-                            public void onResponse(IndexResponse indexResponse) {
-                                logger.info(
-                                    "Model "
-                                        + indexResponse.getId()
-                                        + " updated from "
-                                        + ModelState.TRAINING
-                                        + " to "
-                                        + ModelState.ZOMBIE
-                                        + " due to node drop"
-                                );
-                            }
-
-                            @Override
-                            public void onFailure(Exception e) {
-                                logger.info("Failed to update model after node drop", e);
-                            }
-                        });
-                    }
-                }
-            }
-        }
-    }
-
-    private List<String> searchModelIds() throws IOException, InterruptedException {
-        List<String> modelIds = new ArrayList<String>();
-        CountDownLatch latch = new CountDownLatch(1);
-        modelDao.search(new SearchRequest(), new ActionListener<SearchResponse>() {
-            @Override
-            public void onResponse(SearchResponse searchResponse) {
-                for (SearchHit searchHit : searchResponse.getHits().getHits()) {
-                    modelIds.add(searchHit.getId());
-                }
-                latch.countDown();
-            }
-
-            @Override
-            public void onFailure(Exception e) {
-                latch.countDown();
-            }
-        });
-        latch.await();
-        return modelIds;
     }
 }
