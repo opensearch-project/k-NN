@@ -3,7 +3,7 @@
 Compatible with OpenSearch 2.10.0
 
 ### Features
-* Add Clear Cache API ([#740](https://github.com/opensearch-project/k-NN/pull/740))
+* ~~Add Clear Cache API ([#740](https://github.com/opensearch-project/k-NN/pull/740))~~ Feature was mistakenly added to the release notes, although it was not included in the release.
 ### Enhancements
 * Enabled the IVF algorithm to work with Filters of K-NN Query. ([#1013](https://github.com/opensearch-project/k-NN/pull/1013))
 * Improved the logic to switch to exact search for restrictive filters search for better recall. ([#1059](https://github.com/opensearch-project/k-NN/pull/1059))
