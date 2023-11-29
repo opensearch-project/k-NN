@@ -98,8 +98,6 @@ public class TrainingJobRunner {
         // Serialize model before training. The model should be in the training state and the model binary should be
         // null. This notifies users that their model is training, but not yet ready for use.
         try {
-            trainingJob.getModel().getModelMetadata().setNodeAssignment(clusterService.localNode().getEphemeralId());
-            logger.info(clusterService.localNode().getName());
             serializeModel(trainingJob, ActionListener.wrap(indexResponse -> {
                 // Respond to the request with the initial index response
                 listener.onResponse(indexResponse);

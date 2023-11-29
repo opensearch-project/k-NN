@@ -52,7 +52,8 @@ public class TrainingJobTests extends KNNTestCase {
             mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
             10,
-            ""
+            "",
+            "test-node"
         );
 
         assertEquals(modelId, trainingJob.getModelId());
@@ -62,8 +63,9 @@ public class TrainingJobTests extends KNNTestCase {
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
         KNNEngine knnEngine = KNNEngine.DEFAULT;
         int dimension = 10;
-        String desciption = "test description";
+        String description = "test description";
         String error = "";
+        String nodeAssignment = "test-node";
 
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
         when(knnMethodContext.getKnnEngine()).thenReturn(knnEngine);
@@ -77,7 +79,8 @@ public class TrainingJobTests extends KNNTestCase {
             mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
             dimension,
-            desciption
+            description,
+            nodeAssignment
         );
 
         Model model = new Model(
@@ -87,9 +90,9 @@ public class TrainingJobTests extends KNNTestCase {
                 dimension,
                 ModelState.TRAINING,
                 trainingJob.getModel().getModelMetadata().getTimestamp(),
-                desciption,
+                description,
                 error,
-                ""
+                nodeAssignment
             ),
             null,
             modelID
@@ -160,7 +163,9 @@ public class TrainingJobTests extends KNNTestCase {
             trainingDataEntryContext,
             modelContext,
             dimension,
-            ""
+            "",
+            "test-node"
+
         );
 
         trainingJob.run();
@@ -236,7 +241,9 @@ public class TrainingJobTests extends KNNTestCase {
             trainingDataEntryContext,
             modelContext,
             dimension,
-            ""
+            "",
+
+            "test-node"
         );
 
         trainingJob.run();
@@ -302,7 +309,9 @@ public class TrainingJobTests extends KNNTestCase {
             trainingDataEntryContext,
             modelContext,
             dimension,
-            ""
+            "",
+
+            "test-node"
         );
 
         trainingJob.run();
@@ -367,7 +376,8 @@ public class TrainingJobTests extends KNNTestCase {
             trainingDataEntryContext,
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
             dimension,
-            ""
+            "",
+            "test-node"
         );
 
         trainingJob.run();
@@ -439,7 +449,8 @@ public class TrainingJobTests extends KNNTestCase {
             trainingDataEntryContext,
             modelContext,
             dimension,
-            ""
+            "",
+            "test-node"
         );
 
         trainingJob.run();

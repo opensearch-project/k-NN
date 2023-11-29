@@ -49,7 +49,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     final private String timestamp;
     final private String description;
     private String error;
-    private String nodeAssignment;
+    final private String nodeAssignment;
 
     /**
      * Constructor
@@ -69,6 +69,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         this.error = in.readString();
         if (IndexUtil.isClusterOnOrAfterMinRequiredVersion("model_node_assignment")) {
             this.nodeAssignment = in.readOptionalString();
+        } else {
+            this.nodeAssignment = "";
         }
     }
 
@@ -184,10 +186,6 @@ public class ModelMetadata implements Writeable, ToXContentObject {
      */
     public String getNodeAssignment() {
         return nodeAssignment;
-    }
-
-    public void setNodeAssignment(String nodeAssignment) {
-        this.nodeAssignment = nodeAssignment;
     }
 
     /**
