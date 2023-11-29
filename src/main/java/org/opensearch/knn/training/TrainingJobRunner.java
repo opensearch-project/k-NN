@@ -13,7 +13,6 @@ package org.opensearch.knn.training;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.common.ValidationException;
@@ -44,7 +43,6 @@ public class TrainingJobRunner {
 
     private final Semaphore semaphore;
     private final AtomicInteger jobCount;
-    private static ClusterService clusterService;
 
     /**
      * Get singleton instance of TrainingJobRunner
@@ -69,10 +67,9 @@ public class TrainingJobRunner {
      * @param threadPool threadPool to use to get KNN Training Executor
      * @param modelDao modelDao used to serialize the models
      */
-    public static void initialize(ThreadPool threadPool, ModelDao modelDao, ClusterService clusterService) {
+    public static void initialize(ThreadPool threadPool, ModelDao modelDao) {
         TrainingJobRunner.threadPool = threadPool;
         TrainingJobRunner.modelDao = modelDao;
-        TrainingJobRunner.clusterService = clusterService;
     }
 
     /**

@@ -13,8 +13,6 @@ package org.opensearch.knn.plugin.transport;
 
 import org.junit.After;
 import org.junit.Before;
-import org.opensearch.cluster.node.DiscoveryNode;
-import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.core.index.shard.ShardId;
@@ -100,11 +98,8 @@ public class TrainingJobRouteDecisionInfoTransportActionTests extends KNNSingleN
         ThreadPool threadPool = mock(ThreadPool.class);
         when(threadPool.executor(TRAIN_THREAD_POOL)).thenReturn(executorService);
 
-        ClusterService clusterService = mock(ClusterService.class);
-        when(clusterService.localNode()).thenReturn(mock(DiscoveryNode.class));
-
         // Initialize runner and execute job
-        TrainingJobRunner.initialize(threadPool, modelDao, clusterService);
+        TrainingJobRunner.initialize(threadPool, modelDao);
         TrainingJobRunner.getInstance().execute(trainingJob, responseListener);
 
         assertTrue(inProgressLatch.await(100, TimeUnit.SECONDS));
