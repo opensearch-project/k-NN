@@ -185,10 +185,13 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
         modelDao.search(new SearchRequest(), new ActionListener<SearchResponse>() {
             @Override
             public void onResponse(SearchResponse searchResponse) {
-                for (SearchHit searchHit : searchResponse.getHits().getHits()) {
-                    modelIds.add(searchHit.getId());
+                try {
+                    for (SearchHit searchHit : searchResponse.getHits().getHits()) {
+                        modelIds.add(searchHit.getId());
+                    }
+                } finally {
+                    latch.countDown();
                 }
-                latch.countDown();
             }
 
             @Override
