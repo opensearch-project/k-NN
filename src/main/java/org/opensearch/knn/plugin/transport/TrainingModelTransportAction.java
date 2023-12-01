@@ -26,6 +26,7 @@ import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportService;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Transport action that trains a model and serializes it to model system index
@@ -85,7 +86,7 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
                         wrappedListener::onFailure
                     )
                 );
-        } catch (IOException e) {
+        } catch (IOException | ExecutionException | InterruptedException e) {
             wrappedListener.onFailure(e);
         }
     }

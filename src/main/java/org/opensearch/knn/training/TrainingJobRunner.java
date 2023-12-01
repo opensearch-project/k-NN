@@ -16,6 +16,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.common.ValidationException;
+import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -23,6 +24,7 @@ import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -40,6 +42,8 @@ public class TrainingJobRunner {
     private static TrainingJobRunner INSTANCE;
     private static ModelDao modelDao;
     private static ThreadPool threadPool;
+
+    private boolean shouldCancel;
 
     private final Semaphore semaphore;
     private final AtomicInteger jobCount;
@@ -59,6 +63,7 @@ public class TrainingJobRunner {
     private TrainingJobRunner() {
         this.jobCount = new AtomicInteger(0);
         this.semaphore = new Semaphore(1);
+        this.shouldCancel = false;
     }
 
     /**
@@ -79,7 +84,8 @@ public class TrainingJobRunner {
      * @param trainingJob training job to be executed
      * @param listener listener to handle final model serialization response (or exception)
      */
-    public void execute(TrainingJob trainingJob, ActionListener<IndexResponse> listener) throws IOException {
+    public void execute(TrainingJob trainingJob, ActionListener<IndexResponse> listener) throws IOException, ExecutionException,
+        InterruptedException {
         // If the semaphore cannot be acquired, the node is unable to execute this job. This allows us to limit
         // the number of training jobs that enter this function. Although the training threadpool size will also prevent
         // this, we want to prevent this before we perform any serialization.
@@ -106,10 +112,10 @@ public class TrainingJobRunner {
                 logger.error("Unable to initialize model serialization: " + exception.getMessage());
                 listener.onFailure(exception);
             }), false);
-        } catch (IOException ioe) {
+        } catch (IOException | ExecutionException | InterruptedException e) {
             jobCount.decrementAndGet();
             semaphore.release();
-            throw ioe;
+            throw e;
         }
     }
 
@@ -128,9 +134,12 @@ public class TrainingJobRunner {
         try {
             threadPool.executor(TRAIN_THREAD_POOL).execute(() -> {
                 try {
+                    shouldCancel = false;
                     trainingJob.run();
-                    serializeModel(trainingJob, loggingListener, true);
-                } catch (IOException e) {
+                    if (!shouldCancel) {
+                        serializeModel(trainingJob, loggingListener, true);
+                    }
+                } catch (IOException | ExecutionException | InterruptedException e) {
                     logger.error("Unable to serialize model \"" + trainingJob.getModelId() + "\": " + e.getMessage());
                     KNNCounter.TRAINING_ERRORS.increment();
                 } catch (Exception e) {
@@ -150,8 +159,8 @@ public class TrainingJobRunner {
 
             try {
                 serializeModel(trainingJob, loggingListener, true);
-            } catch (IOException ioe) {
-                logger.error("Unable to serialize the failure for model \"" + trainingJob.getModelId() + "\": " + ioe);
+            } catch (IOException | ExecutionException | InterruptedException e) {
+                logger.error("Unable to serialize the failure for model \"" + trainingJob.getModelId() + "\": " + e);
             } finally {
                 jobCount.decrementAndGet();
                 semaphore.release();
@@ -160,9 +169,13 @@ public class TrainingJobRunner {
         }
     }
 
-    private void serializeModel(TrainingJob trainingJob, ActionListener<IndexResponse> listener, boolean update) throws IOException {
+    private void serializeModel(TrainingJob trainingJob, ActionListener<IndexResponse> listener, boolean update) throws IOException,
+        ExecutionException, InterruptedException {
         if (update) {
-            modelDao.update(trainingJob.getModel(), listener);
+            Model model = modelDao.get(trainingJob.getModelId());
+            if (model.getModelMetadata().getState().equals(ModelState.TRAINING)) {
+                modelDao.update(trainingJob.getModel(), listener);
+            }
         } else {
             modelDao.put(trainingJob.getModel(), listener);
         }
@@ -175,5 +188,23 @@ public class TrainingJobRunner {
      */
     public int getJobCount() {
         return jobCount.get();
+    }
+
+    /**
+     * Get whether the training job should be canceled
+     *
+     * @return whether the training job should be canceled
+     */
+    public boolean shouldCancel() {
+        return shouldCancel;
+    }
+
+    /**
+     * Sets whether the current job should be canceled
+     *
+     * @param shouldCancel whether the current job should be canceled
+     */
+    public void setShouldCancel(boolean shouldCancel) {
+        this.shouldCancel = shouldCancel;
     }
 }

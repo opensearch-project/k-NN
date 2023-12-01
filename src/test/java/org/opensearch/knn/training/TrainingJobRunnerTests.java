@@ -18,13 +18,11 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
@@ -38,7 +36,7 @@ import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
 public class TrainingJobRunnerTests extends KNNTestCase {
 
     @SuppressWarnings("unchecked")
-    public void testExecute_success() throws IOException, InterruptedException {
+    public void testExecute_success() throws IOException, InterruptedException, ExecutionException {
         // Test makes sure the correct execution logic follows on successful run
         ExecutorService executorService = Executors.newSingleThreadExecutor();
 
@@ -49,7 +47,9 @@ public class TrainingJobRunnerTests extends KNNTestCase {
 
         String modelId = "test-model-id";
         Model model = mock(Model.class);
-        when(model.getModelMetadata()).thenReturn(mock(ModelMetadata.class));
+        ModelMetadata modelMetadata = mock(ModelMetadata.class);
+        when(modelMetadata.getState()).thenReturn(ModelState.TRAINING);
+        when(model.getModelMetadata()).thenReturn(modelMetadata);
         TrainingJob trainingJob = mock(TrainingJob.class);
         when(trainingJob.getModelId()).thenReturn(modelId);
         when(trainingJob.getModel()).thenReturn(model);
@@ -65,6 +65,7 @@ public class TrainingJobRunnerTests extends KNNTestCase {
         // After put finishes, it should call the onResponse function that will call responseListener and then kickoff
         // training.
         ModelDao modelDao = mock(ModelDao.class);
+        when(modelDao.get(modelId)).thenReturn(model);
         doAnswer(invocationOnMock -> {
             assertEquals(1, trainingJobRunner.getJobCount()); // Make sure job count is correct
             IndexResponse indexResponse = new IndexResponse(new ShardId(MODEL_INDEX_NAME, "uuid", 0), modelId, 0, 0, 0, true);
@@ -90,7 +91,7 @@ public class TrainingJobRunnerTests extends KNNTestCase {
     }
 
     @SuppressWarnings("unchecked")
-    public void testExecute_failure_rejected() throws IOException, InterruptedException {
+    public void testExecute_failure_rejected() throws IOException, InterruptedException, ExecutionException {
         // This test makes sure we reject another request when one is ongoing. To do this, we call
         // trainingJobRunner.execute(trainingJob, responseListener) in the mocked modeldao.update. At this point,
         // the call should produce a failure because a training job is already ongoing.
@@ -102,7 +103,9 @@ public class TrainingJobRunnerTests extends KNNTestCase {
 
         String modelId = "test-model-id";
         Model model = mock(Model.class);
-        when(model.getModelMetadata()).thenReturn(mock(ModelMetadata.class));
+        ModelMetadata modelMetadata = mock(ModelMetadata.class);
+        when(modelMetadata.getState()).thenReturn(ModelState.TRAINING);
+        when(model.getModelMetadata()).thenReturn(modelMetadata);
         TrainingJob trainingJob = mock(TrainingJob.class);
         when(trainingJob.getModelId()).thenReturn(modelId);
         when(trainingJob.getModel()).thenReturn(model);
@@ -118,6 +121,7 @@ public class TrainingJobRunnerTests extends KNNTestCase {
         // After put finishes, it should call the onResponse function that will call responseListener and then kickoff
         // training.
         ModelDao modelDao = mock(ModelDao.class);
+        when(modelDao.get(modelId)).thenReturn(model);
         doAnswer(invocationOnMock -> {
             IndexResponse indexResponse = new IndexResponse(new ShardId(MODEL_INDEX_NAME, "uuid", 0), modelId, 0, 0, 0, true);
             ((ActionListener<IndexResponse>) invocationOnMock.getArguments()[1]).onResponse(indexResponse);

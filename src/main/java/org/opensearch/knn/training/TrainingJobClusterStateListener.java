@@ -42,6 +42,7 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
 
     private static ModelDao modelDao;
     private static ThreadPool threadPool;
+    private static ClusterService clusterService;
 
     /**
      * Get singleton instance of TrainingJobRunner
@@ -65,11 +66,14 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
     public static void initialize(ThreadPool threadPool, ModelDao modelDao, ClusterService clusterService) {
         TrainingJobClusterStateListener.threadPool = threadPool;
         TrainingJobClusterStateListener.modelDao = modelDao;
+        TrainingJobClusterStateListener.clusterService = clusterService;
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
     }
 
     /**
-     * This method is called whenever the cluster state changes. It is used to update models that are still training when a node leaves or the cluster crashes.
+     * This method is called whenever the cluster state changes.
+     * It is used to update models that are still training when a node leaves or the cluster crashes.
+     * It is also used to cancel training jobs when a node rejoins the cluster.
      * @param event the event that changed the cluster change
      */
     @Override
@@ -92,6 +96,16 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
                         throw new RuntimeException(e);
                     }
                 }, TimeValue.timeValueSeconds(0), ThreadPool.Names.GENERIC);
+            }
+        }
+        if (event.nodesAdded()) {
+            List<DiscoveryNode> addedNodes = event.nodesDelta().addedNodes();
+            DiscoveryNode localNode = clusterService.localNode();
+            for (DiscoveryNode addedNode : addedNodes) {
+                if (addedNode.getId().equals(localNode.getId())) {
+                    TrainingJobRunner trainingJobRunner = TrainingJobRunner.getInstance();
+                    trainingJobRunner.setShouldCancel(true);
+                }
             }
         }
     }
