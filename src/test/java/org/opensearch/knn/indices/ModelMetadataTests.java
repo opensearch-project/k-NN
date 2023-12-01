@@ -335,7 +335,7 @@ public class ModelMetadataTests extends KNNTestCase {
         String timestamp = ZonedDateTime.now(ZoneOffset.UTC).toString();
         String description = "test-description";
         String error = "test-error";
-        String nodeAssignment = "";
+        String nodeAssignment = "test-node";
 
         String stringRep1 = knnEngine.getName()
             + ","
@@ -367,7 +367,7 @@ public class ModelMetadataTests extends KNNTestCase {
             + ","
             + error;
 
-        ModelMetadata expected = new ModelMetadata(
+        ModelMetadata expected1 = new ModelMetadata(
             knnEngine,
             spaceType,
             dimension,
@@ -377,11 +377,14 @@ public class ModelMetadataTests extends KNNTestCase {
             error,
             nodeAssignment
         );
+
+        ModelMetadata expected2 = new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, "");
+
         ModelMetadata fromString1 = ModelMetadata.fromString(stringRep1);
         ModelMetadata fromString2 = ModelMetadata.fromString(stringRep2);
 
-        assertEquals(expected, fromString1);
-        assertEquals(expected, fromString2);
+        assertEquals(expected1, fromString1);
+        assertEquals(expected2, fromString2);
 
         expectThrows(IllegalArgumentException.class, () -> ModelMetadata.fromString("invalid"));
     }
@@ -394,8 +397,19 @@ public class ModelMetadataTests extends KNNTestCase {
         String timestamp = ZonedDateTime.now(ZoneOffset.UTC).toString();
         String description = "test-description";
         String error = "test-error";
+        String nodeAssignment = "test-node";
 
-        ModelMetadata expected = new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, "");
+        ModelMetadata expected = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            modelState,
+            timestamp,
+            description,
+            error,
+            nodeAssignment
+        );
+        ModelMetadata expected2 = new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, "");
         Map<String, Object> metadataAsMap = new HashMap<>();
         metadataAsMap.put(KNNConstants.KNN_ENGINE, knnEngine.getName());
         metadataAsMap.put(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
@@ -404,8 +418,13 @@ public class ModelMetadataTests extends KNNTestCase {
         metadataAsMap.put(KNNConstants.MODEL_TIMESTAMP, timestamp);
         metadataAsMap.put(KNNConstants.MODEL_DESCRIPTION, description);
         metadataAsMap.put(KNNConstants.MODEL_ERROR, error);
+        metadataAsMap.put(KNNConstants.MODEL_NODE_ASSIGNMENT, nodeAssignment);
 
         ModelMetadata fromMap = ModelMetadata.getMetadataFromSourceMap(metadataAsMap);
         assertEquals(expected, fromMap);
+
+        metadataAsMap.put(KNNConstants.MODEL_NODE_ASSIGNMENT, null);
+        assertEquals(expected2, fromMap);
+
     }
 }

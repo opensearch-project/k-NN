@@ -67,7 +67,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         // which is checked in constructor and setters
         this.description = in.readString();
         this.error = in.readString();
-        if (IndexUtil.isClusterOnOrAfterMinRequiredVersion("model_node_assignment")) {
+        if (IndexUtil.isClusterOnOrAfterMinRequiredVersion(IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
             this.nodeAssignment = in.readOptionalString();
         } else {
             this.nodeAssignment = "";
@@ -113,7 +113,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         this.timestamp = Objects.requireNonNull(timestamp, "timestamp must not be null");
         this.description = Objects.requireNonNull(description, "description must not be null");
         this.error = Objects.requireNonNull(error, "error must not be null");
-        this.nodeAssignment = nodeAssignment;
+        this.nodeAssignment = Objects.requireNonNull(nodeAssignment, "node assignment must not be null");
     }
 
     /**
@@ -260,25 +260,31 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     public static ModelMetadata fromString(String modelMetadataString) {
         String[] modelMetadataArray = modelMetadataString.split(DELIMITER, -1);
 
-        if (modelMetadataArray.length != 8 && modelMetadataArray.length != 7) {
-            throw new IllegalArgumentException(
-                "Illegal format for model metadata. Must be of the form "
-                    + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>\"."
-            );
-        }
-
-        KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
-        SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
-        int dimension = Integer.parseInt(modelMetadataArray[2]);
-        ModelState modelState = ModelState.getModelState(modelMetadataArray[3]);
-        String timestamp = modelMetadataArray[4];
-        String description = modelMetadataArray[5];
-        String error = modelMetadataArray[6];
-        if (modelMetadataArray.length == 8) {
+        if (modelMetadataArray.length == 7) {
+            KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
+            SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
+            int dimension = Integer.parseInt(modelMetadataArray[2]);
+            ModelState modelState = ModelState.getModelState(modelMetadataArray[3]);
+            String timestamp = modelMetadataArray[4];
+            String description = modelMetadataArray[5];
+            String error = modelMetadataArray[6];
+            return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, "");
+        } else if (modelMetadataArray.length == 8) {
+            KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
+            SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
+            int dimension = Integer.parseInt(modelMetadataArray[2]);
+            ModelState modelState = ModelState.getModelState(modelMetadataArray[3]);
+            String timestamp = modelMetadataArray[4];
+            String description = modelMetadataArray[5];
+            String error = modelMetadataArray[6];
             String nodeAssignment = modelMetadataArray[7];
             return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, nodeAssignment);
+        } else {
+            throw new IllegalArgumentException(
+                "Illegal format for model metadata. Must be of the form "
+                    + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>\" or \"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>\"."
+            );
         }
-        return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, "");
     }
 
     private static String objectToString(Object value) {
@@ -301,11 +307,15 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         Object engine = modelSourceMap.get(KNNConstants.KNN_ENGINE);
         Object space = modelSourceMap.get(KNNConstants.METHOD_PARAMETER_SPACE_TYPE);
         Object dimension = modelSourceMap.get(KNNConstants.DIMENSION);
-        Object state = modelSourceMap.get(MODEL_STATE);
-        Object timestamp = modelSourceMap.get(MODEL_TIMESTAMP);
+        Object state = modelSourceMap.get(KNNConstants.MODEL_STATE);
+        Object timestamp = modelSourceMap.get(KNNConstants.MODEL_TIMESTAMP);
         Object description = modelSourceMap.get(KNNConstants.MODEL_DESCRIPTION);
         Object error = modelSourceMap.get(KNNConstants.MODEL_ERROR);
         Object nodeAssignment = modelSourceMap.get(KNNConstants.MODEL_NODE_ASSIGNMENT);
+
+        if (nodeAssignment == null) {
+            nodeAssignment = "";
+        }
 
         ModelMetadata modelMetadata = new ModelMetadata(
             KNNEngine.getEngine(objectToString(engine)),
@@ -329,7 +339,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         out.writeString(getTimestamp());
         out.writeString(getDescription());
         out.writeString(getError());
-        if (IndexUtil.isClusterOnOrAfterMinRequiredVersion("model_node_assignment")) {
+        if (IndexUtil.isClusterOnOrAfterMinRequiredVersion(IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
             out.writeString(getNodeAssignment());
         }
     }
@@ -344,7 +354,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         builder.field(METHOD_PARAMETER_SPACE_TYPE, getSpaceType().getValue());
         builder.field(DIMENSION, getDimension());
         builder.field(KNN_ENGINE, getKnnEngine().getName());
-        if (IndexUtil.isClusterOnOrAfterMinRequiredVersion("model_node_assignment")) {
+        if (IndexUtil.isClusterOnOrAfterMinRequiredVersion(IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
             builder.field(MODEL_NODE_ASSIGNMENT, getNodeAssignment());
         }
         return builder;

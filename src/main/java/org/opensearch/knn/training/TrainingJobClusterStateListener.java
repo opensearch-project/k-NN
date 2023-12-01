@@ -121,7 +121,7 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
 
                         @Override
                         public void onFailure(Exception e) {
-                            logger.info("Failed to update model after node drop", e);
+                            logger.error("Failed to update model after node drop", e);
                         }
                     });
                 }
@@ -138,7 +138,7 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
                     ModelMetadata modelMetadata = model.getModelMetadata();
                     if (modelMetadata.getNodeAssignment().equals(removedNode.getEphemeralId())
                         && modelMetadata.getState().equals(ModelState.TRAINING)) {
-                        modelMetadata.setState(ModelState.ZOMBIE);
+                        modelMetadata.setState(ModelState.FAILED);
                         modelMetadata.setError("A node dropped and left the model training process in a zombie state");
                         modelDao.update(model, new ActionListener<IndexResponse>() {
                             @Override
@@ -149,14 +149,14 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
                                         + " updated from "
                                         + ModelState.TRAINING
                                         + " to "
-                                        + ModelState.ZOMBIE
+                                        + ModelState.FAILED
                                         + " due to node drop"
                                 );
                             }
 
                             @Override
                             public void onFailure(Exception e) {
-                                logger.info("Failed to update model after node drop", e);
+                                logger.error("Failed to update model after node drop", e);
                             }
                         });
                     }

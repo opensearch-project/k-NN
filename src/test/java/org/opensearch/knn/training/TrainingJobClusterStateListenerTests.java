@@ -172,7 +172,7 @@ public class TrainingJobClusterStateListenerTests extends KNNTestCase {
         executorService.shutdown();
         executorService.awaitTermination(10, TimeUnit.SECONDS);
 
-        verify(modelMetadata, times(1)).setState(ModelState.ZOMBIE);
+        verify(modelMetadata, times(1)).setState(ModelState.FAILED);
         verify(modelMetadata, times(1)).setError("A node dropped and left the model training process in a zombie state");
         verify(modelDao, times(1)).update(any(Model.class), any(ActionListener.class));
     }
