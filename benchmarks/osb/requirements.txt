@@ -4,7 +4,7 @@
 #
 #    pip-compile
 #
-aiohttp==3.8.5
+aiohttp==3.8.6
     # via opensearch-py
 aiosignal==1.2.0
     # via aiohttp
@@ -85,7 +85,7 @@ tabulate==0.8.7
     # via opensearch-benchmark
 thespian==3.10.1
     # via opensearch-benchmark
-urllib3==1.26.17
+urllib3==1.26.18
     # via opensearch-py
 yappi==1.2.3
     # via opensearch-benchmark

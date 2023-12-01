@@ -25,4 +25,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Maintenance
 * Update developer guide to include M1 Setup [#1222](https://github.com/opensearch-project/k-NN/pull/1222)
 * Upgrade urllib to 1.26.17 [#1278](https://github.com/opensearch-project/k-NN/pull/1278)
+* Upgrade urllib to 1.26.18 [#1319](https://github.com/opensearch-project/k-NN/pull/1319)
+* Upgrade guava to 32.1.3 [#1319](https://github.com/opensearch-project/k-NN/pull/1319)
 ### Refactoring
