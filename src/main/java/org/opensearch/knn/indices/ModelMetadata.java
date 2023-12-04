@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.indices;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -37,6 +38,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 import static org.opensearch.knn.common.KNNConstants.MODEL_NODE_ASSIGNMENT;
 
+@Log4j2
 public class ModelMetadata implements Writeable, ToXContentObject {
 
     private static final String DELIMITER = ",";
@@ -49,7 +51,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     final private String timestamp;
     final private String description;
     private String error;
-    final private String nodeAssignment;
+    final private String trainingNodeAssignment;
 
     /**
      * Constructor
@@ -57,6 +59,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
      * @param in Stream input
      */
     public ModelMetadata(StreamInput in) throws IOException {
+        String tempTrainingNodeAssignment;
         this.knnEngine = KNNEngine.getEngine(in.readString());
         this.spaceType = SpaceType.getSpace(in.readString());
         this.dimension = in.readInt();
@@ -68,10 +71,14 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         this.description = in.readString();
         this.error = in.readString();
         if (IndexUtil.isClusterOnOrAfterMinRequiredVersion(IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
-            this.nodeAssignment = in.readOptionalString();
+            tempTrainingNodeAssignment = in.readOptionalString();
+            if (tempTrainingNodeAssignment == null) {
+                tempTrainingNodeAssignment = "";
+            }
         } else {
-            this.nodeAssignment = "";
+            tempTrainingNodeAssignment = "";
         }
+        this.trainingNodeAssignment = tempTrainingNodeAssignment;
     }
 
     /**
@@ -93,7 +100,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         String timestamp,
         String description,
         String error,
-        String nodeAssignment
+        String trainingNodeAssignment
     ) {
         this.knnEngine = Objects.requireNonNull(knnEngine, "knnEngine must not be null");
         this.spaceType = Objects.requireNonNull(spaceType, "spaceType must not be null");
@@ -113,7 +120,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         this.timestamp = Objects.requireNonNull(timestamp, "timestamp must not be null");
         this.description = Objects.requireNonNull(description, "description must not be null");
         this.error = Objects.requireNonNull(error, "error must not be null");
-        this.nodeAssignment = Objects.requireNonNull(nodeAssignment, "node assignment must not be null");
+        this.trainingNodeAssignment = Objects.requireNonNull(trainingNodeAssignment, "node assignment must not be null");
     }
 
     /**
@@ -182,10 +189,10 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     /**
      * getter for model's node assignment
      *
-     * @return nodeAssignment
+     * @return trainingNodeAssignment
      */
     public String getNodeAssignment() {
-        return nodeAssignment;
+        return trainingNodeAssignment;
     }
 
     /**
@@ -217,7 +224,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             timestamp,
             description,
             error,
-            nodeAssignment
+            trainingNodeAssignment
         );
     }
 
@@ -260,7 +267,11 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     public static ModelMetadata fromString(String modelMetadataString) {
         String[] modelMetadataArray = modelMetadataString.split(DELIMITER, -1);
 
+        // Training node assignment was added as a field in Version 2.12.0
+        // Because models can be created on older versions and the cluster can be upgraded after,
+        // we need to accept model metadata arrays both with and without the training node assignment.
         if (modelMetadataArray.length == 7) {
+            log.info("Model metadata array does not contain training node assignment. Assuming empty string.");
             KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
             SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
             int dimension = Integer.parseInt(modelMetadataArray[2]);
@@ -270,6 +281,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             String error = modelMetadataArray[6];
             return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, "");
         } else if (modelMetadataArray.length == 8) {
+            log.info("Model metadata contains training node assignment");
             KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
             SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
             int dimension = Integer.parseInt(modelMetadataArray[2]);
@@ -277,8 +289,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             String timestamp = modelMetadataArray[4];
             String description = modelMetadataArray[5];
             String error = modelMetadataArray[6];
-            String nodeAssignment = modelMetadataArray[7];
-            return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, nodeAssignment);
+            String trainingNodeAssignment = modelMetadataArray[7];
+            return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, trainingNodeAssignment);
         } else {
             throw new IllegalArgumentException(
                 "Illegal format for model metadata. Must be of the form "
@@ -311,10 +323,10 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         Object timestamp = modelSourceMap.get(KNNConstants.MODEL_TIMESTAMP);
         Object description = modelSourceMap.get(KNNConstants.MODEL_DESCRIPTION);
         Object error = modelSourceMap.get(KNNConstants.MODEL_ERROR);
-        Object nodeAssignment = modelSourceMap.get(KNNConstants.MODEL_NODE_ASSIGNMENT);
+        Object trainingNodeAssignment = modelSourceMap.get(KNNConstants.MODEL_NODE_ASSIGNMENT);
 
-        if (nodeAssignment == null) {
-            nodeAssignment = "";
+        if (trainingNodeAssignment == null) {
+            trainingNodeAssignment = "";
         }
 
         ModelMetadata modelMetadata = new ModelMetadata(
@@ -325,7 +337,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             objectToString(timestamp),
             objectToString(description),
             objectToString(error),
-            objectToString(nodeAssignment)
+            objectToString(trainingNodeAssignment)
         );
         return modelMetadata;
     }

@@ -34,7 +34,7 @@ import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 public class IndexUtil {
 
-    public static final String MODEL_NODE_ASSIGNMENT_KEY = "model_node_assignment";
+    public static final String MODEL_NODE_ASSIGNMENT_KEY = "training_node_assignment";
 
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED = Version.V_2_11_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_NODE_ASSIGNMENT = Version.V_2_12_0;

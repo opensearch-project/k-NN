@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
@@ -43,7 +44,7 @@ public class TrainingJobRunner {
     private static ModelDao modelDao;
     private static ThreadPool threadPool;
 
-    private boolean shouldCancel;
+    private AtomicBoolean shouldCancel;
 
     private final Semaphore semaphore;
     private final AtomicInteger jobCount;
@@ -63,7 +64,7 @@ public class TrainingJobRunner {
     private TrainingJobRunner() {
         this.jobCount = new AtomicInteger(0);
         this.semaphore = new Semaphore(1);
-        this.shouldCancel = false;
+        this.shouldCancel = new AtomicBoolean();
     }
 
     /**
@@ -122,6 +123,8 @@ public class TrainingJobRunner {
     private void train(TrainingJob trainingJob) {
         // Attempt to submit job to training thread pool. On failure, release the resources and serialize the failure.
 
+        shouldCancel.set(false);
+
         // Listener for update model after training index action
         ActionListener<IndexResponse> loggingListener = ActionListener.wrap(
             indexResponse -> logger.debug("[KNN] Model serialization update for \"" + trainingJob.getModelId() + "\" was successful"),
@@ -134,9 +137,8 @@ public class TrainingJobRunner {
         try {
             threadPool.executor(TRAIN_THREAD_POOL).execute(() -> {
                 try {
-                    shouldCancel = false;
                     trainingJob.run();
-                    if (!shouldCancel) {
+                    if (!shouldCancel.get()) {
                         serializeModel(trainingJob, loggingListener, true);
                     }
                 } catch (IOException | ExecutionException | InterruptedException e) {
@@ -196,7 +198,7 @@ public class TrainingJobRunner {
      * @return whether the training job should be canceled
      */
     public boolean shouldCancel() {
-        return shouldCancel;
+        return shouldCancel.get();
     }
 
     /**
@@ -205,6 +207,6 @@ public class TrainingJobRunner {
      * @param shouldCancel whether the current job should be canceled
      */
     public void setShouldCancel(boolean shouldCancel) {
-        this.shouldCancel = shouldCancel;
+        this.shouldCancel.set(shouldCancel);
     }
 }

@@ -11,8 +11,7 @@
 
 package org.opensearch.knn.training;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
@@ -35,9 +34,12 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 
+/**
+ * TrainingJobClusterStateListener is a ClusterStateListener that is used to update models that are still training when a node leaves or the cluster crashes.
+ * This class also sets a flag in TrainingJobRunner to block serialization when a node rejoins a cluster.
+ */
+@Log4j2
 public class TrainingJobClusterStateListener implements ClusterStateListener {
-
-    public static Logger logger = LogManager.getLogger(TrainingJobRunner.class);
     private static TrainingJobClusterStateListener INSTANCE;
 
     private static ModelDao modelDao;
@@ -63,11 +65,10 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
      * @param modelDao modelDao used to get modelIds
      * @param clusterService clusterService used to add a listener
      */
-    public static void initialize(ThreadPool threadPool, ModelDao modelDao, ClusterService clusterService) {
+    public static synchronized void initialize(ThreadPool threadPool, ModelDao modelDao, ClusterService clusterService) {
         TrainingJobClusterStateListener.threadPool = threadPool;
         TrainingJobClusterStateListener.modelDao = modelDao;
         TrainingJobClusterStateListener.clusterService = clusterService;
-        clusterService.addListener(TrainingJobClusterStateListener.getInstance());
     }
 
     /**
@@ -80,6 +81,7 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
     public void clusterChanged(ClusterChangedEvent event) {
         if (event.localNodeClusterManager()) {
             if (event.isNewCluster()) {
+                // When the cluster is first created, the cluster manager will update models that are still marked as training.
                 threadPool.schedule(() -> {
                     try {
                         updateModelsNewCluster();
@@ -105,6 +107,7 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
                 if (addedNode.getId().equals(localNode.getId())) {
                     TrainingJobRunner trainingJobRunner = TrainingJobRunner.getInstance();
                     trainingJobRunner.setShouldCancel(true);
+                    break;
                 }
             }
         }
@@ -119,25 +122,7 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
                 if (modelMetadata.getState().equals(ModelState.TRAINING)) {
                     modelMetadata.setState(ModelState.FAILED);
                     modelMetadata.setError("Training failed to complete due to node drop");
-                    modelDao.update(model, new ActionListener<IndexResponse>() {
-                        @Override
-                        public void onResponse(IndexResponse indexResponse) {
-                            logger.info(
-                                "Model "
-                                    + indexResponse.getId()
-                                    + " updated from "
-                                    + ModelState.TRAINING
-                                    + " to "
-                                    + ModelState.FAILED
-                                    + " due to node drop"
-                            );
-                        }
-
-                        @Override
-                        public void onFailure(Exception e) {
-                            logger.error("Failed to update model after node drop", e);
-                        }
-                    });
+                    updateModel(model);
                 }
             }
         }
@@ -154,25 +139,7 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
                         && modelMetadata.getState().equals(ModelState.TRAINING)) {
                         modelMetadata.setState(ModelState.FAILED);
                         modelMetadata.setError("A node dropped and left the model training process in a zombie state");
-                        modelDao.update(model, new ActionListener<IndexResponse>() {
-                            @Override
-                            public void onResponse(IndexResponse indexResponse) {
-                                logger.info(
-                                    "Model "
-                                        + indexResponse.getId()
-                                        + " updated from "
-                                        + ModelState.TRAINING
-                                        + " to "
-                                        + ModelState.FAILED
-                                        + " due to node drop"
-                                );
-                            }
-
-                            @Override
-                            public void onFailure(Exception e) {
-                                logger.error("Failed to update model after node drop", e);
-                            }
-                        });
+                        updateModel(model);
                     }
                 }
             }
@@ -201,5 +168,27 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
         });
         latch.await();
         return modelIds;
+    }
+
+    private void updateModel(Model model) throws IOException {
+        modelDao.update(model, new ActionListener<IndexResponse>() {
+            @Override
+            public void onResponse(IndexResponse indexResponse) {
+                log.info(
+                        "Model "
+                                + indexResponse.getId()
+                                + " updated from "
+                                + ModelState.TRAINING
+                                + " to "
+                                + ModelState.FAILED
+                                + " due to node drop"
+                );
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                log.error("Failed to update model after node drop", e);
+            }
+        });
     }
 }
