@@ -175,13 +175,13 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
             @Override
             public void onResponse(IndexResponse indexResponse) {
                 log.info(
-                        "Model "
-                                + indexResponse.getId()
-                                + " updated from "
-                                + ModelState.TRAINING
-                                + " to "
-                                + ModelState.FAILED
-                                + " due to node drop"
+                    "Model "
+                        + indexResponse.getId()
+                        + " updated from "
+                        + ModelState.TRAINING
+                        + " to "
+                        + ModelState.FAILED
+                        + " due to node drop"
                 );
             }
 
