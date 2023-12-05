@@ -70,15 +70,11 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         // which is checked in constructor and setters
         this.description = in.readString();
         this.error = in.readString();
-        if (IndexUtil.isClusterOnOrAfterMinRequiredVersion(IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
-            tempTrainingNodeAssignment = in.readOptionalString();
-            if (tempTrainingNodeAssignment == null) {
-                tempTrainingNodeAssignment = "";
-            }
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
+            this.trainingNodeAssignment = in.readString();
         } else {
-            tempTrainingNodeAssignment = "";
+            this.trainingNodeAssignment = "";
         }
-        this.trainingNodeAssignment = tempTrainingNodeAssignment;
     }
 
     /**

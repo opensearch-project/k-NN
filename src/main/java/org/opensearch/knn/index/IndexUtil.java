@@ -216,4 +216,12 @@ public class IndexUtil {
         }
         return KNNClusterUtil.instance().getClusterMinVersion().onOrAfter(minimalRequiredVersion);
     }
+
+    public static boolean isVersionOnOrAfterMinRequiredVersion(Version version, String key) {
+        Version minimalRequiredVersion = minimalRequiredVersionMap.get(key);
+        if (minimalRequiredVersion == null) {
+            return false;
+        }
+        return version.onOrAfter(minimalRequiredVersion);
+    }
 }
