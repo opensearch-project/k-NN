@@ -70,7 +70,13 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         // which is checked in constructor and setters
         this.description = in.readString();
         this.error = in.readString();
-        this.trainingNodeAssignment = in.readString();
+
+        // We do not use the stream input constructor for reading from cluster metadata
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
+            this.trainingNodeAssignment = in.readString();
+        } else {
+            this.trainingNodeAssignment = "";
+        }
     }
 
     /**
@@ -343,7 +349,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         out.writeString(getTimestamp());
         out.writeString(getDescription());
         out.writeString(getError());
-        if (IndexUtil.isClusterOnOrAfterMinRequiredVersion(IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(out.getVersion(), IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
             out.writeString(getNodeAssignment());
         }
     }
