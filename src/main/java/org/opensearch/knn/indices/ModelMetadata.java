@@ -50,8 +50,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     private AtomicReference<ModelState> state;
     final private String timestamp;
     final private String description;
-    private String error;
     final private String trainingNodeAssignment;
+    private String error;
 
     /**
      * Constructor
