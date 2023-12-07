@@ -29,6 +29,7 @@ import org.opensearch.search.sort.SortOrder;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 public class VectorReader {
@@ -180,13 +181,7 @@ public class VectorReader {
             // Either add the entire set of returned hits, or maxVectorCount - collectedVectorCount hits
             SearchHit[] hits = searchResponse.getHits().getHits();
             int vectorsToAdd = Integer.min(maxVectorCount - collectedVectorCount, hits.length);
-            List<Float[]> trainingData = new ArrayList<>();
-
-            for (int i = 0; i < vectorsToAdd; i++) {
-                trainingData.add(
-                    ((List<Number>) hits[i].getSourceAsMap().get(fieldName)).stream().map(Number::floatValue).toArray(Float[]::new)
-                );
-            }
+            List<Float[]> trainingData = extractVectorsFromHits(searchResponse, vectorsToAdd);
 
             this.collectedVectorCount += trainingData.size();
 
@@ -224,6 +219,43 @@ public class VectorReader {
             } else {
                 listener.onFailure(e);
             }
+        }
+
+        /**
+         * Extracts vectors from the hits in a search response
+         *
+         * @param searchResponse Search response to extract vectors from
+         * @param vectorsToAdd number of vectors to extract
+         * @return list of vectors
+         */
+        private List<Float[]> extractVectorsFromHits(SearchResponse searchResponse, int vectorsToAdd) {
+            SearchHit[] hits = searchResponse.getHits().getHits();
+            List<Float[]> trainingData = new ArrayList<>();
+            String[] fieldPath = fieldName.split("\\.");
+            int nullVectorCount = 0;
+
+            for (int vector = 0; vector < vectorsToAdd; vector++) {
+                Map<String, Object> currentMap = hits[vector].getSourceAsMap();
+                // The field name may be a nested field, so we need to split it and traverse the map.
+                // Example fieldName: "my_field" or "my_field.nested_field.nested_nested_field"
+
+                for (int pathPart = 0; pathPart < fieldPath.length - 1; pathPart++) {
+                    currentMap = (Map<String, Object>) currentMap.get(fieldPath[pathPart]);
+                }
+
+                if (currentMap.get(fieldPath[fieldPath.length - 1]) instanceof List<?> == false) {
+                    nullVectorCount++;
+                    continue;
+                }
+
+                List<Number> fieldList = (List<Number>) currentMap.get(fieldPath[fieldPath.length - 1]);
+
+                trainingData.add(fieldList.stream().map(Number::floatValue).toArray(Float[]::new));
+            }
+            if (nullVectorCount > 0) {
+                logger.warn("Found {} documents with null vectors in field {}", nullVectorCount, fieldName);
+            }
+            return trainingData;
         }
     }
 }

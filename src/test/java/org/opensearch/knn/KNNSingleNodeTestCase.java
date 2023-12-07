@@ -82,6 +82,35 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
     }
 
     /**
+     * Create simple k-NN mapping which can be nested.
+     * e.g. fieldPath = "a.b.c" will create mapping for "c" as knn_vector
+     */
+    protected void createKnnNestedIndexMapping(String indexName, String fieldPath, Integer dimensions) throws IOException {
+        PutMappingRequest request = new PutMappingRequest(indexName);
+        String[] path = fieldPath.split("\\.");
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject().startObject("properties");
+        for (int i = 0; i < path.length; i++) {
+            xContentBuilder.startObject(path[i]);
+            if (i == path.length - 1) {
+                xContentBuilder.field("type", "knn_vector").field("dimension", dimensions.toString());
+            } else {
+                xContentBuilder.startObject("properties");
+            }
+        }
+        for (int i = path.length - 1; i >= 0; i--) {
+            if (i != path.length - 1) {
+                xContentBuilder.endObject();
+            }
+            xContentBuilder.endObject();
+        }
+        xContentBuilder.endObject().endObject();
+
+        request.source(xContentBuilder);
+
+        OpenSearchAssertions.assertAcked(client().admin().indices().putMapping(request).actionGet());
+    }
+
+    /**
      * Get default k-NN settings for test cases
      */
     protected Settings getKNNDefaultIndexSettings() {
@@ -94,6 +123,31 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
     protected void addKnnDoc(String index, String docId, String fieldName, Object[] vector) throws IOException, InterruptedException,
         ExecutionException {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vector).endObject();
+        IndexRequest indexRequest = new IndexRequest().index(index)
+            .id(docId)
+            .source(builder)
+            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+
+        IndexResponse response = client().index(indexRequest).get();
+        assertEquals(response.status(), RestStatus.CREATED);
+    }
+
+    /**
+     * Add a k-NN doc to an index with nested knn_vector field
+     */
+    protected void addKnnNestedDoc(String index, String docId, String fieldPath, Object[] vector) throws IOException, InterruptedException,
+        ExecutionException {
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+        String[] fieldParts = fieldPath.split("\\.");
+
+        for (int i = 0; i < fieldParts.length - 1; i++) {
+            builder.startObject(fieldParts[i]);
+        }
+        builder.field(fieldParts[fieldParts.length - 1], vector);
+        for (int i = fieldParts.length - 2; i >= 0; i--) {
+            builder.endObject();
+        }
+        builder.endObject();
         IndexRequest indexRequest = new IndexRequest().index(index)
             .id(docId)
             .source(builder)

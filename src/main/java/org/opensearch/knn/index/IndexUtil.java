@@ -13,6 +13,7 @@ package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import org.apache.commons.lang.StringUtils;
 import org.opensearch.Version;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.MappingMetadata;
@@ -26,6 +27,7 @@ import org.opensearch.knn.indices.ModelMetadata;
 import java.io.File;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
@@ -59,6 +61,37 @@ public class IndexUtil {
         }
 
         return Math.toIntExact((file.length() / BYTES_PER_KILOBYTES) + 1L); // Add one so that integer division rounds up
+    }
+
+    /**
+     * This method retrieves the field mapping by a given field path from the index metadata.
+     *
+     * @param properties Index metadata mapping properties.
+     * @param fieldPath The field path string that make up the path to the field mapping. e.g. "a.b.field" or "field".
+     *                  The field path is applied and checked in OpenSearch, so it is guaranteed to be valid.
+     *
+     * @return           The field mapping object if found, or null if the field is not found in the index metadata.
+     */
+    private static Object getFieldMapping(final Map<String, Object> properties, final String fieldPath) {
+        String[] fieldPaths = fieldPath.split("\\.");
+        Object currentFieldMapping = properties;
+
+        // Iterate through the field path list to retrieve the field mapping.
+        for (String path : fieldPaths) {
+            currentFieldMapping = ((Map<String, Object>) currentFieldMapping).get(path);
+            if (currentFieldMapping == null) {
+                return null;
+            }
+
+            if (currentFieldMapping instanceof Map<?, ?>) {
+                Object possibleProperties = ((Map<String, Object>) currentFieldMapping).get("properties");
+                if (possibleProperties instanceof Map<?, ?>) {
+                    currentFieldMapping = possibleProperties;
+                }
+            }
+        }
+
+        return currentFieldMapping;
     }
 
     /**
@@ -102,7 +135,13 @@ public class IndexUtil {
             return exception;
         }
 
-        Object fieldMapping = properties.get(field);
+        // Check field path is valid
+        if (StringUtils.isEmpty(field)) {
+            exception.addValidationError(String.format(Locale.ROOT, "Field path is empty."));
+            return exception;
+        }
+
+        Object fieldMapping = getFieldMapping(properties, field);
 
         // Check field existence
         if (fieldMapping == null) {

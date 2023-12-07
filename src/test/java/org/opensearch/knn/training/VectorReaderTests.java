@@ -34,6 +34,7 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
     private final static int DEFAULT_LATCH_TIMEOUT = 100;
     private final static String DEFAULT_INDEX_NAME = "test-index";
     private final static String DEFAULT_FIELD_NAME = "test-field";
+    private final static String DEFAULT_NESTED_FIELD_PATH = "a.b.test-field";
     private final static int DEFAULT_DIMENSION = 16;
     private final static int DEFAULT_NUM_VECTORS = 100;
     private final static int DEFAULT_MAX_VECTOR_COUNT = 10000;
@@ -343,6 +344,46 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
                 null
             )
         );
+    }
+
+    public void testRead_valid_NestedField() throws InterruptedException, ExecutionException, IOException {
+        createIndex(DEFAULT_INDEX_NAME);
+        createKnnNestedIndexMapping(DEFAULT_INDEX_NAME, DEFAULT_NESTED_FIELD_PATH, DEFAULT_DIMENSION);
+
+        // Create list of random vectors and ingest
+        Random random = new Random();
+        List<Float[]> vectors = new ArrayList<>();
+        for (int i = 0; i < DEFAULT_NUM_VECTORS; i++) {
+            Float[] vector = random.doubles(DEFAULT_DIMENSION).boxed().map(Double::floatValue).toArray(Float[]::new);
+            vectors.add(vector);
+            addKnnNestedDoc(DEFAULT_INDEX_NAME, Integer.toString(i), DEFAULT_NESTED_FIELD_PATH, vector);
+        }
+
+        // Configure VectorReader
+        ClusterService clusterService = node().injector().getInstance(ClusterService.class);
+        VectorReader vectorReader = new VectorReader(client());
+
+        // Read all vectors and confirm they match vectors
+        TestVectorConsumer testVectorConsumer = new TestVectorConsumer();
+        final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        vectorReader.read(
+            clusterService,
+            DEFAULT_INDEX_NAME,
+            DEFAULT_NESTED_FIELD_PATH,
+            DEFAULT_MAX_VECTOR_COUNT,
+            DEFAULT_SEARCH_SIZE,
+            testVectorConsumer,
+            createOnSearchResponseCountDownListener(inProgressLatch)
+        );
+
+        assertLatchDecremented(inProgressLatch);
+
+        List<Float[]> consumedVectors = testVectorConsumer.getVectorsConsumed();
+        assertEquals(DEFAULT_NUM_VECTORS, consumedVectors.size());
+
+        List<Float> flatVectors = vectors.stream().flatMap(Arrays::stream).collect(Collectors.toList());
+        List<Float> flatConsumedVectors = consumedVectors.stream().flatMap(Arrays::stream).collect(Collectors.toList());
+        assertEquals(new HashSet<>(flatVectors), new HashSet<>(flatConsumedVectors));
     }
 
     private static class TestVectorConsumer implements Consumer<List<Float[]>> {
