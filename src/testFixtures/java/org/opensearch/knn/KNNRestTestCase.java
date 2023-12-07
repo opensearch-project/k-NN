@@ -350,6 +350,38 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
+     * Utility to create a Knn Index Mapping with nested field
+     *
+     * @param dimensions dimension of the vector
+     * @param fieldPath  path of the nested field, e.g. "my_nested_field.my_vector"
+     * @return mapping string for the nested field
+     */
+    protected String createKnnIndexNestedMapping(Integer dimensions, String fieldPath) throws IOException {
+        String[] fieldPathArray = fieldPath.split("\\.");
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject().startObject("properties");
+
+        for (int i = 0; i < fieldPathArray.length; i++) {
+            xContentBuilder.startObject(fieldPathArray[i]);
+            if (i == fieldPathArray.length - 1) {
+                xContentBuilder.field("type", "knn_vector").field("dimension", dimensions.toString());
+            } else {
+                xContentBuilder.startObject("properties");
+            }
+        }
+
+        for (int i = fieldPathArray.length - 1; i >= 0; i--) {
+            if (i != fieldPathArray.length - 1) {
+                xContentBuilder.endObject();
+            }
+            xContentBuilder.endObject();
+        }
+
+        xContentBuilder.endObject().endObject();
+
+        return xContentBuilder.toString();
+    }
+
+    /**
      * Get index mapping as map
      *
      * @param index name of index to fetch
@@ -408,6 +440,37 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vector).endObject();
+        request.setJsonEntity(builder.toString());
+        client().performRequest(request);
+
+        request = new Request("POST", "/" + index + "/_refresh");
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+    }
+
+    /**
+     * Add a single KNN Doc to an index with a nested vector field
+     *
+     * @param index           name of the index
+     * @param docId           id of the document
+     * @param nestedFieldPath path of the nested field, e.g. "my_nested_field.my_vector"
+     * @param vector          vector to add
+     *
+     */
+    protected void addKnnDocWithNestedField(String index, String docId, String nestedFieldPath, Object[] vector) throws IOException {
+        String[] fieldParts = nestedFieldPath.split("\\.");
+
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+        for (int i = 0; i < fieldParts.length - 1; i++) {
+            builder.startObject(fieldParts[i]);
+        }
+        builder.field(fieldParts[fieldParts.length - 1], vector);
+        for (int i = fieldParts.length - 2; i >= 0; i--) {
+            builder.endObject();
+        }
+        builder.endObject();
+
+        Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
         request.setJsonEntity(builder.toString());
         client().performRequest(request);
 
@@ -823,6 +886,26 @@ public class KNNRestTestCase extends ODFERestTestCase {
             addKnnDoc(indexName, String.valueOf(i + 1), fieldName, Floats.asList(vector).toArray());
         }
 
+    }
+
+    /**
+     * Bulk ingest random vectors with nested field
+     *
+     * @param indexName       index name
+     * @param nestedFieldPath nested field path, e.g. "my_nested_field.my_vector_field"
+     * @param numVectors      number of vectors
+     * @param dimension       vector dimension
+     */
+    public void bulkIngestRandomVectorsWithNestedField(String indexName, String nestedFieldPath, int numVectors, int dimension)
+        throws IOException {
+        for (int i = 0; i < numVectors; i++) {
+            float[] vector = new float[dimension];
+            for (int j = 0; j < dimension; j++) {
+                vector[j] = randomFloat();
+            }
+
+            addKnnDocWithNestedField(indexName, String.valueOf(i + 1), nestedFieldPath, Floats.asList(vector).toArray());
+        }
     }
 
     // Method that adds multiple documents into the index using Bulk API
