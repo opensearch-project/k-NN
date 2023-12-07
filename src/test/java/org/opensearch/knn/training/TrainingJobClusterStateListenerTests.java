@@ -123,7 +123,7 @@ public class TrainingJobClusterStateListenerTests extends KNNTestCase {
         executorService.awaitTermination(10, TimeUnit.SECONDS);
 
         verify(modelMetadata, times(1)).setState(ModelState.FAILED);
-        verify(modelMetadata, times(1)).setError("Training failed to complete due to node drop");
+        verify(modelMetadata, times(1)).setError("Training failed to complete as cluster crashed");
         verify(modelDao, times(1)).update(any(Model.class), any(ActionListener.class));
     }
 
@@ -173,7 +173,7 @@ public class TrainingJobClusterStateListenerTests extends KNNTestCase {
         executorService.awaitTermination(10, TimeUnit.SECONDS);
 
         verify(modelMetadata, times(1)).setState(ModelState.FAILED);
-        verify(modelMetadata, times(1)).setError("A node dropped and left the model training process in a zombie state");
+        verify(modelMetadata, times(1)).setError("Training failed to complete as node dropped");
         verify(modelDao, times(1)).update(any(Model.class), any(ActionListener.class));
     }
 }

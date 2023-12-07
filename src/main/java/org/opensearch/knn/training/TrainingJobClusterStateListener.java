@@ -112,9 +112,7 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
                 Model model = modelDao.get(modelId);
                 ModelMetadata modelMetadata = model.getModelMetadata();
                 if (modelMetadata.getState().equals(ModelState.TRAINING)) {
-                    modelMetadata.setState(ModelState.FAILED);
-                    modelMetadata.setError("Training failed to complete due to node drop");
-                    updateModelStateFromTrainingToFailed(model);
+                    updateModelStateAsFailed(model, "Training failed to complete as cluster crashed");
                 }
             }
         }
@@ -129,9 +127,7 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
                     ModelMetadata modelMetadata = model.getModelMetadata();
                     if (modelMetadata.getNodeAssignment().equals(removedNode.getEphemeralId())
                         && modelMetadata.getState().equals(ModelState.TRAINING)) {
-                        modelMetadata.setState(ModelState.FAILED);
-                        modelMetadata.setError("A node dropped and left the model training process in a zombie state");
-                        updateModelStateFromTrainingToFailed(model);
+                        updateModelStateAsFailed(model, "Training failed to complete as node dropped");
                     }
                 }
             }
@@ -162,24 +158,18 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
         return modelIds;
     }
 
-    private void updateModelStateFromTrainingToFailed(Model model) throws IOException {
+    private void updateModelStateAsFailed(Model model, String msg) throws IOException {
+        model.getModelMetadata().setState(ModelState.FAILED);
+        model.getModelMetadata().setError(msg);
         modelDao.update(model, new ActionListener<IndexResponse>() {
             @Override
             public void onResponse(IndexResponse indexResponse) {
-                log.info(
-                    "Model "
-                        + indexResponse.getId()
-                        + " updated from "
-                        + ModelState.TRAINING
-                        + " to "
-                        + ModelState.FAILED
-                        + " due to node drop"
-                );
+                log.info("Model " + model.getModelID() + " marked as " + model.getModelMetadata().getState());
             }
 
             @Override
             public void onFailure(Exception e) {
-                log.error("Failed to update model after node drop", e);
+                log.error("Failed to update model state", e);
             }
         });
     }

@@ -154,7 +154,7 @@ public class TrainingJobRunner {
             try {
                 serializeModel(trainingJob, loggingListener, true);
             } catch (IOException | ExecutionException | InterruptedException e) {
-                logger.error("Unable to serialize the failure for model \"" + trainingJob.getModelId() + "\": " + e);
+                logger.error("Unable to serialize the failure for model \"%\": ", trainingJob.getModelId(), e);
             } finally {
                 jobCount.decrementAndGet();
                 semaphore.release();
@@ -167,10 +167,10 @@ public class TrainingJobRunner {
         ExecutionException, InterruptedException {
         if (update) {
             Model model = modelDao.get(trainingJob.getModelId());
-            if (!model.getModelMetadata().getState().equals(ModelState.FAILED)) {
+            if (model.getModelMetadata().getState().equals(ModelState.TRAINING)) {
                 modelDao.update(trainingJob.getModel(), listener);
             } else {
-                logger.info("Skipping serialization of trained data due to node drop");
+                logger.info("Model state is %. Skipping serialization of trained data", model.getModelMetadata().getState());
             }
         } else {
             modelDao.put(trainingJob.getModel(), listener);
