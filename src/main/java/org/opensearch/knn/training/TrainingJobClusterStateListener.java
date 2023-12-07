@@ -45,6 +45,9 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
     private static ModelDao modelDao;
     private static ThreadPool threadPool;
     private static ClusterService clusterService;
+    private String oldClusterManagerNodeId = "";
+    private String currentClusterManagerNodeId = "";
+    private boolean clusterManagerNodeRemoved = false;
 
     /**
      * Get singleton instance of TrainingJobRunner
@@ -100,17 +103,6 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
                 }, TimeValue.timeValueSeconds(0), ThreadPool.Names.GENERIC);
             }
         }
-        if (event.nodesAdded()) {
-            List<DiscoveryNode> addedNodes = event.nodesDelta().addedNodes();
-            DiscoveryNode localNode = clusterService.localNode();
-            for (DiscoveryNode addedNode : addedNodes) {
-                if (addedNode.getId().equals(localNode.getId())) {
-                    TrainingJobRunner trainingJobRunner = TrainingJobRunner.getInstance();
-                    trainingJobRunner.setShouldCancel(true);
-                    break;
-                }
-            }
-        }
     }
 
     protected void updateModelsNewCluster() throws IOException, InterruptedException, ExecutionException {
@@ -122,7 +114,7 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
                 if (modelMetadata.getState().equals(ModelState.TRAINING)) {
                     modelMetadata.setState(ModelState.FAILED);
                     modelMetadata.setError("Training failed to complete due to node drop");
-                    updateModel(model);
+                    updateModelStateFromTrainingToFailed(model);
                 }
             }
         }
@@ -139,7 +131,7 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
                         && modelMetadata.getState().equals(ModelState.TRAINING)) {
                         modelMetadata.setState(ModelState.FAILED);
                         modelMetadata.setError("A node dropped and left the model training process in a zombie state");
-                        updateModel(model);
+                        updateModelStateFromTrainingToFailed(model);
                     }
                 }
             }
@@ -170,7 +162,7 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
         return modelIds;
     }
 
-    private void updateModel(Model model) throws IOException {
+    private void updateModelStateFromTrainingToFailed(Model model) throws IOException {
         modelDao.update(model, new ActionListener<IndexResponse>() {
             @Override
             public void onResponse(IndexResponse indexResponse) {

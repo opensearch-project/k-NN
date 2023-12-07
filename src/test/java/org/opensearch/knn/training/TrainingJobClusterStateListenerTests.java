@@ -81,19 +81,6 @@ public class TrainingJobClusterStateListenerTests extends KNNTestCase {
         trainingJobClusterStateListener.clusterChanged(clusterChangedEvent);
         verify(threadPool, times(2)).schedule(any(Runnable.class), any(TimeValue.class), any(String.class));
 
-        when(clusterChangedEvent.isNewCluster()).thenReturn(false);
-        when(clusterChangedEvent.nodesAdded()).thenReturn(true);
-        DiscoveryNode addedNode = mock(DiscoveryNode.class);
-        when(addedNode.getId()).thenReturn("test-node");
-        nodes.add(addedNode);
-        when(delta.addedNodes()).thenReturn(nodes);
-        DiscoveryNode localNode = mock(DiscoveryNode.class);
-        when(localNode.getId()).thenReturn("test-node");
-        when(clusterService.localNode()).thenReturn(localNode);
-        TrainingJobRunner trainingJobRunner = TrainingJobRunner.getInstance();
-        trainingJobClusterStateListener.clusterChanged(clusterChangedEvent);
-        assertTrue(trainingJobRunner.shouldCancel());
-
         executorService.shutdown();
         executorService.awaitTermination(10, TimeUnit.SECONDS);
     }

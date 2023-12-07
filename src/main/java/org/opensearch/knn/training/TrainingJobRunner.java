@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
@@ -43,8 +42,6 @@ public class TrainingJobRunner {
     private static TrainingJobRunner INSTANCE;
     private static ModelDao modelDao;
     private static ThreadPool threadPool;
-
-    private AtomicBoolean shouldCancel;
 
     private final Semaphore semaphore;
     private final AtomicInteger jobCount;
@@ -64,7 +61,6 @@ public class TrainingJobRunner {
     private TrainingJobRunner() {
         this.jobCount = new AtomicInteger(0);
         this.semaphore = new Semaphore(1);
-        this.shouldCancel = new AtomicBoolean();
     }
 
     /**
@@ -123,8 +119,6 @@ public class TrainingJobRunner {
     private void train(TrainingJob trainingJob) {
         // Attempt to submit job to training thread pool. On failure, release the resources and serialize the failure.
 
-        shouldCancel.set(false);
-
         // Listener for update model after training index action
         ActionListener<IndexResponse> loggingListener = ActionListener.wrap(
             indexResponse -> logger.debug("[KNN] Model serialization update for \"" + trainingJob.getModelId() + "\" was successful"),
@@ -138,9 +132,7 @@ public class TrainingJobRunner {
             threadPool.executor(TRAIN_THREAD_POOL).execute(() -> {
                 try {
                     trainingJob.run();
-                    if (!shouldCancel.get()) {
-                        serializeModel(trainingJob, loggingListener, true);
-                    }
+                    serializeModel(trainingJob, loggingListener, true);
                 } catch (IOException | ExecutionException | InterruptedException e) {
                     logger.error("Unable to serialize model \"" + trainingJob.getModelId() + "\": " + e.getMessage());
                     KNNCounter.TRAINING_ERRORS.increment();
@@ -175,8 +167,10 @@ public class TrainingJobRunner {
         ExecutionException, InterruptedException {
         if (update) {
             Model model = modelDao.get(trainingJob.getModelId());
-            if (model.getModelMetadata().getState().equals(ModelState.TRAINING)) {
+            if (!model.getModelMetadata().getState().equals(ModelState.FAILED)) {
                 modelDao.update(trainingJob.getModel(), listener);
+            } else {
+                logger.info("Skipping serialization of trained data due to node drop");
             }
         } else {
             modelDao.put(trainingJob.getModel(), listener);
@@ -190,23 +184,5 @@ public class TrainingJobRunner {
      */
     public int getJobCount() {
         return jobCount.get();
-    }
-
-    /**
-     * Get whether the training job should be canceled
-     *
-     * @return whether the training job should be canceled
-     */
-    public boolean shouldCancel() {
-        return shouldCancel.get();
-    }
-
-    /**
-     * Sets whether the current job should be canceled
-     *
-     * @param shouldCancel whether the current job should be canceled
-     */
-    public void setShouldCancel(boolean shouldCancel) {
-        this.shouldCancel.set(shouldCancel);
     }
 }

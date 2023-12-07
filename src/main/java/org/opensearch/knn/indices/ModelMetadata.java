@@ -71,7 +71,6 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         this.description = in.readString();
         this.error = in.readString();
 
-        // We do not use the stream input constructor for reading from cluster metadata
         if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
             this.trainingNodeAssignment = in.readString();
         } else {
@@ -269,7 +268,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         // Because models can be created on older versions and the cluster can be upgraded after,
         // we need to accept model metadata arrays both with and without the training node assignment.
         if (modelMetadataArray.length == 7) {
-            log.info("Model metadata array does not contain training node assignment. Assuming empty string.");
+            log.debug("Model metadata array does not contain training node assignment. Assuming empty string.");
             KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
             SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
             int dimension = Integer.parseInt(modelMetadataArray[2]);
@@ -279,7 +278,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             String error = modelMetadataArray[6];
             return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, "");
         } else if (modelMetadataArray.length == 8) {
-            log.info("Model metadata contains training node assignment");
+            log.debug("Model metadata contains training node assignment");
             KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
             SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
             int dimension = Integer.parseInt(modelMetadataArray[2]);
