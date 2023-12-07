@@ -25,7 +25,6 @@ import static org.opensearch.knn.common.KNNConstants.CLEAR_CACHE;
 public class RestClearCacheHandlerIT extends KNNRestTestCase {
     private static final String TEST_FIELD = "test-field";
     private static final int DIMENSIONS = 2;
-    private static final String ALL_INDICES = "_all";
 
     @SneakyThrows
     public void testNonExistentIndex() {
@@ -81,7 +80,7 @@ public class RestClearCacheHandlerIT extends KNNRestTestCase {
 
         assertEquals(graphCountBefore + 2, getTotalGraphsInCache());
 
-        clearCache(Arrays.asList(ALL_INDICES));
+        clearCache(Arrays.asList(testIndex1, testIndex2));
         assertEquals(graphCountBefore, getTotalGraphsInCache());
     }
 
