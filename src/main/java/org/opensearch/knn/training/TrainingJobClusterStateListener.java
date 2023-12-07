@@ -164,7 +164,7 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
         modelDao.update(model, new ActionListener<IndexResponse>() {
             @Override
             public void onResponse(IndexResponse indexResponse) {
-                log.info("Model " + model.getModelID() + " marked as " + model.getModelMetadata().getState());
+                log.info("Model {} marked as {}", model.getModelID(), model.getModelMetadata().getState());
             }
 
             @Override
