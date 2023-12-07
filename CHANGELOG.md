@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Features
 * Add parent join support for lucene knn [#1182](https://github.com/opensearch-project/k-NN/pull/1182)
 ### Enhancements
+* Increase Lucene max dimension limit to 16,000 [#1346](https://github.com/opensearch-project/k-NN/pull/1346)
 ### Bug Fixes
 * Fix use-after-free case on nmslib search path [#1305](https://github.com/opensearch-project/k-NN/pull/1305)
 * Allow nested knn field mapping when train model [#1318](https://github.com/opensearch-project/k-NN/pull/1318)

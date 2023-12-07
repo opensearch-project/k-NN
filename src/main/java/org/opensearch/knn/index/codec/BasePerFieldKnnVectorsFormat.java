@@ -59,6 +59,11 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         return formatSupplier.apply(maxConnections, beamWidth);
     }
 
+    @Override
+    public int getMaxDimensions(String fieldName) {
+        return getKnnVectorsFormatForField(fieldName).getMaxDimensions(fieldName);
+    }
+
     private boolean isKnnVectorFieldType(final String field) {
         return mapperService.isPresent() && mapperService.get().fieldType(field) instanceof KNNVectorFieldMapper.KNNVectorFieldType;
     }

@@ -300,7 +300,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         XContentBuilder xContentBuilderOverMaxDimension = XContentFactory.jsonBuilder()
             .startObject()
             .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION_FIELD_NAME, 2000)
+            .field(DIMENSION_FIELD_NAME, 20000)
             .startObject(KNN_METHOD)
             .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
@@ -320,7 +320,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             IllegalArgumentException.class,
             () -> builderOverMaxDimension.build(new Mapper.BuilderContext(settings, new ContentPath()))
         );
-        assertEquals("Dimension value cannot be greater than 1024 for vector: test-field-name", ex.getMessage());
+        assertEquals("Dimension value cannot be greater than 16000 for vector: test-field-name", ex.getMessage());
 
         XContentBuilder xContentBuilderInvalidDimension = XContentFactory.jsonBuilder()
             .startObject()
