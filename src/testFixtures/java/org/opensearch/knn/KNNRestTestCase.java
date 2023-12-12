@@ -77,6 +77,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
+import static org.opensearch.knn.common.KNNConstants.MODEL_NODE_ASSIGNMENT;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
@@ -763,6 +764,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .field(MODEL_TIMESTAMP, modelMetadata.getTimestamp())
             .field(MODEL_DESCRIPTION, modelMetadata.getDescription())
             .field(MODEL_ERROR, modelMetadata.getError())
+            .field(MODEL_NODE_ASSIGNMENT, modelMetadata.getNodeAssignment())
             .endObject();
 
         request.setJsonEntity(builder.toString());

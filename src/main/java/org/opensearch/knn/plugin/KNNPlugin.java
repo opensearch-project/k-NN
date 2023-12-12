@@ -78,6 +78,7 @@ import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataTransportAction;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardTransportAction;
+import org.opensearch.knn.training.TrainingJobClusterStateListener;
 import org.opensearch.knn.training.TrainingJobRunner;
 import org.opensearch.knn.training.VectorReader;
 import org.opensearch.plugins.ActionPlugin;
@@ -200,10 +201,14 @@ public class KNNPlugin extends Plugin
         ModelDao.OpenSearchKNNModelDao.initialize(client, clusterService, environment.settings());
         ModelCache.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
         TrainingJobRunner.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance());
+        TrainingJobClusterStateListener.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
         KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService, client);
         KNNQueryBuilder.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
+
+        clusterService.addListener(TrainingJobClusterStateListener.getInstance());
+
         knnStats = new KNNStats();
         return ImmutableList.of(knnStats);
     }

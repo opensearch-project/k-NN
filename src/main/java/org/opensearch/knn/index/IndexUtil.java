@@ -36,10 +36,14 @@ import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 public class IndexUtil {
 
+    public static final String MODEL_NODE_ASSIGNMENT_KEY = KNNConstants.MODEL_NODE_ASSIGNMENT;
+
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED = Version.V_2_11_0;
+    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_NODE_ASSIGNMENT = Version.V_2_12_0;
     private static final Map<String, Version> minimalRequiredVersionMap = new HashMap<String, Version>() {
         {
             put("ignore_unmapped", MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED);
+            put(MODEL_NODE_ASSIGNMENT_KEY, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_NODE_ASSIGNMENT);
         }
     };
 
@@ -250,5 +254,13 @@ public class IndexUtil {
             return false;
         }
         return KNNClusterUtil.instance().getClusterMinVersion().onOrAfter(minimalRequiredVersion);
+    }
+
+    public static boolean isVersionOnOrAfterMinRequiredVersion(Version version, String key) {
+        Version minimalRequiredVersion = minimalRequiredVersionMap.get(key);
+        if (minimalRequiredVersion == null) {
+            return false;
+        }
+        return version.onOrAfter(minimalRequiredVersion);
     }
 }

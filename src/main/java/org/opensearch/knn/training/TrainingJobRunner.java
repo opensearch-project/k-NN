@@ -16,6 +16,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.common.ValidationException;
+import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -23,6 +24,7 @@ import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -79,7 +81,8 @@ public class TrainingJobRunner {
      * @param trainingJob training job to be executed
      * @param listener listener to handle final model serialization response (or exception)
      */
-    public void execute(TrainingJob trainingJob, ActionListener<IndexResponse> listener) throws IOException {
+    public void execute(TrainingJob trainingJob, ActionListener<IndexResponse> listener) throws IOException, ExecutionException,
+        InterruptedException {
         // If the semaphore cannot be acquired, the node is unable to execute this job. This allows us to limit
         // the number of training jobs that enter this function. Although the training threadpool size will also prevent
         // this, we want to prevent this before we perform any serialization.
@@ -106,10 +109,10 @@ public class TrainingJobRunner {
                 logger.error("Unable to initialize model serialization: " + exception.getMessage());
                 listener.onFailure(exception);
             }), false);
-        } catch (IOException ioe) {
+        } catch (IOException | ExecutionException | InterruptedException e) {
             jobCount.decrementAndGet();
             semaphore.release();
-            throw ioe;
+            throw e;
         }
     }
 
@@ -130,7 +133,7 @@ public class TrainingJobRunner {
                 try {
                     trainingJob.run();
                     serializeModel(trainingJob, loggingListener, true);
-                } catch (IOException e) {
+                } catch (IOException | ExecutionException | InterruptedException e) {
                     logger.error("Unable to serialize model \"" + trainingJob.getModelId() + "\": " + e.getMessage());
                     KNNCounter.TRAINING_ERRORS.increment();
                 } catch (Exception e) {
@@ -150,8 +153,8 @@ public class TrainingJobRunner {
 
             try {
                 serializeModel(trainingJob, loggingListener, true);
-            } catch (IOException ioe) {
-                logger.error("Unable to serialize the failure for model \"" + trainingJob.getModelId() + "\": " + ioe);
+            } catch (IOException | ExecutionException | InterruptedException e) {
+                logger.error("Unable to serialize the failure for model \"{}\": ", trainingJob.getModelId(), e);
             } finally {
                 jobCount.decrementAndGet();
                 semaphore.release();
@@ -160,9 +163,15 @@ public class TrainingJobRunner {
         }
     }
 
-    private void serializeModel(TrainingJob trainingJob, ActionListener<IndexResponse> listener, boolean update) throws IOException {
+    private void serializeModel(TrainingJob trainingJob, ActionListener<IndexResponse> listener, boolean update) throws IOException,
+        ExecutionException, InterruptedException {
         if (update) {
-            modelDao.update(trainingJob.getModel(), listener);
+            Model model = modelDao.get(trainingJob.getModelId());
+            if (model.getModelMetadata().getState().equals(ModelState.TRAINING)) {
+                modelDao.update(trainingJob.getModel(), listener);
+            } else {
+                logger.info("Model state is {}. Skipping serialization of trained data", model.getModelMetadata().getState());
+            }
         } else {
             modelDao.put(trainingJob.getModel(), listener);
         }

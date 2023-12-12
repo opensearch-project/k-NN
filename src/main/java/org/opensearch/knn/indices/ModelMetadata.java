@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.indices;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.opensearch.core.common.io.stream.StreamInput;
@@ -19,6 +20,7 @@ import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -34,7 +36,9 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
+import static org.opensearch.knn.common.KNNConstants.MODEL_NODE_ASSIGNMENT;
 
+@Log4j2
 public class ModelMetadata implements Writeable, ToXContentObject {
 
     private static final String DELIMITER = ",";
@@ -46,6 +50,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     private AtomicReference<ModelState> state;
     final private String timestamp;
     final private String description;
+    final private String trainingNodeAssignment;
     private String error;
 
     /**
@@ -54,6 +59,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
      * @param in Stream input
      */
     public ModelMetadata(StreamInput in) throws IOException {
+        String tempTrainingNodeAssignment;
         this.knnEngine = KNNEngine.getEngine(in.readString());
         this.spaceType = SpaceType.getSpace(in.readString());
         this.dimension = in.readInt();
@@ -64,6 +70,12 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         // which is checked in constructor and setters
         this.description = in.readString();
         this.error = in.readString();
+
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
+            this.trainingNodeAssignment = in.readString();
+        } else {
+            this.trainingNodeAssignment = "";
+        }
     }
 
     /**
@@ -84,7 +96,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         ModelState modelState,
         String timestamp,
         String description,
-        String error
+        String error,
+        String trainingNodeAssignment
     ) {
         this.knnEngine = Objects.requireNonNull(knnEngine, "knnEngine must not be null");
         this.spaceType = Objects.requireNonNull(spaceType, "spaceType must not be null");
@@ -104,6 +117,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         this.timestamp = Objects.requireNonNull(timestamp, "timestamp must not be null");
         this.description = Objects.requireNonNull(description, "description must not be null");
         this.error = Objects.requireNonNull(error, "error must not be null");
+        this.trainingNodeAssignment = Objects.requireNonNull(trainingNodeAssignment, "node assignment must not be null");
     }
 
     /**
@@ -170,6 +184,15 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     }
 
     /**
+     * getter for model's node assignment
+     *
+     * @return trainingNodeAssignment
+     */
+    public String getNodeAssignment() {
+        return trainingNodeAssignment;
+    }
+
+    /**
      * setter for model's state
      *
      * @param state of the model
@@ -197,7 +220,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             getState().toString(),
             timestamp,
             description,
-            error
+            error,
+            trainingNodeAssignment
         );
     }
 
@@ -240,22 +264,36 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     public static ModelMetadata fromString(String modelMetadataString) {
         String[] modelMetadataArray = modelMetadataString.split(DELIMITER, -1);
 
-        if (modelMetadataArray.length != 7) {
+        // Training node assignment was added as a field in Version 2.12.0
+        // Because models can be created on older versions and the cluster can be upgraded after,
+        // we need to accept model metadata arrays both with and without the training node assignment.
+        if (modelMetadataArray.length == 7) {
+            log.debug("Model metadata array does not contain training node assignment. Assuming empty string.");
+            KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
+            SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
+            int dimension = Integer.parseInt(modelMetadataArray[2]);
+            ModelState modelState = ModelState.getModelState(modelMetadataArray[3]);
+            String timestamp = modelMetadataArray[4];
+            String description = modelMetadataArray[5];
+            String error = modelMetadataArray[6];
+            return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, "");
+        } else if (modelMetadataArray.length == 8) {
+            log.debug("Model metadata contains training node assignment");
+            KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
+            SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
+            int dimension = Integer.parseInt(modelMetadataArray[2]);
+            ModelState modelState = ModelState.getModelState(modelMetadataArray[3]);
+            String timestamp = modelMetadataArray[4];
+            String description = modelMetadataArray[5];
+            String error = modelMetadataArray[6];
+            String trainingNodeAssignment = modelMetadataArray[7];
+            return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, trainingNodeAssignment);
+        } else {
             throw new IllegalArgumentException(
                 "Illegal format for model metadata. Must be of the form "
-                    + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>\"."
+                    + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>\" or \"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>\"."
             );
         }
-
-        KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
-        SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
-        int dimension = Integer.parseInt(modelMetadataArray[2]);
-        ModelState modelState = ModelState.getModelState(modelMetadataArray[3]);
-        String timestamp = modelMetadataArray[4];
-        String description = modelMetadataArray[5];
-        String error = modelMetadataArray[6];
-
-        return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error);
     }
 
     private static String objectToString(Object value) {
@@ -282,6 +320,11 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         Object timestamp = modelSourceMap.get(KNNConstants.MODEL_TIMESTAMP);
         Object description = modelSourceMap.get(KNNConstants.MODEL_DESCRIPTION);
         Object error = modelSourceMap.get(KNNConstants.MODEL_ERROR);
+        Object trainingNodeAssignment = modelSourceMap.get(KNNConstants.MODEL_NODE_ASSIGNMENT);
+
+        if (trainingNodeAssignment == null) {
+            trainingNodeAssignment = "";
+        }
 
         ModelMetadata modelMetadata = new ModelMetadata(
             KNNEngine.getEngine(objectToString(engine)),
@@ -290,7 +333,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             ModelState.getModelState(objectToString(state)),
             objectToString(timestamp),
             objectToString(description),
-            objectToString(error)
+            objectToString(error),
+            objectToString(trainingNodeAssignment)
         );
         return modelMetadata;
     }
@@ -304,6 +348,9 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         out.writeString(getTimestamp());
         out.writeString(getDescription());
         out.writeString(getError());
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(out.getVersion(), IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
+            out.writeString(getNodeAssignment());
+        }
     }
 
     @Override
@@ -316,6 +363,9 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         builder.field(METHOD_PARAMETER_SPACE_TYPE, getSpaceType().getValue());
         builder.field(DIMENSION, getDimension());
         builder.field(KNN_ENGINE, getKnnEngine().getName());
+        if (IndexUtil.isClusterOnOrAfterMinRequiredVersion(IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
+            builder.field(MODEL_NODE_ASSIGNMENT, getNodeAssignment());
+        }
         return builder;
     }
 }

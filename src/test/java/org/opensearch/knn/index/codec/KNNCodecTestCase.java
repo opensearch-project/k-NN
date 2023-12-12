@@ -204,6 +204,7 @@ public class KNNCodecTestCase extends KNNTestCase {
             ModelState.CREATED,
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
+            "",
             ""
         );
 

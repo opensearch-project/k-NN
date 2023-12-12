@@ -257,6 +257,6 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
     }
 
     private ModelMetadata getModelMetadata() {
-        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED, "2021-03-27", "test model", "");
+        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED, "2021-03-27", "test model", "", "");
     }
 }
