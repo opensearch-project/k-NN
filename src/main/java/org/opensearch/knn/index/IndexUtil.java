@@ -41,7 +41,7 @@ public class IndexUtil {
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER = Version.V_2_4_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED = Version.V_2_11_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_NODE_ASSIGNMENT = Version.V_2_12_0;
-    private static final Map<String, Version> minimalRequiredVersionMap = new HashMap<String, Version>() {
+    public static final Map<String, Version> minimalRequiredVersionMap = new HashMap<String, Version>() {
         {
             put("filter", MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER);
             put("ignore_unmapped", MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED);
