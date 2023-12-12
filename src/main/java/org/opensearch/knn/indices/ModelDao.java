@@ -287,6 +287,7 @@ public interface ModelDao {
                     put(KNNConstants.MODEL_TIMESTAMP, modelMetadata.getTimestamp());
                     put(KNNConstants.MODEL_DESCRIPTION, modelMetadata.getDescription());
                     put(KNNConstants.MODEL_ERROR, modelMetadata.getError());
+                    put(KNNConstants.MODEL_NODE_ASSIGNMENT, modelMetadata.getNodeAssignment());
                 }
             };
 

@@ -42,6 +42,7 @@ public class ModelCacheTests extends KNNTestCase {
                 ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
+                "",
                 ""
             ),
             "hello".getBytes(),
@@ -76,6 +77,7 @@ public class ModelCacheTests extends KNNTestCase {
                 dimension,
                 ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
                 "",
                 ""
             ),
@@ -133,6 +135,7 @@ public class ModelCacheTests extends KNNTestCase {
                 ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
+                "",
                 ""
             ),
             new byte[size1],
@@ -146,6 +149,7 @@ public class ModelCacheTests extends KNNTestCase {
                 dimension,
                 ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
                 "",
                 ""
             ),
@@ -189,6 +193,7 @@ public class ModelCacheTests extends KNNTestCase {
                 ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
+                "",
                 ""
             ),
             new byte[size1],
@@ -202,6 +207,7 @@ public class ModelCacheTests extends KNNTestCase {
                 dimension,
                 ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
                 "",
                 ""
             ),
@@ -250,6 +256,7 @@ public class ModelCacheTests extends KNNTestCase {
                 ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
+                "",
                 ""
             ),
             "hello".getBytes(),
@@ -293,6 +300,7 @@ public class ModelCacheTests extends KNNTestCase {
                 dimension,
                 ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
                 "",
                 ""
             ),
@@ -361,6 +369,7 @@ public class ModelCacheTests extends KNNTestCase {
                 ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
+                "",
                 ""
             ),
             new byte[modelSize1],
@@ -401,6 +410,7 @@ public class ModelCacheTests extends KNNTestCase {
                 ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
+                "",
                 ""
             ),
             new byte[modelSize1],
@@ -416,6 +426,7 @@ public class ModelCacheTests extends KNNTestCase {
                 dimension,
                 ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
                 "",
                 ""
             ),
@@ -460,6 +471,7 @@ public class ModelCacheTests extends KNNTestCase {
                     dimension,
                     ModelState.CREATED,
                     ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                    "",
                     "",
                     ""
                 ),

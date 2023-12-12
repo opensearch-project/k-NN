@@ -65,7 +65,8 @@ public class TrainingJob implements Runnable {
         NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext,
         NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext,
         int dimension,
-        String description
+        String description,
+        String nodeAssignment
     ) {
         // Generate random base64 string if one is not provided
         this.modelId = StringUtils.isNotBlank(modelId) ? modelId : UUIDs.randomBase64UUID();
@@ -81,7 +82,8 @@ public class TrainingJob implements Runnable {
                 ModelState.TRAINING,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 description,
-                ""
+                "",
+                nodeAssignment
             ),
             null,
             this.modelId

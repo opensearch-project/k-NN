@@ -163,6 +163,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             ModelState.CREATED,
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
+            "",
             ""
         );
         builder.modelId.setValue(modelId);
@@ -688,6 +689,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             dimension,
             ModelState.CREATED,
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
             "",
             ""
         );
