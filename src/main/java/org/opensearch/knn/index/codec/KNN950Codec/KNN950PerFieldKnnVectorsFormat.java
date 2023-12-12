@@ -28,6 +28,12 @@ public class KNN950PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat
     }
 
     @Override
+    /**
+     * This method returns the maximum dimension allowed from KNNEngine for Lucene codec
+     *
+     * @param fieldName Name of the field, ignored
+     * @return Maximum constant dimension set by KNNEngine
+     */
     public int getMaxDimensions(String fieldName) {
         return KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE);
     }
