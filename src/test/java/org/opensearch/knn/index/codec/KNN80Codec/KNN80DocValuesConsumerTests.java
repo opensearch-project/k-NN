@@ -341,7 +341,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         byte[] modelBytes = JNIService.trainIndex(parameters, dimension, trainingPtr, knnEngine.getName());
         Model model = new Model(
-            new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED, "timestamp", "Empty description", ""),
+            new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED, "timestamp", "Empty description", "", ""),
             modelBytes,
             modelId
         );

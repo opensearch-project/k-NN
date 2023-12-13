@@ -19,15 +19,14 @@ import org.opensearch.core.index.shard.ShardId;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.training.TrainingJob;
 import org.opensearch.knn.training.TrainingJobRunner;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
@@ -51,7 +50,7 @@ public class TrainingJobRouteDecisionInfoTransportActionTests extends KNNSingleN
     }
 
     @SuppressWarnings("unchecked")
-    public void testNodeOperation() throws IOException, InterruptedException {
+    public void testNodeOperation() throws IOException, InterruptedException, ExecutionException {
         // Ensure initial value of train job count is 0
         TrainingJobRouteDecisionInfoTransportAction action = node().injector()
             .getInstance(TrainingJobRouteDecisionInfoTransportAction.class);
@@ -64,12 +63,16 @@ public class TrainingJobRouteDecisionInfoTransportActionTests extends KNNSingleN
         // Setup mocked training job
         String modelId = "model-id";
         Model model = mock(Model.class);
+        ModelMetadata modelMetadata = mock(ModelMetadata.class);
+        when(modelMetadata.getState()).thenReturn(ModelState.TRAINING);
+        when(model.getModelMetadata()).thenReturn(modelMetadata);
         TrainingJob trainingJob = mock(TrainingJob.class);
         when(trainingJob.getModelId()).thenReturn(modelId);
         when(trainingJob.getModel()).thenReturn(model);
         doAnswer(invocationOnMock -> null).when(trainingJob).run();
 
         ModelDao modelDao = mock(ModelDao.class);
+        when(modelDao.get(modelId)).thenReturn(model);
 
         // Here we check to make sure there is a running job
         doAnswer(invocationOnMock -> {

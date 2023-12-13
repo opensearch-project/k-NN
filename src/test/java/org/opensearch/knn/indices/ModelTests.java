@@ -38,6 +38,7 @@ public class ModelTests extends KNNTestCase {
                     ModelState.FAILED,
                     ZonedDateTime.now(ZoneOffset.UTC).toString(),
                     "",
+                    "",
                     ""
                 ),
                 null,
@@ -57,6 +58,7 @@ public class ModelTests extends KNNTestCase {
                     ModelState.CREATED,
                     ZonedDateTime.now(ZoneOffset.UTC).toString(),
                     "",
+                    "",
                     ""
                 ),
                 new byte[16],
@@ -73,6 +75,7 @@ public class ModelTests extends KNNTestCase {
                     ModelState.CREATED,
                     ZonedDateTime.now(ZoneOffset.UTC).toString(),
                     "",
+                    "",
                     ""
                 ),
                 new byte[16],
@@ -88,6 +91,7 @@ public class ModelTests extends KNNTestCase {
                     KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT) + 1,
                     ModelState.CREATED,
                     ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                    "",
                     "",
                     ""
                 ),
@@ -106,6 +110,7 @@ public class ModelTests extends KNNTestCase {
             ModelState.CREATED,
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
+            "",
             ""
         );
         Model model = new Model(modelMetadata, new byte[16], "test-model");
@@ -121,6 +126,7 @@ public class ModelTests extends KNNTestCase {
                 2,
                 ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
                 "",
                 ""
             ),
@@ -140,6 +146,7 @@ public class ModelTests extends KNNTestCase {
                 ModelState.CREATED,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
+                "",
                 ""
             ),
             new byte[size],
@@ -155,6 +162,7 @@ public class ModelTests extends KNNTestCase {
                 ModelState.TRAINING,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
+                "",
                 ""
             ),
             null,
@@ -166,7 +174,16 @@ public class ModelTests extends KNNTestCase {
     public void testSetModelBlob() {
         byte[] blob1 = "Hello blob 1".getBytes();
         Model model = new Model(
-            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, ZonedDateTime.now(ZoneOffset.UTC).toString(), "", ""),
+            new ModelMetadata(
+                KNNEngine.DEFAULT,
+                SpaceType.L1,
+                2,
+                ModelState.CREATED,
+                ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
+                "",
+                ""
+            ),
             blob1,
             "test-model"
         );
@@ -182,17 +199,17 @@ public class ModelTests extends KNNTestCase {
         String time = ZonedDateTime.now(ZoneOffset.UTC).toString();
 
         Model model1 = new Model(
-            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, time, "", ""),
+            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, time, "", "", ""),
             new byte[16],
             "test-model-1"
         );
         Model model2 = new Model(
-            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, time, "", ""),
+            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, time, "", "", ""),
             new byte[16],
             "test-model-1"
         );
         Model model3 = new Model(
-            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 2, ModelState.CREATED, time, "", ""),
+            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 2, ModelState.CREATED, time, "", "", ""),
             new byte[16],
             "test-model-2"
         );
@@ -207,17 +224,17 @@ public class ModelTests extends KNNTestCase {
         String time = ZonedDateTime.now(ZoneOffset.UTC).toString();
 
         Model model1 = new Model(
-            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, time, "", ""),
+            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, time, "", "", ""),
             new byte[16],
             "test-model-1"
         );
         Model model2 = new Model(
-            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, time, "", ""),
+            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, time, "", "", ""),
             new byte[16],
             "test-model-1"
         );
         Model model3 = new Model(
-            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, time, "", ""),
+            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, time, "", "", ""),
             new byte[16],
             "test-model-2"
         );
@@ -236,8 +253,18 @@ public class ModelTests extends KNNTestCase {
         String timestamp = ZonedDateTime.now(ZoneOffset.UTC).toString();
         String description = "test-description";
         String error = "test-error";
+        String nodeAssignment = "test-node";
 
-        ModelMetadata metadata = new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error);
+        ModelMetadata metadata = new ModelMetadata(
+            knnEngine,
+            spaceType,
+            dimension,
+            modelState,
+            timestamp,
+            description,
+            error,
+            nodeAssignment
+        );
         Map<String, Object> modelAsMap = new HashMap<>();
         modelAsMap.put(KNNConstants.MODEL_ID, modelID);
         modelAsMap.put(KNNConstants.KNN_ENGINE, knnEngine.getName());
@@ -247,6 +274,7 @@ public class ModelTests extends KNNTestCase {
         modelAsMap.put(KNNConstants.MODEL_TIMESTAMP, timestamp);
         modelAsMap.put(KNNConstants.MODEL_DESCRIPTION, description);
         modelAsMap.put(KNNConstants.MODEL_ERROR, error);
+        modelAsMap.put(KNNConstants.MODEL_NODE_ASSIGNMENT, nodeAssignment);
         modelAsMap.put(KNNConstants.MODEL_BLOB_PARAMETER, "aGVsbG8=");
 
         byte[] blob1 = "hello".getBytes();

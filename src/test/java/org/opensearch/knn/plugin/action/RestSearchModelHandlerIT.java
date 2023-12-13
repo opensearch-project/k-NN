@@ -48,7 +48,7 @@ import static org.opensearch.knn.index.util.KNNEngine.FAISS;
 public class RestSearchModelHandlerIT extends KNNRestTestCase {
 
     private ModelMetadata getModelMetadata() {
-        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED, "2021-03-27", "test model", "");
+        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED, "2021-03-27", "test model", "", "");
     }
 
     public void testNotSupportedParams() throws IOException {
