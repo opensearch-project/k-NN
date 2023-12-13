@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.util;
 
 import com.google.common.collect.ImmutableSet;
-import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
@@ -40,7 +39,7 @@ public enum KNNEngine implements KNNLibrary {
         KNNEngine.FAISS,
         16_000,
         KNNEngine.LUCENE,
-        KnnVectorsFormat.DEFAULT_MAX_DIMENSIONS
+        16_000
     );
 
     /**
