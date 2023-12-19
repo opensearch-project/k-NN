@@ -55,7 +55,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
     private static int DOC_ID_TEST_MODEL_INDEX = 0;
     private static int DOC_ID_TEST_MODEL_INDEX_DEFAULT = 0;
     private static final int DELAY_MILLI_SEC = 1000;
-    private static final int EXP_NUM_OF_MODELS = 3;
+    private static final int EXP_NUM_OF_MODELS = 2;
     private static final int K = 5;
     private static final int NUM_DOCS = 10;
     private static final int NUM_DOCS_TEST_MODEL_INDEX = 100;
@@ -83,6 +83,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(testIndex, modelIndexMapping(TEST_FIELD, TEST_MODEL_ID));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
+            wait(1000);
             DOC_ID = NUM_DOCS;
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             QUERY_COUNT = 2 * NUM_DOCS;
@@ -115,6 +116,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(testIndex, modelIndexMapping(TEST_FIELD, TEST_MODEL_ID_DEFAULT));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
+            wait(1000);
             DOC_ID = NUM_DOCS;
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             QUERY_COUNT = 2 * NUM_DOCS;
@@ -146,12 +148,17 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
         testModelMetadata.setState(ModelState.TRAINING);
         if (isRunningAgainstOldCluster()) {
             addModelToSystemIndex(TEST_MODEL_ID_TRAINING, testModelMetadata, testModelBlob);
-        } else {
             String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, TEST_MODEL_ID_TRAINING);
             Request request = new Request("DELETE", restURI);
 
             ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
             assertEquals(RestStatus.CONFLICT.getStatus(), ex.getResponse().getStatusLine().getStatusCode());
+        } else {
+            wait(1000);
+            String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, TEST_MODEL_ID_TRAINING);
+            Request request = new Request("DELETE", restURI);
+            Response res = client().performRequest(request);
+            assertEquals(RestStatus.OK.getStatus(), res.getStatusLine().getStatusCode());
         }
     }
 
