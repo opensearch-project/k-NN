@@ -82,7 +82,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(testIndex, modelIndexMapping(TEST_FIELD, TEST_MODEL_ID));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
-            wait(1000);
+            Thread.sleep(1000);
             DOC_ID = NUM_DOCS;
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             QUERY_COUNT = 2 * NUM_DOCS;
@@ -115,7 +115,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(testIndex, modelIndexMapping(TEST_FIELD, TEST_MODEL_ID_DEFAULT));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
-            wait(1000);
+            Thread.sleep(1000);
             DOC_ID = NUM_DOCS;
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             QUERY_COUNT = 2 * NUM_DOCS;
@@ -147,6 +147,14 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             ModelMetadata testModelMetadata = getModelMetadata();
             testModelMetadata.setState(ModelState.TRAINING);
             addModelToSystemIndex(TEST_MODEL_ID_TRAINING, testModelMetadata, testModelBlob);
+
+            Response getResponse = getModel(TEST_MODEL_ID_TRAINING, null);
+            String responseBody = EntityUtils.toString(getResponse.getEntity());
+            assertNotNull(responseBody);
+
+            Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+            assertEquals(TEST_MODEL_ID_TRAINING, responseMap.get(MODEL_ID));
+
             String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, TEST_MODEL_ID_TRAINING);
             Request request = new Request("DELETE", restURI);
 
