@@ -151,9 +151,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, TEST_MODEL_ID_TRAINING);
             Request request = new Request("DELETE", restURI);
 
-            Response res = client().performRequest(request);
-            System.out.println(res);
-            logger.info(res);
+            Thread.sleep(600 * 1000);
 
             ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
             assertEquals(RestStatus.CONFLICT.getStatus(), ex.getResponse().getStatusLine().getStatusCode());
