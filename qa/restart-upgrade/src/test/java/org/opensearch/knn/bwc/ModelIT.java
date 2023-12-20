@@ -146,7 +146,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
 
             Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
             assertEquals(TEST_MODEL_ID_TRAINING, responseMap.get(MODEL_ID));
-            assertEquals(ModelState.TRAINING, responseMap.get(MODEL_STATE));
+            assertEquals(ModelState.TRAINING.toString(), responseMap.get(MODEL_STATE));
 
             String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, TEST_MODEL_ID_TRAINING);
             Request request = new Request("DELETE", restURI);
