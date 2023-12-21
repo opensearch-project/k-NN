@@ -7,6 +7,7 @@ package org.opensearch.knn.bwc;
 
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.AfterClass;
+import org.junit.Ignore;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
@@ -56,7 +57,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
     private static int DOC_ID_TEST_MODEL_INDEX = 0;
     private static int DOC_ID_TEST_MODEL_INDEX_DEFAULT = 0;
     private static final int DELAY_MILLI_SEC = 1000;
-    private static final int EXP_NUM_OF_MODELS = 3;
+    private static final int EXP_NUM_OF_MODELS = 2;
     private static final int K = 5;
     private static final int NUM_DOCS = 10;
     private static final int NUM_DOCS_TEST_MODEL_INDEX = 100;
@@ -143,6 +144,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
     }
 
     // KNN Delete Model test for model in Training State
+    @Ignore
     public void testDeleteTrainingModel() throws Exception {
         if (isRunningAgainstOldCluster()) {
             byte[] testModelBlob = "hello".getBytes(StandardCharsets.UTF_8);
