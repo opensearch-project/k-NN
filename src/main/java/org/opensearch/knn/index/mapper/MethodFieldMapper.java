@@ -34,7 +34,16 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         KNNMethodContext knnMethodContext
     ) {
 
-        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues);
+        super(
+            simpleName,
+            mappedFieldType,
+            multiFields,
+            copyTo,
+            ignoreMalformed,
+            stored,
+            hasDocValues,
+            knnMethodContext.getMethodComponentContext().getIndexVersion()
+        );
 
         this.knnMethod = knnMethodContext;
 

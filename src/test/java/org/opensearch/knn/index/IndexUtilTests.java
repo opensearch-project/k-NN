@@ -12,6 +12,7 @@
 package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.Version;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.metadata.MappingMetadata;
@@ -59,6 +60,7 @@ public class IndexUtilTests extends KNNTestCase {
         Settings settings = Settings.builder().loadFromMap(indexSettings).build();
         IndexMetadata indexMetadata = mock(IndexMetadata.class);
         when(indexMetadata.getSettings()).thenReturn(settings);
+        when(indexMetadata.getCreationVersion()).thenReturn(Version.CURRENT);
         Metadata metadata = mock(Metadata.class);
         when(metadata.index(anyString())).thenReturn(indexMetadata);
         ClusterState clusterState = mock(ClusterState.class);

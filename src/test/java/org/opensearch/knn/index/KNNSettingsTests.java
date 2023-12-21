@@ -132,6 +132,41 @@ public class KNNSettingsTests extends KNNTestCase {
         assertWarnings();
     }
 
+    @SneakyThrows
+    public void testGetEfSearch_whenNoValuesProvidedByUsers_thenDefaultSettingsUsed() {
+        Node mockNode = createMockNode(Collections.emptyMap());
+        mockNode.start();
+        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
+        mockNode.client().admin().cluster().state(new ClusterStateRequest()).actionGet();
+        mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME)).actionGet();
+        KNNSettings.state().setClusterService(clusterService);
+
+        Integer efSearchValue = KNNSettings.getEfSearchParam(INDEX_NAME);
+        mockNode.close();
+        assertEquals(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH, efSearchValue);
+        assertWarnings();
+    }
+
+    @SneakyThrows
+    public void testGetEfSearch_whenEFSearchValueSetByUser_thenReturnValue() {
+        int userProvidedEfSearch = 300;
+        Node mockNode = createMockNode(Collections.emptyMap());
+        mockNode.start();
+        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
+        mockNode.client().admin().cluster().state(new ClusterStateRequest()).actionGet();
+        final Settings settings = Settings.builder()
+            .put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, userProvidedEfSearch)
+            .put(KNNSettings.KNN_INDEX, true)
+            .build();
+        mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME, settings)).actionGet();
+        KNNSettings.state().setClusterService(clusterService);
+
+        int efSearchValue = KNNSettings.getEfSearchParam(INDEX_NAME);
+        mockNode.close();
+        assertEquals(userProvidedEfSearch, efSearchValue);
+        assertWarnings();
+    }
+
     private Node createMockNode(Map<String, Object> configSettings) throws IOException {
         Path configDir = createTempDir();
         File configFile = configDir.resolve("opensearch.yml").toFile();
