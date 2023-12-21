@@ -7,10 +7,12 @@ package org.opensearch.knn.index.mapper;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.FieldType;
+import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
@@ -47,9 +49,10 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
         boolean hasDocValues,
         String spaceType,
         String m,
-        String efConstruction
+        String efConstruction,
+        Version indexCreatedVersion
     ) {
-        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues);
+        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues, indexCreatedVersion);
 
         this.spaceType = spaceType;
         this.m = m;
@@ -70,7 +73,9 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
 
     @Override
     public ParametrizedFieldMapper.Builder getMergeBuilder() {
-        return new KNNVectorFieldMapper.Builder(simpleName(), this.spaceType, this.m, this.efConstruction).init(this);
+        return new KNNVectorFieldMapper.Builder(simpleName(), this.spaceType, this.m, this.efConstruction, this.indexCreatedVersion).init(
+            this
+        );
     }
 
     static String getSpaceType(Settings indexSettings) {
@@ -103,17 +108,19 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
         return m;
     }
 
-    static String getEfConstruction(Settings indexSettings) {
-        String efConstruction = indexSettings.get(KNNSettings.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING.getKey());
+    static String getEfConstruction(Settings indexSettings, Version indexVersion) {
+        final String efConstruction = indexSettings.get(KNNSettings.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING.getKey());
         if (efConstruction == null) {
+            final String defaultEFConstructionValue = String.valueOf(IndexHyperParametersUtil.getHNSWEFConstructionValue(indexVersion));
             log.info(
                 String.format(
-                    "[KNN] The setting \"%s\" was not set for the index. Likely caused by recent version upgrade. Setting the setting to the default value=%s",
+                    "[KNN] The setting \"%s\" was not set for the index. Likely caused by recent version upgrade. "
+                        + "Picking up default value for the index =%s",
                     HNSW_ALGO_EF_CONSTRUCTION,
-                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION
+                    defaultEFConstructionValue
                 )
             );
-            return String.valueOf(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION);
+            return defaultEFConstructionValue;
         }
         return efConstruction;
     }

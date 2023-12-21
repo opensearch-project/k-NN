@@ -47,7 +47,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
                 String.format("Cannot read field type for field [%s] because mapper service is not available", field)
             )
         ).fieldType(field);
-        var params = type.getKnnMethodContext().getMethodComponent().getParameters();
+        var params = type.getKnnMethodContext().getMethodComponentContext().getParameters();
         int maxConnections = getMaxConnections(params);
         int beamWidth = getBeamWidth(params);
         log.debug(

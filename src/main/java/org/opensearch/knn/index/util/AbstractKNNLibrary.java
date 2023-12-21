@@ -35,22 +35,24 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
 
     @Override
     public ValidationException validateMethod(KNNMethodContext knnMethodContext) {
-        String methodName = knnMethodContext.getMethodComponent().getName();
+        String methodName = knnMethodContext.getMethodComponentContext().getName();
         return getMethod(methodName).validate(knnMethodContext);
     }
 
     @Override
     public boolean isTrainingRequired(KNNMethodContext knnMethodContext) {
-        String methodName = knnMethodContext.getMethodComponent().getName();
+        String methodName = knnMethodContext.getMethodComponentContext().getName();
         return getMethod(methodName).isTrainingRequired(knnMethodContext);
     }
 
     @Override
     public Map<String, Object> getMethodAsMap(KNNMethodContext knnMethodContext) {
-        KNNMethod knnMethod = methods.get(knnMethodContext.getMethodComponent().getName());
+        KNNMethod knnMethod = methods.get(knnMethodContext.getMethodComponentContext().getName());
 
         if (knnMethod == null) {
-            throw new IllegalArgumentException(String.format("Invalid method name: %s", knnMethodContext.getMethodComponent().getName()));
+            throw new IllegalArgumentException(
+                String.format("Invalid method name: %s", knnMethodContext.getMethodComponentContext().getName())
+            );
         }
 
         return knnMethod.getAsMap(knnMethodContext);

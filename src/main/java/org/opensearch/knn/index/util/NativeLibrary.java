@@ -62,7 +62,7 @@ abstract class NativeLibrary extends AbstractKNNLibrary {
 
     @Override
     public int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension) {
-        String methodName = knnMethodContext.getMethodComponent().getName();
+        String methodName = knnMethodContext.getMethodComponentContext().getName();
         return getMethod(methodName).estimateOverheadInKB(knnMethodContext, dimension);
     }
 

@@ -66,7 +66,7 @@ public class KNNMethodContextTests extends KNNTestCase {
     public void testGetMethodComponent() {
         MethodComponentContext methodComponent = new MethodComponentContext("test-method", Collections.emptyMap());
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponent);
-        assertEquals(methodComponent, knnMethodContext.getMethodComponent());
+        assertEquals(methodComponent, knnMethodContext.getMethodComponentContext());
     }
 
     /**
@@ -275,7 +275,7 @@ public class KNNMethodContextTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        assertTrue(knnMethodContext.getMethodComponent().getParameters().isEmpty());
+        assertTrue(knnMethodContext.getMethodComponentContext().getParameters().isEmpty());
     }
 
     /**
@@ -291,8 +291,8 @@ public class KNNMethodContextTests extends KNNTestCase {
 
         assertEquals(KNNEngine.DEFAULT, knnMethodContext.getKnnEngine());
         assertEquals(SpaceType.DEFAULT, knnMethodContext.getSpaceType());
-        assertEquals(methodName, knnMethodContext.getMethodComponent().getName());
-        assertTrue(knnMethodContext.getMethodComponent().getParameters().isEmpty());
+        assertEquals(methodName, knnMethodContext.getMethodComponentContext().getName());
+        assertTrue(knnMethodContext.getMethodComponentContext().getParameters().isEmpty());
 
         // Method with parameters
         String methodParameterKey1 = "p-1";
@@ -311,8 +311,8 @@ public class KNNMethodContextTests extends KNNTestCase {
         in = xContentBuilderToMap(xContentBuilder);
         knnMethodContext = KNNMethodContext.parse(in);
 
-        assertEquals(methodParameterValue1, knnMethodContext.getMethodComponent().getParameters().get(methodParameterKey1));
-        assertEquals(methodParameterValue2, knnMethodContext.getMethodComponent().getParameters().get(methodParameterKey2));
+        assertEquals(methodParameterValue1, knnMethodContext.getMethodComponentContext().getParameters().get(methodParameterKey1));
+        assertEquals(methodParameterValue2, knnMethodContext.getMethodComponentContext().getParameters().get(methodParameterKey2));
 
         // Method with parameter that is a method context paramet
 
@@ -330,12 +330,12 @@ public class KNNMethodContextTests extends KNNTestCase {
         in = xContentBuilderToMap(xContentBuilder);
         knnMethodContext = KNNMethodContext.parse(in);
 
-        assertTrue(knnMethodContext.getMethodComponent().getParameters().get(methodParameterKey1) instanceof MethodComponentContext);
+        assertTrue(knnMethodContext.getMethodComponentContext().getParameters().get(methodParameterKey1) instanceof MethodComponentContext);
         assertEquals(
             methodParameterValue1,
-            ((MethodComponentContext) knnMethodContext.getMethodComponent().getParameters().get(methodParameterKey1)).getName()
+            ((MethodComponentContext) knnMethodContext.getMethodComponentContext().getParameters().get(methodParameterKey1)).getName()
         );
-        assertEquals(methodParameterValue2, knnMethodContext.getMethodComponent().getParameters().get(methodParameterKey2));
+        assertEquals(methodParameterValue2, knnMethodContext.getMethodComponentContext().getParameters().get(methodParameterKey2));
     }
 
     /**

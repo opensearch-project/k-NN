@@ -8,6 +8,7 @@ package org.opensearch.knn.index;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchParseException;
+import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
@@ -21,6 +22,7 @@ import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.IndexModule;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManagerDto;
+import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
 
@@ -80,8 +82,8 @@ public class KNNSettings {
      */
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE = "l2";
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_M = 16;
-    public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH = 512;
-    public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION = 512;
+    public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH = 100;
+    public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION = 100;
     public static final Integer KNN_DEFAULT_ALGO_PARAM_INDEX_THREAD_QTY = 1;
     public static final Integer KNN_DEFAULT_CIRCUIT_BREAKER_UNSET_PERCENTAGE = 75;
     public static final Integer KNN_DEFAULT_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE = 10; // By default, set aside 10% of the JVM for the limit
@@ -447,11 +449,12 @@ public class KNNSettings {
      * @return efSearch value
      */
     public static int getEfSearchParam(String index) {
-        return KNNSettings.state().clusterService.state()
-            .getMetadata()
-            .index(index)
-            .getSettings()
-            .getAsInt(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 512);
+        final IndexMetadata indexMetadata = KNNSettings.state().clusterService.state().getMetadata().index(index);
+        return indexMetadata.getSettings()
+            .getAsInt(
+                KNNSettings.KNN_ALGO_PARAM_EF_SEARCH,
+                IndexHyperParametersUtil.getHNSWEFSearchValue(indexMetadata.getCreationVersion())
+            );
     }
 
     public void setClusterService(ClusterService clusterService) {
