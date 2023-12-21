@@ -11,10 +11,14 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import org.junit.BeforeClass;
+import org.mockito.MockedStatic;
+import org.opensearch.Version;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
@@ -23,7 +27,21 @@ import org.opensearch.knn.indices.ModelState;
 
 import java.io.IOException;
 
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
+
 public class GetModelResponseTests extends KNNTestCase {
+
+    private static MockedStatic<KNNClusterUtil> knnClusterUtilMockedStatic;
+
+    @BeforeClass
+    public static void setup() {
+        final KNNClusterUtil knnClusterUtil = mock(KNNClusterUtil.class);
+        knnClusterUtilMockedStatic = mockStatic(KNNClusterUtil.class);
+        when(knnClusterUtil.getClusterMinVersion()).thenReturn(Version.CURRENT);
+        knnClusterUtilMockedStatic.when(KNNClusterUtil::instance).thenReturn(knnClusterUtil);
+    }
 
     private ModelMetadata getModelMetadata(ModelState state) {
         return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, state, "2021-03-27 10:15:30 AM +05:30", "test model", "", "");
