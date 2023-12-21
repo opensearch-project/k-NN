@@ -39,6 +39,11 @@ public class KNNTestCase extends OpenSearchTestCase {
     public void setUp() throws Exception {
         super.setUp();
         openMocks = MockitoAnnotations.openMocks(this);
+        // This is required to make sure that before every test we are initializing the KNNSettings. Not doing this
+        // leads to failures of unit tests cases when a unit test is run separately. Try running this test:
+        // ./gradlew ':test' --tests "org.opensearch.knn.training.TrainingJobTests.testRun_success" and see it fails
+        // but if run along with other tests this test passes.
+        initKNNSettings();
     }
 
     @Override
@@ -53,7 +58,14 @@ public class KNNTestCase extends OpenSearchTestCase {
         for (KNNCounter knnCounter : KNNCounter.values()) {
             knnCounter.set(0L);
         }
+        initKNNSettings();
 
+        // Clean up the cache
+        NativeMemoryCacheManager.getInstance().invalidateAll();
+        NativeMemoryCacheManager.getInstance().close();
+    }
+
+    private void initKNNSettings() {
         Set<Setting<?>> defaultClusterSettings = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
         defaultClusterSettings.addAll(
             KNNSettings.state()
@@ -64,10 +76,6 @@ public class KNNTestCase extends OpenSearchTestCase {
         );
         when(clusterService.getClusterSettings()).thenReturn(new ClusterSettings(Settings.EMPTY, defaultClusterSettings));
         KNNSettings.state().setClusterService(clusterService);
-
-        // Clean up the cache
-        NativeMemoryCacheManager.getInstance().invalidateAll();
-        NativeMemoryCacheManager.getInstance().close();
     }
 
     public Map<String, Object> xContentBuilderToMap(XContentBuilder xContentBuilder) {
