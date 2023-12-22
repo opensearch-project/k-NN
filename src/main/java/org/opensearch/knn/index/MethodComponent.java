@@ -12,9 +12,11 @@
 package org.opensearch.knn.index;
 
 import lombok.Getter;
+import org.opensearch.Version;
 import org.opensearch.common.TriFunction;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -296,11 +298,24 @@ public class MethodComponent {
     ) {
         Map<String, Object> parametersWithDefaultsMap = new HashMap<>();
         Map<String, Object> userProvidedParametersMap = methodComponentContext.getParameters();
+        Version indexCreationVersion = methodComponentContext.getIndexVersion();
         for (Parameter<?> parameter : methodComponent.getParameters().values()) {
             if (methodComponentContext.getParameters().containsKey(parameter.getName())) {
                 parametersWithDefaultsMap.put(parameter.getName(), userProvidedParametersMap.get(parameter.getName()));
             } else {
-                parametersWithDefaultsMap.put(parameter.getName(), parameter.getDefaultValue());
+                // Picking the right values for the parameters whose values are different based on different index
+                // created version.
+                if (parameter.getName().equals(KNNConstants.METHOD_PARAMETER_EF_SEARCH)) {
+                    parametersWithDefaultsMap.put(parameter.getName(), IndexHyperParametersUtil.getHNSWEFSearchValue(indexCreationVersion));
+                } else if (parameter.getName().equals(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION)) {
+                    parametersWithDefaultsMap.put(
+                        parameter.getName(),
+                        IndexHyperParametersUtil.getHNSWEFConstructionValue(indexCreationVersion)
+                    );
+                } else {
+                    parametersWithDefaultsMap.put(parameter.getName(), parameter.getDefaultValue());
+                }
+
             }
         }
 

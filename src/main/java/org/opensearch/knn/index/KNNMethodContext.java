@@ -63,7 +63,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     @NonNull
     private final SpaceType spaceType;
     @NonNull
-    private final MethodComponentContext methodComponent;
+    private final MethodComponentContext methodComponentContext;
 
     /**
      * Constructor from stream.
@@ -74,7 +74,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     public KNNMethodContext(StreamInput in) throws IOException {
         this.knnEngine = KNNEngine.getEngine(in.readString());
         this.spaceType = SpaceType.getSpace(in.readString());
-        this.methodComponent = new MethodComponentContext(in);
+        this.methodComponentContext = new MethodComponentContext(in);
     }
 
     /**
@@ -198,7 +198,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.field(KNN_ENGINE, knnEngine.getName());
         builder.field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
-        builder = methodComponent.toXContent(builder, params);
+        builder = methodComponentContext.toXContent(builder, params);
         return builder;
     }
 
@@ -211,20 +211,20 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         EqualsBuilder equalsBuilder = new EqualsBuilder();
         equalsBuilder.append(knnEngine, other.knnEngine);
         equalsBuilder.append(spaceType, other.spaceType);
-        equalsBuilder.append(methodComponent, other.methodComponent);
+        equalsBuilder.append(methodComponentContext, other.methodComponentContext);
 
         return equalsBuilder.isEquals();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(knnEngine).append(spaceType).append(methodComponent).toHashCode();
+        return new HashCodeBuilder().append(knnEngine).append(spaceType).append(methodComponentContext).toHashCode();
     }
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         out.writeString(knnEngine.getName());
         out.writeString(spaceType.getValue());
-        this.methodComponent.writeTo(out);
+        this.methodComponentContext.writeTo(out);
     }
 }

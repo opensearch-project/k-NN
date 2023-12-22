@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.util;
 
+import org.opensearch.Version;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
@@ -48,6 +49,7 @@ public class FaissTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 
         Map<String, Object> map = Faiss.INSTANCE.getMethodAsMap(knnMethodContext);
 
@@ -76,6 +78,7 @@ public class FaissTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 
         Map<String, Object> map = Faiss.INSTANCE.getMethodAsMap(knnMethodContext);
 

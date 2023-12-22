@@ -12,8 +12,9 @@
 package org.opensearch.knn.training;
 
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.Version;
+import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
@@ -24,6 +25,7 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.jni.JNIService;
 
 import java.io.File;
 import java.io.IOException;
@@ -38,6 +40,16 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 
 public class TrainingJobTests extends KNNTestCase {
+
+    private final String trainingIndexName = "trainingindexname";
+
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        DiscoveryNode mockedDiscoveryNode = mock(DiscoveryNode.class);
+        when(clusterService.localNode()).thenReturn(mockedDiscoveryNode);
+        when(mockedDiscoveryNode.getVersion()).thenReturn(Version.CURRENT);
+    }
 
     public void testGetModelId() {
         String modelId = "test-model-id";
@@ -149,6 +161,8 @@ public class TrainingJobTests extends KNNTestCase {
             NativeMemoryEntryContext.TrainingDataEntryContext.class
         );
         when(trainingDataEntryContext.getKey()).thenReturn(tdataKey);
+        when(trainingDataEntryContext.getTrainIndexName()).thenReturn(trainingIndexName);
+        when(trainingDataEntryContext.getClusterService()).thenReturn(clusterService);
 
         when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
         doAnswer(invocationOnMock -> {

@@ -267,6 +267,113 @@ public class FaissIT extends KNNRestTestCase {
         fail("Graphs are not getting evicted");
     }
 
+    @SneakyThrows
+    public void testEndToEnd_whenMethodIsHNSWPQAndHyperParametersNotSet_thenSucceed() {
+        String indexName = "test-index";
+        String fieldName = "test-field";
+        String trainingIndexName = "training-index";
+        String trainingFieldName = "training-field";
+
+        String modelId = "test-model";
+        String modelDescription = "test model";
+
+        List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
+        List<Integer> pqMValues = ImmutableList.of(2, 4, 8);
+
+        // training data needs to be at least equal to the number of centroids for PQ
+        // which is 2^8 = 256. 8 because thats the only valid code_size for HNSWPQ
+        int trainingDataCount = 256;
+
+        SpaceType spaceType = SpaceType.L2;
+
+        Integer dimension = testData.indexData.vectors[0].length;
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_PQ)
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_M, pqMValues.get(random().nextInt(pqMValues.size())))
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, in, trainingDataCount);
+        assertTrainingSucceeds(modelId, 360, 1000);
+
+        // Create an index
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("model_id", modelId)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        String mapping = builder.toString();
+
+        createKnnIndex(indexName, mapping);
+        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
+
+        // Index the test data
+        for (int i = 0; i < testData.indexData.docs.length; i++) {
+            addKnnDoc(
+                indexName,
+                Integer.toString(testData.indexData.docs[i]),
+                fieldName,
+                Floats.asList(testData.indexData.vectors[i]).toArray()
+            );
+        }
+
+        // Assert we have the right number of documents in the index
+        refreshAllNonSystemIndices();
+        assertEquals(testData.indexData.docs.length, getDocCount(indexName));
+
+        int k = 10;
+        for (int i = 0; i < testData.queries.length; i++) {
+            Response response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, testData.queries[i], k), k);
+            String responseBody = EntityUtils.toString(response.getEntity());
+            List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
+            assertEquals(k, knnResults.size());
+
+            List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName);
+            for (int j = 0; j < k; j++) {
+                float[] primitiveArray = Floats.toArray(Arrays.stream(knnResults.get(j).getVector()).collect(Collectors.toList()));
+                assertEquals(
+                    KNNEngine.FAISS.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), spaceType),
+                    actualScores.get(j),
+                    0.0001
+                );
+            }
+        }
+
+        // Delete index
+        deleteKNNIndex(indexName);
+        deleteModel(modelId);
+
+        // Search every 5 seconds 14 times to confirm graph gets evicted
+        int intervals = 14;
+        for (int i = 0; i < intervals; i++) {
+            if (getTotalGraphsInCache() == 0) {
+                return;
+            }
+
+            Thread.sleep(5 * 1000);
+        }
+
+        fail("Graphs are not getting evicted");
+    }
+
     public void testDocUpdate() throws IOException {
         String indexName = "test-index-1";
         String fieldName = "test-field-1";

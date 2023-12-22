@@ -93,7 +93,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testBuilder_getParameters() {
         String fieldName = "test-field-name";
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(fieldName, modelDao);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(fieldName, modelDao, CURRENT);
 
         assertEquals(7, builder.getParameters().size());
         List<String> actualParams = builder.getParameters().stream().map(a -> a.name).collect(Collectors.toList());
@@ -104,7 +104,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testBuilder_build_fromKnnMethodContext() {
         // Check that knnMethodContext takes precedent over both model and legacy
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT);
 
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int m = 17;
@@ -141,7 +141,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testBuilder_build_fromModel() {
         // Check that modelContext takes precedent over legacy
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT);
 
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int m = 17;
@@ -179,7 +179,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testBuilder_build_fromLegacy() {
         // Check legacy is picked up if model context and method context are not set
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT);
 
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int m = 17;
@@ -237,10 +237,10 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         builder.build(builderContext);
 
-        assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponent().getName());
+        assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponentContext().getName());
         assertEquals(
             efConstruction,
-            builder.knnMethodContext.get().getMethodComponent().getParameters().get(METHOD_PARAMETER_EF_CONSTRUCTION)
+            builder.knnMethodContext.get().getMethodComponentContext().getParameters().get(METHOD_PARAMETER_EF_CONSTRUCTION)
         );
         assertTrue(KNNEngine.LUCENE.isInitialized());
 
@@ -260,8 +260,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             buildParserContext(indexName, settings)
         );
 
-        assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponent().getName());
-        assertTrue(builderEmptyParams.knnMethodContext.get().getMethodComponent().getParameters().isEmpty());
+        assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponentContext().getName());
+        assertTrue(builderEmptyParams.knnMethodContext.get().getMethodComponentContext().getParameters().isEmpty());
 
         XContentBuilder xContentBuilderUnsupportedParam = XContentFactory.jsonBuilder()
             .startObject()
@@ -485,10 +485,10 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             buildParserContext(indexName, settings)
         );
 
-        assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponent().getName());
+        assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponentContext().getName());
         assertEquals(
             efConstruction,
-            builder.knnMethodContext.get().getMethodComponent().getParameters().get(METHOD_PARAMETER_EF_CONSTRUCTION)
+            builder.knnMethodContext.get().getMethodComponentContext().getParameters().get(METHOD_PARAMETER_EF_CONSTRUCTION)
         );
 
         // Test invalid parameter
