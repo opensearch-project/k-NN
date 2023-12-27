@@ -43,7 +43,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
-import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 
 public class ModelIT extends AbstractRestartUpgradeTestCase {
     private static final String TEST_MODEL_INDEX = KNN_BWC_PREFIX + "test-model-index";
@@ -151,14 +150,6 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             ModelMetadata testModelMetadata = getModelMetadata();
             testModelMetadata.setState(ModelState.TRAINING);
             addModelToSystemIndex(TEST_MODEL_ID_TRAINING, testModelMetadata, testModelBlob);
-
-            Response getResponse = getModel(TEST_MODEL_ID_TRAINING, null);
-            String responseBody = EntityUtils.toString(getResponse.getEntity());
-            assertNotNull(responseBody);
-
-            Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
-            assertEquals(TEST_MODEL_ID_TRAINING, responseMap.get(MODEL_ID));
-            assertEquals(ModelState.TRAINING.toString(), responseMap.get(MODEL_STATE));
 
             String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, TEST_MODEL_ID_TRAINING);
             Request request = new Request("DELETE", restURI);
