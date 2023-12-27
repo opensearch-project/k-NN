@@ -79,7 +79,7 @@ list(APPEND TARGET_LIBS ${TARGET_LIB_COMMON})
 # ---------------------------------- NMSLIB ----------------------------------
 if (${CONFIG_NMSLIB} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} STREQUAL ON)
     # Check if nmslib exists
-    find_path(NMS_REPO_DIR NAMES similarity_search PATHS ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib)
+    find_path(NMS_REPO_DIR NAMES similarity_search PATHS ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib NO_DEFAULT_PATH)
 
     # If not, pull the updated submodule
     if (NOT EXISTS ${NMS_REPO_DIR})
@@ -134,13 +134,25 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
     find_package(LAPACK REQUIRED)
 
     # Check if faiss exists
-    find_path(FAISS_REPO_DIR NAMES faiss PATHS ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss)
+    find_path(FAISS_REPO_DIR NAMES faiss PATHS ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss NO_DEFAULT_PATH)
 
     # If not, pull the updated submodule
     if (NOT EXISTS ${FAISS_REPO_DIR})
         message(STATUS "Could not find faiss. Pulling updated submodule.")
         execute_process(COMMAND git submodule update --init -- external/faiss WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     endif ()
+
+    # Check if patch exist, this is to skip git apply during CI build. See CI.yml with ubuntu.
+    find_path(PATCH_FILE NAMES 0001-Custom-patch-to-support-multi-vector.patch PATHS ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss NO_DEFAULT_PATH)
+
+    # If it exists, apply patches
+    if (EXISTS ${PATCH_FILE})
+        message(STATUS "Applying custom patches.")
+        execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace --3way ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0001-Custom-patch-to-support-multi-vector.patch WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ERROR_VARIABLE ERROR_MSG RESULT_VARIABLE RESULT_CODE)
+        if(RESULT_CODE)
+            message(FATAL_ERROR "Failed to apply patch:\n${ERROR_MSG}")
+        endif()
+    endif()
 
     set(FAISS_ENABLE_GPU OFF)
     set(FAISS_ENABLE_PYTHON OFF)
