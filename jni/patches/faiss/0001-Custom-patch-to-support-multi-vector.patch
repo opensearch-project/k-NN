@@ -1,4 +1,4 @@
-From 70c9b5d6408bb85fd1503002d29f9428fe0d48dc Mon Sep 17 00:00:00 2001
+From baa7e23c54637d68adac45f09633939b402405a9 Mon Sep 17 00:00:00 2001
 From: Heemin Kim <heemin@amazon.com>
 Date: Wed, 6 Dec 2023 16:33:52 -0800
 Subject: [PATCH] Custom patch to support multi-vector
@@ -259,7 +259,7 @@ index 00000000..a0489fd6
 +} // namespace faiss
 diff --git a/faiss/impl/ResultCollectorFactory.h b/faiss/impl/ResultCollectorFactory.h
 new file mode 100644
-index 00000000..70918266
+index 00000000..b460b20b
 --- /dev/null
 +++ b/faiss/impl/ResultCollectorFactory.h
 @@ -0,0 +1,33 @@
@@ -277,7 +277,7 @@ index 00000000..70918266
 +/** ResultCollectorFactory to create a ResultCollector object */
 +struct ResultCollectorFactory {
 +    DefaultCollector default_collector;
-+    const std::vector<int64_t>* id_map;
++    const std::vector<int64_t>* id_map = nullptr;
 +
 +    // Create a new ResultCollector object
 +    virtual ResultCollector* new_collector() {
