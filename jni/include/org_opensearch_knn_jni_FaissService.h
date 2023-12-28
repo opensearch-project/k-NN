@@ -48,7 +48,7 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex
  * Signature: (J[FI)[Lorg/opensearch/knn/index/query/KNNQueryResult;
  */
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryIndex
-  (JNIEnv *, jclass, jlong, jfloatArray, jint);
+  (JNIEnv *, jclass, jlong, jfloatArray, jint, jintArray);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
@@ -56,7 +56,7 @@ JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryInd
  * Signature: (J[FI[J)[Lorg/opensearch/knn/index/query/KNNQueryResult;
  */
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryIndexWithFilter
-  (JNIEnv *, jclass, jlong, jfloatArray, jint, jintArray);
+  (JNIEnv *, jclass, jlong, jfloatArray, jint, jintArray, jintArray);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
