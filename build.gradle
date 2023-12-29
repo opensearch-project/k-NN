@@ -4,8 +4,9 @@
  */
 
 import org.opensearch.gradle.test.RestIntegTestTask
+import org.opensearch.gradle.testclusters.OpenSearchCluster
 import org.apache.tools.ant.taskdefs.condition.Os
-
+import java.nio.file.Paths
 import java.util.concurrent.Callable
 
 buildscript {
@@ -58,6 +59,7 @@ plugins {
     id 'idea'
     id "com.diffplug.spotless" version "6.20.0" apply false
     id 'io.freefair.lombok' version '8.4'
+    id "de.undercouch.download" version "5.3.0"
 }
 
 apply from: 'gradle/formatting.gradle'
@@ -66,8 +68,66 @@ apply plugin: 'opensearch.rest-test'
 apply plugin: 'opensearch.pluginzip'
 apply plugin: 'opensearch.repositories'
 
+
+def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absoluteFile
+opensearch_tmp_dir.mkdirs()
+
 ext {
     projectSubstitutions = [:]
+
+    configureSecurityPlugin = { OpenSearchCluster cluster ->
+        configurations.zipArchive.asFileTree.each {
+            cluster.plugin(provider(new Callable<RegularFile>() {
+                @Override
+                RegularFile call() throws Exception {
+                    return new RegularFile() {
+                        @Override
+                        File getAsFile() {
+                            return it
+                        }
+                    }
+                }
+            }))
+        }
+
+        cluster.getNodes().forEach { node ->
+            var creds = node.getCredentials()
+            if (creds.isEmpty()) {
+                creds.add(Map.of('username', 'admin', 'password', 'admin'))
+            } else {
+                creds.get(0).putAll(Map.of('username', 'admin', 'password', 'admin'))
+            }
+        }
+
+        // Config below including files are copied from security demo configuration
+        ['esnode.pem', 'esnode-key.pem', 'root-ca.pem'].forEach { file ->
+            File local = Paths.get(opensearch_tmp_dir.absolutePath, file).toFile()
+            download.run {
+                src "https://raw.githubusercontent.com/opensearch-project/security/main/bwc-test/src/test/resources/security/" + file
+                dest local
+                overwrite false
+            }
+            cluster.extraConfigFile(file, local)
+        }
+
+        cluster.setting("plugins.security.ssl.transport.pemcert_filepath", "esnode.pem")
+        cluster.setting("plugins.security.ssl.transport.pemkey_filepath", "esnode-key.pem")
+        cluster.setting("plugins.security.ssl.transport.pemtrustedcas_filepath", "root-ca.pem")
+        cluster.setting("plugins.security.ssl.transport.enforce_hostname_verification", "false")
+        cluster.setting("plugins.security.ssl.http.enabled", "true")
+        cluster.setting("plugins.security.ssl.http.pemcert_filepath", "esnode.pem")
+        cluster.setting("plugins.security.ssl.http.pemkey_filepath", "esnode-key.pem")
+        cluster.setting("plugins.security.ssl.http.pemtrustedcas_filepath", "root-ca.pem")
+        cluster.setting("plugins.security.allow_unsafe_democertificates", "true")
+        cluster.setting("plugins.security.allow_default_init_securityindex", "true")
+        cluster.setting("plugins.security.unsupported.inject_user.enabled", "true")
+
+        cluster.setting("plugins.security.authcz.admin_dn", "\n- CN=kirk,OU=client,O=client,L=test, C=de")
+        cluster.setting('plugins.security.restapi.roles_enabled', '["all_access", "security_rest_api_access"]')
+        cluster.setting('plugins.security.system_indices.enabled', "true")
+        cluster.setting('plugins.security.system_indices.indices', '[".plugins-ml-config", ".plugins-ml-connector", ".plugins-ml-model-group", ".plugins-ml-model", ".plugins-ml-task", ".plugins-ml-conversation-meta", ".plugins-ml-conversation-interactions", ".opendistro-alerting-config", ".opendistro-alerting-alert*", ".opendistro-anomaly-results*", ".opendistro-anomaly-detector*", ".opendistro-anomaly-checkpoints", ".opendistro-anomaly-detection-state", ".opendistro-reports-*", ".opensearch-notifications-*", ".opensearch-notebooks", ".opensearch-observability", ".ql-datasources", ".opendistro-asynchronous-search-response*", ".replication-metadata-store", ".opensearch-knn-models", ".geospatial-ip2geo-data*"]')
+        cluster.setSecure(true)
+    }
 }
 
 allprojects {
@@ -204,10 +264,6 @@ dependencies {
     zipArchive group: 'org.opensearch.plugin', name:'opensearch-security', version: "${opensearch_build}"
 }
 
-
-def opensearch_tmp_dir = rootProject.file('build/private/opensearch_tmp').absoluteFile
-opensearch_tmp_dir.mkdirs()
-
 task windowsPatches(type:Exec) {
     commandLine 'cmd', '/c', "Powershell -File $rootDir\\scripts\\windowsScript.ps1"
 }
@@ -252,13 +308,13 @@ integTest {
     // allows integration test classes to access test resource from project root path
     systemProperty('project.root', project.rootDir.absolutePath)
 
-    systemProperty("tests.opensearch.https", "true")
-    systemProperty("tests.opensearch.username", "admin")
-    systemProperty("tests.opensearch.password", "admin")
-
-//    systemProperty "https", System.getProperty("https")
-//    systemProperty "user", System.getProperty("user")
-//    systemProperty "password", System.getProperty("password")
+    if (System.getProperty("security.enabled") != null) {
+        // These need to be set for configuring the rest client
+        systemProperty("https", "true")
+        systemProperty("secure", "true")
+        systemProperty("user", "admin")
+        systemProperty("password", "admin")
+    }
 
     doFirst {
         // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
@@ -269,10 +325,6 @@ integTest {
         systemProperty 'cluster.number_of_nodes', "${_numNodes}"
         // There seems to be an issue when running multi node run or integ tasks with unicast_hosts
         // not being written, the waitForAllConditions ensures it's written
-
-
-
-
         getClusters().forEach { cluster ->
             cluster.waitForAllConditions()
         }
@@ -289,52 +341,7 @@ testClusters.integTest {
 
     // Optionally install security
     if (System.getProperty("security.enabled") != null) {
-        configurations.zipArchive.asFileTree.each {
-            plugin(provider(new Callable<RegularFile>() {
-                @Override
-                RegularFile call() throws Exception {
-                    return new RegularFile() {
-                        @Override
-                        File getAsFile() {
-                            return it
-                        }
-                    }
-                }
-            }))
-        }
-
-//        systemProperty("tests.opensearch.https", "true")
-//        systemProperty("tests.opensearch.username", "admin")
-//        systemProperty("tests.opensearch.password", "admin")
-
-        systemProperty("secure", "true")
-        systemProperty("username", "admin")
-        systemProperty("password", "admin")
-
-        extraConfigFile("admin-cert.pem", new File("$rootDir/src/test/resources/security/admin-cert.pem"))
-        extraConfigFile("node-cert.pem", new File("$rootDir/src/test/resources/security/node-cert.pem"))
-        extraConfigFile("node-key.pem", new File("$rootDir/src/test/resources/security/node-key.pem"))
-        extraConfigFile("root-ca.pem", new File("$rootDir/src/test/resources/security/root-ca.pem"))
-
-        setting("plugins.security.ssl.transport.pemcert_filepath", "node-cert.pem")
-        setting("plugins.security.ssl.transport.pemkey_filepath", "node-key.pem")
-        setting("plugins.security.ssl.transport.pemtrustedcas_filepath", "root-ca.pem")
-        setting("plugins.security.ssl.transport.enforce_hostname_verification", "false")
-        setting("plugins.security.ssl.http.enabled", "true")
-        setting("plugins.security.ssl.http.pemcert_filepath", "node-cert.pem")
-        setting("plugins.security.ssl.http.pemkey_filepath", "node-key.pem")
-        setting("plugins.security.ssl.http.pemtrustedcas_filepath", "root-ca.pem")
-        setting("plugins.security.allow_unsafe_democertificates", "true")
-        setting("plugins.security.allow_default_init_securityindex", "true")
-        //setting("plugins.security.unsupported.inject_user.enabled", "true")
-
-
-        setting("plugins.security.authcz.admin_dn", "\n- CN=admin,OU=client,O=client,L=test, C=de")
-        setting('plugins.security.restapi.roles_enabled', '["all_access", "security_rest_api_access"]')
-        setting('plugins.security.system_indices.enabled', "true")
-        setting('plugins.security.system_indices.indices', '[".plugins-ml-config", ".plugins-ml-connector", ".plugins-ml-model-group", ".plugins-ml-model", ".plugins-ml-task", ".plugins-ml-conversation-meta", ".plugins-ml-conversation-interactions", ".opendistro-alerting-config", ".opendistro-alerting-alert*", ".opendistro-anomaly-results*", ".opendistro-anomaly-detector*", ".opendistro-anomaly-checkpoints", ".opendistro-anomaly-detection-state", ".opendistro-reports-*", ".opensearch-notifications-*", ".opensearch-notebooks", ".opensearch-observability", ".ql-datasources", ".opendistro-asynchronous-search-response*", ".replication-metadata-store", ".opensearch-knn-models", ".geospatial-ip2geo-data*"]')
-
-        setSecure(true)
+        configureSecurityPlugin(testClusters.integTest)
     }
 
     plugin(project.tasks.bundlePlugin.archiveFile)
