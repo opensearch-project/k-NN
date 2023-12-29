@@ -110,6 +110,8 @@ ext {
             cluster.extraConfigFile(file, local)
         }
 
+        // This configuration is copied from the security plugins demo install:
+        // https://github.com/opensearch-project/security/blob/2.11.1.0/tools/install_demo_configuration.sh#L365-L388
         cluster.setting("plugins.security.ssl.transport.pemcert_filepath", "esnode.pem")
         cluster.setting("plugins.security.ssl.transport.pemkey_filepath", "esnode-key.pem")
         cluster.setting("plugins.security.ssl.transport.pemtrustedcas_filepath", "root-ca.pem")

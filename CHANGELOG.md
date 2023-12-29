@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Properly designate model state for actively training models when nodes crash or leave cluster [#1317](https://github.com/opensearch-project/k-NN/pull/1317)
 ### Infrastructure
 * Upgrade gradle to 8.4 [1289](https://github.com/opensearch-project/k-NN/pull/1289)
-* Refactor security testing to install from individual components [#1317](https://github.com/opensearch-project/k-NN/pull/1307)
+* Refactor security testing to install from individual components [#1307](https://github.com/opensearch-project/k-NN/pull/1307)
 ### Documentation
 ### Maintenance
 * Update developer guide to include M1 Setup [#1222](https://github.com/opensearch-project/k-NN/pull/1222)

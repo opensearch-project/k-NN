@@ -278,19 +278,21 @@ Then, to access the cluster, we can run
 curl https://localhost:9200 --insecure -u admin:admin
 
 {
-  "name" : "runTask-0",
-  "cluster_name" : "runTask",
-  "cluster_uuid" : "oX_S6cxGSgOr_mNnUxO6yQ",
+  "name" : "integTest-0",
+  "cluster_name" : "integTest",
+  "cluster_uuid" : "kLsNk4JDTMyp1yQRqog-3g",
   "version" : {
-    "number" : "1.0.0-SNAPSHOT",
+    "distribution" : "opensearch",
+    "number" : "3.0.0-SNAPSHOT",
     "build_type" : "tar",
-    "build_hash" : "0ba0e7cc26060f964fcbf6ee45bae53b3a9941d0",
-    "build_date" : "2021-04-16T19:45:44.248303Z",
+    "build_hash" : "9d85e566894ef53e5f2093618b3d455e4d0a04ce",
+    "build_date" : "2023-10-30T18:34:06.996519Z",
     "build_snapshot" : true,
-    "lucene_version" : "8.7.0",
-    "minimum_wire_compatibility_version" : "6.8.0",
-    "minimum_index_compatibility_version" : "6.0.0-beta1"
-  }
+    "lucene_version" : "9.8.0",
+    "minimum_wire_compatibility_version" : "2.12.0",
+    "minimum_index_compatibility_version" : "2.0.0"
+  },
+  "tagline" : "The OpenSearch Project: https://opensearch.org/"
 }
 ```
 
