@@ -264,6 +264,36 @@ curl localhost:9200
   }
 }
 ```
+
+Additionally, it is also possible to run a cluster with security enabled:
+```shell script
+./gradlew run -Dsecurity.enabled=true -Dhttps=true -Duser=admin -Dpassword=admin
+```
+
+By default, if `-Dsecurity.enabled=true` is passed the following defaults will be used: `https=true`, `user=admin` and
+`password=admin`.
+
+Then, to access the cluster, we can run
+```bash
+curl https://localhost:9200 --insecure -u admin:admin
+
+{
+  "name" : "runTask-0",
+  "cluster_name" : "runTask",
+  "cluster_uuid" : "oX_S6cxGSgOr_mNnUxO6yQ",
+  "version" : {
+    "number" : "1.0.0-SNAPSHOT",
+    "build_type" : "tar",
+    "build_hash" : "0ba0e7cc26060f964fcbf6ee45bae53b3a9941d0",
+    "build_date" : "2021-04-16T19:45:44.248303Z",
+    "build_snapshot" : true,
+    "lucene_version" : "8.7.0",
+    "minimum_wire_compatibility_version" : "6.8.0",
+    "minimum_index_compatibility_version" : "6.0.0-beta1"
+  }
+}
+```
+
 ### Run Multi-node Cluster Locally
 
 It can be useful to test and debug on a multi-node cluster. In order to launch a 3 node cluster with the KNN plugin installed, run the following command:
@@ -272,10 +302,15 @@ It can be useful to test and debug on a multi-node cluster. In order to launch a
 ./gradlew run -PnumNodes=3
 ```
 
-In order to run the integration tests with a 3 node cluster, run this command:
+In order to run the integration tests, run this command:
 
 ```
 ./gradlew :integTest -PnumNodes=3
+```
+
+Additionally, to run integration tests with security enabled, run
+```
+./gradlew :integTest -Dsecurity.enabled=true -PnumNodes=3
 ```
 
 Integration tests can be run with remote cluster. For that run the following command and replace host/port/cluster name values with ones for the target cluster:

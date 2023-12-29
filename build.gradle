@@ -125,7 +125,30 @@ ext {
         cluster.setting("plugins.security.authcz.admin_dn", "\n- CN=kirk,OU=client,O=client,L=test, C=de")
         cluster.setting('plugins.security.restapi.roles_enabled', '["all_access", "security_rest_api_access"]')
         cluster.setting('plugins.security.system_indices.enabled', "true")
-        cluster.setting('plugins.security.system_indices.indices', '[".plugins-ml-config", ".plugins-ml-connector", ".plugins-ml-model-group", ".plugins-ml-model", ".plugins-ml-task", ".plugins-ml-conversation-meta", ".plugins-ml-conversation-interactions", ".opendistro-alerting-config", ".opendistro-alerting-alert*", ".opendistro-anomaly-results*", ".opendistro-anomaly-detector*", ".opendistro-anomaly-checkpoints", ".opendistro-anomaly-detection-state", ".opendistro-reports-*", ".opensearch-notifications-*", ".opensearch-notebooks", ".opensearch-observability", ".ql-datasources", ".opendistro-asynchronous-search-response*", ".replication-metadata-store", ".opensearch-knn-models", ".geospatial-ip2geo-data*"]')
+        cluster.setting('plugins.security.system_indices.indices', '[' +
+                '".plugins-ml-config", ' +
+                '".plugins-ml-connector", ' +
+                '".plugins-ml-model-group", ' +
+                '".plugins-ml-model", ".plugins-ml-task", ' +
+                '".plugins-ml-conversation-meta", ' +
+                '".plugins-ml-conversation-interactions", ' +
+                '".opendistro-alerting-config", ' +
+                '".opendistro-alerting-alert*", ' +
+                '".opendistro-anomaly-results*", ' +
+                '".opendistro-anomaly-detector*", ' +
+                '".opendistro-anomaly-checkpoints", ' +
+                '".opendistro-anomaly-detection-state", ' +
+                '".opendistro-reports-*", ' +
+                '".opensearch-notifications-*", ' +
+                '".opensearch-notebooks", ' +
+                '".opensearch-observability", ' +
+                '".ql-datasources", ' +
+                '".opendistro-asynchronous-search-response*", ' +
+                '".replication-metadata-store", ' +
+                '".opensearch-knn-models", ' +
+                '".geospatial-ip2geo-data*"' +
+                ']'
+        )
         cluster.setSecure(true)
     }
 }
@@ -308,13 +331,18 @@ integTest {
     // allows integration test classes to access test resource from project root path
     systemProperty('project.root', project.rootDir.absolutePath)
 
+    var is_https = System.getProperty("https")
+    var user = System.getProperty("user")
+    var password = System.getProperty("password")
     if (System.getProperty("security.enabled") != null) {
-        // These need to be set for configuring the rest client
-        systemProperty("https", "true")
-        systemProperty("secure", "true")
-        systemProperty("user", "admin")
-        systemProperty("password", "admin")
+        // If security is enabled, set is_https/user/password defaults
+        is_https = is_https == null ? "true" : is_https
+        user = user == null ? "admin" : user
+        password = password == null ? "admin" : password
     }
+    systemProperty("https", is_https)
+    systemProperty("user", user)
+    systemProperty("password", password)
 
     doFirst {
         // Tell the test JVM if the cluster JVM is running under a debugger so that tests can
