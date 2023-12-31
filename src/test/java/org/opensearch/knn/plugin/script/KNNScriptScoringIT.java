@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin.script;
 
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.index.SpaceType;
@@ -25,9 +26,11 @@ import org.opensearch.script.Script;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.hamcrest.Matchers.containsString;
@@ -449,7 +452,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         params1.put("field", FIELD_NAME);
         params1.put("query_value", queryValue1);
         params1.put("space_type", SpaceType.HAMMING_BIT.getValue());
-        Request request1 = constructKNNScriptQueryRequest(INDEX_NAME, qb1, params1, 4);
+        Request request1 = constructKNNScriptQueryRequest(INDEX_NAME, qb1, params1, 4, Collections.emptyMap());
         Response response1 = client().performRequest(request1);
         assertEquals(request1.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response1.getStatusLine().getStatusCode()));
 
@@ -487,7 +490,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         params2.put("field", FIELD_NAME);
         params2.put("query_value", queryValue2);
         params2.put("space_type", SpaceType.HAMMING_BIT.getValue());
-        Request request2 = constructKNNScriptQueryRequest(INDEX_NAME, qb2, params2, 4);
+        Request request2 = constructKNNScriptQueryRequest(INDEX_NAME, qb2, params2, 4, Collections.emptyMap());
         Response response2 = client().performRequest(request2);
         assertEquals(request2.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response2.getStatusLine().getStatusCode()));
 
@@ -555,7 +558,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         params1.put("field", FIELD_NAME);
         params1.put("query_value", queryValue1);
         params1.put("space_type", SpaceType.HAMMING_BIT.getValue());
-        Request request1 = constructKNNScriptQueryRequest(INDEX_NAME, qb1, params1, 4);
+        Request request1 = constructKNNScriptQueryRequest(INDEX_NAME, qb1, params1, 4, Collections.emptyMap());
         Response response1 = client().performRequest(request1);
         assertEquals(request1.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response1.getStatusLine().getStatusCode()));
 
@@ -593,7 +596,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         params2.put("field", FIELD_NAME);
         params2.put("query_value", queryValue2);
         params2.put("space_type", SpaceType.HAMMING_BIT.getValue());
-        Request request2 = constructKNNScriptQueryRequest(INDEX_NAME, qb2, params2, 4);
+        Request request2 = constructKNNScriptQueryRequest(INDEX_NAME, qb2, params2, 4, Collections.emptyMap());
         Response response2 = client().performRequest(request2);
         assertEquals(request2.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response2.getStatusLine().getStatusCode()));
 
@@ -672,5 +675,111 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         assertEquals("2", results.get(1).getDocId());
         assertEquals("4", results.get(2).getDocId());
         assertEquals("1", results.get(3).getDocId());
+    }
+
+    public void testKNNScriptScoreWithRequestCacheEnabled() throws Exception {
+        /*
+         * Create knn index and populate data
+         */
+        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        Float[] f1 = { 6.0f, 6.0f };
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, f1);
+
+        Float[] f2 = { 2.0f, 2.0f };
+        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, f2);
+
+        Float[] f3 = { 4.0f, 4.0f };
+        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, f3);
+
+        Float[] f4 = { 3.0f, 3.0f };
+        addKnnDoc(INDEX_NAME, "4", FIELD_NAME, f4);
+
+        /**
+         * Construct Search Request
+         */
+        QueryBuilder qb = new MatchAllQueryBuilder();
+        Map<String, Object> scriptParams = new HashMap<>();
+        /*
+         *   params": {
+         *       "field": "my_dense_vector",
+         *       "vector": [2.0, 2.0]
+         *      }
+         */
+        float[] queryVector = { 1.0f, 1.0f };
+        scriptParams.put("field", FIELD_NAME);
+        scriptParams.put("query_value", queryVector);
+        scriptParams.put("space_type", SpaceType.L2.getValue());
+        Map<String, Object> searchParams = new HashMap<>();
+        searchParams.put("request_cache", true);
+
+        // first request with request cache enabled
+        Request firstScriptQueryRequest = constructKNNScriptQueryRequest(INDEX_NAME, qb, scriptParams, 4, searchParams);
+        Response firstScriptQueryResponse = client().performRequest(firstScriptQueryRequest);
+        assertEquals(
+            firstScriptQueryRequest.getEndpoint() + ": failed",
+            RestStatus.OK,
+            RestStatus.fromCode(firstScriptQueryResponse.getStatusLine().getStatusCode())
+        );
+
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(firstScriptQueryResponse.getEntity()), FIELD_NAME);
+        List<String> expectedDocids = Arrays.asList("2", "4", "3", "1");
+
+        List<String> actualDocids = new ArrayList<>();
+        for (KNNResult result : results) {
+            actualDocids.add(result.getDocId());
+        }
+
+        assertEquals(4, results.size());
+        assertEquals(expectedDocids, actualDocids);
+
+        // assert that the request cache was hit missed at first request
+        Request firstStatsRequest = new Request("GET", "/" + INDEX_NAME + "/_stats");
+        Response firstStatsResponse = client().performRequest(firstStatsRequest);
+        assertEquals(
+            firstStatsRequest.getEndpoint() + ": failed",
+            RestStatus.OK,
+            RestStatus.fromCode(firstStatsResponse.getStatusLine().getStatusCode())
+        );
+        String firstStatsResponseBody = EntityUtils.toString(firstStatsResponse.getEntity());
+        Map<String, Object> firstQueryCacheMap = Optional.ofNullable(
+            createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), firstStatsResponseBody).map()
+        )
+            .map(r -> (Map<String, Object>) r.get("indices"))
+            .map(i -> (Map<String, Object>) i.get(INDEX_NAME))
+            .map(ind -> (Map<String, Object>) ind.get("total"))
+            .map(t -> (Map<String, Object>) t.get("request_cache"))
+            .orElseThrow(() -> new IllegalStateException("Query Cache Map not found"));
+        // assert that the request cache was hit missed at first request
+        assertEquals(1, firstQueryCacheMap.get("miss_count"));
+        assertEquals(0, firstQueryCacheMap.get("hit_count"));
+
+        // second request with request cache enabled
+        Request secondScriptQueryRequest = constructKNNScriptQueryRequest(INDEX_NAME, qb, scriptParams, 4, searchParams);
+        Response secondScriptQueryResponse = client().performRequest(secondScriptQueryRequest);
+        assertEquals(
+            firstScriptQueryRequest.getEndpoint() + ": failed",
+            RestStatus.OK,
+            RestStatus.fromCode(secondScriptQueryResponse.getStatusLine().getStatusCode())
+        );
+
+        Request secondStatsRequest = new Request("GET", "/" + INDEX_NAME + "/_stats");
+        Response secondStatsResponse = client().performRequest(secondStatsRequest);
+        assertEquals(
+            secondStatsRequest.getEndpoint() + ": failed",
+            RestStatus.OK,
+            RestStatus.fromCode(secondStatsResponse.getStatusLine().getStatusCode())
+        );
+        String secondStatsResponseBody = EntityUtils.toString(secondStatsResponse.getEntity());
+        Map<String, Object> secondQueryCacheMap = Optional.ofNullable(
+            createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), secondStatsResponseBody).map()
+        )
+            .map(r -> (Map<String, Object>) r.get("indices"))
+            .map(i -> (Map<String, Object>) i.get(INDEX_NAME))
+            .map(ind -> (Map<String, Object>) ind.get("total"))
+            .map(t -> (Map<String, Object>) t.get("request_cache"))
+            .orElseThrow(() -> new IllegalStateException("Query Cache Map not found"));
+        assertEquals(1, secondQueryCacheMap.get("miss_count"));
+        // assert that the request cache was hit at second request
+        assertEquals(1, secondQueryCacheMap.get("hit_count"));
     }
 }
