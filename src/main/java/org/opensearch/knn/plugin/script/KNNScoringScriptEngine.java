@@ -39,7 +39,7 @@ public class KNNScoringScriptEngine implements ScriptEngine {
             KNNCounter.SCRIPT_COMPILATION_ERRORS.increment();
             throw new IllegalArgumentException("Unknown script name " + code);
         }
-        ScoreScript.Factory factory = KNNScoreScriptFactory::new;
+        ScoreScript.Factory factory = new KNNScoreScriptFactory();
         return context.factoryClazz.cast(factory);
     }
 
