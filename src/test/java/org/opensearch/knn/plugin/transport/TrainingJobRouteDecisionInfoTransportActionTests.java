@@ -51,8 +51,6 @@ public class TrainingJobRouteDecisionInfoTransportActionTests extends KNNSingleN
 
     @SuppressWarnings("unchecked")
     public void testNodeOperation() throws IOException, InterruptedException, ExecutionException {
-        ensureGreen();
-
         // Ensure initial value of train job count is 0
         TrainingJobRouteDecisionInfoTransportAction action = node().injector()
             .getInstance(TrainingJobRouteDecisionInfoTransportAction.class);
