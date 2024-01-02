@@ -32,18 +32,21 @@ struct BitSet {
  * bitmap: 10001000 00000100
  *
  * for next_set_bit call with 4
- * 1. it looks for bitmap[0]
- * 2. bitmap[0] >> 4
+ * 1. it looks for words[0]
+ * 2. words[0] >> 4
  * 3. count trailing zero of the result from step 2 which is 3
  * 4. return 4(current index) + 3(result from step 3)
  */
 struct FixedBitSet : public BitSet {
-    // Length of bitmap
-    size_t numBits;
+    // The number of bits in use
+    idx_t num_bits;
 
-    // Pointer to an array of uint64_t
+    // The exact number of longs needed to hold num_bits
+    size_t num_words;
+
+    // Array of uint64_t holding the bits
     // Using uint64_t to leverage function __builtin_ctzll which is defined in faiss/impl/platform_macros.h
-    uint64_t* bitmap;
+    uint64_t* words;
 
     FixedBitSet(const int* int_array, const int length);
     idx_t next_set_bit(idx_t index) const;
