@@ -11,7 +11,6 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.junit.BeforeClass;
 import org.mockito.MockedStatic;
 import org.opensearch.Version;
 import org.opensearch.common.io.stream.BytesStreamOutput;
@@ -33,16 +32,6 @@ import static org.mockito.Mockito.when;
 
 public class GetModelResponseTests extends KNNTestCase {
 
-    private static MockedStatic<KNNClusterUtil> knnClusterUtilMockedStatic;
-
-    @BeforeClass
-    public static void setup() {
-        final KNNClusterUtil knnClusterUtil = mock(KNNClusterUtil.class);
-        knnClusterUtilMockedStatic = mockStatic(KNNClusterUtil.class);
-        when(knnClusterUtil.getClusterMinVersion()).thenReturn(Version.CURRENT);
-        knnClusterUtilMockedStatic.when(KNNClusterUtil::instance).thenReturn(knnClusterUtil);
-    }
-
     private ModelMetadata getModelMetadata(ModelState state) {
         return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, state, "2021-03-27 10:15:30 AM +05:30", "test model", "", "");
     }
@@ -59,25 +48,35 @@ public class GetModelResponseTests extends KNNTestCase {
     }
 
     public void testXContent() throws IOException {
-        String modelId = "test-model";
-        byte[] testModelBlob = "hello".getBytes();
-        Model model = new Model(getModelMetadata(ModelState.CREATED), testModelBlob, modelId);
-        GetModelResponse getModelResponse = new GetModelResponse(model);
-        String expectedResponseString =
-            "{\"model_id\":\"test-model\",\"model_blob\":\"aGVsbG8=\",\"state\":\"created\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\",\"training_node_assignment\":\"\"}";
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
-        getModelResponse.toXContent(xContentBuilder, null);
-        assertEquals(expectedResponseString, xContentBuilder.toString());
+        try (MockedStatic<KNNClusterUtil> knnClusterUtilMockedStatic = mockStatic(KNNClusterUtil.class)) {
+            final KNNClusterUtil knnClusterUtil = mock(KNNClusterUtil.class);
+            when(knnClusterUtil.getClusterMinVersion()).thenReturn(Version.CURRENT);
+            knnClusterUtilMockedStatic.when(KNNClusterUtil::instance).thenReturn(knnClusterUtil);
+            String modelId = "test-model";
+            byte[] testModelBlob = "hello".getBytes();
+            Model model = new Model(getModelMetadata(ModelState.CREATED), testModelBlob, modelId);
+            GetModelResponse getModelResponse = new GetModelResponse(model);
+            String expectedResponseString =
+                "{\"model_id\":\"test-model\",\"model_blob\":\"aGVsbG8=\",\"state\":\"created\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\",\"training_node_assignment\":\"\"}";
+            XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
+            getModelResponse.toXContent(xContentBuilder, null);
+            assertEquals(expectedResponseString, xContentBuilder.toString());
+        }
     }
 
     public void testXContentWithNoModelBlob() throws IOException {
-        String modelId = "test-model";
-        Model model = new Model(getModelMetadata(ModelState.FAILED), null, modelId);
-        GetModelResponse getModelResponse = new GetModelResponse(model);
-        String expectedResponseString =
-            "{\"model_id\":\"test-model\",\"model_blob\":\"\",\"state\":\"failed\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\",\"training_node_assignment\":\"\"}";
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
-        getModelResponse.toXContent(xContentBuilder, null);
-        assertEquals(expectedResponseString, xContentBuilder.toString());
+        try (MockedStatic<KNNClusterUtil> knnClusterUtilMockedStatic = mockStatic(KNNClusterUtil.class)) {
+            final KNNClusterUtil knnClusterUtil = mock(KNNClusterUtil.class);
+            when(knnClusterUtil.getClusterMinVersion()).thenReturn(Version.CURRENT);
+            knnClusterUtilMockedStatic.when(KNNClusterUtil::instance).thenReturn(knnClusterUtil);
+            String modelId = "test-model";
+            Model model = new Model(getModelMetadata(ModelState.FAILED), null, modelId);
+            GetModelResponse getModelResponse = new GetModelResponse(model);
+            String expectedResponseString =
+                "{\"model_id\":\"test-model\",\"model_blob\":\"\",\"state\":\"failed\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\",\"training_node_assignment\":\"\"}";
+            XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
+            getModelResponse.toXContent(xContentBuilder, null);
+            assertEquals(expectedResponseString, xContentBuilder.toString());
+        }
     }
 }
