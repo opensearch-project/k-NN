@@ -7,11 +7,9 @@ package org.opensearch.knn.bwc;
 
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.AfterClass;
-import org.junit.Ignore;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
-import org.opensearch.client.ResponseException;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentParser;
@@ -25,7 +23,6 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -139,23 +136,6 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             deleteKNNIndex(testIndex);
             deleteKNNIndex(TRAINING_INDEX_DEFAULT);
             deleteKNNIndex(TEST_MODEL_INDEX_DEFAULT);
-        }
-    }
-
-    // KNN Delete Model test for model in Training State
-    @Ignore
-    public void testDeleteTrainingModel() throws Exception {
-        if (isRunningAgainstOldCluster()) {
-            byte[] testModelBlob = "hello".getBytes(StandardCharsets.UTF_8);
-            ModelMetadata testModelMetadata = getModelMetadata();
-            testModelMetadata.setState(ModelState.TRAINING);
-            addModelToSystemIndex(TEST_MODEL_ID_TRAINING, testModelMetadata, testModelBlob);
-
-            String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, TEST_MODEL_ID_TRAINING);
-            Request request = new Request("DELETE", restURI);
-
-            ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-            assertEquals(RestStatus.CONFLICT.getStatus(), ex.getResponse().getStatusLine().getStatusCode());
         }
     }
 
