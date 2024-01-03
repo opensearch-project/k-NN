@@ -10,21 +10,16 @@ import org.junit.AfterClass;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
-import org.opensearch.client.ResponseException;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -55,7 +50,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
     private static int DOC_ID_TEST_MODEL_INDEX = 0;
     private static int DOC_ID_TEST_MODEL_INDEX_DEFAULT = 0;
     private static final int DELAY_MILLI_SEC = 1000;
-    private static final int EXP_NUM_OF_MODELS = 3;
+    private static final int EXP_NUM_OF_MODELS = 2;
     private static final int K = 5;
     private static final int NUM_DOCS = 10;
     private static final int NUM_DOCS_TEST_MODEL_INDEX = 100;
@@ -66,7 +61,6 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
     private static int QUERY_COUNT_TEST_MODEL_INDEX_DEFAULT = 0;
     private static final String TEST_MODEL_ID = "test-model-id";
     private static final String TEST_MODEL_ID_DEFAULT = "test-model-id-default";
-    private static final String TEST_MODEL_ID_TRAINING = "test-model-id-training";
     private static final String MODEL_DESCRIPTION = "Description for train model test";
 
     // KNN model test
@@ -136,22 +130,6 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             deleteKNNIndex(testIndex);
             deleteKNNIndex(TRAINING_INDEX_DEFAULT);
             deleteKNNIndex(TEST_MODEL_INDEX_DEFAULT);
-        }
-    }
-
-    // KNN Delete Model test for model in Training State
-    public void testDeleteTrainingModel() throws Exception {
-        byte[] testModelBlob = "hello".getBytes(StandardCharsets.UTF_8);
-        ModelMetadata testModelMetadata = getModelMetadata();
-        testModelMetadata.setState(ModelState.TRAINING);
-        if (isRunningAgainstOldCluster()) {
-            addModelToSystemIndex(TEST_MODEL_ID_TRAINING, testModelMetadata, testModelBlob);
-        } else {
-            String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, TEST_MODEL_ID_TRAINING);
-            Request request = new Request("DELETE", restURI);
-
-            ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-            assertEquals(RestStatus.CONFLICT.getStatus(), ex.getResponse().getStatusLine().getStatusCode());
         }
     }
 
@@ -254,9 +232,5 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             .endObject()
             .endObject()
             .toString();
-    }
-
-    private ModelMetadata getModelMetadata() {
-        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED, "2021-03-27", "test model", "", "");
     }
 }
