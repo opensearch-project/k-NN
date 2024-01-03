@@ -68,11 +68,12 @@ def query_task_only_vector_search(train_vectors, trained_dis_vector, hdf5Data_te
             nearest_indices = np.argpartition(dists, k)[:k]
             for idx in nearest_indices:
                 distances.append({
-                    "dis": 0,
+                    "dis": dists[idx],
                     "id": idx
                 })
             print("Total time to taken for getting top k neighbors is :", timeit.default_timer() - starttime)
-            allDistances[i] = distances
+            sorted_distance = sorted(distances, key=lambda d: d['dis'])
+            allDistances[i] = sorted_distance
             i = i + 1
     except:
         print(
