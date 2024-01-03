@@ -22,7 +22,6 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
@@ -56,7 +55,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -76,15 +74,10 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
-import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
-import static org.opensearch.knn.common.KNNConstants.MODEL_NODE_ASSIGNMENT;
-import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.NAME;
@@ -762,33 +755,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
         if (!systemIndexExists(MODEL_INDEX_NAME)) {
             createIndex(MODEL_INDEX_NAME, Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).build(), mapping);
         }
-    }
-
-    protected void addModelToSystemIndex(String modelId, ModelMetadata modelMetadata, byte[] model) throws IOException {
-        assertFalse(org.opensearch.core.common.Strings.isNullOrEmpty(modelId));
-        String modelBase64 = Base64.getEncoder().encodeToString(model);
-
-        Request request = new Request("POST", "/" + MODEL_INDEX_NAME + "/_doc/" + modelId + "?refresh=true");
-
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(MODEL_ID, modelId)
-            .field(MODEL_STATE, modelMetadata.getState().getName())
-            .field(KNN_ENGINE, modelMetadata.getKnnEngine().getName())
-            .field(METHOD_PARAMETER_SPACE_TYPE, modelMetadata.getSpaceType().getValue())
-            .field(DIMENSION, modelMetadata.getDimension())
-            .field(MODEL_BLOB_PARAMETER, modelBase64)
-            .field(MODEL_TIMESTAMP, modelMetadata.getTimestamp())
-            .field(MODEL_DESCRIPTION, modelMetadata.getDescription())
-            .field(MODEL_ERROR, modelMetadata.getError())
-            .field(MODEL_NODE_ASSIGNMENT, modelMetadata.getNodeAssignment())
-            .endObject();
-
-        request.setJsonEntity(builder.toString());
-
-        Response response = client().performRequest(request);
-
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.CREATED, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
 
     /**
