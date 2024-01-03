@@ -158,9 +158,21 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
     set(FAISS_ENABLE_PYTHON OFF)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/faiss EXCLUDE_FROM_ALL)
 
-    add_library(${TARGET_LIB_FAISS} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_FaissService.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/faiss_wrapper.cpp)
+    add_library(
+        ${TARGET_LIB_FAISS} SHARED
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_FaissService.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/faiss_wrapper.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/knn_extension/faiss/utils/BitSet.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/knn_extension/faiss/MultiVectorResultCollector.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/knn_extension/faiss/MultiVectorResultCollectorFactory.cpp)
     target_link_libraries(${TARGET_LIB_FAISS} faiss ${TARGET_LIB_COMMON} OpenMP::OpenMP_CXX)
-    target_include_directories(${TARGET_LIB_FAISS} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE} ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss)
+    target_include_directories(${TARGET_LIB_FAISS} PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/knn_extension/faiss
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/knn_extension/faiss/utils
+        $ENV{JAVA_HOME}/include
+        $ENV{JAVA_HOME}/include/${JVM_OS_TYPE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss)
     set_target_properties(${TARGET_LIB_FAISS} PROPERTIES SUFFIX ${LIB_EXT})
     set_target_properties(${TARGET_LIB_FAISS} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -198,7 +210,12 @@ if ("${WIN32}" STREQUAL "")
                 jni_test
                 tests/faiss_wrapper_test.cpp
                 tests/nmslib_wrapper_test.cpp
-                tests/test_util.cpp)
+                tests/test_util.cpp
+                tests/knn_extension/faiss/utils/BitSetTest.cpp
+                tests/knn_extension/faiss/utils/HeapTest.cpp
+                tests/knn_extension/faiss/MultiVectorResultCollectorTest.cpp
+                tests/knn_extension/faiss/MultiVectorResultCollectorFactoryTest.cpp
+                )
 
         target_link_libraries(
                 jni_test
