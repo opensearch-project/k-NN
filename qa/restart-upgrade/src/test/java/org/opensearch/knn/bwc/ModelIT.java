@@ -77,6 +77,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(testIndex, modelIndexMapping(TEST_FIELD, TEST_MODEL_ID));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
+            Thread.sleep(1000);
             DOC_ID = NUM_DOCS;
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             QUERY_COUNT = 2 * NUM_DOCS;
@@ -109,6 +110,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
             createKnnIndex(testIndex, modelIndexMapping(TEST_FIELD, TEST_MODEL_ID_DEFAULT));
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
         } else {
+            Thread.sleep(1000);
             DOC_ID = NUM_DOCS;
             addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, NUM_DOCS);
             QUERY_COUNT = 2 * NUM_DOCS;
