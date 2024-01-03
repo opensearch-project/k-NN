@@ -15,6 +15,7 @@ import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.core.rest.RestStatus;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -107,7 +108,7 @@ public class ScriptScoringIT extends AbstractRestartUpgradeTestCase {
         params.put(QUERY_VALUE, queryVector);
         params.put(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue());
 
-        Request request = constructKNNScriptQueryRequest(testIndex, qb, params, k);
+        Request request = constructKNNScriptQueryRequest(testIndex, qb, params, k, Collections.emptyMap());
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 

@@ -155,7 +155,15 @@ public class PainlessScriptIT extends KNNRestTestCase {
     private Request buildPainlessScoreScriptRequest(String source, int size, Map<String, Float[]> documents) throws Exception {
         buildTestIndex(documents);
         QueryBuilder qb = new MatchAllQueryBuilder();
-        return constructScriptScoreContextSearchRequest(INDEX_NAME, qb, Collections.emptyMap(), Script.DEFAULT_SCRIPT_LANG, source, size);
+        return constructScriptScoreContextSearchRequest(
+            INDEX_NAME,
+            qb,
+            Collections.emptyMap(),
+            Script.DEFAULT_SCRIPT_LANG,
+            source,
+            size,
+            Collections.emptyMap()
+        );
     }
 
     private Request buildPainlessScoreScriptRequest(
@@ -166,7 +174,15 @@ public class PainlessScriptIT extends KNNRestTestCase {
     ) throws Exception {
         buildTestIndex(documents, properties);
         QueryBuilder qb = new MatchAllQueryBuilder();
-        return constructScriptScoreContextSearchRequest(INDEX_NAME, qb, Collections.emptyMap(), Script.DEFAULT_SCRIPT_LANG, source, size);
+        return constructScriptScoreContextSearchRequest(
+            INDEX_NAME,
+            qb,
+            Collections.emptyMap(),
+            Script.DEFAULT_SCRIPT_LANG,
+            source,
+            size,
+            Collections.emptyMap()
+        );
     }
 
     private Request buildPainlessScriptedMetricRequest(
