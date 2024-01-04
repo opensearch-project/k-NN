@@ -10,6 +10,7 @@ import com.google.common.io.Resources;
 import com.google.common.primitives.Floats;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
+import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.common.xcontent.XContentHelper;
@@ -61,6 +62,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -810,12 +812,13 @@ public class KNNRestTestCase extends ODFERestTestCase {
     protected Request constructScriptScoreContextSearchRequest(
         String indexName,
         QueryBuilder qb,
-        Map<String, Object> params,
+        Map<String, Object> scriptParams,
         String language,
         String source,
-        int size
+        int size,
+        Map<String, Object> searchParams
     ) throws Exception {
-        Script script = buildScript(source, language, params);
+        Script script = buildScript(source, language, scriptParams);
         ScriptScoreQueryBuilder sc = new ScriptScoreQueryBuilder(qb, script);
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field("size", size).startObject("query");
         builder.startObject("script_score");
@@ -825,7 +828,13 @@ public class KNNRestTestCase extends ODFERestTestCase {
         builder.endObject();
         builder.endObject();
         builder.endObject();
-        Request request = new Request("POST", "/" + indexName + "/_search");
+        URIBuilder uriBuilder = new URIBuilder("/" + indexName + "/_search");
+        if (Objects.nonNull(searchParams)) {
+            for (Map.Entry<String, Object> entry : searchParams.entrySet()) {
+                uriBuilder.addParameter(entry.getKey(), entry.getValue().toString());
+            }
+        }
+        Request request = new Request("POST", uriBuilder.toString());
         request.setJsonEntity(builder.toString());
         return request;
     }
@@ -846,15 +855,21 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return request;
     }
 
-    protected Request constructKNNScriptQueryRequest(String indexName, QueryBuilder qb, Map<String, Object> params, int size)
-        throws Exception {
+    protected Request constructKNNScriptQueryRequest(
+        String indexName,
+        QueryBuilder qb,
+        Map<String, Object> scriptParams,
+        int size,
+        Map<String, Object> searchParams
+    ) throws Exception {
         return constructScriptScoreContextSearchRequest(
             indexName,
             qb,
-            params,
+            scriptParams,
             KNNScoringScriptEngine.NAME,
             KNNScoringScriptEngine.SCRIPT_SOURCE,
-            size
+            size,
+            searchParams
         );
     }
 
@@ -1105,7 +1120,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         params.put(QUERY_VALUE, queryVector);
         params.put(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue());
 
-        Request request = constructKNNScriptQueryRequest(testIndex, qb, params, k);
+        Request request = constructKNNScriptQueryRequest(testIndex, qb, params, k, Collections.emptyMap());
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
@@ -1131,7 +1146,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
             Collections.emptyMap(),
             Script.DEFAULT_SCRIPT_LANG,
             source,
-            k
+            k,
+            Collections.emptyMap()
         );
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));

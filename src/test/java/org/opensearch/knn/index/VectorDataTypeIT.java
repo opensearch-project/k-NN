@@ -350,7 +350,8 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             Collections.emptyMap(),
             Script.DEFAULT_SCRIPT_LANG,
             source,
-            4
+            4,
+            Collections.emptyMap()
         );
 
         Response response = client().performRequest(request);
@@ -370,7 +371,8 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             Collections.emptyMap(),
             Script.DEFAULT_SCRIPT_LANG,
             source,
-            4
+            4,
+            Collections.emptyMap()
         );
 
         Response response = client().performRequest(request);
