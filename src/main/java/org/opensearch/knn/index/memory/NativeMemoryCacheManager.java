@@ -22,6 +22,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.plugin.stats.StatNames;
 
 import java.io.Closeable;
@@ -71,11 +72,12 @@ public class NativeMemoryCacheManager implements Closeable {
     private void initialize() {
         initialize(
             NativeMemoryCacheManagerDto.builder()
-                .isWeightLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
+                .isWeightLimited(KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
                 .maxWeight(KNNSettings.getCircuitBreakerLimit().getKb())
-                .isExpirationLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))
+                .isExpirationLimited(KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_ENABLED))
                 .expiryTimeInMin(
-                    ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes()
+                    ((TimeValue) KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))
+                        .getMinutes()
                 )
                 .build()
         );
@@ -107,11 +109,12 @@ public class NativeMemoryCacheManager implements Closeable {
     public synchronized void rebuildCache() {
         rebuildCache(
             NativeMemoryCacheManagerDto.builder()
-                .isWeightLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
+                .isWeightLimited(KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
                 .maxWeight(KNNSettings.getCircuitBreakerLimit().getKb())
-                .isExpirationLimited(KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))
+                .isExpirationLimited(KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_ENABLED))
                 .expiryTimeInMin(
-                    ((TimeValue) KNNSettings.state().getSettingValue(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes()
+                    ((TimeValue) KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))
+                        .getMinutes()
                 )
                 .build()
         );

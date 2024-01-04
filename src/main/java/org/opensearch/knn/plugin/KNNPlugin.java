@@ -14,6 +14,7 @@ import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNClusterUtil;
+import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -280,7 +281,7 @@ public class KNNPlugin extends Plugin
 
     @Override
     public Optional<CodecServiceFactory> getCustomCodecServiceFactory(IndexSettings indexSettings) {
-        if (indexSettings.getValue(KNNSettings.IS_KNN_INDEX_SETTING)) {
+        if (indexSettings.getValue(KNNSettingsDefinitions.IS_KNN_INDEX_SETTING)) {
             return Optional.of(KNNCodecService::new);
         }
         return Optional.empty();

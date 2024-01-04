@@ -28,7 +28,7 @@ import org.opensearch.index.mapper.ContentPath;
 import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.KNNMethodContext;
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -113,9 +113,9 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         // Setup settings
         Settings settings = Settings.builder()
             .put(settings(CURRENT).build())
-            .put(KNNSettings.KNN_SPACE_TYPE, spaceType.getValue())
-            .put(KNNSettings.KNN_ALGO_PARAM_M, m)
-            .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, efConstruction)
+            .put(KNNSettingsDefinitions.KNN_SPACE_TYPE, spaceType.getValue())
+            .put(KNNSettingsDefinitions.KNN_ALGO_PARAM_M, m)
+            .put(KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_CONSTRUCTION, efConstruction)
             .build();
 
         builder.knnMethodContext.setValue(
@@ -150,9 +150,9 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         // Setup settings
         Settings settings = Settings.builder()
             .put(settings(CURRENT).build())
-            .put(KNNSettings.KNN_SPACE_TYPE, spaceType.getValue())
-            .put(KNNSettings.KNN_ALGO_PARAM_M, m)
-            .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, efConstruction)
+            .put(KNNSettingsDefinitions.KNN_SPACE_TYPE, spaceType.getValue())
+            .put(KNNSettingsDefinitions.KNN_ALGO_PARAM_M, m)
+            .put(KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_CONSTRUCTION, efConstruction)
             .build();
 
         String modelId = "Random modelId";
@@ -188,9 +188,9 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         // Setup settings
         Settings settings = Settings.builder()
             .put(settings(CURRENT).build())
-            .put(KNNSettings.KNN_SPACE_TYPE, spaceType.getValue())
-            .put(KNNSettings.KNN_ALGO_PARAM_M, m)
-            .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, efConstruction)
+            .put(KNNSettingsDefinitions.KNN_SPACE_TYPE, spaceType.getValue())
+            .put(KNNSettingsDefinitions.KNN_ALGO_PARAM_M, m)
+            .put(KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_CONSTRUCTION, efConstruction)
             .build();
 
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
@@ -588,9 +588,9 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         SpaceType spaceType = SpaceType.L2;
         Settings settings = Settings.builder()
             .put(settings(CURRENT).build())
-            .put(KNNSettings.KNN_SPACE_TYPE, spaceType.getValue())
-            .put(KNNSettings.KNN_ALGO_PARAM_M, m)
-            .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, efConstruction)
+            .put(KNNSettingsDefinitions.KNN_SPACE_TYPE, spaceType.getValue())
+            .put(KNNSettingsDefinitions.KNN_ALGO_PARAM_M, m)
+            .put(KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_CONSTRUCTION, efConstruction)
             .build();
 
         ModelDao modelDao = mock(ModelDao.class);

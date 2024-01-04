@@ -36,14 +36,14 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
         assertEquals("knn query failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         // disable plugin
-        updateClusterSettings(KNNSettings.KNN_PLUGIN_ENABLED, false);
+        updateClusterSettings(KNNSettingsDefinitions.KNN_PLUGIN_ENABLED, false);
 
         // indexing should be blocked
         Exception ex = expectThrows(ResponseException.class, () -> addKnnDoc(INDEX_NAME, "2", FIELD_NAME, vector));
         assertThat(ex.getMessage(), containsString("KNN plugin is disabled"));
 
         // enable plugin
-        updateClusterSettings(KNNSettings.KNN_PLUGIN_ENABLED, true);
+        updateClusterSettings(KNNSettingsDefinitions.KNN_PLUGIN_ENABLED, true);
         addKnnDoc(INDEX_NAME, "3", FIELD_NAME, vector);
     }
 
@@ -58,7 +58,7 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
         assertEquals("knn query failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         // update settings
-        updateClusterSettings(KNNSettings.KNN_PLUGIN_ENABLED, false);
+        updateClusterSettings(KNNSettingsDefinitions.KNN_PLUGIN_ENABLED, false);
 
         // indexing should be blocked
         Exception ex = expectThrows(
@@ -67,14 +67,14 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
         );
         assertThat(ex.getMessage(), containsString("KNN plugin is disabled"));
         // enable plugin
-        updateClusterSettings(KNNSettings.KNN_PLUGIN_ENABLED, true);
+        updateClusterSettings(KNNSettingsDefinitions.KNN_PLUGIN_ENABLED, true);
         searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, qvector, 1), 1);
     }
 
     public void testItemRemovedFromCache_expiration() throws Exception {
         createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
-        updateClusterSettings(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED, true);
-        updateClusterSettings(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, "1m");
+        updateClusterSettings(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_ENABLED, true);
+        updateClusterSettings(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, "1m");
 
         Float[] vector = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
@@ -88,7 +88,7 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
 
         assertEquals(0, getTotalGraphsInCache());
 
-        updateClusterSettings(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED, false);
+        updateClusterSettings(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_ENABLED, false);
     }
 
     public void testCreateIndexWithInvalidSpaceType() throws IOException {
@@ -103,16 +103,16 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
     }
 
     public void testUpdateIndexSetting() throws IOException {
-        Settings settings = Settings.builder().put("index.knn", true).put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 512).build();
+        Settings settings = Settings.builder().put("index.knn", true).put(KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_SEARCH, 512).build();
         createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 2));
-        assertEquals("512", getIndexSettingByName(INDEX_NAME, KNNSettings.KNN_ALGO_PARAM_EF_SEARCH));
+        assertEquals("512", getIndexSettingByName(INDEX_NAME, KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_SEARCH));
 
-        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 400));
-        assertEquals("400", getIndexSettingByName(INDEX_NAME, KNNSettings.KNN_ALGO_PARAM_EF_SEARCH));
+        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_SEARCH, 400));
+        assertEquals("400", getIndexSettingByName(INDEX_NAME, KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_SEARCH));
 
         Exception ex = expectThrows(
             ResponseException.class,
-            () -> updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 1))
+            () -> updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_SEARCH, 1))
         );
         assertThat(ex.getMessage(), containsString("Failed to parse value [1] for setting [index.knn.algo_param.ef_search] must be >= 2"));
     }
@@ -137,7 +137,7 @@ public class KNNESSettingsTestIT extends KNNRestTestCase {
         assertEquals(1, indicesInCache.size());
 
         // Update ef_search
-        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, 400));
+        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_SEARCH, 400));
         response = getKnnStats(Collections.emptyList(), Collections.emptyList());
         responseBody = EntityUtils.toString(response.getEntity());
 

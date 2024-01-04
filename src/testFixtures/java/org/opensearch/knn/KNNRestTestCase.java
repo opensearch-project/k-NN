@@ -19,8 +19,8 @@ import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelState;
@@ -803,8 +803,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * clear the cache.
      */
     protected void clearCache() throws Exception {
-        updateClusterSettings(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, "1m");
-        updateClusterSettings(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, null);
+        updateClusterSettings(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, "1m");
+        updateClusterSettings(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, null);
     }
 
     /**
@@ -1083,9 +1083,9 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .put(NUMBER_OF_SHARDS, 1)
             .put(NUMBER_OF_REPLICAS, 0)
             .put(INDEX_KNN, true)
-            .put(KNNSettings.KNN_SPACE_TYPE, spaceType.getValue())
-            .put(KNNSettings.KNN_ALGO_PARAM_M, m)
-            .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, ef_construction)
+            .put(KNNSettingsDefinitions.KNN_SPACE_TYPE, spaceType.getValue())
+            .put(KNNSettingsDefinitions.KNN_ALGO_PARAM_M, m)
+            .put(KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_CONSTRUCTION, ef_construction)
             .build();
     }
 

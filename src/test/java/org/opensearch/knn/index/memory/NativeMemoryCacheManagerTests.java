@@ -16,6 +16,7 @@ import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
@@ -37,7 +38,7 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
     public void tearDown() throws Exception {
         // Clear out persistent metadata
         ClusterUpdateSettingsRequest clusterUpdateSettingsRequest = new ClusterUpdateSettingsRequest();
-        Settings circuitBreakerSettings = Settings.builder().putNull(KNNSettings.KNN_CIRCUIT_BREAKER_TRIGGERED).build();
+        Settings circuitBreakerSettings = Settings.builder().putNull(KNNSettingsDefinitions.KNN_CIRCUIT_BREAKER_TRIGGERED).build();
         clusterUpdateSettingsRequest.persistentSettings(circuitBreakerSettings);
         client().admin().cluster().updateSettings(clusterUpdateSettingsRequest).get();
         super.tearDown();

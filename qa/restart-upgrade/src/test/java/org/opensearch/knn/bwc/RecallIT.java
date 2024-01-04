@@ -13,7 +13,7 @@ import java.util.Set;
 
 import static org.opensearch.knn.TestUtils.KNN_BWC_PREFIX;
 import static org.opensearch.knn.TestUtils.NODES_BWC_CLUSTER;
-import static org.opensearch.knn.index.KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY;
+import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_ALGO_PARAM_INDEX_THREAD_QTY;
 
 public class RecallIT extends AbstractRestartUpgradeTestCase {
     private static final String TEST_INDEX_RECALL_OLD = KNN_BWC_PREFIX + "test-index-recall-old";

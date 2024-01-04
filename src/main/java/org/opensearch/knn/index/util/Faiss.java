@@ -9,7 +9,7 @@ import com.google.common.collect.ImmutableMap;
 import lombok.AllArgsConstructor;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethod;
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.index.MethodComponent;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.Parameter;
@@ -186,13 +186,13 @@ class Faiss extends NativeLibrary {
             MethodComponent.Builder.builder(METHOD_HNSW)
                 .addParameter(
                     METHOD_PARAMETER_M,
-                    new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0)
+                    new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0)
                 )
                 .addParameter(
                     METHOD_PARAMETER_EF_CONSTRUCTION,
                     new Parameter.IntegerParameter(
                         METHOD_PARAMETER_EF_CONSTRUCTION,
-                        KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
+                        KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
                         v -> v > 0
                     )
                 )
@@ -200,7 +200,7 @@ class Faiss extends NativeLibrary {
                     METHOD_PARAMETER_EF_SEARCH,
                     new Parameter.IntegerParameter(
                         METHOD_PARAMETER_EF_SEARCH,
-                        KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+                        KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
                         v -> v > 0
                     )
                 )

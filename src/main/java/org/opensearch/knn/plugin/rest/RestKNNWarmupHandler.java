@@ -27,7 +27,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
+import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_INDEX;
 import static org.opensearch.action.support.IndicesOptions.strictExpandOpen;
 
 /**

@@ -42,13 +42,13 @@ public class KNNSettingsTests extends KNNTestCase {
     public void testGetSettingValueFromConfig() {
         long expectedKNNCircuitBreakerLimit = 13;
         Node mockNode = createMockNode(
-            Map.of(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT, "\"" + expectedKNNCircuitBreakerLimit + "kb\"")
+            Map.of(KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT, "\"" + expectedKNNCircuitBreakerLimit + "kb\"")
         );
         mockNode.start();
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
         KNNSettings.state().setClusterService(clusterService);
         long actualKNNCircuitBreakerLimit = ((ByteSizeValue) KNNSettings.state()
-            .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
+            .getSettingValue(KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
         mockNode.close();
         assertEquals(expectedKNNCircuitBreakerLimit, actualKNNCircuitBreakerLimit);
         assertWarnings();
@@ -61,11 +61,11 @@ public class KNNSettingsTests extends KNNTestCase {
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
         KNNSettings.state().setClusterService(clusterService);
         long actualKNNCircuitBreakerLimit = ((ByteSizeValue) KNNSettings.state()
-            .getSettingValue(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
+            .getSettingValue(KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
         mockNode.close();
         assertEquals(
-            ((ByteSizeValue) KNNSettings.dynamicCacheSettings.get(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT).getDefault(Settings.EMPTY))
-                .getKb(),
+            ((ByteSizeValue) KNNSettingsDefinitions.dynamicCacheSettings.get(KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)
+                .getDefault(Settings.EMPTY)).getKb(),
             actualKNNCircuitBreakerLimit
 
         );
@@ -86,7 +86,7 @@ public class KNNSettingsTests extends KNNTestCase {
 
         Integer filteredSearchThreshold = KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME);
         mockNode.close();
-        assertEquals(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE, filteredSearchThreshold);
+        assertEquals(KNNSettingsDefinitions.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE, filteredSearchThreshold);
         assertWarnings();
     }
 
@@ -102,7 +102,7 @@ public class KNNSettingsTests extends KNNTestCase {
         KNNSettings.state().setClusterService(clusterService);
 
         final Settings filteredSearchAdvanceSettings = Settings.builder()
-            .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, userDefinedThreshold)
+            .put(KNNSettingsDefinitions.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, userDefinedThreshold)
             .build();
 
         mockNode.client()
@@ -115,7 +115,7 @@ public class KNNSettingsTests extends KNNTestCase {
 
         // validate if we are able to set MinValues for the setting
         final Settings filteredSearchAdvanceSettingsWithMinValues = Settings.builder()
-            .put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, userDefinedThresholdMinValue)
+            .put(KNNSettingsDefinitions.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, userDefinedThresholdMinValue)
             .build();
 
         mockNode.client()
@@ -143,7 +143,7 @@ public class KNNSettingsTests extends KNNTestCase {
 
         Integer efSearchValue = KNNSettings.getEfSearchParam(INDEX_NAME);
         mockNode.close();
-        assertEquals(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH, efSearchValue);
+        assertEquals(KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH, efSearchValue);
         assertWarnings();
     }
 
@@ -155,8 +155,8 @@ public class KNNSettingsTests extends KNNTestCase {
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
         mockNode.client().admin().cluster().state(new ClusterStateRequest()).actionGet();
         final Settings settings = Settings.builder()
-            .put(KNNSettings.KNN_ALGO_PARAM_EF_SEARCH, userProvidedEfSearch)
-            .put(KNNSettings.KNN_INDEX, true)
+            .put(KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_SEARCH, userProvidedEfSearch)
+            .put(KNNSettingsDefinitions.KNN_INDEX, true)
             .build();
         mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME, settings)).actionGet();
         KNNSettings.state().setClusterService(clusterService);

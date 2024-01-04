@@ -37,6 +37,7 @@ import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.util.KNNVectorAsArraySerializer;
@@ -97,14 +98,18 @@ public class KNNWeightTests extends KNNTestCase {
     public static void setUpClass() throws Exception {
         final KNNSettings knnSettings = mock(KNNSettings.class);
         knnSettingsMockedStatic = mockStatic(KNNSettings.class);
-        when(knnSettings.getSettingValue(eq(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))).thenReturn(true);
-        when(knnSettings.getSettingValue(eq(KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT))).thenReturn(CIRCUIT_BREAKER_LIMIT_100KB);
-        when(knnSettings.getSettingValue(eq(KNNSettings.KNN_CACHE_ITEM_EXPIRY_ENABLED))).thenReturn(false);
-        when(knnSettings.getSettingValue(eq(KNNSettings.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))).thenReturn(TimeValue.timeValueMinutes(10));
+        when(knnSettings.getSettingValue(eq(KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))).thenReturn(true);
+        when(knnSettings.getSettingValue(eq(KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT))).thenReturn(
+            CIRCUIT_BREAKER_LIMIT_100KB
+        );
+        when(knnSettings.getSettingValue(eq(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_ENABLED))).thenReturn(false);
+        when(knnSettings.getSettingValue(eq(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))).thenReturn(
+            TimeValue.timeValueMinutes(10)
+        );
 
         final ByteSizeValue v = ByteSizeValue.parseBytesSizeValue(
             CIRCUIT_BREAKER_LIMIT_100KB,
-            KNNSettings.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT
+            KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT
         );
         knnSettingsMockedStatic.when(KNNSettings::getCircuitBreakerLimit).thenReturn(v);
         knnSettingsMockedStatic.when(KNNSettings::state).thenReturn(knnSettings);

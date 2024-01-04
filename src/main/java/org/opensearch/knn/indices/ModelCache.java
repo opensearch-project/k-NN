@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 import static org.opensearch.knn.common.KNNConstants.MODEL_CACHE_EXPIRE_AFTER_ACCESS_TIME_MINUTES;
-import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTING;
+import static org.opensearch.knn.index.KNNSettingsDefinitions.MODEL_CACHE_SIZE_LIMIT_SETTING;
 
 public final class ModelCache {
 

@@ -30,6 +30,7 @@ import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.common.io.PathUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
@@ -414,13 +415,13 @@ public class KNNWeight extends Weight {
     }
 
     /**
-     *  This function validates if {@link KNNSettings#ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD} is set or not. This
+     *  This function validates if {@link KNNSettingsDefinitions#ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD} is set or not. This
      *  is done by validating if the setting value is equal to the default value.
-     * @param filterThresholdValue value of the Index Setting: {@link KNNSettings#ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING}
+     * @param filterThresholdValue value of the Index Setting: {@link KNNSettingsDefinitions#ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING}
      * @return boolean true if the setting is set.
      */
     private boolean isExactSearchThresholdSettingSet(int filterThresholdValue) {
-        return filterThresholdValue != KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE;
+        return filterThresholdValue != KNNSettingsDefinitions.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE;
     }
 
     /**

@@ -26,7 +26,7 @@ import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTING;
+import static org.opensearch.knn.index.KNNSettingsDefinitions.MODEL_CACHE_SIZE_LIMIT_SETTING;
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 
 public class ModelCacheTests extends KNNTestCase {

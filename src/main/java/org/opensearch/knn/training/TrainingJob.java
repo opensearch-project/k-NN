@@ -17,6 +17,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -178,7 +179,7 @@ public class TrainingJob implements Runnable {
             Map<String, Object> trainParameters = model.getModelMetadata().getKnnEngine().getMethodAsMap(knnMethodContext);
             trainParameters.put(
                 KNNConstants.INDEX_THREAD_QTY,
-                KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY)
+                KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_ALGO_PARAM_INDEX_THREAD_QTY)
             );
 
             byte[] modelBlob = JNIService.trainIndex(

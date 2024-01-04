@@ -11,7 +11,7 @@ import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -79,37 +79,37 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
     }
 
     static String getSpaceType(Settings indexSettings) {
-        String spaceType = indexSettings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey());
+        String spaceType = indexSettings.get(KNNSettingsDefinitions.INDEX_KNN_SPACE_TYPE.getKey());
         if (spaceType == null) {
             log.info(
                 String.format(
                     "[KNN] The setting \"%s\" was not set for the index. Likely caused by recent version upgrade. Setting the setting to the default value=%s",
                     METHOD_PARAMETER_SPACE_TYPE,
-                    KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE
+                    KNNSettingsDefinitions.INDEX_KNN_DEFAULT_SPACE_TYPE
                 )
             );
-            return KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE;
+            return KNNSettingsDefinitions.INDEX_KNN_DEFAULT_SPACE_TYPE;
         }
         return spaceType;
     }
 
     static String getM(Settings indexSettings) {
-        String m = indexSettings.get(KNNSettings.INDEX_KNN_ALGO_PARAM_M_SETTING.getKey());
+        String m = indexSettings.get(KNNSettingsDefinitions.INDEX_KNN_ALGO_PARAM_M_SETTING.getKey());
         if (m == null) {
             log.info(
                 String.format(
                     "[KNN] The setting \"%s\" was not set for the index. Likely caused by recent version upgrade. Setting the setting to the default value=%s",
                     HNSW_ALGO_M,
-                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M
+                    KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_M
                 )
             );
-            return String.valueOf(KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M);
+            return String.valueOf(KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_M);
         }
         return m;
     }
 
     static String getEfConstruction(Settings indexSettings, Version indexVersion) {
-        final String efConstruction = indexSettings.get(KNNSettings.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING.getKey());
+        final String efConstruction = indexSettings.get(KNNSettingsDefinitions.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING.getKey());
         if (efConstruction == null) {
             final String defaultEFConstructionValue = String.valueOf(IndexHyperParametersUtil.getHNSWEFConstructionValue(indexVersion));
             log.info(

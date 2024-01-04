@@ -453,7 +453,7 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
         Assert.assertEquals("For engine " + engine + ", totalSearchHits: ", k, parseTotalSearchHits(response));
         if (KNNEngine.getEngine(engine) == KNNEngine.FAISS) {
             // Update the filter threshold to 0 to ensure that we are hitting ANN Search use case for FAISS
-            updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 0));
+            updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettingsDefinitions.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 0));
             response = EntityUtils.toString(performSearch(INDEX_NAME, query).getEntity());
 
             // Validate number of documents returned as the expected number of documents

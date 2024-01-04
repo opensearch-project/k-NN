@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.Version;
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNSettingsDefinitions;
 
 /**
  * This class acts as an abstraction to get the default hyperparameter values for different parameters used in the
@@ -48,9 +48,9 @@ public class IndexHyperParametersUtil {
         log.debug(
             "Picking up new values of ef_construction : index version : {}, value: {}",
             indexVersion,
-            KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION
+            KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION
         );
-        return KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
+        return KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
     }
 
     /**
@@ -72,8 +72,8 @@ public class IndexHyperParametersUtil {
         log.debug(
             "Picking up new values of ef_search : index version : {}, value: {}",
             indexVersion,
-            KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH
+            KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH
         );
-        return KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
+        return KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
     }
 }

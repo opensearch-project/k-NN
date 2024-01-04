@@ -149,7 +149,7 @@ public class NestedSearchIT extends KNNRestTestCase {
         forceMergeKnnIndex(INDEX_NAME);
 
         // Make it as an exact search by setting the threshold larger than size of filteredIds(6)
-        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 100));
+        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettingsDefinitions.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 100));
 
         Float[] queryVector = { 3f, 3f, 3f };
         Response response = queryNestedField(INDEX_NAME, 3, queryVector, FIELD_NAME_PARKING, FIELD_VALUE_TRUE);
