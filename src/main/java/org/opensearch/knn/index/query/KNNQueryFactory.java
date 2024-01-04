@@ -17,8 +17,10 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
 import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
+import org.apache.lucene.search.join.ToChildBlockJoinQuery;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.index.search.NestedHelper;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -155,11 +157,27 @@ public class KNNQueryFactory {
                     createQueryRequest.k
                 )
             );
+            final Query filterQuery;
             try {
-                return createQueryRequest.getFilter().get().toQuery(queryShardContext);
+                filterQuery = createQueryRequest.getFilter().get().toQuery(queryShardContext);
             } catch (IOException e) {
                 throw new RuntimeException("Cannot create knn query with filter", e);
             }
+            // If k-NN Field is nested field then parentFilter will not be null. This parentFilter is set by the
+            // Opensearch core. Ref PR: https://github.com/opensearch-project/OpenSearch/pull/10246
+            if (queryShardContext.getParentFilter() != null) {
+                // if the filter is also a nested query clause then we should just return the same query without
+                // considering it to join with the parent documents.
+                if (new NestedHelper(queryShardContext.getMapperService()).mightMatchNestedDocs(filterQuery)) {
+                    return filterQuery;
+                }
+                // This condition will be hit when filters are getting applied on the top level fields and k-nn
+                // query field is a nested field. In this case we need to wrap the filter query with
+                // ToChildBlockJoinQuery to ensure parent documents which will be retrieved from filters can be
+                // joined with the child documents containing vector field.
+                return new ToChildBlockJoinQuery(filterQuery, queryShardContext.getParentFilter());
+            }
+            return filterQuery;
         }
         return null;
     }
