@@ -172,20 +172,28 @@ public class KNNWeight extends Weight {
         if (filterWeight == null) {
             return new int[0];
         }
-        final BitSet filteredDocsBitSet = getFilteredDocsBitSet(context, this.filterWeight);
-        final int[] filteredIds = new int[filteredDocsBitSet.cardinality()];
-        int filteredIdsIndex = 0;
-        int docId = 0;
-        while (docId < filteredDocsBitSet.length()) {
-            docId = filteredDocsBitSet.nextSetBit(docId);
-            if (docId == DocIdSetIterator.NO_MORE_DOCS || docId + 1 == DocIdSetIterator.NO_MORE_DOCS) {
-                break;
-            }
-            filteredIds[filteredIdsIndex] = docId;
-            filteredIdsIndex++;
-            docId++;
+        return bitSetToIntArray(getFilteredDocsBitSet(context, this.filterWeight));
+    }
+
+    private int[] getParentIdsArray(final LeafReaderContext context) throws IOException {
+        if (knnQuery.getParentsFilter() == null) {
+            return null;
         }
-        return filteredIds;
+        return bitSetToIntArray(knnQuery.getParentsFilter().getBitSet(context));
+    }
+
+    private int[] bitSetToIntArray(final BitSet bitSet) {
+        final int cardinality = bitSet.cardinality();
+        final int[] intArray = new int[cardinality];
+        final BitSetIterator bitSetIterator = new BitSetIterator(bitSet, cardinality);
+        int index = 0;
+        int docId = bitSetIterator.nextDoc();
+        while (docId != DocIdSetIterator.NO_MORE_DOCS) {
+            assert index < intArray.length;
+            intArray[index++] = docId;
+            docId = bitSetIterator.nextDoc();
+        }
+        return intArray;
     }
 
     private Map<Integer, Float> doANNSearch(final LeafReaderContext context, final int[] filterIdsArray) throws IOException {
@@ -265,13 +273,14 @@ public class KNNWeight extends Weight {
             if (indexAllocation.isClosed()) {
                 throw new RuntimeException("Index has already been closed");
             }
-
+            int[] parentIds = getParentIdsArray(context);
             results = JNIService.queryIndex(
                 indexAllocation.getMemoryAddress(),
                 knnQuery.getQueryVector(),
                 knnQuery.getK(),
                 knnEngine.getName(),
-                filterIdsArray
+                filterIdsArray,
+                parentIds
             );
 
         } catch (Exception e) {
@@ -296,7 +305,7 @@ public class KNNWeight extends Weight {
             .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
     }
 
-    private Map<Integer, Float> doExactSearch(final LeafReaderContext leafReaderContext, final int[] filterIdsArray) {
+    private Map<Integer, Float> doExactSearch(final LeafReaderContext leafReaderContext, final int[] filterIdsArray) throws IOException {
         final SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(leafReaderContext.reader());
         final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
         float[] queryVector = this.knnQuery.getQueryVector();

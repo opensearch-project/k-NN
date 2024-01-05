@@ -191,6 +191,30 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         assertEquals(FILTER_QUERY.getClass(), query.getFilterQuery().getClass());
     }
 
+    public void testCreate_whenFaissWithParentFilter_thenSuccess() {
+        final KNNEngine knnEngine = KNNEngine.FAISS;
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        MappedFieldType testMapper = mock(MappedFieldType.class);
+        when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+        when(mockQueryShardContext.getParentFilter()).thenReturn(parentFilter);
+        final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(knnEngine)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .k(testK)
+            .context(mockQueryShardContext)
+            .build();
+        final Query query = KNNQueryFactory.create(createQueryRequest);
+        assertTrue(query instanceof KNNQuery);
+        assertEquals(testIndexName, ((KNNQuery) query).getIndexName());
+        assertEquals(testFieldName, ((KNNQuery) query).getField());
+        assertEquals(testQueryVector, ((KNNQuery) query).getQueryVector());
+        assertEquals(testK, ((KNNQuery) query).getK());
+        assertEquals(parentFilter, ((KNNQuery) query).getParentsFilter());
+    }
+
     private void validateDiversifyingQueryWithParentFilter(final VectorDataType type, final Class expectedQueryClass) {
         List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
             .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
