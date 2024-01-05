@@ -82,17 +82,17 @@ public class KNNQueryFactory {
         final VectorDataType vectorDataType = createQueryRequest.getVectorDataType();
         final Query filterQuery = getFilterQuery(createQueryRequest);
 
+        BitSetProducer parentFilter = createQueryRequest.context == null ? null : createQueryRequest.context.getParentFilter();
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
             if (filterQuery != null && KNNEngine.getEnginesThatSupportsFilters().contains(createQueryRequest.getKnnEngine())) {
                 log.debug("Creating custom k-NN query with filters for index: {}, field: {} , k: {}", indexName, fieldName, k);
-                return new KNNQuery(fieldName, vector, k, indexName, filterQuery);
+                return new KNNQuery(fieldName, vector, k, indexName, filterQuery, parentFilter);
             }
             log.debug(String.format("Creating custom k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
-            return new KNNQuery(fieldName, vector, k, indexName);
+            return new KNNQuery(fieldName, vector, k, indexName, parentFilter);
         }
 
         log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
-        BitSetProducer parentFilter = createQueryRequest.context == null ? null : createQueryRequest.context.getParentFilter();
         if (VectorDataType.BYTE == vectorDataType) {
             return getKnnByteVectorQuery(fieldName, byteVector, k, filterQuery, parentFilter);
         } else if (VectorDataType.FLOAT == vectorDataType) {
@@ -205,9 +205,6 @@ public class KNNQueryFactory {
         private VectorDataType vectorDataType;
         @Getter
         private int k;
-        // can be null in cases filter not passed with the knn query
-        @Getter
-        private BitSetProducer parentFilter;
         private QueryBuilder filter;
         // can be null in cases filter not passed with the knn query
         private QueryShardContext context;

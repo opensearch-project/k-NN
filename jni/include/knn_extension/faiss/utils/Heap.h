@@ -130,6 +130,8 @@ static inline void down_heap(
 
 /**
  * Push the value to the max heap
+ * As the heap contains only one value per group id, pushing a value of existing group id
+ * will break the data integrity. For existing group id, use maxheap_update instead.
  * The parent_id should not exist in in bh_ids, parent_id_to_id, and parent_id_to_index.
  *
  * @param nres          number of values in the binary heap(bh_val, and bh_ids)
@@ -152,7 +154,7 @@ inline void maxheap_push(
         std::unordered_map<int64_t, size_t>* parent_id_to_index,
         int64_t parent_id) {
 
-    assert(parent_id_to_index->find(parent_id) != parent_id_to_index->end() && "parent id should not exist in the binary heap");
+    assert(parent_id_to_index->find(parent_id) == parent_id_to_index->end() && "parent id should not exist in the binary heap");
 
     up_heap<faiss::CMax<T, int64_t>>(
             bh_val,
@@ -189,7 +191,7 @@ inline void maxheap_replace_top(
         std::unordered_map<int64_t, size_t>* parent_id_to_index,
         int64_t parent_id) {
 
-    assert(parent_id_to_index->find(parent_id) != parent_id_to_index->end() && "parent id should not exist in the binary heap");
+    assert(parent_id_to_index->find(parent_id) == parent_id_to_index->end() && "parent id should not exist in the binary heap");
 
     parent_id_to_id->erase(bh_ids[0]);
     parent_id_to_index->erase(bh_ids[0]);
