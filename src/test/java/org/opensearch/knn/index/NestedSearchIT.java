@@ -15,6 +15,7 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
+import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
@@ -59,14 +60,16 @@ public class NestedSearchIT extends KNNRestTestCase {
         createKnnIndex(2, KNNEngine.LUCENE.getName());
 
         String doc1 = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
-            .add(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 1f, 1f })
+            .addVectors(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 1f, 1f })
             .build();
-        addNestedKnnDoc(INDEX_NAME, "1", doc1);
+        addKnnDoc(INDEX_NAME, "1", doc1);
 
         String doc2 = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
-            .add(FIELD_NAME_VECTOR, new Float[] { 2f, 2f }, new Float[] { 2f, 2f })
+            .addVectors(FIELD_NAME_VECTOR, new Float[] { 2f, 2f }, new Float[] { 2f, 2f })
             .build();
-        addNestedKnnDoc(INDEX_NAME, "2", doc2);
+        addKnnDoc(INDEX_NAME, "2", doc2);
+
+        refreshIndex(INDEX_NAME);
 
         Float[] queryVector = { 1f, 1f };
         Response response = queryNestedField(INDEX_NAME, 2, queryVector);
@@ -131,30 +134,6 @@ public class NestedSearchIT extends KNNRestTestCase {
         createKnnIndex(INDEX_NAME, mapping);
     }
 
-    @SneakyThrows
-    private void ingestTestData() {
-        String doc1 = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
-            .add(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 1f, 1f })
-            .build();
-        addNestedKnnDoc(INDEX_NAME, "1", doc1);
-
-        String doc2 = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
-            .add(FIELD_NAME_VECTOR, new Float[] { 2f, 2f }, new Float[] { 2f, 2f })
-            .build();
-        addNestedKnnDoc(INDEX_NAME, "2", doc2);
-    }
-
-    private void addNestedKnnDoc(final String index, final String docId, final String document) throws IOException {
-        Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
-
-        request.setJsonEntity(document);
-        client().performRequest(request);
-
-        request = new Request("POST", "/" + index + "/_refresh");
-        Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-    }
-
     private Response queryNestedField(final String index, final int k, final Object[] vector) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject(QUERY);
         builder.startObject(TYPE_NESTED);
@@ -171,32 +150,5 @@ public class NestedSearchIT extends KNNRestTestCase {
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
         return response;
-    }
-
-    private static class NestedKnnDocBuilder {
-        private XContentBuilder builder;
-
-        public NestedKnnDocBuilder(final String fieldName) throws IOException {
-            builder = XContentFactory.jsonBuilder().startObject().startArray(fieldName);
-        }
-
-        public static NestedKnnDocBuilder create(final String fieldName) throws IOException {
-            return new NestedKnnDocBuilder(fieldName);
-        }
-
-        public NestedKnnDocBuilder add(final String fieldName, final Object[]... vectors) throws IOException {
-            for (Object[] vector : vectors) {
-                builder.startObject();
-                builder.field(fieldName, vector);
-                builder.endObject();
-            }
-            return this;
-        }
-
-        public String build() throws IOException {
-            builder.endArray().endObject();
-            return builder.toString();
-        }
-
     }
 }

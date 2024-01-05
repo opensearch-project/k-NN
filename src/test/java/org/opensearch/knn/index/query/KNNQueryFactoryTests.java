@@ -12,11 +12,15 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
 import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
+import org.apache.lucene.search.join.ToChildBlockJoinQuery;
+import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 import org.opensearch.index.mapper.MappedFieldType;
+import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.index.search.NestedHelper;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -129,6 +133,62 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     public void testCreate_whenLuceneWithParentFilter_thenReturnDiversifyingQuery() {
         validateDiversifyingQueryWithParentFilter(VectorDataType.BYTE, DiversifyingChildrenByteKnnVectorQuery.class);
         validateDiversifyingQueryWithParentFilter(VectorDataType.FLOAT, DiversifyingChildrenFloatKnnVectorQuery.class);
+    }
+
+    public void testCreate_whenNestedVectorFiledAndNonNestedFilterField_thenReturnToChildBlockJoinQueryForFilters() {
+        MapperService mockMapperService = mock(MapperService.class);
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        when(mockQueryShardContext.getMapperService()).thenReturn(mockMapperService);
+        MappedFieldType testMapper = mock(MappedFieldType.class);
+        when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
+        when(testMapper.termQuery(Mockito.any(), Mockito.eq(mockQueryShardContext))).thenReturn(FILTER_QUERY);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+        when(mockQueryShardContext.getParentFilter()).thenReturn(parentFilter);
+        MockedConstruction<NestedHelper> mockedNestedHelper = Mockito.mockConstruction(
+            NestedHelper.class,
+            (mock, context) -> when(mock.mightMatchNestedDocs(FILTER_QUERY)).thenReturn(false)
+        );
+
+        final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .k(testK)
+            .context(mockQueryShardContext)
+            .filter(FILTER_QUERY_BUILDER)
+            .build();
+        KNNQuery query = (KNNQuery) KNNQueryFactory.create(createQueryRequest);
+        mockedNestedHelper.close();
+        assertEquals(ToChildBlockJoinQuery.class, query.getFilterQuery().getClass());
+    }
+
+    public void testCreate_whenNestedVectorAndFilterField_thenReturnSameFilterQuery() {
+        MapperService mockMapperService = mock(MapperService.class);
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        when(mockQueryShardContext.getMapperService()).thenReturn(mockMapperService);
+        MappedFieldType testMapper = mock(MappedFieldType.class);
+        when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
+        when(testMapper.termQuery(Mockito.any(), Mockito.eq(mockQueryShardContext))).thenReturn(FILTER_QUERY);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+        when(mockQueryShardContext.getParentFilter()).thenReturn(parentFilter);
+        MockedConstruction<NestedHelper> mockedNestedHelper = Mockito.mockConstruction(
+            NestedHelper.class,
+            (mock, context) -> when(mock.mightMatchNestedDocs(FILTER_QUERY)).thenReturn(true)
+        );
+
+        final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .k(testK)
+            .context(mockQueryShardContext)
+            .filter(FILTER_QUERY_BUILDER)
+            .build();
+        KNNQuery query = (KNNQuery) KNNQueryFactory.create(createQueryRequest);
+        mockedNestedHelper.close();
+        assertEquals(FILTER_QUERY.getClass(), query.getFilterQuery().getClass());
     }
 
     private void validateDiversifyingQueryWithParentFilter(final VectorDataType type, final Class expectedQueryClass) {

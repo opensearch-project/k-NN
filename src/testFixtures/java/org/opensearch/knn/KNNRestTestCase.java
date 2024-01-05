@@ -222,6 +222,15 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return response;
     }
 
+    protected Response performSearch(final String indexName, final String query) throws IOException {
+        Request request = new Request("POST", "/" + indexName + "/_search");
+        request.setJsonEntity(query);
+
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        return response;
+    }
+
     /**
      * Parse the response of KNN search into a List of KNNResults
      */
@@ -496,6 +505,15 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
+     * Adds a doc where document is represented as a string.
+     */
+    protected void addKnnDoc(final String index, final String docId, final String document) throws IOException {
+        Request request = new Request("POST", "/" + index + "/_doc/" + docId);
+        request.setJsonEntity(document);
+        client().performRequest(request);
+    }
+
+    /**
      * Add a single numeric field Doc to an index
      */
     protected void addDocWithNumericField(String index, String docId, String fieldName, long value) throws IOException {
@@ -666,6 +684,14 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .get("hits");
 
         return (int) ((Map<String, Object>) responseMap.get("total")).get("value");
+    }
+
+    protected int parseHits(String searchResponseBody) throws IOException {
+        Map<String, Object> responseMap = (Map<String, Object>) createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            searchResponseBody
+        ).map().get("hits");
+        return ((List) responseMap.get("hits")).size();
     }
 
     /**
