@@ -597,7 +597,53 @@ public class KNNWeightTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testANNWithParentsFilter_whenSet_thenBitSetIsPassedToJNI() {
+    public void testANNWithParentsFilter_whenExactSearch_thenSuccess() {
+        SegmentReader reader = getMockedSegmentReader();
+
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        when(leafReaderContext.reader()).thenReturn(reader);
+
+        // We will have 0, 1 for filteredIds and 2 will be the parent id for both of them
+        final Scorer filterScorer = mock(Scorer.class);
+        when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(2));
+        when(reader.maxDoc()).thenReturn(2);
+
+        // Query vector is {1.8f, 2.4f}, therefore, second vector {1.9f, 2.5f} should be returned in a result
+        final List<float[]> vectors = Arrays.asList(new float[] { 0.1f, 0.3f }, new float[] { 1.9f, 2.5f });
+        final List<BytesRef> byteRefs = vectors.stream()
+            .map(vector -> new BytesRef(new KNNVectorAsArraySerializer().floatToByteArray(vector)))
+            .collect(Collectors.toList());
+        final BinaryDocValues binaryDocValues = mock(BinaryDocValues.class);
+        when(binaryDocValues.binaryValue()).thenReturn(byteRefs.get(0), byteRefs.get(1));
+        when(binaryDocValues.advance(anyInt())).thenReturn(0, 1);
+        when(reader.getBinaryDocValues(FIELD_NAME)).thenReturn(binaryDocValues);
+
+        // Parent ID 2 in bitset is 100 which is 4
+        FixedBitSet parentIds = new FixedBitSet(new long[] { 4 }, 3);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+        when(parentFilter.getBitSet(leafReaderContext)).thenReturn(parentIds);
+
+        final Weight filterQueryWeight = mock(Weight.class);
+        when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
+
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, parentFilter);
+        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
+
+        // Execute
+        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+
+        // Verify
+        final List<Float> expectedScores = vectors.stream()
+            .map(vector -> SpaceType.L2.getVectorSimilarityFunction().compare(QUERY_VECTOR, vector))
+            .collect(Collectors.toList());
+        final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
+        assertEquals(1, docIdSetIterator.nextDoc());
+        assertEquals(expectedScores.get(1), knnScorer.score(), 0.01f);
+        assertEquals(NO_MORE_DOCS, docIdSetIterator.nextDoc());
+    }
+
+    @SneakyThrows
+    public void testANNWithParentsFilter_whenDoingANN_thenBitSetIsPassedToJNI() {
         SegmentReader reader = getMockedSegmentReader();
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         when(leafReaderContext.reader()).thenReturn(reader);
@@ -632,11 +678,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(reader.maxDoc()).thenReturn(1);
 
         // Prepare live docs
-        int liveDocId = 0;
-        final Bits liveDocsBits = mock(Bits.class);
-        when(liveDocsBits.get(liveDocId)).thenReturn(true);
-        when(liveDocsBits.length()).thenReturn(1);
-        when(reader.getLiveDocs()).thenReturn(liveDocsBits);
+        when(reader.getLiveDocs()).thenReturn(null);
 
         // Prepare directory
         final Path path = mock(Path.class);
@@ -662,10 +704,14 @@ public class KNNWeightTests extends KNNTestCase {
         final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
         when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
 
-        // Prepare fieldInfos
-        final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName());
+        // Prepare fieldInfo
+        final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.L2.name());
         final FieldInfo fieldInfo = mock(FieldInfo.class);
         when(fieldInfo.attributes()).thenReturn(attributesMap);
+        when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.name());
+        when(fieldInfo.getName()).thenReturn(FIELD_NAME);
+
+        // Prepare fieldInfos
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
