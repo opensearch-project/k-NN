@@ -100,8 +100,14 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     }
 
     private static float[] ObjectsToFloats(List<Object> objs) {
+        if (Objects.isNull(objs)) {
+            throw new IllegalArgumentException("[" + NAME + "] requires 'vector' to be non-null");
+        }
         float[] vec = new float[objs.size()];
         for (int i = 0; i < objs.size(); i++) {
+            if (!(objs.get(i) instanceof Number)) {
+                throw new IllegalArgumentException("[" + NAME + "] requires 'vector' to be an array of numbers");
+            }
             vec[i] = ((Number) objs.get(i)).floatValue();
         }
         return vec;

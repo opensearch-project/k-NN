@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Allow nested knn field mapping when train model [#1318](https://github.com/opensearch-project/k-NN/pull/1318)
 * Properly designate model state for actively training models when nodes crash or leave cluster [#1317](https://github.com/opensearch-project/k-NN/pull/1317)
 * Fix script score queries not getting cached [#1367](https://github.com/opensearch-project/k-NN/pull/1367)
+* Throw proper exception to invalid k-NN query [#1380](https://github.com/opensearch-project/k-NN/pull/1380)
 ### Infrastructure
 * Upgrade gradle to 8.4 [1289](https://github.com/opensearch-project/k-NN/pull/1289)
 * Refactor security testing to install from individual components [#1307](https://github.com/opensearch-project/k-NN/pull/1307)

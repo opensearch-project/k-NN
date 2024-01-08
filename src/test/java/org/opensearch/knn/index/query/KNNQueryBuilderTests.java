@@ -127,6 +127,43 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         actualBuilder.equals(knnQueryBuilder);
     }
 
+    public void testFromXContent_invalidQueryVectorType() throws Exception {
+        final ClusterService clusterService = mockClusterService(Version.CURRENT);
+
+        final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
+        knnClusterUtil.initialize(clusterService);
+
+        String[] invalidTypeQueryVector = { "a", "b", "c", "d" };
+
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(FIELD_NAME);
+        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), invalidTypeQueryVector);
+        builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), K);
+        builder.endObject();
+        builder.endObject();
+        XContentParser contentParser = createParser(builder);
+        contentParser.nextToken();
+        expectThrows(IllegalArgumentException.class, () -> KNNQueryBuilder.fromXContent(contentParser));
+    }
+
+    public void testFromXContent_missingQueryVector() throws Exception {
+        final ClusterService clusterService = mockClusterService(Version.CURRENT);
+
+        final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
+        knnClusterUtil.initialize(clusterService);
+
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(FIELD_NAME);
+        builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), K);
+        builder.endObject();
+        builder.endObject();
+        XContentParser contentParser = createParser(builder);
+        contentParser.nextToken();
+        expectThrows(IllegalArgumentException.class, () -> KNNQueryBuilder.fromXContent(contentParser));
+    }
+
     @Override
     protected NamedXContentRegistry xContentRegistry() {
         List<NamedXContentRegistry.Entry> list = ClusterModule.getNamedXWriteables();
