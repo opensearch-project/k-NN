@@ -24,6 +24,7 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.script.Script;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -423,6 +424,56 @@ public class VectorDataTypeIT extends KNNRestTestCase {
                     )
                 )
         );
+    }
+
+    @SneakyThrows
+    public void testSearchWithInvalidSearchVectorType() {
+        createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.FLOAT.getValue());
+        ingestL2FloatTestData();
+        Request request = new Request("POST", String.format("/%s/_search", INDEX_NAME));
+        List<Object> invalidTypeQueryVector = new ArrayList<>();
+        invalidTypeQueryVector.add(1.5);
+        invalidTypeQueryVector.add(2.5);
+        invalidTypeQueryVector.add("a");
+        invalidTypeQueryVector.add(null);
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("vector", invalidTypeQueryVector)
+            .field("k", 4)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        request.setJsonEntity(builder.toString());
+
+        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+        assertEquals(400, ex.getResponse().getStatusLine().getStatusCode());
+        assertTrue(ex.getMessage().contains("[knn] field 'vector' requires to be an array of numbers"));
+    }
+
+    @SneakyThrows
+    public void testSearchWithMissingQueryVector() {
+        createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.FLOAT.getValue());
+        ingestL2FloatTestData();
+        Request request = new Request("POST", String.format("/%s/_search", INDEX_NAME));
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(FIELD_NAME)
+            .field("k", 4)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        request.setJsonEntity(builder.toString());
+
+        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+        assertEquals(400, ex.getResponse().getStatusLine().getStatusCode());
+        assertTrue(ex.getMessage().contains("[knn] field 'vector' requires to be non-null and non-empty"));
     }
 
     @SneakyThrows
