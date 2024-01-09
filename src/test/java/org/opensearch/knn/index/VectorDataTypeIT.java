@@ -426,51 +426,6 @@ public class VectorDataTypeIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testSearchWithInvalidSearchVectorType() {
-        createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.FLOAT.getValue());
-        ingestL2FloatTestData();
-        Request request = new Request("POST", String.format("/%s/_search", INDEX_NAME));
-        request.setJsonEntity(
-            "{\n"
-                + "  \"query\": {\n"
-                + "    \"knn\": {\n"
-                + "      \"test-field-vec-dt\": {\n"
-                + "        \"vector\": [\"a\", \"b\", \"c\", \"d\"],\n"
-                + "        \"k\": 4\n"
-                + "      }\n"
-                + "    }\n"
-                + "  }\n"
-                + "}"
-        );
-
-        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getResponse().getStatusLine().getReasonPhrase().contains("Bad Request"));
-        assertTrue(ex.getMessage().contains(String.format(Locale.ROOT, "[knn] requires 'vector' to be an array of numbers")));
-    }
-
-    @SneakyThrows
-    public void testSearchWithMissingQueryVector() {
-        createKnnIndexMappingWithLuceneEngine(2, SpaceType.L2, VectorDataType.FLOAT.getValue());
-        ingestL2FloatTestData();
-        Request request = new Request("POST", String.format("/%s/_search", INDEX_NAME));
-        request.setJsonEntity(
-            "{\n"
-                + "  \"query\": {\n"
-                + "    \"knn\": {\n"
-                + "      \"test-field-vec-dt\": {\n"
-                + "        \"k\": 4\n"
-                + "      }\n"
-                + "    }\n"
-                + "  }\n"
-                + "}"
-        );
-
-        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
-        assertTrue(ex.getResponse().getStatusLine().getReasonPhrase().contains("Bad Request"));
-        assertTrue(ex.getMessage().contains(String.format(Locale.ROOT, "[knn] requires 'vector' to be non-null")));
-    }
-
-    @SneakyThrows
     private void ingestL2ByteTestData() {
         Byte[] b1 = { 6, 6 };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, b1);

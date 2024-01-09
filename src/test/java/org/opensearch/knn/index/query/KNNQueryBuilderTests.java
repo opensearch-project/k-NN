@@ -144,7 +144,11 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         builder.endObject();
         XContentParser contentParser = createParser(builder);
         contentParser.nextToken();
-        expectThrows(IllegalArgumentException.class, () -> KNNQueryBuilder.fromXContent(contentParser));
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNQueryBuilder.fromXContent(contentParser)
+        );
+        assertTrue(exception.getMessage().contains("[knn] requires 'vector' to be an array of numbers"));
     }
 
     public void testFromXContent_missingQueryVector() throws Exception {
@@ -161,7 +165,11 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         builder.endObject();
         XContentParser contentParser = createParser(builder);
         contentParser.nextToken();
-        expectThrows(IllegalArgumentException.class, () -> KNNQueryBuilder.fromXContent(contentParser));
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNQueryBuilder.fromXContent(contentParser)
+        );
+        assertTrue(exception.getMessage().contains("[knn] requires 'vector' to be non-null"));
     }
 
     @Override
