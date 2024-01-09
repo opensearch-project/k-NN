@@ -39,6 +39,7 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.plugins.SearchPlugin;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -133,7 +134,11 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
         knnClusterUtil.initialize(clusterService);
 
-        String[] invalidTypeQueryVector = { "a", "b", "c", "d" };
+        List<Object> invalidTypeQueryVector = new ArrayList<>();
+        invalidTypeQueryVector.add(1.5);
+        invalidTypeQueryVector.add(2.5);
+        invalidTypeQueryVector.add("a");
+        invalidTypeQueryVector.add(null);
 
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
@@ -148,7 +153,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             IllegalArgumentException.class,
             () -> KNNQueryBuilder.fromXContent(contentParser)
         );
-        assertTrue(exception.getMessage().contains("[knn] requires 'vector' to be an array of numbers"));
+        assertTrue(exception.getMessage().contains("[knn] field 'vector' requires to be an array of numbers"));
     }
 
     public void testFromXContent_missingQueryVector() throws Exception {
@@ -157,19 +162,34 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
         knnClusterUtil.initialize(clusterService);
 
-        XContentBuilder builder = XContentFactory.jsonBuilder();
-        builder.startObject();
-        builder.startObject(FIELD_NAME);
-        builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), K);
-        builder.endObject();
-        builder.endObject();
-        XContentParser contentParser = createParser(builder);
-        contentParser.nextToken();
+        // Test without vector field
+        XContentBuilder builderWithoutVectorField = XContentFactory.jsonBuilder();
+        builderWithoutVectorField.startObject();
+        builderWithoutVectorField.startObject(FIELD_NAME);
+        builderWithoutVectorField.field(KNNQueryBuilder.K_FIELD.getPreferredName(), K);
+        builderWithoutVectorField.endObject();
+        builderWithoutVectorField.endObject();
+        XContentParser contentParserWithoutVectorField = createParser(builderWithoutVectorField);
+        contentParserWithoutVectorField.nextToken();
         IllegalArgumentException exception = expectThrows(
             IllegalArgumentException.class,
-            () -> KNNQueryBuilder.fromXContent(contentParser)
+            () -> KNNQueryBuilder.fromXContent(contentParserWithoutVectorField)
         );
-        assertTrue(exception.getMessage().contains("[knn] requires 'vector' to be non-null"));
+        assertTrue(exception.getMessage().contains("[knn] field 'vector' requires to be non-null and non-empty"));
+
+        // Test empty vector field
+        List<Object> emptyQueryVector = new ArrayList<>();
+        XContentBuilder builderWithEmptyVector = XContentFactory.jsonBuilder();
+        builderWithEmptyVector.startObject();
+        builderWithEmptyVector.startObject(FIELD_NAME);
+        builderWithEmptyVector.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), emptyQueryVector);
+        builderWithEmptyVector.field(KNNQueryBuilder.K_FIELD.getPreferredName(), K);
+        builderWithEmptyVector.endObject();
+        builderWithEmptyVector.endObject();
+        XContentParser contentParserWithEmptyVector = createParser(builderWithEmptyVector);
+        contentParserWithEmptyVector.nextToken();
+        exception = expectThrows(IllegalArgumentException.class, () -> KNNQueryBuilder.fromXContent(contentParserWithEmptyVector));
+        assertTrue(exception.getMessage().contains("[knn] field 'vector' requires to be non-null and non-empty"));
     }
 
     @Override
