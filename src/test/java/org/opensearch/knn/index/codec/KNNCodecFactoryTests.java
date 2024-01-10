@@ -9,7 +9,7 @@ import org.apache.lucene.backward_codecs.lucene92.Lucene92Codec;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.backward_codecs.lucene91.Lucene91Codec;
 import org.apache.lucene.backward_codecs.lucene94.Lucene94Codec;
-import org.apache.lucene.codecs.lucene95.Lucene95Codec;
+import org.apache.lucene.backward_codecs.lucene95.Lucene95Codec;
 import org.opensearch.knn.KNNTestCase;
 
 import static org.opensearch.knn.index.codec.KNNCodecVersion.V_9_1_0;
