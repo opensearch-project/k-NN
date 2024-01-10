@@ -111,7 +111,7 @@ endif ()
 if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} STREQUAL ON)
     set(BUILD_TESTING OFF)          # Avoid building faiss tests
     set(BLA_STATIC ON)              # Statically link BLAS
-    set(FAISS_OPT_LEVEL generic)    # Keep optimization level generic
+    set(FAISS_OPT_LEVEL avx2)       # Keep optimization level as avx2 to improve performance
 
     if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
         if(CMAKE_C_COMPILER_ID MATCHES "Clang\$")

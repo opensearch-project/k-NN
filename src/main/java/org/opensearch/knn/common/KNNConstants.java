@@ -89,6 +89,8 @@ public class KNNConstants {
     public static final String FAISS_IVF_DESCRIPTION = "IVF";
     public static final String FAISS_FLAT_DESCRIPTION = "Flat";
     public static final String FAISS_PQ_DESCRIPTION = "PQ";
+    public static final String ENCODER_SQFP16 = "SQfp16";
+    public static final String FAISS_SQFP16_DESCRIPTION = "SQfp16";
 
     // Parameter defaults/limits
     public static final Integer ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT = 1;

@@ -75,6 +75,16 @@ class Faiss extends NativeLibrary {
                     methodComponentContext
                 ).build())
             )
+            .build(),
+        KNNConstants.ENCODER_SQFP16,
+        MethodComponent.Builder.builder(KNNConstants.ENCODER_SQFP16)
+            .setMapGenerator(
+                ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+                    KNNConstants.FAISS_SQFP16_DESCRIPTION,
+                    methodComponent,
+                    methodComponentContext
+                ).build())
+            )
             .build()
     );
 
