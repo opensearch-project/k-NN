@@ -15,6 +15,9 @@ import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.KNNFormatFacade;
 
+/**
+ * KNN Codec that wraps the Lucene Codec which is part of Lucene 9.9
+ */
 public class KNN990Codec extends FilterCodec {
     private static final KNNCodecVersion VERSION = KNNCodecVersion.V_9_9_0;
     private final KNNFormatFacade knnFormatFacade;
