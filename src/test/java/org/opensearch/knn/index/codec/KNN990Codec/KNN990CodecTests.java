@@ -9,8 +9,6 @@ import lombok.SneakyThrows;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
-import org.opensearch.knn.index.codec.KNN990Codec.KNN990Codec;
-import org.opensearch.knn.index.codec.KNN990Codec.KNN990PerFieldKnnVectorsFormat;
 import org.opensearch.knn.index.codec.KNNCodecTestCase;
 
 import java.util.Optional;

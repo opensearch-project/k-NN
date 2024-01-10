@@ -363,6 +363,7 @@ public class KNNCodecTestUtil {
             segmentName,
             docsInSegment,
             false,
+            false,
             codec,
             Collections.emptyMap(),
             randomByteArrayOfLength(StringHelper.ID_LENGTH),
