@@ -14,6 +14,7 @@
 #include <jni.h>
 
 #include <random>
+#include <stdio.h>
 #include <utility>
 
 #include "faiss/Index.h"
@@ -346,4 +347,42 @@ float test_util::RandomFloat(float min, float max) {
     std::default_random_engine e1(r());
     std::uniform_real_distribution<float> distribution(min, max);
     return distribution(e1);
+}
+
+void test_util::load_data(char* filename, float*& data, unsigned& num, unsigned& dim) {
+    std::ifstream in(filename, std::ios::binary);
+    if (!in.is_open()) {
+        std::cout << "open file error" << std::endl;
+        exit(-1);
+    }
+    in.read((char*)&dim, 4);
+    in.seekg(0, std::ios::end);
+    std::ios::pos_type ss = in.tellg();
+    size_t fsize = (size_t)ss;
+    num = (unsigned)(fsize / (dim + 1) / 4);
+    data = new float[(size_t)num * (size_t)dim];
+
+    in.seekg(0, std::ios::beg);
+    for (size_t i = 0; i < num; i++) {
+        in.seekg(4, std::ios::cur);
+        in.read((char*)(data + i * dim), dim * 4);
+    }
+    in.close();
+}
+
+void test_util::set_vectors(std::vector<std::vector<float>>& vectors, 
+                            std::vector<int>& ids, 
+                            int points_num, 
+                            int dim, 
+                            float* dataptr) {
+    ids.resize(points_num);
+    for (int i = 0; i < points_num; ++i) {
+        ids[i] = i;
+        std::vector<float> vect;
+        for (int j = 0; j < dim; ++j) {
+            vect.push_back(*dataptr);
+            dataptr++;
+        }
+        vectors.push_back(vect);
+    }
 }
