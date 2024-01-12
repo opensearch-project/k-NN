@@ -34,4 +34,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Upgrade urllib to 1.26.17 [#1278](https://github.com/opensearch-project/k-NN/pull/1278)
 * Upgrade urllib to 1.26.18 [#1319](https://github.com/opensearch-project/k-NN/pull/1319)
 * Upgrade guava to 32.1.3 [#1319](https://github.com/opensearch-project/k-NN/pull/1319)
+* Bump lucene codec to 99 [#1383](https://github.com/opensearch-project/k-NN/pull/1383)
 ### Refactoring
