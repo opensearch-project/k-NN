@@ -88,6 +88,9 @@ public class KNNSettings {
         this.clusterService = clusterService;
     }
 
+    // TODO: This should be added in constructor of the class where setting is defined. Examples:
+    // 1. ClusterManagerTaskThrottler
+    // 2. HierarchyCircuitBreakerService
     private void setSettingsUpdateConsumers() {
         clusterService.getClusterSettings().addSettingsUpdateConsumer(updatedSettings -> {
             // When any of the dynamic settings are updated, rebuild the cache with the updated values. Use the current
@@ -116,6 +119,39 @@ public class KNNSettings {
         }, new ArrayList<>(dynamicCacheSettings.values()));
     }
 
+    // TODO: Setters
+    // Move to class that encapsulates the logic
+    /**
+     * Updates knn.circuit_breaker.triggered setting to true/false
+     * @param flag true/false
+     */
+    public synchronized void updateCircuitBreakerSettings(boolean flag) {
+        ClusterUpdateSettingsRequest clusterUpdateSettingsRequest = new ClusterUpdateSettingsRequest();
+        Settings circuitBreakerSettings = Settings.builder().put(KNN_CIRCUIT_BREAKER_TRIGGERED, flag).build();
+        clusterUpdateSettingsRequest.persistentSettings(circuitBreakerSettings);
+        client.admin().cluster().updateSettings(clusterUpdateSettingsRequest, new ActionListener<ClusterUpdateSettingsResponse>() {
+            @Override
+            public void onResponse(ClusterUpdateSettingsResponse clusterUpdateSettingsResponse) {
+                logger.debug(
+                    "Cluster setting {}, acknowledged: {} ",
+                    clusterUpdateSettingsRequest.persistentSettings(),
+                    clusterUpdateSettingsResponse.isAcknowledged()
+                );
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                logger.info(
+                    "Exception while updating circuit breaker setting {} to {}",
+                    clusterUpdateSettingsRequest.persistentSettings(),
+                    e.getMessage()
+                );
+            }
+        });
+    }
+
+    // TODO: Getters
+    // In general, we could wrap these in some kind of util
     /**
      * Get setting value by key. Return default value if not configured explicitly.
      *
@@ -194,6 +230,39 @@ public class KNNSettings {
             .getAsInt(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE);
     }
 
+    /**
+     *
+     * @param index Name of the index
+     * @return efSearch value
+     */
+    public static int getEfSearchParam(String index) {
+        final IndexMetadata indexMetadata = KNNSettings.state().clusterService.state().getMetadata().index(index);
+        return indexMetadata.getSettings()
+            .getAsInt(KNN_ALGO_PARAM_EF_SEARCH, IndexHyperParametersUtil.getHNSWEFSearchValue(indexMetadata.getCreationVersion()));
+    }
+
+    // TODO Validators: Move to class where they are defined
+    static class SpaceTypeValidator implements Setting.Validator<String> {
+
+        @Override
+        public void validate(String value) {
+            try {
+                SpaceType.getSpace(value);
+            } catch (IllegalArgumentException ex) {
+                throw new InvalidParameterException(ex.getMessage());
+            }
+        }
+    }
+
+    public void onIndexModule(IndexModule module) {
+        module.addSettingsUpdateConsumer(INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING, newVal -> {
+            logger.debug("The value of [KNN] setting [{}] changed to [{}]", KNN_ALGO_PARAM_EF_SEARCH, newVal);
+            // TODO: replace cache-rebuild with index reload into the cache
+            NativeMemoryCacheManager.getInstance().rebuildCache();
+        });
+    }
+
+    // TODO: Parsers/utility functions
     public static ByteSizeValue parseknnMemoryCircuitBreakerValue(String sValue, String settingName) {
         settingName = Objects.requireNonNull(settingName);
         if (sValue != null && sValue.endsWith("%")) {
@@ -216,66 +285,6 @@ public class KNNSettings {
         } else {
             return parseBytesSizeValue(sValue, settingName);
         }
-    }
-
-    /**
-     * Updates knn.circuit_breaker.triggered setting to true/false
-     * @param flag true/false
-     */
-    public synchronized void updateCircuitBreakerSettings(boolean flag) {
-        ClusterUpdateSettingsRequest clusterUpdateSettingsRequest = new ClusterUpdateSettingsRequest();
-        Settings circuitBreakerSettings = Settings.builder().put(KNN_CIRCUIT_BREAKER_TRIGGERED, flag).build();
-        clusterUpdateSettingsRequest.persistentSettings(circuitBreakerSettings);
-        client.admin().cluster().updateSettings(clusterUpdateSettingsRequest, new ActionListener<ClusterUpdateSettingsResponse>() {
-            @Override
-            public void onResponse(ClusterUpdateSettingsResponse clusterUpdateSettingsResponse) {
-                logger.debug(
-                    "Cluster setting {}, acknowledged: {} ",
-                    clusterUpdateSettingsRequest.persistentSettings(),
-                    clusterUpdateSettingsResponse.isAcknowledged()
-                );
-            }
-
-            @Override
-            public void onFailure(Exception e) {
-                logger.info(
-                    "Exception while updating circuit breaker setting {} to {}",
-                    clusterUpdateSettingsRequest.persistentSettings(),
-                    e.getMessage()
-                );
-            }
-        });
-    }
-
-    /**
-     *
-     * @param index Name of the index
-     * @return efSearch value
-     */
-    public static int getEfSearchParam(String index) {
-        final IndexMetadata indexMetadata = KNNSettings.state().clusterService.state().getMetadata().index(index);
-        return indexMetadata.getSettings()
-            .getAsInt(KNN_ALGO_PARAM_EF_SEARCH, IndexHyperParametersUtil.getHNSWEFSearchValue(indexMetadata.getCreationVersion()));
-    }
-
-    static class SpaceTypeValidator implements Setting.Validator<String> {
-
-        @Override
-        public void validate(String value) {
-            try {
-                SpaceType.getSpace(value);
-            } catch (IllegalArgumentException ex) {
-                throw new InvalidParameterException(ex.getMessage());
-            }
-        }
-    }
-
-    public void onIndexModule(IndexModule module) {
-        module.addSettingsUpdateConsumer(INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING, newVal -> {
-            logger.debug("The value of [KNN] setting [{}] changed to [{}]", KNN_ALGO_PARAM_EF_SEARCH, newVal);
-            // TODO: replace cache-rebuild with index reload into the cache
-            NativeMemoryCacheManager.getInstance().rebuildCache();
-        });
     }
 
     public static String percentageAsString(Integer percentage) {
