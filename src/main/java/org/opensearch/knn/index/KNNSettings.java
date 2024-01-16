@@ -17,7 +17,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
-import org.opensearch.index.IndexModule;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManagerDto;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
@@ -238,14 +237,6 @@ public class KNNSettings {
         final IndexMetadata indexMetadata = KNNSettings.state().clusterService.state().getMetadata().index(index);
         return indexMetadata.getSettings()
             .getAsInt(KNN_ALGO_PARAM_EF_SEARCH, IndexHyperParametersUtil.getHNSWEFSearchValue(indexMetadata.getCreationVersion()));
-    }
-
-    public void onIndexModule(IndexModule module) {
-        module.addSettingsUpdateConsumer(INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING, newVal -> {
-            logger.debug("The value of [KNN] setting [{}] changed to [{}]", KNN_ALGO_PARAM_EF_SEARCH, newVal);
-            // TODO: replace cache-rebuild with index reload into the cache
-            NativeMemoryCacheManager.getInstance().rebuildCache();
-        });
     }
 
     // TODO: Parsers/utility functions

@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin;
 
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.cluster.NamedDiff;
 import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.core.ParseField;
@@ -15,6 +16,7 @@ import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.KNNSettingsDefinitions;
+import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -116,6 +118,8 @@ import static java.util.Collections.singletonList;
 import static org.opensearch.knn.common.KNNConstants.KNN_THREAD_POOL_PREFIX;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
+import static org.opensearch.knn.index.KNNSettingsDefinitions.INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING;
+import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_SEARCH;
 
 /**
  * Entry point for the KNN plugin where we define mapper for knn_vector type
@@ -147,6 +151,7 @@ import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
  *   }
  *
  */
+@Log4j2
 public class KNNPlugin extends Plugin
     implements
         MapperPlugin,
@@ -289,7 +294,11 @@ public class KNNPlugin extends Plugin
 
     @Override
     public void onIndexModule(IndexModule indexModule) {
-        KNNSettings.state().onIndexModule(indexModule);
+        indexModule.addSettingsUpdateConsumer(INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING, newVal -> {
+            log.debug("The value of [KNN] setting [{}] changed to [{}]", KNN_ALGO_PARAM_EF_SEARCH, newVal);
+            // TODO: replace cache-rebuild with index reload into the cache
+            NativeMemoryCacheManager.getInstance().rebuildCache();
+        });
     }
 
     /**
