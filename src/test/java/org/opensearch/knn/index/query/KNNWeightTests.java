@@ -656,6 +656,7 @@ public class KNNWeightTests extends KNNTestCase {
             SEGMENT_NAME,
             100,
             true,
+            false,
             KNNCodecVersion.current().getDefaultCodecDelegate(),
             Map.of(),
             new byte[StringHelper.ID_LENGTH],

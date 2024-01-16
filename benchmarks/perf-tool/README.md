@@ -369,6 +369,12 @@ python add-filters-to-dataset.py <path_to_dataset_with_vectors> <path_of_new_dat
 
 After that new dataset(s) can be referred from testcase definition in `ingest_extended` and `query_with_filter` steps.
 
+To generate dataset with parent doc id based on vectors only dataset, use following command pattern:
+```commandline
+python add-parent-doc-id-to-dataset.py <path_to_dataset_with_vectors> <path_of_new_dataset_with_parent_id>
+```
+This will generate neighbours dataset as well. This new dataset(s) can be referred from testcase definition in `ingest_nested_field` and `query_nested_field` steps.
+
 ## Contributing 
 
 ### Linting
