@@ -24,7 +24,6 @@ import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
 
-import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -239,19 +238,6 @@ public class KNNSettings {
         final IndexMetadata indexMetadata = KNNSettings.state().clusterService.state().getMetadata().index(index);
         return indexMetadata.getSettings()
             .getAsInt(KNN_ALGO_PARAM_EF_SEARCH, IndexHyperParametersUtil.getHNSWEFSearchValue(indexMetadata.getCreationVersion()));
-    }
-
-    // TODO Validators: Move to class where they are defined
-    static class SpaceTypeValidator implements Setting.Validator<String> {
-
-        @Override
-        public void validate(String value) {
-            try {
-                SpaceType.getSpace(value);
-            } catch (IllegalArgumentException ex) {
-                throw new InvalidParameterException(ex.getMessage());
-            }
-        }
     }
 
     public void onIndexModule(IndexModule module) {

@@ -71,7 +71,7 @@ public class KNNSettingsDefinitions {
     public static final Setting<String> INDEX_KNN_SPACE_TYPE = Setting.simpleString(
         KNN_SPACE_TYPE,
         INDEX_KNN_DEFAULT_SPACE_TYPE,
-        new KNNSettings.SpaceTypeValidator(),
+        new SpaceType.SpaceTypeValidator(),
         IndexScope,
         Setting.Property.Deprecated
     );
