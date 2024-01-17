@@ -121,6 +121,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
 import static org.opensearch.knn.index.KNNSettingsDefinitions.INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING;
 import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_SEARCH;
+import static org.opensearch.knn.index.KNNSettingsDefinitions.dynamicCacheSettings;
 
 /**
  * Entry point for the KNN plugin where we define mapper for knn_vector type
@@ -218,6 +219,7 @@ public class KNNPlugin extends Plugin
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
 
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
+        NativeMemoryCacheManager.setCacheRebuildUpdateConsumers(clusterService.getClusterSettings(), dynamicCacheSettings.values());
 
         knnStats = new KNNStats();
         return ImmutableList.of(knnStats);

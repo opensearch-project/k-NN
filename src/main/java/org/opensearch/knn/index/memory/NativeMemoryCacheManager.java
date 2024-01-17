@@ -19,7 +19,10 @@ import com.google.common.cache.RemovalNotification;
 import org.apache.commons.lang.Validate;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.common.settings.AbstractScopedSettings;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.index.KNNCircuitBreakerUtil;
 import org.opensearch.knn.index.KNNSettings;
@@ -27,6 +30,8 @@ import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.plugin.stats.StatNames;
 
 import java.io.Closeable;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -35,6 +40,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_ENABLED;
+import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES;
+import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED;
+import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT;
 
 /**
  * Manages native memory allocations made by JNI.
@@ -402,5 +412,52 @@ public class NativeMemoryCacheManager implements Closeable {
             return 0.0F;
         }
         return 100 * size / (float) cbLimit;
+    }
+
+    /**
+     * Register settings that will trigger a rebuild of the cache if changed
+     *
+     * @param abstractScopedSettings settings on which to add update consumers to
+     * @param settingsToRebuildCacheOnChange settings for which the update consumer will be triggered on
+     */
+    public static void setCacheRebuildUpdateConsumers(
+        AbstractScopedSettings abstractScopedSettings,
+        Collection<Setting<?>> settingsToRebuildCacheOnChange
+    ) {
+        abstractScopedSettings.addSettingsUpdateConsumer(updatedSettings -> {
+            // When any of the dynamic settings are updated, rebuild the cache with the updated values. Use the current
+            // cluster settings values as defaults.
+            NativeMemoryCacheManagerDto.NativeMemoryCacheManagerDtoBuilder builder = NativeMemoryCacheManagerDto.builder();
+
+            builder.isWeightLimited(
+                updatedSettings.getAsBoolean(
+                    KNN_MEMORY_CIRCUIT_BREAKER_ENABLED,
+                    KNNSettings.state().getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED)
+                )
+            );
+
+            builder.maxWeight(((ByteSizeValue) KNNSettings.state().getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb());
+            if (updatedSettings.hasValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)) {
+                builder.maxWeight(
+                    ((ByteSizeValue) KNNSettings.state().getSetting(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT).get(updatedSettings)).getKb()
+                );
+            }
+
+            builder.isExpirationLimited(
+                updatedSettings.getAsBoolean(
+                    KNN_CACHE_ITEM_EXPIRY_ENABLED,
+                    KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_ENABLED)
+                )
+            );
+
+            builder.expiryTimeInMin(
+                updatedSettings.getAsTime(
+                    KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES,
+                    KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)
+                ).getMinutes()
+            );
+
+            NativeMemoryCacheManager.getInstance().rebuildCache(builder.build());
+        }, new ArrayList<>(settingsToRebuildCacheOnChange));
     }
 }
