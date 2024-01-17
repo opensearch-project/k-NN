@@ -90,7 +90,7 @@ public class KNNTestCase extends OpenSearchTestCase {
         }
 
         when(clusterService.getClusterSettings()).thenReturn(new ClusterSettings(Settings.EMPTY, defaultClusterSettings));
-        KNNSettings.state().setClusterService(clusterService);
+        KNNSettings.state().initialize(clusterService);
     }
 
     public Map<String, Object> xContentBuilderToMap(XContentBuilder xContentBuilder) {

@@ -45,10 +45,6 @@ public class KNNSettings {
         this.clusterService = clusterService;
     }
 
-    public void setClusterService(ClusterService clusterService) {
-        this.clusterService = clusterService;
-    }
-
     // TODO: Utility get methods
     // In general, we could wrap these in some kind of util
     /**

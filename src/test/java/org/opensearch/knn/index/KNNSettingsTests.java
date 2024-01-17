@@ -46,7 +46,7 @@ public class KNNSettingsTests extends KNNTestCase {
         );
         mockNode.start();
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
-        KNNSettings.state().setClusterService(clusterService);
+        KNNSettings.state().initialize(clusterService);
         long actualKNNCircuitBreakerLimit = ((ByteSizeValue) KNNSettings.state()
             .getSettingValue(KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
         mockNode.close();
@@ -59,7 +59,7 @@ public class KNNSettingsTests extends KNNTestCase {
         Node mockNode = createMockNode(Collections.emptyMap());
         mockNode.start();
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
-        KNNSettings.state().setClusterService(clusterService);
+        KNNSettings.state().initialize(clusterService);
         long actualKNNCircuitBreakerLimit = ((ByteSizeValue) KNNSettings.state()
             .getSettingValue(KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
         mockNode.close();
@@ -82,7 +82,7 @@ public class KNNSettingsTests extends KNNTestCase {
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
         mockNode.client().admin().cluster().state(new ClusterStateRequest()).actionGet();
         mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME)).actionGet();
-        KNNSettings.state().setClusterService(clusterService);
+        KNNSettings.state().initialize(clusterService);
 
         Integer filteredSearchThreshold = KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME);
         mockNode.close();
@@ -99,7 +99,7 @@ public class KNNSettingsTests extends KNNTestCase {
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
         mockNode.client().admin().cluster().state(new ClusterStateRequest()).actionGet();
         mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME)).actionGet();
-        KNNSettings.state().setClusterService(clusterService);
+        KNNSettings.state().initialize(clusterService);
 
         final Settings filteredSearchAdvanceSettings = Settings.builder()
             .put(KNNSettingsDefinitions.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, userDefinedThreshold)
@@ -139,7 +139,7 @@ public class KNNSettingsTests extends KNNTestCase {
         ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
         mockNode.client().admin().cluster().state(new ClusterStateRequest()).actionGet();
         mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME)).actionGet();
-        KNNSettings.state().setClusterService(clusterService);
+        KNNSettings.state().initialize(clusterService);
 
         Integer efSearchValue = KNNSettings.getEfSearchParam(INDEX_NAME);
         mockNode.close();
@@ -159,7 +159,7 @@ public class KNNSettingsTests extends KNNTestCase {
             .put(KNNSettingsDefinitions.KNN_INDEX, true)
             .build();
         mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME, settings)).actionGet();
-        KNNSettings.state().setClusterService(clusterService);
+        KNNSettings.state().initialize(clusterService);
 
         int efSearchValue = KNNSettings.getEfSearchParam(INDEX_NAME);
         mockNode.close();
