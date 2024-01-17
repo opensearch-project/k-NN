@@ -41,15 +41,32 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_ENABLED;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT;
+import static org.opensearch.common.settings.Setting.Property.Dynamic;
+import static org.opensearch.common.settings.Setting.Property.NodeScope;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT;
 
 /**
  * Manages native memory allocations made by JNI.
  */
 public class NativeMemoryCacheManager implements Closeable {
+
+    // Native Memory Cache Manager Related Settings
+    public static final String KNN_CACHE_ITEM_EXPIRY_ENABLED = "knn.cache.item.expiry.enabled";
+    public static final Setting<Boolean> KNN_CACHE_ITEM_EXPIRY_ENABLED_SETTING = Setting.boolSetting(
+        KNN_CACHE_ITEM_EXPIRY_ENABLED,
+        false,
+        NodeScope,
+        Dynamic
+    );
+    public static final String KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES = "knn.cache.item.expiry.minutes";
+    public static final TimeValue KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES_DEFAULT = TimeValue.timeValueHours(3);
+    public static final Setting<TimeValue> KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES_SETTING = Setting.positiveTimeSetting(
+        KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES,
+        KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES_DEFAULT,
+        NodeScope,
+        Dynamic
+    );
 
     public static String GRAPH_COUNT = "graph_count";
 
@@ -83,13 +100,10 @@ public class NativeMemoryCacheManager implements Closeable {
     private void initialize() {
         initialize(
             NativeMemoryCacheManagerDto.builder()
-                .isWeightLimited(KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
+                .isWeightLimited(KNNSettings.state().getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
                 .maxWeight(KNNSettings.getCircuitBreakerLimit().getKb())
-                .isExpirationLimited(KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_ENABLED))
-                .expiryTimeInMin(
-                    ((TimeValue) KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))
-                        .getMinutes()
-                )
+                .isExpirationLimited(KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_ENABLED))
+                .expiryTimeInMin(((TimeValue) KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes())
                 .build()
         );
     }
@@ -120,13 +134,10 @@ public class NativeMemoryCacheManager implements Closeable {
     public synchronized void rebuildCache() {
         rebuildCache(
             NativeMemoryCacheManagerDto.builder()
-                .isWeightLimited(KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
+                .isWeightLimited(KNNSettings.state().getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
                 .maxWeight(KNNSettings.getCircuitBreakerLimit().getKb())
-                .isExpirationLimited(KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_ENABLED))
-                .expiryTimeInMin(
-                    ((TimeValue) KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))
-                        .getMinutes()
-                )
+                .isExpirationLimited(KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_ENABLED))
+                .expiryTimeInMin(((TimeValue) KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes())
                 .build()
         );
     }

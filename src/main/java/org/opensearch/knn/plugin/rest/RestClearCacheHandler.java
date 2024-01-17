@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 
 import static org.opensearch.action.support.IndicesOptions.strictExpandOpen;
 import static org.opensearch.knn.common.KNNConstants.CLEAR_CACHE;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_INDEX;
+import static org.opensearch.knn.index.codec.KNNCodecService.KNN_INDEX;
 
 /**
  * RestHandler for k-NN Clear Cache API. API provides the ability for a user to evict those indices from Cache.

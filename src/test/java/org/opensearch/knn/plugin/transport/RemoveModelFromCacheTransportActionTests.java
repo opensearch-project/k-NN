@@ -29,7 +29,7 @@ import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.MODEL_CACHE_SIZE_LIMIT_SETTING;
+import static org.opensearch.knn.indices.ModelCache.MODEL_CACHE_SIZE_LIMIT_SETTING;
 
 public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestCase {
 

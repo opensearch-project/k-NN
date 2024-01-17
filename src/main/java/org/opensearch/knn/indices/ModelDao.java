@@ -41,6 +41,7 @@ import org.opensearch.cluster.health.ClusterHealthStatus;
 import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
 import org.opensearch.core.action.ActionListener;
@@ -71,8 +72,6 @@ import static java.util.Objects.isNull;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.MODEL_METADATA_FIELD;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.MODEL_INDEX_NUMBER_OF_SHARDS_SETTING;
 
 /**
  * ModelDao is used to interface with the model persistence layer
@@ -175,6 +174,26 @@ public interface ModelDao {
      * Implementation of ModelDao for k-NN model index
      */
     final class OpenSearchKNNModelDao implements ModelDao {
+
+        // Settings for the model index configurations
+        public static final String MODEL_INDEX_NUMBER_OF_SHARDS = "knn.model.index.number_of_shards";
+
+        public static final Setting<Integer> MODEL_INDEX_NUMBER_OF_SHARDS_SETTING = Setting.intSetting(
+            MODEL_INDEX_NUMBER_OF_SHARDS,
+            1,
+            1,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
+
+        public static final String MODEL_INDEX_NUMBER_OF_REPLICAS = "knn.model.index.number_of_replicas";
+        public static final Setting<Integer> MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING = Setting.intSetting(
+            MODEL_INDEX_NUMBER_OF_REPLICAS,
+            1,
+            0,
+            Setting.Property.NodeScope,
+            Setting.Property.Dynamic
+        );
 
         public static Logger logger = LogManager.getLogger(ModelDao.class);
 

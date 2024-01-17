@@ -16,7 +16,6 @@ import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
@@ -57,6 +56,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.calculateArraySize;
+import static org.opensearch.knn.jni.JNIService.KNN_ALGO_PARAM_INDEX_THREAD_QTY;
 
 /**
  * This class writes the KNN docvalues to the segments
@@ -184,7 +184,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     private void createKNNIndexFromTemplate(byte[] model, KNNCodecUtil.Pair pair, KNNEngine knnEngine, String indexPath) {
         Map<String, Object> parameters = ImmutableMap.of(
             KNNConstants.INDEX_THREAD_QTY,
-            KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_ALGO_PARAM_INDEX_THREAD_QTY)
+            KNNSettings.state().getSettingValue(KNN_ALGO_PARAM_INDEX_THREAD_QTY)
         );
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             JNIService.createIndexFromTemplate(pair.docs, pair.vectors, indexPath, model, parameters, knnEngine.getName());
@@ -225,10 +225,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         }
 
         // Used to determine how many threads to use when indexing
-        parameters.put(
-            KNNConstants.INDEX_THREAD_QTY,
-            KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_ALGO_PARAM_INDEX_THREAD_QTY)
-        );
+        parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNN_ALGO_PARAM_INDEX_THREAD_QTY));
 
         // Pass the path for the nms library to save the file
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {

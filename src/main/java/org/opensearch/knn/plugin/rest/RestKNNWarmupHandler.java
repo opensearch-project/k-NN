@@ -27,8 +27,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_INDEX;
 import static org.opensearch.action.support.IndicesOptions.strictExpandOpen;
+import static org.opensearch.knn.index.codec.KNNCodecService.KNN_INDEX;
 
 /**
  * RestHandler for k-NN index warmup API. API provides the ability for a user to load specific indices' k-NN graphs

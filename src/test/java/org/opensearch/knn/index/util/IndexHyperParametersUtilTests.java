@@ -14,7 +14,9 @@ package org.opensearch.knn.index.util;
 import junit.framework.TestCase;
 import org.junit.Assert;
 import org.opensearch.Version;
-import org.opensearch.knn.index.KNNSettingsDefinitions;
+
+import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
+import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
 
 public class IndexHyperParametersUtilTests extends TestCase {
 
@@ -27,7 +29,7 @@ public class IndexHyperParametersUtilTests extends TestCase {
         Assert.assertEquals(512, IndexHyperParametersUtil.getHNSWEFConstructionValue(Version.V_2_11_0));
         Assert.assertEquals(512, IndexHyperParametersUtil.getHNSWEFConstructionValue(Version.V_2_3_0));
         Assert.assertEquals(
-            KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION.intValue(),
+            INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION.intValue(),
             IndexHyperParametersUtil.getHNSWEFConstructionValue(Version.CURRENT)
         );
 
@@ -37,7 +39,7 @@ public class IndexHyperParametersUtilTests extends TestCase {
         Assert.assertEquals(512, IndexHyperParametersUtil.getHNSWEFConstructionValue(Version.V_2_11_0));
         Assert.assertEquals(512, IndexHyperParametersUtil.getHNSWEFConstructionValue(Version.V_2_3_0));
         Assert.assertEquals(
-            KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH.intValue(),
+            INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH.intValue(),
             IndexHyperParametersUtil.getHNSWEFConstructionValue(Version.CURRENT)
         );
     }

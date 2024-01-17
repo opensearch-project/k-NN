@@ -19,7 +19,6 @@ import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.MatchAllQueryBuilder;
-import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.indices.ModelDao;
@@ -100,7 +99,11 @@ import static org.opensearch.knn.TestUtils.QUERY_VALUE;
 import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
 
 import static org.opensearch.knn.index.SpaceType.L2;
+import static org.opensearch.knn.index.mapper.LegacyFieldMapper.KNN_ALGO_PARAM_EF_CONSTRUCTION;
+import static org.opensearch.knn.index.mapper.LegacyFieldMapper.KNN_ALGO_PARAM_M;
+import static org.opensearch.knn.index.mapper.LegacyFieldMapper.KNN_SPACE_TYPE;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES;
 import static org.opensearch.knn.index.util.KNNEngine.FAISS;
 import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 
@@ -803,8 +806,8 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * clear the cache.
      */
     protected void clearCache() throws Exception {
-        updateClusterSettings(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, "1m");
-        updateClusterSettings(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, null);
+        updateClusterSettings(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, "1m");
+        updateClusterSettings(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, null);
     }
 
     /**
@@ -1083,9 +1086,9 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .put(NUMBER_OF_SHARDS, 1)
             .put(NUMBER_OF_REPLICAS, 0)
             .put(INDEX_KNN, true)
-            .put(KNNSettingsDefinitions.KNN_SPACE_TYPE, spaceType.getValue())
-            .put(KNNSettingsDefinitions.KNN_ALGO_PARAM_M, m)
-            .put(KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_CONSTRUCTION, ef_construction)
+            .put(KNN_SPACE_TYPE, spaceType.getValue())
+            .put(KNN_ALGO_PARAM_M, m)
+            .put(KNN_ALGO_PARAM_EF_CONSTRUCTION, ef_construction)
             .build();
     }
 

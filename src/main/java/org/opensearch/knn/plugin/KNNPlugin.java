@@ -16,7 +16,6 @@ import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNCircuitBreaker;
 import org.opensearch.knn.index.KNNCircuitBreakerUtil;
 import org.opensearch.knn.index.KNNClusterUtil;
-import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
@@ -116,23 +115,25 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Collections.singletonList;
+import static org.opensearch.common.settings.Setting.Property.Dynamic;
+import static org.opensearch.common.settings.Setting.Property.NodeScope;
 import static org.opensearch.knn.common.KNNConstants.KNN_THREAD_POOL_PREFIX;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.INDEX_KNN_ALGO_PARAM_M_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.INDEX_KNN_SPACE_TYPE;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.IS_KNN_INDEX_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_SEARCH;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.MODEL_CACHE_SIZE_LIMIT_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.MODEL_INDEX_NUMBER_OF_SHARDS_SETTING;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING;
 import static org.opensearch.knn.index.KNNSettingsDefinitions.dynamicCacheSettings;
+import static org.opensearch.knn.index.codec.KNNCodecService.IS_KNN_INDEX_SETTING;
+import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING;
+import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING;
+import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_ALGO_PARAM_M_SETTING;
+import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_SPACE_TYPE;
+import static org.opensearch.knn.index.mapper.LegacyFieldMapper.KNN_ALGO_PARAM_EF_SEARCH;
+import static org.opensearch.knn.index.query.KNNWeight.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING;
+import static org.opensearch.knn.indices.ModelCache.MODEL_CACHE_SIZE_LIMIT_SETTING;
+import static org.opensearch.knn.indices.ModelDao.OpenSearchKNNModelDao.MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING;
+import static org.opensearch.knn.indices.ModelDao.OpenSearchKNNModelDao.MODEL_INDEX_NUMBER_OF_SHARDS_SETTING;
+import static org.opensearch.knn.jni.JNIService.KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING;
 
 /**
  * Entry point for the KNN plugin where we define mapper for knn_vector type
@@ -175,6 +176,9 @@ public class KNNPlugin extends Plugin
         ExtensiblePlugin,
         SystemIndexPlugin {
 
+    // Setting showing if plugin is enabled
+    public static final String KNN_PLUGIN_ENABLED = "knn.plugin.enabled";
+    public static final Setting<Boolean> KNN_PLUGIN_ENABLED_SETTING = Setting.boolSetting(KNN_PLUGIN_ENABLED, true, NodeScope, Dynamic);
     public static final String LEGACY_KNN_BASE_URI = "/_opendistro/_knn";
     public static final String KNN_BASE_URI = "/_plugins/_knn";
 
@@ -317,7 +321,7 @@ public class KNNPlugin extends Plugin
 
     @Override
     public Optional<CodecServiceFactory> getCustomCodecServiceFactory(IndexSettings indexSettings) {
-        if (indexSettings.getValue(KNNSettingsDefinitions.IS_KNN_INDEX_SETTING)) {
+        if (indexSettings.getValue(IS_KNN_INDEX_SETTING)) {
             return Optional.of(KNNCodecService::new);
         }
         return Optional.empty();

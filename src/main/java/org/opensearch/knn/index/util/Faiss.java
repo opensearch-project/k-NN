@@ -9,7 +9,6 @@ import com.google.common.collect.ImmutableMap;
 import lombok.AllArgsConstructor;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethod;
-import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.index.MethodComponent;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.Parameter;
@@ -45,6 +44,9 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_DE
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_LIMIT;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
+import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
+import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_DEFAULT_ALGO_PARAM_M;
 
 /**
  * Implements NativeLibrary for the faiss native library
@@ -186,23 +188,19 @@ class Faiss extends NativeLibrary {
             MethodComponent.Builder.builder(METHOD_HNSW)
                 .addParameter(
                     METHOD_PARAMETER_M,
-                    new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0)
+                    new Parameter.IntegerParameter(METHOD_PARAMETER_M, INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0)
                 )
                 .addParameter(
                     METHOD_PARAMETER_EF_CONSTRUCTION,
                     new Parameter.IntegerParameter(
                         METHOD_PARAMETER_EF_CONSTRUCTION,
-                        KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
+                        INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
                         v -> v > 0
                     )
                 )
                 .addParameter(
                     METHOD_PARAMETER_EF_SEARCH,
-                    new Parameter.IntegerParameter(
-                        METHOD_PARAMETER_EF_SEARCH,
-                        KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
-                        v -> v > 0
-                    )
+                    new Parameter.IntegerParameter(METHOD_PARAMETER_EF_SEARCH, INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH, v -> v > 0)
                 )
                 .addParameter(
                     METHOD_ENCODER_PARAMETER,

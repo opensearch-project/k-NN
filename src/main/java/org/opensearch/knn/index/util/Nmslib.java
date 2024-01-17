@@ -7,7 +7,6 @@ package org.opensearch.knn.index.util;
 
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.index.KNNMethod;
-import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.index.MethodComponent;
 import org.opensearch.knn.index.Parameter;
 import org.opensearch.knn.index.SpaceType;
@@ -19,6 +18,8 @@ import java.util.function.Function;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION;
+import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_DEFAULT_ALGO_PARAM_M;
 
 /**
  * Implements NativeLibrary for the nmslib native library
@@ -36,13 +37,13 @@ class Nmslib extends NativeLibrary {
             MethodComponent.Builder.builder(METHOD_HNSW)
                 .addParameter(
                     METHOD_PARAMETER_M,
-                    new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0)
+                    new Parameter.IntegerParameter(METHOD_PARAMETER_M, INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0)
                 )
                 .addParameter(
                     METHOD_PARAMETER_EF_CONSTRUCTION,
                     new Parameter.IntegerParameter(
                         METHOD_PARAMETER_EF_CONSTRUCTION,
-                        KNNSettingsDefinitions.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
+                        INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
                         v -> v > 0
                     )
                 )

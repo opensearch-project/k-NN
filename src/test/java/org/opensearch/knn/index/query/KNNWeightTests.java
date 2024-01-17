@@ -37,7 +37,6 @@ import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.util.KNNVectorAsArraySerializer;
@@ -73,6 +72,10 @@ import static org.opensearch.knn.KNNRestTestCase.INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.KNN_CACHE_ITEM_EXPIRY_ENABLED;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES;
 
 public class KNNWeightTests extends KNNTestCase {
     private static final String FIELD_NAME = "target_field";
@@ -98,19 +101,12 @@ public class KNNWeightTests extends KNNTestCase {
     public static void setUpClass() throws Exception {
         final KNNSettings knnSettings = mock(KNNSettings.class);
         knnSettingsMockedStatic = mockStatic(KNNSettings.class);
-        when(knnSettings.getSettingValue(eq(KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))).thenReturn(true);
-        when(knnSettings.getSettingValue(eq(KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT))).thenReturn(
-            CIRCUIT_BREAKER_LIMIT_100KB
-        );
-        when(knnSettings.getSettingValue(eq(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_ENABLED))).thenReturn(false);
-        when(knnSettings.getSettingValue(eq(KNNSettingsDefinitions.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))).thenReturn(
-            TimeValue.timeValueMinutes(10)
-        );
+        when(knnSettings.getSettingValue(eq(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))).thenReturn(true);
+        when(knnSettings.getSettingValue(eq(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT))).thenReturn(CIRCUIT_BREAKER_LIMIT_100KB);
+        when(knnSettings.getSettingValue(eq(KNN_CACHE_ITEM_EXPIRY_ENABLED))).thenReturn(false);
+        when(knnSettings.getSettingValue(eq(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))).thenReturn(TimeValue.timeValueMinutes(10));
 
-        final ByteSizeValue v = ByteSizeValue.parseBytesSizeValue(
-            CIRCUIT_BREAKER_LIMIT_100KB,
-            KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT
-        );
+        final ByteSizeValue v = ByteSizeValue.parseBytesSizeValue(CIRCUIT_BREAKER_LIMIT_100KB, KNN_MEMORY_CIRCUIT_BREAKER_LIMIT);
         knnSettingsMockedStatic.when(KNNSettings::getCircuitBreakerLimit).thenReturn(v);
         knnSettingsMockedStatic.when(KNNSettings::state).thenReturn(knnSettings);
         knnSettingsMockedStatic.when(KNNSettings::isKNNPluginEnabled).thenReturn(true);

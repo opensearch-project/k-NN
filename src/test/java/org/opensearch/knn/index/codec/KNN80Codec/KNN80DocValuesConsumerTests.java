@@ -60,12 +60,12 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.MODEL_CACHE_SIZE_LIMIT_SETTING;
 import static org.opensearch.knn.index.codec.KNNCodecTestUtil.assertFileInCorrectLocation;
 import static org.opensearch.knn.index.codec.KNNCodecTestUtil.assertLoadableByEngine;
 import static org.opensearch.knn.index.codec.KNNCodecTestUtil.assertValidFooter;
 import static org.opensearch.knn.index.codec.KNNCodecTestUtil.getRandomVectors;
 import static org.opensearch.knn.index.codec.KNNCodecTestUtil.RandomVectorDocValuesProducer;
+import static org.opensearch.knn.indices.ModelCache.MODEL_CACHE_SIZE_LIMIT_SETTING;
 
 public class KNN80DocValuesConsumerTests extends KNNTestCase {
 

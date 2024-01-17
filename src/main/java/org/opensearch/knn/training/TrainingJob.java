@@ -17,7 +17,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -32,6 +31,8 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Objects;
+
+import static org.opensearch.knn.jni.JNIService.KNN_ALGO_PARAM_INDEX_THREAD_QTY;
 
 /**
  * Encapsulates all information required to generate and train a model.
@@ -177,10 +178,7 @@ public class TrainingJob implements Runnable {
             }
             setVersionInKnnMethodContext();
             Map<String, Object> trainParameters = model.getModelMetadata().getKnnEngine().getMethodAsMap(knnMethodContext);
-            trainParameters.put(
-                KNNConstants.INDEX_THREAD_QTY,
-                KNNSettings.state().getSettingValue(KNNSettingsDefinitions.KNN_ALGO_PARAM_INDEX_THREAD_QTY)
-            );
+            trainParameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNN_ALGO_PARAM_INDEX_THREAD_QTY));
 
             byte[] modelBlob = JNIService.trainIndex(
                 trainParameters,

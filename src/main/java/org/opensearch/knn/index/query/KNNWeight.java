@@ -28,9 +28,9 @@ import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.DocIdSetBuilder;
 import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.common.io.PathUtils;
+import org.opensearch.common.settings.Setting;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
@@ -55,6 +55,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import static org.opensearch.common.settings.Setting.Property.IndexScope;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
@@ -66,6 +67,16 @@ import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
  */
 @Log4j2
 public class KNNWeight extends Weight {
+    // Query specific settings
+    public static final String ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD = "index.knn.advanced.filtered_exact_search_threshold";
+    public static final Integer ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE = -1;
+    public static final Setting<Integer> ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING = Setting.intSetting(
+        ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD,
+        ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE,
+        IndexScope,
+        Setting.Property.Dynamic
+    );
+
     private static ModelDao modelDao;
 
     private final KNNQuery knnQuery;
@@ -415,13 +426,13 @@ public class KNNWeight extends Weight {
     }
 
     /**
-     *  This function validates if {@link KNNSettingsDefinitions#ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD} is set or not. This
+     *  This function validates if {@link KNNWeight#ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD} is set or not. This
      *  is done by validating if the setting value is equal to the default value.
-     * @param filterThresholdValue value of the Index Setting: {@link KNNSettingsDefinitions#ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING}
+     * @param filterThresholdValue value of the Index Setting: {@link KNNWeight#ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING}
      * @return boolean true if the setting is set.
      */
     private boolean isExactSearchThresholdSettingSet(int filterThresholdValue) {
-        return filterThresholdValue != KNNSettingsDefinitions.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE;
+        return filterThresholdValue != KNNWeight.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE;
     }
 
     /**
