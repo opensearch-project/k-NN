@@ -190,12 +190,4 @@ public class KNNSettings {
         return indexMetadata.getSettings()
             .getAsInt(KNN_ALGO_PARAM_EF_SEARCH, IndexHyperParametersUtil.getHNSWEFSearchValue(indexMetadata.getCreationVersion()));
     }
-
-    public static String percentageAsString(Integer percentage) {
-        return percentage + "%";
-    }
-
-    public static Double percentageAsFraction(Integer percentage) {
-        return percentage / 100.0;
-    }
 }

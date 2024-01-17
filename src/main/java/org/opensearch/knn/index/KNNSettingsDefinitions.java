@@ -21,8 +21,6 @@ import static org.opensearch.common.settings.Setting.Property.IndexScope;
 import static org.opensearch.common.settings.Setting.Property.NodeScope;
 import static org.opensearch.common.unit.MemorySizeValue.parseBytesSizeValueOrHeapRatio;
 import static org.opensearch.core.common.unit.ByteSizeValue.parseBytesSizeValue;
-import static org.opensearch.knn.index.KNNSettings.percentageAsFraction;
-import static org.opensearch.knn.index.KNNSettings.percentageAsString;
 
 /**
  * This class simply defines all of the settings and their names for k-NN
@@ -167,6 +165,14 @@ public class KNNSettingsDefinitions {
         Setting.Property.NodeScope,
         Setting.Property.Dynamic
     );
+
+    private static String percentageAsString(Integer percentage) {
+        return percentage + "%";
+    }
+
+    private static Double percentageAsFraction(Integer percentage) {
+        return percentage / 100.0;
+    }
 
     /**
      * This setting identifies KNN index.
