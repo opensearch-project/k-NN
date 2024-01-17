@@ -6,20 +6,14 @@
 package org.opensearch.knn.index;
 
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
-import org.opensearch.knn.plugin.stats.StatNames;
-import org.opensearch.knn.plugin.transport.KNNStatsAction;
-import org.opensearch.knn.plugin.transport.KNNStatsNodeResponse;
-import org.opensearch.knn.plugin.transport.KNNStatsRequest;
-import org.opensearch.knn.plugin.transport.KNNStatsResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.threadpool.ThreadPool;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Runs the circuit breaker logic and updates the settings
@@ -31,7 +25,6 @@ public class KNNCircuitBreaker {
     private static KNNCircuitBreaker INSTANCE;
     private ThreadPool threadPool;
     private ClusterService clusterService;
-    private Client client;
 
     private KNNCircuitBreaker() {}
 
@@ -51,10 +44,9 @@ public class KNNCircuitBreaker {
         INSTANCE = instance;
     }
 
-    public void initialize(ThreadPool threadPool, ClusterService clusterService, Client client) {
+    public void initialize(ThreadPool threadPool, ClusterService clusterService) {
         this.threadPool = threadPool;
         this.clusterService = clusterService;
-        this.client = client;
         NativeMemoryCacheManager nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
         Runnable runnable = () -> {
             if (nativeMemoryCacheManager.isCacheCapacityReached() && clusterService.localNode().isDataNode()) {
@@ -72,36 +64,26 @@ public class KNNCircuitBreaker {
 
             // Leader node untriggers CB if all nodes have not reached their max capacity
             if (KNNSettings.isCircuitBreakerTriggered() && clusterService.state().nodes().isLocalNodeElectedClusterManager()) {
-                KNNStatsRequest knnStatsRequest = new KNNStatsRequest();
-                knnStatsRequest.addStat(StatNames.CACHE_CAPACITY_REACHED.getName());
-                knnStatsRequest.timeout(new TimeValue(1000 * 10)); // 10 second timeout
-
+                List<String> nodesAtMaxCapacity;
                 try {
-                    KNNStatsResponse knnStatsResponse = client.execute(KNNStatsAction.INSTANCE, knnStatsRequest).get();
-                    List<KNNStatsNodeResponse> nodeResponses = knnStatsResponse.getNodes();
+                    nodesAtMaxCapacity = KNNCircuitBreakerUtil.instance().getNodesAtMaxCapacity();
+                } catch (ExecutionException | InterruptedException e) {
+                    logger.error("Unable to get knn stats and determine if any nodes are at capacity", e);
+                    return;
+                }
 
-                    List<String> nodesAtMaxCapacity = new ArrayList<>();
-                    for (KNNStatsNodeResponse nodeResponse : nodeResponses) {
-                        if ((Boolean) nodeResponse.getStatsMap().get(StatNames.CACHE_CAPACITY_REACHED.getName())) {
-                            nodesAtMaxCapacity.add(nodeResponse.getNode().getId());
-                        }
-                    }
-
-                    if (!nodesAtMaxCapacity.isEmpty()) {
-                        logger.info(
-                            "[KNN] knn.circuit_breaker.triggered stays set. Nodes at max cache capacity: "
-                                + String.join(",", nodesAtMaxCapacity)
-                                + "."
-                        );
-                    } else {
-                        logger.info(
-                            "[KNN] Cache capacity below 75% of the circuit breaker limit for all nodes."
-                                + " Unsetting knn.circuit_breaker.triggered flag."
-                        );
-                        KNNSettings.state().updateCircuitBreakerSettings(false);
-                    }
-                } catch (Exception e) {
-                    logger.error("[KNN] Exception getting stats: " + e);
+                if (!nodesAtMaxCapacity.isEmpty()) {
+                    logger.info(
+                        "[KNN] knn.circuit_breaker.triggered stays set. Nodes at max cache capacity: "
+                            + String.join(",", nodesAtMaxCapacity)
+                            + "."
+                    );
+                } else {
+                    logger.info(
+                        "[KNN] Cache capacity below 75% of the circuit breaker limit for all nodes."
+                            + " Unsetting knn.circuit_breaker.triggered flag."
+                    );
+                    KNNCircuitBreakerUtil.instance().updateCircuitBreakerSettings(false);
                 }
             }
         };

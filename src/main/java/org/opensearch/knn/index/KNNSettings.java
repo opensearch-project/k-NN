@@ -4,33 +4,20 @@
 
 package org.opensearch.knn.index;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.opensearch.OpenSearchParseException;
-import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
-import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
-import org.opensearch.client.Client;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
-import org.opensearch.common.settings.Settings;
-import org.opensearch.core.action.ActionListener;
-import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManagerDto;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
-import org.opensearch.monitor.jvm.JvmInfo;
-import org.opensearch.monitor.os.OsProbe;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.opensearch.core.common.unit.ByteSizeValue.parseBytesSizeValue;
 import static org.opensearch.knn.index.KNNSettingsDefinitions.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettingsDefinitions.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE;
 import static org.opensearch.knn.index.KNNSettingsDefinitions.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING;
@@ -60,12 +47,9 @@ import static org.opensearch.knn.index.KNNSettingsDefinitions.dynamicCacheSettin
  */
 public class KNNSettings {
 
-    private static final Logger logger = LogManager.getLogger(KNNSettings.class);
     private static KNNSettings INSTANCE;
-    private static final OsProbe osProbe = OsProbe.getInstance();
 
     private ClusterService clusterService;
-    private Client client;
 
     private KNNSettings() {}
 
@@ -76,8 +60,7 @@ public class KNNSettings {
         return INSTANCE;
     }
 
-    public void initialize(Client client, ClusterService clusterService) {
-        this.client = client;
+    public void initialize(ClusterService clusterService) {
         this.clusterService = clusterService;
         setSettingsUpdateConsumers();
     }
@@ -115,37 +98,6 @@ public class KNNSettings {
 
             NativeMemoryCacheManager.getInstance().rebuildCache(builder.build());
         }, new ArrayList<>(dynamicCacheSettings.values()));
-    }
-
-    // TODO: Setters
-    // Move to class that encapsulates the logic
-    /**
-     * Updates knn.circuit_breaker.triggered setting to true/false
-     * @param flag true/false
-     */
-    public synchronized void updateCircuitBreakerSettings(boolean flag) {
-        ClusterUpdateSettingsRequest clusterUpdateSettingsRequest = new ClusterUpdateSettingsRequest();
-        Settings circuitBreakerSettings = Settings.builder().put(KNN_CIRCUIT_BREAKER_TRIGGERED, flag).build();
-        clusterUpdateSettingsRequest.persistentSettings(circuitBreakerSettings);
-        client.admin().cluster().updateSettings(clusterUpdateSettingsRequest, new ActionListener<ClusterUpdateSettingsResponse>() {
-            @Override
-            public void onResponse(ClusterUpdateSettingsResponse clusterUpdateSettingsResponse) {
-                logger.debug(
-                    "Cluster setting {}, acknowledged: {} ",
-                    clusterUpdateSettingsRequest.persistentSettings(),
-                    clusterUpdateSettingsResponse.isAcknowledged()
-                );
-            }
-
-            @Override
-            public void onFailure(Exception e) {
-                logger.info(
-                    "Exception while updating circuit breaker setting {} to {}",
-                    clusterUpdateSettingsRequest.persistentSettings(),
-                    e.getMessage()
-                );
-            }
-        });
     }
 
     // TODO: Getters
@@ -237,31 +189,6 @@ public class KNNSettings {
         final IndexMetadata indexMetadata = KNNSettings.state().clusterService.state().getMetadata().index(index);
         return indexMetadata.getSettings()
             .getAsInt(KNN_ALGO_PARAM_EF_SEARCH, IndexHyperParametersUtil.getHNSWEFSearchValue(indexMetadata.getCreationVersion()));
-    }
-
-    // TODO: Parsers/utility functions
-    public static ByteSizeValue parseknnMemoryCircuitBreakerValue(String sValue, String settingName) {
-        settingName = Objects.requireNonNull(settingName);
-        if (sValue != null && sValue.endsWith("%")) {
-            final String percentAsString = sValue.substring(0, sValue.length() - 1);
-            try {
-                final double percent = Double.parseDouble(percentAsString);
-                if (percent < 0 || percent > 100) {
-                    throw new OpenSearchParseException("percentage should be in [0-100], got [{}]", percentAsString);
-                }
-                long physicalMemoryInBytes = osProbe.getTotalPhysicalMemorySize();
-                if (physicalMemoryInBytes <= 0) {
-                    throw new IllegalStateException("Physical memory size could not be determined");
-                }
-                long esJvmSizeInBytes = JvmInfo.jvmInfo().getMem().getHeapMax().getBytes();
-                long eligibleMemoryInBytes = physicalMemoryInBytes - esJvmSizeInBytes;
-                return new ByteSizeValue((long) ((percent / 100) * eligibleMemoryInBytes), ByteSizeUnit.BYTES);
-            } catch (NumberFormatException e) {
-                throw new OpenSearchParseException("failed to parse [{}] as a double", e, percentAsString);
-            }
-        } else {
-            return parseBytesSizeValue(sValue, settingName);
-        }
     }
 
     public static String percentageAsString(Integer percentage) {

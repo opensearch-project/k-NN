@@ -7,9 +7,11 @@ package org.opensearch.knn.index;
 
 import org.opensearch.OpenSearchParseException;
 import org.opensearch.common.settings.Setting;
+import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.monitor.jvm.JvmInfo;
+import org.opensearch.monitor.os.OsProbe;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -18,7 +20,7 @@ import static org.opensearch.common.settings.Setting.Property.Dynamic;
 import static org.opensearch.common.settings.Setting.Property.IndexScope;
 import static org.opensearch.common.settings.Setting.Property.NodeScope;
 import static org.opensearch.common.unit.MemorySizeValue.parseBytesSizeValueOrHeapRatio;
-import static org.opensearch.knn.index.KNNSettings.parseknnMemoryCircuitBreakerValue;
+import static org.opensearch.core.common.unit.ByteSizeValue.parseBytesSizeValue;
 import static org.opensearch.knn.index.KNNSettings.percentageAsFraction;
 import static org.opensearch.knn.index.KNNSettings.percentageAsString;
 
@@ -221,7 +223,28 @@ public class KNNSettingsDefinitions {
                 new Setting<>(
                     KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT,
                     KNNSettingsDefinitions.KNN_DEFAULT_MEMORY_CIRCUIT_BREAKER_LIMIT,
-                    (s) -> parseknnMemoryCircuitBreakerValue(s, KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT),
+                    (sValue) -> {
+                        if (sValue != null && sValue.endsWith("%")) {
+                            final String percentAsString = sValue.substring(0, sValue.length() - 1);
+                            try {
+                                final double percent = Double.parseDouble(percentAsString);
+                                if (percent < 0 || percent > 100) {
+                                    throw new OpenSearchParseException("percentage should be in [0-100], got [{}]", percentAsString);
+                                }
+                                long physicalMemoryInBytes = OsProbe.getInstance().getTotalPhysicalMemorySize();
+                                if (physicalMemoryInBytes <= 0) {
+                                    throw new IllegalStateException("Physical memory size could not be determined");
+                                }
+                                long esJvmSizeInBytes = JvmInfo.jvmInfo().getMem().getHeapMax().getBytes();
+                                long eligibleMemoryInBytes = physicalMemoryInBytes - esJvmSizeInBytes;
+                                return new ByteSizeValue((long) ((percent / 100) * eligibleMemoryInBytes), ByteSizeUnit.BYTES);
+                            } catch (NumberFormatException e) {
+                                throw new OpenSearchParseException("failed to parse [{}] as a double", e, percentAsString);
+                            }
+                        } else {
+                            return parseBytesSizeValue(sValue, KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT);
+                        }
+                    },
                     NodeScope,
                     Dynamic
                 )

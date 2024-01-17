@@ -21,6 +21,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
+import org.opensearch.knn.index.KNNCircuitBreakerUtil;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.plugin.stats.StatNames;
@@ -388,7 +389,7 @@ public class NativeMemoryCacheManager implements Closeable {
         nativeMemoryAllocation.close();
 
         if (RemovalCause.SIZE == removalNotification.getCause()) {
-            KNNSettings.state().updateCircuitBreakerSettings(true);
+            KNNCircuitBreakerUtil.instance().updateCircuitBreakerSettings(true);
             setCacheCapacityReached(true);
         }
 

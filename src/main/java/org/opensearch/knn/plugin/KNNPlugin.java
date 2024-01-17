@@ -14,6 +14,7 @@ import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNCircuitBreaker;
+import org.opensearch.knn.index.KNNCircuitBreakerUtil;
 import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
@@ -197,18 +198,21 @@ public class KNNPlugin extends Plugin
     ) {
         this.clusterService = clusterService;
 
+        // No dependencies - could be initialized first
+        KNNCircuitBreakerUtil.instance().initialize(client);
+
         // Initialize Native Memory loading strategies
         NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
         VectorReader vectorReader = new VectorReader(client);
         NativeMemoryLoadStrategy.TrainingLoadStrategy.initialize(vectorReader);
 
-        KNNSettings.state().initialize(client, clusterService);
+        KNNSettings.state().initialize(clusterService);
         KNNClusterUtil.instance().initialize(clusterService);
         ModelDao.OpenSearchKNNModelDao.initialize(client, clusterService, environment.settings());
         ModelCache.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
         TrainingJobRunner.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance());
         TrainingJobClusterStateListener.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
-        KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService, client);
+        KNNCircuitBreaker.getInstance().initialize(threadPool, clusterService);
         KNNQueryBuilder.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         KNNWeight.initialize(ModelDao.OpenSearchKNNModelDao.getInstance());
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
