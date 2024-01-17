@@ -7,18 +7,23 @@ package org.opensearch.knn;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.cluster.ClusterState;
+import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.cluster.metadata.Metadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.test.OpenSearchTestCase;
 
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -33,6 +38,12 @@ public class KNNTestCase extends OpenSearchTestCase {
 
     @Mock
     protected ClusterService clusterService;
+    @Mock
+    protected ClusterState clusterState;
+    @Mock
+    protected Metadata metadata;
+    @Mock
+    protected IndexMetadata indexMetadata;
     private AutoCloseable openMocks;
 
     @Override
@@ -67,13 +78,17 @@ public class KNNTestCase extends OpenSearchTestCase {
 
     private void initKNNSettings() {
         Set<Setting<?>> defaultClusterSettings = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        defaultClusterSettings.addAll(
-            KNNSettings.state()
-                .getSettings()
-                .stream()
-                .filter(s -> s.getProperties().contains(Setting.Property.NodeScope))
-                .collect(Collectors.toList())
-        );
+        try (KNNPlugin plugin = new KNNPlugin()) {
+            defaultClusterSettings.addAll(
+                plugin.getSettings()
+                    .stream()
+                    .filter(s -> s.getProperties().contains(Setting.Property.NodeScope))
+                    .collect(Collectors.toList())
+            );
+        } catch (IOException ioe) {
+            fail("Failed to close KNNPlugin during initialization of settings");
+        }
+
         when(clusterService.getClusterSettings()).thenReturn(new ClusterSettings(Settings.EMPTY, defaultClusterSettings));
         KNNSettings.state().setClusterService(clusterService);
     }

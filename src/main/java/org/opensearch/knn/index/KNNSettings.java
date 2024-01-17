@@ -10,19 +10,9 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
 import static org.opensearch.knn.index.KNNSettingsDefinitions.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD;
 import static org.opensearch.knn.index.KNNSettingsDefinitions.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE;
 import static org.opensearch.knn.index.KNNSettingsDefinitions.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.INDEX_KNN_ALGO_PARAM_M_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.INDEX_KNN_SPACE_TYPE;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.IS_KNN_INDEX_SETTING;
 import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_ALGO_PARAM_EF_SEARCH;
 import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_ALGO_PARAM_INDEX_THREAD_QTY;
 import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING;
@@ -31,9 +21,6 @@ import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_CIRCUIT_BREAKE
 import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE;
 import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING;
 import static org.opensearch.knn.index.KNNSettingsDefinitions.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.MODEL_CACHE_SIZE_LIMIT_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.MODEL_INDEX_NUMBER_OF_SHARDS_SETTING;
 import static org.opensearch.knn.index.KNNSettingsDefinitions.dynamicCacheSettings;
 
 /**
@@ -76,12 +63,7 @@ public class KNNSettings {
         return (T) clusterService.getClusterSettings().get(getSetting(key));
     }
 
-    /**
-     *
-     * @param key identifier of setting
-     * @return Setting
-     */
-    public Setting<?> getSetting(String key) {
+    private Setting<?> getSetting(String key) {
         if (dynamicCacheSettings.containsKey(key)) {
             return dynamicCacheSettings.get(key);
         }
@@ -138,24 +120,5 @@ public class KNNSettings {
         final IndexMetadata indexMetadata = KNNSettings.state().clusterService.state().getMetadata().index(index);
         return indexMetadata.getSettings()
             .getAsInt(KNN_ALGO_PARAM_EF_SEARCH, IndexHyperParametersUtil.getHNSWEFSearchValue(indexMetadata.getCreationVersion()));
-    }
-
-    // TODO: Collection of all settings
-    public List<Setting<?>> getSettings() {
-        List<Setting<?>> settings = Arrays.asList(
-            INDEX_KNN_SPACE_TYPE,
-            INDEX_KNN_ALGO_PARAM_M_SETTING,
-            INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING,
-            INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING,
-            KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING,
-            KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING,
-            KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING,
-            IS_KNN_INDEX_SETTING,
-            MODEL_INDEX_NUMBER_OF_SHARDS_SETTING,
-            MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
-            MODEL_CACHE_SIZE_LIMIT_SETTING,
-            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING
-        );
-        return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream()).collect(Collectors.toList());
     }
 }

@@ -439,7 +439,8 @@ public class NativeMemoryCacheManager implements Closeable {
             builder.maxWeight(((ByteSizeValue) KNNSettings.state().getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb());
             if (updatedSettings.hasValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)) {
                 builder.maxWeight(
-                    ((ByteSizeValue) KNNSettings.state().getSetting(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT).get(updatedSettings)).getKb()
+                    ((ByteSizeValue) KNNSettingsDefinitions.dynamicCacheSettings.get(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT).get(updatedSettings))
+                        .getKb()
                 );
             }
 

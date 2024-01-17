@@ -15,7 +15,6 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.common.settings.ClusterSettings;
-import org.opensearch.common.settings.Setting;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
@@ -24,7 +23,6 @@ import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.query.KNNQueryFactory;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.query.KNNQuery;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.SpaceType;
@@ -54,16 +52,13 @@ import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -97,20 +92,14 @@ public class KNNCodecTestCase extends KNNTestCase {
     private static final String FIELD_NAME_ONE = "test_vector_one";
     private static final String FIELD_NAME_TWO = "test_vector_two";
 
-    protected void setUpMockClusterService() {
-        ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
-        Settings settings = Settings.Builder.EMPTY_SETTINGS;
-        when(clusterService.state().getMetadata().index(Mockito.anyString()).getSettings()).thenReturn(settings);
-        Set<Setting<?>> defaultClusterSettings = new HashSet<>(ClusterSettings.BUILT_IN_CLUSTER_SETTINGS);
-        defaultClusterSettings.addAll(
-            KNNSettings.state()
-                .getSettings()
-                .stream()
-                .filter(s -> s.getProperties().contains(Setting.Property.NodeScope))
-                .collect(Collectors.toList())
-        );
-        when(clusterService.getClusterSettings()).thenReturn(new ClusterSettings(Settings.EMPTY, defaultClusterSettings));
-        KNNSettings.state().setClusterService(clusterService);
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        when(indexMetadata.getSettings()).thenReturn(Settings.Builder.EMPTY_SETTINGS);
+        when(indexMetadata.getCreationVersion()).thenReturn(CURRENT);
+        when(metadata.index(Mockito.anyString())).thenReturn(indexMetadata);
+        when(clusterState.getMetadata()).thenReturn(metadata);
+        when(clusterService.state()).thenReturn(clusterState);
     }
 
     protected ResourceWatcherService createDisabledResourceWatcherService() {
@@ -119,7 +108,6 @@ public class KNNCodecTestCase extends KNNTestCase {
     }
 
     public void testMultiFieldsKnnIndex(Codec codec) throws Exception {
-        setUpMockClusterService();
         Directory dir = newFSDirectory(createTempDir());
         IndexWriterConfig iwc = newIndexWriterConfig();
         iwc.setMergeScheduler(new SerialMergeScheduler());
@@ -230,7 +218,6 @@ public class KNNCodecTestCase extends KNNTestCase {
         ModelCache.getInstance().removeAll();
 
         // Setup Lucene
-        setUpMockClusterService();
         Directory dir = newFSDirectory(createTempDir());
         IndexWriterConfig iwc = newIndexWriterConfig();
         iwc.setMergeScheduler(new SerialMergeScheduler());
@@ -275,7 +262,6 @@ public class KNNCodecTestCase extends KNNTestCase {
     }
 
     public void testWriteByOldCodec(Codec codec) throws IOException {
-        setUpMockClusterService();
         Directory dir = newFSDirectory(createTempDir());
         IndexWriterConfig iwc = newIndexWriterConfig();
         iwc.setMergeScheduler(new SerialMergeScheduler());
@@ -324,7 +310,6 @@ public class KNNCodecTestCase extends KNNTestCase {
         var perFieldKnnVectorsFormatSpy = spy(perFieldKnnVectorsFormatProvider.apply(mapperService));
         final Codec codec = codecProvider.apply(perFieldKnnVectorsFormatSpy);
 
-        setUpMockClusterService();
         Directory dir = newFSDirectory(createTempDir());
         IndexWriterConfig iwc = newIndexWriterConfig();
         iwc.setMergeScheduler(new SerialMergeScheduler());
