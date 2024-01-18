@@ -39,3 +39,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Upgrade guava to 32.1.3 [#1319](https://github.com/opensearch-project/k-NN/pull/1319)
 * Bump lucene codec to 99 [#1383](https://github.com/opensearch-project/k-NN/pull/1383)
 ### Refactoring
+* Refactor settings management for plugin [#1393](https://github.com/opensearch-project/k-NN/pull/1393)
