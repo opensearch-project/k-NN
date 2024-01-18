@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING;
 import static org.opensearch.test.NodeRoles.dataNode;
 
 public class KNNSettingsTests extends KNNTestCase {
@@ -56,8 +57,7 @@ public class KNNSettingsTests extends KNNTestCase {
         long actualKNNCircuitBreakerLimit = ((ByteSizeValue) KNNSettings.state().getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb();
         mockNode.close();
         assertEquals(
-            ((ByteSizeValue) KNNSettingsDefinitions.dynamicCacheSettings.get(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT).getDefault(Settings.EMPTY))
-                .getKb(),
+            KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING.getDefault(Settings.EMPTY).getKb(),
             actualKNNCircuitBreakerLimit
 
         );

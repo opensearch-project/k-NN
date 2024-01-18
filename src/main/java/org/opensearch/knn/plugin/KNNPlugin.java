@@ -122,13 +122,16 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING;
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.dynamicCacheSettings;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED_SETTING;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING;
 import static org.opensearch.knn.index.codec.KNNCodecService.IS_KNN_INDEX_SETTING;
 import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING;
 import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING;
 import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_ALGO_PARAM_M_SETTING;
 import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_SPACE_TYPE;
 import static org.opensearch.knn.index.mapper.LegacyFieldMapper.KNN_ALGO_PARAM_EF_SEARCH;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.KNN_CACHE_ITEM_EXPIRY_ENABLED_SETTING;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES_SETTING;
 import static org.opensearch.knn.index.query.KNNWeight.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING;
 import static org.opensearch.knn.indices.ModelCache.MODEL_CACHE_SIZE_LIMIT_SETTING;
 import static org.opensearch.knn.indices.ModelDao.OpenSearchKNNModelDao.MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING;
@@ -234,7 +237,7 @@ public class KNNPlugin extends Plugin
         TrainingModelRequest.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
 
         clusterService.addListener(TrainingJobClusterStateListener.getInstance());
-        NativeMemoryCacheManager.setCacheRebuildUpdateConsumers(clusterService.getClusterSettings(), dynamicCacheSettings.values());
+        NativeMemoryCacheManager.setCacheRebuildUpdateConsumers(clusterService.getClusterSettings());
 
         knnStats = new KNNStats();
         return ImmutableList.of(knnStats);
@@ -242,7 +245,7 @@ public class KNNPlugin extends Plugin
 
     @Override
     public List<Setting<?>> getSettings() {
-        List<Setting<?>> settings = Arrays.asList(
+        return Arrays.asList(
             INDEX_KNN_SPACE_TYPE,
             INDEX_KNN_ALGO_PARAM_M_SETTING,
             INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING,
@@ -254,9 +257,13 @@ public class KNNPlugin extends Plugin
             MODEL_INDEX_NUMBER_OF_SHARDS_SETTING,
             MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
             MODEL_CACHE_SIZE_LIMIT_SETTING,
-            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING
+            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
+                KNN_PLUGIN_ENABLED_SETTING,
+                KNN_MEMORY_CIRCUIT_BREAKER_ENABLED_SETTING,
+                KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING,
+                KNN_CACHE_ITEM_EXPIRY_ENABLED_SETTING,
+                KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES_SETTING
         );
-        return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream()).collect(Collectors.toList());
     }
 
     public List<RestHandler> getRestHandlers(

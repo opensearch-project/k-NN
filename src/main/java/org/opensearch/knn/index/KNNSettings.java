@@ -12,11 +12,20 @@ import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_TRI
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING;
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE;
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING;
-import static org.opensearch.knn.index.KNNSettingsDefinitions.dynamicCacheSettings;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED_SETTING;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.KNN_CACHE_ITEM_EXPIRY_ENABLED;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.KNN_CACHE_ITEM_EXPIRY_ENABLED_SETTING;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES_SETTING;
 import static org.opensearch.knn.index.query.KNNWeight.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD;
 import static org.opensearch.knn.index.query.KNNWeight.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING;
 import static org.opensearch.knn.jni.JNIService.KNN_ALGO_PARAM_INDEX_THREAD_QTY;
 import static org.opensearch.knn.jni.JNIService.KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING;
+import static org.opensearch.knn.plugin.KNNPlugin.KNN_PLUGIN_ENABLED;
+import static org.opensearch.knn.plugin.KNNPlugin.KNN_PLUGIN_ENABLED_SETTING;
 
 /**
  * This is a utility class for working with k-NN settings
@@ -64,8 +73,24 @@ public class KNNSettings {
     }
 
     private Setting<?> getSetting(String key) {
-        if (dynamicCacheSettings.containsKey(key)) {
-            return dynamicCacheSettings.get(key);
+        if (KNN_PLUGIN_ENABLED.equals(key)) {
+            return KNN_PLUGIN_ENABLED_SETTING;
+        }
+
+        if (KNN_MEMORY_CIRCUIT_BREAKER_ENABLED.equals(key)) {
+            return KNN_MEMORY_CIRCUIT_BREAKER_ENABLED_SETTING;
+        }
+
+        if (KNN_MEMORY_CIRCUIT_BREAKER_LIMIT.equals(key)) {
+            return KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING;
+        }
+
+        if (KNN_CACHE_ITEM_EXPIRY_ENABLED.equals(key)) {
+            return KNN_CACHE_ITEM_EXPIRY_ENABLED_SETTING;
+        }
+
+        if (KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES.equals(key)) {
+            return KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES_SETTING;
         }
 
         if (KNN_CIRCUIT_BREAKER_TRIGGERED.equals(key)) {

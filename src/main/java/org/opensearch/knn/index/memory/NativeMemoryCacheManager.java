@@ -26,12 +26,10 @@ import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.index.KNNCircuitBreakerUtil;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.KNNSettingsDefinitions;
 import org.opensearch.knn.plugin.stats.StatNames;
 
 import java.io.Closeable;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -44,7 +42,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static org.opensearch.common.settings.Setting.Property.Dynamic;
 import static org.opensearch.common.settings.Setting.Property.NodeScope;
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED_SETTING;
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING;
+import static org.opensearch.knn.plugin.KNNPlugin.KNN_PLUGIN_ENABLED;
+import static org.opensearch.knn.plugin.KNNPlugin.KNN_PLUGIN_ENABLED_SETTING;
 
 /**
  * Manages native memory allocations made by JNI.
@@ -429,11 +431,9 @@ public class NativeMemoryCacheManager implements Closeable {
      * Register settings that will trigger a rebuild of the cache if changed
      *
      * @param abstractScopedSettings settings on which to add update consumers to
-     * @param settingsToRebuildCacheOnChange settings for which the update consumer will be triggered on
      */
     public static void setCacheRebuildUpdateConsumers(
-        AbstractScopedSettings abstractScopedSettings,
-        Collection<Setting<?>> settingsToRebuildCacheOnChange
+        AbstractScopedSettings abstractScopedSettings
     ) {
         abstractScopedSettings.addSettingsUpdateConsumer(updatedSettings -> {
             // When any of the dynamic settings are updated, rebuild the cache with the updated values. Use the current
@@ -450,8 +450,7 @@ public class NativeMemoryCacheManager implements Closeable {
             builder.maxWeight(((ByteSizeValue) KNNSettings.state().getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb());
             if (updatedSettings.hasValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)) {
                 builder.maxWeight(
-                    ((ByteSizeValue) KNNSettingsDefinitions.dynamicCacheSettings.get(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT).get(updatedSettings))
-                        .getKb()
+                    KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING.get(updatedSettings).getKb()
                 );
             }
 
@@ -470,6 +469,19 @@ public class NativeMemoryCacheManager implements Closeable {
             );
 
             NativeMemoryCacheManager.getInstance().rebuildCache(builder.build());
-        }, new ArrayList<>(settingsToRebuildCacheOnChange));
+        }, new ArrayList<>(dynamicCacheSettings.values()));
     }
+
+    // Settings that, when changed, should cause the cache to be rebuilt
+    private static final Map<String, Setting<?>> dynamicCacheSettings = new HashMap<>() {
+        {
+            put(KNN_PLUGIN_ENABLED, KNN_PLUGIN_ENABLED_SETTING);
+
+            put(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED, KNN_MEMORY_CIRCUIT_BREAKER_ENABLED_SETTING);
+            put(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT, KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING);
+
+            put(KNN_CACHE_ITEM_EXPIRY_ENABLED, KNN_CACHE_ITEM_EXPIRY_ENABLED_SETTING);
+            put(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES, KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES_SETTING);
+        }
+    };
 }
