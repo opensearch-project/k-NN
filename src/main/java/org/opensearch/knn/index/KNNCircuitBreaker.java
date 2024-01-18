@@ -118,8 +118,8 @@ public class KNNCircuitBreaker {
         Runnable runnable = () -> {
             if (nativeMemoryCacheManager.isCacheCapacityReached() && clusterService.localNode().isDataNode()) {
                 long currentSizeKiloBytes = nativeMemoryCacheManager.getCacheSizeInKilobytes();
-                long circuitBreakerLimitSizeKiloBytes = KNNSettings.getCircuitBreakerLimit().getKb();
-                long circuitBreakerUnsetSizeKiloBytes = (long) ((KNNSettings.getCircuitBreakerUnsetPercentage() / 100)
+                long circuitBreakerLimitSizeKiloBytes = KNNCircuitBreakerUtil.instance().getCircuitBreakerLimit().getKb();
+                long circuitBreakerUnsetSizeKiloBytes = (long) ((KNNCircuitBreakerUtil.instance().getCircuitBreakerUnsetPercentage() / 100)
                     * circuitBreakerLimitSizeKiloBytes);
                 /**
                  * Unset capacityReached flag if currentSizeBytes is less than circuitBreakerUnsetSizeBytes
@@ -130,7 +130,8 @@ public class KNNCircuitBreaker {
             }
 
             // Leader node untriggers CB if all nodes have not reached their max capacity
-            if (KNNSettings.isCircuitBreakerTriggered() && clusterService.state().nodes().isLocalNodeElectedClusterManager()) {
+            if (KNNCircuitBreakerUtil.instance().isCircuitBreakerTriggered()
+                && clusterService.state().nodes().isLocalNodeElectedClusterManager()) {
                 List<String> nodesAtMaxCapacity;
                 try {
                     nodesAtMaxCapacity = KNNCircuitBreakerUtil.instance().getNodesAtMaxCapacity();

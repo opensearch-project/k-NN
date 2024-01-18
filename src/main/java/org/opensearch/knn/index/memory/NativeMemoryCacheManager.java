@@ -101,7 +101,7 @@ public class NativeMemoryCacheManager implements Closeable {
         initialize(
             NativeMemoryCacheManagerDto.builder()
                 .isWeightLimited(KNNSettings.state().getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
-                .maxWeight(KNNSettings.getCircuitBreakerLimit().getKb())
+                .maxWeight(KNNCircuitBreakerUtil.instance().getCircuitBreakerLimit().getKb())
                 .isExpirationLimited(KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_ENABLED))
                 .expiryTimeInMin(((TimeValue) KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes())
                 .build()
@@ -135,7 +135,7 @@ public class NativeMemoryCacheManager implements Closeable {
         rebuildCache(
             NativeMemoryCacheManagerDto.builder()
                 .isWeightLimited(KNNSettings.state().getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
-                .maxWeight(KNNSettings.getCircuitBreakerLimit().getKb())
+                .maxWeight(KNNCircuitBreakerUtil.instance().getCircuitBreakerLimit().getKb())
                 .isExpirationLimited(KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_ENABLED))
                 .expiryTimeInMin(((TimeValue) KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes())
                 .build()
@@ -418,7 +418,7 @@ public class NativeMemoryCacheManager implements Closeable {
     }
 
     private Float getSizeAsPercentage(long size) {
-        long cbLimit = KNNSettings.getCircuitBreakerLimit().getKb();
+        long cbLimit = KNNCircuitBreakerUtil.instance().getCircuitBreakerLimit().getKb();
         if (cbLimit == 0) {
             return 0.0F;
         }

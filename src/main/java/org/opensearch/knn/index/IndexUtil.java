@@ -20,6 +20,7 @@ import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.mapper.LegacyFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -242,7 +243,7 @@ public class IndexUtil {
         // For nmslib, we need to add the dynamic ef_search parameter that needs to be passed in when the
         // hnsw graphs are loaded into memory
         if (KNNEngine.NMSLIB.equals(knnEngine)) {
-            loadParameters.put(HNSW_ALGO_EF_SEARCH, KNNSettings.getEfSearchParam(indexName));
+            loadParameters.put(HNSW_ALGO_EF_SEARCH, LegacyFieldMapper.getEfSearchParam(indexName));
         }
 
         return Collections.unmodifiableMap(loadParameters);

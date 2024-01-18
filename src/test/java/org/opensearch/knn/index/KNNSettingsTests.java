@@ -6,9 +6,6 @@
 package org.opensearch.knn.index;
 
 import lombok.SneakyThrows;
-import org.opensearch.action.admin.cluster.state.ClusterStateRequest;
-import org.opensearch.action.admin.indices.create.CreateIndexRequest;
-import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.network.NetworkModule;
@@ -16,7 +13,6 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.env.Environment;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.node.MockNode;
 import org.opensearch.node.Node;
@@ -34,14 +30,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT;
-import static org.opensearch.knn.index.codec.KNNCodecService.KNN_INDEX;
-import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH;
-import static org.opensearch.knn.index.mapper.LegacyFieldMapper.KNN_ALGO_PARAM_EF_SEARCH;
 import static org.opensearch.test.NodeRoles.dataNode;
 
 public class KNNSettingsTests extends KNNTestCase {
-
-    private static final String INDEX_NAME = "myindex";
 
     @SneakyThrows
     public void testGetSettingValueFromConfig() {
@@ -73,95 +64,6 @@ public class KNNSettingsTests extends KNNTestCase {
         // set warning for deprecation of index.store.hybrid.mmap.extensions as expected temporarily, need to work on proper strategy of
         // switching to new setting in core
         // no-jdk distributions expected warning is a workaround for running tests locally
-        assertWarnings();
-    }
-
-    @SneakyThrows
-    public void testFilteredSearchAdvanceSetting_whenNoValuesProvidedByUsers_thenDefaultSettingsUsed() {
-        Node mockNode = createMockNode(Collections.emptyMap());
-        mockNode.start();
-        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
-        mockNode.client().admin().cluster().state(new ClusterStateRequest()).actionGet();
-        mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME)).actionGet();
-        KNNSettings.state().initialize(clusterService);
-
-        Integer filteredSearchThreshold = KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME);
-        mockNode.close();
-        assertEquals(KNNWeight.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE, filteredSearchThreshold);
-        assertWarnings();
-    }
-
-    @SneakyThrows
-    public void testFilteredSearchAdvanceSetting_whenValuesProvidedByUsers_thenValidateSameValues() {
-        int userDefinedThreshold = 1000;
-        int userDefinedThresholdMinValue = 0;
-        Node mockNode = createMockNode(Collections.emptyMap());
-        mockNode.start();
-        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
-        mockNode.client().admin().cluster().state(new ClusterStateRequest()).actionGet();
-        mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME)).actionGet();
-        KNNSettings.state().initialize(clusterService);
-
-        final Settings filteredSearchAdvanceSettings = Settings.builder()
-            .put(KNNWeight.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, userDefinedThreshold)
-            .build();
-
-        mockNode.client()
-            .admin()
-            .indices()
-            .updateSettings(new UpdateSettingsRequest(filteredSearchAdvanceSettings, INDEX_NAME))
-            .actionGet();
-
-        int filteredSearchThreshold = KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME);
-
-        // validate if we are able to set MinValues for the setting
-        final Settings filteredSearchAdvanceSettingsWithMinValues = Settings.builder()
-            .put(KNNWeight.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, userDefinedThresholdMinValue)
-            .build();
-
-        mockNode.client()
-            .admin()
-            .indices()
-            .updateSettings(new UpdateSettingsRequest(filteredSearchAdvanceSettingsWithMinValues, INDEX_NAME))
-            .actionGet();
-
-        int filteredSearchThresholdMinValue = KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME);
-
-        mockNode.close();
-        assertEquals(userDefinedThreshold, filteredSearchThreshold);
-        assertEquals(userDefinedThresholdMinValue, filteredSearchThresholdMinValue);
-        assertWarnings();
-    }
-
-    @SneakyThrows
-    public void testGetEfSearch_whenNoValuesProvidedByUsers_thenDefaultSettingsUsed() {
-        Node mockNode = createMockNode(Collections.emptyMap());
-        mockNode.start();
-        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
-        mockNode.client().admin().cluster().state(new ClusterStateRequest()).actionGet();
-        mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME)).actionGet();
-        KNNSettings.state().initialize(clusterService);
-
-        Integer efSearchValue = KNNSettings.getEfSearchParam(INDEX_NAME);
-        mockNode.close();
-        assertEquals(INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH, efSearchValue);
-        assertWarnings();
-    }
-
-    @SneakyThrows
-    public void testGetEfSearch_whenEFSearchValueSetByUser_thenReturnValue() {
-        int userProvidedEfSearch = 300;
-        Node mockNode = createMockNode(Collections.emptyMap());
-        mockNode.start();
-        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
-        mockNode.client().admin().cluster().state(new ClusterStateRequest()).actionGet();
-        final Settings settings = Settings.builder().put(KNN_ALGO_PARAM_EF_SEARCH, userProvidedEfSearch).put(KNN_INDEX, true).build();
-        mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME, settings)).actionGet();
-        KNNSettings.state().initialize(clusterService);
-
-        int efSearchValue = KNNSettings.getEfSearchParam(INDEX_NAME);
-        mockNode.close();
-        assertEquals(userProvidedEfSearch, efSearchValue);
         assertWarnings();
     }
 

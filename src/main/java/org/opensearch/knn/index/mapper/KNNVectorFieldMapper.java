@@ -32,13 +32,14 @@ import org.opensearch.index.mapper.TextSearchInfo;
 import org.opensearch.index.mapper.ValueFetcher;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryShardException;
+import org.opensearch.knn.index.KNNCircuitBreakerUtil;
 import org.opensearch.knn.index.KNNMethodContext;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.opensearch.search.lookup.SearchLookup;
 
@@ -536,7 +537,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     }
 
     void validateIfCircuitBreakerIsNotTriggered() {
-        if (KNNSettings.isCircuitBreakerTriggered()) {
+        if (KNNCircuitBreakerUtil.instance().isCircuitBreakerTriggered()) {
             throw new IllegalStateException(
                 "Indexing knn vector fields is rejected as circuit breaker triggered. Check _opendistro/_knn/stats for detailed state"
             );
@@ -544,7 +545,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     }
 
     void validateIfKNNPluginEnabled() {
-        if (!KNNSettings.isKNNPluginEnabled()) {
+        if (!KNNPlugin.isKNNPluginEnabled()) {
             throw new IllegalStateException("KNN plugin is disabled. To enable update knn.plugin.enabled setting to true");
         }
     }

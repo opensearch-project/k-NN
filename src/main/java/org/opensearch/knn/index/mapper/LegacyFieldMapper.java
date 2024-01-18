@@ -8,10 +8,12 @@ package org.opensearch.knn.index.mapper;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.FieldType;
 import org.opensearch.Version;
+import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -181,5 +183,16 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
             return defaultEFConstructionValue;
         }
         return efConstruction;
+    }
+
+    /**
+     *
+     * @param index Name of the index
+     * @return efSearch value
+     */
+    public static int getEfSearchParam(String index) {
+        final IndexMetadata indexMetadata = KNNSettings.state().getIndexMetadata(index);
+        return indexMetadata.getSettings()
+            .getAsInt(KNN_ALGO_PARAM_EF_SEARCH, IndexHyperParametersUtil.getHNSWEFSearchValue(indexMetadata.getCreationVersion()));
     }
 }

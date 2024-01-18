@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.plugin.stats.suppliers;
 
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNCircuitBreakerUtil;
 
 import java.util.function.Supplier;
 
@@ -21,6 +21,6 @@ public class KNNCircuitBreakerSupplier implements Supplier<Boolean> {
 
     @Override
     public Boolean get() {
-        return KNNSettings.isCircuitBreakerTriggered();
+        return KNNCircuitBreakerUtil.instance().isCircuitBreakerTriggered();
     }
 }

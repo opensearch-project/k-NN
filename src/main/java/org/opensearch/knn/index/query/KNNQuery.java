@@ -18,7 +18,7 @@ import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.BitSetProducer;
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.plugin.KNNPlugin;
 
 import java.io.IOException;
 
@@ -95,7 +95,7 @@ public class KNNQuery extends Query {
      */
     @Override
     public Weight createWeight(IndexSearcher searcher, ScoreMode scoreMode, float boost) throws IOException {
-        if (!KNNSettings.isKNNPluginEnabled()) {
+        if (!KNNPlugin.isKNNPluginEnabled()) {
             throw new IllegalStateException("KNN plugin is disabled. To enable update knn.plugin.enabled to true");
         }
         final Weight filterWeight = getFilterWeight(searcher);

@@ -15,7 +15,7 @@ import com.google.common.cache.CacheStats;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNCircuitBreakerUtil;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.plugins.Plugin;
 import org.opensearch.test.OpenSearchSingleNodeTestCase;
@@ -280,7 +280,10 @@ public class NativeMemoryCacheManagerTests extends OpenSearchSingleNodeTestCase 
 
     public void testGetMaxCacheSizeInKB() {
         NativeMemoryCacheManager nativeMemoryCacheManager = new NativeMemoryCacheManager();
-        assertEquals(KNNSettings.getCircuitBreakerLimit().getKb(), nativeMemoryCacheManager.getMaxCacheSizeInKilobytes());
+        assertEquals(
+            KNNCircuitBreakerUtil.instance().getCircuitBreakerLimit().getKb(),
+            nativeMemoryCacheManager.getMaxCacheSizeInKilobytes()
+        );
         nativeMemoryCacheManager.close();
     }
 

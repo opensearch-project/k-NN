@@ -9,6 +9,29 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocValues;
+//<<<<<<< HEAD
+//=======
+//import org.apache.lucene.search.FilteredDocIdSetIterator;
+//import org.apache.lucene.search.HitQueue;
+//import org.apache.lucene.search.ScoreDoc;
+//import org.apache.lucene.util.BitSet;
+//import org.apache.lucene.util.BitSetIterator;
+//import org.apache.lucene.util.Bits;
+//import org.apache.lucene.util.BytesRef;
+//import org.apache.lucene.util.FixedBitSet;
+//import org.opensearch.common.settings.Setting;
+//import org.opensearch.knn.common.KNNConstants;
+//import org.opensearch.knn.index.KNNSettings;
+//import org.opensearch.knn.index.SpaceType;
+//import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
+//import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
+//import org.opensearch.knn.jni.JNIService;
+//import org.opensearch.knn.index.memory.NativeMemoryAllocation;
+//import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+//import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
+//import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+//import org.opensearch.knn.index.util.KNNEngine;
+//>>>>>>> 7320f94f (Relocate getter utility methods)
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FilterLeafReader;
 import org.apache.lucene.index.LeafReaderContext;
@@ -27,6 +50,7 @@ import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.DocIdSetBuilder;
 import org.apache.lucene.util.FixedBitSet;
+import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.knn.common.KNNConstants;
@@ -410,9 +434,9 @@ public class KNNWeight extends Weight {
         log.debug(
             "Info for doing exact search filterIdsLength : {}, Threshold value: {}",
             filterIdsCount,
-            KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName())
+            KNNWeight.getFilteredExactSearchThreshold(knnQuery.getIndexName())
         );
-        int filterThresholdValue = KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName());
+        int filterThresholdValue = KNNWeight.getFilteredExactSearchThreshold(knnQuery.getIndexName());
         // Refer this GitHub around more details https://github.com/opensearch-project/k-NN/issues/1049 on the logic
         if (filterIdsCount <= knnQuery.getK()) {
             return true;
@@ -444,5 +468,17 @@ public class KNNWeight extends Weight {
      */
     private boolean canDoExactSearchAfterANNSearch(final int filterIdsCount, final int annResultCount) {
         return filterWeight != null && filterIdsCount >= knnQuery.getK() && knnQuery.getK() > annResultCount;
+    }
+
+    /**
+     * Get the value of the exact search threshold
+     *
+     * @param indexName name of index to look up
+     * @return value value of {@link KNNWeight#ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD} for index
+     */
+    public static Integer getFilteredExactSearchThreshold(final String indexName) {
+        IndexMetadata indexMetadata = KNNSettings.state().getIndexMetadata(indexName);
+        return indexMetadata.getSettings()
+            .getAsInt(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE);
     }
 }

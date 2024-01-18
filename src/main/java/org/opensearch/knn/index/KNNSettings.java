@@ -7,22 +7,16 @@ package org.opensearch.knn.index;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
-import org.opensearch.core.common.unit.ByteSizeValue;
-import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_TRIGGERED;
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING;
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE;
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING;
-import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT;
 import static org.opensearch.knn.index.KNNSettingsDefinitions.dynamicCacheSettings;
-import static org.opensearch.knn.index.mapper.LegacyFieldMapper.KNN_ALGO_PARAM_EF_SEARCH;
 import static org.opensearch.knn.index.query.KNNWeight.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD;
-import static org.opensearch.knn.index.query.KNNWeight.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE;
 import static org.opensearch.knn.index.query.KNNWeight.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING;
 import static org.opensearch.knn.jni.JNIService.KNN_ALGO_PARAM_INDEX_THREAD_QTY;
 import static org.opensearch.knn.jni.JNIService.KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING;
-import static org.opensearch.knn.plugin.KNNPlugin.KNN_PLUGIN_ENABLED;
 
 /**
  * This is a utility class for working with k-NN settings
@@ -60,6 +54,15 @@ public class KNNSettings {
         return (T) clusterService.getClusterSettings().get(getSetting(key));
     }
 
+    /**
+     * Get index metadata for a particular index
+     * @param indexName
+     * @return
+     */
+    public IndexMetadata getIndexMetadata(String indexName) {
+        return KNNSettings.state().clusterService.state().getMetadata().index(indexName);
+    }
+
     private Setting<?> getSetting(String key) {
         if (dynamicCacheSettings.containsKey(key)) {
             return dynamicCacheSettings.get(key);
@@ -82,40 +85,5 @@ public class KNNSettings {
         }
 
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
-    }
-
-    public static boolean isKNNPluginEnabled() {
-        return KNNSettings.state().getSettingValue(KNN_PLUGIN_ENABLED);
-    }
-
-    public static boolean isCircuitBreakerTriggered() {
-        return KNNSettings.state().getSettingValue(KNN_CIRCUIT_BREAKER_TRIGGERED);
-    }
-
-    public static ByteSizeValue getCircuitBreakerLimit() {
-        return KNNSettings.state().getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT);
-    }
-
-    public static double getCircuitBreakerUnsetPercentage() {
-        return KNNSettings.state().getSettingValue(KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE);
-    }
-
-    public static Integer getFilteredExactSearchThreshold(final String indexName) {
-        return KNNSettings.state().clusterService.state()
-            .getMetadata()
-            .index(indexName)
-            .getSettings()
-            .getAsInt(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE);
-    }
-
-    /**
-     *
-     * @param index Name of the index
-     * @return efSearch value
-     */
-    public static int getEfSearchParam(String index) {
-        final IndexMetadata indexMetadata = KNNSettings.state().clusterService.state().getMetadata().index(index);
-        return indexMetadata.getSettings()
-            .getAsInt(KNN_ALGO_PARAM_EF_SEARCH, IndexHyperParametersUtil.getHNSWEFSearchValue(indexMetadata.getCreationVersion()));
     }
 }

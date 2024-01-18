@@ -417,4 +417,13 @@ public class KNNPlugin extends Plugin
         ).collect(Collectors.toList());
         return Settings.builder().putList(IndexModule.INDEX_STORE_HYBRID_MMAP_EXTENSIONS.getKey(), combinedSettings).build();
     }
+
+    /**
+     * Check if the cluster setting that enables the KNN plugin is true
+     *
+     * @return setting value for {@link KNNPlugin#KNN_PLUGIN_ENABLED_SETTING}
+     */
+    public static boolean isKNNPluginEnabled() {
+        return KNNSettings.state().getSettingValue(KNN_PLUGIN_ENABLED);
+    }
 }

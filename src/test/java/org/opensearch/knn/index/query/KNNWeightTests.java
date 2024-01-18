@@ -32,8 +32,9 @@ import org.apache.lucene.util.Version;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.mockito.MockedStatic;
+import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.io.PathUtils;
-import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
@@ -76,6 +77,8 @@ import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREA
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.KNN_CACHE_ITEM_EXPIRY_ENABLED;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES;
+import static org.opensearch.knn.index.query.KNNWeight.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD;
+import static org.opensearch.knn.plugin.KNNPlugin.KNN_PLUGIN_ENABLED;
 
 public class KNNWeightTests extends KNNTestCase {
     private static final String FIELD_NAME = "target_field";
@@ -97,19 +100,23 @@ public class KNNWeightTests extends KNNTestCase {
 
     private static MockedStatic<KNNSettings> knnSettingsMockedStatic;
 
+    private static KNNSettings knnSettingsInstance;
+    private static IndexMetadata indexMetadataInstance;
+
     @BeforeClass
     public static void setUpClass() throws Exception {
-        final KNNSettings knnSettings = mock(KNNSettings.class);
-        knnSettingsMockedStatic = mockStatic(KNNSettings.class);
-        when(knnSettings.getSettingValue(eq(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))).thenReturn(true);
-        when(knnSettings.getSettingValue(eq(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT))).thenReturn(CIRCUIT_BREAKER_LIMIT_100KB);
-        when(knnSettings.getSettingValue(eq(KNN_CACHE_ITEM_EXPIRY_ENABLED))).thenReturn(false);
-        when(knnSettings.getSettingValue(eq(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))).thenReturn(TimeValue.timeValueMinutes(10));
+        knnSettingsInstance = mock(KNNSettings.class);
+        indexMetadataInstance = mock(IndexMetadata.class);
+        when(indexMetadataInstance.getCreationVersion()).thenReturn(org.opensearch.Version.CURRENT);
+        when(knnSettingsInstance.getIndexMetadata(anyString())).thenReturn(indexMetadataInstance);
 
-        final ByteSizeValue v = ByteSizeValue.parseBytesSizeValue(CIRCUIT_BREAKER_LIMIT_100KB, KNN_MEMORY_CIRCUIT_BREAKER_LIMIT);
-        knnSettingsMockedStatic.when(KNNSettings::getCircuitBreakerLimit).thenReturn(v);
-        knnSettingsMockedStatic.when(KNNSettings::state).thenReturn(knnSettings);
-        knnSettingsMockedStatic.when(KNNSettings::isKNNPluginEnabled).thenReturn(true);
+        knnSettingsMockedStatic = mockStatic(KNNSettings.class);
+        when(knnSettingsInstance.getSettingValue(eq(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))).thenReturn(true);
+        when(knnSettingsInstance.getSettingValue(eq(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT))).thenReturn(CIRCUIT_BREAKER_LIMIT_100KB);
+        when(knnSettingsInstance.getSettingValue(eq(KNN_CACHE_ITEM_EXPIRY_ENABLED))).thenReturn(false);
+        when(knnSettingsInstance.getSettingValue(eq(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))).thenReturn(TimeValue.timeValueMinutes(10));
+        when(knnSettingsInstance.getSettingValue(eq(KNN_PLUGIN_ENABLED))).thenReturn(true);
+        knnSettingsMockedStatic.when(KNNSettings::state).thenReturn(knnSettingsInstance);
 
         jniServiceMockedStatic = mockStatic(JNIService.class);
         nativeMemoryCacheManagerMockedStatic = mockStatic(NativeMemoryCacheManager.class);
@@ -128,7 +135,7 @@ public class KNNWeightTests extends KNNTestCase {
 
     @Before
     public void setupBeforeTest() {
-        knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(0);
+        when(indexMetadataInstance.getSettings()).thenReturn(Settings.builder().put(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 0).build());
     }
 
     @SneakyThrows
@@ -469,7 +476,7 @@ public class KNNWeightTests extends KNNTestCase {
 
     @SneakyThrows
     public void testANNWithFilterQuery_whenExactSearchAndThresholdComputations_thenSuccess() {
-        knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(-1);
+        when(indexMetadataInstance.getSettings()).thenReturn(Settings.builder().put(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, -1).build());
         float[] vector = new float[] { 0.1f, 0.3f };
         int filterDocId = 0;
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
@@ -530,7 +537,7 @@ public class KNNWeightTests extends KNNTestCase {
      */
     @SneakyThrows
     public void testANNWithFilterQuery_whenExactSearchViaThresholdSetting_thenSuccess() {
-        knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(10);
+        when(indexMetadataInstance.getSettings()).thenReturn(Settings.builder().put(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 10).build());
         float[] vector = new float[] { 0.1f, 0.3f };
         int k = 1;
         final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };

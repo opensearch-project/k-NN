@@ -44,6 +44,8 @@ public class KNNTestCase extends OpenSearchTestCase {
     protected Metadata metadata;
     @Mock
     protected IndexMetadata indexMetadata;
+    @Mock
+    protected KNNSettings knnSettings;
     private AutoCloseable openMocks;
 
     @Override
