@@ -449,14 +449,16 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
     private void validateFilterSearch(final String query, final String engine) throws IOException, ParseException {
         String response = EntityUtils.toString(performSearch(INDEX_NAME, query).getEntity());
         // Validate number of documents returned as the expected number of documents
-        Assert.assertEquals("For engine " + engine + " : ", DOCUMENT_IN_RESPONSE, parseHits(response));
+        Assert.assertEquals("For engine " + engine + ", hits: ", DOCUMENT_IN_RESPONSE, parseHits(response));
+        Assert.assertEquals("For engine " + engine + ", totalSearchHits: ", k, parseTotalSearchHits(response));
         if (KNNEngine.getEngine(engine) == KNNEngine.FAISS) {
             // Update the filter threshold to 0 to ensure that we are hitting ANN Search use case for FAISS
             updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 0));
             response = EntityUtils.toString(performSearch(INDEX_NAME, query).getEntity());
 
             // Validate number of documents returned as the expected number of documents
-            Assert.assertEquals("For engine " + engine + " with ANN search :", DOCUMENT_IN_RESPONSE, parseHits(response));
+            Assert.assertEquals("For engine " + engine + ", hits with ANN search :", DOCUMENT_IN_RESPONSE, parseHits(response));
+            Assert.assertEquals("For engine " + engine + ", totalSearchHits with ANN search :", k, parseTotalSearchHits(response));
         }
     }
 
