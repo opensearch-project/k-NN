@@ -18,6 +18,8 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.index.util.KNNEngine;
 
+import java.security.InvalidParameterException;
+
 import static org.opensearch.common.settings.Setting.Property.Dynamic;
 import static org.opensearch.common.settings.Setting.Property.IndexScope;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
@@ -42,13 +44,13 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
     // Settings related to this field mapping type
     public static final String KNN_SPACE_TYPE = "index.knn.space_type";
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE = "l2";
-    public static final Setting<String> INDEX_KNN_SPACE_TYPE = Setting.simpleString(
-        KNN_SPACE_TYPE,
-        INDEX_KNN_DEFAULT_SPACE_TYPE,
-        new SpaceType.SpaceTypeValidator(),
-        IndexScope,
-        Setting.Property.Deprecated
-    );
+    public static final Setting<String> INDEX_KNN_SPACE_TYPE = Setting.simpleString(KNN_SPACE_TYPE, INDEX_KNN_DEFAULT_SPACE_TYPE, s -> {
+        try {
+            SpaceType.getSpace(s);
+        } catch (IllegalArgumentException ex) {
+            throw new InvalidParameterException(ex.getMessage());
+        }
+    }, IndexScope, Setting.Property.Deprecated);
 
     public static final String KNN_ALGO_PARAM_M = "index.knn.algo_param.m";
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_M = 16;
@@ -83,9 +85,9 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
     public static final String KNN_ALGO_PARAM_EF_SEARCH = "index.knn.algo_param.ef_search";
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH = 100;
     /**
-     *  ef or efSearch - the size of the dynamic list for the nearest neighbors (used during the search).
-     *  Higher ef leads to more accurate but slower search. ef cannot be set lower than the number of queried nearest neighbors k.
-     *  The value ef can be anything between k and the size of the dataset.
+     * ef or efSearch - the size of the dynamic list for the nearest neighbors (used during the search).
+     * Higher ef leads to more accurate but slower search. ef cannot be set lower than the number of queried nearest neighbors k.
+     * The value ef can be anything between k and the size of the dataset.
      */
     public static final Setting<Integer> INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING = Setting.intSetting(
         KNN_ALGO_PARAM_EF_SEARCH,
@@ -186,7 +188,6 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
     }
 
     /**
-     *
      * @param index Name of the index
      * @return efSearch value
      */

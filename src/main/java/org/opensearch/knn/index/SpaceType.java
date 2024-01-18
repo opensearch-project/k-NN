@@ -12,9 +12,7 @@
 package org.opensearch.knn.index;
 
 import org.apache.lucene.index.VectorSimilarityFunction;
-import org.opensearch.common.settings.Setting;
 
-import java.security.InvalidParameterException;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -132,17 +130,5 @@ public enum SpaceType {
             }
         }
         throw new IllegalArgumentException("Unable to find space: " + spaceTypeName);
-    }
-
-    // TODO: This can become private once we move space type setting here
-    public static class SpaceTypeValidator implements Setting.Validator<String> {
-        @Override
-        public void validate(String value) {
-            try {
-                SpaceType.getSpace(value);
-            } catch (IllegalArgumentException ex) {
-                throw new InvalidParameterException(ex.getMessage());
-            }
-        }
     }
 }
