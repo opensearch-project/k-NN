@@ -24,8 +24,9 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_TRIGGERED;
-import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE;
-import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING;
 
 /**
  * Singleton utility class to interact with the circuit breaker.
@@ -115,7 +116,7 @@ public class KNNCircuitBreakerUtil {
      * @return If circuit breaker is enabled for the cluster
      */
     public boolean isCircuitBreakerTriggered() {
-        return KNNSettings.state().getSettingValue(KNN_CIRCUIT_BREAKER_TRIGGERED);
+        return KNNClusterUtil.instance().getClusterSetting(KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING);
     }
 
     /**
@@ -124,7 +125,7 @@ public class KNNCircuitBreakerUtil {
      * @return Value of circuit breaker limit as ByteSizeValue
      */
     public ByteSizeValue getCircuitBreakerLimit() {
-        return KNNSettings.state().getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT);
+        return KNNClusterUtil.instance().getClusterSetting(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING);
     }
 
     /**
@@ -133,6 +134,6 @@ public class KNNCircuitBreakerUtil {
      * @return Value as double of unset circuit breaker percentage
      */
     public double getCircuitBreakerUnsetPercentage() {
-        return KNNSettings.state().getSettingValue(KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE);
+        return KNNClusterUtil.instance().getClusterSetting(KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE_SETTING);
     }
 }

@@ -13,7 +13,7 @@ import org.opensearch.common.Explicit;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -191,7 +191,7 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
      * @return efSearch value
      */
     public static int getEfSearchParam(String index) {
-        final IndexMetadata indexMetadata = KNNSettings.state().getIndexMetadata(index);
+        final IndexMetadata indexMetadata = KNNClusterUtil.instance().getIndexMetadata(index);
         return indexMetadata.getSettings()
             .getAsInt(KNN_ALGO_PARAM_EF_SEARCH, IndexHyperParametersUtil.getHNSWEFSearchValue(indexMetadata.getCreationVersion()));
     }

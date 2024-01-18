@@ -22,10 +22,9 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.common.settings.AbstractScopedSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.unit.TimeValue;
-import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.common.exception.OutOfNativeMemoryException;
 import org.opensearch.knn.index.KNNCircuitBreakerUtil;
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.plugin.stats.StatNames;
 
 import java.io.Closeable;
@@ -102,10 +101,10 @@ public class NativeMemoryCacheManager implements Closeable {
     private void initialize() {
         initialize(
             NativeMemoryCacheManagerDto.builder()
-                .isWeightLimited(KNNSettings.state().getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
+                .isWeightLimited(KNNClusterUtil.instance().getClusterSetting(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED_SETTING))
                 .maxWeight(KNNCircuitBreakerUtil.instance().getCircuitBreakerLimit().getKb())
-                .isExpirationLimited(KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_ENABLED))
-                .expiryTimeInMin(((TimeValue) KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes())
+                .isExpirationLimited(KNNClusterUtil.instance().getClusterSetting(KNN_CACHE_ITEM_EXPIRY_ENABLED_SETTING))
+                .expiryTimeInMin(KNNClusterUtil.instance().getClusterSetting(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES_SETTING).getMinutes())
                 .build()
         );
     }
@@ -136,10 +135,10 @@ public class NativeMemoryCacheManager implements Closeable {
     public synchronized void rebuildCache() {
         rebuildCache(
             NativeMemoryCacheManagerDto.builder()
-                .isWeightLimited(KNNSettings.state().getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))
+                .isWeightLimited(KNNClusterUtil.instance().getClusterSetting(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED_SETTING))
                 .maxWeight(KNNCircuitBreakerUtil.instance().getCircuitBreakerLimit().getKb())
-                .isExpirationLimited(KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_ENABLED))
-                .expiryTimeInMin(((TimeValue) KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)).getMinutes())
+                .isExpirationLimited(KNNClusterUtil.instance().getClusterSetting(KNN_CACHE_ITEM_EXPIRY_ENABLED_SETTING))
+                .expiryTimeInMin(KNNClusterUtil.instance().getClusterSetting(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES_SETTING).getMinutes())
                 .build()
         );
     }
@@ -432,9 +431,7 @@ public class NativeMemoryCacheManager implements Closeable {
      *
      * @param abstractScopedSettings settings on which to add update consumers to
      */
-    public static void setCacheRebuildUpdateConsumers(
-        AbstractScopedSettings abstractScopedSettings
-    ) {
+    public static void setCacheRebuildUpdateConsumers(AbstractScopedSettings abstractScopedSettings) {
         abstractScopedSettings.addSettingsUpdateConsumer(updatedSettings -> {
             // When any of the dynamic settings are updated, rebuild the cache with the updated values. Use the current
             // cluster settings values as defaults.
@@ -443,28 +440,26 @@ public class NativeMemoryCacheManager implements Closeable {
             builder.isWeightLimited(
                 updatedSettings.getAsBoolean(
                     KNN_MEMORY_CIRCUIT_BREAKER_ENABLED,
-                    KNNSettings.state().getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED)
+                    KNNClusterUtil.instance().getClusterSetting(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED_SETTING)
                 )
             );
 
-            builder.maxWeight(((ByteSizeValue) KNNSettings.state().getSettingValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)).getKb());
+            builder.maxWeight(KNNClusterUtil.instance().getClusterSetting(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING).getKb());
             if (updatedSettings.hasValue(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT)) {
-                builder.maxWeight(
-                    KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING.get(updatedSettings).getKb()
-                );
+                builder.maxWeight(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING.get(updatedSettings).getKb());
             }
 
             builder.isExpirationLimited(
                 updatedSettings.getAsBoolean(
                     KNN_CACHE_ITEM_EXPIRY_ENABLED,
-                    KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_ENABLED)
+                    KNNClusterUtil.instance().getClusterSetting(KNN_CACHE_ITEM_EXPIRY_ENABLED_SETTING)
                 )
             );
 
             builder.expiryTimeInMin(
                 updatedSettings.getAsTime(
                     KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES,
-                    KNNSettings.state().getSettingValue(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES)
+                    KNNClusterUtil.instance().getClusterSetting(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES_SETTING)
                 ).getMinutes()
             );
 

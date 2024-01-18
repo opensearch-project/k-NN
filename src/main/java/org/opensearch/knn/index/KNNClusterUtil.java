@@ -9,7 +9,9 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.Version;
+import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.settings.Setting;
 
 /**
  * Class abstracts information related to underlying OpenSearch cluster
@@ -34,6 +36,7 @@ public class KNNClusterUtil {
 
     /**
      * Initializes instance of cluster context by injecting dependencies
+     *
      * @param clusterService
      */
     public void initialize(final ClusterService clusterService) {
@@ -54,5 +57,25 @@ public class KNNClusterUtil {
             );
             return Version.CURRENT;
         }
+    }
+
+    /**
+     * Get setting value for the cluster. Return default if not set.
+     *
+     * @param <T> Setting type
+     * @return T     setting value or default
+     */
+    public <T> T getClusterSetting(Setting<T> setting) {
+        return clusterService.getClusterSettings().get(setting);
+    }
+
+    /**
+     * Get index metadata for a particular index
+     *
+     * @param indexName Name of the index
+     * @return IndexMetadata for the given index
+     */
+    public IndexMetadata getIndexMetadata(String indexName) {
+        return clusterService.state().getMetadata().index(indexName);
     }
 }

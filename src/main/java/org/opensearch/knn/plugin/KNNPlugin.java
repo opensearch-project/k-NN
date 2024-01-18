@@ -18,7 +18,6 @@ import org.opensearch.knn.index.KNNCircuitBreakerUtil;
 import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 
 import org.opensearch.knn.index.query.KNNWeight;
@@ -218,6 +217,7 @@ public class KNNPlugin extends Plugin
         this.clusterService = clusterService;
 
         // No dependencies - could be initialized first
+        KNNClusterUtil.instance().initialize(clusterService);
         KNNCircuitBreakerUtil.instance().initialize(client);
 
         // Initialize Native Memory loading strategies
@@ -225,8 +225,6 @@ public class KNNPlugin extends Plugin
         VectorReader vectorReader = new VectorReader(client);
         NativeMemoryLoadStrategy.TrainingLoadStrategy.initialize(vectorReader);
 
-        KNNSettings.state().initialize(clusterService);
-        KNNClusterUtil.instance().initialize(clusterService);
         ModelDao.OpenSearchKNNModelDao.initialize(client, clusterService, environment.settings());
         ModelCache.initialize(ModelDao.OpenSearchKNNModelDao.getInstance(), clusterService);
         TrainingJobRunner.initialize(threadPool, ModelDao.OpenSearchKNNModelDao.getInstance());
@@ -258,11 +256,11 @@ public class KNNPlugin extends Plugin
             MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
             MODEL_CACHE_SIZE_LIMIT_SETTING,
             ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
-                KNN_PLUGIN_ENABLED_SETTING,
-                KNN_MEMORY_CIRCUIT_BREAKER_ENABLED_SETTING,
-                KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING,
-                KNN_CACHE_ITEM_EXPIRY_ENABLED_SETTING,
-                KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES_SETTING
+            KNN_PLUGIN_ENABLED_SETTING,
+            KNN_MEMORY_CIRCUIT_BREAKER_ENABLED_SETTING,
+            KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING,
+            KNN_CACHE_ITEM_EXPIRY_ENABLED_SETTING,
+            KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES_SETTING
         );
     }
 
@@ -431,6 +429,6 @@ public class KNNPlugin extends Plugin
      * @return setting value for {@link KNNPlugin#KNN_PLUGIN_ENABLED_SETTING}
      */
     public static boolean isKNNPluginEnabled() {
-        return KNNSettings.state().getSettingValue(KNN_PLUGIN_ENABLED);
+        return KNNClusterUtil.instance().getClusterSetting(KNN_PLUGIN_ENABLED_SETTING);
     }
 }

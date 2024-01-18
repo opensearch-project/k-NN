@@ -14,7 +14,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.stats.KNNCounter;
@@ -44,8 +44,6 @@ public class KNNTestCase extends OpenSearchTestCase {
     protected Metadata metadata;
     @Mock
     protected IndexMetadata indexMetadata;
-    @Mock
-    protected KNNSettings knnSettings;
     private AutoCloseable openMocks;
 
     @Override
@@ -92,7 +90,7 @@ public class KNNTestCase extends OpenSearchTestCase {
         }
 
         when(clusterService.getClusterSettings()).thenReturn(new ClusterSettings(Settings.EMPTY, defaultClusterSettings));
-        KNNSettings.state().initialize(clusterService);
+        KNNClusterUtil.instance().initialize(clusterService);
     }
 
     public Map<String, Object> xContentBuilderToMap(XContentBuilder xContentBuilder) {

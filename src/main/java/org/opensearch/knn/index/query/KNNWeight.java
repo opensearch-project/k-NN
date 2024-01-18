@@ -9,29 +9,6 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocValues;
-//<<<<<<< HEAD
-//=======
-//import org.apache.lucene.search.FilteredDocIdSetIterator;
-//import org.apache.lucene.search.HitQueue;
-//import org.apache.lucene.search.ScoreDoc;
-//import org.apache.lucene.util.BitSet;
-//import org.apache.lucene.util.BitSetIterator;
-//import org.apache.lucene.util.Bits;
-//import org.apache.lucene.util.BytesRef;
-//import org.apache.lucene.util.FixedBitSet;
-//import org.opensearch.common.settings.Setting;
-//import org.opensearch.knn.common.KNNConstants;
-//import org.opensearch.knn.index.KNNSettings;
-//import org.opensearch.knn.index.SpaceType;
-//import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
-//import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
-//import org.opensearch.knn.jni.JNIService;
-//import org.opensearch.knn.index.memory.NativeMemoryAllocation;
-//import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
-//import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
-//import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
-//import org.opensearch.knn.index.util.KNNEngine;
-//>>>>>>> 7320f94f (Relocate getter utility methods)
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FilterLeafReader;
 import org.apache.lucene.index.LeafReaderContext;
@@ -54,7 +31,7 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
@@ -477,7 +454,7 @@ public class KNNWeight extends Weight {
      * @return value value of {@link KNNWeight#ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD} for index
      */
     public static Integer getFilteredExactSearchThreshold(final String indexName) {
-        IndexMetadata indexMetadata = KNNSettings.state().getIndexMetadata(indexName);
+        IndexMetadata indexMetadata = KNNClusterUtil.instance().getIndexMetadata(indexName);
         return indexMetadata.getSettings()
             .getAsInt(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE);
     }

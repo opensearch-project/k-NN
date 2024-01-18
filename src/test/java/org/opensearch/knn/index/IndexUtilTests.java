@@ -67,7 +67,7 @@ public class IndexUtilTests extends KNNTestCase {
         when(clusterState.getMetadata()).thenReturn(metadata);
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.state()).thenReturn(clusterState);
-        KNNSettings.state().initialize(clusterService);
+        KNNClusterUtil.instance().initialize(clusterService);
 
         loadParameters = getParametersAtLoading(spaceType2, knnEngine2, indexName);
         assertEquals(2, loadParameters.size());

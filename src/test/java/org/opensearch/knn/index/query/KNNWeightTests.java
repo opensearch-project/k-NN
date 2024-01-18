@@ -36,8 +36,10 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.common.unit.ByteSizeUnit;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.util.KNNVectorAsArraySerializer;
@@ -73,12 +75,12 @@ import static org.opensearch.knn.KNNRestTestCase.INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
-import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED;
-import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT;
-import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.KNN_CACHE_ITEM_EXPIRY_ENABLED;
-import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED_SETTING;
+import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.KNN_CACHE_ITEM_EXPIRY_ENABLED_SETTING;
+import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES_SETTING;
 import static org.opensearch.knn.index.query.KNNWeight.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD;
-import static org.opensearch.knn.plugin.KNNPlugin.KNN_PLUGIN_ENABLED;
+import static org.opensearch.knn.plugin.KNNPlugin.KNN_PLUGIN_ENABLED_SETTING;
 
 public class KNNWeightTests extends KNNTestCase {
     private static final String FIELD_NAME = "target_field";
@@ -87,7 +89,7 @@ public class KNNWeightTests extends KNNTestCase {
     private static final int K = 5;
     private static final Set<String> SEGMENT_FILES_NMSLIB = Set.of("_0.cfe", "_0_2011_target_field.hnswc");
     private static final Set<String> SEGMENT_FILES_FAISS = Set.of("_0.cfe", "_0_2011_target_field.faissc");
-    private static final String CIRCUIT_BREAKER_LIMIT_100KB = "100Kb";
+    private static final ByteSizeValue CIRCUIT_BREAKER_LIMIT_100KB = new ByteSizeValue(100, ByteSizeUnit.KB);
 
     private static final Map<Integer, Float> DOC_ID_TO_SCORES = Map.of(10, 0.4f, 101, 0.05f, 100, 0.8f, 50, 0.52f);
     private static final Map<Integer, Float> FILTERED_DOC_ID_TO_SCORES = Map.of(101, 0.05f, 100, 0.8f, 50, 0.52f);
@@ -98,25 +100,29 @@ public class KNNWeightTests extends KNNTestCase {
     private static MockedStatic<NativeMemoryCacheManager> nativeMemoryCacheManagerMockedStatic;
     private static MockedStatic<JNIService> jniServiceMockedStatic;
 
-    private static MockedStatic<KNNSettings> knnSettingsMockedStatic;
+    private static MockedStatic<KNNClusterUtil> knnClusterUtilMockedStatic;
 
-    private static KNNSettings knnSettingsInstance;
+    private static KNNClusterUtil knnClusterUtilInstance;
     private static IndexMetadata indexMetadataInstance;
 
     @BeforeClass
     public static void setUpClass() throws Exception {
-        knnSettingsInstance = mock(KNNSettings.class);
+        knnClusterUtilInstance = mock(KNNClusterUtil.class);
         indexMetadataInstance = mock(IndexMetadata.class);
         when(indexMetadataInstance.getCreationVersion()).thenReturn(org.opensearch.Version.CURRENT);
-        when(knnSettingsInstance.getIndexMetadata(anyString())).thenReturn(indexMetadataInstance);
+        when(knnClusterUtilInstance.getIndexMetadata(anyString())).thenReturn(indexMetadataInstance);
 
-        knnSettingsMockedStatic = mockStatic(KNNSettings.class);
-        when(knnSettingsInstance.getSettingValue(eq(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED))).thenReturn(true);
-        when(knnSettingsInstance.getSettingValue(eq(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT))).thenReturn(CIRCUIT_BREAKER_LIMIT_100KB);
-        when(knnSettingsInstance.getSettingValue(eq(KNN_CACHE_ITEM_EXPIRY_ENABLED))).thenReturn(false);
-        when(knnSettingsInstance.getSettingValue(eq(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES))).thenReturn(TimeValue.timeValueMinutes(10));
-        when(knnSettingsInstance.getSettingValue(eq(KNN_PLUGIN_ENABLED))).thenReturn(true);
-        knnSettingsMockedStatic.when(KNNSettings::state).thenReturn(knnSettingsInstance);
+        knnClusterUtilMockedStatic = mockStatic(KNNClusterUtil.class);
+        when(knnClusterUtilInstance.getClusterSetting(eq(KNN_MEMORY_CIRCUIT_BREAKER_ENABLED_SETTING))).thenReturn(true);
+        when(knnClusterUtilInstance.getClusterSetting(eq(KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING))).thenReturn(
+            CIRCUIT_BREAKER_LIMIT_100KB
+        );
+        when(knnClusterUtilInstance.getClusterSetting(eq(KNN_CACHE_ITEM_EXPIRY_ENABLED_SETTING))).thenReturn(false);
+        when(knnClusterUtilInstance.getClusterSetting(eq(KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES_SETTING))).thenReturn(
+            TimeValue.timeValueMinutes(10)
+        );
+        when(knnClusterUtilInstance.getClusterSetting(eq(KNN_PLUGIN_ENABLED_SETTING))).thenReturn(true);
+        knnClusterUtilMockedStatic.when(KNNClusterUtil::instance).thenReturn(knnClusterUtilInstance);
 
         jniServiceMockedStatic = mockStatic(JNIService.class);
         nativeMemoryCacheManagerMockedStatic = mockStatic(NativeMemoryCacheManager.class);
