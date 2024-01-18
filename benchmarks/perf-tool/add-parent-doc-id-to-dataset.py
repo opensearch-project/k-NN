@@ -152,18 +152,18 @@ class _Dataset:
         cpus = multiprocessing.cpu_count()
         total_clients = min(8, cpus)  # 1  # 10
         hdf5Data_train = HDF5DataSet(target_path, "train")
-        train_vectors = hdf5Data_train.read(0, 1000000)
+        train_vectors = hdf5Data_train.read(0, hdf5Data_train.size())
         hdf5Data_train.close()
         print(f'Train vector size: {len(train_vectors)}')
 
         hdf5Data_test = HDF5DataSet(target_path, "test")
-        total_queries = 10000  # 10000
+        total_queries = hdf5Data_test.size()  # 10000
         dis = [] * total_queries
 
         for i in range(total_queries):
             dis.insert(i, [])
 
-        queries_per_client = int(total_queries / total_clients)
+        queries_per_client = int(total_queries / total_clients + 0.5)
         if queries_per_client == 0:
             queries_per_client = total_queries
 
@@ -176,7 +176,7 @@ class _Dataset:
             if start_index + queries_per_client <= total_queries:
                 end_index = int(start_index + queries_per_client)
             else:
-                end_index = total_queries - start_index
+                end_index = total_queries
 
             print(f'Start Index: {start_index}, end Index: {end_index}')
             print(f'client is  : {client}')
@@ -199,7 +199,6 @@ class _Dataset:
                 i = 0
                 for d in calculatedDis:
                     if d:
-                        print("Dis is not null")
                         dis[i] = d
                         j = j + 1
                     i = i + 1
@@ -238,14 +237,12 @@ def queryTask(train_vectors, test_vectors, startIndex, endIndex, process_number,
         i = startIndex
         for test in test_vectors:
             distances = []
-            parent_ids = {}
             values = {}
             for value in train_vectors:
-                parent_ids[value.id] = value.parent_id
                 values[value.id] = value
                 distances.append({
                     "dis": calculateL2Distance(test.vector, value.vector),
-                    "id": value.id
+                    "id": value.parent_id
                 })
 
             distances.sort(key=lambda vector: vector['dis'])
@@ -258,15 +255,15 @@ def queryTask(train_vectors, test_vectors, startIndex, endIndex, process_number,
             for sub_i in range(len(distances)):
                 id = distances[sub_i]['id']
                 # Check if the number has been seen before
-                if len(nested) < 1000 and parent_ids[id] not in seen_set_nested:
+                if len(nested) < 1000 and id not in seen_set_nested:
                     # If not seen before, mark it as seen
-                    seen_set_nested.add(parent_ids[id])
+                    seen_set_nested.add(id)
                     nested.append(distances[sub_i])
-                if len(restricted) < 1000 and parent_ids[id] not in seen_set_restricted and values[id].apply_restricted_filter():
-                    seen_set_restricted.add(parent_ids[id])
+                if len(restricted) < 1000 and id not in seen_set_restricted and values[id].apply_restricted_filter():
+                    seen_set_restricted.add(id)
                     restricted.append(distances[sub_i])
-                if len(relaxed) < 1000 and parent_ids[id] not in seen_set_relaxed and values[id].apply_relaxed_filter():
-                    seen_set_relaxed.add(parent_ids[id])
+                if len(relaxed) < 1000 and id not in seen_set_relaxed and values[id].apply_relaxed_filter():
+                    seen_set_relaxed.add(id)
                     relaxed.append(distances[sub_i])
 
             all_distances[i]['nested'] = nested
