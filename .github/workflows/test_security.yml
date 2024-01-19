@@ -38,6 +38,15 @@ jobs:
         with:
           submodules: true
 
+        # Git functionality in CMAKE file does not work with given ubuntu image. Therefore, handling it here.
+      - name: Apply Git Patch
+        # Deleting file at the end to skip `git apply` inside CMAKE file
+        run: |
+          cd jni/external/faiss
+          git apply --ignore-space-change --ignore-whitespace --3way ../../patches/faiss/0001-Custom-patch-to-support-multi-vector.patch
+          rm ../../patches/faiss/0001-Custom-patch-to-support-multi-vector.patch
+        working-directory: ${{ github.workspace }}
+
       - name: Setup Java ${{ matrix.java }}
         uses: actions/setup-java@v1
         with:

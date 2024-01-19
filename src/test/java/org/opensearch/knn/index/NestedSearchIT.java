@@ -12,15 +12,12 @@ import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.rest.RestStatus;
-import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.K;
@@ -56,7 +53,7 @@ public class NestedSearchIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testNestedSearch_whenKIsTwo_thenReturnTwoResults() {
+    public void testNestedSearchWithLucene_whenKIsTwo_thenReturnTwoResults() {
         createKnnIndex(2, KNNEngine.LUCENE.getName());
 
         String doc1 = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
@@ -73,12 +70,32 @@ public class NestedSearchIT extends KNNRestTestCase {
 
         Float[] queryVector = { 1f, 1f };
         Response response = queryNestedField(INDEX_NAME, 2, queryVector);
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(2, parseHits(entity));
+        assertEquals(2, parseTotalSearchHits(entity));
+    }
 
-        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
-            MediaTypeRegistry.getDefaultMediaType().xContent(),
-            EntityUtils.toString(response.getEntity())
-        ).map().get("hits")).get("hits");
-        assertEquals(2, hits.size());
+    @SneakyThrows
+    public void testNestedSearchWithFaiss_whenKIsTwo_thenReturnTwoResults() {
+        createKnnIndex(2, KNNEngine.FAISS.getName());
+
+        String doc1 = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
+            .addVectors(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 1f, 1f })
+            .build();
+        addKnnDoc(INDEX_NAME, "1", doc1);
+
+        String doc2 = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
+            .addVectors(FIELD_NAME_VECTOR, new Float[] { 2f, 2f }, new Float[] { 2f, 2f })
+            .build();
+        addKnnDoc(INDEX_NAME, "2", doc2);
+
+        refreshIndex(INDEX_NAME);
+
+        Float[] queryVector = { 1f, 1f };
+        Response response = queryNestedField(INDEX_NAME, 2, queryVector);
+        String entity = EntityUtils.toString(response.getEntity());
+        assertEquals(2, parseHits(entity));
+        assertEquals(2, parseTotalSearchHits(entity));
     }
 
     /**

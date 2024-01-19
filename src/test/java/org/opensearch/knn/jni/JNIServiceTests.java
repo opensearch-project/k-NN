@@ -29,9 +29,14 @@ import org.opensearch.knn.index.util.KNNEngine;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
@@ -50,15 +55,19 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 public class JNIServiceTests extends KNNTestCase {
 
     static TestUtils.TestData testData;
+    static TestUtils.TestData testDataNested;
     private String faissMethod = "HNSW32,Flat";
 
     @BeforeClass
     public static void setUpClass() throws IOException {
         URL testIndexVectors = JNIServiceTests.class.getClassLoader().getResource("data/test_vectors_1000x128.json");
+        URL testIndexVectorsNested = JNIServiceTests.class.getClassLoader().getResource("data/test_vectors_nested_1000x128.json");
         URL testQueries = JNIServiceTests.class.getClassLoader().getResource("data/test_queries_100x128.csv");
         assert testIndexVectors != null;
+        assert testIndexVectorsNested != null;
         assert testQueries != null;
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());
+        testDataNested = new TestUtils.TestData(testIndexVectorsNested.getPath(), testQueries.getPath());
     }
 
     public void testCreateIndex_invalid_engineNotSupported() {
@@ -590,12 +599,12 @@ public class JNIServiceTests extends KNNTestCase {
     }
 
     public void testQueryIndex_invalidEngine() {
-        expectThrows(IllegalArgumentException.class, () -> JNIService.queryIndex(0L, new float[] {}, 0, "invalid" + "-engine", null));
+        expectThrows(IllegalArgumentException.class, () -> JNIService.queryIndex(0L, new float[] {}, 0, "invalid" + "-engine", null, null));
     }
 
     public void testQueryIndex_nmslib_invalid_badPointer() {
 
-        expectThrows(Exception.class, () -> JNIService.queryIndex(0L, new float[] {}, 0, KNNEngine.NMSLIB.getName(), null));
+        expectThrows(Exception.class, () -> JNIService.queryIndex(0L, new float[] {}, 0, KNNEngine.NMSLIB.getName(), null, null));
     }
 
     public void testQueryIndex_nmslib_invalid_nullQueryVector() throws IOException {
@@ -618,7 +627,7 @@ public class JNIServiceTests extends KNNTestCase {
         );
         assertNotEquals(0, pointer);
 
-        expectThrows(Exception.class, () -> JNIService.queryIndex(pointer, null, 10, KNNEngine.NMSLIB.getName(), null));
+        expectThrows(Exception.class, () -> JNIService.queryIndex(pointer, null, 10, KNNEngine.NMSLIB.getName(), null, null));
     }
 
     public void testQueryIndex_nmslib_valid() throws IOException {
@@ -644,7 +653,7 @@ public class JNIServiceTests extends KNNTestCase {
             assertNotEquals(0, pointer);
 
             for (float[] query : testData.queries) {
-                KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, KNNEngine.NMSLIB.getName(), null);
+                KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, KNNEngine.NMSLIB.getName(), null, null);
                 assertEquals(k, results.length);
             }
         }
@@ -652,7 +661,7 @@ public class JNIServiceTests extends KNNTestCase {
 
     public void testQueryIndex_faiss_invalid_badPointer() {
 
-        expectThrows(Exception.class, () -> JNIService.queryIndex(0L, new float[] {}, 0, FAISS_NAME, null));
+        expectThrows(Exception.class, () -> JNIService.queryIndex(0L, new float[] {}, 0, FAISS_NAME, null, null));
     }
 
     public void testQueryIndex_faiss_invalid_nullQueryVector() throws IOException {
@@ -671,7 +680,7 @@ public class JNIServiceTests extends KNNTestCase {
         long pointer = JNIService.loadIndex(tmpFile.toAbsolutePath().toString(), Collections.emptyMap(), FAISS_NAME);
         assertNotEquals(0, pointer);
 
-        expectThrows(Exception.class, () -> JNIService.queryIndex(pointer, null, 10, FAISS_NAME, null));
+        expectThrows(Exception.class, () -> JNIService.queryIndex(pointer, null, 10, FAISS_NAME, null, null));
     }
 
     public void testQueryIndex_faiss_valid() throws IOException {
@@ -700,17 +709,94 @@ public class JNIServiceTests extends KNNTestCase {
                 assertNotEquals(0, pointer);
 
                 for (float[] query : testData.queries) {
-                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, null);
+                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, null, null);
                     assertEquals(k, results.length);
                 }
 
                 // Filter will result in no ids
                 for (float[] query : testData.queries) {
-                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, new int[] { 0 });
+                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, new int[] { 0 }, null);
                     assertEquals(0, results.length);
                 }
             }
         }
+    }
+
+    public void testQueryIndex_faiss_parentIds() throws IOException {
+
+        int k = 100;
+
+        List<String> methods = ImmutableList.of(faissMethod);
+        List<SpaceType> spaces = ImmutableList.of(SpaceType.L2, SpaceType.INNER_PRODUCT);
+        int[] parentIds = toParentIdArray(testDataNested.indexData.docs);
+        Map<Integer, Integer> idToParentIdMap = toIdToParentIdMap(testDataNested.indexData.docs);
+        for (String method : methods) {
+            for (SpaceType spaceType : spaces) {
+                Path tmpFile = createTempFile();
+                JNIService.createIndex(
+                    testDataNested.indexData.docs,
+                    testDataNested.indexData.vectors,
+                    tmpFile.toAbsolutePath().toString(),
+                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                    FAISS_NAME
+                );
+                assertTrue(tmpFile.toFile().length() > 0);
+
+                long pointer = JNIService.loadIndex(
+                    tmpFile.toAbsolutePath().toString(),
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                    FAISS_NAME
+                );
+                assertNotEquals(0, pointer);
+
+                for (float[] query : testDataNested.queries) {
+                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, null, parentIds);
+                    // Verify there is no more than one result from same parent
+                    Set<Integer> parentIdSet = toParentIdSet(results, idToParentIdMap);
+                    assertEquals(results.length, parentIdSet.size());
+                }
+            }
+        }
+    }
+
+    private Set<Integer> toParentIdSet(KNNQueryResult[] results, Map<Integer, Integer> idToParentIdMap) {
+        return Arrays.stream(results).map(result -> idToParentIdMap.get(result.getId())).collect(Collectors.toSet());
+    }
+
+    private int[] toParentIdArray(int[] ids) {
+        int length = ids.length;
+        int[] sortedIds = Arrays.copyOf(ids, length);
+        Arrays.sort(sortedIds);
+
+        List<Integer> parentIds = new ArrayList<>();
+        int largestId = sortedIds[length - 1];
+        parentIds.add(largestId + 1);
+        for (int i = length - 2; i > -1; i--) {
+            if (sortedIds[i] != sortedIds[i + 1] - 1) {
+                parentIds.add(sortedIds[i] + 1);
+            }
+        }
+
+        Collections.shuffle(parentIds);
+        return parentIds.stream().mapToInt(Integer::intValue).toArray();
+    }
+
+    private Map<Integer, Integer> toIdToParentIdMap(int[] ids) {
+        int length = ids.length;
+        int[] sortedIds = Arrays.copyOf(ids, length);
+        Arrays.sort(sortedIds);
+
+        Map<Integer, Integer> idToParentIdMap = new HashMap<>();
+        int largestId = sortedIds[length - 1];
+        int parentId = largestId + 1;
+        idToParentIdMap.put(largestId, parentId);
+        for (int i = length - 2; i > -1; i--) {
+            if (sortedIds[i] != sortedIds[i + 1] - 1) {
+                parentId = sortedIds[i] + 1;
+            }
+            idToParentIdMap.put(sortedIds[i], parentId);
+        }
+        return idToParentIdMap;
     }
 
     public void testFree_invalidEngine() {
