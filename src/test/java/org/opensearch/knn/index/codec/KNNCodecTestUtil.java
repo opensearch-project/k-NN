@@ -333,7 +333,7 @@ public class KNNCodecTestUtil {
         );
         int k = 2;
         float[] queryVector = new float[dimension];
-        KNNQueryResult[] results = JNIService.queryIndex(indexPtr, queryVector, k, knnEngine.getName(), null);
+        KNNQueryResult[] results = JNIService.queryIndex(indexPtr, queryVector, k, knnEngine.getName(), null, null);
         assertTrue(results.length > 0);
         JNIService.free(indexPtr, knnEngine.getName());
     }

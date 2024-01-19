@@ -333,7 +333,6 @@ class BaseIngestStep(OpenSearchStep):
         for i in range(0, self.doc_count, self.bulk_size):
             partition = self.dataset.read(self.bulk_size)
             self._handle_data_bulk(partition, action, i)
-
         self.dataset.reset()
 
         return {}
@@ -379,6 +378,7 @@ class IngestMultiFieldStep(BaseIngestStep):
                                                step_config.config, {}, [])
 
         self.partition_attr = self.attributes_dataset.read(self.doc_count)
+        self.action_buffer = None
 
     def _handle_data_bulk(self, partition, action, i):
         if partition is None:
@@ -429,6 +429,118 @@ class IngestMultiFieldStep(BaseIngestStep):
         return actions
 
 
+class IngestNestedFieldStep(BaseIngestStep):
+    """See base class."""
+
+    label = 'ingest_nested_field'
+
+    def __init__(self, step_config: StepConfig):
+        super().__init__(step_config)
+
+        dataset_path = parse_string_param('dataset_path', step_config.config,
+                                          {}, None)
+
+        self.attributes_dataset_name = parse_string_param('attributes_dataset_name',
+                                                          step_config.config, {}, None)
+
+        self.attributes_dataset = parse_dataset('hdf5', dataset_path,
+                                                Context.CUSTOM, self.attributes_dataset_name)
+
+        self.attribute_spec = parse_list_param('attribute_spec',
+                                               step_config.config, {}, [])
+
+        self.partition_attr = self.attributes_dataset.read(self.doc_count)
+
+        if self.dataset.size() != self.doc_count:
+            raise ValueError("custom doc_count is not supported for nested field")
+        self.action_buffer = None
+        self.action_parent_id = None
+        self.count = 0
+
+    def _handle_data_bulk(self, partition, action, i):
+        if partition is None:
+            return
+        body = self.bulk_transform_with_nested(partition, self.partition_attr, self.field_name,
+                                               action, i, self.attribute_spec)
+        if len(body) > 0:
+            bulk_index(self.opensearch, self.index_name, body)
+
+    def bulk_transform_with_nested(self, partition: np.ndarray, partition_attr, field_name: str,
+                                   action, offset: int, attributes_def) -> List[Dict[str, Any]]:
+        """Partitions and transforms a list of vectors into OpenSearch's bulk
+        injection format.
+        Args:
+            partition: An array of vectors to transform.
+            partition_attr: dictionary of additional data to transform
+            field_name: field name for action
+            action: Bulk API action.
+            offset: to start counting from
+            attributes_def: definition of additional doc fields
+        Returns:
+            An array of transformed vectors in bulk format.
+        """
+        # offset is index of start row. We need number of parent doc - 1.
+        # The number of parent document can be calculated by using partition_attr data.
+        # We need to keep the last parent doc aside so that additional data can be added later.
+        parent_id_idx = next((index for (index, d) in enumerate(attributes_def) if d.get('name') == 'parent_id'), None)
+        if parent_id_idx is None:
+            raise ValueError("parent_id should be provided as attribute spec")
+        if attributes_def[parent_id_idx]['type'] != 'int':
+            raise ValueError("parent_id should be int type")
+
+        first_index = offset
+        last_index = offset + len(partition) - 1
+        num_of_actions = int(partition_attr[last_index][parent_id_idx].decode()) - int(partition_attr[first_index][parent_id_idx].decode())
+        if self.action_buffer is None:
+            self.action_buffer = {"nested_field": []}
+            self.action_parent_id = int(partition_attr[first_index][parent_id_idx].decode())
+
+        actions = []
+        _ = [
+            actions.extend([action(i + self.action_parent_id), None])
+            for i in range(num_of_actions)
+        ]
+
+        idx = 1
+        part_list = partition.tolist()
+        for i in range(len(partition)):
+            self.count += 1
+            nested = {field_name: part_list[i]}
+            attr_idx = i + offset
+            attr_def_idx = 0
+            current_parent_id = None
+            for attribute in attributes_def:
+                attr_def_name = attribute['name']
+                attr_def_type = attribute['type']
+                if attr_def_name == "parent_id":
+                    current_parent_id = int(partition_attr[attr_idx][attr_def_idx].decode())
+                    attr_def_idx += 1
+                    continue
+
+                if attr_def_type == 'str':
+                    val = partition_attr[attr_idx][attr_def_idx].decode()
+                    if val != 'None':
+                        nested[attr_def_name] = val
+                elif attr_def_type == 'int':
+                    val = int(partition_attr[attr_idx][attr_def_idx].decode())
+                    nested[attr_def_name] = val
+                attr_def_idx += 1
+
+            if self.action_parent_id == current_parent_id:
+                self.action_buffer["nested_field"].append(nested)
+            else:
+                actions.extend([action(self.action_parent_id), self.action_buffer])
+                self.action_buffer = {"nested_field": []}
+                self.action_buffer["nested_field"].append(nested)
+                self.action_parent_id = current_parent_id
+                idx += 2
+
+        if self.count == self.doc_count:
+            actions.extend([action(self.action_parent_id), self.action_buffer])
+
+        return actions
+
+
 class BaseQueryStep(OpenSearchStep):
     """See base class."""
 
@@ -469,7 +581,7 @@ class BaseQueryStep(OpenSearchStep):
                 break
             query_responses.append(
                 query_index(self.opensearch, self.index_name,
-                            self.get_body(query[0]) , [self.field_name]))
+                            self.get_body(query[0]) , self.get_exclude_fields()))
 
         results['took'] = [
             float(query_response['took']) for query_response in query_responses
@@ -506,6 +618,8 @@ class BaseQueryStep(OpenSearchStep):
     def get_body(self, vec):
         pass
 
+    def get_exclude_fields(self):
+        return [self.field_name]
 
 class QueryStep(BaseQueryStep):
     """See base class."""
@@ -610,6 +724,43 @@ class QueryWithFilterStep(BaseQueryStep):
             }
         else:
             raise ConfigurationError('Not supported filter type {}'.format(self.filter_type))
+
+class QueryNestedFieldStep(BaseQueryStep):
+    """See base class."""
+
+    label = 'query_nested_field'
+
+    def __init__(self, step_config: StepConfig):
+        super().__init__(step_config)
+
+        neighbors_dataset = parse_string_param('neighbors_dataset',
+                                               step_config.config, {}, None)
+
+        self.neighbors = parse_dataset(self.neighbors_format, self.neighbors_path,
+                                       Context.CUSTOM, neighbors_dataset)
+
+        self.implicit_config = step_config.implicit_config
+
+    def get_body(self, vec):
+        return {
+            'size': self.k,
+            'query': {
+                'nested': {
+                    'path': 'nested_field',
+                    'query': {
+                        'knn': {
+                            'nested_field.' + self.field_name: {
+                                'vector': vec,
+                                'k': self.k
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    def get_exclude_fields(self):
+        return ['nested_field.' + self.field_name]
 
 class GetStatsStep(OpenSearchStep):
     """See base class."""
