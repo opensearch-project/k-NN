@@ -694,6 +694,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return ((List) responseMap.get("hits")).size();
     }
 
+    protected List<String> parseIds(String searchResponseBody) throws IOException {
+        @SuppressWarnings("unchecked")
+        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            searchResponseBody
+        ).map().get("hits")).get("hits");
+
+        return hits.stream().map(hit -> (String) ((Map<String, Object>) hit).get("_id")).collect(Collectors.toList());
+    }
+
     /**
      * Get the total number of graphs in the cache across all nodes
      */
