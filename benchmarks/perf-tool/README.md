@@ -270,6 +270,26 @@ Ingests a dataset of multiple context types into the cluster.
 | ----------- | ----------- | ----------- |
 | took | Total time to ingest the dataset into the index.| ms |
 
+#### ingest_nested_field
+
+Ingests a dataset with nested field into the cluster.
+
+##### Parameters
+
+| Parameter Name | Description                                                                                                                                                                                                      | Default |  
+| ----------- |------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------| ----------- |
+| index_name | Name of index to ingest into                                                                                                                                                                                     | No default |
+| field_name | Name of field to ingest into                                                                                                                                                                                     | No default |
+| dataset_path | Path to data-set                                                                                                                                                                                                 | No default |
+| attributes_dataset_name | Name of dataset with additional attributes inside the main dataset                                                                                                                                               | No default |
+| attribute_spec | Definition of attributes, format is: [{ name: [name_val], type: [type_val]}] Order is important and must match order of attributes column in dataset file. It should contains { name: 'parent_id', type: 'int'}  | No default |
+
+##### Metrics
+
+| Metric Name | Description | Unit |  
+| ----------- | ----------- | ----------- |
+| took | Total time to ingest the dataset into the index.| ms |
+
 #### query
 
 Runs a set of queries against an index.
@@ -330,6 +350,36 @@ Runs a set of queries with filter against an index.
 | recall@R | ratio of top R results from the ground truth neighbors that are in the K results returned by the plugin | float 0.0-1.0 |
 | recall@K | ratio of results returned that were ground truth nearest neighbors  | float 0.0-1.0 |
 
+
+#### query_nested_field
+
+Runs a set of queries with nested field against an index.
+
+##### Parameters
+
+| Parameter Name | Description                                                                                                                                                                                                                               | Default              |  
+| ----------- |-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------|
+| k | Number of neighbors to return on search                                                                                                                                                                                                   | 100                  |
+| r | r value in Recall@R                                                                                                                                                                                                                       | 1                    |
+| index_name | Name of index to search                                                                                                                                                                                                                   | No default           |
+| field_name | Name field to search                                                                                                                                                                                                                      | No default           |
+| calculate_recall | Whether to calculate recall values                                                                                                                                                                                                        | False                |
+| dataset_format | Format the dataset is in. Currently hdf5 and bigann is supported. The hdf5 file must be organized in the same way that the ann-benchmarks organizes theirs.                                                                               | 'hdf5'               |
+| dataset_path | Path to dataset                                                                                                                                                                                                                           | No default           |
+| neighbors_format | Format the neighbors dataset is in. Currently hdf5 and bigann is supported. The hdf5 file must be organized in the same way that the ann-benchmarks organizes theirs.                                                                     | 'hdf5'               |
+| neighbors_path | Path to neighbors dataset                                                                                                                                                                                                                 | No default           |
+| neighbors_dataset | Name of filter dataset inside the neighbors dataset                                                                                                                                                                                       | No default           |
+| query_count | Number of queries to create from data-set                                                                                                                                                                                                 | Size of the data-set |
+
+##### Metrics
+
+| Metric Name | Description | Unit |  
+| ----------- | ----------- | ----------- |
+| took | Took times returned per query aggregated as total, p50, p90 and p99 (when applicable) | ms |
+| memory_kb | Native memory k-NN is using at the end of the query workload | KB |
+| recall@R | ratio of top R results from the ground truth neighbors that are in the K results returned by the plugin | float 0.0-1.0 |
+| recall@K | ratio of results returned that were ground truth nearest neighbors  | float 0.0-1.0 |
+
 #### get_stats
 
 Gets the index stats.
@@ -368,6 +418,12 @@ python add-filters-to-dataset.py <path_to_dataset_with_vectors> <path_of_new_dat
 ```
 
 After that new dataset(s) can be referred from testcase definition in `ingest_extended` and `query_with_filter` steps.
+
+To generate dataset with parent doc id based on vectors only dataset, use following command pattern:
+```commandline
+python add-parent-doc-id-to-dataset.py <path_to_dataset_with_vectors> <path_of_new_dataset_with_parent_id>
+```
+This will generate neighbours dataset as well. This new dataset(s) can be referred from testcase definition in `ingest_nested_field` and `query_nested_field` steps.
 
 ## Contributing 
 

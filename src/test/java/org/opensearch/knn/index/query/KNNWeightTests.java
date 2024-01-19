@@ -22,9 +22,11 @@ import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.Weight;
+import org.apache.lucene.search.join.BitSetProducer;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.FixedBitSet;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
 import org.junit.Before;
@@ -48,6 +50,7 @@ import org.opensearch.knn.jni.JNIService;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -150,14 +153,14 @@ public class KNNWeightTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testQueryScoreForFaissWithModel() throws IOException {
+    public void testQueryScoreForFaissWithModel() {
         SpaceType spaceType = SpaceType.L2;
         final Function<Float, Float> scoreTranslator = spaceType::scoreTranslation;
         final String modelId = "modelId";
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any()))
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any(), any()))
             .thenReturn(getKNNQueryResults());
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME);
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, (BitSetProducer) null);
 
         ModelDao modelDao = mock(ModelDao.class);
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
@@ -222,7 +225,7 @@ public class KNNWeightTests extends KNNTestCase {
         SpaceType spaceType = SpaceType.L2;
         final String modelId = "modelId";
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME);
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, (BitSetProducer) null);
 
         ModelDao modelDao = mock(ModelDao.class);
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
@@ -254,7 +257,7 @@ public class KNNWeightTests extends KNNTestCase {
 
     @SneakyThrows
     public void testShardWithoutFiles() {
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME);
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, (BitSetProducer) null);
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
@@ -296,10 +299,10 @@ public class KNNWeightTests extends KNNTestCase {
     @SneakyThrows
     public void testEmptyQueryResults() {
         final KNNQueryResult[] knnQueryResults = new KNNQueryResult[] {};
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any()))
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any(), any()))
             .thenReturn(knnQueryResults);
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME);
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, (BitSetProducer) null);
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
@@ -341,7 +344,7 @@ public class KNNWeightTests extends KNNTestCase {
     public void testANNWithFilterQuery_whenDoingANN_thenSuccess() {
         int k = 3;
         final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), eq(filterDocIds)))
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), eq(filterDocIds), any()))
             .thenReturn(getFilteredKNNQueryResults());
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
@@ -354,7 +357,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(liveDocsBits.length()).thenReturn(1000);
         when(leafReaderContext.reader()).thenReturn(reader);
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, k, INDEX_NAME, FILTER_QUERY);
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, k, INDEX_NAME, FILTER_QUERY, null);
         final Weight filterQueryWeight = mock(Weight.class);
         final Scorer filterScorer = mock(Scorer.class);
         when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
@@ -399,7 +402,7 @@ public class KNNWeightTests extends KNNTestCase {
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         assertNotNull(docIdSetIterator);
         assertEquals(FILTERED_DOC_ID_TO_SCORES.size(), docIdSetIterator.cost());
-        jniServiceMockedStatic.verify(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), eq(filterDocIds)));
+        jniServiceMockedStatic.verify(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), eq(filterDocIds), any()));
 
         final List<Integer> actualDocIds = new ArrayList<>();
         final Map<Integer, Float> translatedScores = getTranslatedScores(SpaceType.L2::scoreTranslation);
@@ -419,7 +422,7 @@ public class KNNWeightTests extends KNNTestCase {
         final SegmentReader reader = mock(SegmentReader.class);
         when(leafReaderContext.reader()).thenReturn(reader);
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY);
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null);
         final Weight filterQueryWeight = mock(Weight.class);
         final Scorer filterScorer = mock(Scorer.class);
         when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
@@ -469,7 +472,7 @@ public class KNNWeightTests extends KNNTestCase {
         final SegmentReader reader = mock(SegmentReader.class);
         when(leafReaderContext.reader()).thenReturn(reader);
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY);
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null);
         final Weight filterQueryWeight = mock(Weight.class);
         final Scorer filterScorer = mock(Scorer.class);
         when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
@@ -538,7 +541,7 @@ public class KNNWeightTests extends KNNTestCase {
 
         when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(filterDocIds.length));
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, k, INDEX_NAME, FILTER_QUERY);
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, k, INDEX_NAME, FILTER_QUERY, null);
 
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
         final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.L2.name());
@@ -581,7 +584,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
         when(filterScorer.iterator()).thenReturn(DocIdSetIterator.empty());
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY);
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null);
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
 
         final FieldInfos fieldInfos = mock(FieldInfos.class);
@@ -597,15 +600,93 @@ public class KNNWeightTests extends KNNTestCase {
         assertEquals(0, docIdSetIterator.cost());
     }
 
+    @SneakyThrows
+    public void testANNWithParentsFilter_whenSet_thenBitSetIsPassedToJNI() {
+        SegmentReader reader = getMockedSegmentReader();
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        when(leafReaderContext.reader()).thenReturn(reader);
+
+        // Prepare parentFilter
+        final int[] parentsFilter = { 10, 64 };
+        final FixedBitSet bitset = new FixedBitSet(65);
+        Arrays.stream(parentsFilter).forEach(i -> bitset.set(i));
+        final BitSetProducer bitSetProducer = mock(BitSetProducer.class);
+
+        // Prepare query and weight
+        when(bitSetProducer.getBitSet(leafReaderContext)).thenReturn(bitset);
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, 1, INDEX_NAME, null, bitSetProducer);
+        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, null);
+
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any(), eq(parentsFilter)))
+            .thenReturn(getKNNQueryResults());
+
+        // Execute
+        Scorer knnScorer = knnWeight.scorer(leafReaderContext);
+
+        // Verify
+        jniServiceMockedStatic.verify(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any(), eq(parentsFilter)));
+        assertNotNull(knnScorer);
+        final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
+        assertNotNull(docIdSetIterator);
+        assertEquals(DOC_ID_TO_SCORES.size(), docIdSetIterator.cost());
+    }
+
+    private SegmentReader getMockedSegmentReader() {
+        final SegmentReader reader = mock(SegmentReader.class);
+        when(reader.maxDoc()).thenReturn(1);
+
+        // Prepare live docs
+        int liveDocId = 0;
+        final Bits liveDocsBits = mock(Bits.class);
+        when(liveDocsBits.get(liveDocId)).thenReturn(true);
+        when(liveDocsBits.length()).thenReturn(1);
+        when(reader.getLiveDocs()).thenReturn(liveDocsBits);
+
+        // Prepare directory
+        final Path path = mock(Path.class);
+        final FSDirectory directory = mock(FSDirectory.class);
+        when(directory.getDirectory()).thenReturn(path);
+        when(reader.directory()).thenReturn(directory);
+
+        // Prepare segment
+        final SegmentInfo segmentInfo = new SegmentInfo(
+            directory,
+            Version.LATEST,
+            Version.LATEST,
+            SEGMENT_NAME,
+            100,
+            true,
+            false,
+            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            Map.of(),
+            new byte[StringHelper.ID_LENGTH],
+            Map.of(),
+            Sort.RELEVANCE
+        );
+        segmentInfo.setFiles(SEGMENT_FILES_FAISS);
+        final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
+        when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
+
+        // Prepare fieldInfos
+        final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName());
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(fieldInfo.attributes()).thenReturn(attributesMap);
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
+        when(reader.getFieldInfos()).thenReturn(fieldInfos);
+
+        return reader;
+    }
+
     private void testQueryScore(
         final Function<Float, Float> scoreTranslator,
         final Set<String> segmentFiles,
         final Map<String, String> fileAttributes
     ) throws IOException {
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any()))
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any(), any()))
             .thenReturn(getKNNQueryResults());
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME);
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, (BitSetProducer) null);
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);

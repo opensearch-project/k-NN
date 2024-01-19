@@ -74,16 +74,39 @@ class FaissService {
     public static native long loadIndex(String indexPath);
 
     /**
-     * Query an index
+     * Query an index without filter
+     *
+     * If the "knn" field is a nested field, each vector value within that nested field will be assigned its
+     * own document ID. In this situation, the term "parent ID" corresponds to the original document ID.
+     * The arrangement of parent IDs and nested field IDs is assured to have all nested field IDs appearing first,
+     * followed by the parent ID, in consecutive order without any gaps. Because of this ID pattern,
+     * we can determine the parent ID of a specific nested field ID using only an array of parent IDs.
      *
      * @param indexPointer pointer to index in memory
      * @param queryVector vector to be used for query
      * @param k neighbors to be returned
+     * @param parentIds list of parent doc ids when the knn field is a nested field
      * @return KNNQueryResult array of k neighbors
      */
-    public static native KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k);
+    public static native KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k, int[] parentIds);
 
-    public static native KNNQueryResult[] queryIndexWithFilter(long indexPointer, float[] queryVector, int k, int[] filterIds);
+    /**
+     * Query an index with filter
+     *
+     * @param indexPointer pointer to index in memory
+     * @param queryVector vector to be used for query
+     * @param k neighbors to be returned
+     * @param filterIds list of doc ids to include in the query result
+     * @param parentIds list of parent doc ids when the knn field is a nested field
+     * @return KNNQueryResult array of k neighbors
+     */
+    public static native KNNQueryResult[] queryIndexWithFilter(
+        long indexPointer,
+        float[] queryVector,
+        int k,
+        int[] filterIds,
+        int[] parentIds
+    );
 
     /**
      * Free native memory pointer
