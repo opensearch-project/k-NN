@@ -200,7 +200,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniU
 }
 
 jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                                jfloatArray queryVectorJ, jint kJ, jintArray filterIdsJ) {
+                                                jfloatArray queryVectorJ, jint kJ, jlongArray filterIdsJ) {
 
     if (queryVectorJ == nullptr) {
         throw std::runtime_error("Query Vector cannot be null");
@@ -223,28 +223,13 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
     omp_set_num_threads(1);
     // create the filterSearch params if the filterIdsJ is not a null pointer
     if(filterIdsJ != nullptr) {
-        int *filteredIdsArray = jniUtil->GetIntArrayElements(env, filterIdsJ, nullptr);
+        long *filteredIdsArray = jniUtil->GetLongArrayElements(env, filterIdsJ, nullptr);
         int filterIdsLength = env->GetArrayLength(filterIdsJ);
         std::unique_ptr<faiss::IDSelector> idSelector;
-        FilterIdsSelectorType idSelectorType = getIdSelectorType(filteredIdsArray, filterIdsLength);
-        // start with empty vectors for 2 different types of empty Selectors. We need define them here to avoid copying of data
-        // during the returns. We could have used pass by reference, but we choose pointers. Returning reference to local
-        // vector is also an option which can be efficient than copying during returns but it requires upto date C++ compilers.
-        // To avoid all those confusions, its better to work with pointers here. Ref: https://cplusplus.com/forum/general/56177/
-        std::vector<faiss::idx_t> convertedIds;
-        std::vector<uint8_t> bitmap;
-        // Choose a selector which suits best
-        if(idSelectorType == BATCH) {
-            convertedIds.resize(filterIdsLength);
-            convertFilterIdsToFaissIdType(filteredIdsArray, filterIdsLength, convertedIds.data());
-            idSelector.reset(new faiss::IDSelectorBatch(convertedIds.size(), convertedIds.data()));
-        } else {
-            int maxIdValue = filteredIdsArray[filterIdsLength - 1];
-            // >> 3 is equivalent to value / 8
-            const int bitsetArraySize = (maxIdValue >> 3) + 1;
-            bitmap.resize(bitsetArraySize, 0);
-            buildFilterIdsBitMap(filteredIdsArray, filterIdsLength, bitmap.data());
-            idSelector.reset(new faiss::IDSelectorBitmap(filterIdsLength, bitmap.data()));
+        {
+            const int bitsetArraySize = filterIdsLength * 8;
+            uint8_t *bitmap = reinterpret_cast<uint8_t*>(filteredIdsArray);
+            idSelector.reset(new faiss::IDSelectorBitmap(bitsetArraySize, bitmap));
         }
         faiss::SearchParameters *searchParameters;
         faiss::SearchParametersHNSW hnswParams;
@@ -268,10 +253,10 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
             indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data(), searchParameters);
         } catch (...) {
             jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
-            jniUtil->ReleaseIntArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
+            jniUtil->ReleaseLongArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
             throw;
         }
-        jniUtil->ReleaseIntArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
+        jniUtil->ReleaseLongArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
     } else {
         try {
             indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data());
@@ -476,16 +461,16 @@ void convertFilterIdsToFaissIdType(const int* filterIds, int filterIdsLength, fa
     }
 }
 
-void buildFilterIdsBitMap(const int* filterIds, int filterIdsLength, uint8_t* bitsetVector) {
-    /**
-     * Coming from Faiss IDSelectorBitmap::is_member function bitmap id will be selected
-     * iff id / 8 < n and bit number (i%8) of bitmap[floor(i / 8)] is 1.
-     */
-    for(int i = 0 ; i < filterIdsLength ; i ++) {
-        int value = filterIds[i];
-        // / , % are expensive operation. Hence, using BitShift operation as they are fast.
-        int bitsetArrayIndex = value >> 3 ; // is equivalent to value / 8
-        // (value & 7) equivalent to value % 8
-        bitsetVector[bitsetArrayIndex] = bitsetVector[bitsetArrayIndex] |  (1 << (value & 7));
-    }
-}
+//void buildFilterIdsBitMap(const int* filterIds, int filterIdsLength, uint8_t* bitsetVector) {
+//    /**
+//     * Coming from Faiss IDSelectorBitmap::is_member function bitmap id will be selected
+//     * iff id / 8 < n and bit number (i%8) of bitmap[floor(i / 8)] is 1.
+//     */
+//    for(int i = 0 ; i < filterIdsLength ; i ++) {
+//        int value = filterIds[i];
+//        // / , % are expensive operation. Hence, using BitShift operation as they are fast.
+//        int bitsetArrayIndex = value >> 3 ; // is equivalent to value / 8
+//        // (value & 7) equivalent to value % 8
+//        bitsetVector[bitsetArrayIndex] = bitsetVector[bitsetArrayIndex] |  (1 << (value & 7));
+//    }
+//}

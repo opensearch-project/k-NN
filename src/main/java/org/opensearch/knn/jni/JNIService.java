@@ -101,7 +101,7 @@ public class JNIService {
      * @param filteredIds  array of ints on which should be used for search.
      * @return KNNQueryResult array of k neighbors
      */
-    public static KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k, String engineName, int[] filteredIds) {
+    public static KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k, String engineName, long[] filteredIds) {
         if (KNNEngine.NMSLIB.getName().equals(engineName)) {
             return NmslibService.queryIndex(indexPointer, queryVector, k);
         }

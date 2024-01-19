@@ -80,6 +80,8 @@ namespace knn_jni {
 
         virtual int GetJavaIntArrayLength(JNIEnv *env, jintArray arrayJ) = 0;
 
+        virtual int GetJavaLongArrayLength(JNIEnv *env, jlongArray arrayJ) = 0;
+
         virtual int GetJavaBytesArrayLength(JNIEnv *env, jbyteArray arrayJ) = 0;
 
         virtual int GetJavaFloatArrayLength(JNIEnv *env, jfloatArray arrayJ) = 0;
@@ -94,6 +96,8 @@ namespace knn_jni {
 
         virtual jint * GetIntArrayElements(JNIEnv *env, jintArray array, jboolean * isCopy) = 0;
 
+        virtual jlong * GetLongArrayElements(JNIEnv *env, jlongArray array, jboolean * isCopy) = 0;
+
         virtual jobject GetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index) = 0;
 
         virtual jobject NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, int id, float distance) = 0;
@@ -107,6 +111,8 @@ namespace knn_jni {
         virtual void ReleaseFloatArrayElements(JNIEnv *env, jfloatArray array, jfloat *elems, int mode) = 0;
 
         virtual void ReleaseIntArrayElements(JNIEnv *env, jintArray array, jint *elems, jint mode) = 0;
+
+        virtual void ReleaseLongArrayElements(JNIEnv *env, jlongArray array, jlong *elems, jint mode) = 0;
 
         virtual void SetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index, jobject val) = 0;
 
@@ -139,6 +145,7 @@ namespace knn_jni {
         int GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectArray array2dJ);
         int GetJavaObjectArrayLength(JNIEnv *env, jobjectArray arrayJ);
         int GetJavaIntArrayLength(JNIEnv *env, jintArray arrayJ);
+        int GetJavaLongArrayLength(JNIEnv *env, jlongArray arrayJ);
         int GetJavaBytesArrayLength(JNIEnv *env, jbyteArray arrayJ);
         int GetJavaFloatArrayLength(JNIEnv *env, jfloatArray arrayJ);
 
@@ -146,6 +153,8 @@ namespace knn_jni {
         jbyte * GetByteArrayElements(JNIEnv *env, jbyteArray array, jboolean * isCopy);
         jfloat * GetFloatArrayElements(JNIEnv *env, jfloatArray array, jboolean * isCopy);
         jint * GetIntArrayElements(JNIEnv *env, jintArray array, jboolean * isCopy);
+        jlong * GetLongArrayElements(JNIEnv *env, jlongArray array, jboolean * isCopy);
+
         jobject GetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index);
         jobject NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, int id, float distance);
         jobjectArray NewObjectArray(JNIEnv *env, jsize len, jclass clazz, jobject init);
@@ -153,6 +162,7 @@ namespace knn_jni {
         void ReleaseByteArrayElements(JNIEnv *env, jbyteArray array, jbyte *elems, int mode);
         void ReleaseFloatArrayElements(JNIEnv *env, jfloatArray array, jfloat *elems, int mode);
         void ReleaseIntArrayElements(JNIEnv *env, jintArray array, jint *elems, jint mode);
+        void ReleaseLongArrayElements(JNIEnv *env, jlongArray array, jlong *elems, jint mode);
         void SetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index, jobject val);
         void SetByteArrayRegion(JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte * buf);
 
