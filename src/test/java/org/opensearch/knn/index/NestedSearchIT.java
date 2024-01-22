@@ -63,17 +63,16 @@ public class NestedSearchIT extends KNNRestTestCase {
     public void testNestedSearchWithLucene_whenKIsTwo_thenReturnTwoResults() {
         createKnnIndex(2, KNNEngine.LUCENE.getName());
 
-        String doc1 = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
-            .addVectors(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 1f, 1f })
-            .build();
-        addKnnDoc(INDEX_NAME, "1", doc1);
-
-        String doc2 = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
-            .addVectors(FIELD_NAME_VECTOR, new Float[] { 2f, 2f }, new Float[] { 2f, 2f })
-            .build();
-        addKnnDoc(INDEX_NAME, "2", doc2);
+        int totalDocCount = 15;
+        for (int i = 0; i < totalDocCount; i++) {
+            String doc = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
+                .addVectors(FIELD_NAME_VECTOR, new Float[] { (float) i, (float) i }, new Float[] { (float) i, (float) i })
+                .build();
+            addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
+        }
 
         refreshIndex(INDEX_NAME);
+        forceMergeKnnIndex(INDEX_NAME);
 
         Float[] queryVector = { 1f, 1f };
         Response response = queryNestedField(INDEX_NAME, 2, queryVector);
@@ -86,17 +85,16 @@ public class NestedSearchIT extends KNNRestTestCase {
     public void testNestedSearchWithFaiss_whenKIsTwo_thenReturnTwoResults() {
         createKnnIndex(2, KNNEngine.FAISS.getName());
 
-        String doc1 = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
-            .addVectors(FIELD_NAME_VECTOR, new Float[] { 1f, 1f }, new Float[] { 1f, 1f })
-            .build();
-        addKnnDoc(INDEX_NAME, "1", doc1);
-
-        String doc2 = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
-            .addVectors(FIELD_NAME_VECTOR, new Float[] { 2f, 2f }, new Float[] { 2f, 2f })
-            .build();
-        addKnnDoc(INDEX_NAME, "2", doc2);
+        int totalDocCount = 15;
+        for (int i = 0; i < totalDocCount; i++) {
+            String doc = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
+                .addVectors(FIELD_NAME_VECTOR, new Float[] { (float) i, (float) i }, new Float[] { (float) i, (float) i })
+                .build();
+            addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
+        }
 
         refreshIndex(INDEX_NAME);
+        forceMergeKnnIndex(INDEX_NAME);
 
         Float[] queryVector = { 1f, 1f };
         Response response = queryNestedField(INDEX_NAME, 2, queryVector);
@@ -148,6 +146,7 @@ public class NestedSearchIT extends KNNRestTestCase {
             addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
         }
         refreshIndex(INDEX_NAME);
+        forceMergeKnnIndex(INDEX_NAME);
 
         // Make it as an exact search by setting the threshold larger than size of filteredIds(6)
         updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 100));
