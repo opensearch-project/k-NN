@@ -144,4 +144,4 @@ public class KNNQuery extends Query {
             && Objects.equals(indexName, other.indexName)
             && Objects.equals(filterQuery, other.filterQuery);
     }
-};
+}
