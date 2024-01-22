@@ -83,7 +83,7 @@ class FaissService {
      */
     public static native KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k);
 
-    public static native KNNQueryResult[] queryIndexWithFilter(long indexPointer, float[] queryVector, int k, long[] filterIds);
+    public static native KNNQueryResult[] queryIndexWithFilter(long indexPointer, float[] queryVector, int k, long[] filterIds, int filterIdsType);
 
     /**
      * Free native memory pointer

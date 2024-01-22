@@ -28,7 +28,7 @@
 
 // Defines type of IDSelector
 enum FilterIdsSelectorType{
-    BITMAP, BATCH
+    BITMAP = 0, BATCH = 1,
 };
 
 // Translate space type to faiss metric
@@ -196,11 +196,11 @@ jlong knn_jni::faiss_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
 
 jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
                                                 jfloatArray queryVectorJ, jint kJ) {
-    return knn_jni::faiss_wrapper::QueryIndex_WithFilter(jniUtil, env, indexPointerJ, queryVectorJ, kJ, nullptr);
+    return knn_jni::faiss_wrapper::QueryIndex_WithFilter(jniUtil, env, indexPointerJ, queryVectorJ, kJ, nullptr, 0);
 }
 
 jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                                jfloatArray queryVectorJ, jint kJ, jlongArray filterIdsJ) {
+                                                jfloatArray queryVectorJ, jint kJ, jlongArray filterIdsJ, jint filterIdsTypeJ) {
 
     if (queryVectorJ == nullptr) {
         throw std::runtime_error("Query Vector cannot be null");
@@ -226,10 +226,13 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         long *filteredIdsArray = jniUtil->GetLongArrayElements(env, filterIdsJ, nullptr);
         int filterIdsLength = env->GetArrayLength(filterIdsJ);
         std::unique_ptr<faiss::IDSelector> idSelector;
-        {
+        if(filterIdsTypeJ == BITMAP) {
             const int bitsetArraySize = filterIdsLength * 8;
             uint8_t *bitmap = reinterpret_cast<uint8_t*>(filteredIdsArray);
             idSelector.reset(new faiss::IDSelectorBitmap(bitsetArraySize, bitmap));
+        } else {
+            faiss::idx_t* batchIndices = reinterpret_cast<faiss::idx_t*>(filteredIdsArray);
+            idSelector.reset(new faiss::IDSelectorBatch(filterIdsLength, batchIndices));
         }
         faiss::SearchParameters *searchParameters;
         faiss::SearchParametersHNSW hnswParams;
@@ -454,23 +457,3 @@ FilterIdsSelectorType getIdSelectorType(const int* filterIds, int filterIdsLengt
     }
     return BITMAP;
 }
-
-void convertFilterIdsToFaissIdType(const int* filterIds, int filterIdsLength, faiss::idx_t* convertedFilterIds) {
-    for (int i = 0; i < filterIdsLength; i++) {
-        convertedFilterIds[i] = filterIds[i];
-    }
-}
-
-//void buildFilterIdsBitMap(const int* filterIds, int filterIdsLength, uint8_t* bitsetVector) {
-//    /**
-//     * Coming from Faiss IDSelectorBitmap::is_member function bitmap id will be selected
-//     * iff id / 8 < n and bit number (i%8) of bitmap[floor(i / 8)] is 1.
-//     */
-//    for(int i = 0 ; i < filterIdsLength ; i ++) {
-//        int value = filterIds[i];
-//        // / , % are expensive operation. Hence, using BitShift operation as they are fast.
-//        int bitsetArrayIndex = value >> 3 ; // is equivalent to value / 8
-//        // (value & 7) equivalent to value % 8
-//        bitsetVector[bitsetArrayIndex] = bitsetVector[bitsetArrayIndex] |  (1 << (value & 7));
-//    }
-//}

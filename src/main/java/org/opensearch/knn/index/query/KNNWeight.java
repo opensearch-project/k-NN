@@ -12,6 +12,7 @@ import org.apache.lucene.index.DocValues;
 import org.apache.lucene.search.FilteredDocIdSetIterator;
 import org.apache.lucene.search.HitQueue;
 import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
@@ -56,6 +57,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.MAX_ID_SELECT_ARRAY;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.index.IndexUtil.getParametersAtLoading;
@@ -102,7 +104,7 @@ public class KNNWeight extends Weight {
     @Override
     public Scorer scorer(LeafReaderContext context) throws IOException {
 
-        final FixedBitSet filterBitSet = getFilteredDocsBitSet(context);
+        final BitSet filterBitSet = getFilteredDocsBitSet(context);
         int cardinality = filterBitSet.cardinality();
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
@@ -120,7 +122,7 @@ public class KNNWeight extends Weight {
         if (filterWeight != null && canDoExactSearch(cardinality)) {
             docIdsToScoreMap.putAll(doExactSearch(context, filterBitSet));
         } else {
-            Map<Integer, Float> annResults = doANNSearch(context, filterBitSet);
+            Map<Integer, Float> annResults = doANNSearch(context, filterBitSet, cardinality);
             if (annResults == null) {
                 return null;
             }
@@ -142,7 +144,7 @@ public class KNNWeight extends Weight {
         return convertSearchResponseToScorer(docIdsToScoreMap);
     }
 
-    private FixedBitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
+    private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
         if (this.filterWeight == null) {
             return new FixedBitSet(0);
         }
@@ -158,12 +160,10 @@ public class KNNWeight extends Weight {
         return createBitSet(scorer.iterator(), liveDocs, maxDoc);
     }
 
-    private FixedBitSet createBitSet(final DocIdSetIterator filteredDocIdsIterator, final Bits liveDocs, int maxDoc) throws IOException {
-        FixedBitSet fixedBitSet = new FixedBitSet(maxDoc);
+    private BitSet createBitSet(final DocIdSetIterator filteredDocIdsIterator, final Bits liveDocs, int maxDoc) throws IOException {
         if (liveDocs == null && filteredDocIdsIterator instanceof BitSetIterator) {
             // If we already have a BitSet and no deletions, reuse the BitSet
-            fixedBitSet.or(filteredDocIdsIterator);
-            return fixedBitSet;
+            return ((BitSetIterator) filteredDocIdsIterator).getBitSet();
         }
         // Create a new BitSet from matching and live docs
         FilteredDocIdSetIterator filterIterator = new FilteredDocIdSetIterator(filteredDocIdsIterator) {
@@ -172,11 +172,10 @@ public class KNNWeight extends Weight {
                 return liveDocs == null || liveDocs.get(doc);
             }
         };
-        fixedBitSet.or(filterIterator);
-        return fixedBitSet;
+        return BitSet.of(filterIterator, maxDoc);
     }
 
-    private Map<Integer, Float> doANNSearch(final LeafReaderContext context, FixedBitSet filterIdsBitSet) throws IOException {
+    private Map<Integer, Float> doANNSearch(final LeafReaderContext context, BitSet filterIdsBitSet, int cardinality) throws IOException {
         SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(context.reader());
         String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
 
@@ -247,6 +246,36 @@ public class KNNWeight extends Weight {
             throw new RuntimeException(e);
         }
 
+        //From cardinality select different filterIds type
+        long[] filterIds;
+        FilterIdsSelectorType filterType;
+        if (filterIdsBitSet instanceof FixedBitSet) {
+            /**
+             * When filterIds is dense filter, using fixed bitset
+             */
+            filterIds = ((FixedBitSet) filterIdsBitSet).getBits();
+            filterType = FilterIdsSelectorType.BITMAP;
+        } else if(cardinality < MAX_ID_SELECT_ARRAY) {
+            /**
+             * When filterIds is Sparse filter, using Array filter.
+             */
+            BitSetIterator bitSetIterator = new BitSetIterator(filterIdsBitSet, cardinality);
+            filterIds = new long[cardinality];
+            int idx = 0;
+            for (int docId = bitSetIterator.nextDoc(); docId != DocIdSetIterator.NO_MORE_DOCS; docId = bitSetIterator.nextDoc()) {
+                filterIds[idx++] = docId;
+            }
+            filterType = FilterIdsSelectorType.BATCH;
+        } else {
+            /**
+             * Others using fixed bitset, may be DocBaseBitSetIterator
+             */
+            FixedBitSet fixedBitSet = new FixedBitSet(cardinality);
+            BitSetIterator bitSetIterator = new BitSetIterator(filterIdsBitSet, cardinality);
+            fixedBitSet.or(bitSetIterator);
+            filterIds = fixedBitSet.getBits();
+            filterType = FilterIdsSelectorType.BITMAP;
+        }
         // Now that we have the allocation, we need to readLock it
         indexAllocation.readLock();
         try {
@@ -259,7 +288,8 @@ public class KNNWeight extends Weight {
                 knnQuery.getQueryVector(),
                 knnQuery.getK(),
                 knnEngine.getName(),
-                filterIdsBitSet.getBits()
+                filterIds,
+                filterType.getValue()
             );
 
         } catch (Exception e) {
@@ -284,7 +314,7 @@ public class KNNWeight extends Weight {
             .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
     }
 
-    private Map<Integer, Float> doExactSearch(final LeafReaderContext leafReaderContext, FixedBitSet filterIdsBitSet) {
+    private Map<Integer, Float> doExactSearch(final LeafReaderContext leafReaderContext, BitSet filterIdsBitSet) {
         final SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(leafReaderContext.reader());
         final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
         float[] queryVector = this.knnQuery.getQueryVector();
@@ -407,5 +437,20 @@ public class KNNWeight extends Weight {
      */
     private boolean canDoExactSearchAfterANNSearch(final int filterIdsCount, final int annResultCount) {
         return filterWeight != null && filterIdsCount >= knnQuery.getK() && knnQuery.getK() > annResultCount;
+    }
+
+    enum FilterIdsSelectorType {
+        BITMAP(0),
+        BATCH(1);
+
+        private int value;
+
+        private FilterIdsSelectorType(int value) {
+            this.value = value;
+        }
+
+        public int getValue() {
+            return value;
+        }
     }
 }
