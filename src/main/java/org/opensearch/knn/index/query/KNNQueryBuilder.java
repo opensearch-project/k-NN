@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
+import java.util.Arrays;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.commons.lang.StringUtils;
@@ -46,7 +47,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     public static final ParseField K_FIELD = new ParseField("k");
     public static final ParseField FILTER_FIELD = new ParseField("filter");
     public static final ParseField IGNORE_UNMAPPED_FIELD = new ParseField("ignore_unmapped");
-    public static int K_MAX = 10000;
+    public static final int K_MAX = 10000;
     /**
      * The name for the knn query
      */
@@ -376,12 +377,16 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
     @Override
     protected boolean doEquals(KNNQueryBuilder other) {
-        return Objects.equals(fieldName, other.fieldName) && Objects.equals(vector, other.vector) && Objects.equals(k, other.k);
+        return Objects.equals(fieldName, other.fieldName)
+            && Arrays.equals(vector, other.vector)
+            && Objects.equals(k, other.k)
+            && Objects.equals(filter, other.filter)
+            && Objects.equals(ignoreUnmapped, other.ignoreUnmapped);
     }
 
     @Override
     protected int doHashCode() {
-        return Objects.hash(fieldName, vector, k);
+        return Objects.hash(fieldName, Arrays.hashCode(vector), k, filter, ignoreUnmapped);
     }
 
     @Override
