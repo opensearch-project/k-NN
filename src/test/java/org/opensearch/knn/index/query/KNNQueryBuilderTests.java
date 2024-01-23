@@ -90,7 +90,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector1, K));
     }
 
-    public void testFromXcontent() throws Exception {
+    public void testFromXContent() throws Exception {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K);
         XContentBuilder builder = XContentFactory.jsonBuilder();
@@ -103,10 +103,10 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         XContentParser contentParser = createParser(builder);
         contentParser.nextToken();
         KNNQueryBuilder actualBuilder = KNNQueryBuilder.fromXContent(contentParser);
-        actualBuilder.equals(knnQueryBuilder);
+        assertEquals(knnQueryBuilder, actualBuilder);
     }
 
-    public void testFromXcontent_WithFilter() throws Exception {
+    public void testFromXContent_WithFilter() throws Exception {
         final ClusterService clusterService = mockClusterService(Version.CURRENT);
 
         final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
@@ -125,7 +125,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         XContentParser contentParser = createParser(builder);
         contentParser.nextToken();
         KNNQueryBuilder actualBuilder = KNNQueryBuilder.fromXContent(contentParser);
-        actualBuilder.equals(knnQueryBuilder);
+        assertEquals(knnQueryBuilder, actualBuilder);
     }
 
     public void testFromXcontent_WithFilter_UnsupportedClusterVersion() throws Exception {

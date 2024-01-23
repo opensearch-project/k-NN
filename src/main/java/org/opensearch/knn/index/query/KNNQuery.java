@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.query;
 
+import java.util.Arrays;
+import java.util.Objects;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.lucene.search.BooleanClause;
@@ -127,7 +129,7 @@ public class KNNQuery extends Query {
 
     @Override
     public int hashCode() {
-        return field.hashCode() ^ queryVector.hashCode() ^ k;
+        return Objects.hash(field, Arrays.hashCode(queryVector), k, indexName, filterQuery);
     }
 
     @Override
@@ -136,6 +138,10 @@ public class KNNQuery extends Query {
     }
 
     private boolean equalsTo(KNNQuery other) {
-        return this.field.equals(other.getField()) && this.queryVector.equals(other.getQueryVector()) && this.k == other.getK();
+        return Objects.equals(field, other.field)
+            && Arrays.equals(queryVector, other.queryVector)
+            && Objects.equals(k, other.k)
+            && Objects.equals(indexName, other.indexName)
+            && Objects.equals(filterQuery, other.filterQuery);
     }
-};
+}
