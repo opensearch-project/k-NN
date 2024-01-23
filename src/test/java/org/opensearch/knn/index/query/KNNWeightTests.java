@@ -169,7 +169,8 @@ public class KNNWeightTests extends KNNTestCase {
         when(modelDao.getMetadata(eq("modelId"))).thenReturn(modelMetadata);
 
         KNNWeight.initialize(modelDao);
-        final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
+        final float boost = (float) randomDoubleBetween(0, 10, true);
+        final KNNWeight knnWeight = new KNNWeight(query, boost);
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
@@ -214,7 +215,7 @@ public class KNNWeightTests extends KNNTestCase {
         final Map<Integer, Float> translatedScores = getTranslatedScores(scoreTranslator);
         for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
             actualDocIds.add(docId);
-            assertEquals(translatedScores.get(docId), knnScorer.score(), 0.01f);
+            assertEquals(translatedScores.get(docId) * boost, knnScorer.score(), 0.01f);
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
@@ -364,7 +365,8 @@ public class KNNWeightTests extends KNNTestCase {
         // Just to make sure that we are not hitting the exact search condition
         when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(filterDocIds.length + 1));
 
-        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
+        final float boost = (float) randomDoubleBetween(0, 10, true);
+        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
 
         final FSDirectory directory = mock(FSDirectory.class);
         when(reader.directory()).thenReturn(directory);
@@ -408,7 +410,7 @@ public class KNNWeightTests extends KNNTestCase {
         final Map<Integer, Float> translatedScores = getTranslatedScores(SpaceType.L2::scoreTranslation);
         for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
             actualDocIds.add(docId);
-            assertEquals(translatedScores.get(docId), knnScorer.score(), 0.01f);
+            assertEquals(translatedScores.get(docId) * boost, knnScorer.score(), 0.01f);
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
@@ -433,7 +435,8 @@ public class KNNWeightTests extends KNNTestCase {
         when(reader.getLiveDocs()).thenReturn(liveDocsBits);
         when(liveDocsBits.get(filterDocId)).thenReturn(true);
 
-        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
+        final float boost = (float) randomDoubleBetween(0, 10, true);
+        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
         final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.L2.name());
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);
@@ -457,7 +460,7 @@ public class KNNWeightTests extends KNNTestCase {
         final List<Integer> actualDocIds = new ArrayList<>();
         for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
             actualDocIds.add(docId);
-            assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId), knnScorer.score(), 0.01f);
+            assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId) * boost, knnScorer.score(), 0.01f);
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
@@ -483,7 +486,8 @@ public class KNNWeightTests extends KNNTestCase {
         when(reader.getLiveDocs()).thenReturn(liveDocsBits);
         when(liveDocsBits.get(filterDocId)).thenReturn(true);
 
-        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
+        final float boost = (float) randomDoubleBetween(0, 10, true);
+        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
         final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.L2.name());
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);
@@ -507,7 +511,7 @@ public class KNNWeightTests extends KNNTestCase {
         final List<Integer> actualDocIds = new ArrayList<>();
         for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
             actualDocIds.add(docId);
-            assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId), knnScorer.score(), 0.01f);
+            assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId) * boost, knnScorer.score(), 0.01f);
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
@@ -543,7 +547,8 @@ public class KNNWeightTests extends KNNTestCase {
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, k, INDEX_NAME, FILTER_QUERY, null);
 
-        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
+        final float boost = (float) randomDoubleBetween(0, 10, true);
+        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
         final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.L2.name());
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);
@@ -567,7 +572,7 @@ public class KNNWeightTests extends KNNTestCase {
         final List<Integer> actualDocIds = new ArrayList<>();
         for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
             actualDocIds.add(docId);
-            assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId), knnScorer.score(), 0.01f);
+            assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId) * boost, knnScorer.score(), 0.01f);
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
@@ -631,7 +636,8 @@ public class KNNWeightTests extends KNNTestCase {
         when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, parentFilter);
-        final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
+        final float boost = (float) randomDoubleBetween(0, 10, true);
+        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
 
         // Execute
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
@@ -642,7 +648,7 @@ public class KNNWeightTests extends KNNTestCase {
             .collect(Collectors.toList());
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         assertEquals(1, docIdSetIterator.nextDoc());
-        assertEquals(expectedScores.get(1), knnScorer.score(), 0.01f);
+        assertEquals(expectedScores.get(1) * boost, knnScorer.score(), 0.01f);
         assertEquals(NO_MORE_DOCS, docIdSetIterator.nextDoc());
     }
 
@@ -733,7 +739,8 @@ public class KNNWeightTests extends KNNTestCase {
             .thenReturn(getKNNQueryResults());
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, (BitSetProducer) null);
-        final KNNWeight knnWeight = new KNNWeight(query, 0.0f);
+        final float boost = (float) randomDoubleBetween(0, 10, true);
+        final KNNWeight knnWeight = new KNNWeight(query, boost);
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
@@ -777,7 +784,7 @@ public class KNNWeightTests extends KNNTestCase {
         final Map<Integer, Float> translatedScores = getTranslatedScores(scoreTranslator);
         for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
             actualDocIds.add(docId);
-            assertEquals(translatedScores.get(docId), knnScorer.score(), 0.01f);
+            assertEquals(translatedScores.get(docId) * boost, knnScorer.score(), 0.01f);
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
