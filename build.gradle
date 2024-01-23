@@ -6,6 +6,7 @@
 import org.opensearch.gradle.test.RestIntegTestTask
 import org.opensearch.gradle.testclusters.OpenSearchCluster
 import org.apache.tools.ant.taskdefs.condition.Os
+import org.gradle.internal.os.OperatingSystem
 import java.nio.file.Paths
 import java.util.concurrent.Callable
 

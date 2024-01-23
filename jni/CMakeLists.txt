@@ -111,7 +111,11 @@ endif ()
 if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} STREQUAL ON)
     set(BUILD_TESTING OFF)          # Avoid building faiss tests
     set(BLA_STATIC ON)              # Statically link BLAS
-    set(FAISS_OPT_LEVEL avx2)       # Keep optimization level as avx2 to improve performance
+    if(NOT WIN32)
+        set(FAISS_OPT_LEVEL avx2)       # Keep optimization level as avx2 to improve performance on Linux and Mac
+    else()
+        set(FAISS_OPT_LEVEL generic)    # Keep optimization level as generic on Windows OS as it is not supported due to MINGW64 compiler issue
+    endif()
 
     if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
         if(CMAKE_C_COMPILER_ID MATCHES "Clang\$")
@@ -165,7 +169,11 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
         ${CMAKE_CURRENT_SOURCE_DIR}/src/knn_extension/faiss/utils/BitSet.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/knn_extension/faiss/MultiVectorResultCollector.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/knn_extension/faiss/MultiVectorResultCollectorFactory.cpp)
-    target_link_libraries(${TARGET_LIB_FAISS} faiss ${TARGET_LIB_COMMON} OpenMP::OpenMP_CXX)
+    if(NOT WIN32)
+        target_link_libraries(${TARGET_LIB_FAISS} faiss_avx2 ${TARGET_LIB_COMMON} OpenMP::OpenMP_CXX)
+    else()
+        target_link_libraries(${TARGET_LIB_FAISS} faiss ${TARGET_LIB_COMMON} OpenMP::OpenMP_CXX)
+    endif()
     target_include_directories(${TARGET_LIB_FAISS} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/include/knn_extension/faiss
