@@ -93,9 +93,9 @@ ext {
         cluster.getNodes().forEach { node ->
             var creds = node.getCredentials()
             if (creds.isEmpty()) {
-                creds.add(Map.of('username', 'admin', 'password', 'admin'))
+                creds.add(Map.of('username', 'admin', 'password', 'myStrongPassword123!'))
             } else {
-                creds.get(0).putAll(Map.of('username', 'admin', 'password', 'admin'))
+                creds.get(0).putAll(Map.of('username', 'admin', 'password', 'myStrongPassword123!'))
             }
         }
 
@@ -336,12 +336,7 @@ integTest {
     var is_https = System.getProperty("https")
     var user = System.getProperty("user")
     var password = System.getProperty("password")
-    if (System.getProperty("security.enabled") != null) {
-        // If security is enabled, set is_https/user/password defaults
-        is_https = is_https == null ? "true" : is_https
-        user = user == null ? "admin" : user
-        password = password == null ? "admin" : password
-    }
+
     systemProperty("https", is_https)
     systemProperty("user", user)
     systemProperty("password", password)
