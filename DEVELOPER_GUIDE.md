@@ -274,33 +274,7 @@ curl localhost:9200
 
 Additionally, it is also possible to run a cluster with security enabled:
 ```shell script
-./gradlew run -Dsecurity.enabled=true -Dhttps=true -Duser=admin -Dpassword=admin
-```
-
-By default, if `-Dsecurity.enabled=true` is passed the following defaults will be used: `https=true`, `user=admin` and
-`password=admin`.
-
-Then, to access the cluster, we can run
-```bash
-curl https://localhost:9200 --insecure -u admin:admin
-
-{
-  "name" : "integTest-0",
-  "cluster_name" : "integTest",
-  "cluster_uuid" : "kLsNk4JDTMyp1yQRqog-3g",
-  "version" : {
-    "distribution" : "opensearch",
-    "number" : "3.0.0-SNAPSHOT",
-    "build_type" : "tar",
-    "build_hash" : "9d85e566894ef53e5f2093618b3d455e4d0a04ce",
-    "build_date" : "2023-10-30T18:34:06.996519Z",
-    "build_snapshot" : true,
-    "lucene_version" : "9.8.0",
-    "minimum_wire_compatibility_version" : "2.12.0",
-    "minimum_index_compatibility_version" : "2.0.0"
-  },
-  "tagline" : "The OpenSearch Project: https://opensearch.org/"
-}
+./gradlew run -Dsecurity.enabled=true -Dhttps=true -Duser=admin -Dpassword=myStrongPassword123!
 ```
 
 ### Run Multi-node Cluster Locally
@@ -331,7 +305,7 @@ Integration tests can be run with remote cluster. For that run the following com
 In case remote cluster is secured it's possible to pass username and password with the following command:
 
 ```
-./gradlew :integTestRemote -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="integTest-0" -Dhttps=true -Duser=admin -Dpassword=admin
+./gradlew :integTestRemote -Dtests.rest.cluster=localhost:9200 -Dtests.cluster=localhost:9200 -Dtests.clustername="integTest-0" -Dhttps=true -Duser=admin -Dpassword=myStrongPassword123!
 ```
 
 ### Debugging

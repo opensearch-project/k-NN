@@ -337,6 +337,13 @@ integTest {
     var user = System.getProperty("user")
     var password = System.getProperty("password")
 
+    if (System.getProperty("security.enabled") != null) {
+        // If security is enabled, set is_https/user/password defaults
+        is_https = is_https == null ? "true" : is_https
+        user = user == null ? "admin" : user
+        password = password == null ? "myStrongPassword123!" : password
+    }
+
     systemProperty("https", is_https)
     systemProperty("user", user)
     systemProperty("password", password)
