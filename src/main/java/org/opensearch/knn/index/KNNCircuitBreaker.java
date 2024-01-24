@@ -41,31 +41,33 @@ public class KNNCircuitBreaker {
     public static final Setting<ByteSizeValue> KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING = new Setting<>(
         KNN_MEMORY_CIRCUIT_BREAKER_LIMIT,
         KNN_DEFAULT_MEMORY_CIRCUIT_BREAKER_LIMIT,
-        (sValue) -> {
-            if (sValue != null && sValue.endsWith("%")) {
-                final String percentAsString = sValue.substring(0, sValue.length() - 1);
-                try {
-                    final double percent = Double.parseDouble(percentAsString);
-                    if (percent < 0 || percent > 100) {
-                        throw new OpenSearchParseException("percentage should be in [0-100], got [{}]", percentAsString);
-                    }
-                    long physicalMemoryInBytes = OsProbe.getInstance().getTotalPhysicalMemorySize();
-                    if (physicalMemoryInBytes <= 0) {
-                        throw new IllegalStateException("Physical memory size could not be determined");
-                    }
-                    long esJvmSizeInBytes = JvmInfo.jvmInfo().getMem().getHeapMax().getBytes();
-                    long eligibleMemoryInBytes = physicalMemoryInBytes - esJvmSizeInBytes;
-                    return new ByteSizeValue((long) ((percent / 100) * eligibleMemoryInBytes), ByteSizeUnit.BYTES);
-                } catch (NumberFormatException e) {
-                    throw new OpenSearchParseException("failed to parse [{}] as a double", e, percentAsString);
-                }
-            } else {
-                return parseBytesSizeValue(sValue, KNN_MEMORY_CIRCUIT_BREAKER_LIMIT);
-            }
-        },
+        KNNCircuitBreaker::parseByteSizeValue,
         NodeScope,
         Dynamic
     );
+
+    private static ByteSizeValue parseByteSizeValue(String sValue) {
+        if (sValue != null && sValue.endsWith("%")) {
+            final String percentAsString = sValue.substring(0, sValue.length() - 1);
+            try {
+                final double percent = Double.parseDouble(percentAsString);
+                if (percent < 0 || percent > 100) {
+                    throw new OpenSearchParseException("percentage should be in [0-100], got [{}]", percentAsString);
+                }
+                long physicalMemoryInBytes = OsProbe.getInstance().getTotalPhysicalMemorySize();
+                if (physicalMemoryInBytes <= 0) {
+                    throw new IllegalStateException("Physical memory size could not be determined");
+                }
+                long esJvmSizeInBytes = JvmInfo.jvmInfo().getMem().getHeapMax().getBytes();
+                long eligibleMemoryInBytes = physicalMemoryInBytes - esJvmSizeInBytes;
+                return new ByteSizeValue((long) ((percent / 100) * eligibleMemoryInBytes), ByteSizeUnit.BYTES);
+            } catch (NumberFormatException e) {
+                throw new OpenSearchParseException("failed to parse [{}] as a double", e, percentAsString);
+            }
+        } else {
+            return parseBytesSizeValue(sValue, KNN_MEMORY_CIRCUIT_BREAKER_LIMIT);
+        }
+    }
 
     public static final String KNN_CIRCUIT_BREAKER_TRIGGERED = "knn.circuit_breaker.triggered";
     public static final Setting<Boolean> KNN_CIRCUIT_BREAKER_TRIGGERED_SETTING = Setting.boolSetting(
@@ -147,10 +149,7 @@ public class KNNCircuitBreaker {
                             + "."
                     );
                 } else {
-                    logger.info(
-                        "[KNN] Cache capacity below 75% of the circuit breaker limit for all nodes."
-                            + " Unsetting knn.circuit_breaker.triggered flag."
-                    );
+                    logger.info("No nodes are at max cache capacity. Unsetting knn.circuit_breaker.triggered flag.");
                     KNNCircuitBreakerUtil.instance().updateCircuitBreakerSettings(false);
                 }
             }

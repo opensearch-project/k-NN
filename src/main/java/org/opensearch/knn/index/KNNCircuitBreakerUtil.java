@@ -21,6 +21,7 @@ import org.opensearch.knn.plugin.transport.KNNStatsResponse;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_TRIGGERED;
@@ -55,7 +56,7 @@ public class KNNCircuitBreakerUtil {
      * @param client client for interfacing with the cluster
      */
     public void initialize(final Client client) {
-        this.client = client;
+        this.client = Objects.requireNonNull(client, "client must not be null");
     }
 
     /**
