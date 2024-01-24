@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED;
-import static org.opensearch.knn.jni.JNIService.KNN_ALGO_PARAM_INDEX_THREAD_QTY;
+import static org.opensearch.knn.index.codec.KNNCodecService.KNN_ALGO_PARAM_INDEX_THREAD_QTY;
 
 public class RecallTestsIT extends KNNRestTestCase {
 

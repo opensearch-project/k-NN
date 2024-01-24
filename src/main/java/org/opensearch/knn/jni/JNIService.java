@@ -12,40 +12,15 @@
 package org.opensearch.knn.jni;
 
 import org.apache.commons.lang.ArrayUtils;
-import org.opensearch.common.settings.Setting;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Map;
 
-import static org.opensearch.common.settings.Setting.Property.Dynamic;
-import static org.opensearch.common.settings.Setting.Property.NodeScope;
-
 /**
  * Service to distribute requests to the proper engine jni service
  */
 public class JNIService {
-    // JNI Related settings
-    public static final String KNN_ALGO_PARAM_INDEX_THREAD_QTY = "knn.algo_param.index_thread_qty";
-    public static final Integer KNN_DEFAULT_ALGO_PARAM_INDEX_THREAD_QTY = 1;
-    private static final int KNN_MAX_ALGO_PARAM_INDEX_THREAD_QTY = 32;
-
-    /**
-     * index_thread_quantity - the parameter specifies how many threads the nms library should use to create the graph.
-     * By default, the nms library sets this value to NUM_CORES. However, because ES can spawn NUM_CORES threads for
-     * indexing, and each indexing thread calls the NMS library to build the graph, which can also spawn NUM_CORES threads,
-     * this could lead to NUM_CORES^2 threads running and could lead to 100% CPU utilization. This setting allows users to
-     * configure number of threads for graph construction.
-     */
-    public static final Setting<Integer> KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING = Setting.intSetting(
-        KNN_ALGO_PARAM_INDEX_THREAD_QTY,
-        KNN_DEFAULT_ALGO_PARAM_INDEX_THREAD_QTY,
-        1,
-        KNN_MAX_ALGO_PARAM_INDEX_THREAD_QTY,
-        NodeScope,
-        Dynamic
-    );
-
     /**
      * Create an index for the native library
      *

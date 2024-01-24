@@ -32,7 +32,7 @@ import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Objects;
 
-import static org.opensearch.knn.jni.JNIService.KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING;
+import static org.opensearch.knn.index.codec.KNNCodecService.KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING;
 
 /**
  * Encapsulates all information required to generate and train a model.

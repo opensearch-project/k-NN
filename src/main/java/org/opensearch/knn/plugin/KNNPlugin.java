@@ -124,6 +124,7 @@ import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_CIRCUIT_BREAKER_UNS
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_ENABLED_SETTING;
 import static org.opensearch.knn.index.KNNCircuitBreaker.KNN_MEMORY_CIRCUIT_BREAKER_LIMIT_SETTING;
 import static org.opensearch.knn.index.codec.KNNCodecService.IS_KNN_INDEX_SETTING;
+import static org.opensearch.knn.index.codec.KNNCodecService.KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING;
 import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_ALGO_PARAM_EF_CONSTRUCTION_SETTING;
 import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_ALGO_PARAM_EF_SEARCH_SETTING;
 import static org.opensearch.knn.index.mapper.LegacyFieldMapper.INDEX_KNN_ALGO_PARAM_M_SETTING;
@@ -135,7 +136,6 @@ import static org.opensearch.knn.index.query.KNNWeight.ADVANCED_FILTERED_EXACT_S
 import static org.opensearch.knn.indices.ModelCache.MODEL_CACHE_SIZE_LIMIT_SETTING;
 import static org.opensearch.knn.indices.ModelDao.OpenSearchKNNModelDao.MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING;
 import static org.opensearch.knn.indices.ModelDao.OpenSearchKNNModelDao.MODEL_INDEX_NUMBER_OF_SHARDS_SETTING;
-import static org.opensearch.knn.jni.JNIService.KNN_ALGO_PARAM_INDEX_THREAD_QTY_SETTING;
 
 /**
  * Entry point for the KNN plugin where we define mapper for knn_vector type
