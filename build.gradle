@@ -17,6 +17,7 @@ buildscript {
         version_qualifier = System.getProperty("build.version_qualifier", "")
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+        System.setProperty("OPENSEARCH_INITIAL_ADMIN_PASSWORD", "myStrongPassword123!")
 
         version_tokens = opensearch_version.tokenize('-')
         opensearch_build = version_tokens[0] + '.0'
@@ -93,9 +94,9 @@ ext {
         cluster.getNodes().forEach { node ->
             var creds = node.getCredentials()
             if (creds.isEmpty()) {
-                creds.add(Map.of('username', 'admin', 'password', 'myStrongPassword123!'))
+                creds.add(Map.of('username', 'admin', 'password', System.getProperty("OPENSEARCH_INITIAL_ADMIN_PASSWORD")))
             } else {
-                creds.get(0).putAll(Map.of('username', 'admin', 'password', 'myStrongPassword123!'))
+                creds.get(0).putAll(Map.of('username', 'admin', 'password', System.getProperty("OPENSEARCH_INITIAL_ADMIN_PASSWORD")))
             }
         }
 
@@ -341,7 +342,7 @@ integTest {
         // If security is enabled, set is_https/user/password defaults
         is_https = is_https == null ? "true" : is_https
         user = user == null ? "admin" : user
-        password = password == null ? "myStrongPassword123!" : password
+        password = password == null ? System.getProperty("OPENSEARCH_INITIAL_ADMIN_PASSWORD") : password
     }
 
     systemProperty("https", is_https)
