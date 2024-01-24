@@ -223,7 +223,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
     omp_set_num_threads(1);
     // create the filterSearch params if the filterIdsJ is not a null pointer
     if(filterIdsJ != nullptr) {
-        long *filteredIdsArray = jniUtil->GetLongArrayElements(env, filterIdsJ, nullptr);
+        int64_t *filteredIdsArray = jniUtil->GetLongArrayElements(env, filterIdsJ, nullptr);
         int filterIdsLength = env->GetArrayLength(filterIdsJ);
         std::unique_ptr<faiss::IDSelector> idSelector;
         if(filterIdsTypeJ == BITMAP) {
