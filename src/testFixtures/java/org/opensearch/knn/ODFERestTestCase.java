@@ -52,6 +52,7 @@ import org.junit.After;
 import static org.opensearch.knn.TestUtils.KNN_BWC_PREFIX;
 import static org.opensearch.knn.TestUtils.OPENDISTRO_SECURITY;
 import static org.opensearch.knn.TestUtils.OPENSEARCH_SYSTEM_INDEX_PREFIX;
+import static org.opensearch.knn.TestUtils.PLUGINS_ML_CONFIG_INDEX_NAME;
 import static org.opensearch.knn.TestUtils.SECURITY_AUDITLOG_PREFIX;
 import static org.opensearch.knn.TestUtils.SKIP_DELETE_MODEL_INDEX;
 import static org.opensearch.knn.common.KNNConstants.MODELS;
@@ -212,6 +213,7 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         return indexName == null
             || OPENDISTRO_SECURITY.equals(indexName)
             || IMMUTABLE_INDEX_PREFIXES.stream().anyMatch(indexName::startsWith)
-            || MODEL_INDEX_NAME.equals(indexName);
+            || MODEL_INDEX_NAME.equals(indexName)
+            || PLUGINS_ML_CONFIG_INDEX_NAME.equals(indexName);
     }
 }
