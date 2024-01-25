@@ -51,8 +51,8 @@ import org.junit.After;
 
 import static org.opensearch.knn.TestUtils.KNN_BWC_PREFIX;
 import static org.opensearch.knn.TestUtils.OPENDISTRO_SECURITY;
+import static org.opensearch.knn.TestUtils.ML_PLUGIN_SYSTEM_INDEX_PREFIX;
 import static org.opensearch.knn.TestUtils.OPENSEARCH_SYSTEM_INDEX_PREFIX;
-import static org.opensearch.knn.TestUtils.PLUGINS_ML_CONFIG_INDEX_NAME;
 import static org.opensearch.knn.TestUtils.SECURITY_AUDITLOG_PREFIX;
 import static org.opensearch.knn.TestUtils.SKIP_DELETE_MODEL_INDEX;
 import static org.opensearch.knn.common.KNNConstants.MODELS;
@@ -63,7 +63,12 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
  */
 public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
 
-    private final Set<String> IMMUTABLE_INDEX_PREFIXES = Set.of(KNN_BWC_PREFIX, SECURITY_AUDITLOG_PREFIX, OPENSEARCH_SYSTEM_INDEX_PREFIX);
+    private final Set<String> IMMUTABLE_INDEX_PREFIXES = Set.of(
+        KNN_BWC_PREFIX,
+        SECURITY_AUDITLOG_PREFIX,
+        OPENSEARCH_SYSTEM_INDEX_PREFIX,
+        ML_PLUGIN_SYSTEM_INDEX_PREFIX
+    );
 
     protected boolean isHttps() {
         return Optional.ofNullable(System.getProperty("https")).map("true"::equalsIgnoreCase).orElse(false);
@@ -213,7 +218,6 @@ public abstract class ODFERestTestCase extends OpenSearchRestTestCase {
         return indexName == null
             || OPENDISTRO_SECURITY.equals(indexName)
             || IMMUTABLE_INDEX_PREFIXES.stream().anyMatch(indexName::startsWith)
-            || MODEL_INDEX_NAME.equals(indexName)
-            || PLUGINS_ML_CONFIG_INDEX_NAME.equals(indexName);
+            || MODEL_INDEX_NAME.equals(indexName);
     }
 }
