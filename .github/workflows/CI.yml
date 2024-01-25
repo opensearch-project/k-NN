@@ -45,6 +45,8 @@ jobs:
           cd jni/external/faiss
           git apply --ignore-space-change --ignore-whitespace --3way ../../patches/faiss/0001-Custom-patch-to-support-multi-vector.patch
           rm ../../patches/faiss/0001-Custom-patch-to-support-multi-vector.patch
+          git apply --ignore-space-change --ignore-whitespace --3way ../../patches/faiss/0002-Custom-patch-to-support-sqfp16-neon.patch
+          rm ../../patches/faiss/0002-Custom-patch-to-support-sqfp16-neon.patch
         working-directory: ${{ github.workspace }}
 
       - name: Setup Java ${{ matrix.java }}
