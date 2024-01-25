@@ -277,6 +277,28 @@ Additionally, it is also possible to run a cluster with security enabled:
 ./gradlew run -Dsecurity.enabled=true -Dhttps=true -Duser=admin -Dpassword=myStrongPassword123!
 ```
 
+Then, to access the cluster, we can run
+```bash
+curl https://localhost:9200 --insecure -u admin:myStrongPassword123!
+
+{
+  "name" : "integTest-0",
+  "cluster_name" : "integTest",
+  "cluster_uuid" : "kLsNk4JDTMyp1yQRqog-3g",
+  "version" : {
+    "distribution" : "opensearch",
+    "number" : "3.0.0-SNAPSHOT",
+    "build_type" : "tar",
+    "build_hash" : "9d85e566894ef53e5f2093618b3d455e4d0a04ce",
+    "build_date" : "2023-10-30T18:34:06.996519Z",
+    "build_snapshot" : true,
+    "lucene_version" : "9.8.0",
+    "minimum_wire_compatibility_version" : "2.12.0",
+    "minimum_index_compatibility_version" : "2.0.0"
+  },
+  "tagline" : "The OpenSearch Project: https://opensearch.org/"
+}
+
 ### Run Multi-node Cluster Locally
 
 It can be useful to test and debug on a multi-node cluster. In order to launch a 3 node cluster with the KNN plugin installed, run the following command:
