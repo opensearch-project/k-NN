@@ -42,7 +42,8 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class RestDeleteModelHandlerIT extends KNNRestTestCase {
 
-    public void testDelete_whenModelExists_thenDeletionSucceeds() throws Exception {
+    @SneakyThrows
+    public void testDelete_whenModelExists_thenDeletionSucceeds() {
         String modelId = "test-model-id";
         String trainingIndexName = "train-index";
         String trainingFieldName = "train-field";
