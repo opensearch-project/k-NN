@@ -52,7 +52,8 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
         expectThrows(ResponseException.class, () -> client().performRequest(request));
     }
 
-    public void testSearch_whenNoModelExists_thenReturnEmptyResults() throws Exception {
+    @SneakyThrows
+    public void testSearch_whenNoModelExists_thenReturnEmptyResults() {
         // Currently, if the model index exists, we will return empty hits. If it does not exist, we will
         // throw an exception. This is somewhat of a bug considering that the model index is supposed to be
         // an implementation detail abstracted away from the user. However, in order to test, we need to handle
