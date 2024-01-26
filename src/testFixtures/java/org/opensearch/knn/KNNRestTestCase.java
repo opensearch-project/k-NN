@@ -5,8 +5,6 @@
 
 package org.opensearch.knn;
 
-import com.google.common.base.Charsets;
-import com.google.common.io.Resources;
 import com.google.common.primitives.Floats;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
@@ -23,7 +21,6 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
@@ -52,7 +49,6 @@ import javax.management.remote.JMXServiceURL;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -78,8 +74,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
-import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
-import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
@@ -751,20 +745,6 @@ public class KNNRestTestCase extends ODFERestTestCase {
             }
             Map<String, Object> userSettings = (Map<String, Object>) settings.get("settings");
             return (String) (userSettings.get(settingName) == null ? defaultSettings.get(settingName) : userSettings.get(settingName));
-        }
-    }
-
-    protected void createModelSystemIndex() throws IOException {
-        URL url = ModelDao.class.getClassLoader().getResource(MODEL_INDEX_MAPPING_PATH);
-        if (url == null) {
-            throw new IllegalStateException("Unable to retrieve mapping for \"" + MODEL_INDEX_NAME + "\"");
-        }
-
-        String mapping = Resources.toString(url, Charsets.UTF_8);
-        mapping = mapping.substring(1, mapping.length() - 1);
-
-        if (!systemIndexExists(MODEL_INDEX_NAME)) {
-            createIndex(MODEL_INDEX_NAME, Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).build(), mapping);
         }
     }
 

@@ -12,6 +12,7 @@
 package org.opensearch.knn.plugin.action;
 
 import joptsimple.internal.Strings;
+import lombok.SneakyThrows;
 import org.apache.http.util.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
@@ -21,7 +22,6 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.core.rest.RestStatus;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -44,9 +44,8 @@ import static org.opensearch.knn.index.util.KNNEngine.FAISS;
 
 public class RestGetModelHandlerIT extends KNNRestTestCase {
 
-    public void testGetModelExists() throws Exception {
-        createModelSystemIndex();
-
+    @SneakyThrows
+    public void testGetModel_whenModelIdExists_thenSucceed() {
         String modelId = "test-model-id";
         String trainingIndexName = "train-index";
         String trainingFieldName = "train-field";
@@ -81,8 +80,8 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         assertEquals(L2.getValue(), responseMap.get(METHOD_PARAMETER_SPACE_TYPE));
     }
 
-    public void testGetModelExistsWithFilter() throws Exception {
-        createModelSystemIndex();
+    @SneakyThrows
+    public void testGetModel_whenFilterApplied_thenReturnExpectedFields() {
         String modelId = "test-model-id";
         String trainingIndexName = "train-index";
         String trainingFieldName = "train-field";
@@ -118,8 +117,7 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         assertFalse(responseMap.containsKey(MODEL_STATE));
     }
 
-    public void testGetModelFailsInvalid() throws IOException {
-        createModelSystemIndex();
+    public void testGetModel_whenModelIDIsInValid_thenFail() {
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "invalid-model-id");
         Request request = new Request("GET", restURI);
 
@@ -127,8 +125,7 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         assertTrue(ex.getMessage().contains("\"invalid-model-id\""));
     }
 
-    public void testGetModelFailsBlank() throws IOException {
-        createModelSystemIndex();
+    public void testGetModel_whenIDIsBlank_thenFail() {
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, " ");
         Request request = new Request("GET", restURI);
 
