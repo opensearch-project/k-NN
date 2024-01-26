@@ -79,7 +79,8 @@ public class RestGetModelHandlerIT extends KNNRestTestCase {
         assertEquals(L2.getValue(), responseMap.get(METHOD_PARAMETER_SPACE_TYPE));
     }
 
-    public void testGetModel_whenFilterApplied_thenReturnExpectedFields() throws Exception {
+    @SneakyThrows
+    public void testGetModel_whenFilterApplied_thenReturnExpectedFields() {
         String modelId = "test-model-id";
         String trainingIndexName = "train-index";
         String trainingFieldName = "train-field";
