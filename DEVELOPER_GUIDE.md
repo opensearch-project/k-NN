@@ -298,6 +298,7 @@ curl https://localhost:9200 --insecure -u admin:<admin-password>
   },
   "tagline" : "The OpenSearch Project: https://opensearch.org/"
 }
+```
 
 ### Run Multi-node Cluster Locally
 
