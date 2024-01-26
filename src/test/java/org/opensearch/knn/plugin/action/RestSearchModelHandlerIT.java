@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.plugin.action;
 
+import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.Request;
