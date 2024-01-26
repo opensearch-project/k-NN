@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Infrastructure
 * Upgrade gradle to 8.4 [1289](https://github.com/opensearch-project/k-NN/pull/1289)
 * Refactor security testing to install from individual components [#1307](https://github.com/opensearch-project/k-NN/pull/1307)
+* Refactor integ tests that access model index [#1423](https://github.com/opensearch-project/k-NN/pull/1423)
 ### Documentation
 ### Maintenance
 * Update developer guide to include M1 Setup [#1222](https://github.com/opensearch-project/k-NN/pull/1222)

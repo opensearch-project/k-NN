@@ -19,22 +19,18 @@ import org.opensearch.client.ResponseException;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.knn.KNNRestTestCase;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.search.SearchHit;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.MODELS;
+import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAM_SIZE;
 import static org.opensearch.knn.common.KNNConstants.SEARCH_MODEL_MAX_SIZE;
 import static org.opensearch.knn.common.KNNConstants.SEARCH_MODEL_MIN_SIZE;
@@ -47,12 +43,7 @@ import static org.opensearch.knn.index.util.KNNEngine.FAISS;
 
 public class RestSearchModelHandlerIT extends KNNRestTestCase {
 
-    private ModelMetadata getModelMetadata() {
-        return new ModelMetadata(KNNEngine.DEFAULT, SpaceType.DEFAULT, 4, ModelState.CREATED, "2021-03-27", "test model", "", "");
-    }
-
-    public void testNotSupportedParams() throws IOException {
-        createModelSystemIndex();
+    public void testSearch_whenUnSupportedParamsPassed_thenFail() {
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
         Map<String, String> invalidParams = new HashMap<>();
         invalidParams.put("index", "index-name");
@@ -61,27 +52,30 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
         expectThrows(ResponseException.class, () -> client().performRequest(request));
     }
 
-    public void testNoModelExists() throws Exception {
-        createModelSystemIndex();
+    public void testSearch_whenNoModelExists_thenReturnEmptyResults() throws Exception {
+        // Currently, if the model index exists, we will return empty hits. If it does not exist, we will
+        // throw an exception. This is somewhat of a bug considering that the model index is supposed to be
+        // an implementation detail abstracted away from the user. However, in order to test, we need to handle
+        // the 2 different scenarios
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search");
         Request request = new Request("GET", restURI);
         request.setJsonEntity("{\n" + "    \"query\": {\n" + "        \"match_all\": {}\n" + "    }\n" + "}");
-
-        Response response = client().performRequest(request);
-        assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-        String responseBody = EntityUtils.toString(response.getEntity());
-        assertNotNull(responseBody);
-
-        XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
-        SearchResponse searchResponse = SearchResponse.fromXContent(parser);
-        assertNotNull(searchResponse);
-        assertEquals(searchResponse.getHits().getHits().length, 0);
-
+        if (!systemIndexExists(MODEL_INDEX_NAME)) {
+            ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
+            assertEquals(RestStatus.NOT_FOUND.getStatus(), ex.getResponse().getStatusLine().getStatusCode());
+        } else {
+            Response response = client().performRequest(request);
+            assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+            String responseBody = EntityUtils.toString(response.getEntity());
+            assertNotNull(responseBody);
+            XContentParser parser = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody);
+            SearchResponse searchResponse = SearchResponse.fromXContent(parser);
+            assertNotNull(searchResponse);
+            assertEquals(searchResponse.getHits().getHits().length, 0);
+        }
     }
 
-    public void testSizeValidationFailsInvalidSize() throws IOException {
-        createModelSystemIndex();
+    public void testSearch_whenInvalidSizePassed_thenFail() {
         for (Integer invalidSize : Arrays.asList(SEARCH_MODEL_MIN_SIZE - 1, SEARCH_MODEL_MAX_SIZE + 1)) {
             String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, "_search?" + PARAM_SIZE + "=" + invalidSize);
             Request request = new Request("GET", restURI);
@@ -101,8 +95,7 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
 
     }
 
-    public void testSearchModelExists() throws Exception {
-        createModelSystemIndex();
+    public void testSearch_whenModelExists_thenSuccess() throws Exception {
         String trainingIndex = "irrelevant-index";
         String trainingFieldName = "train-field";
         int dimension = 8;
@@ -151,7 +144,6 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
     }
 
     public void testSearchModelWithoutSource() throws Exception {
-        createModelSystemIndex();
         String trainingIndex = "irrelevant-index";
         String trainingFieldName = "train-field";
         int dimension = 8;
@@ -192,7 +184,6 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
     }
 
     public void testSearchModelWithSourceFilteringIncludes() throws Exception {
-        createModelSystemIndex();
         String trainingIndex = "irrelevant-index";
         String trainingFieldName = "train-field";
         int dimension = 8;
@@ -244,7 +235,6 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
     }
 
     public void testSearchModelWithSourceFilteringExcludes() throws Exception {
-        createModelSystemIndex();
         String trainingIndex = "irrelevant-index";
         String trainingFieldName = "train-field";
         int dimension = 8;

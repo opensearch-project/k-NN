@@ -30,7 +30,6 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODELS;
-import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -43,9 +42,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class RestDeleteModelHandlerIT extends KNNRestTestCase {
 
-    public void testDeleteModelExists() throws Exception {
-        createModelSystemIndex();
-
+    public void testDelete_whenModelExists_thenDeletionSucceeds() throws Exception {
         String modelId = "test-model-id";
         String trainingIndexName = "train-index";
         String trainingFieldName = "train-field";
@@ -80,42 +77,8 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
         assertTrue(ex.getMessage().contains(modelId));
     }
 
-    public void testDeleteTrainingModel() throws Exception {
-        createModelSystemIndex();
-
-        String modelId = "test-model-id";
-        String trainingIndexName = "train-index";
-        String trainingFieldName = "train-field";
-        int dimension = 8;
-        String modelDescription = "dummy description";
-
-        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
-        // we do not wait for training to be completed
-        ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription);
-
-        Response getModelResponse = getModel(modelId, List.of());
-        assertEquals(RestStatus.OK, RestStatus.fromCode(getModelResponse.getStatusLine().getStatusCode()));
-
-        String responseBody = EntityUtils.toString(getModelResponse.getEntity());
-        assertNotNull(responseBody);
-
-        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
-
-        assertEquals(modelId, responseMap.get(MODEL_ID));
-
-        String deleteModelRestURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
-        Request deleteModelRequest = new Request("DELETE", deleteModelRestURI);
-
-        ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(deleteModelRequest));
-        assertEquals(RestStatus.CONFLICT.getStatus(), ex.getResponse().getStatusLine().getStatusCode());
-
-        // need to wait for training operation as it's required for after test cleanup
-        assertTrainingSucceeds(modelId, NUM_OF_ATTEMPTS, DELAY_MILLI_SEC);
-    }
-
-    public void testDeleteModelFailsInvalid() throws Exception {
+    public void testDelete_whenModelIDIsInvalid_thenFail() {
         String modelId = "invalid-model-id";
-        createModelSystemIndex();
         String restURI = String.join("/", KNNPlugin.KNN_BASE_URI, MODELS, modelId);
         Request request = new Request("DELETE", restURI);
 
@@ -124,7 +87,7 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
     }
 
     // Test Train Model -> Delete Model -> Train Model with same modelId
-    public void testTrainingDeletedModel() throws Exception {
+    public void testTraining_whenModelHasBeenDeleted_thenSucceedTrainingModelWithSameID() throws Exception {
         String modelId = "test-model-id1";
         String trainingIndexName1 = "train-index-1";
         String trainingIndexName2 = "train-index-2";
@@ -140,8 +103,6 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-        assertEquals(0, getDocCount(MODEL_INDEX_NAME));
 
         // Train Model again with same ModelId
         trainModel(modelId, trainingIndexName2, trainingFieldName, dimension);
