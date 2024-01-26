@@ -97,6 +97,7 @@ public class TestUtils {
     public static final String UPGRADED_CLUSTER = "upgraded_cluster";
     public static final String SECURITY_AUDITLOG_PREFIX = "security-auditlog";
     public static final String OPENSEARCH_SYSTEM_INDEX_PREFIX = ".opensearch";
+    public static final String ML_PLUGIN_SYSTEM_INDEX_PREFIX = ".plugins-ml";
 
     // Generating vectors using random function with a seed which makes these vectors standard and generate same vectors for each run.
     public static float[][] randomlyGenerateStandardVectors(int numVectors, int dimensions, int seed) {
