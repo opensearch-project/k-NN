@@ -6,7 +6,6 @@
 import org.opensearch.gradle.test.RestIntegTestTask
 import org.opensearch.gradle.testclusters.OpenSearchCluster
 import org.apache.tools.ant.taskdefs.condition.Os
-import org.gradle.internal.os.OperatingSystem
 import java.nio.file.Paths
 import java.util.concurrent.Callable
 
@@ -294,25 +293,11 @@ task windowsPatches(type:Exec) {
     commandLine 'cmd', '/c', "Powershell -File $rootDir\\scripts\\windowsScript.ps1"
 }
 
-task linuxPatches(type:Exec) {
-    doFirst {
-        commandLine 'chmod', '755', "$rootDir/scripts/linuxScript.sh"
-    }
-
-    exec {
-        commandLine "sh", "$rootDir/scripts/linuxScript.sh"
-    }
-}
-
 task cmakeJniLib(type:Exec) {
     workingDir 'jni'
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         dependsOn windowsPatches
         commandLine 'cmake', '.', "-G", "Unix Makefiles", "-DKNN_PLUGIN_VERSION=${opensearch_version}", "-DBLAS_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll", "-DLAPACK_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll"
-    }
-    else if(OperatingSystem.current().isLinux()) {
-        dependsOn linuxPatches
-        commandLine 'cmake', '.', "-DKNN_PLUGIN_VERSION=${opensearch_version}"
     }
     else {
         commandLine 'cmake', '.', "-DKNN_PLUGIN_VERSION=${opensearch_version}"

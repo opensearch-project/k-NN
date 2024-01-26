@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.util;
 
+import lombok.SneakyThrows;
 import org.opensearch.Version;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -87,7 +88,8 @@ public class FaissTests extends KNNTestCase {
         assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
     }
 
-    public void testGetMethodAsMap_whenMethodIsHNSWSQFP16_thenCreateCorrectIndexDescription() throws IOException {
+    @SneakyThrows
+    public void testGetMethodAsMap_whenMethodIsHNSWSQFP16_thenCreateCorrectIndexDescription() {
         int hnswMParam = 65;
         String expectedIndexDescription = String.format(Locale.ROOT, "HNSW%d,SQfp16", hnswMParam);
 
@@ -163,7 +165,8 @@ public class FaissTests extends KNNTestCase {
         assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
     }
 
-    public void testGetMethodAsMap_whenMethodIsIVFSQFP16_thenCreateCorrectIndexDescription() throws IOException {
+    @SneakyThrows
+    public void testGetMethodAsMap_whenMethodIsIVFSQFP16_thenCreateCorrectIndexDescription() {
         int nlists = 88;
         String expectedIndexDescription = String.format(Locale.ROOT, "IVF%d,SQfp16", nlists);
 

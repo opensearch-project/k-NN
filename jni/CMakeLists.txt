@@ -153,6 +153,9 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
     if (EXISTS ${PATCH_FILE})
         message(STATUS "Applying custom patches.")
         execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace --3way ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0001-Custom-patch-to-support-multi-vector.patch WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ERROR_VARIABLE ERROR_MSG RESULT_VARIABLE RESULT_CODE)
+
+        # 0002-Custom-patch-to-support-sqfp16-neon.patch is a temporary patch to add NEON support to SQ.
+        # Once the commit conflict issues wrt to Multi vector are resolved, this patch can be removed by updating the faiss submodule with corresponding commit.
         execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace --3way ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0002-Custom-patch-to-support-sqfp16-neon.patch WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ERROR_VARIABLE ERROR_MSG RESULT_VARIABLE RESULT_CODE)
 
         if(RESULT_CODE)

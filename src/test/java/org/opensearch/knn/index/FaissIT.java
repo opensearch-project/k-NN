@@ -271,7 +271,7 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testEndToEnd_whenMethodIsHNSWSQFP16_thenSucceed() {
+    public void testHNSWSQFP16_whenIndexedAndQueried_thenSucceed() {
         String indexName = "test-index-hnsw-sqfp16";
         String fieldName = "test-field-hnsw-sqfp16";
 
@@ -323,7 +323,7 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testEndToEnd_whenMethodIsIVFSQFP16_thenSucceed() {
+    public void testIVFSQFP16_whenIndexedAndQueried_thenSucceed() {
 
         String modelId = "test-model-ivf-sqfp16";
         int dimension = 128;
@@ -738,7 +738,8 @@ public class FaissIT extends KNNRestTestCase {
         refreshIndex(INDEX_NAME);
     }
 
-    private void queryTestData(String indexName, String fieldName, int dimension, int numDocs) throws IOException, ParseException {
+    private void queryTestData(final String indexName, final String fieldName, final int dimension, final int numDocs) throws IOException,
+        ParseException {
         float[] queryVector = new float[dimension];
         Arrays.fill(queryVector, (float) numDocs);
         int k = 10;
@@ -751,7 +752,7 @@ public class FaissIT extends KNNRestTestCase {
         }
     }
 
-    private void indexTestData(String indexName, String fieldName, int dimension, int numDocs) throws Exception {
+    private void indexTestData(final String indexName, final String fieldName, final int dimension, final int numDocs) throws Exception {
         for (int i = 0; i < numDocs; i++) {
             float[] indexVector = new float[dimension];
             Arrays.fill(indexVector, (float) i);
