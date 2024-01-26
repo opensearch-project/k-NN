@@ -88,7 +88,8 @@ public class RestDeleteModelHandlerIT extends KNNRestTestCase {
     }
 
     // Test Train Model -> Delete Model -> Train Model with same modelId
-    public void testTraining_whenModelHasBeenDeleted_thenSucceedTrainingModelWithSameID() throws Exception {
+    @SneakyThrows
+    public void testTraining_whenModelHasBeenDeleted_thenSucceedTrainingModelWithSameID() {
         String modelId = "test-model-id1";
         String trainingIndexName1 = "train-index-1";
         String trainingIndexName2 = "train-index-2";
