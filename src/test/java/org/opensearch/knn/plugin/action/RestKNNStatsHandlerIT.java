@@ -338,8 +338,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         assertEquals(initialScriptQueryErrors + 2, (int) (nodeStats.get(0).get(StatNames.SCRIPT_QUERY_ERRORS.getName())));
     }
 
-    public void testModelIndexHealthMetricsStats() throws IOException {
-        // Create request that filters only model index
+    public void testModelIndexHealthMetricsStats() throws Exception {
         String modelIndexStatusName = StatNames.MODEL_INDEX_STATUS.getName();
         // index can be created in one of previous tests, and as we do not delete it each test the check below became optional
         if (!systemIndexExists(MODEL_INDEX_NAME)) {
@@ -351,7 +350,11 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
             // Check that model health status is null since model index is not created to system yet
             assertNull(statsMap.get(StatNames.MODEL_INDEX_STATUS.getName()));
 
-            createModelSystemIndex();
+            // Train a model so that the system index will get created
+            createBasicKnnIndex(TRAINING_INDEX, TRAINING_FIELD, DIMENSION);
+            bulkIngestRandomVectors(TRAINING_INDEX, TRAINING_FIELD, NUM_DOCS, DIMENSION);
+            trainKnnModel(TEST_MODEL_ID, TRAINING_INDEX, TRAINING_FIELD, DIMENSION, MODEL_DESCRIPTION);
+            validateModelCreated(TEST_MODEL_ID);
         }
 
         Response response = getKnnStats(Collections.emptyList(), Arrays.asList(modelIndexStatusName));
