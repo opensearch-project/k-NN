@@ -43,7 +43,8 @@ import static org.opensearch.knn.index.util.KNNEngine.FAISS;
 
 public class RestGetModelHandlerIT extends KNNRestTestCase {
 
-    public void testGetModel_whenModelIdExists_thenSucceed() throws Exception {
+    @SneakyThrows
+    public void testGetModel_whenModelIdExists_thenSucceed() {
         String modelId = "test-model-id";
         String trainingIndexName = "train-index";
         String trainingFieldName = "train-field";
