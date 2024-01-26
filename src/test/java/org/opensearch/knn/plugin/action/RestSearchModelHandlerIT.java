@@ -95,7 +95,8 @@ public class RestSearchModelHandlerIT extends KNNRestTestCase {
 
     }
 
-    public void testSearch_whenModelExists_thenSuccess() throws Exception {
+    @SneakyThrows
+    public void testSearch_whenModelExists_thenSuccess() {
         String trainingIndex = "irrelevant-index";
         String trainingFieldName = "train-field";
         int dimension = 8;
