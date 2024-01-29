@@ -11,12 +11,12 @@
 
 package org.opensearch.knn.indices;
 
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
+import org.junit.*;
+import org.mockito.MockedStatic;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.ResourceNotFoundException;
+import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.DocWriteResponse;
 import org.opensearch.action.StepListener;
@@ -46,6 +46,7 @@ import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardRequest;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.knn.training.TrainingJobClusterStateListener;
 
 import java.io.IOException;
 import java.time.ZoneOffset;
@@ -57,6 +58,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 import static org.opensearch.cluster.metadata.Metadata.builder;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
@@ -73,15 +76,21 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
     private static ExecutorService modelGetterExecutor;
     private static final String FAILED = "failed";
+    private static MockedStatic<TrainingJobClusterStateListener> trainingJobClusterStateListenerMockedStatic;
 
     @BeforeClass
     public static void setup() {
         modelGetterExecutor = Executors.newSingleThreadExecutor();
+        trainingJobClusterStateListenerMockedStatic = mockStatic(TrainingJobClusterStateListener.class);
+        final TrainingJobClusterStateListener trainingJobClusterStateListener = mock(TrainingJobClusterStateListener.class);
+        doNothing().when(trainingJobClusterStateListener).clusterChanged(any(ClusterChangedEvent.class));
+        trainingJobClusterStateListenerMockedStatic.when(TrainingJobClusterStateListener::getInstance).thenReturn(trainingJobClusterStateListener);
     }
 
     @AfterClass
     public static void teardown() {
         modelGetterExecutor.shutdown();
+        trainingJobClusterStateListenerMockedStatic.close();
     }
 
     public void testCreate() throws IOException, InterruptedException {
