@@ -12,6 +12,7 @@
 package org.opensearch.knn.indices;
 
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.mockito.MockedStatic;
 import org.opensearch.ExceptionsHelper;
