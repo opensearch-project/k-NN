@@ -30,7 +30,31 @@
 enum FilterIdsSelectorType{
     BITMAP = 0, BATCH = 1,
 };
+namespace faiss {
+struct IDSelectorJlongBitmap : IDSelector {
+    size_t n;
+    const jlong* bitmap;
 
+    /** Construct with a binary mask like Lucene FixedBitSet
+     *
+     * @param n size of the bitmap array
+     * @param bitmap id like Lucene FixedBitSet bits
+     */
+    IDSelectorJlongBitmap(size_t n, const jlong* bitmap) : n(n), bitmap(bitmap) {};
+    bool is_member(idx_t id) const final {
+        uint64_t index = id;
+        uint64_t i = index >> 6;  // div 64
+        if (i >= n ) {
+            return false;
+        }
+        // signed shift will keep a negative index and force an
+        // array-index-out-of-bounds-exception, removing the need for an explicit check.
+        jlong bitmask = 1L << index;
+        return (bitmap[i] & bitmask) != 0;
+    }
+    ~IDSelectorJlongBitmap() override {}
+};
+}
 // Translate space type to faiss metric
 faiss::MetricType TranslateSpaceToMetric(const std::string& spaceType);
 
@@ -223,13 +247,11 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
     omp_set_num_threads(1);
     // create the filterSearch params if the filterIdsJ is not a null pointer
     if(filterIdsJ != nullptr) {
-        int64_t *filteredIdsArray = jniUtil->GetLongArrayElements(env, filterIdsJ, nullptr);
+        jlong *filteredIdsArray = jniUtil->GetLongArrayElements(env, filterIdsJ, nullptr);
         int filterIdsLength = env->GetArrayLength(filterIdsJ);
         std::unique_ptr<faiss::IDSelector> idSelector;
         if(filterIdsTypeJ == BITMAP) {
-            const int bitsetArraySize = filterIdsLength * 8;
-            uint8_t *bitmap = reinterpret_cast<uint8_t*>(filteredIdsArray);
-            idSelector.reset(new faiss::IDSelectorBitmap(bitsetArraySize, bitmap));
+            idSelector.reset(new faiss::IDSelectorJlongBitmap(filterIdsLength, filteredIdsArray));
         } else {
             faiss::idx_t* batchIndices = reinterpret_cast<faiss::idx_t*>(filteredIdsArray);
             idSelector.reset(new faiss::IDSelectorBatch(filterIdsLength, batchIndices));
@@ -419,41 +441,4 @@ void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x) {
     if (!index->is_trained) {
         index->train(n, x);
     }
-}
-
-/**
- * This function takes a call on what ID Selector to use:
- * https://github.com/facebookresearch/faiss/wiki/Setting-search-parameters-for-one-query#idselectorarray-idselectorbatch-and-idselectorbitmap
- *
- * class	       storage	lookup     construction(Opensearch + Faiss)
- * IDSelectorArray	O(k)	O(k)          O(2k)
- * IDSelectorBatch	O(k)	O(1)          O(2k)
- * IDSelectorBitmap	O(n/8)	O(1)          O(k) -> n is the max value of id in the index
- *
- * TODO: We need to ideally decide when we can take another hit of K iterations in latency. Some facts:
- * an OpenSearch Index can have max segment size as 5GB which, which on a vector with dimension of 128 boils down to
- * 7.5M vectors.
- * Ref: https://opensearch.org/docs/latest/search-plugins/knn/knn-index/#hnsw-memory-estimation
- * M = 16
- * Dimension = 128
- * (1.1 * ( 4 * 128 + 8 * 16) * 7500000)/(1024*1024*1024) ~ 4.9GB
- * Ids are sequential in a Segment which means for IDSelectorBitmap total size if the max ID has value of 7.5M will be
- * 7500000/(8*1024) = 915KBs in worst case. But with larger dimensions this worst case value will decrease.
- *
- * With 915KB how many ids can be represented as an array of 64-bit longs : 117,120 ids
- * So iterating on 117k ids for 1 single pass is also time consuming. So, we are currently concluding to consider only size
- * as factor. We need to improve on this.
- *
- * TODO: Best way is to implement a SparseBitSet in C++. This can be done by extending the IDSelector Interface of Faiss.
- *
- * @param filterIds
- * @param filterIdsLength
- * @return std::string
- */
-FilterIdsSelectorType getIdSelectorType(const int* filterIds, int filterIdsLength) {
-    int maxIdValue = filterIds[filterIdsLength - 1];
-    if(filterIdsLength * sizeof(faiss::idx_t) * 8 <= maxIdValue ) {
-        return BATCH;
-    }
-    return BITMAP;
 }

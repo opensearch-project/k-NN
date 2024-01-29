@@ -17,6 +17,7 @@ import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.FixedBitSet;
+import org.opensearch.common.collect.Tuple;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
@@ -247,35 +248,9 @@ public class KNNWeight extends Weight {
         }
 
         //From cardinality select different filterIds type
-        long[] filterIds;
-        FilterIdsSelectorType filterType;
-        if (filterIdsBitSet instanceof FixedBitSet) {
-            /**
-             * When filterIds is dense filter, using fixed bitset
-             */
-            filterIds = ((FixedBitSet) filterIdsBitSet).getBits();
-            filterType = FilterIdsSelectorType.BITMAP;
-        } else if(cardinality < MAX_ID_SELECT_ARRAY) {
-            /**
-             * When filterIds is Sparse filter, using Array filter.
-             */
-            BitSetIterator bitSetIterator = new BitSetIterator(filterIdsBitSet, cardinality);
-            filterIds = new long[cardinality];
-            int idx = 0;
-            for (int docId = bitSetIterator.nextDoc(); docId != DocIdSetIterator.NO_MORE_DOCS; docId = bitSetIterator.nextDoc()) {
-                filterIds[idx++] = docId;
-            }
-            filterType = FilterIdsSelectorType.BATCH;
-        } else {
-            /**
-             * Others using fixed bitset, may be DocBaseBitSetIterator
-             */
-            FixedBitSet fixedBitSet = new FixedBitSet(cardinality);
-            BitSetIterator bitSetIterator = new BitSetIterator(filterIdsBitSet, cardinality);
-            fixedBitSet.or(bitSetIterator);
-            filterIds = fixedBitSet.getBits();
-            filterType = FilterIdsSelectorType.BITMAP;
-        }
+        Tuple<long[], FilterIdsSelectorType> filterIdsSelectorTuple = getIdSelectorType(filterIdsBitSet, cardinality);
+        long[] filterIds = filterIdsSelectorTuple.v1();
+        FilterIdsSelectorType filterType = filterIdsSelectorTuple.v2();
         // Now that we have the allocation, we need to readLock it
         indexAllocation.readLock();
         try {
@@ -314,7 +289,69 @@ public class KNNWeight extends Weight {
             .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
     }
 
-    private Map<Integer, Float> doExactSearch(final LeafReaderContext leafReaderContext, BitSet filterIdsBitSet) {
+    /**
+     * This function takes a call on what ID Selector to use:
+     * https://github.com/facebookresearch/faiss/wiki/Setting-search-parameters-for-one-query#idselectorarray-idselectorbatch-and-idselectorbitmap
+     *
+     * class	       storage	lookup     construction(Opensearch + Faiss)
+     * IDSelectorArray	O(k)	O(k)          O(2k)
+     * IDSelectorBatch	O(k)	O(1)          O(2k)
+     * IDSelectorBitmap	O(n/8)	O(1)          O(k) -> n is the max value of id in the index
+     *
+     * TODO: We need to ideally decide when we can take another hit of K iterations in latency. Some facts:
+     * an OpenSearch Index can have max segment size as 5GB which, which on a vector with dimension of 128 boils down to
+     * 7.5M vectors.
+     * Ref: https://opensearch.org/docs/latest/search-plugins/knn/knn-index/#hnsw-memory-estimation
+     * M = 16
+     * Dimension = 128
+     * (1.1 * ( 4 * 128 + 8 * 16) * 7500000)/(1024*1024*1024) ~ 4.9GB
+     * Ids are sequential in a Segment which means for IDSelectorBitmap total size if the max ID has value of 7.5M will be
+     * 7500000/(8*1024) = 915KBs in worst case. But with larger dimensions this worst case value will decrease.
+     *
+     * With 915KB how many ids can be represented as an array of 64-bit longs : 117,120 ids
+     * So iterating on 117k ids for 1 single pass is also time consuming. So, we are currently concluding to consider only size
+     * as factor. We need to improve on this.
+     *
+     * TODO: Best way is to implement a SparseBitSet in C++. This can be done by extending the IDSelector Interface of Faiss.
+     *
+     * @param filterIdsBitSet
+     * @param cardinality
+     * @return Tuple<long[], FilterIdsSelectorType>
+     */
+    private Tuple<long[], FilterIdsSelectorType> getIdSelectorType(BitSet filterIdsBitSet, int cardinality) throws IOException {
+        long[] filterIds;
+        FilterIdsSelectorType filterType;
+        if (filterIdsBitSet instanceof FixedBitSet) {
+            /**
+             * When filterIds is dense filter, using fixed bitset
+             */
+            filterIds = ((FixedBitSet) filterIdsBitSet).getBits();
+            filterType = FilterIdsSelectorType.BITMAP;
+        } else if(cardinality < MAX_ID_SELECT_ARRAY) {
+            /**
+             * When filterIds is Sparse filter, using Array filter.
+             */
+            BitSetIterator bitSetIterator = new BitSetIterator(filterIdsBitSet, cardinality);
+            filterIds = new long[cardinality];
+            int idx = 0;
+            for (int docId = bitSetIterator.nextDoc(); docId != DocIdSetIterator.NO_MORE_DOCS; docId = bitSetIterator.nextDoc()) {
+                filterIds[idx++] = docId;
+            }
+            filterType = FilterIdsSelectorType.BATCH;
+        } else {
+            /**
+             * Others using fixed bitset, may be SparseBitSet
+             */
+            int length = filterIdsBitSet.length();
+            FixedBitSet fixedBitSet = new FixedBitSet(length);
+            BitSetIterator bitSetIterator = new BitSetIterator(filterIdsBitSet, cardinality);
+            fixedBitSet.or(bitSetIterator);
+            filterIds = fixedBitSet.getBits();
+            filterType = FilterIdsSelectorType.BITMAP;
+        }
+        return new Tuple<>(filterIds, filterType);
+    }
+    private Map<Integer, Float> doExactSearch(final LeafReaderContext leafReaderContext, final BitSet filterIdsBitSet) {
         final SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(leafReaderContext.reader());
         final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
         float[] queryVector = this.knnQuery.getQueryVector();

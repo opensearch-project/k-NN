@@ -751,7 +751,7 @@ public class JNIServiceTests extends KNNTestCase {
                     FixedBitSet fbs = new FixedBitSet(docId + 1);
                     fbs.set(docId);
                     long[] bits = fbs.getBits();
-                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, fbs.getBits(), 0);
+                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, bits, 0);
 
                     assertEquals(1, results.length);
                     assertEquals(docId, results[0].getId());
