@@ -11,7 +11,8 @@
 
 package org.opensearch.knn.indices;
 
-import org.junit.*;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.mockito.MockedStatic;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
@@ -59,7 +60,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.opensearch.cluster.metadata.Metadata.builder;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
@@ -84,7 +87,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         trainingJobClusterStateListenerMockedStatic = mockStatic(TrainingJobClusterStateListener.class);
         final TrainingJobClusterStateListener trainingJobClusterStateListener = mock(TrainingJobClusterStateListener.class);
         doNothing().when(trainingJobClusterStateListener).clusterChanged(any(ClusterChangedEvent.class));
-        trainingJobClusterStateListenerMockedStatic.when(TrainingJobClusterStateListener::getInstance).thenReturn(trainingJobClusterStateListener);
+        trainingJobClusterStateListenerMockedStatic.when(TrainingJobClusterStateListener::getInstance)
+            .thenReturn(trainingJobClusterStateListener);
     }
 
     @AfterClass
