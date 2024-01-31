@@ -31,6 +31,8 @@ enum FilterIdsSelectorType{
     BITMAP = 0, BATCH = 1,
 };
 namespace faiss {
+
+// Using jlong to do Bitmap selector, jlong[] equals to lucene FixedBitSet#bits
 struct IDSelectorJlongBitmap : IDSelector {
     size_t n;
     const jlong* bitmap;
@@ -47,10 +49,7 @@ struct IDSelectorJlongBitmap : IDSelector {
         if (i >= n ) {
             return false;
         }
-        // signed shift will keep a negative index and force an
-        // array-index-out-of-bounds-exception, removing the need for an explicit check.
-        jlong bitmask = 1L << index;
-        return (bitmap[i] & bitmask) != 0;
+        return (bitmap[i] >> ( index & 63)) & 1;
     }
     ~IDSelectorJlongBitmap() override {}
 };

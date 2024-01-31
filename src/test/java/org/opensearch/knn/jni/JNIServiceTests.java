@@ -714,6 +714,65 @@ public class JNIServiceTests extends KNNTestCase {
         }
     }
 
+    public void testQueryIndex_faiss_filterIdSelector() throws IOException {
+        int k = 2;
+        int[] docIds = new int[]{84, 65};
+        float[][] vectors = new float[][]{{1, 2}, {3, 4}};
+
+        List<String> methods = ImmutableList.of(faissMethod);
+        List<SpaceType> spaces = ImmutableList.of(SpaceType.L2);
+        for (String method : methods) {
+            for (SpaceType spaceType : spaces) {
+                Path tmpFile = createTempFile();
+                JNIService.createIndex(
+                        docIds,
+                        vectors,
+                        tmpFile.toAbsolutePath().toString(),
+                        ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                        FAISS_NAME
+                );
+                assertTrue(tmpFile.toFile().length() > 0);
+
+                long pointer = JNIService.loadIndex(
+                        tmpFile.toAbsolutePath().toString(),
+                        ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                        FAISS_NAME
+                );
+                assertNotEquals(0, pointer);
+
+                for (float[] query : vectors) {
+                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, null, 0);
+                    assertEquals(k, results.length);
+                }
+
+                //Filter By FIXED bitset
+                for (int i = 0; i < vectors.length; i++) {
+                    int docId = docIds[i];
+                    float[] query = vectors[i];
+
+                    FixedBitSet fbs = new FixedBitSet(docId + 1);
+                    fbs.set(docId);
+                    long[] bits = fbs.getBits();
+                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, bits, 0);
+
+                    assertEquals(1, results.length);
+                    assertEquals(docId, results[0].getId());
+                }
+
+                //Filter By array
+                for (int i = 0; i < vectors.length; i++) {
+                    int docId = docIds[i];
+                    float[] query = vectors[i];
+
+                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, new long[]{docId}, 1);
+
+                    assertEquals(1, results.length);
+                    assertEquals(docId, results[0].getId());
+                }
+            }
+        }
+    }
+
     public void testQueryIndex_faiss_filter() throws IOException {
         int k = 10;
 
