@@ -23,8 +23,10 @@ import java.util.Map;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_SQFP16;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -100,7 +102,10 @@ public class FaissTests extends KNNTestCase {
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_M, hnswMParam)
             .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, ENCODER_SQFP16)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            .endObject()
             .endObject()
             .endObject()
             .endObject();
@@ -177,7 +182,10 @@ public class FaissTests extends KNNTestCase {
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_NLIST, nlists)
             .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, ENCODER_SQFP16)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            .endObject()
             .endObject()
             .endObject()
             .endObject();

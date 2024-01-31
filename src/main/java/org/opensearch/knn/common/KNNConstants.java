@@ -7,6 +7,8 @@ package org.opensearch.knn.common;
 
 import org.opensearch.knn.index.VectorDataType;
 
+import java.util.List;
+
 public class KNNConstants {
     // shared across library constants
     public static final String DIMENSION = "dimension";
@@ -89,8 +91,11 @@ public class KNNConstants {
     public static final String FAISS_IVF_DESCRIPTION = "IVF";
     public static final String FAISS_FLAT_DESCRIPTION = "Flat";
     public static final String FAISS_PQ_DESCRIPTION = "PQ";
-    public static final String ENCODER_SQFP16 = "SQfp16";
-    public static final String FAISS_SQFP16_DESCRIPTION = "SQfp16";
+    public static final String ENCODER_SQ = "sq";
+    public static final String FAISS_SQ_DESCRIPTION = "SQ";
+    public static final String FAISS_SQ_TYPE = "type";
+    public static final String FAISS_SQ_ENCODER_FP16 = "fp16";
+    public static final List<String> FAISS_SQ_ENCODER_TYPES = List.of(FAISS_SQ_ENCODER_FP16);
 
     // Parameter defaults/limits
     public static final Integer ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT = 1;

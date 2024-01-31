@@ -28,9 +28,14 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_S
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE_LIMIT;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.FAISS_IVF_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.FAISS_PQ_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_TYPES;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
@@ -76,14 +81,18 @@ class Faiss extends NativeLibrary {
                 ).build())
             )
             .build(),
-        KNNConstants.ENCODER_SQFP16,
-        MethodComponent.Builder.builder(KNNConstants.ENCODER_SQFP16)
+        ENCODER_SQ,
+        MethodComponent.Builder.builder(ENCODER_SQ)
+            .addParameter(
+                FAISS_SQ_TYPE,
+                new Parameter.StringParameter(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16, FAISS_SQ_ENCODER_TYPES::contains)
+            )
             .setMapGenerator(
                 ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
-                    KNNConstants.FAISS_SQFP16_DESCRIPTION,
+                    FAISS_SQ_DESCRIPTION,
                     methodComponent,
                     methodComponentContext
-                ).build())
+                ).addParameter(FAISS_SQ_TYPE, "", "").build())
             )
             .build()
     );

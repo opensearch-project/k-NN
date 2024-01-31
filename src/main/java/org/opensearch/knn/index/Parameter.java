@@ -96,6 +96,49 @@ public abstract class Parameter<T> {
     }
 
     /**
+     * String method parameter
+     */
+    public static class StringParameter extends Parameter<String> {
+
+        /**
+         * Constructor
+         *
+         * @param name         of the parameter
+         * @param defaultValue value to assign if the parameter is not set
+         * @param validator    used to validate the parameter value passed
+         */
+        public StringParameter(String name, String defaultValue, Predicate<String> validator) {
+            super(name, defaultValue, validator);
+        }
+
+        /**
+         * Check if the value passed in is valid
+         *
+         * @param value to be checked
+         * @return ValidationException produced by validation errors; null if no validations errors.
+         */
+        @Override
+        public ValidationException validate(Object value) {
+            ValidationException validationException = null;
+            if (!(value instanceof String)) {
+                validationException = new ValidationException();
+                validationException.addValidationError(
+                    String.format("Value not of type String for String " + "parameter \"%s\".", getName())
+                );
+                return validationException;
+            }
+
+            if (!validator.test((String) value)) {
+                validationException = new ValidationException();
+                validationException.addValidationError(
+                    String.format("Parameter validation failed for String " + "parameter \"%s\".", getName())
+                );
+            }
+            return validationException;
+        }
+    }
+
+    /**
      * MethodContext parameter. Some methods require sub-methods in order to implement some kind of functionality. For
      *  instance, faiss methods can contain an encoder along side the approximate nearest neighbor function to compress
      *  the input. This parameter makes it possible to add sub-methods to methods to support this kind of functionality

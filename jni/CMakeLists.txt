@@ -111,10 +111,10 @@ endif ()
 if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} STREQUAL ON)
     set(BUILD_TESTING OFF)          # Avoid building faiss tests
     set(BLA_STATIC ON)              # Statically link BLAS
-    if(NOT WIN32)
-        set(FAISS_OPT_LEVEL avx2)       # Keep optimization level as avx2 to improve performance on Linux and Mac
+    if(WIN32 OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
+        set(FAISS_OPT_LEVEL generic)    # Keep optimization level as generic on Windows OS as it is not supported due to MINGW64 compiler issue. Also, on aarch64 avx2 is not supported.
     else()
-        set(FAISS_OPT_LEVEL generic)    # Keep optimization level as generic on Windows OS as it is not supported due to MINGW64 compiler issue
+        set(FAISS_OPT_LEVEL avx2)       # Keep optimization level as avx2 to improve performance on Linux and Mac.
     endif()
 
     if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
@@ -156,7 +156,10 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
 
         # 0002-Custom-patch-to-support-sqfp16-neon.patch is a temporary patch to add NEON support to SQ.
         # Once the commit conflict issues wrt to Multi vector are resolved, this patch can be removed by updating the faiss submodule with corresponding commit.
-        execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace --3way ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0002-Custom-patch-to-support-sqfp16-neon.patch WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ERROR_VARIABLE ERROR_MSG RESULT_VARIABLE RESULT_CODE)
+        # Apply the patch if the OS is not Windows and Processor is aarch64.
+        if (NOT WIN32 AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
+            execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace --3way ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0002-Custom-patch-to-support-sqfp16-neon.patch WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ERROR_VARIABLE ERROR_MSG RESULT_VARIABLE RESULT_CODE)
+        endif()
 
         if(RESULT_CODE)
             message(FATAL_ERROR "Failed to apply patch:\n${ERROR_MSG}")
@@ -174,10 +177,10 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
         ${CMAKE_CURRENT_SOURCE_DIR}/src/knn_extension/faiss/utils/BitSet.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/knn_extension/faiss/MultiVectorResultCollector.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/knn_extension/faiss/MultiVectorResultCollectorFactory.cpp)
-    if(NOT WIN32)
-        target_link_libraries(${TARGET_LIB_FAISS} faiss_avx2 ${TARGET_LIB_COMMON} OpenMP::OpenMP_CXX)
-    else()
+    if(WIN32 OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64")
         target_link_libraries(${TARGET_LIB_FAISS} faiss ${TARGET_LIB_COMMON} OpenMP::OpenMP_CXX)
+    else()
+        target_link_libraries(${TARGET_LIB_FAISS} faiss_avx2 ${TARGET_LIB_COMMON} OpenMP::OpenMP_CXX)
     endif()
     target_include_directories(${TARGET_LIB_FAISS} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include

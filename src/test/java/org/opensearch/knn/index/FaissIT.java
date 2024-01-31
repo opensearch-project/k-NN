@@ -40,8 +40,10 @@ import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_SQFP16;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -301,8 +303,9 @@ public class FaissIT extends KNNRestTestCase {
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
             .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, ENCODER_SQFP16)
+            .field(NAME, ENCODER_SQ)
             .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
             .endObject()
             .endObject()
             .endObject()
@@ -344,8 +347,9 @@ public class FaissIT extends KNNRestTestCase {
             .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
             .startObject(PARAMETERS)
             .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, ENCODER_SQFP16)
+            .field(NAME, ENCODER_SQ)
             .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
             .endObject()
             .endObject()
             .endObject()
