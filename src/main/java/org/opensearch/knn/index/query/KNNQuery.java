@@ -31,6 +31,7 @@ public class KNNQuery extends Query {
     private final String field;
     private final float[] queryVector;
     private final int k;
+    private final float radius;
     private final String indexName;
 
     @Getter
@@ -44,12 +45,14 @@ public class KNNQuery extends Query {
         final float[] queryVector,
         final int k,
         final String indexName,
+        final float radius,
         final BitSetProducer parentsFilter
     ) {
         this.field = field;
         this.queryVector = queryVector;
         this.k = k;
         this.indexName = indexName;
+        this.radius = radius;
         this.parentsFilter = parentsFilter;
     }
 
@@ -58,6 +61,7 @@ public class KNNQuery extends Query {
         final float[] queryVector,
         final int k,
         final String indexName,
+        final float radius,
         final Query filterQuery,
         final BitSetProducer parentsFilter
     ) {
@@ -65,6 +69,7 @@ public class KNNQuery extends Query {
         this.queryVector = queryVector;
         this.k = k;
         this.indexName = indexName;
+        this.radius = radius;
         this.filterQuery = filterQuery;
         this.parentsFilter = parentsFilter;
     }
@@ -79,6 +84,10 @@ public class KNNQuery extends Query {
 
     public int getK() {
         return this.k;
+    }
+
+    public float getRadius() {
+        return this.radius;
     }
 
     public String getIndexName() {

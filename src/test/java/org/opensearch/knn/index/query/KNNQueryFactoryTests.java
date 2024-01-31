@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import org.apache.lucene.index.Term;
+import org.apache.lucene.search.FloatVectorSimilarityQuery;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
@@ -45,6 +46,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     private final String testIndexName = "test-index";
     private final String testFieldName = "test-field";
     private final int testK = 10;
+    private final float testRadius = 0.5f;
 
     public void testCreateCustomKNNQuery() {
         for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
@@ -54,6 +56,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
                 testFieldName,
                 testQueryVector,
                 testK,
+                0,
                 DEFAULT_VECTOR_DATA_TYPE_FIELD
             );
             assertTrue(query instanceof KNNQuery);
@@ -76,9 +79,28 @@ public class KNNQueryFactoryTests extends KNNTestCase {
                 testFieldName,
                 testQueryVector,
                 testK,
+                0,
                 DEFAULT_VECTOR_DATA_TYPE_FIELD
             );
             assertEquals(KnnFloatVectorQuery.class, query.getClass());
+        }
+    }
+
+    public void testCreateLuceneRadiusQuery() {
+        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
+            .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
+            .collect(Collectors.toList());
+        for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
+            Query query = KNNQueryFactory.create(
+                knnEngine,
+                testIndexName,
+                testFieldName,
+                testQueryVector,
+                0,
+                testRadius,
+                DEFAULT_VECTOR_DATA_TYPE_FIELD
+            );
+            assertEquals(FloatVectorSimilarityQuery.class, query.getClass());
         }
     }
 
@@ -102,6 +124,29 @@ public class KNNQueryFactoryTests extends KNNTestCase {
                 .build();
             Query query = KNNQueryFactory.create(createQueryRequest);
             assertEquals(KnnFloatVectorQuery.class, query.getClass());
+        }
+    }
+
+    public void testCreateLuceneRadiusQueryWithFilter() {
+        List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
+            .filter(knnEngine -> !KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine))
+            .collect(Collectors.toList());
+        for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
+            QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+            MappedFieldType testMapper = mock(MappedFieldType.class);
+            when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
+            final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(knnEngine)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .vector(testQueryVector)
+                .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                .context(mockQueryShardContext)
+                .filter(FILTER_QUERY_BUILDER)
+                .radius(testRadius)
+                .build();
+            Query query = KNNQueryFactory.create(createQueryRequest);
+            assertEquals(FloatVectorSimilarityQuery.class, query.getClass());
         }
     }
 

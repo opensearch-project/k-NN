@@ -69,6 +69,15 @@ public interface KNNLibrary {
     float score(float rawScore, SpaceType spaceType);
 
     /**
+     * Translate the distance radius input from end user to the right type radius for the library.
+     *
+     * @param distance  distance radius input from end user
+     * @param spaceType spaceType used to compute the radius
+     * @return transformed distance for the library
+     */
+    float distanceTransform(float distance, SpaceType spaceType);
+
+    /**
      * Validate the knnMethodContext for the given library. A ValidationException should be thrown if the method is
      * deemed invalid.
      *

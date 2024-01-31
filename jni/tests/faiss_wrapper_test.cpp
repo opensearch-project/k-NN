@@ -497,7 +497,7 @@ TEST(FaissCreateHnswSQfp16IndexTest, BasicAssertions) {
     // Assert that Index is of type IndexHNSWSQ
     ASSERT_NE(indexIDMap, nullptr);
     ASSERT_NE(dynamic_cast<faiss::IndexHNSWSQ*>(indexIDMap->index), nullptr);
-    
+
     // Clean up
     std::remove(indexPath.c_str());
 }

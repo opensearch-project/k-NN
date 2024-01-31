@@ -11,6 +11,8 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.search.ByteVectorSimilarityQuery;
+import org.apache.lucene.search.FloatVectorSimilarityQuery;
 import org.apache.lucene.search.KnnByteVectorQuery;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
@@ -53,6 +55,7 @@ public class KNNQueryFactory {
         String fieldName,
         float[] vector,
         int k,
+        float radius,
         VectorDataType vectorDataType
     ) {
         final CreateQueryRequest createQueryRequest = CreateQueryRequest.builder()
@@ -62,6 +65,7 @@ public class KNNQueryFactory {
             .vector(vector)
             .vectorDataType(vectorDataType)
             .k(k)
+            .radius(radius)
             .build();
         return create(createQueryRequest);
     }
@@ -77,6 +81,7 @@ public class KNNQueryFactory {
         final String indexName = createQueryRequest.getIndexName();
         final String fieldName = createQueryRequest.getFieldName();
         final int k = createQueryRequest.getK();
+        final float radius = createQueryRequest.getRadius();
         final float[] vector = createQueryRequest.getVector();
         final byte[] byteVector = createQueryRequest.getByteVector();
         final VectorDataType vectorDataType = createQueryRequest.getVectorDataType();
@@ -86,26 +91,32 @@ public class KNNQueryFactory {
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
             if (filterQuery != null && KNNEngine.getEnginesThatSupportsFilters().contains(createQueryRequest.getKnnEngine())) {
                 log.debug("Creating custom k-NN query with filters for index: {}, field: {} , k: {}", indexName, fieldName, k);
-                return new KNNQuery(fieldName, vector, k, indexName, filterQuery, parentFilter);
+                return new KNNQuery(fieldName, vector, k, indexName, radius, filterQuery, parentFilter);
             }
             log.debug(String.format("Creating custom k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
-            return new KNNQuery(fieldName, vector, k, indexName, parentFilter);
+            return new KNNQuery(fieldName, vector, k, indexName, radius, parentFilter);
         }
 
         log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
-        if (VectorDataType.BYTE == vectorDataType) {
-            return getKnnByteVectorQuery(fieldName, byteVector, k, filterQuery, parentFilter);
-        } else if (VectorDataType.FLOAT == vectorDataType) {
-            return getKnnFloatVectorQuery(fieldName, vector, k, filterQuery, parentFilter);
-        } else {
-            throw new IllegalArgumentException(
-                String.format(
-                    Locale.ROOT,
-                    "Invalid value provided for [%s] field. Supported values are [%s]",
-                    VECTOR_DATA_TYPE_FIELD,
-                    SUPPORTED_VECTOR_DATA_TYPES
-                )
-            );
+        switch (vectorDataType) {
+            case BYTE:
+                return radius > 0
+                    ? getByteVectorSimilarityQuery(fieldName, byteVector, radius, filterQuery)
+                    : getKnnByteVectorQuery(fieldName, byteVector, k, filterQuery, parentFilter);
+            case FLOAT:
+                return radius > 0
+                    ? getFloatVectorSimilarityQuery(fieldName, vector, radius, filterQuery)
+                    : getKnnFloatVectorQuery(fieldName, vector, k, filterQuery, parentFilter);
+            default:
+                throw new IllegalArgumentException(
+                    String.format(
+                        Locale.ROOT,
+                        "Invalid value provided for [%s] field. Supported values are [%s], but got: %s",
+                        VECTOR_DATA_TYPE_FIELD,
+                        SUPPORTED_VECTOR_DATA_TYPES,
+                        vectorDataType
+                    )
+                );
         }
     }
 
@@ -143,6 +154,32 @@ public class KNNQueryFactory {
         } else {
             return new DiversifyingChildrenFloatKnnVectorQuery(fieldName, floatVector, filterQuery, k, parentFilter);
         }
+    }
+
+    /**
+    * If radius is greater than 0, we return {@link FloatVectorSimilarityQuery} which will return all documents with similarity
+    * greater than or equal to the resultSimilarity. If filterQuery is not null, it will be used to filter the documents.
+    */
+    private static Query getFloatVectorSimilarityQuery(
+        final String fieldName,
+        final float[] floatVector,
+        final float resultSimilarity,
+        final Query filterQuery
+    ) {
+        return new FloatVectorSimilarityQuery(fieldName, floatVector, resultSimilarity, filterQuery);
+    }
+
+    /**
+    * If radius is greater than 0, we return {@link ByteVectorSimilarityQuery} which will return all documents with similarity
+    * greater than or equal to the resultSimilarity. If filterQuery is not null, it will be used to filter the documents.
+    */
+    private static Query getByteVectorSimilarityQuery(
+        final String fieldName,
+        final byte[] byteVector,
+        final float resultSimilarity,
+        final Query filterQuery
+    ) {
+        return new ByteVectorSimilarityQuery(fieldName, byteVector, resultSimilarity, filterQuery);
     }
 
     private static Query getFilterQuery(CreateQueryRequest createQueryRequest) {
@@ -205,6 +242,8 @@ public class KNNQueryFactory {
         private VectorDataType vectorDataType;
         @Getter
         private int k;
+        @Getter
+        private float radius;
         private QueryBuilder filter;
         // can be null in cases filter not passed with the knn query
         private QueryShardContext context;

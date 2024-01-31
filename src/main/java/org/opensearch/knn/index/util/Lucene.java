@@ -15,6 +15,7 @@ import org.opensearch.knn.index.SpaceType;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
@@ -24,6 +25,8 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
  * KNN Library for Lucene
  */
 public class Lucene extends JVMLibrary {
+
+    Map<SpaceType, Function<Float, Float>> distanceTranslation;
 
     final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
         METHOD_HNSW,
@@ -45,7 +48,14 @@ public class Lucene extends JVMLibrary {
         ).addSpaces(SpaceType.L2, SpaceType.COSINESIMIL).build()
     );
 
-    final static Lucene INSTANCE = new Lucene(METHODS, Version.LATEST.toString());
+    private final static Map<SpaceType, Function<Float, Float>> DISTANCE_TRANSLATIONS = ImmutableMap.<
+        SpaceType,
+        Function<Float, Float>>builder()
+        .put(SpaceType.COSINESIMIL, distance -> (2 - distance) / 2)
+        .put(SpaceType.L2, distance -> 1 / (1 + distance))
+        .build();
+
+    final static Lucene INSTANCE = new Lucene(METHODS, Version.LATEST.toString(), DISTANCE_TRANSLATIONS);
 
     /**
      * Constructor
@@ -53,8 +63,9 @@ public class Lucene extends JVMLibrary {
      * @param methods Map of k-NN methods that the library supports
      * @param version String representing version of library
      */
-    Lucene(Map<String, KNNMethod> methods, String version) {
+    Lucene(Map<String, KNNMethod> methods, String version, Map<SpaceType, Function<Float, Float>> distanceTranslation) {
         super(methods, version);
+        this.distanceTranslation = distanceTranslation;
     }
 
     @Override
@@ -73,6 +84,16 @@ public class Lucene extends JVMLibrary {
         // actually invert the distance score so that a higher number is a better score. So, we can just return the
         // score provided.
         return rawScore;
+    }
+
+    @Override
+    public float distanceTransform(float distance, SpaceType spaceType) {
+        // Lucene requires score threshold to be parameterized when calling the radius search.
+        if (this.distanceTranslation.containsKey(spaceType)) {
+            return this.distanceTranslation.get(spaceType).apply(distance);
+        } else {
+            throw new UnsupportedOperationException("Distance translation for space type " + spaceType + " is not supported");
+        }
     }
 
     @Override

@@ -16,6 +16,7 @@ import org.junit.After;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
+import org.opensearch.common.Nullable;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.query.QueryBuilders;
@@ -34,7 +35,6 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
@@ -51,7 +51,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
     private static final int M = 16;
 
     private static final Float[][] TEST_INDEX_VECTORS = { { 1.0f, 1.0f, 1.0f }, { 2.0f, 2.0f, 2.0f }, { 3.0f, 3.0f, 3.0f } };
-
+    private static final Float[][] TEST_COSINSIMI_INDEX_VECTORS = { { 6.0f, 7.0f, 3.0f }, { 3.0f, 2.0f, 5.0f }, { 4.0f, 5.0f, 7.0f } };
     private static final float[][] TEST_QUERY_VECTORS = { { 1.0f, 1.0f, 1.0f }, { 2.0f, 2.0f, 2.0f }, { 3.0f, 3.0f, 3.0f } };
 
     private static final Map<VectorSimilarityFunction, Function<Float, Float>> VECTOR_SIMILARITY_TO_SCORE = ImmutableMap.of(
@@ -349,6 +349,73 @@ public class LuceneEngineIT extends KNNRestTestCase {
         assertArrayEquals(knnResultsBeforeIndexClosure.toArray(), knnResultsAfterIndexClosure.toArray());
     }
 
+    public void testRadiusSearch_usingL2Metrics_usingFloatType() throws Exception {
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
+        for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
+            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
+        }
+
+        final float[] searchVector = TEST_QUERY_VECTORS[0];
+        final float radius = 3.5f;
+        final int expectedResults = 2;
+
+        validateRadiusSearchResults(searchVector, radius, SpaceType.L2, expectedResults, null, null);
+    }
+
+    public void testRadiusSearch_usingCosineMetrics_usingFloatType() throws Exception {
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.COSINESIMIL, VectorDataType.FLOAT);
+        for (int j = 0; j < TEST_COSINSIMI_INDEX_VECTORS.length; j++) {
+            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_COSINSIMI_INDEX_VECTORS[j]);
+        }
+
+        final float[] searchVector = TEST_QUERY_VECTORS[0];
+        final float radius = 0.03f;
+        final int expectedResults = 1;
+
+        validateRadiusSearchResults(searchVector, radius, SpaceType.COSINESIMIL, expectedResults, null, null);
+    }
+
+    public void testRadiusSearch_usingL2Metrics_usingByteType() throws Exception {
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.BYTE);
+        for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
+            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
+        }
+
+        final float[] searchVector = TEST_QUERY_VECTORS[0];
+        final float radius = 3.5f;
+        final int expectedResults = 2;
+
+        validateRadiusSearchResults(searchVector, radius, SpaceType.L2, expectedResults, null, null);
+    }
+
+    public void testRadiusSearch_usingCosineMetrics_usingByteType() throws Exception {
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.COSINESIMIL, VectorDataType.BYTE);
+        for (int j = 0; j < TEST_COSINSIMI_INDEX_VECTORS.length; j++) {
+            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_COSINSIMI_INDEX_VECTORS[j]);
+        }
+
+        final float[] searchVector = TEST_QUERY_VECTORS[0];
+        final float radius = 0.05f;
+        final int expectedResults = 2;
+
+        validateRadiusSearchResults(searchVector, radius, SpaceType.COSINESIMIL, expectedResults, null, null);
+    }
+
+    public void testRadiusSearch_withFilter_usingL2Metrics_usingFloatType() throws Exception {
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
+        addKnnDocWithAttributes(DOC_ID, new float[] { 6.0f, 7.9f, 3.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
+        addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.2f, 2.1f, 4.8f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
+        addKnnDocWithAttributes(DOC_ID_3, new float[] { 4.1f, 5.0f, 7.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
+
+        refreshIndex(INDEX_NAME);
+
+        final float[] searchVector = { 6.0f, 6.0f, 4.1f };
+        final float radius = 15.0f;
+        final int expectedResults = 1;
+
+        validateRadiusSearchResults(searchVector, radius, SpaceType.L2, expectedResults, COLOR_FIELD_NAME, "red");
+    }
+
     private void createKnnIndexMappingWithLuceneEngine(int dimension, SpaceType spaceType, VectorDataType vectorDataType) throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
@@ -448,5 +515,38 @@ public class LuceneEngineIT extends KNNRestTestCase {
                 .collect(Collectors.toList())
                 .containsAll(expectedDocIdsKLimitsFilterResult)
         );
+    }
+
+    private void validateRadiusSearchResults(
+        final float[] searchVector,
+        final float radius,
+        final SpaceType spaceType,
+        final int expectedResults,
+        @Nullable final String filterField,
+        @Nullable final String filterValue
+    ) throws Exception {
+        KNNQueryBuilder queryBuilder;
+        if (filterField != null && filterValue != null) {
+            queryBuilder = new KNNQueryBuilder(FIELD_NAME, searchVector, radius, QueryBuilders.termQuery(filterField, filterValue));
+        } else {
+            queryBuilder = new KNNQueryBuilder(FIELD_NAME, searchVector, radius);
+        }
+
+        final String responseBody = EntityUtils.toString(searchKNNIndex(INDEX_NAME, queryBuilder, expectedResults).getEntity());
+        final List<KNNResult> radiusResults = parseSearchResponse(responseBody, FIELD_NAME);
+
+        assertEquals(expectedResults, radiusResults.size());
+
+        List<Float> actualScores = parseSearchResponseScore(responseBody, FIELD_NAME);
+        for (KNNResult result : radiusResults) {
+            float[] primitiveArray = Floats.toArray(Arrays.stream(result.getVector()).collect(Collectors.toList()));
+            float distance = TestUtils.computeDistFromSpaceType(spaceType, primitiveArray, searchVector);
+            float rawScore = VECTOR_SIMILARITY_TO_SCORE.get(spaceType.getVectorSimilarityFunction()).apply(distance);
+            if (spaceType == SpaceType.COSINESIMIL) {
+                distance = 1 - distance;
+            }
+            assert distance <= radius;
+            assertEquals(KNNEngine.LUCENE.score(rawScore, spaceType), actualScores.get(radiusResults.indexOf(result)), 0.0001);
+        }
     }
 }

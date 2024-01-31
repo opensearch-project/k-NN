@@ -64,6 +64,11 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
         }
 
         @Override
+        public float distanceTransform(float distance, SpaceType spaceType) {
+            return 0;
+        }
+
+        @Override
         public ValidationException validateMethod(KNNMethodContext knnMethodContext) {
             return null;
         }

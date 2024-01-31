@@ -153,6 +153,11 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
+    public float distanceTransform(float distance, SpaceType spaceType) {
+        return knnLibrary.distanceTransform(distance, spaceType);
+    }
+
+    @Override
     public ValidationException validateMethod(KNNMethodContext knnMethodContext) {
         return knnLibrary.validateMethod(knnMethodContext);
     }

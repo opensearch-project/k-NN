@@ -128,6 +128,11 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         }
 
         @Override
+        public float distanceTransform(float distance, SpaceType spaceType) {
+            return 0;
+        }
+
+        @Override
         public int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension) {
             return 0;
         }

@@ -64,5 +64,10 @@ public class NativeLibraryTests extends KNNTestCase {
         ) {
             super(methods, scoreTranslation, currentVersion, extension);
         }
+
+        @Override
+        public float distanceTransform(float distance, SpaceType spaceType) {
+            return 0;
+        }
     }
 }
