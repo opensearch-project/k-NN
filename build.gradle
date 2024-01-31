@@ -17,6 +17,7 @@ buildscript {
         version_qualifier = System.getProperty("build.version_qualifier", "")
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+        enable_SIMD = System.getProperty("enable_SIMD", "false")
 
         version_tokens = opensearch_version.tokenize('-')
         opensearch_build = version_tokens[0] + '.0'
@@ -297,10 +298,10 @@ task cmakeJniLib(type:Exec) {
     workingDir 'jni'
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         dependsOn windowsPatches
-        commandLine 'cmake', '.', "-G", "Unix Makefiles", "-DKNN_PLUGIN_VERSION=${opensearch_version}", "-DBLAS_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll", "-DLAPACK_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll"
+        commandLine 'cmake', '.', "-G", "Unix Makefiles", "-DKNN_PLUGIN_VERSION=${opensearch_version}", "-DBLAS_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll", "-DLAPACK_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll", "-DENABLE_SIMD=${enable_SIMD}"
     }
     else {
-        commandLine 'cmake', '.', "-DKNN_PLUGIN_VERSION=${opensearch_version}"
+        commandLine 'cmake', '.', "-DKNN_PLUGIN_VERSION=${opensearch_version}", "-DENABLE_SIMD=${enable_SIMD}"
     }
 }
 
