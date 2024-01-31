@@ -716,8 +716,8 @@ public class JNIServiceTests extends KNNTestCase {
 
     public void testQueryIndex_faiss_filterIdSelector() throws IOException {
         int k = 2;
-        int[] docIds = new int[]{84, 65};
-        float[][] vectors = new float[][]{{1, 2}, {3, 4}};
+        int[] docIds = new int[] { 84, 65 };
+        float[][] vectors = new float[][] { { 1, 2 }, { 3, 4 } };
 
         List<String> methods = ImmutableList.of(faissMethod);
         List<SpaceType> spaces = ImmutableList.of(SpaceType.L2);
@@ -725,18 +725,18 @@ public class JNIServiceTests extends KNNTestCase {
             for (SpaceType spaceType : spaces) {
                 Path tmpFile = createTempFile();
                 JNIService.createIndex(
-                        docIds,
-                        vectors,
-                        tmpFile.toAbsolutePath().toString(),
-                        ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.SPACE_TYPE, spaceType.getValue()),
-                        FAISS_NAME
+                    docIds,
+                    vectors,
+                    tmpFile.toAbsolutePath().toString(),
+                    ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                    FAISS_NAME
                 );
                 assertTrue(tmpFile.toFile().length() > 0);
 
                 long pointer = JNIService.loadIndex(
-                        tmpFile.toAbsolutePath().toString(),
-                        ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
-                        FAISS_NAME
+                    tmpFile.toAbsolutePath().toString(),
+                    ImmutableMap.of(KNNConstants.SPACE_TYPE, spaceType.getValue()),
+                    FAISS_NAME
                 );
                 assertNotEquals(0, pointer);
 
@@ -745,7 +745,7 @@ public class JNIServiceTests extends KNNTestCase {
                     assertEquals(k, results.length);
                 }
 
-                //Filter By FIXED bitset
+                // Filter By FIXED bitset
                 for (int i = 0; i < vectors.length; i++) {
                     int docId = docIds[i];
                     float[] query = vectors[i];
@@ -759,12 +759,12 @@ public class JNIServiceTests extends KNNTestCase {
                     assertEquals(docId, results[0].getId());
                 }
 
-                //Filter By array
+                // Filter By array
                 for (int i = 0; i < vectors.length; i++) {
                     int docId = docIds[i];
                     float[] query = vectors[i];
 
-                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, new long[]{docId}, 1);
+                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, new long[] { docId }, 1);
 
                     assertEquals(1, results.length);
                     assertEquals(docId, results[0].getId());
@@ -802,7 +802,7 @@ public class JNIServiceTests extends KNNTestCase {
                     assertEquals(k, results.length);
                 }
 
-                //Filter By FIXED bitset
+                // Filter By FIXED bitset
                 for (int i = 0; i < testData.indexData.docs.length; i++) {
                     int docId = testData.indexData.docs[i];
                     float[] query = testData.indexData.vectors[i];
@@ -816,11 +816,10 @@ public class JNIServiceTests extends KNNTestCase {
                     assertEquals(docId, results[0].getId());
                 }
 
-                //Filter By array
+                // Filter By array
                 for (int i = 0; i < testData.indexData.docs.length; i++) {
                     int docId = testData.indexData.docs[i];
                     float[] query = testData.indexData.vectors[i];
-
 
                     KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, new long[] { docId }, 1);
 

@@ -346,8 +346,9 @@ public class KNNWeightTests extends KNNTestCase {
         for (int docId : filterDocIds) {
             filterBitSet.set(docId);
         }
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), eq(filterBitSet.getBits()), anyInt()))
-            .thenReturn(getFilteredKNNQueryResults());
+        jniServiceMockedStatic.when(
+            () -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), eq(filterBitSet.getBits()), anyInt())
+        ).thenReturn(getFilteredKNNQueryResults());
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
         final Bits liveDocsBits = mock(Bits.class);
@@ -405,7 +406,9 @@ public class KNNWeightTests extends KNNTestCase {
         assertNotNull(docIdSetIterator);
         assertEquals(FILTERED_DOC_ID_TO_SCORES.size(), docIdSetIterator.cost());
 
-        jniServiceMockedStatic.verify(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), eq(filterBitSet.getBits()), anyInt()));
+        jniServiceMockedStatic.verify(
+            () -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), eq(filterBitSet.getBits()), anyInt())
+        );
 
         final List<Integer> actualDocIds = new ArrayList<>();
         final Map<Integer, Float> translatedScores = getTranslatedScores(SpaceType.L2::scoreTranslation);

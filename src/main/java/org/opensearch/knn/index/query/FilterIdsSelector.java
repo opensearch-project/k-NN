@@ -11,7 +11,6 @@
 
 package org.opensearch.knn.index.query;
 
-
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
@@ -63,7 +62,6 @@ public class FilterIdsSelector {
         return filterType;
     }
 
-
     /**
      * This function takes a call on what ID Selector to use:
      * https://github.com/facebookresearch/faiss/wiki/Setting-search-parameters-for-one-query#idselectorarray-idselectorbatch-and-idselectorbitmap
@@ -91,7 +89,7 @@ public class FilterIdsSelector {
              */
             filterIds = ((FixedBitSet) filterIdsBitSet).getBits();
             filterType = FilterIdsSelector.FilterIdsSelectorType.BITMAP;
-        } else if(cardinality < MAX_ID_SELECT_ARRAY) {
+        } else if (cardinality < MAX_ID_SELECT_ARRAY) {
             /**
              * When filterIds is Sparse filter, using BATCH filter.
              */
@@ -116,4 +114,3 @@ public class FilterIdsSelector {
         return new FilterIdsSelector(filterIds, filterType);
     }
 }
-

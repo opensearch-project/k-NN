@@ -102,8 +102,14 @@ public class JNIService {
      * @PARAM filterIdsType how to filter ids: Batch or BitMap
      * @return KNNQueryResult array of k neighbors
      */
-    public static KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k,
-                                              String engineName, long[] filteredIds, int filterIdsType) {
+    public static KNNQueryResult[] queryIndex(
+        long indexPointer,
+        float[] queryVector,
+        int k,
+        String engineName,
+        long[] filteredIds,
+        int filterIdsType
+    ) {
         if (KNNEngine.NMSLIB.getName().equals(engineName)) {
             return NmslibService.queryIndex(indexPointer, queryVector, k);
         }

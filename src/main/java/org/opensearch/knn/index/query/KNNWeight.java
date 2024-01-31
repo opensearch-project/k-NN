@@ -245,7 +245,7 @@ public class KNNWeight extends Weight {
             throw new RuntimeException(e);
         }
 
-        //From cardinality select different filterIds type
+        // From cardinality select different filterIds type
         FilterIdsSelector filterIdsSelector = FilterIdsSelector.getIdSelectorType(filterIdsBitSet, cardinality);
         long[] filterIds = filterIdsSelector.getFilterIds();
         FilterIdsSelector.FilterIdsSelectorType filterType = filterIdsSelector.getFilterType();
@@ -411,6 +411,5 @@ public class KNNWeight extends Weight {
     private boolean canDoExactSearchAfterANNSearch(final int filterIdsCount, final int annResultCount) {
         return filterWeight != null && filterIdsCount >= knnQuery.getK() && knnQuery.getK() > annResultCount;
     }
-
 
 }
