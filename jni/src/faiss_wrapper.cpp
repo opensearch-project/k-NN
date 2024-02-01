@@ -228,7 +228,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
     // create the filterSearch params if the filterIdsJ is not a null pointer
     if(filterIdsJ != nullptr) {
         int *filteredIdsArray = jniUtil->GetIntArrayElements(env, filterIdsJ, nullptr);
-        int filterIdsLength = env->GetArrayLength(filterIdsJ);
+        int filterIdsLength = jniUtil->GetJavaIntArrayLength(env, filterIdsJ);
         std::unique_ptr<faiss::IDSelector> idSelector;
         FilterIdsSelectorType idSelectorType = getIdSelectorType(filteredIdsArray, filterIdsLength);
         // start with empty vectors for 2 different types of empty Selectors. We need define them here to avoid copying of data
@@ -248,7 +248,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
             const int bitsetArraySize = (maxIdValue >> 3) + 1;
             bitmap.resize(bitsetArraySize, 0);
             buildFilterIdsBitMap(filteredIdsArray, filterIdsLength, bitmap.data());
-            idSelector.reset(new faiss::IDSelectorBitmap(filterIdsLength, bitmap.data()));
+            idSelector.reset(new faiss::IDSelectorBitmap(bitsetArraySize, bitmap.data()));
         }
         faiss::SearchParameters *searchParameters;
         faiss::SearchParametersHNSW hnswParams;
