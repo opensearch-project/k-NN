@@ -205,7 +205,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
 
     // Create the index
     std::unique_ptr<faiss::Index> createdIndex(
-            test_util::FaissCreateIndex(2, method, metricType));
+            test_util::FaissCreateIndex(dim, method, metricType));
     auto createdIndexWithData =
             test_util::FaissAddData(createdIndex.get(), ids, vectors);
 
@@ -262,7 +262,7 @@ TEST(FaissQueryIndexWithFilterTest1435, BasicAssertions) {
 
     // Create the index
     std::unique_ptr<faiss::Index> createdIndex(
-            test_util::FaissCreateIndex(2, method, metricType));
+            test_util::FaissCreateIndex(dim, method, metricType));
     auto createdIndexWithData =
             test_util::FaissAddData(createdIndex.get(), ids, vectors);
 
@@ -335,7 +335,7 @@ TEST(FaissQueryIndexWithParentFilterTest, BasicAssertions) {
 
     // Create the index
     std::unique_ptr<faiss::Index> createdIndex(
-            test_util::FaissCreateIndex(2, method, metricType));
+            test_util::FaissCreateIndex(dim, method, metricType));
     auto createdIndexWithData =
             test_util::FaissAddData(createdIndex.get(), ids, vectors);
 
@@ -474,7 +474,7 @@ TEST(FaissCreateHnswSQfp16IndexTest, BasicAssertions) {
     // Assert that Index is of type IndexHNSWSQ
     ASSERT_NE(indexIDMap, nullptr);
     ASSERT_NE(dynamic_cast<faiss::IndexHNSWSQ*>(indexIDMap->index), nullptr);
-
+    
     // Clean up
     std::remove(indexPath.c_str());
 }

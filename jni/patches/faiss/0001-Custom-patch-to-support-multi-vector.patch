@@ -1,90 +1,131 @@
-From baa7e23c54637d68adac45f09633939b402405a9 Mon Sep 17 00:00:00 2001
+From 0d1385959ddecabb2825957e48ff28ff0e8abf53 Mon Sep 17 00:00:00 2001
 From: Heemin Kim <heemin@amazon.com>
-Date: Wed, 6 Dec 2023 16:33:52 -0800
-Subject: [PATCH] Custom patch to support multi-vector
+Date: Tue, 30 Jan 2024 14:43:56 -0800
+Subject: [PATCH] Add IDGrouper for HNSW
 
 Signed-off-by: Heemin Kim <heemin@amazon.com>
 ---
- faiss/CMakeLists.txt                |  2 +
- faiss/Index.h                       |  6 ++-
- faiss/IndexIDMap.cpp                | 24 ++++++++++
- faiss/impl/HNSW.cpp                 | 27 +++++++----
- faiss/impl/ResultCollector.h        | 74 +++++++++++++++++++++++++++++
- faiss/impl/ResultCollectorFactory.h | 33 +++++++++++++
- 6 files changed, 154 insertions(+), 12 deletions(-)
- create mode 100644 faiss/impl/ResultCollector.h
- create mode 100644 faiss/impl/ResultCollectorFactory.h
+ faiss/CMakeLists.txt       |   3 +
+ faiss/Index.h              |   8 +-
+ faiss/IndexHNSW.cpp        |  13 ++-
+ faiss/IndexIDMap.cpp       |  29 ++++++
+ faiss/IndexIDMap.h         |  22 +++++
+ faiss/impl/HNSW.cpp        |  10 +-
+ faiss/impl/IDGrouper.cpp   |  51 ++++++++++
+ faiss/impl/IDGrouper.h     |  51 ++++++++++
+ faiss/impl/ResultHandler.h | 187 ++++++++++++++++++++++++++++++++++++
+ faiss/utils/GroupHeap.h    | 182 +++++++++++++++++++++++++++++++++++
+ tests/CMakeLists.txt       |   2 +
+ tests/test_group_heap.cpp  |  98 +++++++++++++++++++
+ tests/test_id_grouper.cpp  | 189 +++++++++++++++++++++++++++++++++++++
+ 13 files changed, 838 insertions(+), 7 deletions(-)
+ create mode 100644 faiss/impl/IDGrouper.cpp
+ create mode 100644 faiss/impl/IDGrouper.h
+ create mode 100644 faiss/utils/GroupHeap.h
+ create mode 100644 tests/test_group_heap.cpp
+ create mode 100644 tests/test_id_grouper.cpp
 
 diff --git a/faiss/CMakeLists.txt b/faiss/CMakeLists.txt
-index 27701586..af682a05 100644
+index a890a46f..137e68d4 100644
 --- a/faiss/CMakeLists.txt
 +++ b/faiss/CMakeLists.txt
-@@ -162,6 +162,8 @@ set(FAISS_HEADERS
-   impl/ProductQuantizer.h
-   impl/Quantizer.h
-   impl/ResidualQuantizer.h
-+  impl/ResultCollector.h
-+  impl/ResultCollectorFactory.h
-   impl/ResultHandler.h
-   impl/ScalarQuantizer.h
-   impl/ThreadedIndex-inl.h
+@@ -54,6 +54,7 @@ set(FAISS_SRC
+   impl/AuxIndexStructures.cpp
+   impl/CodePacker.cpp
+   impl/IDSelector.cpp
++  impl/IDGrouper.cpp
+   impl/FaissException.cpp
+   impl/HNSW.cpp
+   impl/NSG.cpp
+@@ -149,6 +150,7 @@ set(FAISS_HEADERS
+   impl/AuxIndexStructures.h
+   impl/CodePacker.h
+   impl/IDSelector.h
++  impl/IDGrouper.h
+   impl/DistanceComputer.h
+   impl/FaissAssert.h
+   impl/FaissException.h
+@@ -183,6 +185,7 @@ set(FAISS_HEADERS
+   invlists/InvertedLists.h
+   invlists/InvertedListsIOHook.h
+   utils/AlignedTable.h
++  utils/GroupHeap.h
+   utils/Heap.h
+   utils/WorkerThread.h
+   utils/distances.h
 diff --git a/faiss/Index.h b/faiss/Index.h
-index 4b4b302b..13eab0c0 100644
+index 4b4b302b..3b673d1e 100644
 --- a/faiss/Index.h
 +++ b/faiss/Index.h
-@@ -38,11 +38,12 @@
+@@ -38,9 +38,10 @@
  
  namespace faiss {
  
 -/// Forward declarations see impl/AuxIndexStructures.h, impl/IDSelector.h and
 -/// impl/DistanceComputer.h
-+/// Forward declarations see impl/AuxIndexStructures.h, impl/IDSelector.h,
-+/// impl/DistanceComputer.h, and impl/ResultCollectorFactory.h
++/// Forward declarations see impl/AuxIndexStructures.h, impl/IDSelector.h
++/// ,impl/IDGrouper.h and impl/DistanceComputer.h
  struct IDSelector;
++struct IDGrouper;
  struct RangeSearchResult;
  struct DistanceComputer;
-+struct ResultCollectorFactory;
  
- /** Parent class for the optional search paramenters.
-  *
-@@ -52,6 +53,7 @@ struct DistanceComputer;
+@@ -52,6 +53,9 @@ struct DistanceComputer;
  struct SearchParameters {
      /// if non-null, only these IDs will be considered during search.
      IDSelector* sel = nullptr;
-+    ResultCollectorFactory* col = nullptr;
++    /// if non-null, only best matched ID per group will be included in the
++    /// result.
++    IDGrouper* grp = nullptr;
      /// make sure we can dynamic_cast this
      virtual ~SearchParameters() {}
  };
+diff --git a/faiss/IndexHNSW.cpp b/faiss/IndexHNSW.cpp
+index 9a67332d..a5e0fea0 100644
+--- a/faiss/IndexHNSW.cpp
++++ b/faiss/IndexHNSW.cpp
+@@ -354,10 +354,17 @@ void IndexHNSW::search(
+         const SearchParameters* params_in) const {
+     FAISS_THROW_IF_NOT(k > 0);
+ 
+-    using RH = HeapBlockResultHandler<HNSW::C>;
+-    RH bres(n, distances, labels, k);
++    if (params_in && params_in->grp) {
++        using RH = GroupedHeapBlockResultHandler<HNSW::C>;
++        RH bres(n, distances, labels, k, params_in->grp);
+ 
+-    hnsw_search(this, n, x, bres, params_in);
++        hnsw_search(this, n, x, bres, params_in);
++    } else {
++        using RH = HeapBlockResultHandler<HNSW::C>;
++        RH bres(n, distances, labels, k);
++
++        hnsw_search(this, n, x, bres, params_in);
++    }
+ 
+     if (is_similarity_metric(this->metric_type)) {
+         // we need to revert the negated distances
 diff --git a/faiss/IndexIDMap.cpp b/faiss/IndexIDMap.cpp
-index 7972bec9..0f82a17c 100644
+index e093bbda..e24365d5 100644
 --- a/faiss/IndexIDMap.cpp
 +++ b/faiss/IndexIDMap.cpp
-@@ -18,6 +18,7 @@
- #include <faiss/impl/FaissAssert.h>
- #include <faiss/utils/Heap.h>
- #include <faiss/utils/WorkerThread.h>
-+#include <faiss/impl/ResultCollectorFactory.h>
- 
- namespace faiss {
- 
-@@ -102,6 +103,24 @@ struct ScopedSelChange {
+@@ -102,6 +102,23 @@ struct ScopedSelChange {
      }
  };
  
-+// RAII object to reset the id_map parameter in ResultCollectorFactory object
-+// This object make sure to reset the id_map parameter in ResultCollectorFactory
-+// once the program exist current method scope.
-+struct ScopedColChange {
-+    ResultCollectorFactory* collector_factory = nullptr;
-+    void set(
-+            ResultCollectorFactory* collector_factory,
-+            const std::vector<int64_t>* id_map) {
-+        this->collector_factory = collector_factory;
-+        collector_factory->id_map = id_map;
++/// RAII object to reset the IDGrouper in the params object
++struct ScopedGrpChange {
++    SearchParameters* params = nullptr;
++    IDGrouper* old_grp = nullptr;
++
++    void set(SearchParameters* params_2, IDGrouper* new_grp) {
++        this->params = params_2;
++        old_grp = params_2->grp;
++        params_2->grp = new_grp;
 +    }
-+    ~ScopedColChange() {
-+        if (collector_factory) {
-+            collector_factory->id_map = nullptr;
++    ~ScopedGrpChange() {
++        if (params) {
++            params->grp = old_grp;
 +        }
 +    }
 +};
@@ -92,97 +133,161 @@ index 7972bec9..0f82a17c 100644
  } // namespace
  
  template <typename IndexT>
-@@ -114,6 +133,7 @@ void IndexIDMapTemplate<IndexT>::search(
+@@ -114,6 +131,8 @@ void IndexIDMapTemplate<IndexT>::search(
          const SearchParameters* params) const {
      IDSelectorTranslated this_idtrans(this->id_map, nullptr);
      ScopedSelChange sel_change;
-+    ScopedColChange col_change;
++    IDGrouperTranslated this_idgrptrans(this->id_map, nullptr);
++    ScopedGrpChange grp_change;
  
      if (params && params->sel) {
          auto idtrans = dynamic_cast<const IDSelectorTranslated*>(params->sel);
-@@ -131,6 +151,10 @@ void IndexIDMapTemplate<IndexT>::search(
+@@ -131,6 +150,16 @@ void IndexIDMapTemplate<IndexT>::search(
              sel_change.set(params_non_const, &this_idtrans);
          }
      }
 +
-+    if (params && params->col && !params->col->id_map) {
-+        col_change.set(params->col, &this->id_map);
++    if (params && params->grp) {
++        auto idtrans = dynamic_cast<const IDGrouperTranslated*>(params->grp);
++
++        if (!idtrans) {
++            auto params_non_const = const_cast<SearchParameters*>(params);
++            this_idgrptrans.grp = params->grp;
++            grp_change.set(params_non_const, &this_idgrptrans);
++        }
 +    }
      index->search(n, x, k, distances, labels, params);
      idx_t* li = labels;
  #pragma omp parallel for
+diff --git a/faiss/IndexIDMap.h b/faiss/IndexIDMap.h
+index 2d164123..a68887bd 100644
+--- a/faiss/IndexIDMap.h
++++ b/faiss/IndexIDMap.h
+@@ -9,6 +9,7 @@
+ 
+ #include <faiss/Index.h>
+ #include <faiss/IndexBinary.h>
++#include <faiss/impl/IDGrouper.h>
+ #include <faiss/impl/IDSelector.h>
+ 
+ #include <unordered_map>
+@@ -124,4 +125,25 @@ struct IDSelectorTranslated : IDSelector {
+     }
+ };
+ 
++// IDGrouper that translates the ids using an IDMap
++struct IDGrouperTranslated : IDGrouper {
++    const std::vector<int64_t>& id_map;
++    const IDGrouper* grp;
++
++    IDGrouperTranslated(
++            const std::vector<int64_t>& id_map,
++            const IDGrouper* grp)
++            : id_map(id_map), grp(grp) {}
++
++    IDGrouperTranslated(IndexBinaryIDMap& index_idmap, const IDGrouper* grp)
++            : id_map(index_idmap.id_map), grp(grp) {}
++
++    IDGrouperTranslated(IndexIDMap& index_idmap, const IDGrouper* grp)
++            : id_map(index_idmap.id_map), grp(grp) {}
++
++    idx_t get_group(idx_t id) const override {
++        return grp->get_group(id_map[id]);
++    }
++};
++
+ } // namespace faiss
 diff --git a/faiss/impl/HNSW.cpp b/faiss/impl/HNSW.cpp
-index 9fc201ea..5b5900d1 100644
+index fb4de678..b6f602a0 100644
 --- a/faiss/impl/HNSW.cpp
 +++ b/faiss/impl/HNSW.cpp
-@@ -14,6 +14,7 @@
- #include <faiss/impl/AuxIndexStructures.h>
- #include <faiss/impl/DistanceComputer.h>
- #include <faiss/impl/IDSelector.h>
-+#include <faiss/impl/ResultCollectorFactory.h>
- #include <faiss/utils/prefetch.h>
- 
- #include <faiss/impl/platform_macros.h>
-@@ -530,6 +531,15 @@ int search_from_candidates(
-         int level,
-         int nres_in = 0,
-         const SearchParametersHNSW* params = nullptr) {
-+    ResultCollectorFactory defaultFactory;
-+    ResultCollectorFactory* collectorFactory;
-+    if (params == nullptr || params->col == nullptr) {
-+        collectorFactory = &defaultFactory;
-+    } else {
-+        collectorFactory = params->col;
+@@ -110,8 +110,8 @@ void HNSW::print_neighbor_stats(int level) const {
+            level,
+            nb_neighbors(level));
+     size_t tot_neigh = 0, tot_common = 0, tot_reciprocal = 0, n_node = 0;
+-#pragma omp parallel for reduction(+: tot_neigh) reduction(+: tot_common) \
+-  reduction(+: tot_reciprocal) reduction(+: n_node)
++#pragma omp parallel for reduction(+ : tot_neigh) reduction(+ : tot_common) \
++        reduction(+ : tot_reciprocal) reduction(+ : n_node)
+     for (int i = 0; i < levels.size(); i++) {
+         if (levels[i] > level) {
+             n_node++;
+@@ -804,6 +804,12 @@ int extract_k_from_ResultHandler(ResultHandler<C>& res) {
+     if (auto hres = dynamic_cast<RH::SingleResultHandler*>(&res)) {
+         return hres->k;
+     }
++
++    if (auto hres = dynamic_cast<
++                GroupedHeapBlockResultHandler<C>::SingleResultHandler*>(&res)) {
++        return hres->k;
 +    }
-+    ResultCollector* collector = collectorFactory->new_collector();
 +
-     int nres = nres_in;
-     int ndis = 0;
+     return 1;
+ }
  
-@@ -544,11 +554,7 @@ int search_from_candidates(
-         float d = candidates.dis[i];
-         FAISS_ASSERT(v1 >= 0);
-         if (!sel || sel->is_member(v1)) {
--            if (nres < k) {
--                faiss::maxheap_push(++nres, D, I, d, v1);
--            } else if (d < D[0]) {
--                faiss::maxheap_replace_top(nres, D, I, d, v1);
--            }
-+            collector->collect(k, nres, D, I, d, v1);
-         }
-         vt.set(v1);
-     }
-@@ -612,11 +618,7 @@ int search_from_candidates(
- 
-         auto add_to_heap = [&](const size_t idx, const float dis) {
-             if (!sel || sel->is_member(idx)) {
--                if (nres < k) {
--                    faiss::maxheap_push(++nres, D, I, dis, idx);
--                } else if (dis < D[0]) {
--                    faiss::maxheap_replace_top(nres, D, I, dis, idx);
--                }
-+                collector->collect(k, nres, D, I, dis, idx);
-             }
-             candidates.push(idx, dis);
-         };
-@@ -660,6 +662,11 @@ int search_from_candidates(
-         }
-     }
- 
-+    // Completed collection of result. Run post processor.
-+    collector->post_process(nres, I);
-+    // Collector completed its task. Release all resource of the collector.
-+    collectorFactory->delete_collector(collector);
-+
-     if (level == 0) {
-         stats.n1++;
-         if (candidates.size() == 0) {
-diff --git a/faiss/impl/ResultCollector.h b/faiss/impl/ResultCollector.h
+diff --git a/faiss/impl/IDGrouper.cpp b/faiss/impl/IDGrouper.cpp
 new file mode 100644
-index 00000000..a0489fd6
+index 00000000..ca9f5fda
 --- /dev/null
-+++ b/faiss/impl/ResultCollector.h
-@@ -0,0 +1,74 @@
++++ b/faiss/impl/IDGrouper.cpp
+@@ -0,0 +1,51 @@
++/**
++ * Copyright (c) Facebook, Inc. and its affiliates.
++ *
++ * This source code is licensed under the MIT license found in the
++ * LICENSE file in the root directory of this source tree.
++ */
++
++#include <assert.h>
++#include <faiss/impl/FaissAssert.h>
++#include <faiss/impl/IDGrouper.h>
++
++namespace faiss {
++
++/***********************************************************************
++ * IDGrouperBitmap
++ ***********************************************************************/
++
++IDGrouperBitmap::IDGrouperBitmap(size_t n, uint64_t* bitmap)
++        : n(n), bitmap(bitmap) {}
++
++idx_t IDGrouperBitmap::get_group(idx_t id) const {
++    assert(id >= 0 && "id shouldn't be less than zero");
++    assert(id < this->n * 64 && "is should be less than total number of bits");
++
++    idx_t index = id >> 6; // div by 64
++    uint64_t block = this->bitmap[index] >>
++            (id & 63); // Equivalent of words[i] >> (index % 64)
++    // block is non zero after right shift, it means, next set bit is in current
++    // block The index of set bit is "given index" + "trailing zero in the right
++    // shifted word"
++    if (block != 0) {
++        return id + __builtin_ctzll(block);
++    }
++
++    while (++index < this->n) {
++        block = this->bitmap[index];
++        if (block != 0) {
++            return (index << 6) + __builtin_ctzll(block);
++        }
++    }
++
++    return NO_MORE_DOCS;
++}
++
++void IDGrouperBitmap::set_group(idx_t group_id) {
++    idx_t index = group_id >> 6;
++    this->bitmap[index] |= 1ULL
++            << (group_id & 63); // Equivalent of 1ULL << (value % 64)
++}
++
++} // namespace faiss
+diff --git a/faiss/impl/IDGrouper.h b/faiss/impl/IDGrouper.h
+new file mode 100644
+index 00000000..d56113d9
+--- /dev/null
++++ b/faiss/impl/IDGrouper.h
+@@ -0,0 +1,51 @@
 +/**
 + * Copyright (c) Facebook, Inc. and its affiliates.
 + *
@@ -192,77 +297,259 @@ index 00000000..a0489fd6
 +
 +#pragma once
 +
++#include <limits>
 +#include <unordered_set>
 +#include <vector>
 +
 +#include <faiss/MetricType.h>
-+#include <faiss/utils/Heap.h>
 +
-+/**
-+ * ResultCollector is intended to define how to collect search result
-+ * For each single search result, collect method will be called.
-+ * After every results are collected, post_process method is called at the end.
-+ */
++/** IDGrouper is intended to define a group of vectors to include only
++ * the nearest vector of each group during search */
 +
 +namespace faiss {
 +
-+/** Encapsulates a set of ids to handle. */
-+struct ResultCollector {
-+    /**
-+     * For each result, collect method is called to store result
-+     * @param k         number of vectors to search
-+     * @param nres      number of results in queue
-+     * @param bh_val    search result, distances from query
-+     * @param bh_ids    search result, ids of vectors
-+     * @param val       distance from query for current vector
-+     * @param ids       id of current vector
-+     */
-+    virtual void collect(
-+            int k,
-+            int& nres,
-+            float* bh_val,
-+            idx_t* bh_ids,
-+            float val,
-+            idx_t ids) = 0;
-+
-+    // This method is called after all result is collected
-+    virtual void post_process(idx_t nres, idx_t* bh_ids) = 0;
-+    virtual ~ResultCollector() {}
++/** Encapsulates a group id of ids */
++struct IDGrouper {
++    const idx_t NO_MORE_DOCS = std::numeric_limits<idx_t>::max();
++    virtual idx_t get_group(idx_t id) const = 0;
++    virtual ~IDGrouper() {}
 +};
 +
-+struct DefaultCollector : ResultCollector {
-+    void collect(
-+            int k,
-+            int& nres,
-+            float* bh_val,
-+            idx_t* bh_ids,
-+            float val,
-+            idx_t ids) override {
-+        if (nres < k) {
-+            faiss::maxheap_push(++nres, bh_val, bh_ids, val, ids);
-+        } else if (val < bh_val[0]) {
-+            faiss::maxheap_replace_top(nres, bh_val, bh_ids, val, ids);
-+        }
-+    }
++/** One bit per element. Constructed with a bitmap, size ceil(n / 8).
++ */
++struct IDGrouperBitmap : IDGrouper {
++    // length of the bitmap array
++    size_t n;
 +
-+    // This method is called once all result is collected so that final post
-+    // processing can be done For example, if the result is collected using
-+    // group id, the group id can be converted back to its original id inside
-+    // this method
-+    void post_process(idx_t nres, idx_t* bh_ids) override {
-+        // Do nothing
-+    }
++    // Array of uint64_t holding the bits
++    // Using uint64_t to leverage function __builtin_ctzll which is defined in
++    // faiss/impl/platform_macros.h Group id of a given id is next set bit in
++    // the bitmap
++    uint64_t* bitmap;
 +
-+    ~DefaultCollector() override {}
++    /** Construct with a binary mask
++     *
++     * @param n size of the bitmap array
++     * @param bitmap group id of a given id is next set bit in the bitmap
++     */
++    IDGrouperBitmap(size_t n, uint64_t* bitmap);
++    idx_t get_group(idx_t id) const final;
++    void set_group(idx_t group_id);
++    ~IDGrouperBitmap() override {}
 +};
 +
 +} // namespace faiss
-diff --git a/faiss/impl/ResultCollectorFactory.h b/faiss/impl/ResultCollectorFactory.h
+diff --git a/faiss/impl/ResultHandler.h b/faiss/impl/ResultHandler.h
+index 270de8dc..2f7f3e7f 100644
+--- a/faiss/impl/ResultHandler.h
++++ b/faiss/impl/ResultHandler.h
+@@ -12,6 +12,8 @@
+ #pragma once
+ 
+ #include <faiss/impl/AuxIndexStructures.h>
++#include <faiss/impl/IDGrouper.h>
++#include <faiss/utils/GroupHeap.h>
+ #include <faiss/utils/Heap.h>
+ #include <faiss/utils/partitioning.h>
+ 
+@@ -265,6 +267,191 @@ struct HeapBlockResultHandler : BlockResultHandler<C> {
+     }
+ };
+ 
++/*****************************************************************
++ * Heap based result handler with grouping
++ *****************************************************************/
++
++template <class C>
++struct GroupedHeapBlockResultHandler : BlockResultHandler<C> {
++    using T = typename C::T;
++    using TI = typename C::TI;
++    using BlockResultHandler<C>::i0;
++    using BlockResultHandler<C>::i1;
++
++    T* heap_dis_tab;
++    TI* heap_ids_tab;
++    int64_t k; // number of results to keep
++
++    IDGrouper* id_grouper;
++    TI* heap_group_ids_tab;
++    std::unordered_map<TI, size_t>* group_id_to_index_in_heap_tab;
++
++    GroupedHeapBlockResultHandler(
++            size_t nq,
++            T* heap_dis_tab,
++            TI* heap_ids_tab,
++            size_t k,
++            IDGrouper* id_grouper)
++            : BlockResultHandler<C>(nq),
++              heap_dis_tab(heap_dis_tab),
++              heap_ids_tab(heap_ids_tab),
++              k(k),
++              id_grouper(id_grouper) {}
++
++    /******************************************************
++     * API for 1 result at a time (each SingleResultHandler is
++     * called from 1 thread)
++     */
++
++    struct SingleResultHandler : ResultHandler<C> {
++        GroupedHeapBlockResultHandler& hr;
++        using ResultHandler<C>::threshold;
++        size_t k;
++
++        T* heap_dis;
++        TI* heap_ids;
++        TI* heap_group_ids;
++        std::unordered_map<TI, size_t> group_id_to_index_in_heap;
++
++        explicit SingleResultHandler(GroupedHeapBlockResultHandler& hr)
++                : hr(hr), k(hr.k) {}
++
++        /// begin results for query # i
++        void begin(size_t i) {
++            heap_dis = hr.heap_dis_tab + i * k;
++            heap_ids = hr.heap_ids_tab + i * k;
++            heap_heapify<C>(k, heap_dis, heap_ids);
++            threshold = heap_dis[0];
++            heap_group_ids = new TI[hr.k];
++            for (size_t i = 0; i < hr.k; i++) {
++                heap_group_ids[i] = -1;
++            }
++        }
++
++        /// add one result for query i
++        bool add_result(T dis, TI idx) final {
++            if (!C::cmp(threshold, dis)) {
++                return false;
++            }
++
++            idx_t group_id = hr.id_grouper->get_group(idx);
++            typename std::unordered_map<TI, size_t>::const_iterator it_pos =
++                    group_id_to_index_in_heap.find(group_id);
++            if (it_pos == group_id_to_index_in_heap.end()) {
++                group_heap_replace_top<C>(
++                        k,
++                        heap_dis,
++                        heap_ids,
++                        heap_group_ids,
++                        dis,
++                        idx,
++                        group_id,
++                        &group_id_to_index_in_heap);
++                return true;
++            } else {
++                size_t pos = it_pos->second;
++                if (!C::cmp(heap_dis[pos], dis)) {
++                    return false;
++                }
++                group_heap_replace_at<C>(
++                        pos,
++                        k,
++                        heap_dis,
++                        heap_ids,
++                        heap_group_ids,
++                        dis,
++                        idx,
++                        group_id,
++                        &group_id_to_index_in_heap);
++                return true;
++            }
++        }
++
++        /// series of results for query i is done
++        void end() {
++            heap_reorder<C>(k, heap_dis, heap_ids);
++            delete heap_group_ids;
++        }
++    };
++
++    /******************************************************
++     * API for multiple results (called from 1 thread)
++     */
++
++    /// begin
++    void begin_multiple(size_t i0_2, size_t i1_2) final {
++        this->i0 = i0_2;
++        this->i1 = i1_2;
++        for (size_t i = i0; i < i1; i++) {
++            heap_heapify<C>(k, heap_dis_tab + i * k, heap_ids_tab + i * k);
++        }
++        size_t size = (i1 - i0) * k;
++        heap_group_ids_tab = new TI[size];
++        for (size_t i = 0; i < size; i++) {
++            heap_group_ids_tab[i] = -1;
++        }
++        group_id_to_index_in_heap_tab =
++                new std::unordered_map<TI, size_t>[i1 - i0];
++    }
++
++    /// add results for query i0..i1 and j0..j1
++    void add_results(size_t j0, size_t j1, const T* dis_tab) final {
++#pragma omp parallel for
++        for (int64_t i = i0; i < i1; i++) {
++            T* heap_dis = heap_dis_tab + i * k;
++            TI* heap_ids = heap_ids_tab + i * k;
++            const T* dis_tab_i = dis_tab + (j1 - j0) * (i - i0) - j0;
++            T thresh = heap_dis[0]; // NOLINT(*-use-default-none)
++            for (size_t j = j0; j < j1; j++) {
++                T dis = dis_tab_i[j];
++                if (C::cmp(thresh, dis)) {
++                    idx_t group_id = id_grouper->get_group(j);
++                    typename std::unordered_map<TI, size_t>::const_iterator
++                            it_pos = group_id_to_index_in_heap_tab[i - i0].find(
++                                    group_id);
++                    if (it_pos == group_id_to_index_in_heap_tab[i - i0].end()) {
++                        group_heap_replace_top<C>(
++                                k,
++                                heap_dis,
++                                heap_ids,
++                                heap_group_ids_tab + ((i - i0) * k),
++                                dis,
++                                j,
++                                group_id,
++                                &group_id_to_index_in_heap_tab[i - i0]);
++                        thresh = heap_dis[0];
++                    } else {
++                        size_t pos = it_pos->first;
++                        if (C::cmp(heap_dis[pos], dis)) {
++                            group_heap_replace_at<C>(
++                                    pos,
++                                    k,
++                                    heap_dis,
++                                    heap_ids,
++                                    heap_group_ids_tab + ((i - i0) * k),
++                                    dis,
++                                    j,
++                                    group_id,
++                                    &group_id_to_index_in_heap_tab[i - i0]);
++                            thresh = heap_dis[0];
++                        }
++                    }
++                }
++            }
++        }
++    }
++
++    /// series of results for queries i0..i1 is done
++    void end_multiple() final {
++        // maybe parallel for
++        for (size_t i = i0; i < i1; i++) {
++            heap_reorder<C>(k, heap_dis_tab + i * k, heap_ids_tab + i * k);
++        }
++        delete group_id_to_index_in_heap_tab;
++        delete heap_group_ids_tab;
++    }
++};
++
+ /*****************************************************************
+  * Reservoir result handler
+  *
+diff --git a/faiss/utils/GroupHeap.h b/faiss/utils/GroupHeap.h
 new file mode 100644
-index 00000000..b460b20b
+index 00000000..3b7078da
 --- /dev/null
-+++ b/faiss/impl/ResultCollectorFactory.h
-@@ -0,0 +1,33 @@
++++ b/faiss/utils/GroupHeap.h
+@@ -0,0 +1,182 @@
 +/**
 + * Copyright (c) Facebook, Inc. and its affiliates.
 + *
@@ -271,31 +558,493 @@ index 00000000..b460b20b
 + */
 +
 +#pragma once
-+#include <faiss/impl/ResultCollector.h>
++
++#include <climits>
++#include <cmath>
++#include <cstring>
++
++#include <stdint.h>
++#include <cassert>
++#include <cstdio>
++
++#include <limits>
++#include <unordered_map>
++
++#include <faiss/MetricType.h>
++#include <faiss/utils/ordered_key_value.h>
++
 +namespace faiss {
 +
-+/** ResultCollectorFactory to create a ResultCollector object */
-+struct ResultCollectorFactory {
-+    DefaultCollector default_collector;
-+    const std::vector<int64_t>* id_map = nullptr;
++/**
++ * From start_index, it compare its value with parent node's and swap if needed.
++ * Continue until either there is no swap or it reaches the top node.
++ */
++template <class C>
++static inline void group_up_heap(
++        typename C::T* heap_dis,
++        typename C::TI* heap_ids,
++        typename C::TI* heap_group_ids,
++        std::unordered_map<typename C::TI, size_t>* group_id_to_index_in_heap,
++        size_t start_index) {
++    heap_dis--; /* Use 1-based indexing for easier node->child translation */
++    heap_ids--;
++    heap_group_ids--;
++    size_t i = start_index + 1, i_father;
++    typename C::T target_dis = heap_dis[i];
++    typename C::TI target_id = heap_ids[i];
++    typename C::TI target_group_id = heap_group_ids[i];
 +
-+    // Create a new ResultCollector object
-+    virtual ResultCollector* new_collector() {
-+        return &default_collector;
++    while (i > 1) {
++        i_father = i >> 1;
++        if (!C::cmp2(
++                    target_dis,
++                    heap_dis[i_father],
++                    target_id,
++                    heap_ids[i_father])) {
++            /* the heap structure is ok */
++            break;
++        }
++        heap_dis[i] = heap_dis[i_father];
++        heap_ids[i] = heap_ids[i_father];
++        heap_group_ids[i] = heap_group_ids[i_father];
++        (*group_id_to_index_in_heap)[heap_group_ids[i]] = i - 1;
++        i = i_father;
 +    }
++    heap_dis[i] = target_dis;
++    heap_ids[i] = target_id;
++    heap_group_ids[i] = target_group_id;
++    (*group_id_to_index_in_heap)[heap_group_ids[i]] = i - 1;
++}
 +
-+    // For default case, the factory share single object and no need to delete
-+    // the object. For other case, the factory can create a new object which
-+    // need to be deleted later. We have deleteCollector method to handle both
-+    // case as factory class knows how to release resource that it created
-+    virtual void delete_collector(ResultCollector* collector) {
-+        // Do nothing
++/**
++ * From start_index, it compare its value with child node's and swap if needed.
++ * Continue until either there is no swap or it reaches the leaf node.
++ */
++template <class C>
++static inline void group_down_heap(
++        size_t k,
++        typename C::T* heap_dis,
++        typename C::TI* heap_ids,
++        typename C::TI* heap_group_ids,
++        std::unordered_map<typename C::TI, size_t>* group_id_to_index_in_heap,
++        size_t start_index) {
++    heap_dis--; /* Use 1-based indexing for easier node->child translation */
++    heap_ids--;
++    heap_group_ids--;
++    size_t i = start_index + 1, i1, i2;
++    typename C::T target_dis = heap_dis[i];
++    typename C::TI target_id = heap_ids[i];
++    typename C::TI target_group_id = heap_group_ids[i];
++
++    while (1) {
++        i1 = i << 1;
++        i2 = i1 + 1;
++        if (i1 > k) {
++            break;
++        }
++
++        // Note that C::cmp2() is a bool function answering
++        // `(a1 > b1) || ((a1 == b1) && (a2 > b2))` for max
++        // heap and same with the `<` sign for min heap.
++        if ((i2 == k + 1) ||
++            C::cmp2(heap_dis[i1], heap_dis[i2], heap_ids[i1], heap_ids[i2])) {
++            if (C::cmp2(target_dis, heap_dis[i1], target_id, heap_ids[i1])) {
++                break;
++            }
++            heap_dis[i] = heap_dis[i1];
++            heap_ids[i] = heap_ids[i1];
++            heap_group_ids[i] = heap_group_ids[i1];
++            (*group_id_to_index_in_heap)[heap_group_ids[i]] = i - 1;
++            i = i1;
++        } else {
++            if (C::cmp2(target_dis, heap_dis[i2], target_id, heap_ids[i2])) {
++                break;
++            }
++            heap_dis[i] = heap_dis[i2];
++            heap_ids[i] = heap_ids[i2];
++            heap_group_ids[i] = heap_group_ids[i2];
++            (*group_id_to_index_in_heap)[heap_group_ids[i]] = i - 1;
++            i = i2;
++        }
 +    }
++    heap_dis[i] = target_dis;
++    heap_ids[i] = target_id;
++    heap_group_ids[i] = target_group_id;
++    (*group_id_to_index_in_heap)[heap_group_ids[i]] = i - 1;
++}
 +
-+    virtual ~ResultCollectorFactory() {}
-+};
++template <class C>
++static inline void group_heap_replace_top(
++        size_t k,
++        typename C::T* heap_dis,
++        typename C::TI* heap_ids,
++        typename C::TI* heap_group_ids,
++        typename C::T dis,
++        typename C::TI id,
++        typename C::TI group_id,
++        std::unordered_map<typename C::TI, size_t>* group_id_to_index_in_heap) {
++    assert(group_id_to_index_in_heap->find(group_id) ==
++                   group_id_to_index_in_heap->end() &&
++           "group id should not exist in the binary heap");
++
++    group_id_to_index_in_heap->erase(heap_group_ids[0]);
++    heap_group_ids[0] = group_id;
++    heap_dis[0] = dis;
++    heap_ids[0] = id;
++    (*group_id_to_index_in_heap)[group_id] = 0;
++    group_down_heap<C>(
++            k,
++            heap_dis,
++            heap_ids,
++            heap_group_ids,
++            group_id_to_index_in_heap,
++            0);
++}
++
++template <class C>
++static inline void group_heap_replace_at(
++        size_t pos,
++        size_t k,
++        typename C::T* heap_dis,
++        typename C::TI* heap_ids,
++        typename C::TI* heap_group_ids,
++        typename C::T dis,
++        typename C::TI id,
++        typename C::TI group_id,
++        std::unordered_map<typename C::TI, size_t>* group_id_to_index_in_heap) {
++    assert(group_id_to_index_in_heap->find(group_id) !=
++                   group_id_to_index_in_heap->end() &&
++           "group id should exist in the binary heap");
++    assert(group_id_to_index_in_heap->find(group_id)->second == pos &&
++           "index of group id in the heap should be same as pos");
++
++    heap_dis[pos] = dis;
++    heap_ids[pos] = id;
++    group_up_heap<C>(
++            heap_dis, heap_ids, heap_group_ids, group_id_to_index_in_heap, pos);
++    group_down_heap<C>(
++            k,
++            heap_dis,
++            heap_ids,
++            heap_group_ids,
++            group_id_to_index_in_heap,
++            pos);
++}
 +
 +} // namespace faiss
+\ No newline at end of file
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index cc0a4f4c..96e19328 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -26,6 +26,8 @@ set(FAISS_TEST_SRC
+   test_approx_topk.cpp
+   test_RCQ_cropping.cpp
+   test_distances_simd.cpp
++  test_id_grouper.cpp
++  test_group_heap.cpp
+   test_heap.cpp
+   test_code_distance.cpp
+   test_hnsw.cpp
+diff --git a/tests/test_group_heap.cpp b/tests/test_group_heap.cpp
+new file mode 100644
+index 00000000..0e8fe7a7
+--- /dev/null
++++ b/tests/test_group_heap.cpp
+@@ -0,0 +1,98 @@
++/**
++ * Copyright (c) Facebook, Inc. and its affiliates.
++ *
++ * This source code is licensed under the MIT license found in the
++ * LICENSE file in the root directory of this source tree.
++ */
++#include <faiss/utils/GroupHeap.h>
++#include <faiss/utils/Heap.h>
++#include <gtest/gtest.h>
++#include <algorithm>
++
++using namespace faiss;
++
++TEST(GroupHeap, group_heap_replace_top) {
++    using C = CMax<float, int64_t>;
++    const int k = 100;
++    float binary_heap_values[k];
++    int64_t binary_heap_ids[k];
++    heap_heapify<C>(k, binary_heap_values, binary_heap_ids);
++    int64_t binary_heap_group_ids[k];
++    for (size_t i = 0; i < k; i++) {
++        binary_heap_group_ids[i] = -1;
++    }
++    std::unordered_map<typename C::TI, size_t> group_id_to_index_in_heap;
++    for (int i = 1000; i > 0; i--) {
++        group_heap_replace_top<C>(
++                k,
++                binary_heap_values,
++                binary_heap_ids,
++                binary_heap_group_ids,
++                i * 10.0,
++                i,
++                i,
++                &group_id_to_index_in_heap);
++    }
++
++    heap_reorder<C>(k, binary_heap_values, binary_heap_ids);
++
++    for (int i = 0; i < k; i++) {
++        ASSERT_EQ((i + 1) * 10.0, binary_heap_values[i]);
++        ASSERT_EQ(i + 1, binary_heap_ids[i]);
++    }
++}
++
++TEST(GroupHeap, group_heap_replace_at) {
++    using C = CMax<float, int64_t>;
++    const int k = 10;
++    float binary_heap_values[k];
++    int64_t binary_heap_ids[k];
++    heap_heapify<C>(k, binary_heap_values, binary_heap_ids);
++    int64_t binary_heap_group_ids[k];
++    for (size_t i = 0; i < k; i++) {
++        binary_heap_group_ids[i] = -1;
++    }
++    std::unordered_map<typename C::TI, size_t> group_id_to_index_in_heap;
++
++    std::unordered_map<int64_t, int64_t> group_id_to_id;
++    for (int i = 1000; i > 0; i--) {
++        int64_t group_id = rand() % 100;
++        group_id_to_id[group_id] = i;
++        if (group_id_to_index_in_heap.find(group_id) ==
++            group_id_to_index_in_heap.end()) {
++            group_heap_replace_top<C>(
++                    k,
++                    binary_heap_values,
++                    binary_heap_ids,
++                    binary_heap_group_ids,
++                    i * 10.0,
++                    i,
++                    group_id,
++                    &group_id_to_index_in_heap);
++        } else {
++            group_heap_replace_at<C>(
++                    group_id_to_index_in_heap.at(group_id),
++                    k,
++                    binary_heap_values,
++                    binary_heap_ids,
++                    binary_heap_group_ids,
++                    i * 10.0,
++                    i,
++                    group_id,
++                    &group_id_to_index_in_heap);
++        }
++    }
++
++    heap_reorder<C>(k, binary_heap_values, binary_heap_ids);
++
++    std::vector<int> sorted_ids;
++    for (const auto& pair : group_id_to_id) {
++        sorted_ids.push_back(pair.second);
++    }
++    std::sort(sorted_ids.begin(), sorted_ids.end());
++
++    for (int i = 0; i < k && binary_heap_ids[i] != -1; i++) {
++        ASSERT_EQ(sorted_ids[i] * 10.0, binary_heap_values[i]);
++        ASSERT_EQ(sorted_ids[i], binary_heap_ids[i]);
++    }
++}
+diff --git a/tests/test_id_grouper.cpp b/tests/test_id_grouper.cpp
+new file mode 100644
+index 00000000..2aed5500
+--- /dev/null
++++ b/tests/test_id_grouper.cpp
+@@ -0,0 +1,189 @@
++/**
++ * Copyright (c) Facebook, Inc. and its affiliates.
++ *
++ * This source code is licensed under the MIT license found in the
++ * LICENSE file in the root directory of this source tree.
++ */
++#include <gtest/gtest.h>
++#include <algorithm>
++#include <cstdio>
++#include <random>
++
++#include <faiss/Index.h>
++#include <faiss/IndexHNSW.h>
++#include <faiss/IndexIDMap.h>
++#include <faiss/MetricType.h>
++#include <faiss/impl/IDGrouper.h>
++
++// 64-bit int
++using idx_t = faiss::idx_t;
++
++using namespace faiss;
++
++TEST(IdGrouper, get_group) {
++    uint64_t ids1[1] = {0b1000100010001000};
++    IDGrouperBitmap bitmap(1, ids1);
++
++    ASSERT_EQ(3, bitmap.get_group(0));
++    ASSERT_EQ(3, bitmap.get_group(1));
++    ASSERT_EQ(3, bitmap.get_group(2));
++    ASSERT_EQ(3, bitmap.get_group(3));
++    ASSERT_EQ(7, bitmap.get_group(4));
++    ASSERT_EQ(7, bitmap.get_group(5));
++    ASSERT_EQ(7, bitmap.get_group(6));
++    ASSERT_EQ(7, bitmap.get_group(7));
++    ASSERT_EQ(11, bitmap.get_group(8));
++    ASSERT_EQ(11, bitmap.get_group(9));
++    ASSERT_EQ(11, bitmap.get_group(10));
++    ASSERT_EQ(11, bitmap.get_group(11));
++    ASSERT_EQ(15, bitmap.get_group(12));
++    ASSERT_EQ(15, bitmap.get_group(13));
++    ASSERT_EQ(15, bitmap.get_group(14));
++    ASSERT_EQ(15, bitmap.get_group(15));
++    ASSERT_EQ(bitmap.NO_MORE_DOCS, bitmap.get_group(16));
++}
++
++TEST(IdGrouper, set_group) {
++    idx_t group_ids[] = {64, 127, 128, 1022};
++    uint64_t ids[16] = {}; // 1023 / 64 + 1
++    IDGrouperBitmap bitmap(16, ids);
++
++    for (int i = 0; i < 4; i++) {
++        bitmap.set_group(group_ids[i]);
++    }
++
++    int group_id_index = 0;
++    for (int i = 0; i <= group_ids[3]; i++) {
++        ASSERT_EQ(group_ids[group_id_index], bitmap.get_group(i));
++        if (group_ids[group_id_index] == i) {
++            group_id_index++;
++        }
++    }
++    ASSERT_EQ(bitmap.NO_MORE_DOCS, bitmap.get_group(group_ids[3] + 1));
++}
++
++TEST(IdGrouper, bitmap_with_hnsw) {
++    int d = 1;   // dimension
++    int nb = 10; // database size
++
++    std::mt19937 rng;
++    std::uniform_real_distribution<> distrib;
++
++    float* xb = new float[d * nb];
++
++    for (int i = 0; i < nb; i++) {
++        for (int j = 0; j < d; j++)
++            xb[d * i + j] = distrib(rng);
++        xb[d * i] += i / 1000.;
++    }
++
++    uint64_t bitmap[1] = {};
++    faiss::IDGrouperBitmap id_grouper(1, bitmap);
++    for (int i = 0; i < nb; i++) {
++        if (i % 2 == 1) {
++            id_grouper.set_group(i);
++        }
++    }
++
++    int k = 10;
++    int m = 8;
++    faiss::Index* index =
++            new faiss::IndexHNSWFlat(d, m, faiss::MetricType::METRIC_L2);
++    index->add(nb, xb); // add vectors to the index
++
++    // search
++    idx_t* I = new idx_t[k];
++    float* D = new float[k];
++
++    auto pSearchParameters = new faiss::SearchParametersHNSW();
++    pSearchParameters->grp = &id_grouper;
++
++    index->search(1, xb, k, D, I, pSearchParameters);
++
++    std::unordered_set<int> group_ids;
++    ASSERT_EQ(0, I[0]);
++    ASSERT_EQ(0, D[0]);
++    group_ids.insert(id_grouper.get_group(I[0]));
++    for (int j = 1; j < 5; j++) {
++        ASSERT_NE(-1, I[j]);
++        ASSERT_NE(std::numeric_limits<float>::max(), D[j]);
++        group_ids.insert(id_grouper.get_group(I[j]));
++    }
++    for (int j = 5; j < k; j++) {
++        ASSERT_EQ(-1, I[j]);
++        ASSERT_EQ(std::numeric_limits<float>::max(), D[j]);
++    }
++    ASSERT_EQ(5, group_ids.size());
++
++    delete[] I;
++    delete[] D;
++    delete[] xb;
++}
++
++TEST(IdGrouper, bitmap_with_hnswn_idmap) {
++    int d = 1;   // dimension
++    int nb = 10; // database size
++
++    std::mt19937 rng;
++    std::uniform_real_distribution<> distrib;
++
++    float* xb = new float[d * nb];
++    idx_t* xids = new idx_t[d * nb];
++
++    for (int i = 0; i < nb; i++) {
++        for (int j = 0; j < d; j++)
++            xb[d * i + j] = distrib(rng);
++        xb[d * i] += i / 1000.;
++    }
++
++    uint64_t bitmap[1] = {};
++    faiss::IDGrouperBitmap id_grouper(1, bitmap);
++    int num_grp = 0;
++    int grp_size = 2;
++    int id_in_grp = 0;
++    for (int i = 0; i < nb; i++) {
++        xids[i] = i + num_grp;
++        id_in_grp++;
++        if (id_in_grp == grp_size) {
++            id_grouper.set_group(i + num_grp + 1);
++            num_grp++;
++            id_in_grp = 0;
++        }
++    }
++
++    int k = 10;
++    int m = 8;
++    faiss::Index* index =
++            new faiss::IndexHNSWFlat(d, m, faiss::MetricType::METRIC_L2);
++    faiss::IndexIDMap id_map =
++            faiss::IndexIDMap(index); // add vectors to the index
++    id_map.add_with_ids(nb, xb, xids);
++
++    // search
++    idx_t* I = new idx_t[k];
++    float* D = new float[k];
++
++    auto pSearchParameters = new faiss::SearchParametersHNSW();
++    pSearchParameters->grp = &id_grouper;
++
++    id_map.search(1, xb, k, D, I, pSearchParameters);
++
++    std::unordered_set<int> group_ids;
++    ASSERT_EQ(0, I[0]);
++    ASSERT_EQ(0, D[0]);
++    group_ids.insert(id_grouper.get_group(I[0]));
++    for (int j = 1; j < 5; j++) {
++        ASSERT_NE(-1, I[j]);
++        ASSERT_NE(std::numeric_limits<float>::max(), D[j]);
++        group_ids.insert(id_grouper.get_group(I[j]));
++    }
++    for (int j = 5; j < k; j++) {
++        ASSERT_EQ(-1, I[j]);
++        ASSERT_EQ(std::numeric_limits<float>::max(), D[j]);
++    }
++    ASSERT_EQ(5, group_ids.size());
++
++    delete[] I;
++    delete[] D;
++    delete[] xb;
++}
 -- 
 2.39.3 (Apple Git-145)
 
