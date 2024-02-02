@@ -17,6 +17,7 @@
 #include "gtest/gtest.h"
 #include "jni_util.h"
 #include "test_util.h"
+#include "faiss/IndexHNSW.h"
 
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -424,4 +425,56 @@ TEST(FaissTrainIndexTest, BasicAssertions) {
 
     // Confirm that training succeeded
     ASSERT_TRUE(trainedIndex->is_trained);
+}
+
+TEST(FaissCreateHnswSQfp16IndexTest, BasicAssertions) {
+    // Define the data
+    faiss::idx_t numIds = 200;
+    std::vector<faiss::idx_t> ids;
+    std::vector<std::vector<float>> vectors;
+    int dim = 2;
+    for (int64_t i = 0; i < numIds; ++i) {
+        ids.push_back(i);
+
+        std::vector<float> vect;
+        vect.reserve(dim);
+        for (int j = 0; j < dim; ++j) {
+            vect.push_back(test_util::RandomFloat(-500.0, 500.0));
+        }
+        vectors.push_back(vect);
+    }
+
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    std::string spaceType = knn_jni::L2;
+    std::string index_description = "HNSW32,SQfp16";
+
+    std::unordered_map<std::string, jobject> parametersMap;
+    parametersMap[knn_jni::SPACE_TYPE] = (jobject)&spaceType;
+    parametersMap[knn_jni::INDEX_DESCRIPTION] = (jobject)&index_description;
+
+    // Set up jni
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    EXPECT_CALL(mockJNIUtil,
+                GetJavaObjectArrayLength(
+                        jniEnv, reinterpret_cast<jobjectArray>(&vectors)))
+            .WillRepeatedly(Return(vectors.size()));
+
+    // Create the index
+    knn_jni::faiss_wrapper::CreateIndex(
+            &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
+            reinterpret_cast<jobjectArray>(&vectors), (jstring)&indexPath,
+            (jobject)&parametersMap);
+
+    // Make sure index can be loaded
+    std::unique_ptr<faiss::Index> index(test_util::FaissLoadIndex(indexPath));
+    auto indexIDMap =  dynamic_cast<faiss::IndexIDMap*>(index.get());
+
+    // Assert that Index is of type IndexHNSWSQ
+    ASSERT_NE(indexIDMap, nullptr);
+    ASSERT_NE(dynamic_cast<faiss::IndexHNSWSQ*>(indexIDMap->index), nullptr);
+
+    // Clean up
+    std::remove(indexPath.c_str());
 }
