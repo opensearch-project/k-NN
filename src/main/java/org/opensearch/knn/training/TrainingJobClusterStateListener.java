@@ -109,10 +109,9 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
         if (modelDao.isCreated()) {
             List<String> modelIds = searchModelIds();
             for (String modelId : modelIds) {
-                Model model = modelDao.get(modelId);
-                ModelMetadata modelMetadata = model.getModelMetadata();
+                ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
                 if (modelMetadata.getState().equals(ModelState.TRAINING)) {
-                    updateModelStateAsFailed(model, "Training failed to complete as cluster crashed");
+                    updateModelStateAsFailed(modelId, modelMetadata, "Training failed to complete as cluster crashed");
                 }
             }
         }
@@ -123,11 +122,10 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
             List<String> modelIds = searchModelIds();
             for (DiscoveryNode removedNode : removedNodes) {
                 for (String modelId : modelIds) {
-                    Model model = modelDao.get(modelId);
-                    ModelMetadata modelMetadata = model.getModelMetadata();
+                    ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
                     if (modelMetadata.getNodeAssignment().equals(removedNode.getEphemeralId())
                         && modelMetadata.getState().equals(ModelState.TRAINING)) {
-                        updateModelStateAsFailed(model, "Training failed to complete as node dropped");
+                        updateModelStateAsFailed(modelId, modelMetadata, "Training failed to complete as node dropped");
                     }
                 }
             }
@@ -158,9 +156,10 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
         return modelIds;
     }
 
-    private void updateModelStateAsFailed(Model model, String msg) throws IOException {
-        model.getModelMetadata().setState(ModelState.FAILED);
-        model.getModelMetadata().setError(msg);
+    private void updateModelStateAsFailed(String modelId, ModelMetadata modelMetadata, String msg) throws IOException, ExecutionException, InterruptedException {
+        modelMetadata.setState(ModelState.FAILED);
+        modelMetadata.setError(msg);
+        Model model = new Model(modelMetadata, null, modelId);
         modelDao.update(model, new ActionListener<IndexResponse>() {
             @Override
             public void onResponse(IndexResponse indexResponse) {
