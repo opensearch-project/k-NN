@@ -13,6 +13,7 @@ package org.opensearch.knn.jni;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import lombok.SneakyThrows;
 import org.junit.BeforeClass;
 import org.opensearch.Version;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -469,7 +470,8 @@ public class JNIServiceTests extends KNNTestCase {
         );
     }
 
-    public void testCreateIndex_faiss_sqfp16_invalidIndexDescription() throws IOException {
+    @SneakyThrows
+    public void testCreateIndex_faiss_sqfp16_invalidIndexDescription() {
 
         int[] docIds = new int[] { 1, 2 };
         float[][] vectors = new float[][] { { 2, 3 }, { 3, 4 } };
@@ -493,7 +495,8 @@ public class JNIServiceTests extends KNNTestCase {
         );
     }
 
-    public void testLoadIndex_faiss_sqfp16_valid() throws IOException {
+    @SneakyThrows
+    public void testLoadIndex_faiss_sqfp16_valid() {
 
         int[] docIds = new int[] { 1, 2 };
         float[][] vectors = new float[][] { { 2, 3 }, { 3, 4 } };
@@ -513,7 +516,8 @@ public class JNIServiceTests extends KNNTestCase {
         assertNotEquals(0, pointer);
     }
 
-    public void testQueryIndex_faiss_sqfp16_valid() throws IOException {
+    @SneakyThrows
+    public void testQueryIndex_faiss_sqfp16_valid() {
 
         String sqfp16IndexDescription = "HNSW16,SQfp16";
         int k = 10;
@@ -543,7 +547,8 @@ public class JNIServiceTests extends KNNTestCase {
         }
     }
 
-    public void testTrain_whenConfigurationIsIVFSQFP16_thenSucceed() throws IOException {
+    @SneakyThrows
+    public void testTrain_whenConfigurationIsIVFSQFP16_thenSucceed() {
         long trainPointer = transferVectors(10);
         int ivfNlistParam = 16;
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()

@@ -111,10 +111,12 @@ endif ()
 if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} STREQUAL ON)
     set(BUILD_TESTING OFF)          # Avoid building faiss tests
     set(BLA_STATIC ON)              # Statically link BLAS
-    if(WIN32 OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" OR NOT ${ENABLE_SIMD})
+    if(${CMAKE_SYSTEM_NAME} STREQUAL Windows OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" OR NOT ${SIMD_ENABLED})
         set(FAISS_OPT_LEVEL generic)    # Keep optimization level as generic on Windows OS as it is not supported due to MINGW64 compiler issue. Also, on aarch64 avx2 is not supported.
+        set(TARGET_LINK_FAISS_LIB faiss)
     else()
         set(FAISS_OPT_LEVEL avx2)       # Keep optimization level as avx2 to improve performance on Linux and Mac.
+        set(TARGET_LINK_FAISS_LIB faiss_avx2)
     endif()
 
     if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
@@ -157,7 +159,7 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
         # 0002-Custom-patch-to-support-sqfp16-neon.patch is a temporary patch to add NEON support to SQ.
         # Once the commit conflict issues wrt to Multi vector are resolved, this patch can be removed by updating the faiss submodule with corresponding commit.
         # Apply the patch if the OS is not Windows and Processor is aarch64.
-        if (NOT WIN32 AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" AND ${ENABLE_SIMD})
+        if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL Windows AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" AND ${SIMD_ENABLED})
             execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace --3way ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0002-Custom-patch-to-support-sqfp16-neon.patch WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ERROR_VARIABLE ERROR_MSG RESULT_VARIABLE RESULT_CODE)
         endif()
 
@@ -177,11 +179,7 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
         ${CMAKE_CURRENT_SOURCE_DIR}/src/knn_extension/faiss/utils/BitSet.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/knn_extension/faiss/MultiVectorResultCollector.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/knn_extension/faiss/MultiVectorResultCollectorFactory.cpp)
-    if(WIN32 OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" OR NOT ${ENABLE_SIMD})
-        target_link_libraries(${TARGET_LIB_FAISS} faiss ${TARGET_LIB_COMMON} OpenMP::OpenMP_CXX)
-    else()
-        target_link_libraries(${TARGET_LIB_FAISS} faiss_avx2 ${TARGET_LIB_COMMON} OpenMP::OpenMP_CXX)
-    endif()
+    target_link_libraries(${TARGET_LIB_FAISS} ${TARGET_LINK_FAISS_LIB} ${TARGET_LIB_COMMON} OpenMP::OpenMP_CXX)
     target_include_directories(${TARGET_LIB_FAISS} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/include/knn_extension/faiss

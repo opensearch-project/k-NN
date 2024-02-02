@@ -238,20 +238,20 @@ If you want to make a custom patch on JNI library
 4. Make a change in `jni/CmakeLists.txt`, `.github/workflows/CI.yml` to apply the patch during build
 
 ### Enable SIMD Optimization
-SIMD(Single Instruction/Multiple Data) Optimization can be enabled by setting this optional parameter `enable_SIMD` to `true` which boosts the performance
+SIMD(Single Instruction/Multiple Data) Optimization can be enabled by setting this optional parameter `simd.enabled` to `true` which boosts the performance
 by enabling `AVX2` on `x86 architecture` and `NEON` on `ARM64 architecture` while building the Faiss library. But to enable SIMD, the underlying processor
 should support this (AVX2 or NEON). So, by default it is set to `false`.
 
 ```
 # While building OpenSearch k-NN
-./gradlew build -Denable_SIMD=true
+./gradlew build -Dsimd.enabled=true
 
 # While running OpenSearch k-NN
-./gradlew run -Denable_SIMD=true
+./gradlew run -Dsimd.enabled=true
 
 # While building the JNI libraries
 cd jni
-cmake . -DENABLE_SIMD=true
+cmake . -DSIMD_ENABLED=true
 ```
 
 ## Run OpenSearch k-NN

@@ -35,6 +35,7 @@ import java.net.URL;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
@@ -278,7 +279,9 @@ public class FaissIT extends KNNRestTestCase {
         String fieldName = "test-field-hnsw-sqfp16";
 
         KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
-        SpaceType spaceType = SpaceType.L2;
+        SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
+        Random random = new Random();
+        SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
 
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
         List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
