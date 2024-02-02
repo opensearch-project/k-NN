@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Fix script score queries not getting cached [#1367](https://github.com/opensearch-project/k-NN/pull/1367)
 * Fix KNNScorer to apply boost [#1403](https://github.com/opensearch-project/k-NN/pull/1403)
 * Fix equals and hashCode methods for KNNQuery and KNNQueryBuilder [#1397](https://github.com/opensearch-project/k-NN/pull/1397)
+* Pass correct value on IDSelectorBitmap initialization [#1444](https://github.com/opensearch-project/k-NN/pull/1444)
 ### Infrastructure
 * Upgrade gradle to 8.4 [1289](https://github.com/opensearch-project/k-NN/pull/1289)
 * Refactor security testing to install from individual components [#1307](https://github.com/opensearch-project/k-NN/pull/1307)
