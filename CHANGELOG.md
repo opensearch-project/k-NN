@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.12...2.x)
 ### Features
+* Use the Lucene Distance Calculation Function in Script Scoring for doing exact search [#1287](https://github.com/opensearch-project/k-NN/pull/1287)
 * Add parent join support for lucene knn [#1182](https://github.com/opensearch-project/k-NN/pull/1182)
 * Add parent join support for faiss hnsw [#1398](https://github.com/opensearch-project/k-NN/pull/1398)
 * Add Support for Faiss SQFP16 and enable Faiss AVX2 Optimization [#1421](https://github.com/opensearch-project/k-NN/pull/1421)
