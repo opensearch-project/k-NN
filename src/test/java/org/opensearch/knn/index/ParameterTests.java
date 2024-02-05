@@ -15,6 +15,7 @@ import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.Parameter.IntegerParameter;
+import org.opensearch.knn.index.Parameter.StringParameter;
 import org.opensearch.knn.index.Parameter.MethodComponentContextParameter;
 
 import java.util.Map;
@@ -49,6 +50,19 @@ public class ParameterTests extends KNNTestCase {
 
         // valid value
         assertNull(parameter.validate(12));
+    }
+
+    public void testStringParameter_validate() {
+        final StringParameter parameter = new StringParameter("test_parameter", "default_value", v -> "test".equals(v));
+
+        // Invalid type
+        assertNotNull(parameter.validate(5));
+
+        // null
+        assertNotNull(parameter.validate(null));
+
+        // valid value
+        assertNull(parameter.validate("test"));
     }
 
     public void testMethodComponentContextParameter_validate() {

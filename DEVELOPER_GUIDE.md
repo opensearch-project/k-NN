@@ -11,6 +11,7 @@
   - [Build](#build)
     - [JNI Library](#jni-library)
     - [JNI Library Artifacts](#jni-library-artifacts)
+    - [Enable SIMD Optimization](#enable-simd-optimization)
   - [Run OpenSearch k-NN](#run-opensearch-k-nn)
     - [Run Single-node Cluster Locally](#run-single-node-cluster-locally)
     - [Run Multi-node Cluster Locally](#run-multi-node-cluster-locally)
@@ -235,6 +236,23 @@ If you want to make a custom patch on JNI library
 2. Create a patch file for the change using `git format-patch -o patches HEAD^`
 3. Place the patch file under `jni/patches`
 4. Make a change in `jni/CmakeLists.txt`, `.github/workflows/CI.yml` to apply the patch during build
+
+### Enable SIMD Optimization
+SIMD(Single Instruction/Multiple Data) Optimization can be enabled by setting this optional parameter `simd.enabled` to `true` which boosts the performance
+by enabling `AVX2` on `x86 architecture` and `NEON` on `ARM64 architecture` while building the Faiss library. But to enable SIMD, the underlying processor
+should support this (AVX2 or NEON). So, by default it is set to `false`.
+
+```
+# While building OpenSearch k-NN
+./gradlew build -Dsimd.enabled=true
+
+# While running OpenSearch k-NN
+./gradlew run -Dsimd.enabled=true
+
+# While building the JNI libraries
+cd jni
+cmake . -DSIMD_ENABLED=true
+```
 
 ## Run OpenSearch k-NN
 
