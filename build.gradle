@@ -44,7 +44,7 @@ buildscript {
         classpath "${opensearch_group}.gradle:build-tools:${opensearch_version}"
         configurations.all {
             resolutionStrategy {
-                force("org.eclipse.platform:org.eclipse.core.runtime:4.29.0") // for spotless transitive dependency CVE (for < 4.29.0)
+                force("org.eclipse.platform:org.eclipse.core.runtime:4.29.0")
             }
         }
     }
