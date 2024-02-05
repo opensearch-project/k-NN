@@ -45,6 +45,7 @@ buildscript {
         configurations.all {
             resolutionStrategy {
                 force("org.eclipse.platform:org.eclipse.core.runtime:4.29.0") // CVE for < 4.29
+                force("org.eclipse.platform:org.eclipse.core.resources:4.29.0") // CVE for < 4.29
             }
         }
     }
