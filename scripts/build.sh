@@ -148,6 +148,20 @@ cd $distributions
 zip -ur $zipPath lib
 cd $work_dir
 
+if [ "$PLATFORM" != "windows" ]; then
+  echo "Building k-NN libraries after enabling SIMD"
+  ./gradlew :buildJniLib -Dsimd.enabled=true
+  mkdir $distributions/lib_simd
+  cp -v $ompPath $distributions/lib_simd
+  cp -v ./jni/release/${libPrefix}* $distributions/lib_simd
+  ls -l $distributions/lib_simd
+
+  # Add lib_simd directory to the k-NN plugin zip
+  cd $distributions
+  zip -ur $zipPath lib_simd
+  cd $work_dir
+fi
+
 echo "COPY ${distributions}/*.zip"
 mkdir -p $OUTPUT/plugins
 cp -v ${distributions}/*.zip $OUTPUT/plugins
