@@ -677,14 +677,17 @@ public class KNNWeightTests extends KNNTestCase {
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, 1, INDEX_NAME, null, bitSetProducer);
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f, null);
 
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any(), anyInt(), eq(parentsFilter)))
-            .thenReturn(getKNNQueryResults());
+        jniServiceMockedStatic.when(
+            () -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any(), anyInt(), eq(parentsFilter))
+        ).thenReturn(getKNNQueryResults());
 
         // Execute
         Scorer knnScorer = knnWeight.scorer(leafReaderContext);
 
         // Verify
-        jniServiceMockedStatic.verify(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any(), anyInt(), eq(parentsFilter)));
+        jniServiceMockedStatic.verify(
+            () -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any(), anyInt(), eq(parentsFilter))
+        );
         assertNotNull(knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         assertNotNull(docIdSetIterator);

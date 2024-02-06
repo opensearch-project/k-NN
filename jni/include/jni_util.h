@@ -154,7 +154,6 @@ namespace knn_jni {
         jfloat * GetFloatArrayElements(JNIEnv *env, jfloatArray array, jboolean * isCopy);
         jint * GetIntArrayElements(JNIEnv *env, jintArray array, jboolean * isCopy);
         jlong * GetLongArrayElements(JNIEnv *env, jlongArray array, jboolean * isCopy);
-
         jobject GetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index);
         jobject NewObject(JNIEnv *env, jclass clazz, jmethodID methodId, int id, float distance);
         jobjectArray NewObjectArray(JNIEnv *env, jsize len, jclass clazz, jobject init);

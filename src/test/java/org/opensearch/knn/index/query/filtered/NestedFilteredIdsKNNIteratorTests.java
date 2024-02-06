@@ -54,7 +54,13 @@ public class NestedFilteredIdsKNNIteratorTests extends TestCase {
         }
 
         // Execute and verify
-        NestedFilteredIdsKNNIterator iterator = new NestedFilteredIdsKNNIterator(filterBitSet, queryVector, values, spaceType, parentBitSet);
+        NestedFilteredIdsKNNIterator iterator = new NestedFilteredIdsKNNIterator(
+            filterBitSet,
+            queryVector,
+            values,
+            spaceType,
+            parentBitSet
+        );
         assertEquals(filterIds[0], iterator.nextDoc());
         assertEquals(expectedScores.get(0), iterator.score());
         assertEquals(filterIds[2], iterator.nextDoc());
