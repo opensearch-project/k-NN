@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.util;
 
-import lombok.SneakyThrows;
 import org.opensearch.Version;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -23,10 +22,7 @@ import java.util.Map;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
@@ -90,35 +86,6 @@ public class FaissTests extends KNNTestCase {
         assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
     }
 
-    @SneakyThrows
-    public void testGetMethodAsMap_whenMethodIsHNSWSQFP16_thenCreateCorrectIndexDescription() {
-        int hnswMParam = 65;
-        String expectedIndexDescription = String.format(Locale.ROOT, "HNSW%d,SQfp16", hnswMParam);
-
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, METHOD_HNSW)
-            .field(KNN_ENGINE, FAISS_NAME)
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_M, hnswMParam)
-            .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, ENCODER_SQ)
-            .startObject(PARAMETERS)
-            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
-        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
-
-        Map<String, Object> map = Faiss.INSTANCE.getMethodAsMap(knnMethodContext);
-
-        assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
-        assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
-    }
-
     public void testGetMethodAsMap_whenMethodIsIVFFlat_thenCreateCorrectIndexDescription() throws IOException {
         int nlists = 88;
         String expectedIndexDescription = String.format(Locale.ROOT, "IVF%d,Flat", nlists);
@@ -157,34 +124,6 @@ public class FaissTests extends KNNTestCase {
             .startObject(PARAMETERS)
             .field(ENCODER_PARAMETER_PQ_M, pqMParam)
             .field(ENCODER_PARAMETER_PQ_CODE_SIZE, pqCodeSizeParam)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
-        KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-
-        Map<String, Object> map = Faiss.INSTANCE.getMethodAsMap(knnMethodContext);
-
-        assertTrue(map.containsKey(INDEX_DESCRIPTION_PARAMETER));
-        assertEquals(expectedIndexDescription, map.get(INDEX_DESCRIPTION_PARAMETER));
-    }
-
-    @SneakyThrows
-    public void testGetMethodAsMap_whenMethodIsIVFSQFP16_thenCreateCorrectIndexDescription() {
-        int nlists = 88;
-        String expectedIndexDescription = String.format(Locale.ROOT, "IVF%d,SQfp16", nlists);
-
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(NAME, METHOD_IVF)
-            .field(KNN_ENGINE, FAISS_NAME)
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_NLIST, nlists)
-            .startObject(METHOD_ENCODER_PARAMETER)
-            .field(NAME, ENCODER_SQ)
-            .startObject(PARAMETERS)
-            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
             .endObject()
             .endObject()
             .endObject()
