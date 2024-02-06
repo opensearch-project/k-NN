@@ -5,7 +5,6 @@ Compatible with OpenSearch 2.12.0
 ### Features
 * Add parent join support for lucene knn [#1182](https://github.com/opensearch-project/k-NN/pull/1182)
 * Add parent join support for faiss hnsw [#1398](https://github.com/opensearch-project/k-NN/pull/1398)
-* Add Support for Faiss SQFP16 and enable Faiss AVX2 Optimization [#1421](https://github.com/opensearch-project/k-NN/pull/1421)
 ### Enhancements
 * Increase Lucene max dimension limit to 16,000 [#1346](https://github.com/opensearch-project/k-NN/pull/1346)
 * Tuned default values for ef_search and ef_construction for better indexing and search performance for vector search [#1353](https://github.com/opensearch-project/k-NN/pull/1353)
