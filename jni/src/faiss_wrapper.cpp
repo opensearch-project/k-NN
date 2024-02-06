@@ -50,7 +50,7 @@ struct IDSelectorJlongBitmap : IDSelector {
         if (i >= n ) {
             return false;
         }
-        return (bitmap[i] >> ( index & 63)) & 1;
+        return (bitmap[i] >> ( index & 63)) & 1L;
     }
     ~IDSelectorJlongBitmap() override {}
 };
@@ -252,7 +252,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
     // create the filterSearch params if the filterIdsJ is not a null pointer
     if(filterIdsJ != nullptr) {
         jlong *filteredIdsArray = jniUtil->GetLongArrayElements(env, filterIdsJ, nullptr);
-        int filterIdsLength = env->GetArrayLength(filterIdsJ);
+        int filterIdsLength = jniUtil->GetJavaLongArrayLength(env, filterIdsJ);
         std::unique_ptr<faiss::IDSelector> idSelector;
         if(filterIdsTypeJ == BITMAP) {
             idSelector.reset(new faiss::IDSelectorJlongBitmap(filterIdsLength, filteredIdsArray));

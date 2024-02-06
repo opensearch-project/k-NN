@@ -116,6 +116,15 @@ test_util::MockJNIUtil::MockJNIUtil() {
                         reinterpret_cast<std::vector<int> *>(arrayJ)->data());
             });
 
+
+    // arrayJ is re-interpreted as a std::vector<int64_t> * and then the data is
+    // re-interpreted as a jlong *
+    ON_CALL(*this, GetLongArrayElements)
+            .WillByDefault([this](JNIEnv *env, jlongArray arrayJ, jboolean *isCopy) {
+                return reinterpret_cast<jlong *>(
+                        reinterpret_cast<std::vector<jlong> *>(arrayJ)->data());
+            });
+
     // arrayJ is re-interpreted as a std::vector<float> * and then the data is
     // re-interpreted as a jfloat *
     ON_CALL(*this, GetFloatArrayElements)
@@ -143,6 +152,13 @@ test_util::MockJNIUtil::MockJNIUtil() {
     // returned
     ON_CALL(*this, GetJavaIntArrayLength)
             .WillByDefault([this](JNIEnv *env, jintArray arrayJ) {
+                return reinterpret_cast<std::vector<int64_t> *>(arrayJ)->size();
+            });
+
+    // arrayJ is re-interpreted as a std::vector<int64_t> * and then the size is
+    // returned
+    ON_CALL(*this, GetJavaLongArrayLength)
+            .WillByDefault([this](JNIEnv *env, jlongArray arrayJ) {
                 return reinterpret_cast<std::vector<int64_t> *>(arrayJ)->size();
             });
 
@@ -192,6 +208,11 @@ test_util::MockJNIUtil::MockJNIUtil() {
     ON_CALL(*this, ReleaseIntArrayElements)
             .WillByDefault(
                     [this](JNIEnv *env, jintArray array, jint *elems, int mode) {});
+
+    // This function should not do anything meaningful in the unit tests
+    ON_CALL(*this, ReleaseLongArrayElements)
+            .WillByDefault(
+                    [this](JNIEnv *env, jlongArray array, jlong *elems, int mode) {});
 
     // array is re-interpreted as a std::vector<uint8_t> * and then the bytes from
     // buf are copied to it
@@ -346,4 +367,17 @@ float test_util::RandomFloat(float min, float max) {
     std::default_random_engine e1(r());
     std::uniform_real_distribution<float> distribution(min, max);
     return distribution(e1);
+}
+
+size_t test_util::bits2words(uint64_t numBits) {
+    return ((numBits - 1) >> 6) + 1;
+}
+
+void test_util::setBitSet(uint64_t value, jlong* array, size_t size) {
+    uint64_t wordNum = value >> 6;
+    if (wordNum >= size ) {
+        return;
+    }
+    jlong bitmask = (1L << (value & 63));
+    array[wordNum] |= bitmask;
 }

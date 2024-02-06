@@ -251,9 +251,13 @@ TEST(FaissQueryIndexWithFilterTest1435, BasicAssertions) {
         queries.push_back(query);
     }
 
-    std::vector<int> filterIds;
+    int num_bits = test_util::bits2words(164);
+    std::vector<jlong> bitmap(num_bits,0);
+    std::vector<int64_t> filterIds;
+
     for (int64_t i = 154; i < 163; i++) {
         filterIds.push_back(i);
+        test_util::setBitSet(i, bitmap.data(), bitmap.size());
     }
     std::unordered_set<int> filterIdSet(filterIds.begin(), filterIds.end());
 
@@ -270,9 +274,9 @@ TEST(FaissQueryIndexWithFilterTest1435, BasicAssertions) {
     JNIEnv *jniEnv = nullptr;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
     EXPECT_CALL(mockJNIUtil,
-                GetJavaIntArrayLength(
-                        jniEnv, reinterpret_cast<jintArray>(&filterIds)))
-            .WillRepeatedly(Return(filterIds.size()));
+                GetJavaLongArrayLength(
+                        jniEnv, reinterpret_cast<jlongArray>(&bitmap)))
+            .WillRepeatedly(Return(bitmap.size()));
 
     int k = 20;
     for (auto query : queries) {
@@ -282,7 +286,7 @@ TEST(FaissQueryIndexWithFilterTest1435, BasicAssertions) {
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
                                 reinterpret_cast<jfloatArray>(&query), k,
-                                reinterpret_cast<jintArray>(&filterIds), nullptr)));
+                                reinterpret_cast<jlongArray>(&bitmap), 0, nullptr)));
 
         ASSERT_TRUE(results->size() <= filterIds.size());
         ASSERT_TRUE(results->size() > 0);

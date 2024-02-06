@@ -64,9 +64,12 @@ namespace test_util {
                     (JNIEnv * env, jobjectArray array2dJ));
         MOCK_METHOD(jint*, GetIntArrayElements,
                     (JNIEnv * env, jintArray array, jboolean* isCopy));
+        MOCK_METHOD(jlong*, GetLongArrayElements,
+                    (JNIEnv * env, jlongArray array, jboolean* isCopy));
         MOCK_METHOD(int, GetJavaBytesArrayLength, (JNIEnv * env, jbyteArray arrayJ));
         MOCK_METHOD(int, GetJavaFloatArrayLength, (JNIEnv * env, jfloatArray arrayJ));
         MOCK_METHOD(int, GetJavaIntArrayLength, (JNIEnv * env, jintArray arrayJ));
+        MOCK_METHOD(int, GetJavaLongArrayLength, (JNIEnv * env, jlongArray arrayJ));
         MOCK_METHOD(int, GetJavaObjectArrayLength,
                     (JNIEnv * env, jobjectArray arrayJ));
         MOCK_METHOD(jobject, GetObjectArrayElement,
@@ -86,6 +89,8 @@ namespace test_util {
                     (JNIEnv * env, jfloatArray array, jfloat* elems, int mode));
         MOCK_METHOD(void, ReleaseIntArrayElements,
                     (JNIEnv * env, jintArray array, jint* elems, jint mode));
+        MOCK_METHOD(void, ReleaseLongArrayElements,
+                    (JNIEnv * env, jlongArray array, jlong* elems, jint mode));
         MOCK_METHOD(void, SetByteArrayRegion,
                     (JNIEnv * env, jbyteArray array, jsize start, jsize len,
                             const jbyte* buf));
@@ -150,6 +155,10 @@ namespace test_util {
 
     float RandomFloat(float min, float max);
 
+    // returns the number of 64 bit words it would take to hold numBits
+    size_t bits2words(uint64_t numBits);
+
+    void setBitSet(uint64_t value, jlong* array, size_t size);
 // -------------------------------------------------------------------------------
 }  // namespace test_util
 
