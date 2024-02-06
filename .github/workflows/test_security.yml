@@ -45,6 +45,10 @@ jobs:
           cd jni/external/faiss
           git apply --ignore-space-change --ignore-whitespace --3way ../../patches/faiss/0001-Custom-patch-to-support-multi-vector.patch
           rm ../../patches/faiss/0001-Custom-patch-to-support-multi-vector.patch
+          git apply --ignore-space-change --ignore-whitespace --3way ../../patches/faiss/0002-Custom-patch-to-support-sqfp16-neon.patch
+          rm ../../patches/faiss/0002-Custom-patch-to-support-sqfp16-neon.patch
+          git apply --ignore-space-change --ignore-whitespace --3way ../../patches/faiss/0003-Custom-patch-to-support-AVX2-Linux-CI.patch
+          rm ../../patches/faiss/0003-Custom-patch-to-support-AVX2-Linux-CI.patch
         working-directory: ${{ github.workspace }}
 
       - name: Setup Java ${{ matrix.java }}
@@ -56,4 +60,4 @@ jobs:
         # switching the user, as OpenSearch cluster can only be started as root/Administrator on linux-deb/linux-rpm/windows-zip.
         run: |
           chown -R 1000:1000 `pwd`
-          su `id -un 1000` -c "whoami && java -version && ./gradlew integTest -Dsecurity.enabled=true"
+          su `id -un 1000` -c "whoami && java -version && ./gradlew integTest -Dsecurity.enabled=true -Dsimd.enabled=true"
