@@ -35,6 +35,7 @@ import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -52,9 +53,13 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFP16VectorValue;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithEngine;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithKnnIndexSetting;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
@@ -516,7 +521,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             context.doc().add(point);
             addStoredFieldForVectorField(context, fieldType, name(), point.toString());
         } else if (VectorDataType.FLOAT == vectorDataType) {
-            Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
+            Optional<float[]> floatsArrayOptional;
+            if (isFaissSQfp16(fieldType().getKnnMethodContext())) {
+                floatsArrayOptional = getFloatsFromContextWithFP16Validation(context, dimension);
+            } else {
+                floatsArrayOptional = getFloatsFromContext(context, dimension);
+            }
 
             if (!floatsArrayOptional.isPresent()) {
                 return;
@@ -533,6 +543,26 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }
 
         context.path().remove();
+    }
+
+    protected boolean isFaissSQfp16(KNNMethodContext knnMethodContext) {
+        if (knnMethodContext != null) {
+            if (knnMethodContext.getKnnEngine().getName().equals(FAISS_NAME)
+                && knnMethodContext.getMethodComponentContext().getParameters().size() != 0) {
+                Map<String, Object> methodComponentParams = knnMethodContext.getMethodComponentContext().getParameters();
+                if (methodComponentParams.containsKey(METHOD_ENCODER_PARAMETER)) {
+                    MethodComponentContext methodComponentContext = (MethodComponentContext) methodComponentParams.get(
+                        METHOD_ENCODER_PARAMETER
+                    );
+                    if ((ENCODER_SQ).equals(methodComponentContext.getName())) {
+                        return true;
+                    }
+                }
+
+            }
+
+        }
+        return false;
     }
 
     void validateIfCircuitBreakerIsNotTriggered() {
@@ -601,6 +631,41 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         } else if (token == XContentParser.Token.VALUE_NUMBER) {
             value = context.parser().floatValue();
             validateFloatVectorValue(value);
+            vector.add(value);
+            context.parser().nextToken();
+        } else if (token == XContentParser.Token.VALUE_NULL) {
+            context.path().remove();
+            return Optional.empty();
+        }
+        validateVectorDimension(dimension, vector.size());
+
+        float[] array = new float[vector.size()];
+        int i = 0;
+        for (Float f : vector) {
+            array[i++] = f;
+        }
+        return Optional.of(array);
+    }
+
+    // Returns an optional array of float values where each value in the vector is parsed as a float and validated
+    // if it is a finite number and within the fp16 range of [-65504 to 65504].
+    Optional<float[]> getFloatsFromContextWithFP16Validation(ParseContext context, int dimension) throws IOException {
+        context.path().add(simpleName());
+
+        ArrayList<Float> vector = new ArrayList<>();
+        XContentParser.Token token = context.parser().currentToken();
+        float value;
+        if (token == XContentParser.Token.START_ARRAY) {
+            token = context.parser().nextToken();
+            while (token != XContentParser.Token.END_ARRAY) {
+                value = context.parser().floatValue();
+                validateFP16VectorValue(value);
+                vector.add(value);
+                token = context.parser().nextToken();
+            }
+        } else if (token == XContentParser.Token.VALUE_NUMBER) {
+            value = context.parser().floatValue();
+            validateFP16VectorValue(value);
             vector.add(value);
             context.parser().nextToken();
         } else if (token == XContentParser.Token.VALUE_NULL) {

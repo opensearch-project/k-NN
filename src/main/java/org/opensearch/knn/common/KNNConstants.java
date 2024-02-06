@@ -110,6 +110,9 @@ public class KNNConstants {
     public static final Integer MODEL_CACHE_CAPACITY_ATROPHY_THRESHOLD_IN_MINUTES = 30;
     public static final Integer MODEL_CACHE_EXPIRE_AFTER_ACCESS_TIME_MINUTES = 30;
 
+    public static final Integer FP16_MAX_VALUE = 65504;
+    public static final Integer FP16_MIN_VALUE = -65504;
+
     // Lib names
     private static final String JNI_LIBRARY_PREFIX = "opensearchknn_";
     public static final String FAISS_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + FAISS_NAME;

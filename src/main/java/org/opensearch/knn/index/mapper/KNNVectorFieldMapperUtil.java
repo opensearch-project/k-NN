@@ -21,6 +21,10 @@ import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Locale;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FP16_MAX_VALUE;
+import static org.opensearch.knn.common.KNNConstants.FP16_MIN_VALUE;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
@@ -69,6 +73,35 @@ public class KNNVectorFieldMapperUtil {
                     VectorDataType.BYTE.getValue(),
                     Byte.MIN_VALUE,
                     Byte.MAX_VALUE
+                )
+            );
+        }
+    }
+
+    /**
+     * Validate the float vector value and throw exception if it is not a number or not in the finite range
+     * or is not within the FP16 range of [-65504 to 65504].
+     *
+     * @param value float vector value
+     */
+    public static void validateFP16VectorValue(float value) {
+        if (Float.isNaN(value)) {
+            throw new IllegalArgumentException("KNN vector values cannot be NaN");
+        }
+
+        if (Float.isInfinite(value)) {
+            throw new IllegalArgumentException("KNN vector values cannot be infinity");
+        }
+
+        if ((int) Math.floor(value) < FP16_MIN_VALUE || (int) Math.ceil(value) > FP16_MAX_VALUE) {
+            throw new IllegalArgumentException(
+                String.format(
+                    Locale.ROOT,
+                    "encoder name is set as [%s] and type is set as [%s] in index mapping. But, KNN vector values are not within in the FP16 range [%d, %d]",
+                    ENCODER_SQ,
+                    FAISS_SQ_ENCODER_FP16,
+                    FP16_MIN_VALUE,
+                    FP16_MAX_VALUE
                 )
             );
         }
