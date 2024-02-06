@@ -11,6 +11,7 @@
 
 #include "jni_util.h"
 #include "faiss_wrapper.h"
+#include "knn_extension/faiss/MultiVectorResultCollectorFactory.h"
 
 #include "faiss/impl/io.h"
 #include "faiss/index_factory.h"
@@ -72,6 +73,10 @@ void convertFilterIdsToFaissIdType(const int* filterIds, int filterIdsLength, fa
 
 // Concerts the FilterIds to BitMap
 void buildFilterIdsBitMap(const int* filterIds, int filterIdsLength, uint8_t* bitsetVector);
+
+os_faiss::MultiVectorResultCollectorFactory* buildResultCollectorFactory(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env, jintArray parentIdsJ);
+
+void releaseResultCollectorFactory(os_faiss::MultiVectorResultCollectorFactory* collectorFactory);
 
 void knn_jni::faiss_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
                                          jobjectArray vectorsJ, jstring indexPathJ, jobject parametersJ) {
@@ -218,12 +223,12 @@ jlong knn_jni::faiss_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
 }
 
 jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                                jfloatArray queryVectorJ, jint kJ) {
-    return knn_jni::faiss_wrapper::QueryIndex_WithFilter(jniUtil, env, indexPointerJ, queryVectorJ, kJ, nullptr, 0);
+                                                jfloatArray queryVectorJ, jint kJ, jintArray parentIdsJ) {
+    return knn_jni::faiss_wrapper::QueryIndex_WithFilter(jniUtil, env, indexPointerJ, queryVectorJ, kJ, nullptr, 0, parentIdsJ);
 }
 
 jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                                jfloatArray queryVectorJ, jint kJ, jlongArray filterIdsJ, jint filterIdsTypeJ) {
+                                                jfloatArray queryVectorJ, jint kJ, jlongArray filterIdsJ, jint filterIdsTypeJ, jintArray parentIdsJ) {
 
     if (queryVectorJ == nullptr) {
         throw std::runtime_error("Query Vector cannot be null");
@@ -264,6 +269,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
             // value of ef_search = 16 which will then be used.
             hnswParams.efSearch = hnswReader->hnsw.efSearch;
             hnswParams.sel = idSelector.get();
+            hnswParams.col = buildResultCollectorFactory(jniUtil, env, parentIdsJ);
             searchParameters = &hnswParams;
         } else {
             auto ivfReader = dynamic_cast<const faiss::IndexIVF*>(indexReader->index);
@@ -278,16 +284,30 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         } catch (...) {
             jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
             jniUtil->ReleaseLongArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
+            releaseResultCollectorFactory(dynamic_cast<os_faiss::MultiVectorResultCollectorFactory*>(hnswParams.col));
             throw;
         }
         jniUtil->ReleaseLongArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
+        releaseResultCollectorFactory(dynamic_cast<os_faiss::MultiVectorResultCollectorFactory*>(hnswParams.col));
     } else {
+        faiss::SearchParameters *searchParameters = nullptr;
+        faiss::SearchParametersHNSW hnswParams;
+        auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
+        if(hnswReader!= nullptr && parentIdsJ != nullptr) {
+            // Setting the ef_search value equal to what was provided during index creation. SearchParametersHNSW has a default
+            // value of ef_search = 16 which will then be used.
+            hnswParams.efSearch = hnswReader->hnsw.efSearch;
+            hnswParams.col = buildResultCollectorFactory(jniUtil, env, parentIdsJ);
+            searchParameters = &hnswParams;
+        }
         try {
-            indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data());
+            indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data(), searchParameters);
         } catch (...) {
             jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
+            releaseResultCollectorFactory(dynamic_cast<os_faiss::MultiVectorResultCollectorFactory*>(hnswParams.col));
             throw;
         }
+        releaseResultCollectorFactory(dynamic_cast<os_faiss::MultiVectorResultCollectorFactory*>(hnswParams.col));
     }
     jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
 
@@ -440,4 +460,23 @@ void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x) {
     if (!index->is_trained) {
         index->train(n, x);
     }
+}
+
+os_faiss::MultiVectorResultCollectorFactory* buildResultCollectorFactory(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env, jintArray parentIdsJ) {
+    if (parentIdsJ == nullptr) {
+        return nullptr;
+    }
+    int *parentIdsArray = jniUtil->GetIntArrayElements(env, parentIdsJ, nullptr);
+    int parentIdsLength = jniUtil->GetJavaIntArrayLength(env, parentIdsJ);
+    auto* parent_id_filter = new FixedBitSet(parentIdsArray, parentIdsLength);
+    jniUtil->ReleaseIntArrayElements(env, parentIdsJ, parentIdsArray, JNI_ABORT);
+    return new os_faiss::MultiVectorResultCollectorFactory(parent_id_filter);
+}
+
+void releaseResultCollectorFactory(os_faiss::MultiVectorResultCollectorFactory* collectorFactory) {
+    if (collectorFactory == nullptr) {
+        return;
+    }
+    delete collectorFactory->parent_bit_set;
+    delete collectorFactory;
 }

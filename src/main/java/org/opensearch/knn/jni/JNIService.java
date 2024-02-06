@@ -108,7 +108,8 @@ public class JNIService {
         int k,
         String engineName,
         long[] filteredIds,
-        int filterIdsType
+        int filterIdsType,
+        int[] parentIds
     ) {
         if (KNNEngine.NMSLIB.getName().equals(engineName)) {
             return NmslibService.queryIndex(indexPointer, queryVector, k);
@@ -120,9 +121,9 @@ public class JNIService {
             // filterIds. FilterIds is coming as empty then its the case where we need to do search with Faiss engine
             // normally.
             if (ArrayUtils.isNotEmpty(filteredIds)) {
-                return FaissService.queryIndexWithFilter(indexPointer, queryVector, k, filteredIds, filterIdsType);
+                return FaissService.queryIndexWithFilter(indexPointer, queryVector, k, filteredIds, filterIdsType, parentIds);
             }
-            return FaissService.queryIndex(indexPointer, queryVector, k);
+            return FaissService.queryIndex(indexPointer, queryVector, k, parentIds);
         }
         throw new IllegalArgumentException("QueryIndex not supported for provided engine");
     }

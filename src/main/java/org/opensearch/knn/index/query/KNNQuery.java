@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.query;
 
+import java.util.Arrays;
+import java.util.Objects;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.lucene.search.BooleanClause;
@@ -15,6 +17,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryVisitor;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
+import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.knn.index.KNNSettings;
 
 import java.io.IOException;
@@ -33,20 +36,37 @@ public class KNNQuery extends Query {
     @Getter
     @Setter
     private Query filterQuery;
+    @Getter
+    private BitSetProducer parentsFilter;
 
-    public KNNQuery(String field, float[] queryVector, int k, String indexName) {
+    public KNNQuery(
+        final String field,
+        final float[] queryVector,
+        final int k,
+        final String indexName,
+        final BitSetProducer parentsFilter
+    ) {
         this.field = field;
         this.queryVector = queryVector;
         this.k = k;
         this.indexName = indexName;
+        this.parentsFilter = parentsFilter;
     }
 
-    public KNNQuery(String field, float[] queryVector, int k, String indexName, Query filterQuery) {
+    public KNNQuery(
+        final String field,
+        final float[] queryVector,
+        final int k,
+        final String indexName,
+        final Query filterQuery,
+        final BitSetProducer parentsFilter
+    ) {
         this.field = field;
         this.queryVector = queryVector;
         this.k = k;
         this.indexName = indexName;
         this.filterQuery = filterQuery;
+        this.parentsFilter = parentsFilter;
     }
 
     public String getField() {
@@ -109,7 +129,7 @@ public class KNNQuery extends Query {
 
     @Override
     public int hashCode() {
-        return field.hashCode() ^ queryVector.hashCode() ^ k;
+        return Objects.hash(field, Arrays.hashCode(queryVector), k, indexName, filterQuery);
     }
 
     @Override
@@ -118,6 +138,10 @@ public class KNNQuery extends Query {
     }
 
     private boolean equalsTo(KNNQuery other) {
-        return this.field.equals(other.getField()) && this.queryVector.equals(other.getQueryVector()) && this.k == other.getK();
+        return Objects.equals(field, other.field)
+            && Arrays.equals(queryVector, other.queryVector)
+            && Objects.equals(k, other.k)
+            && Objects.equals(indexName, other.indexName)
+            && Objects.equals(filterQuery, other.filterQuery);
     }
-};
+}

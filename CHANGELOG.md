@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.12...2.x)
 ### Features
 * Add parent join support for lucene knn [#1182](https://github.com/opensearch-project/k-NN/pull/1182)
+* Add parent join support for faiss hnsw [#1398](https://github.com/opensearch-project/k-NN/pull/1398)
 ### Enhancements
 * Increase Lucene max dimension limit to 16,000 [#1346](https://github.com/opensearch-project/k-NN/pull/1346)
 * Tuned default values for ef_search and ef_construction for better indexing and search performance for vector search [#1353](https://github.com/opensearch-project/k-NN/pull/1353)
@@ -25,9 +26,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Allow nested knn field mapping when train model [#1318](https://github.com/opensearch-project/k-NN/pull/1318)
 * Properly designate model state for actively training models when nodes crash or leave cluster [#1317](https://github.com/opensearch-project/k-NN/pull/1317)
 * Fix script score queries not getting cached [#1367](https://github.com/opensearch-project/k-NN/pull/1367)
+* Fix KNNScorer to apply boost [#1403](https://github.com/opensearch-project/k-NN/pull/1403)
+* Fix equals and hashCode methods for KNNQuery and KNNQueryBuilder [#1397](https://github.com/opensearch-project/k-NN/pull/1397)
 ### Infrastructure
 * Upgrade gradle to 8.4 [1289](https://github.com/opensearch-project/k-NN/pull/1289)
 * Refactor security testing to install from individual components [#1307](https://github.com/opensearch-project/k-NN/pull/1307)
+* Refactor integ tests that access model index [#1423](https://github.com/opensearch-project/k-NN/pull/1423)
+* Fix flaky model tests [#1429](https://github.com/opensearch-project/k-NN/pull/1429)
 ### Documentation
 ### Maintenance
 * Update developer guide to include M1 Setup [#1222](https://github.com/opensearch-project/k-NN/pull/1222)

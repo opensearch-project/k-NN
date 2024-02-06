@@ -13,7 +13,6 @@
 #define OPENSEARCH_KNN_FAISS_WRAPPER_H
 
 #include "jni_util.h"
-
 #include <jni.h>
 
 namespace knn_jni {
@@ -38,14 +37,14 @@ namespace knn_jni {
         //
         // Return an array of KNNQueryResults
         jobjectArray QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                jfloatArray queryVectorJ, jint kJ);
+                                jfloatArray queryVectorJ, jint kJ, jintArray parentIdsJ);
 
         // Execute a query against the index located in memory at indexPointerJ along with Filters
         //
         // Return an array of KNNQueryResults
         jobjectArray QueryIndex_WithFilter(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
                                                                 jfloatArray queryVectorJ, jint kJ, jlongArray filterIdsJ,
-                                                                jint filterIdsTypeJ);
+                                                                jint filterIdsTypeJ, jintArray parentIdsJ);
 
         // Free the index located in memory at indexPointerJ
         void Free(jlong indexPointer);
