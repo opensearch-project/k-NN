@@ -47,7 +47,6 @@ public class NestedFilteredIdsKNNIterator extends FilteredIdsKNNIterator {
         int bestChild = -1;
 
         while (docId != DocIdSetIterator.NO_MORE_DOCS && docId < currentParent) {
-            System.out.println("Before DocID" + docId + " currentParent:" + currentParent);
             binaryDocValues.advance(docId);
             float score = computeScore();
             if (score > currentScore) {
@@ -55,7 +54,6 @@ public class NestedFilteredIdsKNNIterator extends FilteredIdsKNNIterator {
                 currentScore = score;
             }
             docId = bitSetIterator.nextDoc();
-            System.out.println("After DocID" + docId + " currentParent:" + currentParent);
         }
 
         return bestChild;

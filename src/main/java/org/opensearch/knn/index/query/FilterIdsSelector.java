@@ -17,10 +17,9 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.FixedBitSet;
+import org.apache.lucene.util.RamUsageEstimator;
 
 import java.io.IOException;
-
-import static org.opensearch.knn.common.KNNConstants.MAX_ID_SELECT_ARRAY;
 
 /**
  * Util Class for filter ids selector
@@ -45,6 +44,8 @@ public class FilterIdsSelector {
     long[] filterIds;
     FilterIdsSelectorType filterType;
 
+    private static final long SINGLE_ELEMENT_ARRAY_BYTES_USED = RamUsageEstimator.sizeOf(new long[1]);
+
     /**
      * This function takes a call on what ID Selector to use:
      * https://github.com/facebookresearch/faiss/wiki/Setting-search-parameters-for-one-query#idselectorarray-idselectorbatch-and-idselectorbitmap
@@ -54,10 +55,19 @@ public class FilterIdsSelector {
      * IDSelectorBatch	O(k)	O(1)          O(2k)
      * IDSelectorBitmap	O(n/8)	O(1)          O(k) n is the max value of id in the index
      *
-     * The Goal selector is to keep the size balance with bitmap and array.
-     * keep the memory and lookup at an upper limit usage.
-     * So MAX_ID_SELECT_ARRAY keep less than 2M docids which less than 15MB memory.
-     * When using FIXEDBitSet can store almost 0.1B docids with 15MB memory.
+     * TODO: We need to ideally decide when we can take another hit of K iterations in latency. Some facts:
+     * an OpenSearch Index can have max segment size as 5GB which, which on a vector with dimension of 128 boils down to
+     * 7.5M vectors.
+     * Ref: https://opensearch.org/docs/latest/search-plugins/knn/knn-index/#hnsw-memory-estimation
+     * M = 16
+     * Dimension = 128
+     * (1.1 * ( 4 * 128 + 8 * 16) * 7500000)/(1024*1024*1024) ~ 4.9GB
+     * Ids are sequential in a Segment which means for IDSelectorBitmap total size if the max ID has value of 7.5M will be
+     * 7500000/(8*1024) = 915KBs in worst case. But with larger dimensions this worst case value will decrease.
+     *
+     * With 915KB how many ids can be represented as an array of 64-bit longs : 117,120 ids
+     * So iterating on 117k ids for 1 single pass is also time consuming. So, we are currently concluding to consider only size
+     * as factor. We need to improve on this.
      *
      * @param filterIdsBitSet Filter query result docs
      * @param cardinality The number of bits that are set
@@ -72,9 +82,9 @@ public class FilterIdsSelector {
              */
             filterIds = ((FixedBitSet) filterIdsBitSet).getBits();
             filterType = FilterIdsSelector.FilterIdsSelectorType.BITMAP;
-        } else if (cardinality < MAX_ID_SELECT_ARRAY) {
+        } else if ((cardinality * SINGLE_ELEMENT_ARRAY_BYTES_USED * 8) <= filterIdsBitSet.length()) {
             /**
-             * When filterIds is Sparse filter, using BATCH filter.
+             * When filterIds is sparse bitset, using ram usage to decide FilterIdsSelectorType
              */
             BitSetIterator bitSetIterator = new BitSetIterator(filterIdsBitSet, cardinality);
             filterIds = new long[cardinality];
@@ -82,15 +92,11 @@ public class FilterIdsSelector {
             for (int docId = bitSetIterator.nextDoc(); docId != DocIdSetIterator.NO_MORE_DOCS; docId = bitSetIterator.nextDoc()) {
                 filterIds[idx++] = docId;
             }
-            filterType = FilterIdsSelector.FilterIdsSelectorType.BATCH;
+            filterType = FilterIdsSelectorType.BATCH;
         } else {
-            /**
-             * Others using fixed bitset, may be SparseBitSet
-             */
-            int length = filterIdsBitSet.length();
-            FixedBitSet fixedBitSet = new FixedBitSet(length);
-            BitSetIterator bitSetIterator = new BitSetIterator(filterIdsBitSet, cardinality);
-            fixedBitSet.or(bitSetIterator);
+            FixedBitSet fixedBitSet = new FixedBitSet(filterIdsBitSet.length());
+            BitSetIterator sparseBitSetIterator = new BitSetIterator(filterIdsBitSet, cardinality);
+            fixedBitSet.or(sparseBitSetIterator);
             filterIds = fixedBitSet.getBits();
             filterType = FilterIdsSelector.FilterIdsSelectorType.BITMAP;
         }
