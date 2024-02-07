@@ -52,7 +52,7 @@ public class FilterIdsSelector {
      * class	       storage	lookup     construction(Opensearch + Faiss)
      * IDSelectorArray	O(k)	O(k)          O(2k)
      * IDSelectorBatch	O(k)	O(1)          O(2k)
-     * IDSelectorBitmap	O(n/8)	O(1)          O(k) -> n is the max value of id in the index
+     * IDSelectorBitmap	O(n/8)	O(1)          O(k) n is the max value of id in the index
      *
      * The Goal selector is to keep the size balance with bitmap and array.
      * keep the memory and lookup at an upper limit usage.
