@@ -11,6 +11,8 @@
 
 package org.opensearch.knn.index.query;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
@@ -23,44 +25,25 @@ import static org.opensearch.knn.common.KNNConstants.MAX_ID_SELECT_ARRAY;
 /**
  * Util Class for filter ids selector
  */
+@AllArgsConstructor
+@Getter
 public class FilterIdsSelector {
 
     /**
      * When do ann query with filters, there are two types:
      * BitMap using FixedBitSet, BATCH using a long array stands for filter result docids.
      */
+    @AllArgsConstructor
+    @Getter
     public enum FilterIdsSelectorType {
-
         BITMAP(0),
-
         BATCH(1);
 
         private final int value;
-
-        FilterIdsSelectorType(int value) {
-            this.value = value;
-        }
-
-        public int getValue() {
-            return value;
-        }
     }
 
     long[] filterIds;
     FilterIdsSelectorType filterType;
-
-    public FilterIdsSelector(long[] filterIds, FilterIdsSelectorType type) {
-        this.filterIds = filterIds;
-        this.filterType = type;
-    }
-
-    public long[] getFilterIds() {
-        return filterIds;
-    }
-
-    public FilterIdsSelectorType getFilterType() {
-        return filterType;
-    }
 
     /**
      * This function takes a call on what ID Selector to use:
@@ -76,9 +59,9 @@ public class FilterIdsSelector {
      * So MAX_ID_SELECT_ARRAY keep less than 2M docids which less than 15MB memory.
      * When using FIXEDBitSet can store almost 0.1B docids with 15MB memory.
      *
-     * @param filterIdsBitSet
-     * @param cardinality
-     * @return Tuple<long[], FilterIdsSelector.FilterIdsSelectorType>
+     * @param filterIdsBitSet Filter query result docs
+     * @param cardinality The number of bits that are set
+     * @return {@link FilterIdsSelector}
      */
     public static FilterIdsSelector getIdSelectorType(BitSet filterIdsBitSet, int cardinality) throws IOException {
         long[] filterIds;

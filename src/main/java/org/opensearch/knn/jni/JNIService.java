@@ -99,7 +99,7 @@ public class JNIService {
      * @param k            neighbors to be returned
      * @param engineName   name of engine to query index
      * @param filteredIds  array of ints on which should be used for search.
-     * @PARAM filterIdsType how to filter ids: Batch or BitMap
+     * @param filterIdsType how to filter ids: Batch or BitMap
      * @return KNNQueryResult array of k neighbors
      */
     public static KNNQueryResult[] queryIndex(
