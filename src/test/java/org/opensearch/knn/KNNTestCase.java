@@ -55,6 +55,8 @@ public class KNNTestCase extends OpenSearchTestCase {
 
     @Override
     protected boolean enableWarningsCheck() {
+        // Disable warnings check to avoid flaky tests, more details at:
+        // https://github.com/opensearch-project/k-NN/issues/1392
         return false;
     }
 
