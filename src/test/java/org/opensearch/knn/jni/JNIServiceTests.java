@@ -525,7 +525,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile = createTempFile();
         JNIService.createIndex(
             testData.indexData.docs,
-            testData.indexData.vectors,
+            truncateToFp16Range(testData.indexData.vectors),
             tmpFile.toAbsolutePath().toString(),
             ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, sqfp16IndexDescription, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
             FAISS_NAME
@@ -545,6 +545,23 @@ public class JNIServiceTests extends KNNTestCase {
             KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, new int[] { 0 }, null);
             assertEquals(0, results.length);
         }
+    }
+
+    // If the value is outside of the fp16 range, then convert it to the fp16 minimum or maximum value
+    private float[][] truncateToFp16Range(final float[][] data) {
+        float[][] result = new float[data.length][data[0].length];
+        for (int i = 0; i < data.length; i++) {
+            for (int j = 0; j < data[i].length; j++) {
+                float value = data[i][j];
+                if (value < Float.MIN_VALUE || value > Float.MAX_VALUE) {
+                    // If value is outside of the range, set it to the maximum or minimum value
+                    result[i][j] = value < 0 ? -Float.MAX_VALUE : Float.MAX_VALUE;
+                } else {
+                    result[i][j] = value;
+                }
+            }
+        }
+        return result;
     }
 
     @SneakyThrows
