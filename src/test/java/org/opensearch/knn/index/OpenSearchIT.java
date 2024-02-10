@@ -54,6 +54,30 @@ public class OpenSearchIT extends KNNRestTestCase {
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());
     }
 
+    /**
+     * This test performs basic validation steps such as index, search in order to verify that kNN works with Segment
+     * replication.
+     * @throws Exception
+     */
+    public void testSegmentReplication() throws Exception {
+        String field1 = "field1";
+        String field2 = "field2";
+        createKnnIndex(INDEX_NAME, getKNNSegrepIndexSettings(), createKnnIndexMapping(Arrays.asList(field1, field2), Arrays.asList(2, 2)));
+
+        Float[] vector = { 6.0f, 7.0f };
+        addKnnDoc(INDEX_NAME, "1", Arrays.asList(field1, field2), Arrays.asList(vector, vector));
+
+        addKnnDoc(INDEX_NAME, "2", field1, vector);
+        addKnnDoc(INDEX_NAME, "3", field1, vector);
+        addKnnDoc(INDEX_NAME, "4", field1, vector);
+
+        addKnnDoc(INDEX_NAME, "5", field2, vector);
+        addKnnDoc(INDEX_NAME, "6", field2, vector);
+
+        refreshAllIndices();
+        assertEquals(6, getDocCount(INDEX_NAME));
+    }
+
     public void testEndToEnd() throws Exception {
         String indexName = "test-index-1";
         KNNEngine knnEngine1 = KNNEngine.NMSLIB;
