@@ -57,7 +57,8 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class JNIServiceTests extends KNNTestCase {
-
+    static final int FP16_MAX = 65504;
+    static final int FP16_MIN = -65504;
     static TestUtils.TestData testData;
     static TestUtils.TestData testDataNested;
     private String faissMethod = "HNSW32,Flat";
@@ -553,9 +554,9 @@ public class JNIServiceTests extends KNNTestCase {
         for (int i = 0; i < data.length; i++) {
             for (int j = 0; j < data[i].length; j++) {
                 float value = data[i][j];
-                if (value < Float.MIN_VALUE || value > Float.MAX_VALUE) {
+                if (value < FP16_MIN || value > FP16_MAX) {
                     // If value is outside of the range, set it to the maximum or minimum value
-                    result[i][j] = value < 0 ? -Float.MAX_VALUE : Float.MAX_VALUE;
+                    result[i][j] = value < 0 ? FP16_MIN : FP16_MAX;
                 } else {
                     result[i][j] = value;
                 }
