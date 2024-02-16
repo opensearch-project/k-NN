@@ -65,9 +65,6 @@ void SetExtraParameters(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env,
 // Train an index with data provided
 void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x);
 
-// Helps to choose the right FilterIdsSelectorType for Faiss
-FilterIdsSelectorType getIdSelectorType(const int* filterIds, int filterIdsLength);
-
 // Converts the int FilterIds to Faiss ids type array.
 void convertFilterIdsToFaissIdType(const int* filterIds, int filterIdsLength, faiss::idx_t* convertedFilterIds);
 

@@ -149,7 +149,7 @@ public class KNNWeight extends Weight {
         final Bits liveDocs = ctx.reader().getLiveDocs();
         final int maxDoc = ctx.reader().maxDoc();
 
-        final Scorer scorer = this.filterWeight.scorer(ctx);
+        final Scorer scorer = filterWeight.scorer(ctx);
         if (scorer == null) {
             return new FixedBitSet(0);
         }
@@ -193,7 +193,8 @@ public class KNNWeight extends Weight {
         return intArray;
     }
 
-    private Map<Integer, Float> doANNSearch(final LeafReaderContext context, BitSet filterIdsBitSet, int cardinality) throws IOException {
+    private Map<Integer, Float> doANNSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality)
+        throws IOException {
         SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(context.reader());
         String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
 
@@ -265,7 +266,7 @@ public class KNNWeight extends Weight {
         }
 
         // From cardinality select different filterIds type
-        FilterIdsSelector filterIdsSelector = FilterIdsSelector.getIdSelectorType(filterIdsBitSet, cardinality);
+        FilterIdsSelector filterIdsSelector = FilterIdsSelector.getFilterIdSelector(filterIdsBitSet, cardinality);
         long[] filterIds = filterIdsSelector.getFilterIds();
         FilterIdsSelector.FilterIdsSelectorType filterType = filterIdsSelector.getFilterType();
         // Now that we have the allocation, we need to readLock it

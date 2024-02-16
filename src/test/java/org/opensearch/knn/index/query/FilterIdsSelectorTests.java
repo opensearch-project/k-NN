@@ -25,8 +25,8 @@ public class FilterIdsSelectorTests extends KNNTestCase {
         for (int i = 1; i <= 100; i++) {
             bits.set(i);
         }
-        FilterIdsSelector idsSelector = FilterIdsSelector.getIdSelectorType(bits, bits.cardinality());
-        assertEquals(idsSelector.filterType, FilterIdsSelector.FilterIdsSelectorType.BITMAP);
+        FilterIdsSelector idsSelector = FilterIdsSelector.getFilterIdSelector(bits, bits.cardinality());
+        assertEquals(idsSelector.getFilterType(), FilterIdsSelector.FilterIdsSelectorType.BITMAP);
         assertArrayEquals(bits.getBits(), idsSelector.filterIds);
     }
 
@@ -36,8 +36,8 @@ public class FilterIdsSelectorTests extends KNNTestCase {
         for (int i = 1; i <= 100; i++) {
             bits.set(i);
         }
-        FilterIdsSelector idsSelector = FilterIdsSelector.getIdSelectorType(bits, bits.cardinality());
-        assertEquals(idsSelector.filterType, FilterIdsSelector.FilterIdsSelectorType.BITMAP);
+        FilterIdsSelector idsSelector = FilterIdsSelector.getFilterIdSelector(bits, bits.cardinality());
+        assertEquals(idsSelector.getFilterType(), FilterIdsSelector.FilterIdsSelectorType.BITMAP);
         FixedBitSet fixedBitSet = new FixedBitSet(bits.length());
         BitSetIterator sparseBitSetIterator = new BitSetIterator(bits, 101);
         fixedBitSet.or(sparseBitSetIterator);
@@ -53,8 +53,8 @@ public class FilterIdsSelectorTests extends KNNTestCase {
             bits.set(i);
             array[idx++] = i;
         }
-        FilterIdsSelector idsSelector = FilterIdsSelector.getIdSelectorType(bits, bits.cardinality());
-        assertEquals(idsSelector.filterType, FilterIdsSelector.FilterIdsSelectorType.BATCH);
+        FilterIdsSelector idsSelector = FilterIdsSelector.getFilterIdSelector(bits, bits.cardinality());
+        assertEquals(idsSelector.getFilterType(), FilterIdsSelector.FilterIdsSelectorType.BATCH);
         assertArrayEquals(array, idsSelector.filterIds);
     }
 }

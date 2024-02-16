@@ -42,7 +42,7 @@ public class FilterIdsSelector {
     }
 
     long[] filterIds;
-    FilterIdsSelectorType filterType;
+    private FilterIdsSelectorType filterType;
 
     private static final long SINGLE_ELEMENT_ARRAY_BYTES_USED = RamUsageEstimator.sizeOf(new long[1]);
 
@@ -73,7 +73,7 @@ public class FilterIdsSelector {
      * @param cardinality The number of bits that are set
      * @return {@link FilterIdsSelector}
      */
-    public static FilterIdsSelector getIdSelectorType(BitSet filterIdsBitSet, int cardinality) throws IOException {
+    public static FilterIdsSelector getFilterIdSelector(final BitSet filterIdsBitSet, final int cardinality) throws IOException {
         long[] filterIds;
         FilterIdsSelector.FilterIdsSelectorType filterType;
         if (filterIdsBitSet instanceof FixedBitSet) {
