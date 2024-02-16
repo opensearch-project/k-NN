@@ -57,7 +57,8 @@ import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class JNIServiceTests extends KNNTestCase {
-
+    static final int FP16_MAX = 65504;
+    static final int FP16_MIN = -65504;
     static TestUtils.TestData testData;
     static TestUtils.TestData testDataNested;
     private String faissMethod = "HNSW32,Flat";
@@ -525,7 +526,7 @@ public class JNIServiceTests extends KNNTestCase {
         Path tmpFile = createTempFile();
         JNIService.createIndex(
             testData.indexData.docs,
-            testData.indexData.vectors,
+            truncateToFp16Range(testData.indexData.vectors),
             tmpFile.toAbsolutePath().toString(),
             ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, sqfp16IndexDescription, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
             FAISS_NAME
@@ -545,6 +546,23 @@ public class JNIServiceTests extends KNNTestCase {
             KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, FAISS_NAME, new long[] { 0 }, 0, null);
             assertEquals(0, results.length);
         }
+    }
+
+    // If the value is outside of the fp16 range, then convert it to the fp16 minimum or maximum value
+    private float[][] truncateToFp16Range(final float[][] data) {
+        float[][] result = new float[data.length][data[0].length];
+        for (int i = 0; i < data.length; i++) {
+            for (int j = 0; j < data[i].length; j++) {
+                float value = data[i][j];
+                if (value < FP16_MIN || value > FP16_MAX) {
+                    // If value is outside of the range, set it to the maximum or minimum value
+                    result[i][j] = value < 0 ? FP16_MIN : FP16_MAX;
+                } else {
+                    result[i][j] = value;
+                }
+            }
+        }
+        return result;
     }
 
     @SneakyThrows
