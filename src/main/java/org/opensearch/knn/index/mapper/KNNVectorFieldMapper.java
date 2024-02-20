@@ -55,10 +55,13 @@ import java.util.function.Supplier;
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.clipVectorValueToFP16Range;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFP16VectorValue;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithEngine;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithKnnIndexSetting;
@@ -545,6 +548,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         context.path().remove();
     }
 
+    // Verify mapping and return true if it is a "faiss" Index using "sq" encoder
+    // of type "fp16"
     protected boolean isFaissSQfp16(KNNMethodContext knnMethodContext) {
         if (knnMethodContext != null) {
             if (knnMethodContext.getKnnEngine().getName().equals(FAISS_NAME)
@@ -554,7 +559,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     MethodComponentContext methodComponentContext = (MethodComponentContext) methodComponentParams.get(
                         METHOD_ENCODER_PARAMETER
                     );
-                    if ((ENCODER_SQ).equals(methodComponentContext.getName())) {
+                    if (ENCODER_SQ.equals(methodComponentContext.getName())
+                        && methodComponentContext.getParameters().containsKey(FAISS_SQ_TYPE)
+                        && FAISS_SQ_ENCODER_FP16.equals(methodComponentContext.getParameters().get(FAISS_SQ_TYPE))) {
                         return true;
                     }
                 }
@@ -648,24 +655,36 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     }
 
     // Returns an optional array of float values where each value in the vector is parsed as a float and validated
-    // if it is a finite number and within the fp16 range of [-65504 to 65504].
+    // if it is a finite number and within the fp16 range of [-65504 to 65504] by default.
+    // If the Index setting, "index.knn.faiss.clip_to_fp16_range" is set to True, if the vector value is
+    // outside the FP16 range then it will be clipped to FP16 range.
     Optional<float[]> getFloatsFromContextWithFP16Validation(ParseContext context, int dimension) throws IOException {
         context.path().add(simpleName());
 
         ArrayList<Float> vector = new ArrayList<>();
         XContentParser.Token token = context.parser().currentToken();
+        boolean clipToFP16Range = context.indexSettings().getValue(KNNSettings.IS_KNN_INDEX_FAISS_CLIP_FP16_RANGE_SETTING);
         float value;
         if (token == XContentParser.Token.START_ARRAY) {
             token = context.parser().nextToken();
             while (token != XContentParser.Token.END_ARRAY) {
                 value = context.parser().floatValue();
-                validateFP16VectorValue(value);
+                if (clipToFP16Range) {
+                    value = clipVectorValueToFP16Range(value);
+                } else {
+                    validateFP16VectorValue(value);
+                }
+
                 vector.add(value);
                 token = context.parser().nextToken();
             }
         } else if (token == XContentParser.Token.VALUE_NUMBER) {
             value = context.parser().floatValue();
-            validateFP16VectorValue(value);
+            if (clipToFP16Range) {
+                value = clipVectorValueToFP16Range(value);
+            } else {
+                validateFP16VectorValue(value);
+            }
             vector.add(value);
             context.parser().nextToken();
         } else if (token == XContentParser.Token.VALUE_NULL) {

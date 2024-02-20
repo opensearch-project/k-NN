@@ -525,11 +525,11 @@ public class JNIServiceTests extends KNNTestCase {
 
         Path tmpFile = createTempFile();
         JNIService.createIndex(
-                testData.indexData.docs,
-                truncateToFp16Range(testData.indexData.vectors),
-                tmpFile.toAbsolutePath().toString(),
-                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, sqfp16IndexDescription, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
-                FAISS_NAME
+            testData.indexData.docs,
+            truncateToFp16Range(testData.indexData.vectors),
+            tmpFile.toAbsolutePath().toString(),
+            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, sqfp16IndexDescription, KNNConstants.SPACE_TYPE, SpaceType.L2.getValue()),
+            FAISS_NAME
         );
         assertTrue(tmpFile.toFile().length() > 0);
 

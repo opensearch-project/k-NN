@@ -85,15 +85,9 @@ public class KNNVectorFieldMapperUtil {
      * @param value float vector value
      */
     public static void validateFP16VectorValue(float value) {
-        if (Float.isNaN(value)) {
-            throw new IllegalArgumentException("KNN vector values cannot be NaN");
-        }
+        validateFloatVectorValue(value);
 
-        if (Float.isInfinite(value)) {
-            throw new IllegalArgumentException("KNN vector values cannot be infinity");
-        }
-
-        if ((int) Math.floor(value) < FP16_MIN_VALUE || (int) Math.ceil(value) > FP16_MAX_VALUE) {
+        if (value < FP16_MIN_VALUE || value > FP16_MAX_VALUE) {
             throw new IllegalArgumentException(
                 String.format(
                     Locale.ROOT,
@@ -105,6 +99,20 @@ public class KNNVectorFieldMapperUtil {
                 )
             );
         }
+    }
+
+    /**
+     * Validate the float vector value and if it is outside FP16 range,
+     * then it will be clipped to FP16 range of [-65504 to 65504].
+     *
+     * @param value  float vector value
+     * @return  vector value clipped to FP16 range
+     */
+    public static float clipVectorValueToFP16Range(float value) {
+        validateFloatVectorValue(value);
+        if (value < FP16_MIN_VALUE) return FP16_MIN_VALUE;
+        if (value > FP16_MAX_VALUE) return FP16_MAX_VALUE;
+        return value;
     }
 
     /**

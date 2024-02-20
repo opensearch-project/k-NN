@@ -72,6 +72,7 @@ public class KNNSettings {
     public static final String KNN_PLUGIN_ENABLED = "knn.plugin.enabled";
     public static final String KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE = "knn.circuit_breaker.unset.percentage";
     public static final String KNN_INDEX = "index.knn";
+    public static final String KNN_INDEX_FAISS_CLIP_FP16_RANGE = "index.knn.faiss.clip_to_fp16_range";
     public static final String MODEL_INDEX_NUMBER_OF_SHARDS = "knn.model.index.number_of_shards";
     public static final String MODEL_INDEX_NUMBER_OF_REPLICAS = "knn.model.index.number_of_replicas";
     public static final String MODEL_CACHE_SIZE_LIMIT = "knn.model.cache.size.limit";
@@ -198,6 +199,16 @@ public class KNNSettings {
      * This setting identifies KNN index.
      */
     public static final Setting<Boolean> IS_KNN_INDEX_SETTING = Setting.boolSetting(KNN_INDEX, false, IndexScope);
+
+    /**
+     * If this setting is set to True for Faiss Index with SQFP16 Encoder,
+     * then any value in the vector which is outside of FP16 range will be clipped to FP16 range.
+     */
+    public static final Setting<Boolean> IS_KNN_INDEX_FAISS_CLIP_FP16_RANGE_SETTING = Setting.boolSetting(
+        KNN_INDEX_FAISS_CLIP_FP16_RANGE,
+        false,
+        IndexScope
+    );
 
     /**
      * index_thread_quantity - the parameter specifies how many threads the nms library should use to create the graph.
@@ -355,7 +366,8 @@ public class KNNSettings {
             MODEL_INDEX_NUMBER_OF_SHARDS_SETTING,
             MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
             MODEL_CACHE_SIZE_LIMIT_SETTING,
-            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING
+            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
+            IS_KNN_INDEX_FAISS_CLIP_FP16_RANGE_SETTING
         );
         return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream()).collect(Collectors.toList());
     }
