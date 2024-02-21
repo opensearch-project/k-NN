@@ -71,6 +71,7 @@ public class KNNCodecTestUtil {
         private int vectorDimension;
         private VectorSimilarityFunction vectorSimilarityFunction;
         private boolean softDeletes;
+        private boolean isParentField;
 
         public static FieldInfoBuilder builder(String fieldName) {
             return new FieldInfoBuilder(fieldName);
@@ -92,6 +93,7 @@ public class KNNCodecTestUtil {
             this.vectorDimension = 0;
             this.vectorSimilarityFunction = VectorSimilarityFunction.EUCLIDEAN;
             this.softDeletes = false;
+            this.isParentField = false;
         }
 
         public FieldInfoBuilder fieldNumber(int fieldNumber) {
@@ -164,6 +166,11 @@ public class KNNCodecTestUtil {
             return this;
         }
 
+        public FieldInfoBuilder isParentField(boolean isParentField) {
+            this.isParentField = isParentField;
+            return this;
+        }
+
         public FieldInfo build() {
             return new FieldInfo(
                 fieldName,
@@ -181,7 +188,8 @@ public class KNNCodecTestUtil {
                 vectorDimension,
                 VectorEncoding.FLOAT32,
                 vectorSimilarityFunction,
-                softDeletes
+                softDeletes,
+                isParentField
             );
         }
     }
