@@ -9,7 +9,7 @@ steps:
     index_name: target_index
   - name: create_index
     index_name: target_index
-    index_spec: release-configs/faiss-hnsw/nested/simple/index.json
+    index_spec: release-configs/lucene-hnsw/nested/simple/index.json
   - name: ingest_nested_field
     index_name: target_index
     field_name: target_field

@@ -116,8 +116,8 @@ class _Dataset:
             possible_colors = ['red', 'green', 'yellow', 'blue', None]
             possible_tastes = ['sweet', 'salty', 'sour', 'bitter', None]
             max_age = 100
-            min_field_size = 1000
-            max_field_size = 10001
+            min_field_size = 10
+            max_field_size = 10
 
             # Copy train and test data
             for key in in_file.keys():
