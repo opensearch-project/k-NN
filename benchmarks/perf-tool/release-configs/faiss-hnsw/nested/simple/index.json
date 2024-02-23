@@ -8,6 +8,9 @@
     }
   },
   "mappings": {
+    "_source": {
+      "excludes": ["nested_field"]
+    },
     "properties": {
       "nested_field": {
         "type": "nested",

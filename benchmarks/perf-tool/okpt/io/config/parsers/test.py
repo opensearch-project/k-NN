@@ -24,6 +24,7 @@ class TestConfig:
     test_id: str
     endpoint: str
     port: int
+    timeout: int
     num_runs: int
     show_runs: bool
     setup: List[Step]
@@ -67,6 +68,7 @@ class TestParser(base.BaseParser):
         test_config = TestConfig(
             endpoint=config_obj['endpoint'],
             port=config_obj['port'],
+            timeout=config_obj['timeout'],
             test_name=config_obj['test_name'],
             test_id=config_obj['test_id'],
             num_runs=config_obj['num_runs'],
