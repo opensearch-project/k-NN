@@ -17,7 +17,6 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.FixedBitSet;
-import org.apache.lucene.util.RamUsageEstimator;
 
 import java.io.IOException;
 
@@ -44,8 +43,6 @@ public class FilterIdsSelector {
     long[] filterIds;
     private FilterIdsSelectorType filterType;
 
-    private static final long SINGLE_ELEMENT_ARRAY_BYTES_USED = RamUsageEstimator.sizeOf(new long[1]);
-
     /**
      * This function takes a call on what ID Selector to use:
      * https://github.com/facebookresearch/faiss/wiki/Setting-search-parameters-for-one-query#idselectorarray-idselectorbatch-and-idselectorbitmap
@@ -69,6 +66,11 @@ public class FilterIdsSelector {
      * So iterating on 117k ids for 1 single pass is also time consuming. So, we are currently concluding to consider only size
      * as factor. We need to improve on this.
      *
+     * Array Memory: Cardinality * Long.BYTES
+     * BitSet Memory: MaxId / Long.BYTES
+     * When Array Memory <= BitSet Memory return FilterIdsSelectorType.BATCH
+     * Else return FilterIdsSelectorType.BITMAP;
+     *
      * @param filterIdsBitSet Filter query result docs
      * @param cardinality The number of bits that are set
      * @return {@link FilterIdsSelector}
@@ -82,7 +84,7 @@ public class FilterIdsSelector {
              */
             filterIds = ((FixedBitSet) filterIdsBitSet).getBits();
             filterType = FilterIdsSelector.FilterIdsSelectorType.BITMAP;
-        } else if ((cardinality * SINGLE_ELEMENT_ARRAY_BYTES_USED * 8) <= filterIdsBitSet.length()) {
+        } else if ((cardinality * Long.BYTES * Long.BYTES) <= filterIdsBitSet.length()) {
             /**
              * When filterIds is sparse bitset, using ram usage to decide FilterIdsSelectorType
              */
