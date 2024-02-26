@@ -17,6 +17,7 @@ buildscript {
         version_qualifier = System.getProperty("build.version_qualifier", "")
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
+        simd_enabled = System.getProperty("simd.enabled", "false")
 
         version_tokens = opensearch_version.tokenize('-')
         opensearch_build = version_tokens[0] + '.0'
@@ -43,7 +44,8 @@ buildscript {
         classpath "${opensearch_group}.gradle:build-tools:${opensearch_version}"
         configurations.all {
             resolutionStrategy {
-                force("org.eclipse.platform:org.eclipse.core.runtime:3.29.0") // for spotless transitive dependency CVE (for 3.26.100)
+                force("org.eclipse.platform:org.eclipse.core.runtime:4.29.0") // CVE for < 4.29
+                force("org.eclipse.platform:org.eclipse.core.resources:4.20.0") // CVE for < 4.20
             }
         }
     }
@@ -57,7 +59,7 @@ plugins {
     id 'java-library'
     id 'java-test-fixtures'
     id 'idea'
-    id "com.diffplug.spotless" version "6.20.0" apply false
+    id "com.diffplug.spotless" version "6.25.0" apply false
     id 'io.freefair.lombok' version '8.4'
     id "de.undercouch.download" version "5.3.0"
 }
@@ -297,10 +299,10 @@ task cmakeJniLib(type:Exec) {
     workingDir 'jni'
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         dependsOn windowsPatches
-        commandLine 'cmake', '.', "-G", "Unix Makefiles", "-DKNN_PLUGIN_VERSION=${opensearch_version}", "-DBLAS_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll", "-DLAPACK_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll"
+        commandLine 'cmake', '.', "-G", "Unix Makefiles", "-DKNN_PLUGIN_VERSION=${opensearch_version}", "-DBLAS_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll", "-DLAPACK_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll", "-DSIMD_ENABLED=${simd_enabled}"
     }
     else {
-        commandLine 'cmake', '.', "-DKNN_PLUGIN_VERSION=${opensearch_version}"
+        commandLine 'cmake', '.', "-DKNN_PLUGIN_VERSION=${opensearch_version}", "-DSIMD_ENABLED=${simd_enabled}"
     }
 }
 

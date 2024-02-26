@@ -759,9 +759,6 @@ class QueryNestedFieldStep(BaseQueryStep):
             }
         }
 
-    def get_exclude_fields(self):
-        return ['nested_field.' + self.field_name]
-
 class GetStatsStep(OpenSearchStep):
     """See base class."""
 

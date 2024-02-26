@@ -11,7 +11,7 @@
 
 #include "jni_util.h"
 #include "faiss_wrapper.h"
-#include "knn_extension/faiss/MultiVectorResultCollectorFactory.h"
+#include "faiss_util.h"
 
 #include "faiss/impl/io.h"
 #include "faiss/index_factory.h"
@@ -51,9 +51,7 @@ void convertFilterIdsToFaissIdType(const int* filterIds, int filterIdsLength, fa
 // Concerts the FilterIds to BitMap
 void buildFilterIdsBitMap(const int* filterIds, int filterIdsLength, uint8_t* bitsetVector);
 
-os_faiss::MultiVectorResultCollectorFactory* buildResultCollectorFactory(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env, jintArray parentIdsJ);
-
-void releaseResultCollectorFactory(os_faiss::MultiVectorResultCollectorFactory* collectorFactory);
+std::unique_ptr<faiss::IDGrouperBitmap> buildIDGrouperBitmap(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env, jintArray parentIdsJ, std::vector<uint64_t>* bitmap);
 
 void knn_jni::faiss_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
                                          jobjectArray vectorsJ, jstring indexPathJ, jobject parametersJ) {
@@ -228,7 +226,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
     // create the filterSearch params if the filterIdsJ is not a null pointer
     if(filterIdsJ != nullptr) {
         int *filteredIdsArray = jniUtil->GetIntArrayElements(env, filterIdsJ, nullptr);
-        int filterIdsLength = env->GetArrayLength(filterIdsJ);
+        int filterIdsLength = jniUtil->GetJavaIntArrayLength(env, filterIdsJ);
         std::unique_ptr<faiss::IDSelector> idSelector;
         FilterIdsSelectorType idSelectorType = getIdSelectorType(filteredIdsArray, filterIdsLength);
         // start with empty vectors for 2 different types of empty Selectors. We need define them here to avoid copying of data
@@ -248,18 +246,23 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
             const int bitsetArraySize = (maxIdValue >> 3) + 1;
             bitmap.resize(bitsetArraySize, 0);
             buildFilterIdsBitMap(filteredIdsArray, filterIdsLength, bitmap.data());
-            idSelector.reset(new faiss::IDSelectorBitmap(filterIdsLength, bitmap.data()));
+            idSelector.reset(new faiss::IDSelectorBitmap(bitsetArraySize, bitmap.data()));
         }
         faiss::SearchParameters *searchParameters;
         faiss::SearchParametersHNSW hnswParams;
         faiss::SearchParametersIVF ivfParams;
+        std::unique_ptr<faiss::IDGrouperBitmap> idGrouper;
+        std::vector<uint64_t> idGrouperBitmap;
         auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
         if(hnswReader) {
             // Setting the ef_search value equal to what was provided during index creation. SearchParametersHNSW has a default
             // value of ef_search = 16 which will then be used.
             hnswParams.efSearch = hnswReader->hnsw.efSearch;
             hnswParams.sel = idSelector.get();
-            hnswParams.col = buildResultCollectorFactory(jniUtil, env, parentIdsJ);
+            if (parentIdsJ != nullptr) {
+                idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
+                hnswParams.grp = idGrouper.get();
+            }
             searchParameters = &hnswParams;
         } else {
             auto ivfReader = dynamic_cast<const faiss::IndexIVF*>(indexReader->index);
@@ -274,30 +277,29 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         } catch (...) {
             jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
             jniUtil->ReleaseIntArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
-            releaseResultCollectorFactory(dynamic_cast<os_faiss::MultiVectorResultCollectorFactory*>(hnswParams.col));
             throw;
         }
         jniUtil->ReleaseIntArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
-        releaseResultCollectorFactory(dynamic_cast<os_faiss::MultiVectorResultCollectorFactory*>(hnswParams.col));
     } else {
         faiss::SearchParameters *searchParameters = nullptr;
         faiss::SearchParametersHNSW hnswParams;
+        std::unique_ptr<faiss::IDGrouperBitmap> idGrouper;
+        std::vector<uint64_t> idGrouperBitmap;
         auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
         if(hnswReader!= nullptr && parentIdsJ != nullptr) {
             // Setting the ef_search value equal to what was provided during index creation. SearchParametersHNSW has a default
             // value of ef_search = 16 which will then be used.
             hnswParams.efSearch = hnswReader->hnsw.efSearch;
-            hnswParams.col = buildResultCollectorFactory(jniUtil, env, parentIdsJ);
+            idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
+            hnswParams.grp = idGrouper.get();
             searchParameters = &hnswParams;
         }
         try {
             indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data(), searchParameters);
         } catch (...) {
             jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
-            releaseResultCollectorFactory(dynamic_cast<os_faiss::MultiVectorResultCollectorFactory*>(hnswParams.col));
             throw;
         }
-        releaseResultCollectorFactory(dynamic_cast<os_faiss::MultiVectorResultCollectorFactory*>(hnswParams.col));
     }
     jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
 
@@ -509,21 +511,10 @@ void buildFilterIdsBitMap(const int* filterIds, int filterIdsLength, uint8_t* bi
     }
 }
 
-os_faiss::MultiVectorResultCollectorFactory* buildResultCollectorFactory(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env, jintArray parentIdsJ) {
-    if (parentIdsJ == nullptr) {
-        return nullptr;
-    }
+std::unique_ptr<faiss::IDGrouperBitmap> buildIDGrouperBitmap(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env, jintArray parentIdsJ, std::vector<uint64_t>* bitmap) {
     int *parentIdsArray = jniUtil->GetIntArrayElements(env, parentIdsJ, nullptr);
     int parentIdsLength = jniUtil->GetJavaIntArrayLength(env, parentIdsJ);
-    auto* parent_id_filter = new FixedBitSet(parentIdsArray, parentIdsLength);
+    std::unique_ptr<faiss::IDGrouperBitmap> idGrouper = faiss_util::buildIDGrouperBitmap(parentIdsArray, parentIdsLength, bitmap);
     jniUtil->ReleaseIntArrayElements(env, parentIdsJ, parentIdsArray, JNI_ABORT);
-    return new os_faiss::MultiVectorResultCollectorFactory(parent_id_filter);
-}
-
-void releaseResultCollectorFactory(os_faiss::MultiVectorResultCollectorFactory* collectorFactory) {
-    if (collectorFactory == nullptr) {
-        return;
-    }
-    delete collectorFactory->parent_bit_set;
-    delete collectorFactory;
+    return idGrouper;
 }

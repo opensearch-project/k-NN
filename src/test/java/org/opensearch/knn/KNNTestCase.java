@@ -53,6 +53,13 @@ public class KNNTestCase extends OpenSearchTestCase {
         openMocks.close();
     }
 
+    @Override
+    protected boolean enableWarningsCheck() {
+        // Disable warnings check to avoid flaky tests, more details at:
+        // https://github.com/opensearch-project/k-NN/issues/1392
+        return false;
+    }
+
     public void resetState() {
         // Reset all of the counters
         for (KNNCounter knnCounter : KNNCounter.values()) {

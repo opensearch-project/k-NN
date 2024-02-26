@@ -111,7 +111,18 @@ endif ()
 if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} STREQUAL ON)
     set(BUILD_TESTING OFF)          # Avoid building faiss tests
     set(BLA_STATIC ON)              # Statically link BLAS
-    set(FAISS_OPT_LEVEL generic)    # Keep optimization level generic
+
+    if(NOT SIMD_ENABLED)
+        set(SIMD_ENABLED false)   # set default value as false if the argument is not set
+    endif()
+
+    if(${CMAKE_SYSTEM_NAME} STREQUAL Windows OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" OR NOT ${SIMD_ENABLED})
+        set(FAISS_OPT_LEVEL generic)    # Keep optimization level as generic on Windows OS as it is not supported due to MINGW64 compiler issue. Also, on aarch64 avx2 is not supported.
+        set(TARGET_LINK_FAISS_LIB faiss)
+    else()
+        set(FAISS_OPT_LEVEL avx2)       # Keep optimization level as avx2 to improve performance on Linux and Mac.
+        set(TARGET_LINK_FAISS_LIB faiss_avx2)
+    endif()
 
     if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
         if(CMAKE_C_COMPILER_ID MATCHES "Clang\$")
@@ -143,12 +154,20 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
     endif ()
 
     # Check if patch exist, this is to skip git apply during CI build. See CI.yml with ubuntu.
-    find_path(PATCH_FILE NAMES 0001-Custom-patch-to-support-multi-vector.patch PATHS ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss NO_DEFAULT_PATH)
+    find_path(PATCH_FILE NAMES 0001-Custom-patch-to-support-multi-vector.patch 0002-Custom-patch-to-support-sqfp16-neon.patch PATHS ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss NO_DEFAULT_PATH)
 
     # If it exists, apply patches
     if (EXISTS ${PATCH_FILE})
         message(STATUS "Applying custom patches.")
         execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace --3way ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0001-Custom-patch-to-support-multi-vector.patch WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ERROR_VARIABLE ERROR_MSG RESULT_VARIABLE RESULT_CODE)
+
+        # 0002-Custom-patch-to-support-sqfp16-neon.patch is a temporary patch to add NEON support to SQ.
+        # Once the commit conflict issues wrt to Multi vector are resolved, this patch can be removed by updating the faiss submodule with corresponding commit.
+        # Apply the patch if the OS is not Windows and Processor is aarch64.
+        if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL Windows AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" AND ${SIMD_ENABLED})
+            execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace --3way ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0002-Custom-patch-to-support-sqfp16-neon.patch WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ERROR_VARIABLE ERROR_MSG RESULT_VARIABLE RESULT_CODE)
+        endif()
+
         if(RESULT_CODE)
             message(FATAL_ERROR "Failed to apply patch:\n${ERROR_MSG}")
         endif()
@@ -162,17 +181,15 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
         ${TARGET_LIB_FAISS} SHARED
         ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_FaissService.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/faiss_wrapper.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/knn_extension/faiss/utils/BitSet.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/knn_extension/faiss/MultiVectorResultCollector.cpp
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/knn_extension/faiss/MultiVectorResultCollectorFactory.cpp)
-    target_link_libraries(${TARGET_LIB_FAISS} faiss ${TARGET_LIB_COMMON} OpenMP::OpenMP_CXX)
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/faiss_util.cpp
+    )
+    target_link_libraries(${TARGET_LIB_FAISS} ${TARGET_LINK_FAISS_LIB} ${TARGET_LIB_COMMON} OpenMP::OpenMP_CXX)
     target_include_directories(${TARGET_LIB_FAISS} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/knn_extension/faiss
-        ${CMAKE_CURRENT_SOURCE_DIR}/include/knn_extension/faiss/utils
         $ENV{JAVA_HOME}/include
         $ENV{JAVA_HOME}/include/${JVM_OS_TYPE}
-        ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss)
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss
+    )
     set_target_properties(${TARGET_LIB_FAISS} PROPERTIES SUFFIX ${LIB_EXT})
     set_target_properties(${TARGET_LIB_FAISS} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -209,12 +226,9 @@ if ("${WIN32}" STREQUAL "")
         add_executable(
                 jni_test
                 tests/faiss_wrapper_test.cpp
+                tests/faiss_util_test.cpp
                 tests/nmslib_wrapper_test.cpp
                 tests/test_util.cpp
-                tests/knn_extension/faiss/utils/BitSetTest.cpp
-                tests/knn_extension/faiss/utils/HeapTest.cpp
-                tests/knn_extension/faiss/MultiVectorResultCollectorTest.cpp
-                tests/knn_extension/faiss/MultiVectorResultCollectorFactoryTest.cpp
                 )
 
         target_link_libraries(
