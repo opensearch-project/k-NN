@@ -166,11 +166,11 @@ public class TrainingJobRunner {
     private void serializeModel(TrainingJob trainingJob, ActionListener<IndexResponse> listener, boolean update) throws IOException,
         ExecutionException, InterruptedException {
         if (update) {
-            ModelMetadata modelMetadata = modelDao.getMetadata(trainingJob.getModelId());
-            if (modelMetadata.getState().equals(ModelState.TRAINING)) {
+            Model model = modelDao.get(trainingJob.getModelId());
+            if (model.getModelMetadata().getState().equals(ModelState.TRAINING)) {
                 modelDao.update(trainingJob.getModel(), listener);
             } else {
-                logger.info("Model state is {}. Skipping serialization of trained data", modelMetadata.getState());
+                logger.info("Model state is {}. Skipping serialization of trained data", model.getModelMetadata().getState());
             }
         } else {
             modelDao.put(trainingJob.getModel(), listener);

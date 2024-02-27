@@ -156,7 +156,8 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
         return modelIds;
     }
 
-    private void updateModelStateAsFailed(String modelId, ModelMetadata modelMetadata, String msg) throws IOException, ExecutionException, InterruptedException {
+    private void updateModelStateAsFailed(String modelId, ModelMetadata modelMetadata, String msg) throws IOException, ExecutionException,
+        InterruptedException {
         modelMetadata.setState(ModelState.FAILED);
         modelMetadata.setError(msg);
         Model model = new Model(modelMetadata, null, modelId);
