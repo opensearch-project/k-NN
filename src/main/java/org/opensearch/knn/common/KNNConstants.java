@@ -66,7 +66,7 @@ public class KNNConstants {
     public static final String VECTOR_DATA_TYPE_FIELD = "data_type";
     public static final VectorDataType DEFAULT_VECTOR_DATA_TYPE_FIELD = VectorDataType.FLOAT;
 
-    public static final String RADIUS_SEARCH_KEY = "radius_search";
+    public static final String RADIAL_SEARCH_KEY = "radial_search";
 
     // Lucene specific constants
     public static final String LUCENE_NAME = "lucene";

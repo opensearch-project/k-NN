@@ -319,7 +319,7 @@ class Faiss extends NativeLibrary {
     }
 
     @Override
-    public float distanceTransform(float distance, SpaceType spaceType) {
+    public Float distanceTransform(Float distance, SpaceType spaceType) {
         // Faiss engine uses distance as is and does not need transformation
         return distance;
     }

@@ -164,22 +164,19 @@ public class KNNCodecTestCase extends KNNTestCase {
         // query to verify distance for each of the field
         IndexSearcher searcher = new IndexSearcher(reader);
         float score = searcher.search(
-            new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy", 0, (BitSetProducer) null),
+            new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy", (BitSetProducer) null),
             10
         ).scoreDocs[0].score;
         float score1 = searcher.search(
-            new KNNQuery("my_vector", new float[] { 1.0f, 2.0f }, 1, "dummy", 0, (BitSetProducer) null),
+            new KNNQuery("my_vector", new float[] { 1.0f, 2.0f }, 1, "dummy", (BitSetProducer) null),
             10
         ).scoreDocs[0].score;
         assertEquals(1.0f / (1 + 25), score, 0.01f);
         assertEquals(1.0f / (1 + 169), score1, 0.01f);
 
         // query to determine the hits
-        assertEquals(
-            1,
-            searcher.count(new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy", 0, (BitSetProducer) null))
-        );
-        assertEquals(1, searcher.count(new KNNQuery("my_vector", new float[] { 1.0f, 1.0f }, 1, "dummy", 0, (BitSetProducer) null)));
+        assertEquals(1, searcher.count(new KNNQuery("test_vector", new float[] { 1.0f, 0.0f, 0.0f }, 1, "dummy", (BitSetProducer) null)));
+        assertEquals(1, searcher.count(new KNNQuery("my_vector", new float[] { 1.0f, 1.0f }, 1, "dummy", (BitSetProducer) null)));
 
         reader.close();
         dir.close();
@@ -264,7 +261,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
         float[] query = { 10.0f, 10.0f, 10.0f };
         IndexSearcher searcher = new IndexSearcher(reader);
-        TopDocs topDocs = searcher.search(new KNNQuery(fieldName, query, 4, "dummy", 0, (BitSetProducer) null), 10);
+        TopDocs topDocs = searcher.search(new KNNQuery(fieldName, query, 4, "dummy", (BitSetProducer) null), 10);
 
         assertEquals(3, topDocs.scoreDocs[0].doc);
         assertEquals(2, topDocs.scoreDocs[1].doc);
@@ -357,7 +354,7 @@ public class KNNCodecTestCase extends KNNTestCase {
             FIELD_NAME_ONE,
             new float[] { 1.0f, 0.0f, 0.0f },
             1,
-            0,
+            null,
             DEFAULT_VECTOR_DATA_TYPE_FIELD
         );
 
@@ -393,7 +390,7 @@ public class KNNCodecTestCase extends KNNTestCase {
             FIELD_NAME_TWO,
             new float[] { 1.0f, 0.0f },
             1,
-            0,
+            null,
             DEFAULT_VECTOR_DATA_TYPE_FIELD
         );
 

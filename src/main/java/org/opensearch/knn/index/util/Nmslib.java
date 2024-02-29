@@ -70,7 +70,7 @@ class Nmslib extends NativeLibrary {
     }
 
     @Override
-    public float distanceTransform(float distance, SpaceType spaceType) {
+    public Float distanceTransform(Float distance, SpaceType spaceType) {
         return distance;
     }
 }

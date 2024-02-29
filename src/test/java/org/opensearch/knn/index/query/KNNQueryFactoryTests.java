@@ -46,7 +46,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     private final String testIndexName = "test-index";
     private final String testFieldName = "test-field";
     private final int testK = 10;
-    private final float testRadius = 0.5f;
+    private final Float testRadius = 0.5f;
 
     public void testCreateCustomKNNQuery() {
         for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
@@ -56,7 +56,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
                 testFieldName,
                 testQueryVector,
                 testK,
-                0,
+                null,
                 DEFAULT_VECTOR_DATA_TYPE_FIELD
             );
             assertTrue(query instanceof KNNQuery);
@@ -79,7 +79,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
                 testFieldName,
                 testQueryVector,
                 testK,
-                0,
+                null,
                 DEFAULT_VECTOR_DATA_TYPE_FIELD
             );
             assertEquals(KnnFloatVectorQuery.class, query.getClass());

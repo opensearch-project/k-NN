@@ -55,7 +55,7 @@ public class KNNQueryFactory {
         String fieldName,
         float[] vector,
         int k,
-        float radius,
+        Float radius,
         VectorDataType vectorDataType
     ) {
         final CreateQueryRequest createQueryRequest = CreateQueryRequest.builder()
@@ -81,7 +81,7 @@ public class KNNQueryFactory {
         final String indexName = createQueryRequest.getIndexName();
         final String fieldName = createQueryRequest.getFieldName();
         final int k = createQueryRequest.getK();
-        final float radius = createQueryRequest.getRadius();
+        final Float radius = createQueryRequest.getRadius();
         final float[] vector = createQueryRequest.getVector();
         final byte[] byteVector = createQueryRequest.getByteVector();
         final VectorDataType vectorDataType = createQueryRequest.getVectorDataType();
@@ -91,22 +91,22 @@ public class KNNQueryFactory {
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
             if (filterQuery != null && KNNEngine.getEnginesThatSupportsFilters().contains(createQueryRequest.getKnnEngine())) {
                 log.debug("Creating custom k-NN query with filters for index: {}, field: {} , k: {}", indexName, fieldName, k);
-                return new KNNQuery(fieldName, vector, k, indexName, radius, filterQuery, parentFilter);
+                return new KNNQuery(fieldName, vector, k, indexName, filterQuery, parentFilter);
             }
             log.debug(String.format("Creating custom k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
-            return new KNNQuery(fieldName, vector, k, indexName, radius, parentFilter);
+            return new KNNQuery(fieldName, vector, k, indexName, parentFilter);
         }
 
         log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
         switch (vectorDataType) {
             case BYTE:
-                return radius > 0
-                    ? getByteVectorSimilarityQuery(fieldName, byteVector, radius, filterQuery)
-                    : getKnnByteVectorQuery(fieldName, byteVector, k, filterQuery, parentFilter);
+                return k > 0
+                    ? getKnnByteVectorQuery(fieldName, byteVector, k, filterQuery, parentFilter)
+                    : getByteVectorSimilarityQuery(fieldName, byteVector, radius, filterQuery);
             case FLOAT:
-                return radius > 0
-                    ? getFloatVectorSimilarityQuery(fieldName, vector, radius, filterQuery)
-                    : getKnnFloatVectorQuery(fieldName, vector, k, filterQuery, parentFilter);
+                return k > 0
+                    ? getKnnFloatVectorQuery(fieldName, vector, k, filterQuery, parentFilter)
+                    : getFloatVectorSimilarityQuery(fieldName, vector, radius, filterQuery);
             default:
                 throw new IllegalArgumentException(
                     String.format(
@@ -243,7 +243,7 @@ public class KNNQueryFactory {
         @Getter
         private int k;
         @Getter
-        private float radius;
+        private Float radius;
         private QueryBuilder filter;
         // can be null in cases filter not passed with the knn query
         private QueryShardContext context;

@@ -7,7 +7,6 @@ package org.opensearch.knn.index.util;
 
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
-import org.opensearch.knn.index.SpaceType;
 
 import java.util.Map;
 
@@ -42,6 +41,4 @@ public abstract class JVMLibrary extends AbstractKNNLibrary {
     public void setInitialized(Boolean isInitialized) {
         initialized = isInitialized;
     }
-
-    public abstract float distanceTransform(float distance, SpaceType spaceType);
 }

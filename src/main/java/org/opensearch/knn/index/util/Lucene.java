@@ -26,7 +26,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
  */
 public class Lucene extends JVMLibrary {
 
-    Map<SpaceType, Function<Float, Float>> distanceTranslation;
+    Map<SpaceType, Function<Float, Float>> distanceTransform;
 
     final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
         METHOD_HNSW,
@@ -62,10 +62,11 @@ public class Lucene extends JVMLibrary {
      *
      * @param methods Map of k-NN methods that the library supports
      * @param version String representing version of library
+     * @param distanceTransform Map of space type to distance transformation function
      */
-    Lucene(Map<String, KNNMethod> methods, String version, Map<SpaceType, Function<Float, Float>> distanceTranslation) {
+    Lucene(Map<String, KNNMethod> methods, String version, Map<SpaceType, Function<Float, Float>> distanceTransform) {
         super(methods, version);
-        this.distanceTranslation = distanceTranslation;
+        this.distanceTransform = distanceTransform;
     }
 
     @Override
@@ -87,10 +88,10 @@ public class Lucene extends JVMLibrary {
     }
 
     @Override
-    public float distanceTransform(float distance, SpaceType spaceType) {
+    public Float distanceTransform(Float distance, SpaceType spaceType) {
         // Lucene requires score threshold to be parameterized when calling the radius search.
-        if (this.distanceTranslation.containsKey(spaceType)) {
-            return this.distanceTranslation.get(spaceType).apply(distance);
+        if (this.distanceTransform.containsKey(spaceType)) {
+            return this.distanceTransform.get(spaceType).apply(distance);
         } else {
             throw new UnsupportedOperationException("Distance translation for space type " + spaceType + " is not supported");
         }
