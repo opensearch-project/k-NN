@@ -76,6 +76,7 @@ public class KNNSettings {
     public static final String MODEL_INDEX_NUMBER_OF_REPLICAS = "knn.model.index.number_of_replicas";
     public static final String MODEL_CACHE_SIZE_LIMIT = "knn.model.cache.size.limit";
     public static final String ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD = "index.knn.advanced.filtered_exact_search_threshold";
+    public static final String KNN_FAISS_AVX2_DISABLED = "knn.faiss.avx2.disabled";
 
     /**
      * Default setting values
@@ -230,6 +231,9 @@ public class KNNSettings {
         NodeScope,
         Dynamic
     );
+
+    public static final Setting<Boolean> KNN_FAISS_AVX2_DISABLED_SETTING = Setting.boolSetting(KNN_FAISS_AVX2_DISABLED, false, NodeScope);
+
     /**
      * Dynamic settings
      */
@@ -355,7 +359,8 @@ public class KNNSettings {
             MODEL_INDEX_NUMBER_OF_SHARDS_SETTING,
             MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
             MODEL_CACHE_SIZE_LIMIT_SETTING,
-            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING
+            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
+            KNN_FAISS_AVX2_DISABLED_SETTING
         );
         return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream()).collect(Collectors.toList());
     }
@@ -374,6 +379,10 @@ public class KNNSettings {
 
     public static double getCircuitBreakerUnsetPercentage() {
         return KNNSettings.state().getSettingValue(KNNSettings.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE);
+    }
+
+    public static boolean isFaissAVX2Disabled() {
+        return KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX2_DISABLED);
     }
 
     public static Integer getFilteredExactSearchThreshold(final String indexName) {

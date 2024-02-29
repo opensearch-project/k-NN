@@ -15,9 +15,17 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.util.KNNEngine;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Map;
+import oshi.util.platform.mac.SysctlUtil;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
 
 /**
  * Service to interact with faiss jni layer. Class dependencies should be minimal
@@ -28,14 +36,48 @@ import java.util.Map;
  *      src/main/java/org/opensearch/knn/common/KNNConstants.java
  */
 class FaissService {
+    private static Logger logger = LogManager.getLogger(FaissService.class);
 
     static {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            System.loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);
+            if (isFaissAVX2Disabled() && isAVX2Enabled()) {
+                System.loadLibrary(KNNConstants.FAISS_AVX2_JNI_LIBRARY_NAME);
+            } else {
+                System.loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);
+            }
+
             initLibrary();
             KNNEngine.FAISS.setInitialized(true);
             return null;
         });
+    }
+
+    private static boolean isAVX2Enabled() {
+        if ((System.getProperty("os.arch").toLowerCase()).contains("aarch")) return false;
+
+        if ((System.getProperty("os.name").toLowerCase()).contains("mac")) {
+            String flags = SysctlUtil.sysctl("machdep.cpu.leaf7_features", "empty");
+            if ((flags.toLowerCase()).contains("avx2")) {
+                return true;
+            }
+        } else if ((System.getProperty("os.name").toLowerCase()).contains("linux")) {
+            String fileName = "/proc/cpuinfo";
+            try {
+                String cpuFlags = Files.lines(Paths.get(fileName))
+                    .filter(s -> s.startsWith("flags"))
+                    .filter(s -> s.contains("avx2"))
+                    .findFirst()
+                    .orElse("");
+                if ((cpuFlags.toLowerCase()).contains("avx2")) {
+                    return true;
+                }
+            } catch (IOException e) {
+                logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e);
+                return false;
+            }
+        }
+        return false;
+
     }
 
     /**
