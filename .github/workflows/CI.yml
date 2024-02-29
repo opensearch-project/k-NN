@@ -73,6 +73,7 @@ jobs:
       - name: Add MinGW to PATH
         run: |
           echo "C:/Users/runneradmin/scoop/apps/mingw/current/bin" >> $env:GITHUB_PATH
+          Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
           refreshenv
 
       - name: Download OpenBLAS
