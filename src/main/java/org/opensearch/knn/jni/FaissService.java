@@ -15,17 +15,18 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.util.KNNEngine;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 import java.util.Map;
 import oshi.util.platform.mac.SysctlUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
+//import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
 
 /**
  * Service to interact with faiss jni layer. Class dependencies should be minimal
@@ -40,7 +41,7 @@ class FaissService {
 
     static {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            if (isFaissAVX2Disabled() && isAVX2Enabled()) {
+            if (isAVX2Enabled()) {
                 System.loadLibrary(KNNConstants.FAISS_AVX2_JNI_LIBRARY_NAME);
             } else {
                 System.loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);
@@ -63,17 +64,21 @@ class FaissService {
         } else if ((System.getProperty("os.name").toLowerCase()).contains("linux")) {
             String fileName = "/proc/cpuinfo";
             try {
-                String cpuFlags = Files.lines(Paths.get(fileName))
-                    .filter(s -> s.startsWith("flags"))
-                    .filter(s -> s.contains("avx2"))
-                    .findFirst()
-                    .orElse("");
-                if ((cpuFlags.toLowerCase()).contains("avx2")) {
-                    return true;
-                }
-            } catch (IOException e) {
-                logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e);
-                return false;
+                return AccessController.doPrivileged((PrivilegedExceptionAction<Boolean>) () -> {
+                    String cpuFlags = Files.lines(Paths.get(fileName))
+                        .filter(s -> s.startsWith("flags"))
+                        .filter(s -> s.contains("avx2"))
+                        .findFirst()
+                        .orElse("");
+
+                    if ((cpuFlags.toLowerCase()).contains("avx2")) {
+                        return true;
+                    }
+                    return false;
+                });
+
+            } catch (PrivilegedActionException e) {
+                throw new RuntimeException(e);
             }
         }
         return false;
