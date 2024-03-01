@@ -343,6 +343,10 @@ public class KNNSettings {
             return ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING;
         }
 
+        if (KNN_FAISS_AVX2_DISABLED.equals(key)) {
+            return KNN_FAISS_AVX2_DISABLED_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 

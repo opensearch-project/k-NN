@@ -11,6 +11,8 @@
 
 package org.opensearch.knn.jni;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -19,14 +21,11 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import java.util.Map;
 import oshi.util.platform.mac.SysctlUtil;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
-//import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
+import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
 
 /**
  * Service to interact with faiss jni layer. Class dependencies should be minimal
@@ -41,7 +40,7 @@ class FaissService {
 
     static {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            if (isAVX2Enabled()) {
+            if (!isFaissAVX2Disabled() && isAVX2SupportedBySystem()) {
                 System.loadLibrary(KNNConstants.FAISS_AVX2_JNI_LIBRARY_NAME);
             } else {
                 System.loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);
@@ -53,7 +52,7 @@ class FaissService {
         });
     }
 
-    private static boolean isAVX2Enabled() {
+    private static boolean isAVX2SupportedBySystem() {
         if ((System.getProperty("os.arch").toLowerCase()).contains("aarch")) return false;
 
         if ((System.getProperty("os.name").toLowerCase()).contains("mac")) {
@@ -77,12 +76,12 @@ class FaissService {
                     return false;
                 });
 
-            } catch (PrivilegedActionException e) {
-                throw new RuntimeException(e);
+            } catch (Exception e) {
+                logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage());
+                e.printStackTrace();
             }
         }
         return false;
-
     }
 
     /**
