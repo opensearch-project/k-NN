@@ -118,7 +118,14 @@ fi
 # Build k-NN lib and plugin through gradle tasks
 cd $work_dir
 # Gradle build is used here to replace gradle assemble due to build will also call cmake and make before generating jars
-./gradlew build --no-daemon --refresh-dependencies -x integTest -DskipTests=true -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
+./gradlew build --no-daemon --refresh-dependencies -x integTest -x test -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
+./gradlew :buildJniLib -Dsimd.enabled=false
+
+if [ "$PLATFORM" != "windows" ] && [ "$ARCHITECTURE" = "x64" ]; then
+  echo "Building k-NN library after enabling AVX2"
+  ./gradlew :buildJniLib -Dsimd.enabled=true
+fi
+
 ./gradlew publishPluginZipPublicationToZipStagingRepository -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
 ./gradlew publishPluginZipPublicationToMavenLocal -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER -Dopensearch.version=$VERSION
 
@@ -147,20 +154,6 @@ ls -l $distributions/lib
 cd $distributions
 zip -ur $zipPath lib
 cd $work_dir
-
-if [ "$PLATFORM" != "windows" ]; then
-  echo "Building k-NN libraries after enabling SIMD"
-  ./gradlew :buildJniLib -Dsimd.enabled=true
-  mkdir $distributions/lib_simd
-  cp -v $ompPath $distributions/lib_simd
-  cp -v ./jni/release/${libPrefix}* $distributions/lib_simd
-  ls -l $distributions/lib_simd
-
-  # Add lib_simd directory to the k-NN plugin zip
-  cd $distributions
-  zip -ur $zipPath lib_simd
-  cd $work_dir
-fi
 
 echo "COPY ${distributions}/*.zip"
 mkdir -p $OUTPUT/plugins

@@ -40,6 +40,9 @@ class FaissService {
 
     static {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
+
+            // Even if the underlying system supports AVX2, users can override and disable it by using the
+            // 'knn.faiss.avx2.disabled' setting by setting it to true in the opensearch.yml configuration
             if (!isFaissAVX2Disabled() && isAVX2SupportedBySystem()) {
                 System.loadLibrary(KNNConstants.FAISS_AVX2_JNI_LIBRARY_NAME);
             } else {
@@ -52,14 +55,35 @@ class FaissService {
         });
     }
 
+    /**
+     * Verify if the underlying system supports AVX2 SIMD Optimization or not
+     * 1. If the architecture is aarch64 return false.
+     * 2. If the operating system is windows return false.
+     * 3. If the operating system is macOS, use oshi-core library to verify if the cpu flags
+     *    contains 'avx2' and return true if it exists else false.
+     * 4. If the operating system is linux, read the '/proc/cpuinfo' file path and verify if
+     *    the flags contains 'avx2' and return true if it exists else false.
+     */
     private static boolean isAVX2SupportedBySystem() {
-        if ((System.getProperty("os.arch").toLowerCase()).contains("aarch")) return false;
+        if ((System.getProperty("os.arch").toLowerCase()).contains("aarch")
+            || (System.getProperty("os.name").toLowerCase()).contains("windows")) {
+            return false;
+        }
 
         if ((System.getProperty("os.name").toLowerCase()).contains("mac")) {
-            String flags = SysctlUtil.sysctl("machdep.cpu.leaf7_features", "empty");
-            if ((flags.toLowerCase()).contains("avx2")) {
-                return true;
+            try {
+                return AccessController.doPrivileged((PrivilegedExceptionAction<Boolean>) () -> {
+                    String flags = SysctlUtil.sysctl("machdep.cpu.leaf7_features", "empty");
+                    if ((flags.toLowerCase()).contains("avx2")) {
+                        return true;
+                    }
+                    return false;
+                });
+            } catch (Exception e) {
+                logger.error("[KNN] Error fetching cpu flags info. [{}]", e.getMessage());
+                e.printStackTrace();
             }
+
         } else if ((System.getProperty("os.name").toLowerCase()).contains("linux")) {
             String fileName = "/proc/cpuinfo";
             try {
