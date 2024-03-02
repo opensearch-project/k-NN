@@ -16,6 +16,7 @@ import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.DocValuesType;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
 import org.opensearch.index.mapper.ParseContext;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -24,6 +25,7 @@ import java.util.Locale;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNVectorUtil.isZeroVector;
 
 public class KNNVectorFieldMapperUtil {
     /**
@@ -75,6 +77,34 @@ public class KNNVectorFieldMapperUtil {
     }
 
     /**
+     * Validate if the given byte vector is supported by the given space type
+     *
+     * @param vector     the given vector
+     * @param spaceType  the given space type
+     */
+    public static void validateByteVector(byte[] vector, SpaceType spaceType) {
+        if (spaceType == SpaceType.COSINESIMIL && isZeroVector(vector)) {
+            throw new IllegalArgumentException(
+                String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", spaceType.getValue())
+            );
+        }
+    }
+
+    /**
+     * Validate if the given float vector is supported by the given space type
+     *
+     * @param vector     the given vector
+     * @param spaceType  the given space type
+     */
+    public static void validateFloatVector(float[] vector, SpaceType spaceType) {
+        if (spaceType == SpaceType.COSINESIMIL && isZeroVector(vector)) {
+            throw new IllegalArgumentException(
+                String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", spaceType.getValue())
+            );
+        }
+    }
+
+    /**
      * Validate if the given vector size matches with the dimension provided in mapping.
      *
      * @param dimension dimension of vector
@@ -85,7 +115,6 @@ public class KNNVectorFieldMapperUtil {
             String errorMessage = String.format(Locale.ROOT, "Vector dimension mismatch. Expected: %d, Given: %d", dimension, vectorSize);
             throw new IllegalArgumentException(errorMessage);
         }
-
     }
 
     /**

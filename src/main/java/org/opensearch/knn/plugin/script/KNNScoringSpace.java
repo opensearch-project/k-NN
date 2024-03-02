@@ -6,6 +6,7 @@
 package org.opensearch.knn.plugin.script;
 
 import org.apache.lucene.search.IndexSearcher;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.apache.lucene.index.LeafReaderContext;
@@ -18,6 +19,7 @@ import java.math.BigInteger;
 import java.util.Map;
 import java.util.function.BiFunction;
 
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFloatVector;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.getVectorMagnitudeSquared;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.isBinaryFieldType;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.isKNNVectorFieldType;
@@ -90,7 +92,7 @@ public interface KNNScoringSpace {
          */
         public CosineSimilarity(Object query, MappedFieldType fieldType) {
             if (!isKNNVectorFieldType(fieldType)) {
-                throw new IllegalArgumentException("Incompatible field_type for cosine space. The field type must " + "be knn_vector.");
+                throw new IllegalArgumentException("Incompatible field_type for cosine space. The field type must be knn_vector.");
             }
 
             this.processedQuery = parseToFloatArray(
@@ -98,6 +100,7 @@ public interface KNNScoringSpace {
                 ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension(),
                 ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getVectorDataType()
             );
+            validateFloatVector(processedQuery, SpaceType.COSINESIMIL);
             float qVectorSquaredMagnitude = getVectorMagnitudeSquared(this.processedQuery);
             this.scoringMethod = (float[] q, float[] v) -> 1 + KNNScoringUtil.cosinesimilOptimized(q, v, qVectorSquaredMagnitude);
         }

@@ -5,8 +5,10 @@
 
 package org.opensearch.knn.plugin.script;
 
+import java.util.Locale;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNVectorScriptDocValues;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.apache.lucene.tests.analysis.MockAnalyzer;
@@ -22,17 +24,16 @@ import org.apache.lucene.store.Directory;
 
 import java.io.IOException;
 import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.List;
 
 public class KNNScoringUtilTests extends KNNTestCase {
 
     private List<Number> getTestQueryVector() {
-        List<Number> queryVector = new ArrayList<>();
-        queryVector.add(1.0f);
-        queryVector.add(1.0f);
-        queryVector.add(1.0f);
-        return queryVector;
+        return List.of(1.0f, 1.0f, 1.0f);
+    }
+
+    private List<Number> getTestZeroVector() {
+        return List.of(0.0f, 0.0f, 0.0f);
     }
 
     public void testL2SquaredScoringFunction() {
@@ -211,6 +212,24 @@ public class KNNScoringUtilTests extends KNNTestCase {
         dataset.close();
     }
 
+    public void testZeroVectorFailsCosineSimilarity() throws IOException {
+        List<Number> queryVector = getTestZeroVector();
+        TestKNNScriptDocValues dataset = new TestKNNScriptDocValues();
+        dataset.createKNNVectorDocument(new float[] { 4.0f, 4.0f, 4.0f }, "test-index-field-name");
+        KNNVectorScriptDocValues scriptDocValues = dataset.getScriptDocValues("test-index-field-name");
+        scriptDocValues.setNextDocId(0);
+
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNScoringUtil.cosineSimilarity(queryVector, scriptDocValues)
+        );
+        assertEquals(
+            String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", SpaceType.COSINESIMIL.getValue()),
+            exception.getMessage()
+        );
+        dataset.close();
+    }
+
     public void testCosineSimilarityOptimizedScoringFunction() throws IOException {
         List<Number> queryVector = getTestQueryVector();
         TestKNNScriptDocValues dataset = new TestKNNScriptDocValues();
@@ -227,7 +246,24 @@ public class KNNScoringUtilTests extends KNNTestCase {
         TestKNNScriptDocValues dataset = new TestKNNScriptDocValues();
         dataset.createKNNVectorDocument(new float[] { 4.0f, 4.0f, 4.0f }, "test-index-field-name");
         KNNVectorScriptDocValues scriptDocValues = dataset.getScriptDocValues("test-index-field-name");
-        expectThrows(IllegalStateException.class, () -> KNNScoringUtil.cosineSimilarity(queryVector, scriptDocValues, 3.0f));
+        dataset.close();
+    }
+
+    public void testZeroVectorFailsCosineSimilarityOptimized() throws IOException {
+        List<Number> queryVector = getTestZeroVector();
+        TestKNNScriptDocValues dataset = new TestKNNScriptDocValues();
+        dataset.createKNNVectorDocument(new float[] { 4.0f, 4.0f, 4.0f }, "test-index-field-name");
+        KNNVectorScriptDocValues scriptDocValues = dataset.getScriptDocValues("test-index-field-name");
+        scriptDocValues.setNextDocId(0);
+
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNScoringUtil.cosineSimilarity(queryVector, scriptDocValues, 3.0f)
+        );
+        assertEquals(
+            String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", SpaceType.COSINESIMIL.getValue()),
+            exception.getMessage()
+        );
         dataset.close();
     }
 

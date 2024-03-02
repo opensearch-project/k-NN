@@ -12,6 +12,7 @@ import org.opensearch.core.common.Strings;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -34,7 +35,9 @@ import java.util.List;
 import java.util.Objects;
 
 import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFloatVector;
 
 /**
  * Helper class to build the KNN query
@@ -284,12 +287,15 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         KNNMethodContext knnMethodContext = knnVectorFieldType.getKnnMethodContext();
         KNNEngine knnEngine = KNNEngine.DEFAULT;
         VectorDataType vectorDataType = knnVectorFieldType.getVectorDataType();
+        SpaceType spaceType = knnVectorFieldType.getSpaceType();
 
         if (fieldDimension == -1) {
             // If dimension is not set, the field uses a model and the information needs to be retrieved from there
+            assert spaceType == null;
             ModelMetadata modelMetadata = getModelMetadataForField(knnVectorFieldType);
             fieldDimension = modelMetadata.getDimension();
             knnEngine = modelMetadata.getKnnEngine();
+            spaceType = modelMetadata.getSpaceType();
         } else if (knnMethodContext != null) {
             // If the dimension is set but the knnMethodContext is not then the field is using the legacy mapping
             knnEngine = knnMethodContext.getKnnEngine();
@@ -308,6 +314,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 validateByteVectorValue(vector[i]);
                 byteVector[i] = (byte) vector[i];
             }
+            validateByteVector(byteVector, spaceType);
+        } else {
+            validateFloatVector(vector, spaceType);
         }
 
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine)

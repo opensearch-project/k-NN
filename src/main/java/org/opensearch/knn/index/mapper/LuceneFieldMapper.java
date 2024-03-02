@@ -15,6 +15,7 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -26,6 +27,8 @@ import java.util.Optional;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.buildDocValuesFieldType;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVector;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFloatVector;
 
 /**
  * Field mapper for case when Lucene has been set as an engine.
@@ -75,7 +78,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     }
 
     @Override
-    protected void parseCreateField(ParseContext context, int dimension) throws IOException {
+    protected void parseCreateField(ParseContext context, int dimension, SpaceType spaceType) throws IOException {
 
         validateIfKNNPluginEnabled();
         validateIfCircuitBreakerIsNotTriggered();
@@ -86,6 +89,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
                 return;
             }
             final byte[] array = bytesArrayOptional.get();
+            validateByteVector(array, spaceType);
             KnnByteVectorField point = new KnnByteVectorField(name(), array, fieldType);
 
             context.doc().add(point);
@@ -101,7 +105,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
                 return;
             }
             final float[] array = floatsArrayOptional.get();
-
+            validateFloatVector(array, spaceType);
             KnnVectorField point = new KnnVectorField(name(), array, fieldType);
 
             context.doc().add(point);
