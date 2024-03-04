@@ -67,7 +67,7 @@ public class FilterIdsSelector {
      * as factor. We need to improve on this.
      *
      * Array Memory: Cardinality * Long.BYTES
-     * BitSet Memory: MaxId / Long.BYTES
+     * BitSet Memory: MaxId / Byte.SIZE
      * When Array Memory less than or equal to BitSet Memory return FilterIdsSelectorType.BATCH
      * Else return FilterIdsSelectorType.BITMAP;
      *
