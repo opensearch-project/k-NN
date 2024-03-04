@@ -96,6 +96,7 @@ public class KNNConstants {
     public static final String FAISS_SQ_TYPE = "type";
     public static final String FAISS_SQ_ENCODER_FP16 = "fp16";
     public static final List<String> FAISS_SQ_ENCODER_TYPES = List.of(FAISS_SQ_ENCODER_FP16);
+    public static final String FAISS_SQ_CLIP_TO_RANGE = "clip_to_range";
 
     // Parameter defaults/limits
     public static final Integer ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT = 1;

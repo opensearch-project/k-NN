@@ -32,6 +32,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_HNSW_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.FAISS_IVF_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.FAISS_PQ_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP_TO_RANGE;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_DESCRIPTION;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_TYPES;
@@ -90,6 +91,7 @@ class Faiss extends NativeLibrary {
                 FAISS_SQ_TYPE,
                 new Parameter.StringParameter(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16, FAISS_SQ_ENCODER_TYPES::contains)
             )
+            .addParameter(FAISS_SQ_CLIP_TO_RANGE, new Parameter.BooleanParameter(FAISS_SQ_CLIP_TO_RANGE, false, Objects::nonNull))
             .setMapGenerator(
                 ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
                     FAISS_SQ_DESCRIPTION,

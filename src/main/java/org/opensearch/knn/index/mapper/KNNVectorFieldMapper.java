@@ -55,6 +55,7 @@ import java.util.function.Supplier;
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP_TO_RANGE;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
@@ -560,14 +561,24 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                         METHOD_ENCODER_PARAMETER
                     );
                     if (ENCODER_SQ.equals(methodComponentContext.getName())
-                        && methodComponentContext.getParameters().containsKey(FAISS_SQ_TYPE)
-                        && FAISS_SQ_ENCODER_FP16.equals(methodComponentContext.getParameters().get(FAISS_SQ_TYPE))) {
+                        && FAISS_SQ_ENCODER_FP16.equals(
+                            methodComponentContext.getParameters().getOrDefault(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+                        )) {
                         return true;
                     }
                 }
 
             }
 
+        }
+        return false;
+    }
+
+    // Verify mapping and return the value of "clip_to_range" parameter(default false) for a "faiss" Index
+    // using "sq" encoder of type "fp16".
+    protected boolean isFaissSQClipToFP16RangeEnabled(MethodComponentContext methodComponentContext) {
+        if (methodComponentContext != null) {
+            return (boolean) methodComponentContext.getParameters().getOrDefault(FAISS_SQ_CLIP_TO_RANGE, false);
         }
         return false;
     }
@@ -663,7 +674,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         ArrayList<Float> vector = new ArrayList<>();
         XContentParser.Token token = context.parser().currentToken();
-        boolean clipToFP16Range = context.indexSettings().getValue(KNNSettings.IS_KNN_INDEX_FAISS_CLIP_FP16_RANGE_SETTING);
+        boolean clipToFP16Range = isFaissSQClipToFP16RangeEnabled(
+            (MethodComponentContext) fieldType().getKnnMethodContext()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_ENCODER_PARAMETER)
+        );
         float value;
         if (token == XContentParser.Token.START_ARRAY) {
             token = context.parser().nextToken();

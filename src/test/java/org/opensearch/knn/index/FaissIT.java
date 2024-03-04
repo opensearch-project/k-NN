@@ -20,7 +20,6 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNRestTestCase;
@@ -46,6 +45,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP_TO_RANGE;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.FP16_MAX_VALUE;
@@ -492,6 +492,7 @@ public class FaissIT extends KNNRestTestCase {
             .field(NAME, ENCODER_SQ)
             .startObject(PARAMETERS)
             .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            .field(FAISS_SQ_CLIP_TO_RANGE, true)
             .endObject()
             .endObject()
             .endObject()
@@ -503,8 +504,7 @@ public class FaissIT extends KNNRestTestCase {
         Map<String, Object> mappingMap = xContentBuilderToMap(builder);
         String mapping = builder.toString();
 
-        Settings settings = Settings.builder().put("index.knn", true).put(KNNSettings.KNN_INDEX_FAISS_CLIP_FP16_RANGE, true).build();
-        createKnnIndex(indexName, settings, mapping);
+        createKnnIndex(indexName, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
         Float[] vector1 = { -65523.76f, 65504.2f };
         Float[] vector2 = { -20.89f, 65514.2f };
