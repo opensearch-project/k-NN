@@ -47,12 +47,20 @@ public class NestedFilteredIdsKNNIteratorTests extends TestCase {
             .collect(Collectors.toList());
         when(values.binaryValue()).thenReturn(byteRefs.get(0), byteRefs.get(1), byteRefs.get(2));
 
+        FixedBitSet filterBitSet = new FixedBitSet(4);
         for (int id : filterIds) {
             when(values.advance(id)).thenReturn(id);
+            filterBitSet.set(id);
         }
 
         // Execute and verify
-        NestedFilteredIdsKNNIterator iterator = new NestedFilteredIdsKNNIterator(filterIds, queryVector, values, spaceType, parentBitSet);
+        NestedFilteredIdsKNNIterator iterator = new NestedFilteredIdsKNNIterator(
+            filterBitSet,
+            queryVector,
+            values,
+            spaceType,
+            parentBitSet
+        );
         assertEquals(filterIds[0], iterator.nextDoc());
         assertEquals(expectedScores.get(0), iterator.score());
         assertEquals(filterIds[2], iterator.nextDoc());

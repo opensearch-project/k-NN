@@ -29,9 +29,32 @@
 
 // Defines type of IDSelector
 enum FilterIdsSelectorType{
-    BITMAP, BATCH
+    BITMAP = 0, BATCH = 1,
 };
+namespace faiss {
 
+// Using jlong to do Bitmap selector, jlong[] equals to lucene FixedBitSet#bits
+struct IDSelectorJlongBitmap : IDSelector {
+    size_t n;
+    const jlong* bitmap;
+
+    /** Construct with a binary mask like Lucene FixedBitSet
+     *
+     * @param n size of the bitmap array
+     * @param bitmap id like Lucene FixedBitSet bits
+     */
+    IDSelectorJlongBitmap(size_t n, const jlong* bitmap) : n(n), bitmap(bitmap) {};
+    bool is_member(idx_t id) const final {
+        uint64_t index = id;
+        uint64_t i = index >> 6;  // div 64
+        if (i >= n ) {
+            return false;
+        }
+        return (bitmap[i] >> ( index & 63)) & 1L;
+    }
+    ~IDSelectorJlongBitmap() override {}
+};
+}
 // Translate space type to faiss metric
 faiss::MetricType TranslateSpaceToMetric(const std::string& spaceType);
 
@@ -41,9 +64,6 @@ void SetExtraParameters(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env,
 
 // Train an index with data provided
 void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x);
-
-// Helps to choose the right FilterIdsSelectorType for Faiss
-FilterIdsSelectorType getIdSelectorType(const int* filterIds, int filterIdsLength);
 
 // Converts the int FilterIds to Faiss ids type array.
 void convertFilterIdsToFaissIdType(const int* filterIds, int filterIdsLength, faiss::idx_t* convertedFilterIds);
@@ -199,11 +219,12 @@ jlong knn_jni::faiss_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
 
 jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
                                                 jfloatArray queryVectorJ, jint kJ, jintArray parentIdsJ) {
-    return knn_jni::faiss_wrapper::QueryIndex_WithFilter(jniUtil, env, indexPointerJ, queryVectorJ, kJ, nullptr, parentIdsJ);
+    return knn_jni::faiss_wrapper::QueryIndex_WithFilter(jniUtil, env, indexPointerJ, queryVectorJ, kJ, nullptr, 0, parentIdsJ);
 }
 
 jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                                jfloatArray queryVectorJ, jint kJ, jintArray filterIdsJ, jintArray parentIdsJ) {
+                                                jfloatArray queryVectorJ, jint kJ, jlongArray filterIdsJ, jint filterIdsTypeJ, jintArray parentIdsJ) {
+
     if (queryVectorJ == nullptr) {
         throw std::runtime_error("Query Vector cannot be null");
     }
@@ -225,28 +246,14 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
     omp_set_num_threads(1);
     // create the filterSearch params if the filterIdsJ is not a null pointer
     if(filterIdsJ != nullptr) {
-        int *filteredIdsArray = jniUtil->GetIntArrayElements(env, filterIdsJ, nullptr);
-        int filterIdsLength = jniUtil->GetJavaIntArrayLength(env, filterIdsJ);
+        jlong *filteredIdsArray = jniUtil->GetLongArrayElements(env, filterIdsJ, nullptr);
+        int filterIdsLength = jniUtil->GetJavaLongArrayLength(env, filterIdsJ);
         std::unique_ptr<faiss::IDSelector> idSelector;
-        FilterIdsSelectorType idSelectorType = getIdSelectorType(filteredIdsArray, filterIdsLength);
-        // start with empty vectors for 2 different types of empty Selectors. We need define them here to avoid copying of data
-        // during the returns. We could have used pass by reference, but we choose pointers. Returning reference to local
-        // vector is also an option which can be efficient than copying during returns but it requires upto date C++ compilers.
-        // To avoid all those confusions, its better to work with pointers here. Ref: https://cplusplus.com/forum/general/56177/
-        std::vector<faiss::idx_t> convertedIds;
-        std::vector<uint8_t> bitmap;
-        // Choose a selector which suits best
-        if(idSelectorType == BATCH) {
-            convertedIds.resize(filterIdsLength);
-            convertFilterIdsToFaissIdType(filteredIdsArray, filterIdsLength, convertedIds.data());
-            idSelector.reset(new faiss::IDSelectorBatch(convertedIds.size(), convertedIds.data()));
+        if(filterIdsTypeJ == BITMAP) {
+            idSelector.reset(new faiss::IDSelectorJlongBitmap(filterIdsLength, filteredIdsArray));
         } else {
-            int maxIdValue = filteredIdsArray[filterIdsLength - 1];
-            // >> 3 is equivalent to value / 8
-            const int bitsetArraySize = (maxIdValue >> 3) + 1;
-            bitmap.resize(bitsetArraySize, 0);
-            buildFilterIdsBitMap(filteredIdsArray, filterIdsLength, bitmap.data());
-            idSelector.reset(new faiss::IDSelectorBitmap(bitsetArraySize, bitmap.data()));
+            faiss::idx_t* batchIndices = reinterpret_cast<faiss::idx_t*>(filteredIdsArray);
+            idSelector.reset(new faiss::IDSelectorBatch(filterIdsLength, batchIndices));
         }
         faiss::SearchParameters *searchParameters;
         faiss::SearchParametersHNSW hnswParams;
@@ -276,10 +283,10 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
             indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data(), searchParameters);
         } catch (...) {
             jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
-            jniUtil->ReleaseIntArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
+            jniUtil->ReleaseLongArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
             throw;
         }
-        jniUtil->ReleaseIntArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
+        jniUtil->ReleaseLongArrayElements(env, filterIdsJ, filteredIdsArray, JNI_ABORT);
     } else {
         faiss::SearchParameters *searchParameters = nullptr;
         faiss::SearchParametersHNSW hnswParams;
@@ -451,63 +458,6 @@ void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x) {
 
     if (!index->is_trained) {
         index->train(n, x);
-    }
-}
-
-/**
- * This function takes a call on what ID Selector to use:
- * https://github.com/facebookresearch/faiss/wiki/Setting-search-parameters-for-one-query#idselectorarray-idselectorbatch-and-idselectorbitmap
- *
- * class	       storage	lookup     construction(Opensearch + Faiss)
- * IDSelectorArray	O(k)	O(k)          O(2k)
- * IDSelectorBatch	O(k)	O(1)          O(2k)
- * IDSelectorBitmap	O(n/8)	O(1)          O(k) -> n is the max value of id in the index
- *
- * TODO: We need to ideally decide when we can take another hit of K iterations in latency. Some facts:
- * an OpenSearch Index can have max segment size as 5GB which, which on a vector with dimension of 128 boils down to
- * 7.5M vectors.
- * Ref: https://opensearch.org/docs/latest/search-plugins/knn/knn-index/#hnsw-memory-estimation
- * M = 16
- * Dimension = 128
- * (1.1 * ( 4 * 128 + 8 * 16) * 7500000)/(1024*1024*1024) ~ 4.9GB
- * Ids are sequential in a Segment which means for IDSelectorBitmap total size if the max ID has value of 7.5M will be
- * 7500000/(8*1024) = 915KBs in worst case. But with larger dimensions this worst case value will decrease.
- *
- * With 915KB how many ids can be represented as an array of 64-bit longs : 117,120 ids
- * So iterating on 117k ids for 1 single pass is also time consuming. So, we are currently concluding to consider only size
- * as factor. We need to improve on this.
- *
- * TODO: Best way is to implement a SparseBitSet in C++. This can be done by extending the IDSelector Interface of Faiss.
- *
- * @param filterIds
- * @param filterIdsLength
- * @return std::string
- */
-FilterIdsSelectorType getIdSelectorType(const int* filterIds, int filterIdsLength) {
-    int maxIdValue = filterIds[filterIdsLength - 1];
-    if(filterIdsLength * sizeof(faiss::idx_t) * 8 <= maxIdValue ) {
-        return BATCH;
-    }
-    return BITMAP;
-}
-
-void convertFilterIdsToFaissIdType(const int* filterIds, int filterIdsLength, faiss::idx_t* convertedFilterIds) {
-    for (int i = 0; i < filterIdsLength; i++) {
-        convertedFilterIds[i] = filterIds[i];
-    }
-}
-
-void buildFilterIdsBitMap(const int* filterIds, int filterIdsLength, uint8_t* bitsetVector) {
-    /**
-     * Coming from Faiss IDSelectorBitmap::is_member function bitmap id will be selected
-     * iff id / 8 < n and bit number (i%8) of bitmap[floor(i / 8)] is 1.
-     */
-    for(int i = 0 ; i < filterIdsLength ; i ++) {
-        int value = filterIds[i];
-        // / , % are expensive operation. Hence, using BitShift operation as they are fast.
-        int bitsetArrayIndex = value >> 3 ; // is equivalent to value / 8
-        // (value & 7) equivalent to value % 8
-        bitsetVector[bitsetArrayIndex] = bitsetVector[bitsetArrayIndex] |  (1 << (value & 7));
     }
 }
 
