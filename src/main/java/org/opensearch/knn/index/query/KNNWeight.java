@@ -100,11 +100,13 @@ public class KNNWeight extends Weight {
 
     @Override
     public Scorer scorer(LeafReaderContext context) throws IOException {
-        final int[] filterIdsArray = getFilterIdsArray(context);
+
+        final BitSet filterBitSet = getFilteredDocsBitSet(context);
+        int cardinality = filterBitSet.cardinality();
         // We don't need to go to JNI layer if no documents are found which satisfy the filters
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
         // place,
-        if (filterWeight != null && filterIdsArray.length == 0) {
+        if (filterWeight != null && cardinality == 0) {
             return KNNScorer.emptyScorer(this);
         }
         final Map<Integer, Float> docIdsToScoreMap = new HashMap<>();
@@ -114,22 +116,22 @@ public class KNNWeight extends Weight {
          * . Hence, if filtered results are less than K and filter query is present we should shift to exact search.
          * This improves the recall.
          */
-        if (filterWeight != null && canDoExactSearch(filterIdsArray.length)) {
-            docIdsToScoreMap.putAll(doExactSearch(context, filterIdsArray));
+        if (filterWeight != null && canDoExactSearch(cardinality)) {
+            docIdsToScoreMap.putAll(doExactSearch(context, filterBitSet));
         } else {
-            Map<Integer, Float> annResults = doANNSearch(context, filterIdsArray);
+            Map<Integer, Float> annResults = doANNSearch(context, filterBitSet, cardinality);
             if (annResults == null) {
                 return null;
             }
-            if (canDoExactSearchAfterANNSearch(filterIdsArray.length, annResults.size())) {
+            if (canDoExactSearchAfterANNSearch(cardinality, annResults.size())) {
                 log.debug(
                     "Doing ExactSearch after doing ANNSearch as the number of documents returned are less than "
                         + "K, even when we have more than K filtered Ids. K: {}, ANNResults: {}, filteredIdCount: {}",
                     knnQuery.getK(),
                     annResults.size(),
-                    filterIdsArray.length
+                    cardinality
                 );
-                annResults = doExactSearch(context, filterIdsArray);
+                annResults = doExactSearch(context, filterBitSet);
             }
             docIdsToScoreMap.putAll(annResults);
         }
@@ -139,7 +141,11 @@ public class KNNWeight extends Weight {
         return convertSearchResponseToScorer(docIdsToScoreMap);
     }
 
-    private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx, final Weight filterWeight) throws IOException {
+    private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
+        if (this.filterWeight == null) {
+            return new FixedBitSet(0);
+        }
+
         final Bits liveDocs = ctx.reader().getLiveDocs();
         final int maxDoc = ctx.reader().maxDoc();
 
@@ -166,13 +172,6 @@ public class KNNWeight extends Weight {
         return BitSet.of(filterIterator, maxDoc);
     }
 
-    private int[] getFilterIdsArray(final LeafReaderContext context) throws IOException {
-        if (filterWeight == null) {
-            return new int[0];
-        }
-        return bitSetToIntArray(getFilteredDocsBitSet(context, this.filterWeight));
-    }
-
     private int[] getParentIdsArray(final LeafReaderContext context) throws IOException {
         if (knnQuery.getParentsFilter() == null) {
             return null;
@@ -194,7 +193,8 @@ public class KNNWeight extends Weight {
         return intArray;
     }
 
-    private Map<Integer, Float> doANNSearch(final LeafReaderContext context, final int[] filterIdsArray) throws IOException {
+    private Map<Integer, Float> doANNSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality)
+        throws IOException {
         SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(context.reader());
         String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
 
@@ -265,6 +265,10 @@ public class KNNWeight extends Weight {
             throw new RuntimeException(e);
         }
 
+        // From cardinality select different filterIds type
+        FilterIdsSelector filterIdsSelector = FilterIdsSelector.getFilterIdSelector(filterIdsBitSet, cardinality);
+        long[] filterIds = filterIdsSelector.getFilterIds();
+        FilterIdsSelector.FilterIdsSelectorType filterType = filterIdsSelector.getFilterType();
         // Now that we have the allocation, we need to readLock it
         indexAllocation.readLock();
         try {
@@ -277,7 +281,8 @@ public class KNNWeight extends Weight {
                 knnQuery.getQueryVector(),
                 knnQuery.getK(),
                 knnEngine.getName(),
-                filterIdsArray,
+                filterIds,
+                filterType.getValue(),
                 parentIds
             );
 
@@ -303,13 +308,13 @@ public class KNNWeight extends Weight {
             .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
     }
 
-    private Map<Integer, Float> doExactSearch(final LeafReaderContext leafReaderContext, final int[] filterIdsArray) throws IOException {
+    private Map<Integer, Float> doExactSearch(final LeafReaderContext leafReaderContext, final BitSet filterIdsBitSet) {
         try {
             // Creating min heap and init with MAX DocID and Score as -INF.
             final HitQueue queue = new HitQueue(this.knnQuery.getK(), true);
             ScoreDoc topDoc = queue.top();
             final Map<Integer, Float> docToScore = new HashMap<>();
-            FilteredIdsKNNIterator iterator = getFilteredKNNIterator(leafReaderContext, filterIdsArray);
+            FilteredIdsKNNIterator iterator = getFilteredKNNIterator(leafReaderContext, filterIdsBitSet);
             int docId;
             while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
                 if (iterator.score() > topDoc.score) {
@@ -340,16 +345,16 @@ public class KNNWeight extends Weight {
         return Collections.emptyMap();
     }
 
-    private FilteredIdsKNNIterator getFilteredKNNIterator(final LeafReaderContext leafReaderContext, final int[] filterIdsArray)
+    private FilteredIdsKNNIterator getFilteredKNNIterator(final LeafReaderContext leafReaderContext, final BitSet filterIdsBitSet)
         throws IOException {
         final SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(leafReaderContext.reader());
         final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
         final BinaryDocValues values = DocValues.getBinary(leafReaderContext.reader(), fieldInfo.getName());
         final SpaceType spaceType = getSpaceType(fieldInfo);
         return knnQuery.getParentsFilter() == null
-            ? new FilteredIdsKNNIterator(filterIdsArray, knnQuery.getQueryVector(), values, spaceType)
+            ? new FilteredIdsKNNIterator(filterIdsBitSet, knnQuery.getQueryVector(), values, spaceType)
             : new NestedFilteredIdsKNNIterator(
-                filterIdsArray,
+                filterIdsBitSet,
                 knnQuery.getQueryVector(),
                 values,
                 spaceType,
