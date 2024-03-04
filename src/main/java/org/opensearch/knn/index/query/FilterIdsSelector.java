@@ -84,7 +84,7 @@ public class FilterIdsSelector {
              */
             filterIds = ((FixedBitSet) filterIdsBitSet).getBits();
             filterType = FilterIdsSelector.FilterIdsSelectorType.BITMAP;
-        } else if ((cardinality * Long.BYTES * Long.BYTES) <= filterIdsBitSet.length()) {
+        } else if ((cardinality * Long.BYTES * Byte.SIZE) <= filterIdsBitSet.length()) {
             /**
              * When filterIds is sparse bitset, using ram usage to decide FilterIdsSelectorType
              */
