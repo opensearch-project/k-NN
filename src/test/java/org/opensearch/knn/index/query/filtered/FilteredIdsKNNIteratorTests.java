@@ -9,6 +9,7 @@ import lombok.SneakyThrows;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNVectorAsArraySerializer;
@@ -41,12 +42,14 @@ public class FilteredIdsKNNIteratorTests extends KNNTestCase {
             .collect(Collectors.toList());
         when(values.binaryValue()).thenReturn(byteRefs.get(0), byteRefs.get(1), byteRefs.get(2));
 
+        FixedBitSet filterBitSet = new FixedBitSet(4);
         for (int id : filterIds) {
             when(values.advance(id)).thenReturn(id);
+            filterBitSet.set(id);
         }
 
         // Execute and verify
-        FilteredIdsKNNIterator iterator = new FilteredIdsKNNIterator(filterIds, queryVector, values, spaceType);
+        FilteredIdsKNNIterator iterator = new FilteredIdsKNNIterator(filterBitSet, queryVector, values, spaceType);
         for (int i = 0; i < filterIds.length; i++) {
             assertEquals(filterIds[i], iterator.nextDoc());
             assertEquals(expectedScores.get(i), (Float) iterator.score());

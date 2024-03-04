@@ -104,7 +104,8 @@ class FaissService {
         long indexPointer,
         float[] queryVector,
         int k,
-        int[] filterIds,
+        long[] filterIds,
+        int filterIdsType,
         int[] parentIds
     );
 
