@@ -471,14 +471,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         public KNNQueryBuilder build() {
-            if (k != null && distance != null || k == null && distance == null) {
+            if ((k != null && distance != null) || (k == null && distance == null)) {
                 throw new IllegalArgumentException("[" + NAME + "] requires either k or distance must be set");
             }
-            if (k != null && k <= 0) {
-                throw new IllegalArgumentException("[" + NAME + "] requires k > 0");
-            }
-            if (k != null && k > K_MAX) {
-                throw new IllegalArgumentException("[" + NAME + "] requires k <= " + K_MAX);
+            if (k != null && (k <= 0 || k > K_MAX)) {
+                throw new IllegalArgumentException("[" + NAME + "] requires 0 < k <= " + K_MAX);
             }
             if (distance != null && distance < 0) {
                 throw new IllegalArgumentException("[" + NAME + "] requires distance >= 0");
