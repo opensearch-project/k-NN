@@ -11,21 +11,16 @@
 
 package org.opensearch.knn.jni;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.util.KNNEngine;
 
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.security.PrivilegedExceptionAction;
 import java.util.Map;
-import oshi.util.platform.mac.SysctlUtil;
 
 import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
+import static org.opensearch.knn.jni.JNIUtils.isAVX2SupportedBySystem;
 
 /**
  * Service to interact with faiss jni layer. Class dependencies should be minimal
@@ -36,7 +31,6 @@ import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
  *      src/main/java/org/opensearch/knn/common/KNNConstants.java
  */
 class FaissService {
-    private static Logger logger = LogManager.getLogger(FaissService.class);
 
     static {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
@@ -53,59 +47,6 @@ class FaissService {
             KNNEngine.FAISS.setInitialized(true);
             return null;
         });
-    }
-
-    /**
-     * Verify if the underlying system supports AVX2 SIMD Optimization or not
-     * 1. If the architecture is aarch64 return false.
-     * 2. If the operating system is windows return false.
-     * 3. If the operating system is macOS, use oshi-core library to verify if the cpu flags
-     *    contains 'avx2' and return true if it exists else false.
-     * 4. If the operating system is linux, read the '/proc/cpuinfo' file path and verify if
-     *    the flags contains 'avx2' and return true if it exists else false.
-     */
-    private static boolean isAVX2SupportedBySystem() {
-        if ((System.getProperty("os.arch").toLowerCase()).contains("aarch")
-            || (System.getProperty("os.name").toLowerCase()).contains("windows")) {
-            return false;
-        }
-
-        if ((System.getProperty("os.name").toLowerCase()).contains("mac")) {
-            try {
-                return AccessController.doPrivileged((PrivilegedExceptionAction<Boolean>) () -> {
-                    String flags = SysctlUtil.sysctl("machdep.cpu.leaf7_features", "empty");
-                    if ((flags.toLowerCase()).contains("avx2")) {
-                        return true;
-                    }
-                    return false;
-                });
-            } catch (Exception e) {
-                logger.error("[KNN] Error fetching cpu flags info. [{}]", e.getMessage());
-                e.printStackTrace();
-            }
-
-        } else if ((System.getProperty("os.name").toLowerCase()).contains("linux")) {
-            String fileName = "/proc/cpuinfo";
-            try {
-                return AccessController.doPrivileged((PrivilegedExceptionAction<Boolean>) () -> {
-                    String cpuFlags = Files.lines(Paths.get(fileName))
-                        .filter(s -> s.startsWith("flags"))
-                        .filter(s -> s.contains("avx2"))
-                        .findFirst()
-                        .orElse("");
-
-                    if ((cpuFlags.toLowerCase()).contains("avx2")) {
-                        return true;
-                    }
-                    return false;
-                });
-
-            } catch (Exception e) {
-                logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage());
-                e.printStackTrace();
-            }
-        }
-        return false;
     }
 
     /**

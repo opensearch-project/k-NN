@@ -238,9 +238,9 @@ If you want to make a custom patch on JNI library
 4. Make a change in `jni/CmakeLists.txt`, `.github/workflows/CI.yml` to apply the patch during build
 
 ### Enable SIMD Optimization
-SIMD(Single Instruction/Multiple Data) Optimization can be enabled by setting this optional parameter `simd.enabled` to `true` which boosts the performance
+SIMD(Single Instruction/Multiple Data) Optimization is enabled by default on Linux and Mac which boosts the performance
 by enabling `AVX2` on `x86 architecture` and `NEON` on `ARM64 architecture` while building the Faiss library. But to enable SIMD, the underlying processor
-should support this (AVX2 or NEON). So, by default it is set to `false`.
+should support this (AVX2 or NEON). It can be disabled by setting the parameter `simd.enabled` to `false`. As of now, it is not supported on Windows OS.
 
 ```
 # While building OpenSearch k-NN
