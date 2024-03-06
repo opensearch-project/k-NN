@@ -56,6 +56,9 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  */
 class Faiss extends NativeLibrary {
 
+    // TODO: Current version is not really current version. Instead, it encodes information in the file name
+    // about the compatibility version the file is created with. In the future, we should refactor this so that it
+    // makes sense. See https://github.com/opensearch-project/k-NN/issues/1515 for more details.
     private final static String CURRENT_VERSION = "165";
 
     // Map that overrides OpenSearch score translation by space type of scores returned by faiss
