@@ -99,6 +99,7 @@ public class JNIService {
      * @param k            neighbors to be returned
      * @param engineName   name of engine to query index
      * @param filteredIds  array of ints on which should be used for search.
+     * @param filterIdsType how to filter ids: Batch or BitMap
      * @return KNNQueryResult array of k neighbors
      */
     public static KNNQueryResult[] queryIndex(
@@ -106,7 +107,8 @@ public class JNIService {
         float[] queryVector,
         int k,
         String engineName,
-        int[] filteredIds,
+        long[] filteredIds,
+        int filterIdsType,
         int[] parentIds
     ) {
         if (KNNEngine.NMSLIB.getName().equals(engineName)) {
@@ -119,7 +121,7 @@ public class JNIService {
             // filterIds. FilterIds is coming as empty then its the case where we need to do search with Faiss engine
             // normally.
             if (ArrayUtils.isNotEmpty(filteredIds)) {
-                return FaissService.queryIndexWithFilter(indexPointer, queryVector, k, filteredIds, parentIds);
+                return FaissService.queryIndexWithFilter(indexPointer, queryVector, k, filteredIds, filterIdsType, parentIds);
             }
             return FaissService.queryIndex(indexPointer, queryVector, k, parentIds);
         }

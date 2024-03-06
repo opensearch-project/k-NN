@@ -7,6 +7,8 @@ package org.opensearch.knn.index.query.filtered;
 
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.util.BitSet;
+import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
@@ -23,23 +25,26 @@ import java.io.IOException;
  */
 public class FilteredIdsKNNIterator {
     // Array of doc ids to iterate
-    protected final int[] filterIdsArray;
+    protected final BitSet filterIdsBitSet;
+    protected final BitSetIterator bitSetIterator;
     protected final float[] queryVector;
     protected final BinaryDocValues binaryDocValues;
     protected final SpaceType spaceType;
     protected float currentScore = Float.NEGATIVE_INFINITY;
-    protected int currentPos = 0;
+    protected int docId;
 
     public FilteredIdsKNNIterator(
-        final int[] filterIdsArray,
+        final BitSet filterIdsBitSet,
         final float[] queryVector,
         final BinaryDocValues binaryDocValues,
         final SpaceType spaceType
     ) {
-        this.filterIdsArray = filterIdsArray;
+        this.filterIdsBitSet = filterIdsBitSet;
+        this.bitSetIterator = new BitSetIterator(filterIdsBitSet, filterIdsBitSet.length());
         this.queryVector = queryVector;
         this.binaryDocValues = binaryDocValues;
         this.spaceType = spaceType;
+        this.docId = bitSetIterator.nextDoc();
     }
 
     /**
@@ -49,13 +54,14 @@ public class FilteredIdsKNNIterator {
      * @return next doc id
      */
     public int nextDoc() throws IOException {
-        if (currentPos >= filterIdsArray.length) {
+
+        if (docId == DocIdSetIterator.NO_MORE_DOCS) {
             return DocIdSetIterator.NO_MORE_DOCS;
         }
-        int docId = binaryDocValues.advance(filterIdsArray[currentPos]);
+        int doc = binaryDocValues.advance(docId);
         currentScore = computeScore();
-        currentPos++;
-        return docId;
+        docId = bitSetIterator.nextDoc();
+        return doc;
     }
 
     public float score() {

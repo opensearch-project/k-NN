@@ -319,6 +319,17 @@ int knn_jni::JNIUtil::GetJavaIntArrayLength(JNIEnv *env, jintArray arrayJ) {
     return length;
 }
 
+int knn_jni::JNIUtil::GetJavaLongArrayLength(JNIEnv *env, jlongArray arrayJ) {
+
+    if (arrayJ == nullptr) {
+        throw std::runtime_error("Array cannot be null");
+    }
+
+    int length = env->GetArrayLength(arrayJ);
+    this->HasExceptionInStack(env, "Unable to get array length");
+    return length;
+}
+
 int knn_jni::JNIUtil::GetJavaBytesArrayLength(JNIEnv *env, jbyteArray arrayJ) {
 
     if (arrayJ == nullptr) {
@@ -376,6 +387,17 @@ jint * knn_jni::JNIUtil::GetIntArrayElements(JNIEnv *env, jintArray array, jbool
     return intArray;
 }
 
+jlong * knn_jni::JNIUtil::GetLongArrayElements(JNIEnv *env, jlongArray array, jboolean * isCopy) {
+    // Lets check for error here
+    jlong * longArray =  env->GetLongArrayElements(array, isCopy);
+    if (longArray == nullptr) {
+        this->HasExceptionInStack(env, "Unable to get long array");
+        throw std::runtime_error("Unable to get long array");
+    }
+
+    return longArray;
+}
+
 jobject knn_jni::JNIUtil::GetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index) {
     jobject object = env->GetObjectArrayElement(array, index);
     this->HasExceptionInStack(env, "Unable to get object");
@@ -422,6 +444,10 @@ void knn_jni::JNIUtil::ReleaseFloatArrayElements(JNIEnv *env, jfloatArray array,
 
 void knn_jni::JNIUtil::ReleaseIntArrayElements(JNIEnv *env, jintArray array, jint *elems, jint mode) {
     env->ReleaseIntArrayElements(array, elems, mode);
+}
+
+void knn_jni::JNIUtil::ReleaseLongArrayElements(JNIEnv *env, jlongArray array, jlong *elems, jint mode) {
+    env->ReleaseLongArrayElements(array, elems, mode);
 }
 
 void knn_jni::JNIUtil::SetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index, jobject val) {
