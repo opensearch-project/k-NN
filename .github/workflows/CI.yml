@@ -76,6 +76,15 @@ jobs:
           Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
           refreshenv
 
+      - name: Install Zlib Using Scoop
+        run: |
+          echo "C:/Users/runneradmin/scoop/shims" >> $env:GITHUB_PATH
+          Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+          refreshenv
+          scoop bucket add extras
+          scoop install zlib
+          regedit /s "C:\\Users\\runneradmin\\scoop\\apps\\zlib\\current\\register.reg"
+
       - name: Download OpenBLAS
         run: |
           curl -L -O https://github.com/xianyi/OpenBLAS/releases/download/v0.3.21/OpenBLAS-0.3.21-x64.zip
