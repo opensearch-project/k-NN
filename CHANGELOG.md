@@ -23,4 +23,5 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Maintenance
 * Bump faiss lib commit to 32f0e8cf92cd2275b60364517bb1cce67aa29a55 [#1443](https://github.com/opensearch-project/k-NN/pull/1443)
 * Fix FieldInfo Parameters Mismatch [#1489](https://github.com/opensearch-project/k-NN/pull/1489)
+* Upgrade faiss to 12b92e9 [#1509](https://github.com/opensearch-project/k-NN/pull/1509)
 ### Refactoring
