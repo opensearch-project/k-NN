@@ -88,7 +88,7 @@ public class Lucene extends JVMLibrary {
     }
 
     @Override
-    public Float distanceTransform(Float distance, SpaceType spaceType) {
+    public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
         // Lucene requires score threshold to be parameterized when calling the radius search.
         if (this.distanceTransform.containsKey(spaceType)) {
             return this.distanceTransform.get(spaceType).apply(distance);

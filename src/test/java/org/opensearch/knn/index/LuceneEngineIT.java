@@ -521,20 +521,24 @@ public class LuceneEngineIT extends KNNRestTestCase {
         @Nullable final String filterValue
     ) throws Exception {
         for (int i = 0; i < searchVectors.length; i++) {
-            KNNQueryBuilder queryBuilder;
-
+            XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("query");
+            builder.startObject("knn");
+            builder.startObject(FIELD_NAME);
+            builder.field("vector", searchVectors[i]);
+            builder.field("distance", radius);
             if (filterField != null && filterValue != null) {
-                queryBuilder = new KNNQueryBuilder(FIELD_NAME, searchVectors[i], QueryBuilders.termQuery(filterField, filterValue), radius);
-            } else {
-                queryBuilder = new KNNQueryBuilder(FIELD_NAME, searchVectors[i], radius);
+                builder.startObject("filter");
+                builder.startObject("term");
+                builder.field(filterField, filterValue);
+                builder.endObject();
+                builder.endObject();
             }
+            builder.endObject();
+            builder.endObject();
+            builder.endObject().endObject();
 
-            final String responseBody = EntityUtils.toString(searchKNNIndex(INDEX_NAME, queryBuilder, expectedResults[i]).getEntity());
+            final String responseBody = EntityUtils.toString(searchKNNIndex(INDEX_NAME, builder, expectedResults[i]).getEntity());
             final List<KNNResult> radiusResults = parseSearchResponse(responseBody, FIELD_NAME);
-            System.out.println("i: " + i);
-            System.out.println("radiusResults: " + radiusResults.size());
-            System.out.println("expectedResults[i]: " + expectedResults[i]);
-            System.out.println("------");
 
             assertEquals(expectedResults[i], radiusResults.size());
 

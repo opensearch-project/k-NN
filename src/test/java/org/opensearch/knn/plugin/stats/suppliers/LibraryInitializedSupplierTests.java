@@ -64,7 +64,7 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
         }
 
         @Override
-        public Float distanceTransform(Float distance, SpaceType spaceType) {
+        public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
             return 0.0f;
         }
 

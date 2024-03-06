@@ -128,7 +128,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         }
 
         @Override
-        public Float distanceTransform(Float distance, SpaceType spaceType) {
+        public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
             return 0f;
         }
 

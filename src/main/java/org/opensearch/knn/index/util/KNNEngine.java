@@ -153,8 +153,8 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public Float distanceTransform(Float distance, SpaceType spaceType) {
-        return knnLibrary.distanceTransform(distance, spaceType);
+    public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
+        return knnLibrary.distanceToRadialThreshold(distance, spaceType);
     }
 
     @Override

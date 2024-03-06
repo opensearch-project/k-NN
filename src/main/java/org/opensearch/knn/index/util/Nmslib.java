@@ -70,7 +70,7 @@ class Nmslib extends NativeLibrary {
     }
 
     @Override
-    public Float distanceTransform(Float distance, SpaceType spaceType) {
+    public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
         return distance;
     }
 }
