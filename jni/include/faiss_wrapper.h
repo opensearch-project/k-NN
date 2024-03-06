@@ -73,6 +73,10 @@ namespace knn_jni {
         // Return the serialized representation
         jbyteArray TrainIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject parametersJ, jint dimension,
                               jlong trainVectorsPointerJ);
+
+        // Execute a range search against the index located in memory at indexPointerJ.
+        jobjectArray RangeSearch(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong indexPointerJ, jfloatArray queryVectorJ,
+                    jfloat radiusJ);
     }
 }
 

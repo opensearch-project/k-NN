@@ -10,21 +10,12 @@ import java.util.Arrays;
 
 import java.util.List;
 import java.util.Objects;
+
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.MatchNoDocsQuery;
-import org.apache.lucene.search.Query;
-import org.opensearch.core.ParseField;
-import org.opensearch.core.common.ParsingException;
 import org.opensearch.core.common.Strings;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.NumberFieldMapper;
-import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
@@ -34,6 +25,16 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.plugin.stats.KNNCounter;
+import org.apache.lucene.search.Query;
+import org.opensearch.core.ParseField;
+import org.opensearch.core.common.ParsingException;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.index.mapper.MappedFieldType;
+import org.opensearch.index.query.AbstractQueryBuilder;
+import org.opensearch.index.query.QueryShardContext;
 
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
@@ -457,7 +458,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .radius(radius)
                 .filter(this.filter)
                 .context(context)
-                .radius(radius)
                 .build();
             return RNNQueryFactory.create(createQueryRequest);
         }

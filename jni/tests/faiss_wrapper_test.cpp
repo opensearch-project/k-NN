@@ -624,3 +624,63 @@ TEST(FaissInitAndSetSharedIndexState, BasicAssertions) {
     ASSERT_EQ(1, ivfpqIndex->use_precomputed_table);
     knn_jni::faiss_wrapper::FreeSharedIndexState(sharedModelAddress);
 }
+
+TEST(FaissRangeSearchQueryIndexTest, BasicAssertions) {
+    // Define the index data
+    faiss::idx_t numIds = 100;
+    std::vector<faiss::idx_t> ids;
+    std::vector<float> vectors;
+    int dim = 1;
+    for (int64_t i = 0; i < numIds; i++) {
+        ids.push_back(i);
+        for (int j = 0; j < dim; j++) {
+            vectors.push_back(test_util::RandomFloat(-10.0, 10.0));
+        }
+    }
+
+    faiss::MetricType metricType = faiss::METRIC_L2;
+    std::string method = "Flat";
+
+    // Define query data
+    float radius = 10.0;
+    int numQueries = 2;
+    std::vector<std::vector<float>> queries;
+
+    for (int i = 0; i < numQueries; i++) {
+        std::vector<float> query;
+        query.reserve(dim);
+        for (int j = 0; j < dim; j++) {
+            query.push_back(test_util::RandomFloat(-10.0, 10.0));
+        }
+        queries.push_back(query);
+    }
+
+    // Create the index
+    std::unique_ptr<faiss::Index> createdIndex(
+            test_util::FaissCreateIndex(2, method, metricType));
+    auto createdIndexWithData =
+            test_util::FaissAddData(createdIndex.get(), ids, vectors);
+
+    // Setup jni
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    for (auto query : queries) {
+        std::unique_ptr<std::vector<std::pair<int, float> *>> results(
+                reinterpret_cast<std::vector<std::pair<int, float> *> *>(
+
+                        knn_jni::faiss_wrapper::RangeSearch(
+                                &mockJNIUtil, jniEnv,
+                                reinterpret_cast<jlong>(&createdIndexWithData),
+                                reinterpret_cast<jfloatArray>(&query), radius)));
+
+        // assert result size is not 0
+        ASSERT_NE(0, results->size());
+
+
+        // Need to free up each result
+        for (auto it : *results) {
+            delete it;
+        }
+    }
+}
