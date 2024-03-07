@@ -1,0 +1,512 @@
+From c5ca07299b427dedafc738b98bd20f8f286f6783 Mon Sep 17 00:00:00 2001
+From: John Mazanec <jmazane@amazon.com>
+Date: Wed, 21 Feb 2024 15:34:15 -0800
+Subject: [PATCH] Enable precomp table to be shared ivfpq
+
+Changes IVFPQ and IVFPQFastScan indices to be able to share the
+precomputed table amongst other instances. Switches var to a pointer and
+add necessary functions to set them correctly.
+
+Adds a tests to validate the behavior.
+
+Signed-off-by: John Mazanec <jmazane@amazon.com>
+---
+ faiss/IndexIVFPQ.cpp                 |  47 +++++++-
+ faiss/IndexIVFPQ.h                   |  16 ++-
+ faiss/IndexIVFPQFastScan.cpp         |  47 ++++++--
+ faiss/IndexIVFPQFastScan.h           |  11 +-
+ tests/CMakeLists.txt                 |   1 +
+ tests/test_disable_pq_sdc_tables.cpp |   4 +-
+ tests/test_ivfpq_share_table.cpp     | 173 +++++++++++++++++++++++++++
+ 7 files changed, 284 insertions(+), 15 deletions(-)
+ create mode 100644 tests/test_ivfpq_share_table.cpp
+
+diff --git a/faiss/IndexIVFPQ.cpp b/faiss/IndexIVFPQ.cpp
+index 0b7f4d05..07bc7e83 100644
+--- a/faiss/IndexIVFPQ.cpp
++++ b/faiss/IndexIVFPQ.cpp
+@@ -59,6 +59,29 @@ IndexIVFPQ::IndexIVFPQ(
+     polysemous_training = nullptr;
+     do_polysemous_training = false;
+     polysemous_ht = 0;
++    precomputed_table = new AlignedTable<float>();
++    owns_precomputed_table = true;
++}
++
++IndexIVFPQ::IndexIVFPQ(const IndexIVFPQ& orig) : IndexIVF(orig), pq(orig.pq) {
++    code_size = orig.pq.code_size;
++    invlists->code_size = code_size;
++    is_trained = orig.is_trained;
++    by_residual = orig.by_residual;
++    use_precomputed_table = orig.use_precomputed_table;
++    scan_table_threshold = orig.scan_table_threshold;
++
++    polysemous_training = orig.polysemous_training;
++    do_polysemous_training = orig.do_polysemous_training;
++    polysemous_ht = orig.polysemous_ht;
++    precomputed_table = new AlignedTable<float>(*orig.precomputed_table);
++    owns_precomputed_table = true;
++}
++
++IndexIVFPQ::~IndexIVFPQ() {
++    if (owns_precomputed_table) {
++        delete precomputed_table;
++    }
+ }
+ 
+ /****************************************************************
+@@ -466,11 +489,23 @@ void IndexIVFPQ::precompute_table() {
+             use_precomputed_table,
+             quantizer,
+             pq,
+-            precomputed_table,
++            *precomputed_table,
+             by_residual,
+             verbose);
+ }
+ 
++void IndexIVFPQ::set_precomputed_table(
++        AlignedTable<float>* _precompute_table,
++        int _use_precomputed_table) {
++    // Clean up old pre-computed table
++    if (owns_precomputed_table) {
++        delete precomputed_table;
++    }
++    owns_precomputed_table = false;
++    precomputed_table = _precompute_table;
++    use_precomputed_table = _use_precomputed_table;
++}
++
+ namespace {
+ 
+ #define TIC t0 = get_cycles()
+@@ -650,7 +685,7 @@ struct QueryTables {
+ 
+             fvec_madd(
+                     pq.M * pq.ksub,
+-                    ivfpq.precomputed_table.data() + key * pq.ksub * pq.M,
++                    ivfpq.precomputed_table->data() + key * pq.ksub * pq.M,
+                     -2.0,
+                     sim_table_2,
+                     sim_table);
+@@ -679,7 +714,7 @@ struct QueryTables {
+                 k >>= cpq.nbits;
+ 
+                 // get corresponding table
+-                const float* pc = ivfpq.precomputed_table.data() +
++                const float* pc = ivfpq.precomputed_table->data() +
+                         (ki * pq.M + cm * Mf) * pq.ksub;
+ 
+                 if (polysemous_ht == 0) {
+@@ -709,7 +744,7 @@ struct QueryTables {
+             dis0 = coarse_dis;
+ 
+             const float* s =
+-                    ivfpq.precomputed_table.data() + key * pq.ksub * pq.M;
++                    ivfpq.precomputed_table->data() + key * pq.ksub * pq.M;
+             for (int m = 0; m < pq.M; m++) {
+                 sim_table_ptrs[m] = s;
+                 s += pq.ksub;
+@@ -729,7 +764,7 @@ struct QueryTables {
+                 int ki = k & ((uint64_t(1) << cpq.nbits) - 1);
+                 k >>= cpq.nbits;
+ 
+-                const float* pc = ivfpq.precomputed_table.data() +
++                const float* pc = ivfpq.precomputed_table->data() +
+                         (ki * pq.M + cm * Mf) * pq.ksub;
+ 
+                 for (int m = m0; m < m0 + Mf; m++) {
+@@ -1346,6 +1381,8 @@ IndexIVFPQ::IndexIVFPQ() {
+     do_polysemous_training = false;
+     polysemous_ht = 0;
+     polysemous_training = nullptr;
++    precomputed_table = new AlignedTable<float>();
++    owns_precomputed_table = true;
+ }
+ 
+ struct CodeCmp {
+diff --git a/faiss/IndexIVFPQ.h b/faiss/IndexIVFPQ.h
+index d5d21da4..850bbe44 100644
+--- a/faiss/IndexIVFPQ.h
++++ b/faiss/IndexIVFPQ.h
+@@ -48,7 +48,8 @@ struct IndexIVFPQ : IndexIVF {
+ 
+     /// if use_precompute_table
+     /// size nlist * pq.M * pq.ksub
+-    AlignedTable<float> precomputed_table;
++    bool owns_precomputed_table;
++    AlignedTable<float>* precomputed_table;
+ 
+     IndexIVFPQ(
+             Index* quantizer,
+@@ -58,6 +59,10 @@ struct IndexIVFPQ : IndexIVF {
+             size_t nbits_per_idx,
+             MetricType metric = METRIC_L2);
+ 
++    IndexIVFPQ(const IndexIVFPQ& orig);
++
++    ~IndexIVFPQ();
++
+     void encode_vectors(
+             idx_t n,
+             const float* x,
+@@ -139,6 +144,15 @@ struct IndexIVFPQ : IndexIVF {
+     /// build precomputed table
+     void precompute_table();
+ 
++    /**
++     * Initialize the precomputed table
++     * @param precompute_table
++     * @param _use_precomputed_table
++     */
++    void set_precomputed_table(
++            AlignedTable<float>* precompute_table,
++            int _use_precomputed_table);
++
+     IndexIVFPQ();
+ };
+ 
+diff --git a/faiss/IndexIVFPQFastScan.cpp b/faiss/IndexIVFPQFastScan.cpp
+index d069db13..09a335ff 100644
+--- a/faiss/IndexIVFPQFastScan.cpp
++++ b/faiss/IndexIVFPQFastScan.cpp
+@@ -46,6 +46,8 @@ IndexIVFPQFastScan::IndexIVFPQFastScan(
+         : IndexIVFFastScan(quantizer, d, nlist, 0, metric), pq(d, M, nbits) {
+     by_residual = false; // set to false by default because it's faster
+ 
++    precomputed_table = new AlignedTable<float>();
++    owns_precomputed_table = true;
+     init_fastscan(M, nbits, nlist, metric, bbs);
+ }
+ 
+@@ -53,6 +55,17 @@ IndexIVFPQFastScan::IndexIVFPQFastScan() {
+     by_residual = false;
+     bbs = 0;
+     M2 = 0;
++    precomputed_table = new AlignedTable<float>();
++    owns_precomputed_table = true;
++}
++
++IndexIVFPQFastScan::IndexIVFPQFastScan(const IndexIVFPQFastScan& orig)
++        : IndexIVFFastScan(orig), pq(orig.pq) {
++    by_residual = orig.by_residual;
++    bbs = orig.bbs;
++    M2 = orig.M2;
++    precomputed_table = new AlignedTable<float>(*orig.precomputed_table);
++    owns_precomputed_table = true;
+ }
+ 
+ IndexIVFPQFastScan::IndexIVFPQFastScan(const IndexIVFPQ& orig, int bbs)
+@@ -71,13 +84,15 @@ IndexIVFPQFastScan::IndexIVFPQFastScan(const IndexIVFPQ& orig, int bbs)
+     ntotal = orig.ntotal;
+     is_trained = orig.is_trained;
+     nprobe = orig.nprobe;
++    precomputed_table = new AlignedTable<float>();
++    owns_precomputed_table = true;
+ 
+-    precomputed_table.resize(orig.precomputed_table.size());
++    precomputed_table->resize(orig.precomputed_table->size());
+ 
+-    if (precomputed_table.nbytes() > 0) {
+-        memcpy(precomputed_table.get(),
+-               orig.precomputed_table.data(),
+-               precomputed_table.nbytes());
++    if (precomputed_table->nbytes() > 0) {
++        memcpy(precomputed_table->get(),
++               orig.precomputed_table->data(),
++               precomputed_table->nbytes());
+     }
+ 
+     for (size_t i = 0; i < nlist; i++) {
+@@ -102,6 +117,12 @@ IndexIVFPQFastScan::IndexIVFPQFastScan(const IndexIVFPQ& orig, int bbs)
+     orig_invlists = orig.invlists;
+ }
+ 
++IndexIVFPQFastScan::~IndexIVFPQFastScan() {
++    if (owns_precomputed_table) {
++        delete precomputed_table;
++    }
++}
++
+ /*********************************************************
+  * Training
+  *********************************************************/
+@@ -127,11 +148,23 @@ void IndexIVFPQFastScan::precompute_table() {
+             use_precomputed_table,
+             quantizer,
+             pq,
+-            precomputed_table,
++            *precomputed_table,
+             by_residual,
+             verbose);
+ }
+ 
++void IndexIVFPQFastScan::set_precomputed_table(
++        AlignedTable<float>* _precompute_table,
++        int _use_precomputed_table) {
++    // Clean up old pre-computed table
++    if (owns_precomputed_table) {
++        delete precomputed_table;
++    }
++    owns_precomputed_table = false;
++    precomputed_table = _precompute_table;
++    use_precomputed_table = _use_precomputed_table;
++}
++
+ /*********************************************************
+  * Code management functions
+  *********************************************************/
+@@ -229,7 +262,7 @@ void IndexIVFPQFastScan::compute_LUT(
+                     if (cij >= 0) {
+                         fvec_madd_simd(
+                                 dim12,
+-                                precomputed_table.get() + cij * dim12,
++                                precomputed_table->get() + cij * dim12,
+                                 -2,
+                                 ip_table.get() + i * dim12,
+                                 tab);
+diff --git a/faiss/IndexIVFPQFastScan.h b/faiss/IndexIVFPQFastScan.h
+index 00dd2f11..91f35a6e 100644
+--- a/faiss/IndexIVFPQFastScan.h
++++ b/faiss/IndexIVFPQFastScan.h
+@@ -38,7 +38,8 @@ struct IndexIVFPQFastScan : IndexIVFFastScan {
+     /// precomputed tables management
+     int use_precomputed_table = 0;
+     /// if use_precompute_table size (nlist, pq.M, pq.ksub)
+-    AlignedTable<float> precomputed_table;
++    bool owns_precomputed_table;
++    AlignedTable<float>* precomputed_table;
+ 
+     IndexIVFPQFastScan(
+             Index* quantizer,
+@@ -51,6 +52,10 @@ struct IndexIVFPQFastScan : IndexIVFFastScan {
+ 
+     IndexIVFPQFastScan();
+ 
++    IndexIVFPQFastScan(const IndexIVFPQFastScan& orig);
++
++    ~IndexIVFPQFastScan();
++
+     // built from an IndexIVFPQ
+     explicit IndexIVFPQFastScan(const IndexIVFPQ& orig, int bbs = 32);
+ 
+@@ -60,6 +65,10 @@ struct IndexIVFPQFastScan : IndexIVFFastScan {
+ 
+     /// build precomputed table, possibly updating use_precomputed_table
+     void precompute_table();
++    /// Pass in externally a precomputed
++    void set_precomputed_table(
++            AlignedTable<float>* precompute_table,
++            int _use_precomputed_table);
+ 
+     /// same as the regular IVFPQ encoder. The codes are not reorganized by
+     /// blocks a that point
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index 9017edc5..0889bf72 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -33,6 +33,7 @@ set(FAISS_TEST_SRC
+   test_partitioning.cpp
+   test_fastscan_perf.cpp
+   test_disable_pq_sdc_tables.cpp
++  test_ivfpq_share_table.cpp
+ )
+ 
+ add_executable(faiss_test ${FAISS_TEST_SRC})
+diff --git a/tests/test_disable_pq_sdc_tables.cpp b/tests/test_disable_pq_sdc_tables.cpp
+index b211a5c4..a27973d5 100644
+--- a/tests/test_disable_pq_sdc_tables.cpp
++++ b/tests/test_disable_pq_sdc_tables.cpp
+@@ -15,7 +15,9 @@
+ #include "faiss/index_io.h"
+ #include "test_util.h"
+ 
+-pthread_mutex_t temp_file_mutex = PTHREAD_MUTEX_INITIALIZER;
++namespace {
++    pthread_mutex_t temp_file_mutex = PTHREAD_MUTEX_INITIALIZER;
++}
+ 
+ TEST(IO, TestReadHNSWPQ_whenSDCDisabledFlagPassed_thenDisableSDCTable) {
+     Tempfilename index_filename(&temp_file_mutex, "/tmp/faiss_TestReadHNSWPQ");
+diff --git a/tests/test_ivfpq_share_table.cpp b/tests/test_ivfpq_share_table.cpp
+new file mode 100644
+index 00000000..f827315d
+--- /dev/null
++++ b/tests/test_ivfpq_share_table.cpp
+@@ -0,0 +1,173 @@
++/**
++ * Copyright (c) Facebook, Inc. and its affiliates.
++ *
++ * This source code is licensed under the MIT license found in the
++ * LICENSE file in the root directory of this source tree.
++ */
++
++#include <gtest/gtest.h>
++
++#include <random>
++
++#include "faiss/Index.h"
++#include "faiss/IndexHNSW.h"
++#include "faiss/IndexIVFPQFastScan.h"
++#include "faiss/index_factory.h"
++#include "faiss/index_io.h"
++#include "test_util.h"
++
++namespace {
++    pthread_mutex_t temp_file_mutex = PTHREAD_MUTEX_INITIALIZER;
++}
++
++std::vector<float> generate_data(
++        int d,
++        int n,
++        std::default_random_engine rng,
++        std::uniform_real_distribution<float> u) {
++    std::vector<float> vectors(n * d);
++    for (size_t i = 0; i < n * d; i++) {
++        vectors[i] = u(rng);
++    }
++    return vectors;
++}
++
++void assert_float_vectors_almost_equal(
++        std::vector<float> a,
++        std::vector<float> b) {
++    float margin = 0.000001;
++    ASSERT_EQ(a.size(), b.size());
++    for (int i = 0; i < a.size(); i++) {
++        ASSERT_NEAR(a[i], b[i], margin);
++    }
++}
++
++/// Test case test precomputed table sharing for IVFPQ indices.
++template <typename T> /// T represents class cast to use for index
++void test_ivfpq_table_sharing(
++        const std::string& index_description,
++        const std::string& filename,
++        faiss::MetricType metric) {
++    // Setup the index:
++    // 1. Build an index
++    // 2. ingest random data
++    // 3. serialize to disk
++    int d = 32, n = 1000;
++    std::default_random_engine rng(
++            std::chrono::system_clock::now().time_since_epoch().count());
++    std::uniform_real_distribution<float> u(0, 100);
++
++    std::vector<float> index_vectors = generate_data(d, n, rng, u);
++    std::vector<float> query_vectors = generate_data(d, n, rng, u);
++
++    Tempfilename index_filename(&temp_file_mutex, filename);
++    {
++        std::unique_ptr<faiss::Index> index_writer(
++                faiss::index_factory(d, index_description.c_str(), metric));
++
++        index_writer->train(n, index_vectors.data());
++        index_writer->add(n, index_vectors.data());
++        faiss::write_index(index_writer.get(), index_filename.c_str());
++    }
++
++    // Load index from disk. Confirm that the sdc table is equal to 0 when
++    // disable sdc is set
++    std::unique_ptr<faiss::AlignedTable<float>> sharedAlignedTable(
++            new faiss::AlignedTable<float>());
++    int shared_use_precomputed_table = 0;
++    int k = 10;
++    std::vector<float> distances_test_a(k * n);
++    std::vector<faiss::idx_t> labels_test_a(k * n);
++    {
++        std::vector<float> distances_baseline(k * n);
++        std::vector<faiss::idx_t> labels_baseline(k * n);
++
++        std::unique_ptr<T> index_read_pq_table_enabled(
++                dynamic_cast<T*>(faiss::read_index(
++                        index_filename.c_str(), faiss::IO_FLAG_READ_ONLY)));
++        std::unique_ptr<T> index_read_pq_table_disabled(
++                dynamic_cast<T*>(faiss::read_index(
++                        index_filename.c_str(),
++                        faiss::IO_FLAG_READ_ONLY |
++                                faiss::IO_FLAG_SKIP_PRECOMPUTE_TABLE)));
++        faiss::initialize_IVFPQ_precomputed_table(
++                shared_use_precomputed_table,
++                index_read_pq_table_disabled->quantizer,
++                index_read_pq_table_disabled->pq,
++                *sharedAlignedTable,
++                index_read_pq_table_disabled->by_residual,
++                index_read_pq_table_disabled->verbose);
++        index_read_pq_table_disabled->set_precomputed_table(
++                sharedAlignedTable.get(), shared_use_precomputed_table);
++
++        ASSERT_TRUE(index_read_pq_table_enabled->owns_precomputed_table);
++        ASSERT_FALSE(index_read_pq_table_disabled->owns_precomputed_table);
++        index_read_pq_table_enabled->search(
++                n,
++                query_vectors.data(),
++                k,
++                distances_baseline.data(),
++                labels_baseline.data());
++        index_read_pq_table_disabled->search(
++                n,
++                query_vectors.data(),
++                k,
++                distances_test_a.data(),
++                labels_test_a.data());
++
++        assert_float_vectors_almost_equal(distances_baseline, distances_test_a);
++        ASSERT_EQ(labels_baseline, labels_test_a);
++    }
++
++    // The precomputed table should only be set for L2 metric type
++    if (metric == faiss::METRIC_L2) {
++        ASSERT_EQ(shared_use_precomputed_table, 1);
++    } else {
++        ASSERT_EQ(shared_use_precomputed_table, 0);
++    }
++
++    // At this point, the original has gone out of scope, the destructor has
++    // been called. Confirm that initializing a new index from the table
++    // preserves the functionality.
++    {
++        std::vector<float> distances_test_b(k * n);
++        std::vector<faiss::idx_t> labels_test_b(k * n);
++
++        std::unique_ptr<T> index_read_pq_table_disabled(
++                dynamic_cast<T*>(faiss::read_index(
++                        index_filename.c_str(),
++                        faiss::IO_FLAG_READ_ONLY |
++                                faiss::IO_FLAG_SKIP_PRECOMPUTE_TABLE)));
++        index_read_pq_table_disabled->set_precomputed_table(
++                sharedAlignedTable.get(), shared_use_precomputed_table);
++        ASSERT_FALSE(index_read_pq_table_disabled->owns_precomputed_table);
++        index_read_pq_table_disabled->search(
++                n,
++                query_vectors.data(),
++                k,
++                distances_test_b.data(),
++                labels_test_b.data());
++        assert_float_vectors_almost_equal(distances_test_a, distances_test_b);
++        ASSERT_EQ(labels_test_a, labels_test_b);
++    }
++}
++
++TEST(TestIVFPQTableSharing, L2) {
++    test_ivfpq_table_sharing<faiss::IndexIVFPQ>(
++            "IVF16,PQ8x4", "/tmp/ivfpql2", faiss::METRIC_L2);
++}
++
++TEST(TestIVFPQTableSharing, IP) {
++    test_ivfpq_table_sharing<faiss::IndexIVFPQ>(
++            "IVF16,PQ8x4", "/tmp/ivfpqip", faiss::METRIC_INNER_PRODUCT);
++}
++
++TEST(TestIVFPQTableSharing, FastScanL2) {
++    test_ivfpq_table_sharing<faiss::IndexIVFPQFastScan>(
++            "IVF16,PQ8x4fsr", "/tmp/ivfpqfsl2", faiss::METRIC_L2);
++}
++
++TEST(TestIVFPQTableSharing, FastScanIP) {
++    test_ivfpq_table_sharing<faiss::IndexIVFPQFastScan>(
++            "IVF16,PQ8x4fsr", "/tmp/ivfpqfsip", faiss::METRIC_INNER_PRODUCT);
++}
+-- 
+2.39.3 (Apple Git-145)
+
