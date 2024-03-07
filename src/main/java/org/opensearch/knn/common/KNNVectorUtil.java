@@ -16,7 +16,7 @@ public class KNNVectorUtil {
      */
     public static boolean isZeroVector(byte[] vector) {
         for (byte e : vector) {
-            if (e != (byte) 0) {
+            if (e != 0) {
                 return false;
             }
         }
