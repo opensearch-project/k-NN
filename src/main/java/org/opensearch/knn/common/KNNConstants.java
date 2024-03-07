@@ -96,7 +96,7 @@ public class KNNConstants {
     public static final String FAISS_SQ_TYPE = "type";
     public static final String FAISS_SQ_ENCODER_FP16 = "fp16";
     public static final List<String> FAISS_SQ_ENCODER_TYPES = List.of(FAISS_SQ_ENCODER_FP16);
-    public static final String FAISS_SQ_CLIP_TO_RANGE = "clip_to_range";
+    public static final String FAISS_SQ_CLIP = "clip";
 
     // Parameter defaults/limits
     public static final Integer ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT = 1;
@@ -111,8 +111,8 @@ public class KNNConstants {
     public static final Integer MODEL_CACHE_CAPACITY_ATROPHY_THRESHOLD_IN_MINUTES = 30;
     public static final Integer MODEL_CACHE_EXPIRE_AFTER_ACCESS_TIME_MINUTES = 30;
 
-    public static final Integer FP16_MAX_VALUE = 65504;
-    public static final Integer FP16_MIN_VALUE = -65504;
+    public static final Float FP16_MAX_VALUE = 65504.0f;
+    public static final Float FP16_MIN_VALUE = -65504.0f;
 
     // Lib names
     private static final String JNI_LIBRARY_PREFIX = "opensearchknn_";

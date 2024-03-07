@@ -45,7 +45,7 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP_TO_RANGE;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.FP16_MAX_VALUE;
@@ -447,7 +447,41 @@ public class FaissIT extends KNNRestTestCase {
                 .contains(
                     String.format(
                         Locale.ROOT,
-                        "encoder name is set as [%s] and type is set as [%s] in index mapping. But, KNN vector values are not within in the FP16 range [%d, %d]",
+                        "encoder name is set as [%s] and type is set as [%s] in index mapping. But, KNN vector values are not within in the FP16 range [%f, %f]",
+                        ENCODER_SQ,
+                        FAISS_SQ_ENCODER_FP16,
+                        FP16_MIN_VALUE,
+                        FP16_MAX_VALUE
+                    )
+                )
+        );
+
+        Float[] vector1 = { -65506.84f, 12.56f };
+
+        ResponseException ex1 = expectThrows(ResponseException.class, () -> addKnnDoc(indexName, "2", fieldName, vector1));
+        assertTrue(
+            ex1.getMessage()
+                .contains(
+                    String.format(
+                        Locale.ROOT,
+                        "encoder name is set as [%s] and type is set as [%s] in index mapping. But, KNN vector values are not within in the FP16 range [%f, %f]",
+                        ENCODER_SQ,
+                        FAISS_SQ_ENCODER_FP16,
+                        FP16_MIN_VALUE,
+                        FP16_MAX_VALUE
+                    )
+                )
+        );
+
+        Float[] vector2 = { -65526.4567f, 65526.4567f };
+
+        ResponseException ex2 = expectThrows(ResponseException.class, () -> addKnnDoc(indexName, "3", fieldName, vector2));
+        assertTrue(
+            ex2.getMessage()
+                .contains(
+                    String.format(
+                        Locale.ROOT,
+                        "encoder name is set as [%s] and type is set as [%s] in index mapping. But, KNN vector values are not within in the FP16 range [%f, %f]",
                         ENCODER_SQ,
                         FAISS_SQ_ENCODER_FP16,
                         FP16_MIN_VALUE,
@@ -492,7 +526,7 @@ public class FaissIT extends KNNRestTestCase {
             .field(NAME, ENCODER_SQ)
             .startObject(PARAMETERS)
             .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
-            .field(FAISS_SQ_CLIP_TO_RANGE, true)
+            .field(FAISS_SQ_CLIP, true)
             .endObject()
             .endObject()
             .endObject()
@@ -507,14 +541,16 @@ public class FaissIT extends KNNRestTestCase {
         createKnnIndex(indexName, mapping);
         assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
         Float[] vector1 = { -65523.76f, 65504.2f };
-        Float[] vector2 = { -20.89f, 65514.2f };
-        Float[] vector3 = { -20.89f, 36.23f };
+        Float[] vector2 = { -270.85f, 65514.2f };
+        Float[] vector3 = { -150.9f, 65504.0f };
+        Float[] vector4 = { -20.89f, 100000000.0f };
         addKnnDoc(indexName, "1", fieldName, vector1);
         addKnnDoc(indexName, "2", fieldName, vector2);
         addKnnDoc(indexName, "3", fieldName, vector3);
+        addKnnDoc(indexName, "4", fieldName, vector4);
 
         float[] queryVector = { -10.5f, 25.48f };
-        int k = 3;
+        int k = 4;
         Response searchResponse = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, queryVector, k), k);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
         assertEquals(k, results.size());

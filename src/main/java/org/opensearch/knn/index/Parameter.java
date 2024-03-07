@@ -79,17 +79,13 @@ public abstract class Parameter<T> {
             ValidationException validationException = null;
             if (!(value instanceof Boolean)) {
                 validationException = new ValidationException();
-                validationException.addValidationError(
-                    String.format("Value not of type Boolean for Boolean " + "parameter \"%s\".", getName())
-                );
+                validationException.addValidationError(String.format("value not of type Boolean for Boolean parameter [%s].", getName()));
                 return validationException;
             }
 
             if (!validator.test((Boolean) value)) {
                 validationException = new ValidationException();
-                validationException.addValidationError(
-                    String.format("Parameter validation failed for Boolean " + "parameter \"%s\".", getName())
-                );
+                validationException.addValidationError(String.format("parameter validation failed for Boolean parameter [%s].", getName()));
             }
             return validationException;
         }

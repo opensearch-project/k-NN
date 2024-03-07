@@ -91,7 +91,7 @@ public class KNNVectorFieldMapperUtil {
             throw new IllegalArgumentException(
                 String.format(
                     Locale.ROOT,
-                    "encoder name is set as [%s] and type is set as [%s] in index mapping. But, KNN vector values are not within in the FP16 range [%d, %d]",
+                    "encoder name is set as [%s] and type is set as [%s] in index mapping. But, KNN vector values are not within in the FP16 range [%f, %f]",
                     ENCODER_SQ,
                     FAISS_SQ_ENCODER_FP16,
                     FP16_MIN_VALUE,
