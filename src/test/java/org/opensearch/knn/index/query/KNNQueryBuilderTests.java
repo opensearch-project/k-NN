@@ -41,8 +41,10 @@ import org.opensearch.plugins.SearchPlugin;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.Mockito.anyString;
@@ -536,5 +538,28 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertThat(query, instanceOf(MatchNoDocsQuery.class));
         knnQueryBuilder.ignoreUnmapped(false);
         expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mock(QueryShardContext.class)));
+    }
+
+    public void testRadialSearch_whenUnsupportedEngine_thenThrowException() {
+        List<KNNEngine> unsupportedEngines = Arrays.stream(KNNEngine.values())
+            .filter(knnEngine -> !KNNEngine.getEnginesThatSupportsRadialSearch().contains(knnEngine))
+            .collect(Collectors.toList());
+        for (KNNEngine knnEngine : unsupportedEngines) {
+            KNNMethodContext knnMethodContext = new KNNMethodContext(
+                knnEngine,
+                SpaceType.L2,
+                new MethodComponentContext(METHOD_HNSW, ImmutableMap.of())
+            );
+            KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR).distance(DISTANCE);
+            KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+            QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+            Index dummyIndex = new Index("dummy", "dummy");
+            when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+            when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+            when(mockKNNVectorField.getDimension()).thenReturn(4);
+            when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+
+            expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
+        }
     }
 }

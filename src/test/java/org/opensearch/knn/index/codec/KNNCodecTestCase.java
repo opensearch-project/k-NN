@@ -354,7 +354,6 @@ public class KNNCodecTestCase extends KNNTestCase {
             FIELD_NAME_ONE,
             new float[] { 1.0f, 0.0f, 0.0f },
             1,
-            null,
             DEFAULT_VECTOR_DATA_TYPE_FIELD
         );
 
@@ -390,7 +389,6 @@ public class KNNCodecTestCase extends KNNTestCase {
             FIELD_NAME_TWO,
             new float[] { 1.0f, 0.0f },
             1,
-            null,
             DEFAULT_VECTOR_DATA_TYPE_FIELD
         );
 

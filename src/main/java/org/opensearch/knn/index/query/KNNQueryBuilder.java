@@ -378,9 +378,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
         // Currently, k-NN supports distance type radius search.
         // We need transform distance radius to right type of engine required radius.
-        Float engineRadius = null;
+        Float radius = null;
         if (this.distance != null) {
-            engineRadius = knnEngine.distanceToRadialThreshold(this.distance, spaceType);
+            radius = knnEngine.distanceToRadialThreshold(this.distance, spaceType);
         }
 
         if (fieldDimension != vector.length) {
@@ -405,19 +405,40 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         String indexName = context.index().getName();
-        KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
-            .knnEngine(knnEngine)
-            .indexName(indexName)
-            .fieldName(this.fieldName)
-            .vector(VectorDataType.FLOAT == vectorDataType ? this.vector : null)
-            .byteVector(VectorDataType.BYTE == vectorDataType ? byteVector : null)
-            .vectorDataType(vectorDataType)
-            .k(this.k)
-            .filter(this.filter)
-            .context(context)
-            .radius(engineRadius)
-            .build();
-        return KNNQueryFactory.create(createQueryRequest);
+
+        if (k != 0) {
+            KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(knnEngine)
+                .indexName(indexName)
+                .fieldName(this.fieldName)
+                .vector(VectorDataType.FLOAT == vectorDataType ? this.vector : null)
+                .byteVector(VectorDataType.BYTE == vectorDataType ? byteVector : null)
+                .vectorDataType(vectorDataType)
+                .k(this.k)
+                .filter(this.filter)
+                .context(context)
+                .build();
+            return KNNQueryFactory.create(createQueryRequest);
+        }
+        if (radius != null) {
+            if (!KNNEngine.getEnginesThatSupportsRadialSearch().contains(knnEngine)) {
+                throw new UnsupportedOperationException(String.format("Engine [%s] does not support radial search yet", knnEngine));
+            }
+            RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(knnEngine)
+                .indexName(indexName)
+                .fieldName(this.fieldName)
+                .vector(VectorDataType.FLOAT == vectorDataType ? this.vector : null)
+                .byteVector(VectorDataType.BYTE == vectorDataType ? byteVector : null)
+                .vectorDataType(vectorDataType)
+                .radius(radius)
+                .filter(this.filter)
+                .context(context)
+                .radius(radius)
+                .build();
+            return RNNQueryFactory.create(createQueryRequest);
+        }
+        throw new IllegalArgumentException("[" + NAME + "] requires either k or distance must be set");
     }
 
     private ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
