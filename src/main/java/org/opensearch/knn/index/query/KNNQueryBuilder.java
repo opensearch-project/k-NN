@@ -66,6 +66,47 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private QueryBuilder filter;
     private boolean ignoreUnmapped = false;
 
+    public KNNQueryBuilder(String fieldName, float[] vector) {
+        if (Strings.isNullOrEmpty(fieldName)) {
+            throw new IllegalArgumentException("[" + NAME + "] requires fieldName");
+        }
+        if (vector == null) {
+            throw new IllegalArgumentException("[" + NAME + "] requires query vector");
+        }
+        if (vector.length == 0) {
+            throw new IllegalArgumentException("[" + NAME + "] query vector is empty");
+        }
+        this.fieldName = fieldName;
+        this.vector = vector;
+    }
+
+    public KNNQueryBuilder k(int k) {
+        if (k <= 0 || k > K_MAX) {
+            throw new IllegalArgumentException("[" + NAME + "] requires 0 < k <= " + K_MAX);
+        }
+        if (distance != null) {
+            throw new IllegalArgumentException("[" + NAME + "] requires either k or distance must be set");
+        }
+        this.k = k;
+        return this;
+    }
+
+    public KNNQueryBuilder distance(Float distance) {
+        if (distance == null || distance < 0) {
+            throw new IllegalArgumentException("[" + NAME + "] requires distance >= 0");
+        }
+        if (k != 0) {
+            throw new IllegalArgumentException("[" + NAME + "] requires either k or distance must be set");
+        }
+        this.distance = distance;
+        return this;
+    }
+
+    public KNNQueryBuilder filter(QueryBuilder filter) {
+        this.filter = filter;
+        return this;
+    }
+
     /**
      * Constructs a new query for top k search
      *
@@ -100,20 +141,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         this.filter = filter;
         this.ignoreUnmapped = false;
         this.distance = null;
-    }
-
-    /**
-     * Constructs a new query for k-nearest neighbours search or radius-nearest neighbours search with builder
-     *
-     * @param builder builder to create KNNQueryBuilder
-     */
-    public KNNQueryBuilder(Builder builder) {
-        this.fieldName = builder.fieldName;
-        this.vector = builder.vector;
-        this.k = builder.k != null ? builder.k : 0;
-        this.filter = builder.filter;
-        this.ignoreUnmapped = builder.ignoreUnmapped;
-        this.distance = builder.distance;
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -221,13 +248,26 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
         }
 
-        return new Builder(fieldName, ObjectsToFloats(vector)).k(k)
-            .distance(distance)
-            .filter(filter)
-            .ignoreUnmapped(ignoreUnmapped)
-            .queryName(queryName)
-            .boost(boost)
-            .build();
+        if ((k != null && distance != null) || (k == null && distance == null)) {
+            throw new IllegalArgumentException("[" + NAME + "] requires either k or distance must be set");
+        }
+
+        KNNQueryBuilder knnQueryBuilder;
+        if (k != null) {
+            knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector)).k(k)
+                .filter(filter)
+                .ignoreUnmapped(ignoreUnmapped)
+                .boost(boost)
+                .queryName(queryName);
+        } else {
+            knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector)).distance(distance)
+                .filter(filter)
+                .ignoreUnmapped(ignoreUnmapped)
+                .boost(boost)
+                .queryName(queryName);
+        }
+
+        return knnQueryBuilder;
     }
 
     @Override
@@ -411,77 +451,5 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     @Override
     public String getWriteableName() {
         return NAME;
-    }
-
-    /**
-     * Builder for KNNQueryBuilder class to create KNNQueryBuilder, which can be used to build k-NN query or r-NN query.
-     * */
-    public static class Builder {
-        private final String fieldName;
-        private final float[] vector;
-        private Integer k = null;
-        private Float distance;
-        private QueryBuilder filter;
-        private boolean ignoreUnmapped;
-        private String queryName;
-        private float boost = AbstractQueryBuilder.DEFAULT_BOOST;
-
-        public Builder(String fieldName, float[] vector) {
-            if (Strings.isNullOrEmpty(fieldName)) {
-                throw new IllegalArgumentException("[" + NAME + "] requires fieldName");
-            }
-            if (vector == null) {
-                throw new IllegalArgumentException("[" + NAME + "] requires query vector");
-            }
-            if (vector.length == 0) {
-                throw new IllegalArgumentException("[" + NAME + "] query vector is empty");
-            }
-            this.fieldName = fieldName;
-            this.vector = vector;
-        }
-
-        public Builder k(Integer k) {
-            this.k = k;
-            return this;
-        }
-
-        public Builder distance(Float distance) {
-            this.distance = distance;
-            return this;
-        }
-
-        public Builder filter(QueryBuilder filter) {
-            this.filter = filter;
-            return this;
-        }
-
-        public Builder ignoreUnmapped(boolean ignoreUnmapped) {
-            this.ignoreUnmapped = ignoreUnmapped;
-            return this;
-        }
-
-        public Builder queryName(String queryName) {
-            this.queryName = queryName;
-            return this;
-        }
-
-        public Builder boost(float boost) {
-            this.boost = boost;
-            return this;
-        }
-
-        public KNNQueryBuilder build() {
-            if ((k != null && distance != null) || (k == null && distance == null)) {
-                throw new IllegalArgumentException("[" + NAME + "] requires either k or distance must be set");
-            }
-            if (k != null && (k <= 0 || k > K_MAX)) {
-                throw new IllegalArgumentException("[" + NAME + "] requires 0 < k <= " + K_MAX);
-            }
-            if (distance != null && distance < 0) {
-                throw new IllegalArgumentException("[" + NAME + "] requires distance >= 0");
-            }
-
-            return new KNNQueryBuilder(this);
-        }
     }
 }

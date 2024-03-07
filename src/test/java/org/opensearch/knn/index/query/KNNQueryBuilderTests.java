@@ -84,12 +84,12 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         /**
          * -ve distance
          */
-        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder.Builder(FIELD_NAME, queryVector).distance(-1.0f).build());
+        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector).distance(-1.0f));
 
         /**
          * null distance
          */
-        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder.Builder(FIELD_NAME, queryVector).distance(null).build());
+        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector).distance(null));
     }
 
     public void testEmptyVector() {
@@ -109,19 +109,13 @@ public class KNNQueryBuilderTests extends KNNTestCase {
          * null query vector with distance
          */
         float[] queryVector2 = null;
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> new KNNQueryBuilder.Builder(FIELD_NAME, queryVector2).distance(DISTANCE).build()
-        );
+        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector2).distance(DISTANCE));
 
         /**
          * empty query vector with distance
          */
         float[] queryVector3 = {};
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> new KNNQueryBuilder.Builder(FIELD_NAME, queryVector3).distance(DISTANCE).build()
-        );
+        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector3).distance(DISTANCE));
     }
 
     public void testFromXContent() throws Exception {
@@ -142,7 +136,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testFromXContent_whenDoRadiusSearch_thenSucceed() throws Exception {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder.Builder(FIELD_NAME, queryVector).distance(DISTANCE).build();
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).distance(DISTANCE);
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());
@@ -185,9 +179,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         knnClusterUtil.initialize(clusterService);
 
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder.Builder(FIELD_NAME, queryVector).distance(DISTANCE)
-            .filter(TERM_QUERY)
-            .build();
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).distance(DISTANCE).filter(TERM_QUERY);
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());
@@ -333,7 +325,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testDoToQuery_whenNormal_whenDoRadiusSearch_whenSucceed() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder.Builder(FIELD_NAME, queryVector).distance(DISTANCE).build();
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).distance(DISTANCE);
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -368,9 +360,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testDoToQuery_whenDoRadiusSearch_whenFilter_thenSucceed() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder.Builder(FIELD_NAME, queryVector).distance(DISTANCE)
-            .filter(TERM_QUERY)
-            .build();
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).distance(DISTANCE).filter(TERM_QUERY);
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -528,8 +518,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 : new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, k);
         } else if (distance != null) {
             knnQueryBuilder = queryBuilderOptional.isPresent()
-                ? new KNNQueryBuilder.Builder(FIELD_NAME, QUERY_VECTOR).distance(distance).filter(queryBuilderOptional.get()).build()
-                : new KNNQueryBuilder.Builder(FIELD_NAME, QUERY_VECTOR).distance(distance).build();
+                ? new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR).distance(distance).filter(queryBuilderOptional.get())
+                : new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR).distance(distance);
         } else {
             throw new IllegalArgumentException("Either k or distance must be provided");
         }
