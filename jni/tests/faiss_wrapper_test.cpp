@@ -22,6 +22,9 @@
 using ::testing::NiceMock;
 using ::testing::Return;
 
+float randomDataMin = -500.0;
+float randomDataMax = 500.0;
+
 TEST(FaissCreateIndexTest, BasicAssertions) {
     // Define the data
     faiss::idx_t numIds = 200;
@@ -124,15 +127,9 @@ TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
 TEST(FaissLoadIndexTest, BasicAssertions) {
     // Define the data
     faiss::idx_t numIds = 100;
-    std::vector<faiss::idx_t> ids;
-    std::vector<float> vectors;
     int dim = 2;
-    for (int64_t i = 0; i < numIds; i++) {
-        ids.push_back(i);
-        for (int j = 0; j < dim; j++) {
-            vectors.push_back(test_util::RandomFloat(-500.0, 500.0));
-        }
-    }
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    std::vector<float> vectors = test_util::RandomVectors(dim, numIds, randomDataMin, randomDataMax);
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
     faiss::MetricType metricType = faiss::METRIC_L2;
@@ -173,18 +170,46 @@ TEST(FaissLoadIndexTest, BasicAssertions) {
     std::remove(indexPath.c_str());
 }
 
+TEST(FaissLoadIndexTest, HNSWPQDisableSdcTable) {
+    // Check that when we load an HNSWPQ index, the sdc table is not present.
+    faiss::idx_t numIds = 256;
+    int dim = 2;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    std::vector<float> vectors = test_util::RandomVectors(dim, numIds, randomDataMin, randomDataMax);
+
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    faiss::MetricType metricType = faiss::METRIC_L2;
+    std::string indexDescription = "HNSW16,PQ1x4";
+
+    std::unique_ptr<faiss::Index> faissIndex(test_util::FaissCreateIndex(dim, indexDescription, metricType));
+    test_util::FaissTrainIndex(faissIndex.get(), numIds, vectors.data());
+    auto faissIndexWithIDMap = test_util::FaissAddData(faissIndex.get(), ids, vectors);
+    test_util::FaissWriteIndex(&faissIndexWithIDMap, indexPath);
+
+    // Setup jni
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    std::unique_ptr<faiss::Index> loadedIndexPointer(
+            reinterpret_cast<faiss::Index *>(knn_jni::faiss_wrapper::LoadIndex(
+                    &mockJNIUtil, jniEnv, (jstring)&indexPath)));
+
+    // Cast down until we get to the pq backed storage index and checke the size of the table
+    auto idMapIndex = dynamic_cast<faiss::IndexIDMap *>(loadedIndexPointer.get());
+    ASSERT_NE(idMapIndex, nullptr);
+    auto hnswPQIndex = dynamic_cast<faiss::IndexHNSWPQ *>(idMapIndex->index);
+    ASSERT_NE(hnswPQIndex, nullptr);
+    auto pqIndex = dynamic_cast<faiss::IndexPQ*>(hnswPQIndex->storage);
+    ASSERT_NE(pqIndex, nullptr);
+    ASSERT_EQ(0, pqIndex->pq.sdc_table.size());
+}
+
 TEST(FaissQueryIndexTest, BasicAssertions) {
     // Define the index data
     faiss::idx_t numIds = 100;
-    std::vector<faiss::idx_t> ids;
-    std::vector<float> vectors;
     int dim = 16;
-    for (int64_t i = 0; i < numIds; i++) {
-        ids.push_back(i);
-        for (int j = 0; j < dim; j++) {
-            vectors.push_back(test_util::RandomFloat(-500.0, 500.0));
-        }
-    }
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    std::vector<float> vectors = test_util::RandomVectors(dim, numIds, randomDataMin, randomDataMax);
 
     faiss::MetricType metricType = faiss::METRIC_L2;
     std::string method = "HNSW32,Flat";
@@ -405,13 +430,7 @@ TEST(FaissTrainIndexTest, BasicAssertions) {
 
     // Define training data
     int numTrainingVectors = 256;
-    std::vector<float> trainingVectors;
-
-    for (int i = 0; i < numTrainingVectors; ++i) {
-        for (int j = 0; j < dim; ++j) {
-            trainingVectors.push_back(test_util::RandomFloat(-500.0, 500.0));
-        }
-    }
+    std::vector<float> trainingVectors = test_util::RandomVectors(dim, numTrainingVectors, randomDataMin, randomDataMax);
 
     // Setup jni
     JNIEnv *jniEnv = nullptr;

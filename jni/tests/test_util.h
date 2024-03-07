@@ -155,6 +155,10 @@ namespace test_util {
 
     float RandomFloat(float min, float max);
 
+    std::vector<float> RandomVectors(int dim, int64_t numVectors, float min, float max);
+
+    std::vector<int64_t> Range(int64_t numElements);
+
     // returns the number of 64 bit words it would take to hold numBits
     size_t bits2words(uint64_t numBits);
 
