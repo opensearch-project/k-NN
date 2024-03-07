@@ -369,6 +369,22 @@ float test_util::RandomFloat(float min, float max) {
     return distribution(e1);
 }
 
+std::vector<float> test_util::RandomVectors(int dim, int64_t numVectors, float min, float max) {
+    std::vector<float> vectors(dim*numVectors);
+    for (int64_t i = 0; i < dim*numVectors; i++) {
+        vectors[i] = test_util::RandomFloat(min, max);
+    }
+    return vectors;
+}
+
+std::vector<int64_t> test_util::Range(int64_t numElements) {
+    std::vector<int64_t> rangeVector(numElements);
+    for (int64_t i = 0; i < numElements; i++) {
+        rangeVector[i] = i;
+    }
+    return rangeVector;
+}
+
 size_t test_util::bits2words(uint64_t numBits) {
     return ((numBits - 1) >> 6) + 1;
 }
