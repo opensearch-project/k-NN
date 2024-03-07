@@ -110,6 +110,11 @@ public enum KNNEngine implements KNNLibrary {
         return ENGINES_SUPPORTING_FILTERS;
     }
 
+    /**
+     * Returns all engines that support radial search.
+     *
+     * @return Set of all engines that support radial search.
+     */
     public static Set<KNNEngine> getEnginesThatSupportsRadialSearch() {
         return ENGINES_SUPPORTING_RADIAL_SEARCH;
     }

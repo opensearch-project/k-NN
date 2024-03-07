@@ -66,6 +66,12 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private QueryBuilder filter;
     private boolean ignoreUnmapped = false;
 
+    /**
+    * Constructs a new query with the given field name and vector
+     *
+     * @param fieldName Name of the field
+     * @param vector    Array of floating points
+    */
     public KNNQueryBuilder(String fieldName, float[] vector) {
         if (Strings.isNullOrEmpty(fieldName)) {
             throw new IllegalArgumentException("[" + NAME + "] requires fieldName");
@@ -80,6 +86,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         this.vector = vector;
     }
 
+    /**
+     * Builder method for k
+     *
+     * @param k K nearest neighbours for the given vector
+     */
     public KNNQueryBuilder k(int k) {
         if (k <= 0 || k > K_MAX) {
             throw new IllegalArgumentException("[" + NAME + "] requires 0 < k <= " + K_MAX);
@@ -91,6 +102,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return this;
     }
 
+    /**
+     * Builder method for distance
+     *
+     * @param distance the distance threshold for the nearest neighbours
+     */
     public KNNQueryBuilder distance(Float distance) {
         if (distance == null || distance < 0) {
             throw new IllegalArgumentException("[" + NAME + "] requires distance >= 0");
@@ -102,6 +118,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return this;
     }
 
+    /**
+     * Builder method for filter
+     *
+     * @param filter QueryBuilder
+     */
     public KNNQueryBuilder filter(QueryBuilder filter) {
         this.filter = filter;
         return this;
