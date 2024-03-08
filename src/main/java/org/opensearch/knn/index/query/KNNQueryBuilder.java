@@ -273,19 +273,15 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             throw new IllegalArgumentException("[" + NAME + "] requires either k or distance must be set");
         }
 
-        KNNQueryBuilder knnQueryBuilder;
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector)).filter(filter)
+            .ignoreUnmapped(ignoreUnmapped)
+            .boost(boost)
+            .queryName(queryName);
+
         if (k != null) {
-            knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector)).k(k)
-                .filter(filter)
-                .ignoreUnmapped(ignoreUnmapped)
-                .boost(boost)
-                .queryName(queryName);
+            knnQueryBuilder = knnQueryBuilder.k(k);
         } else {
-            knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector)).distance(distance)
-                .filter(filter)
-                .ignoreUnmapped(ignoreUnmapped)
-                .boost(boost)
-                .queryName(queryName);
+            knnQueryBuilder.distance(distance);
         }
 
         return knnQueryBuilder;
