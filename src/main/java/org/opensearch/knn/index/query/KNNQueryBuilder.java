@@ -38,6 +38,7 @@ import java.util.Objects;
 
 import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
+import static org.opensearch.knn.index.util.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 
 /**
  * Helper class to build the KNN query
@@ -438,8 +439,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             return KNNQueryFactory.create(createQueryRequest);
         }
         if (radius != null) {
-            if (!KNNEngine.getEnginesThatSupportsRadialSearch().contains(knnEngine)) {
-                throw new UnsupportedOperationException(String.format("Engine [%s] does not support radial search yet", knnEngine));
+            if (!ENGINES_SUPPORTING_RADIAL_SEARCH.contains(knnEngine)) {
+                throw new UnsupportedOperationException(String.format("Engine [%s] does not support radial search", knnEngine));
             }
             RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
