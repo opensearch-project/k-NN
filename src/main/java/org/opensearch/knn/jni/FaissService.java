@@ -20,7 +20,7 @@ import java.security.PrivilegedAction;
 import java.util.Map;
 
 import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
-import static org.opensearch.knn.jni.JNIUtils.isAVX2SupportedBySystem;
+import static org.opensearch.knn.jni.PlatformUtils.isAVX2SupportedBySystem;
 
 /**
  * Service to interact with faiss jni layer. Class dependencies should be minimal

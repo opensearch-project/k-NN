@@ -21,22 +21,22 @@ import java.nio.file.Paths;
 import java.util.stream.Stream;
 
 import static org.mockito.Mockito.mockStatic;
-import static org.opensearch.knn.jni.JNIUtils.isAVX2SupportedBySystem;
+import static org.opensearch.knn.jni.PlatformUtils.isAVX2SupportedBySystem;
 
-public class JNIUtilTests extends KNNTestCase {
+public class PlatformUtilTests extends KNNTestCase {
     public static final String MAC_CPU_FEATURES = "machdep.cpu.leaf7_features";
     public static final String LINUX_PROC_CPU_INFO = "/proc/cpuinfo";
 
-    public void testIsAVX2SupportedBySystem_platformIsARM_returnsFalse() {
+    public void testIsAVX2SupportedBySystem_platformIsNotIntel_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
-            mockedPlatform.when(Platform::isARM).thenReturn(true);
+            mockedPlatform.when(Platform::isIntel).thenReturn(false);
             assertFalse(isAVX2SupportedBySystem());
         }
     }
 
-    public void testIsAVX2SupportedBySystem_platformIsNotARMWithOSAsWindows_returnsFalse() {
+    public void testIsAVX2SupportedBySystem_platformIsIntelWithOSAsWindows_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
-            mockedPlatform.when(Platform::isARM).thenReturn(false);
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
             mockedPlatform.when(Platform::isWindows).thenReturn(true);
             assertFalse(isAVX2SupportedBySystem());
         }
@@ -44,8 +44,7 @@ public class JNIUtilTests extends KNNTestCase {
 
     public void testIsAVX2SupportedBySystem_platformIsMac_returnsTrue() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
-            mockedPlatform.when(Platform::isARM).thenReturn(false);
-            mockedPlatform.when(Platform::isWindows).thenReturn(false);
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
             mockedPlatform.when(Platform::isMac).thenReturn(true);
 
             try (MockedStatic<SysctlUtil> mockedSysctlUtil = mockStatic(SysctlUtil.class)) {
@@ -60,8 +59,7 @@ public class JNIUtilTests extends KNNTestCase {
 
     public void testIsAVX2SupportedBySystem_platformIsMac_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
-            mockedPlatform.when(Platform::isARM).thenReturn(false);
-            mockedPlatform.when(Platform::isWindows).thenReturn(false);
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
             mockedPlatform.when(Platform::isMac).thenReturn(true);
 
             try (MockedStatic<SysctlUtil> mockedSysctlUtil = mockStatic(SysctlUtil.class)) {
@@ -74,8 +72,7 @@ public class JNIUtilTests extends KNNTestCase {
 
     public void testIsAVX2SupportedBySystem_platformIsMac_throwsExceptionReturnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
-            mockedPlatform.when(Platform::isARM).thenReturn(false);
-            mockedPlatform.when(Platform::isWindows).thenReturn(false);
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
             mockedPlatform.when(Platform::isMac).thenReturn(true);
 
             try (MockedStatic<SysctlUtil> mockedSysctlUtil = mockStatic(SysctlUtil.class)) {
@@ -88,8 +85,7 @@ public class JNIUtilTests extends KNNTestCase {
 
     public void testIsAVX2SupportedBySystem_platformIsLinux_returnsTrue() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
-            mockedPlatform.when(Platform::isARM).thenReturn(false);
-            mockedPlatform.when(Platform::isWindows).thenReturn(false);
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
             mockedPlatform.when(Platform::isMac).thenReturn(false);
             mockedPlatform.when(Platform::isLinux).thenReturn(true);
 
@@ -102,8 +98,7 @@ public class JNIUtilTests extends KNNTestCase {
 
     public void testIsAVX2SupportedBySystem_platformIsLinux_returnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
-            mockedPlatform.when(Platform::isARM).thenReturn(false);
-            mockedPlatform.when(Platform::isWindows).thenReturn(false);
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
             mockedPlatform.when(Platform::isMac).thenReturn(false);
             mockedPlatform.when(Platform::isLinux).thenReturn(true);
 
@@ -117,8 +112,7 @@ public class JNIUtilTests extends KNNTestCase {
 
     public void testIsAVX2SupportedBySystem_platformIsLinux_throwsExceptionReturnsFalse() {
         try (MockedStatic<Platform> mockedPlatform = mockStatic(Platform.class)) {
-            mockedPlatform.when(Platform::isARM).thenReturn(false);
-            mockedPlatform.when(Platform::isWindows).thenReturn(false);
+            mockedPlatform.when(Platform::isIntel).thenReturn(true);
             mockedPlatform.when(Platform::isMac).thenReturn(false);
             mockedPlatform.when(Platform::isLinux).thenReturn(true);
 
