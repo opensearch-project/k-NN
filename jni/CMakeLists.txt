@@ -154,20 +154,12 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
     endif ()
 
     # Check if patch exist, this is to skip git apply during CI build. See CI.yml with ubuntu.
-    find_path(PATCH_FILE NAMES 0001-Custom-patch-to-support-multi-vector.patch 0002-Custom-patch-to-support-sqfp16-neon.patch PATHS ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss NO_DEFAULT_PATH)
+    find_path(PATCH_FILE NAMES 0001-Custom-patch-to-support-multi-vector.patch PATHS ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss NO_DEFAULT_PATH)
 
     # If it exists, apply patches
     if (EXISTS ${PATCH_FILE})
         message(STATUS "Applying custom patches.")
         execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace --3way ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0001-Custom-patch-to-support-multi-vector.patch WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ERROR_VARIABLE ERROR_MSG RESULT_VARIABLE RESULT_CODE)
-
-        # 0002-Custom-patch-to-support-sqfp16-neon.patch is a temporary patch to add NEON support to SQ.
-        # Once the commit conflict issues wrt to Multi vector are resolved, this patch can be removed by updating the faiss submodule with corresponding commit.
-        # Apply the patch if the OS is not Windows and Processor is aarch64.
-        if (NOT ${CMAKE_SYSTEM_NAME} STREQUAL Windows AND ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" AND ${SIMD_ENABLED})
-            execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace --3way ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0002-Custom-patch-to-support-sqfp16-neon.patch WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ERROR_VARIABLE ERROR_MSG RESULT_VARIABLE RESULT_CODE)
-        endif()
-
         if(RESULT_CODE)
             message(FATAL_ERROR "Failed to apply patch:\n${ERROR_MSG}")
         endif()

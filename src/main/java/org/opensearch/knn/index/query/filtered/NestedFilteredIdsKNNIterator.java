@@ -20,7 +20,7 @@ public class NestedFilteredIdsKNNIterator extends FilteredIdsKNNIterator {
     private final BitSet parentBitSet;
 
     public NestedFilteredIdsKNNIterator(
-        final int[] filterIdsArray,
+        final BitSet filterIdsArray,
         final float[] queryVector,
         final BinaryDocValues values,
         final SpaceType spaceType,
@@ -38,20 +38,22 @@ public class NestedFilteredIdsKNNIterator extends FilteredIdsKNNIterator {
      */
     @Override
     public int nextDoc() throws IOException {
-        if (currentPos >= filterIdsArray.length) {
+        if (docId == DocIdSetIterator.NO_MORE_DOCS) {
             return DocIdSetIterator.NO_MORE_DOCS;
         }
+
         currentScore = Float.NEGATIVE_INFINITY;
-        int currentParent = parentBitSet.nextSetBit(filterIdsArray[currentPos]);
+        int currentParent = parentBitSet.nextSetBit(docId);
         int bestChild = -1;
-        while (currentPos < filterIdsArray.length && filterIdsArray[currentPos] < currentParent) {
-            binaryDocValues.advance(filterIdsArray[currentPos]);
+
+        while (docId != DocIdSetIterator.NO_MORE_DOCS && docId < currentParent) {
+            binaryDocValues.advance(docId);
             float score = computeScore();
             if (score > currentScore) {
-                bestChild = filterIdsArray[currentPos];
+                bestChild = docId;
                 currentScore = score;
             }
-            currentPos++;
+            docId = bitSetIterator.nextDoc();
         }
 
         return bestChild;

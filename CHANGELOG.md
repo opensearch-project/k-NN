@@ -15,10 +15,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.12...2.x)
 ### Features
 ### Enhancements
+* Optize Faiss Query With Filters: Reduce iteration and memory for id filter [#1402](https://github.com/opensearch-project/k-NN/pull/1402)
 ### Bug Fixes
+* Disable sdc table for HNSWPQ read-only indices [#1518](https://github.com/opensearch-project/k-NN/pull/1518)
 ### Infrastructure
+* Manually install zlib for win CI [#1513](https://github.com/opensearch-project/k-NN/pull/1513)
 ### Documentation
 ### Maintenance
 * Bump faiss lib commit to 32f0e8cf92cd2275b60364517bb1cce67aa29a55 [#1443](https://github.com/opensearch-project/k-NN/pull/1443)
 * Fix FieldInfo Parameters Mismatch [#1489](https://github.com/opensearch-project/k-NN/pull/1489)
+* Upgrade faiss to 12b92e9 [#1509](https://github.com/opensearch-project/k-NN/pull/1509)
 ### Refactoring
