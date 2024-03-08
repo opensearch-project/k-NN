@@ -101,6 +101,7 @@ public class TrainingJobClusterStateListenerTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.isCreated()).thenReturn(true);
         when(modelDao.get(modelId)).thenReturn(model);
+        when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
         doAnswer(invocationOnMock -> {
             SearchResponse searchResponse = mock(SearchResponse.class);
             SearchHits searchHits = mock(SearchHits.class);
@@ -144,6 +145,7 @@ public class TrainingJobClusterStateListenerTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.isCreated()).thenReturn(true);
         when(modelDao.get(modelId)).thenReturn(model);
+        when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
         DiscoveryNode node1 = mock(DiscoveryNode.class);
         when(node1.getEphemeralId()).thenReturn("test-node-model-match");
         DiscoveryNode node2 = mock(DiscoveryNode.class);
