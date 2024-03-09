@@ -280,7 +280,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             .queryName(queryName);
 
         if (k != null) {
-            knnQueryBuilder = knnQueryBuilder.k(k);
+            knnQueryBuilder.k(k);
         } else {
             knnQueryBuilder.distance(distance);
         }
