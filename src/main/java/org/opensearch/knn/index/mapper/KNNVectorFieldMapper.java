@@ -57,14 +57,14 @@ import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FI
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVector;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFloatVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithEngine;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithKnnIndexSetting;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFloatVectorValue;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDimension;
+import static org.opensearch.knn.common.KNNValidationUtil.validateByteVector;
+import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
+import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVector;
+import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVectorValue;
+import static org.opensearch.knn.common.KNNValidationUtil.validateVectorDimension;
 
 /**
  * Field Mapper for KNN vector type.

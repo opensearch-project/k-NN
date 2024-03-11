@@ -19,7 +19,7 @@ import java.math.BigInteger;
 import java.util.Map;
 import java.util.function.BiFunction;
 
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFloatVector;
+import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVector;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.getVectorMagnitudeSquared;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.isBinaryFieldType;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.isKNNVectorFieldType;

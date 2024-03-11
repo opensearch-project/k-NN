@@ -5,9 +5,12 @@
 
 package org.opensearch.knn.common;
 
-public class KNNVectorUtil {
-    private KNNVectorUtil() {}
+import java.util.Objects;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+public class KNNVectorUtil {
     /**
      * Check if all the elements of a given vector are zero
      *
@@ -15,6 +18,7 @@ public class KNNVectorUtil {
      * @return true if yes; otherwise false
      */
     public static boolean isZeroVector(byte[] vector) {
+        Objects.requireNonNull(vector, "vector must not be null");
         for (byte e : vector) {
             if (e != 0) {
                 return false;
@@ -30,6 +34,7 @@ public class KNNVectorUtil {
      * @return true if yes; otherwise false
      */
     public static boolean isZeroVector(float[] vector) {
+        Objects.requireNonNull(vector, "vector must not be null");
         for (float e : vector) {
             if (e != 0f) {
                 return false;

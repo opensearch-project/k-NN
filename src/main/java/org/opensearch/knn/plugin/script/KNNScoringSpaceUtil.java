@@ -17,7 +17,7 @@ import java.math.BigInteger;
 import java.util.Base64;
 
 import static org.opensearch.index.mapper.NumberFieldMapper.NumberType.LONG;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
+import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 
 public class KNNScoringSpaceUtil {
 

@@ -35,9 +35,9 @@ import java.util.List;
 import java.util.Objects;
 
 import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVector;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFloatVector;
+import static org.opensearch.knn.common.KNNValidationUtil.validateByteVector;
+import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
+import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVector;
 
 /**
  * Helper class to build the KNN query
@@ -290,8 +290,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         SpaceType spaceType = knnVectorFieldType.getSpaceType();
 
         if (fieldDimension == -1) {
+            if (spaceType != null) {
+                throw new IllegalStateException("Space type should be null when the field uses a model");
+            }
             // If dimension is not set, the field uses a model and the information needs to be retrieved from there
-            assert spaceType == null;
             ModelMetadata modelMetadata = getModelMetadataForField(knnVectorFieldType);
             fieldDimension = modelMetadata.getDimension();
             knnEngine = modelMetadata.getKnnEngine();

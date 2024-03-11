@@ -15,8 +15,8 @@ import java.math.BigInteger;
 import java.util.List;
 import java.util.Objects;
 
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFloatVector;
+import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
+import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVector;
 
 public class KNNScoringUtil {
     private static Logger logger = LogManager.getLogger(KNNScoringUtil.class);

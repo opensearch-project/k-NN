@@ -27,8 +27,8 @@ import java.util.Optional;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.buildDocValuesFieldType;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVector;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFloatVector;
+import static org.opensearch.knn.common.KNNValidationUtil.validateByteVector;
+import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVector;
 
 /**
  * Field mapper for case when Lucene has been set as an engine.
