@@ -336,8 +336,6 @@ public class MethodComponentContextTests extends KNNTestCase {
         assertEquals("{name=;parameters=[]}", contextString1);
         assertEquals("{name=ivf;parameters=[]}", contextString2);
 
-        System.out.println(contextString6);
-
         MethodComponentContext methodComponentContextFromString1 = MethodComponentContext.fromString(contextString1);
         MethodComponentContext methodComponentContextFromString2 = MethodComponentContext.fromString(contextString2);
         MethodComponentContext methodComponentContextFromString3 = MethodComponentContext.fromString(contextString3);

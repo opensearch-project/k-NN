@@ -31,6 +31,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.opensearch.knn.indices.ModelMetadata;
 
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -44,6 +45,8 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 public class MethodComponentContext implements ToXContentFragment, Writeable {
 
     public static final MethodComponentContext DEFAULT = new MethodComponentContext("", Collections.emptyMap());
+
+    private static final String DELIMITER = ";";
 
     @Getter
     private final String name;
@@ -197,38 +200,59 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
         return parameters;
     }
 
+    /**
+     *
+     * Provides a String representation of MethodComponentContext
+     * Sample return:
+     * {name=ivf;parameters=[nlist=4;type=fp16;encoder={name=sq;parameters=[nprobes=2;clip=false;]};]}
+     *
+     * @return string representation
+     */
     @Override
     public String toString() {
         StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append("{name=").append(name).append(";");
+        stringBuilder.append("{name=").append(name).append(DELIMITER);
         stringBuilder.append("parameters=[");
         if (Objects.nonNull(parameters)) {
             for (Map.Entry<String, Object> entry : parameters.entrySet()) {
                 stringBuilder.append(entry.getKey()).append("=");
                 String value = entry.getValue().toString();
-                value = value.replace(",", "$%$");
-                stringBuilder.append(value).append(";");
+                // Model Metadata uses a delimiter to split the input string in its fromString method
+                // If any of the values in the method component context contain this delimiter,
+                // then the method will not work correctly. Therefore, we replace the delimiter with an uncommon
+                // sequence that is very unlikely to appear in the value itself.
+                value = value.replace(ModelMetadata.DELIMITER, "$%$");
+                stringBuilder.append(value).append(DELIMITER);
             }
         }
         stringBuilder.append("]}");
         return stringBuilder.toString();
     }
 
+    /**
+     * This method converts a string created by the toString() method of MethodComponentContext
+     * to a MethodComponentContext object.
+     *
+     * @param in a string representation of MethodComponentContext
+     * @return a MethodComponentContext object
+     */
     public static MethodComponentContext fromString(String in) {
         int index = 0;
-
         String[] outerMethodComponentContextArray = in.split("\\{", -1);
-
         if (outerMethodComponentContextArray[index].isEmpty()) {
             index++;
         }
-
-        String[] innerMethodComponentContextArray = outerMethodComponentContextArray[index].split(";", -1);
+        String[] innerMethodComponentContextArray = outerMethodComponentContextArray[index].split(DELIMITER, -1);
         index++;
-
         String name = "";
-        Map<String, Object> parameters = new HashMap<>();
         name = innerMethodComponentContextArray[0].substring(innerMethodComponentContextArray[0].indexOf("=") + 1);
+        Map<String, Object> parameters = parseParameters(innerMethodComponentContextArray, outerMethodComponentContextArray, index);
+
+        return new MethodComponentContext(name, parameters);
+    }
+
+    private static Map<String,Object> parseParameters(String[] innerMethodComponentContextArray, String[] outerMethodComponentContextArray, int index) {
+        Map<String, Object> parameters = new HashMap<>();
         if (innerMethodComponentContextArray.length > 2) {
             for (int i = 1; i < innerMethodComponentContextArray.length; i++) {
                 String substring = innerMethodComponentContextArray[i];
@@ -241,6 +265,8 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
                 String key = substring.substring(0, substring.indexOf("="));
                 String stringValue = substring.substring(substring.indexOf("=") + 1);
                 Object value;
+                // Parameters will always be a MethodComponentContext, String, integer, or boolean
+                // https://github.com/opensearch-project/k-NN/blob/2.12/src/main/java/org/opensearch/knn/index/Parameter.java
                 if (stringValue.isEmpty()) {
                     value = fromString(outerMethodComponentContextArray[index]);
                 } else if (NumberUtils.isNumber(stringValue)) {
@@ -248,6 +274,7 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
                 } else if (stringValue.equals("true") || stringValue.equals("false")) {
                     value = Boolean.parseBoolean(stringValue);
                 } else {
+                    stringValue = stringValue.replace("$%$", ModelMetadata.DELIMITER);
                     value = stringValue;
                 }
 
@@ -256,8 +283,7 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
         } else {
             parameters = Collections.emptyMap();
         }
-
-        return new MethodComponentContext(name, parameters);
+        return parameters;
     }
 
     @Override

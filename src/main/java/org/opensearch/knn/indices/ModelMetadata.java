@@ -31,12 +31,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.opensearch.knn.common.KNNConstants.*;
-
 @Log4j2
 public class ModelMetadata implements Writeable, ToXContentObject {
 
-    private static final String DELIMITER = ",";
+    public static final String DELIMITER = ",";
 
     final private KNNEngine knnEngine;
     final private SpaceType spaceType;
@@ -381,7 +379,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         Object description = modelSourceMap.get(KNNConstants.MODEL_DESCRIPTION);
         Object error = modelSourceMap.get(KNNConstants.MODEL_ERROR);
         Object trainingNodeAssignment = modelSourceMap.get(KNNConstants.MODEL_NODE_ASSIGNMENT);
-        Object methodComponentContext = modelSourceMap.get(MODEL_METHOD_COMPONENT_CONTEXT);
+        Object methodComponentContext = modelSourceMap.get(KNNConstants.MODEL_METHOD_COMPONENT_CONTEXT);
 
         if (trainingNodeAssignment == null) {
             trainingNodeAssignment = "";
@@ -424,19 +422,19 @@ public class ModelMetadata implements Writeable, ToXContentObject {
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.field(MODEL_STATE, getState().getName());
-        builder.field(MODEL_TIMESTAMP, getTimestamp());
-        builder.field(MODEL_DESCRIPTION, getDescription());
-        builder.field(MODEL_ERROR, getError());
+        builder.field(KNNConstants.MODEL_STATE, getState().getName());
+        builder.field(KNNConstants.MODEL_TIMESTAMP, getTimestamp());
+        builder.field(KNNConstants.MODEL_DESCRIPTION, getDescription());
+        builder.field(KNNConstants.MODEL_ERROR, getError());
 
-        builder.field(METHOD_PARAMETER_SPACE_TYPE, getSpaceType().getValue());
-        builder.field(DIMENSION, getDimension());
-        builder.field(KNN_ENGINE, getKnnEngine().getName());
+        builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, getSpaceType().getValue());
+        builder.field(KNNConstants.DIMENSION, getDimension());
+        builder.field(KNNConstants.KNN_ENGINE, getKnnEngine().getName());
         if (IndexUtil.isClusterOnOrAfterMinRequiredVersion(IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
-            builder.field(MODEL_NODE_ASSIGNMENT, getNodeAssignment());
+            builder.field(KNNConstants.MODEL_NODE_ASSIGNMENT, getNodeAssignment());
         }
         if (IndexUtil.isClusterOnOrAfterMinRequiredVersion(IndexUtil.MODEL_METHOD_COMPONENT_CONTEXT_KEY)) {
-            builder.field(MODEL_METHOD_COMPONENT_CONTEXT).startObject();
+            builder.field(KNNConstants.MODEL_METHOD_COMPONENT_CONTEXT).startObject();
             getMethodComponentContext().toXContent(builder, params);
             builder.endObject();
         }
