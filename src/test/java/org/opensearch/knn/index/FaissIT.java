@@ -19,6 +19,7 @@ import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNRestTestCase;
@@ -712,6 +713,57 @@ public class FaissIT extends KNNRestTestCase {
         final List<KNNResult> emptyKNNFilteredResultsFromResponse = parseSearchResponse(responseBodyForEmptyDocIds, FIELD_NAME);
 
         assertEquals(0, emptyKNNFilteredResultsFromResponse.size());
+    }
+
+    @SneakyThrows
+    public void testFiltering_whenUsingFaissExactSearchWithIP_thenMatchExpectedScore() {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", 2)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW).getMethodComponent().getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        final String mapping = builder.toString();
+        createKnnIndex(INDEX_NAME, mapping);
+
+        final List<Float[]> dataVectors = Arrays.asList(new Float[] { -2.0f, 2.0f }, new Float[] { 2.0f, -2.0f });
+        final List<String> ids = Arrays.asList(DOC_ID_1, DOC_ID_2);
+
+        // Ingest all of the documents
+        for (int i = 0; i < dataVectors.size(); i++) {
+            addKnnDoc(INDEX_NAME, ids.get(i), FIELD_NAME, dataVectors.get(i));
+        }
+        refreshIndex(INDEX_NAME);
+
+        // Execute the search request with a match all query to ensure exact logic gets called
+        updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 1000));
+        float[] queryVector = new float[] { -2.0f, 2.0f };
+        int k = 2;
+        final Response response = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(FIELD_NAME, queryVector, k, QueryBuilders.matchAllQuery()),
+            k
+        );
+        final String responseBody = EntityUtils.toString(response.getEntity());
+        final List<Float> knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
+
+        // Check that the expected scores are returned
+        final List<Float> expectedScores = Arrays.asList(
+            KNNEngine.FAISS.score(8.0f, SpaceType.INNER_PRODUCT),
+            KNNEngine.FAISS.score(-8.0f, SpaceType.INNER_PRODUCT)
+        );
+        assertEquals(expectedScores.size(), knnResults.size());
+        for (int i = 0; i < expectedScores.size(); i++) {
+            assertEquals(expectedScores.get(i), knnResults.get(i), 0.0000001);
+        }
     }
 
     protected void setupKNNIndexForFilterQuery() throws Exception {
