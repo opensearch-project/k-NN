@@ -587,10 +587,13 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearch(knn_jni::JNIUtilInterface *jniU
     faiss::RangeSearchResult res(1, true);
     indexReader->range_search(1, rawQueryVector, radiusJ, &res);
 
-    // Process the results, lims[1] contains the total number of results found for single query
+    // lims is structured to support batched queries, it has a length of nq + 1 (where nq is the number of queries),
+    // lims[i] - lims[i-1] gives the number of results for the i-th query. With a single query we used in k-NN,
+    // res.lims[0] is always 0, and res.lims[1] gives the total number of matching entries found.
     int resultSize = res.lims[1];
 
     // Limit the result size to maxResultWindowJ so that we don't return more than the max result window
+    // TODO: In the future, we should prevent this via FAISS's ResultHandler.
     if (resultSize > maxResultWindowJ) {
         resultSize = maxResultWindowJ;
     }

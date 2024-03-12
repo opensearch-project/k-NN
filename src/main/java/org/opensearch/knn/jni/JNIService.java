@@ -260,7 +260,7 @@ public class JNIService {
      * @param indexPointer pointer to index in memory
      * @param queryVector vector to be used for query
      * @param radius search within radius threshold
-     * @param engineName name of the engine to use
+     * @param knnEngine engine to query index
      * @param indexMaxResultWindow maximum number of results to return
      * @return KNNQueryResult array of neighbors within radius
      */
@@ -268,10 +268,10 @@ public class JNIService {
         long indexPointer,
         float[] queryVector,
         float radius,
-        String engineName,
+        KNNEngine knnEngine,
         int indexMaxResultWindow
     ) {
-        if (KNNEngine.FAISS.getName().equals(engineName)) {
+        if (KNNEngine.FAISS.getName().equals(knnEngine.getName())) {
             return FaissService.rangeSearchIndex(indexPointer, queryVector, radius, indexMaxResultWindow);
         }
         throw new IllegalArgumentException("RadiusQueryIndex not supported for provided engine");

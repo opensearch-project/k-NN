@@ -293,7 +293,7 @@ public class KNNWeight extends Weight {
                     indexAllocation.getMemoryAddress(),
                     knnQuery.getQueryVector(),
                     knnQuery.getRadius(),
-                    knnEngine.getName(),
+                    knnEngine,
                     indexMaxResultWindow
                 );
             }
