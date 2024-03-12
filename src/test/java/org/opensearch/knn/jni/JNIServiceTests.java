@@ -65,6 +65,9 @@ public class JNIServiceTests extends KNNTestCase {
 
     @BeforeClass
     public static void setUpClass() throws IOException {
+        if (JNIServiceTests.class.getClassLoader() == null) {
+            throw new IllegalStateException("ClassLoader of JNIServiceTests Class is null");
+        }
         URL testIndexVectors = JNIServiceTests.class.getClassLoader().getResource("data/test_vectors_1000x128.json");
         URL testIndexVectorsNested = JNIServiceTests.class.getClassLoader().getResource("data/test_vectors_nested_1000x128.json");
         URL testQueries = JNIServiceTests.class.getClassLoader().getResource("data/test_queries_100x128.csv");
