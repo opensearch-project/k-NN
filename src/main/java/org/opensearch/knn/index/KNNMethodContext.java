@@ -65,6 +65,8 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     @NonNull
     private final MethodComponentContext methodComponentContext;
 
+    private static final String DELIMITER = ";";
+
     /**
      * Constructor from stream.
      *

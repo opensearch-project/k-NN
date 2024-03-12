@@ -17,6 +17,7 @@ import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.knn.KNNSingleNodeTestCase;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -26,6 +27,7 @@ import org.opensearch.threadpool.ThreadPool;
 import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -66,7 +68,8 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-            ""
+            "",
+            new MethodComponentContext("", Collections.emptyMap())
         );
 
         // Get update transport action

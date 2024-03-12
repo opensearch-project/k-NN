@@ -53,11 +53,7 @@ import org.mockito.Mockito;
 import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -212,7 +208,8 @@ public class KNNCodecTestCase extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-            ""
+            "",
+            new MethodComponentContext("", Collections.emptyMap())
         );
 
         Model mockModel = new Model(modelMetadata1, modelBlob, modelId);

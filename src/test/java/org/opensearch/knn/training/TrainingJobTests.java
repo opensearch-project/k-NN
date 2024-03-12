@@ -30,6 +30,7 @@ import org.opensearch.knn.jni.JNIService;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.doAnswer;
@@ -56,6 +57,7 @@ public class TrainingJobTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
         when(knnMethodContext.getKnnEngine()).thenReturn(KNNEngine.DEFAULT);
         when(knnMethodContext.getSpaceType()).thenReturn(SpaceType.DEFAULT);
+        when(knnMethodContext.getMethodComponentContext()).thenReturn(new MethodComponentContext("", Collections.emptyMap()));
 
         TrainingJob trainingJob = new TrainingJob(
             modelId,
@@ -78,10 +80,12 @@ public class TrainingJobTests extends KNNTestCase {
         String description = "test description";
         String error = "";
         String nodeAssignment = "test-node";
+        MethodComponentContext methodComponentContext = new MethodComponentContext("", Collections.emptyMap());
 
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
         when(knnMethodContext.getKnnEngine()).thenReturn(knnEngine);
         when(knnMethodContext.getSpaceType()).thenReturn(spaceType);
+        when(knnMethodContext.getMethodComponentContext()).thenReturn(methodComponentContext);
 
         String modelID = "test-model-id";
         TrainingJob trainingJob = new TrainingJob(
@@ -104,7 +108,8 @@ public class TrainingJobTests extends KNNTestCase {
                 trainingJob.getModel().getModelMetadata().getTimestamp(),
                 description,
                 error,
-                nodeAssignment
+                nodeAssignment,
+                new MethodComponentContext("", Collections.emptyMap())
             ),
             null,
             modelID

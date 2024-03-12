@@ -36,6 +36,7 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.common.exception.DeleteModelWhenInTrainStateException;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
@@ -54,6 +55,7 @@ import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -151,7 +153,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                new MethodComponentContext("", Collections.emptyMap())
             ),
             modelBlob,
             modelId
@@ -170,7 +173,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                new MethodComponentContext("", Collections.emptyMap())
             ),
             modelBlob,
             modelId
@@ -197,7 +201,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                new MethodComponentContext("", Collections.emptyMap())
             ),
             modelBlob,
             modelId
@@ -257,7 +262,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                new MethodComponentContext("", Collections.emptyMap())
             ),
             modelBlob,
             modelId
@@ -318,7 +324,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                new MethodComponentContext("", Collections.emptyMap())
             ),
             modelBlob,
             "any-id"
@@ -354,7 +361,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                new MethodComponentContext("", Collections.emptyMap())
             ),
             null,
             modelId
@@ -392,7 +400,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                new MethodComponentContext("", Collections.emptyMap())
             ),
             modelBlob,
             modelId
@@ -442,7 +451,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                new MethodComponentContext("", Collections.emptyMap())
             ),
             modelBlob,
             modelId
@@ -460,7 +470,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                new MethodComponentContext("", Collections.emptyMap())
             ),
             null,
             modelId
@@ -496,7 +507,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-            ""
+            "",
+            new MethodComponentContext("", Collections.emptyMap())
         );
 
         Model model = new Model(modelMetadata, modelBlob, modelId);
@@ -572,7 +584,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                new MethodComponentContext("", Collections.emptyMap())
             ),
             modelBlob,
             modelId
@@ -605,7 +618,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                new MethodComponentContext("", Collections.emptyMap())
             ),
             modelBlob,
             modelId1
@@ -672,7 +686,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                new MethodComponentContext("", Collections.emptyMap())
             ),
             modelBlob,
             modelId
@@ -713,7 +728,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                new MethodComponentContext("", Collections.emptyMap())
             ),
             modelBlob,
             modelId

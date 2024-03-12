@@ -17,6 +17,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNSingleNodeTestCase;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
@@ -25,6 +26,7 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 
+import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.mock;
@@ -68,7 +70,17 @@ public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestC
         ModelDao modelDao = mock(ModelDao.class);
         String modelId = "test-model-id";
         Model model = new Model(
-            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 16, ModelState.CREATED, "timestamp", "description", "", ""),
+            new ModelMetadata(
+                KNNEngine.DEFAULT,
+                SpaceType.L2,
+                16,
+                ModelState.CREATED,
+                "timestamp",
+                "description",
+                "",
+                "",
+                new MethodComponentContext("", Collections.emptyMap())
+            ),
             new byte[128],
             modelId
         );

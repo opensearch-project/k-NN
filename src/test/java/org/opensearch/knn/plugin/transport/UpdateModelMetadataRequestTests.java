@@ -13,6 +13,7 @@ package org.opensearch.knn.plugin.transport;
 
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -21,6 +22,7 @@ import org.opensearch.knn.indices.ModelState;
 import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.Collections;
 
 public class UpdateModelMetadataRequestTests extends KNNTestCase {
 
@@ -40,7 +42,8 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-            ""
+            "",
+            new MethodComponentContext("", Collections.emptyMap())
         );
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, isRemoveRequest, modelMetadata);
 
@@ -64,7 +67,8 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-            ""
+            "",
+            new MethodComponentContext("", Collections.emptyMap())
         );
 
         UpdateModelMetadataRequest updateModelMetadataRequest1 = new UpdateModelMetadataRequest("test", true, null);
@@ -103,7 +107,8 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-            ""
+            "",
+            new MethodComponentContext("", Collections.emptyMap())
         );
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest("test", true, modelMetadata);
 

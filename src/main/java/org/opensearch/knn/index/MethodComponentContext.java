@@ -14,6 +14,7 @@ package org.opensearch.knn.index;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import org.apache.commons.lang.math.NumberUtils;
 import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -26,6 +27,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
@@ -40,6 +42,8 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  */
 @RequiredArgsConstructor
 public class MethodComponentContext implements ToXContentFragment, Writeable {
+
+    public static final MethodComponentContext DEFAULT = new MethodComponentContext("", Collections.emptyMap());
 
     @Getter
     private final String name;
@@ -191,6 +195,69 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
             return Collections.emptyMap();
         }
         return parameters;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("{name=").append(name).append(";");
+        stringBuilder.append("parameters=[");
+        if (Objects.nonNull(parameters)) {
+            for (Map.Entry<String, Object> entry : parameters.entrySet()) {
+                stringBuilder.append(entry.getKey()).append("=");
+                String value = entry.getValue().toString();
+                value = value.replace(",", "$%$");
+                stringBuilder.append(value).append(";");
+            }
+        }
+        stringBuilder.append("]}");
+        return stringBuilder.toString();
+    }
+
+    public static MethodComponentContext fromString(String in) {
+        int index = 0;
+
+        String[] outerMethodComponentContextArray = in.split("\\{", -1);
+
+        if (outerMethodComponentContextArray[index].isEmpty()) {
+            index++;
+        }
+
+        String[] innerMethodComponentContextArray = outerMethodComponentContextArray[index].split(";", -1);
+        index++;
+
+        String name = "";
+        Map<String, Object> parameters = new HashMap<>();
+        name = innerMethodComponentContextArray[0].substring(innerMethodComponentContextArray[0].indexOf("=") + 1);
+        if (innerMethodComponentContextArray.length > 2) {
+            for (int i = 1; i < innerMethodComponentContextArray.length; i++) {
+                String substring = innerMethodComponentContextArray[i];
+                if (i == 1) {
+                    substring = substring.substring(substring.indexOf("=") + 2);
+                }
+                if (substring.charAt(0) == ']') {
+                    break;
+                }
+                String key = substring.substring(0, substring.indexOf("="));
+                String stringValue = substring.substring(substring.indexOf("=") + 1);
+                Object value;
+                if (stringValue.isEmpty()) {
+                    value = fromString(outerMethodComponentContextArray[index]);
+                } else if (NumberUtils.isNumber(stringValue)) {
+                    value = Integer.parseInt(stringValue);
+                } else if (stringValue.equals("true") || stringValue.equals("false")) {
+                    value = Boolean.parseBoolean(stringValue);
+                } else {
+                    value = stringValue;
+                }
+
+                parameters.put(key, value);
+            }
+        } else {
+            parameters = Collections.emptyMap();
+        }
+
+        return new MethodComponentContext(name, parameters);
     }
 
     @Override

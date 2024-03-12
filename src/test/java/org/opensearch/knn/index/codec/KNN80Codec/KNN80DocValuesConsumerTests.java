@@ -43,6 +43,7 @@ import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -343,7 +344,17 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         byte[] modelBytes = JNIService.trainIndex(parameters, dimension, trainingPtr, knnEngine.getName());
         Model model = new Model(
-            new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED, "timestamp", "Empty description", "", ""),
+            new ModelMetadata(
+                knnEngine,
+                spaceType,
+                dimension,
+                ModelState.CREATED,
+                "timestamp",
+                "Empty description",
+                "",
+                "",
+                new MethodComponentContext("", Collections.emptyMap())
+            ),
             modelBytes,
             modelId
         );
