@@ -64,5 +64,10 @@ public class NativeLibraryTests extends KNNTestCase {
         ) {
             super(methods, scoreTranslation, currentVersion, extension);
         }
+
+        @Override
+        public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
+            return 0.0f;
+        }
     }
 }

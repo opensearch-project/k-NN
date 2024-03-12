@@ -64,6 +64,11 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
         }
 
         @Override
+        public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
+            return 0.0f;
+        }
+
+        @Override
         public ValidationException validateMethod(KNNMethodContext knnMethodContext) {
             return null;
         }
