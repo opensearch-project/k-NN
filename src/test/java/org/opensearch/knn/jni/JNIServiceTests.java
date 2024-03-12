@@ -54,6 +54,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class JNIServiceTests extends KNNTestCase {
@@ -1133,5 +1134,151 @@ public class JNIServiceTests extends KNNTestCase {
 
         long pointer = JNIService.loadIndex(tmpFile1.toAbsolutePath().toString(), Collections.emptyMap(), FAISS_NAME);
         assertNotEquals(0, pointer);
+    }
+
+    @SneakyThrows
+    public void testIndexLoad_whenStateIsShared_thenSucceed() {
+        // Creates a single IVFPQ-l2 index. Then, we will configure a set of indices in memory in different ways to
+        // ensure that everything is loaded properly and the results are consistent.
+        int k = 10;
+        int ivfNlist = 16;
+        int pqM = 16;
+        int pqCodeSize = 4;
+
+        String indexIVFPQPath = createFaissIVFPQIndex(ivfNlist, pqM, pqCodeSize, SpaceType.L2);
+
+        long indexIVFPQIndexTest1 = JNIService.loadIndex(indexIVFPQPath, Collections.emptyMap(), FAISS_NAME);
+        assertNotEquals(0, indexIVFPQIndexTest1);
+        long indexIVFPQIndexTest2 = JNIService.loadIndex(indexIVFPQPath, Collections.emptyMap(), FAISS_NAME);
+        assertNotEquals(0, indexIVFPQIndexTest2);
+
+        long sharedStateAddress = JNIService.initSharedIndexState(indexIVFPQIndexTest1, FAISS_NAME);
+        JNIService.setSharedIndexState(indexIVFPQIndexTest1, sharedStateAddress, FAISS_NAME);
+        JNIService.setSharedIndexState(indexIVFPQIndexTest2, sharedStateAddress, FAISS_NAME);
+
+        assertQueryResultsMatch(testData.queries, k, List.of(indexIVFPQIndexTest1, indexIVFPQIndexTest2));
+
+        // Free the first test index 1. This will ensure that the shared state persists after index that initialized
+        // shared state is gone.
+        JNIService.free(indexIVFPQIndexTest1, FAISS_NAME);
+
+        long indexIVFPQIndexTest3 = JNIService.loadIndex(indexIVFPQPath, Collections.emptyMap(), FAISS_NAME);
+        assertNotEquals(0, indexIVFPQIndexTest3);
+
+        JNIService.setSharedIndexState(indexIVFPQIndexTest3, sharedStateAddress, FAISS_NAME);
+
+        assertQueryResultsMatch(testData.queries, k, List.of(indexIVFPQIndexTest2, indexIVFPQIndexTest3));
+
+        // Ensure everything gets freed
+        JNIService.free(indexIVFPQIndexTest2, FAISS_NAME);
+        JNIService.free(indexIVFPQIndexTest3, FAISS_NAME);
+        JNIService.freeSharedIndexState(sharedStateAddress, FAISS_NAME);
+    }
+
+    @SneakyThrows
+    public void testIsIndexIVFPQL2() {
+        long dummyAddress = 0;
+        assertFalse(JNIService.isIndexIVFPQL2(dummyAddress, NMSLIB_NAME));
+
+        String faissIVFPQL2Index = createFaissIVFPQIndex(16, 16, 4, SpaceType.L2);
+        long faissIVFPQL2Address = JNIService.loadIndex(faissIVFPQL2Index, Collections.emptyMap(), FAISS_NAME);
+        assertTrue(JNIService.isIndexIVFPQL2(faissIVFPQL2Address, FAISS_NAME));
+        JNIService.free(faissIVFPQL2Address, FAISS_NAME);
+
+        String faissIVFPQIPIndex = createFaissIVFPQIndex(16, 16, 4, SpaceType.INNER_PRODUCT);
+        long faissIVFPQIPAddress = JNIService.loadIndex(faissIVFPQIPIndex, Collections.emptyMap(), FAISS_NAME);
+        assertFalse(JNIService.isIndexIVFPQL2(faissIVFPQIPAddress, FAISS_NAME));
+        JNIService.free(faissIVFPQIPAddress, FAISS_NAME);
+
+        String faissHNSWIndex = createFaissHNSWIndex(SpaceType.L2);
+        long faissHNSWAddress = JNIService.loadIndex(faissHNSWIndex, Collections.emptyMap(), FAISS_NAME);
+        assertFalse(JNIService.isIndexIVFPQL2(faissHNSWAddress, FAISS_NAME));
+        JNIService.free(faissHNSWAddress, FAISS_NAME);
+    }
+
+    @SneakyThrows
+    public void testFunctionsUnsupportedForEngine_whenEngineUnsupported_thenThrowIllegalArgumentException() {
+        int dummyAddress = 0;
+        expectThrows(IllegalArgumentException.class, () -> JNIService.initSharedIndexState(dummyAddress, NMSLIB_NAME));
+        expectThrows(IllegalArgumentException.class, () -> JNIService.setSharedIndexState(dummyAddress, dummyAddress, NMSLIB_NAME));
+        expectThrows(IllegalArgumentException.class, () -> JNIService.freeSharedIndexState(dummyAddress, NMSLIB_NAME));
+    }
+
+    private void assertQueryResultsMatch(float[][] testQueries, int k, List<Long> indexAddresses) {
+        // Checks that the set of queries is consistent amongst all indices in the list
+        for (float[] query : testQueries) {
+            KNNQueryResult[][] allResults = new KNNQueryResult[indexAddresses.size()][];
+            for (int i = 0; i < indexAddresses.size(); i++) {
+                allResults[i] = JNIService.queryIndex(indexAddresses.get(i), query, k, FAISS_NAME, null, 0, null);
+                assertEquals(k, allResults[i].length);
+            }
+
+            for (int i = 1; i < indexAddresses.size(); i++) {
+                for (int j = 0; j < k; j++) {
+                    assertEquals(allResults[0][j].getId(), allResults[i][j].getId());
+                    assertEquals(allResults[0][j].getScore(), allResults[i][j].getScore(), 0.00001);
+                }
+            }
+        }
+    }
+
+    private String createFaissIVFPQIndex(int ivfNlist, int pqM, int pqCodeSize, SpaceType spaceType) throws IOException {
+        long trainPointer = JNIService.transferVectors(0, testData.indexData.vectors);
+        assertNotEquals(0, trainPointer);
+
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            spaceType,
+            new MethodComponentContext(
+                METHOD_IVF,
+                ImmutableMap.of(
+                    METHOD_PARAMETER_NLIST,
+                    ivfNlist,
+                    METHOD_ENCODER_PARAMETER,
+                    new MethodComponentContext(
+                        ENCODER_PQ,
+                        ImmutableMap.of(ENCODER_PARAMETER_PQ_M, pqM, ENCODER_PARAMETER_PQ_CODE_SIZE, pqCodeSize)
+                    )
+                )
+            )
+        );
+
+        String description = knnMethodContext.getKnnEngine().getMethodAsMap(knnMethodContext).get(INDEX_DESCRIPTION_PARAMETER).toString();
+        Map<String, Object> parameters = ImmutableMap.of(
+            INDEX_DESCRIPTION_PARAMETER,
+            description,
+            KNNConstants.SPACE_TYPE,
+            spaceType.getValue()
+        );
+
+        byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, FAISS_NAME);
+
+        assertNotEquals(0, faissIndex.length);
+        JNIService.freeVectors(trainPointer);
+        Path tmpFile = createTempFile();
+        JNIService.createIndexFromTemplate(
+            testData.indexData.docs,
+            testData.indexData.vectors,
+            tmpFile.toAbsolutePath().toString(),
+            faissIndex,
+            ImmutableMap.of(INDEX_THREAD_QTY, 1),
+            FAISS_NAME
+        );
+        assertTrue(tmpFile.toFile().length() > 0);
+
+        return tmpFile.toAbsolutePath().toString();
+    }
+
+    private String createFaissHNSWIndex(SpaceType spaceType) throws IOException {
+        Path tmpFile = createTempFile();
+        JNIService.createIndex(
+            testData.indexData.docs,
+            testData.indexData.vectors,
+            tmpFile.toAbsolutePath().toString(),
+            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissMethod, KNNConstants.SPACE_TYPE, spaceType.getValue()),
+            FAISS_NAME
+        );
+        assertTrue(tmpFile.toFile().length() > 0);
+        return tmpFile.toAbsolutePath().toString();
     }
 }

@@ -92,6 +92,54 @@ public class JNIService {
     }
 
     /**
+     * Determine if index is IVFPQ with L2 metric. Currently, we cannot do this in the plugin because we
+     * do not store the model definition anywhere. Only faiss supports IVFPQ indices. So for all other engines it will
+     * return false.
+     *
+     * @param indexAddr addrees of index to be checked.
+     * @param engineName name of engine
+     * @return true if index is of type IVFPQ-l2; false otherwise
+     */
+    public static boolean isIndexIVFPQL2(long indexAddr, String engineName) {
+        if (KNNEngine.FAISS.getName().equals(engineName)) {
+            return FaissService.isIndexIVFPQL2(indexAddr);
+        }
+
+        return false;
+    }
+
+    /**
+     * Initialize the shared state for an index
+     *
+     * @param indexAddr address of the index to initialize from
+     * @param engineName name of engine
+     * @return Address of shared index state address
+     */
+    public static long initSharedIndexState(long indexAddr, String engineName) {
+        if (KNNEngine.FAISS.getName().equals(engineName)) {
+            return FaissService.initSharedIndexState(indexAddr);
+        }
+
+        throw new IllegalArgumentException("InitSharedIndexState not supported for provided engine");
+    }
+
+    /**
+     * Set the index state for an index
+     *
+     * @param indexAddr address of index to set state for
+     * @param shareIndexStateAddr address of shared state to be set
+     * @param engineName name of engine
+     */
+    public static void setSharedIndexState(long indexAddr, long shareIndexStateAddr, String engineName) {
+        if (KNNEngine.FAISS.getName().equals(engineName)) {
+            FaissService.setSharedIndexState(indexAddr, shareIndexStateAddr);
+            return;
+        }
+
+        throw new IllegalArgumentException("SetSharedIndexState not supported for provided engine");
+    }
+
+    /**
      * Query an index
      *
      * @param indexPointer pointer to index in memory
@@ -146,6 +194,21 @@ public class JNIService {
         }
 
         throw new IllegalArgumentException("Free not supported for provided engine");
+    }
+
+    /**
+     * Deallocate memory of the shared index state
+     *
+     * @param shareIndexStateAddr address of shared state
+     * @param engineName name of engine
+     */
+    public static void freeSharedIndexState(long shareIndexStateAddr, String engineName) {
+        if (KNNEngine.FAISS.getName().equals(engineName)) {
+            FaissService.freeSharedIndexState(shareIndexStateAddr);
+            return;
+        }
+
+        throw new IllegalArgumentException("FreeSharedIndexState not supported for provided engine");
     }
 
     /**
