@@ -99,28 +99,28 @@ public class LuceneTests extends KNNTestCase {
     }
 
     public void testGetExtension() {
-        Lucene luceneLibrary = new Lucene(Collections.emptyMap(), "");
+        Lucene luceneLibrary = new Lucene(Collections.emptyMap(), "", Collections.emptyMap());
         expectThrows(UnsupportedOperationException.class, luceneLibrary::getExtension);
     }
 
     public void testGetCompundExtension() {
-        Lucene luceneLibrary = new Lucene(Collections.emptyMap(), "");
+        Lucene luceneLibrary = new Lucene(Collections.emptyMap(), "", Collections.emptyMap());
         expectThrows(UnsupportedOperationException.class, luceneLibrary::getCompoundExtension);
     }
 
     public void testScore() {
-        Lucene luceneLibrary = new Lucene(Collections.emptyMap(), "");
+        Lucene luceneLibrary = new Lucene(Collections.emptyMap(), "", Collections.emptyMap());
         float rawScore = 10.0f;
         assertEquals(rawScore, luceneLibrary.score(rawScore, SpaceType.DEFAULT), 0.001);
     }
 
     public void testIsInitialized() {
-        Lucene luceneLibrary = new Lucene(Collections.emptyMap(), "");
+        Lucene luceneLibrary = new Lucene(Collections.emptyMap(), "", Collections.emptyMap());
         assertFalse(luceneLibrary.isInitialized());
     }
 
     public void testSetInitialized() {
-        Lucene luceneLibrary = new Lucene(Collections.emptyMap(), "");
+        Lucene luceneLibrary = new Lucene(Collections.emptyMap(), "", Collections.emptyMap());
         luceneLibrary.setInitialized(true);
         assertTrue(luceneLibrary.isInitialized());
     }

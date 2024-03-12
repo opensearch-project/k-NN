@@ -320,6 +320,12 @@ class Faiss extends NativeLibrary {
         super(methods, scoreTranslation, currentVersion, extension);
     }
 
+    @Override
+    public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
+        // Faiss engine uses distance as is and does not need transformation
+        return distance;
+    }
+
     /**
      * MethodAsMap builder is used to create the map that will be passed to the jni to create the faiss index.
      * Faiss's index factory takes an "index description" that it uses to build the index. In this description,
