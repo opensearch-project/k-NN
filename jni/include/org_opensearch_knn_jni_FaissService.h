@@ -44,10 +44,10 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
- * Method:    isIndexIVFPQL2
+ * Method:    isSharedIndexStateRequired
  * Signature: (J)Z
  */
-JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_FaissService_isIndexIVFPQL2
+JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_FaissService_isSharedIndexStateRequired
   (JNIEnv *, jclass, jlong);
 
 /*

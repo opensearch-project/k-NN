@@ -228,7 +228,7 @@ jlong knn_jni::faiss_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
     return (jlong) indexReader;
 }
 
-bool knn_jni::faiss_wrapper::IsIndexIVFPQL2(jlong indexPointerJ) {
+bool knn_jni::faiss_wrapper::IsSharedIndexStateRequired(jlong indexPointerJ) {
     auto * index = reinterpret_cast<faiss::Index*>(indexPointerJ);
     return isIndexIVFPQL2(index);
 }

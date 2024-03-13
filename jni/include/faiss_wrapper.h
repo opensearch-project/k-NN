@@ -33,8 +33,8 @@ namespace knn_jni {
         // Return a pointer to the loaded index
         jlong LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ);
 
-        // Check if a loaded index is an IVFPQ index with l2 space type
-        bool IsIndexIVFPQL2(jlong indexPointerJ);
+        // Check if a loaded index requires shared state
+        bool IsSharedIndexStateRequired(jlong indexPointerJ);
 
         // Initializes the shared index state from an index. Note, this will not set the state for
         // the index pointed to by indexPointerJ. To set it, SetSharedIndexState needs to be called.

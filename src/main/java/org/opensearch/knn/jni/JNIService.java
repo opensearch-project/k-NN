@@ -42,7 +42,7 @@ public class JNIService {
             return;
         }
 
-        throw new IllegalArgumentException("CreateIndex not supported for provided engine");
+        throw new IllegalArgumentException("CreateIndex not supported for provided engine : " + engineName);
     }
 
     /**
@@ -68,7 +68,7 @@ public class JNIService {
             return;
         }
 
-        throw new IllegalArgumentException("CreateIndexFromTemplate not supported for provided engine");
+        throw new IllegalArgumentException("CreateIndexFromTemplate not supported for provided engine : " + engineName);
     }
 
     /**
@@ -88,21 +88,21 @@ public class JNIService {
             return FaissService.loadIndex(indexPath);
         }
 
-        throw new IllegalArgumentException("LoadIndex not supported for provided engine");
+        throw new IllegalArgumentException("LoadIndex not supported for provided engine : " + engineName);
     }
 
     /**
-     * Determine if index is IVFPQ with L2 metric. Currently, we cannot do this in the plugin because we
-     * do not store the model definition anywhere. Only faiss supports IVFPQ indices. So for all other engines it will
+     * Determine if index contains shared state. Currently, we cannot do this in the plugin because we do not store the
+     * model definition anywhere. Only faiss supports indices that have shared state. So for all other engines it will
      * return false.
      *
-     * @param indexAddr addrees of index to be checked.
+     * @param indexAddr address of index to be checked.
      * @param engineName name of engine
-     * @return true if index is of type IVFPQ-l2; false otherwise
+     * @return true if index requires shared index state; false otherwise
      */
-    public static boolean isIndexIVFPQL2(long indexAddr, String engineName) {
+    public static boolean isSharedIndexStateRequired(long indexAddr, String engineName) {
         if (KNNEngine.FAISS.getName().equals(engineName)) {
-            return FaissService.isIndexIVFPQL2(indexAddr);
+            return FaissService.isSharedIndexStateRequired(indexAddr);
         }
 
         return false;
@@ -120,7 +120,7 @@ public class JNIService {
             return FaissService.initSharedIndexState(indexAddr);
         }
 
-        throw new IllegalArgumentException("InitSharedIndexState not supported for provided engine");
+        throw new IllegalArgumentException("InitSharedIndexState not supported for provided engine : " + engineName);
     }
 
     /**
@@ -136,7 +136,7 @@ public class JNIService {
             return;
         }
 
-        throw new IllegalArgumentException("SetSharedIndexState not supported for provided engine");
+        throw new IllegalArgumentException("SetSharedIndexState not supported for provided engine : " + engineName);
     }
 
     /**
@@ -173,7 +173,7 @@ public class JNIService {
             }
             return FaissService.queryIndex(indexPointer, queryVector, k, parentIds);
         }
-        throw new IllegalArgumentException("QueryIndex not supported for provided engine");
+        throw new IllegalArgumentException("QueryIndex not supported for provided engine : " + engineName);
     }
 
     /**
@@ -193,7 +193,7 @@ public class JNIService {
             return;
         }
 
-        throw new IllegalArgumentException("Free not supported for provided engine");
+        throw new IllegalArgumentException("Free not supported for provided engine : " + engineName);
     }
 
     /**
@@ -208,7 +208,7 @@ public class JNIService {
             return;
         }
 
-        throw new IllegalArgumentException("FreeSharedIndexState not supported for provided engine");
+        throw new IllegalArgumentException("FreeSharedIndexState not supported for provided engine : " + engineName);
     }
 
     /**
@@ -225,7 +225,7 @@ public class JNIService {
             return FaissService.trainIndex(indexParameters, dimension, trainVectorsPointer);
         }
 
-        throw new IllegalArgumentException("TrainIndex not supported for provided engine");
+        throw new IllegalArgumentException("TrainIndex not supported for provided engine : " + engineName);
     }
 
     /**

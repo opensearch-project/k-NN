@@ -1178,21 +1178,21 @@ public class JNIServiceTests extends KNNTestCase {
     @SneakyThrows
     public void testIsIndexIVFPQL2() {
         long dummyAddress = 0;
-        assertFalse(JNIService.isIndexIVFPQL2(dummyAddress, NMSLIB_NAME));
+        assertFalse(JNIService.isSharedIndexStateRequired(dummyAddress, NMSLIB_NAME));
 
         String faissIVFPQL2Index = createFaissIVFPQIndex(16, 16, 4, SpaceType.L2);
         long faissIVFPQL2Address = JNIService.loadIndex(faissIVFPQL2Index, Collections.emptyMap(), FAISS_NAME);
-        assertTrue(JNIService.isIndexIVFPQL2(faissIVFPQL2Address, FAISS_NAME));
+        assertTrue(JNIService.isSharedIndexStateRequired(faissIVFPQL2Address, FAISS_NAME));
         JNIService.free(faissIVFPQL2Address, FAISS_NAME);
 
         String faissIVFPQIPIndex = createFaissIVFPQIndex(16, 16, 4, SpaceType.INNER_PRODUCT);
         long faissIVFPQIPAddress = JNIService.loadIndex(faissIVFPQIPIndex, Collections.emptyMap(), FAISS_NAME);
-        assertFalse(JNIService.isIndexIVFPQL2(faissIVFPQIPAddress, FAISS_NAME));
+        assertFalse(JNIService.isSharedIndexStateRequired(faissIVFPQIPAddress, FAISS_NAME));
         JNIService.free(faissIVFPQIPAddress, FAISS_NAME);
 
         String faissHNSWIndex = createFaissHNSWIndex(SpaceType.L2);
         long faissHNSWAddress = JNIService.loadIndex(faissHNSWIndex, Collections.emptyMap(), FAISS_NAME);
-        assertFalse(JNIService.isIndexIVFPQL2(faissHNSWAddress, FAISS_NAME));
+        assertFalse(JNIService.isSharedIndexStateRequired(faissHNSWAddress, FAISS_NAME));
         JNIService.free(faissHNSWAddress, FAISS_NAME);
     }
 

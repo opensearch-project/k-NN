@@ -74,13 +74,12 @@ class FaissService {
     public static native long loadIndex(String indexPath);
 
     /**
-     * Determine if index is IVFPQ with L2 metric. Currently, we cannot do this in the plugin because we
-     * do not store the model definition anywhere.
+     * Determine if index contains shared state.
      *
-     * @param indexAddr addrees of index to be checked.
-     * @return true if index is of type IVFPQ-l2; false otherwise
+     * @param indexAddr address of index to be checked.
+     * @return true if index requires shared index state; false otherwise
      */
-    public static native boolean isIndexIVFPQL2(long indexAddr);
+    public static native boolean isSharedIndexStateRequired(long indexAddr);
 
     /**
      * Initialize the shared state for an index

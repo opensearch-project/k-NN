@@ -75,11 +75,11 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex(JNIEn
     return NULL;
 }
 
-JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_FaissService_isIndexIVFPQL2
+JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_FaissService_isSharedIndexStateRequired
         (JNIEnv * env, jclass cls, jlong indexPointerJ)
 {
     try {
-        return knn_jni::faiss_wrapper::IsIndexIVFPQL2(indexPointerJ);
+        return knn_jni::faiss_wrapper::IsSharedIndexStateRequired(indexPointerJ);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }

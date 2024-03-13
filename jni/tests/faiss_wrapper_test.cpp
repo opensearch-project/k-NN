@@ -534,7 +534,7 @@ TEST(FaissCreateHnswSQfp16IndexTest, BasicAssertions) {
     std::remove(indexPath.c_str());
 }
 
-TEST(FaissIsIndexIVFPQL2, BasicAssertions) {
+TEST(FaissIsSharedIndexStateRequired, BasicAssertions) {
     int d = 128;
     int hnswM = 16;
     int ivfNlist = 4;
@@ -579,13 +579,13 @@ TEST(FaissIsIndexIVFPQL2, BasicAssertions) {
             ));
     jlong nullAddress = 0;
 
-    ASSERT_FALSE(knn_jni::faiss_wrapper::IsIndexIVFPQL2((jlong) indexHNSWL2.get()));
-    ASSERT_FALSE(knn_jni::faiss_wrapper::IsIndexIVFPQL2((jlong) indexIVFPQIP.get()));
-    ASSERT_FALSE(knn_jni::faiss_wrapper::IsIndexIVFPQL2((jlong) indexIDMapIVFPQIP.get()));
-    ASSERT_FALSE(knn_jni::faiss_wrapper::IsIndexIVFPQL2((jlong) nullAddress));
+    ASSERT_FALSE(knn_jni::faiss_wrapper::IsSharedIndexStateRequired((jlong) indexHNSWL2.get()));
+    ASSERT_FALSE(knn_jni::faiss_wrapper::IsSharedIndexStateRequired((jlong) indexIVFPQIP.get()));
+    ASSERT_FALSE(knn_jni::faiss_wrapper::IsSharedIndexStateRequired((jlong) indexIDMapIVFPQIP.get()));
+    ASSERT_FALSE(knn_jni::faiss_wrapper::IsSharedIndexStateRequired((jlong) nullAddress));
 
-    ASSERT_TRUE(knn_jni::faiss_wrapper::IsIndexIVFPQL2((jlong) indexIVFPQL2.get()));
-    ASSERT_TRUE(knn_jni::faiss_wrapper::IsIndexIVFPQL2((jlong) indexIDMapIVFPQL2.get()));
+    ASSERT_TRUE(knn_jni::faiss_wrapper::IsSharedIndexStateRequired((jlong) indexIVFPQL2.get()));
+    ASSERT_TRUE(knn_jni::faiss_wrapper::IsSharedIndexStateRequired((jlong) indexIDMapIVFPQL2.get()));
 }
 
 TEST(FaissInitAndSetSharedIndexState, BasicAssertions) {
