@@ -5,18 +5,16 @@
 
 package org.opensearch.knn.plugin.script;
 
-import org.opensearch.knn.index.KNNVectorScriptDocValues;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorDataType;
-
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Objects;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.opensearch.knn.index.KNNVectorScriptDocValues;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
-import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVector;
 
 public class KNNScoringUtil {
     private static Logger logger = LogManager.getLogger(KNNScoringUtil.class);
@@ -137,7 +135,7 @@ public class KNNScoringUtil {
      */
     public static float cosineSimilarity(List<Number> queryVector, KNNVectorScriptDocValues docValues, Number queryVectorMagnitude) {
         float[] inputVector = toFloat(queryVector, docValues.getVectorDataType());
-        validateFloatVector(inputVector, SpaceType.COSINESIMIL);
+        SpaceType.COSINESIMIL.validateVector(inputVector);
         return cosinesimilOptimized(inputVector, docValues.getValue(), queryVectorMagnitude.floatValue());
     }
 
@@ -184,7 +182,7 @@ public class KNNScoringUtil {
      */
     public static float cosineSimilarity(List<Number> queryVector, KNNVectorScriptDocValues docValues) {
         float[] inputVector = toFloat(queryVector, docValues.getVectorDataType());
-        validateFloatVector(inputVector, SpaceType.COSINESIMIL);
+        SpaceType.COSINESIMIL.validateVector(inputVector);
         return cosinesimil(inputVector, docValues.getValue());
     }
 

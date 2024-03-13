@@ -19,7 +19,6 @@ import java.math.BigInteger;
 import java.util.Map;
 import java.util.function.BiFunction;
 
-import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVector;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.getVectorMagnitudeSquared;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.isBinaryFieldType;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.isKNNVectorFieldType;
@@ -100,7 +99,7 @@ public interface KNNScoringSpace {
                 ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension(),
                 ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getVectorDataType()
             );
-            validateFloatVector(processedQuery, SpaceType.COSINESIMIL);
+            SpaceType.COSINESIMIL.validateVector(processedQuery);
             float qVectorSquaredMagnitude = getVectorMagnitudeSquared(this.processedQuery);
             this.scoringMethod = (float[] q, float[] v) -> 1 + KNNScoringUtil.cosinesimilOptimized(q, v, qVectorSquaredMagnitude);
         }

@@ -14,11 +14,9 @@ package org.opensearch.knn.common;
 import java.util.Locale;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.common.KNNVectorUtil.isZeroVector;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class KNNValidationUtil {
@@ -66,34 +64,6 @@ public class KNNValidationUtil {
                     Byte.MIN_VALUE,
                     Byte.MAX_VALUE
                 )
-            );
-        }
-    }
-
-    /**
-     * Validate if the given byte vector is supported by the given space type
-     *
-     * @param vector     the given vector
-     * @param spaceType  the given space type
-     */
-    public static void validateByteVector(byte[] vector, SpaceType spaceType) {
-        if (spaceType == SpaceType.COSINESIMIL && isZeroVector(vector)) {
-            throw new IllegalArgumentException(
-                String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", spaceType.getValue())
-            );
-        }
-    }
-
-    /**
-     * Validate if the given float vector is supported by the given space type
-     *
-     * @param vector     the given vector
-     * @param spaceType  the given space type
-     */
-    public static void validateFloatVector(float[] vector, SpaceType spaceType) {
-        if (spaceType == SpaceType.COSINESIMIL && isZeroVector(vector)) {
-            throw new IllegalArgumentException(
-                String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", spaceType.getValue())
             );
         }
     }

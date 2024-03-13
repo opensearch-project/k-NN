@@ -303,6 +303,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
         when(modelMetadata.getDimension()).thenReturn(4);
         when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
+        when(modelMetadata.getSpaceType()).thenReturn(SpaceType.COSINESIMIL);
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
         KNNQueryBuilder.initialize(modelDao);
