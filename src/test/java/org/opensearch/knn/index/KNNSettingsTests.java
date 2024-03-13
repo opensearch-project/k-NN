@@ -162,6 +162,18 @@ public class KNNSettingsTests extends KNNTestCase {
         assertEquals(userProvidedEfSearch, efSearchValue);
     }
 
+    @SneakyThrows
+    public void testGetFaissAVX2DisabledSettingValueFromConfig_enableSetting_thenValidateAndSucceed() {
+        boolean expectedKNNFaissAVX2Disabled = true;
+        Node mockNode = createMockNode(Map.of(KNNSettings.KNN_FAISS_AVX2_DISABLED, expectedKNNFaissAVX2Disabled));
+        mockNode.start();
+        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
+        KNNSettings.state().setClusterService(clusterService);
+        boolean actualKNNFaissAVX2Disabled = KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX2_DISABLED);
+        mockNode.close();
+        assertEquals(expectedKNNFaissAVX2Disabled, actualKNNFaissAVX2Disabled);
+    }
+
     private Node createMockNode(Map<String, Object> configSettings) throws IOException {
         Path configDir = createTempDir();
         File configFile = configDir.resolve("opensearch.yml").toFile();

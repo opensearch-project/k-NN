@@ -112,8 +112,8 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
     set(BUILD_TESTING OFF)          # Avoid building faiss tests
     set(BLA_STATIC ON)              # Statically link BLAS
 
-    if(NOT SIMD_ENABLED)
-        set(SIMD_ENABLED false)   # set default value as false if the argument is not set
+    if(NOT DEFINED SIMD_ENABLED)
+        set(SIMD_ENABLED true)   # set default value as true if the argument is not set
     endif()
 
     if(${CMAKE_SYSTEM_NAME} STREQUAL Windows OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" OR NOT ${SIMD_ENABLED})
@@ -122,6 +122,7 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
     else()
         set(FAISS_OPT_LEVEL avx2)       # Keep optimization level as avx2 to improve performance on Linux and Mac.
         set(TARGET_LINK_FAISS_LIB faiss_avx2)
+        string(PREPEND LIB_EXT "_avx2") # Prepend "_avx2" to lib extension to create the library as "libopensearchknn_faiss_avx2.so" on linux and "libopensearchknn_faiss_avx2.jnilib" on mac
     endif()
 
     if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
@@ -160,6 +161,7 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
     if (EXISTS ${PATCH_FILE})
         message(STATUS "Applying custom patches.")
         execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace --3way ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0001-Custom-patch-to-support-multi-vector.patch WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ERROR_VARIABLE ERROR_MSG RESULT_VARIABLE RESULT_CODE)
+
         if(RESULT_CODE)
             message(FATAL_ERROR "Failed to apply patch:\n${ERROR_MSG}")
         endif()

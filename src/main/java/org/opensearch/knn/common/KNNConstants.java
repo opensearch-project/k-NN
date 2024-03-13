@@ -113,6 +113,7 @@ public class KNNConstants {
     // Lib names
     private static final String JNI_LIBRARY_PREFIX = "opensearchknn_";
     public static final String FAISS_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + FAISS_NAME;
+    public static final String FAISS_AVX2_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + FAISS_NAME + "_avx2";
     public static final String NMSLIB_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + NMSLIB_NAME;
 
     // Filtered Search Constants
