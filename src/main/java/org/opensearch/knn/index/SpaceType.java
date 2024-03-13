@@ -76,7 +76,7 @@ public enum SpaceType {
 
         @Override
         public VectorSimilarityFunction getVectorSimilarityFunction() {
-            return VectorSimilarityFunction.DOT_PRODUCT;
+            return VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT;
         }
     },
     HAMMING_BIT("hammingbit") {
