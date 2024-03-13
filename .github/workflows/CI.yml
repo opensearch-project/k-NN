@@ -61,10 +61,10 @@ jobs:
           if lscpu  | grep -i avx2
           then
             echo "avx2 available on system"
-            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Dsimd.enabled=true"
+            su `id -un 1000` -c "whoami && java -version && ./gradlew build"
           else
             echo "avx2 not available on system"
-            su `id -un 1000` -c "whoami && java -version && ./gradlew build"
+            su `id -un 1000` -c "whoami && java -version && ./gradlew build -Dsimd.enabled=false"
           fi  
           
 
@@ -101,10 +101,10 @@ jobs:
           if sysctl -n machdep.cpu.features machdep.cpu.leaf7_features | grep -i AVX2
           then
               echo "avx2 available on system"
-              ./gradlew build -Dsimd.enabled=true
+              ./gradlew build 
           else
               echo "avx2 not available on system"
-              ./gradlew build
+              ./gradlew build -Dsimd.enabled=false
           fi
 
   Build-k-NN-Windows:
@@ -158,5 +158,5 @@ jobs:
 
       - name: Run build
         run: |
-          ./gradlew.bat build
+          ./gradlew.bat build -D'simd.enabled=false'
 

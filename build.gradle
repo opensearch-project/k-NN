@@ -17,7 +17,7 @@ buildscript {
         version_qualifier = System.getProperty("build.version_qualifier", "")
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
-        simd_enabled = System.getProperty("simd.enabled", "false")
+        simd_enabled = System.getProperty("simd.enabled", "true")
 
         version_tokens = opensearch_version.tokenize('-')
         opensearch_build = version_tokens[0] + '.0'
@@ -287,6 +287,10 @@ dependencies {
     testImplementation group: 'org.objenesis', name: 'objenesis', version: '3.2'
     testImplementation group: 'net.bytebuddy', name: 'byte-buddy-agent', version: '1.14.7'
     testFixturesImplementation "org.opensearch:common-utils:${version}"
+    implementation 'com.github.oshi:oshi-core:6.4.13'
+    api "net.java.dev.jna:jna:5.13.0"
+    api "net.java.dev.jna:jna-platform:5.13.0"
+    implementation 'org.slf4j:slf4j-api:1.7.36'
 
     zipArchive group: 'org.opensearch.plugin', name:'opensearch-security', version: "${opensearch_build}"
 }
