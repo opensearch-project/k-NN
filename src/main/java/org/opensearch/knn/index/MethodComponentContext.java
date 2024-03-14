@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.index;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -25,10 +26,7 @@ import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.mapper.MapperParsingException;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
@@ -255,56 +253,150 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
      * @return a MethodComponentContext object
      */
     public static MethodComponentContext fromString(String in) {
-        int index = 0;
-        String[] outerMethodComponentContextArray = in.split("\\{", -1);
-        if (outerMethodComponentContextArray[index].isEmpty()) {
-            index++;
-        }
-        String[] innerMethodComponentContextArray = outerMethodComponentContextArray[index].split(DELIMITER, -1);
-        index++;
-        String name = innerMethodComponentContextArray[0].substring(innerMethodComponentContextArray[0].indexOf("=") + 1);
-        Map<String, Object> parameters = parseParameters(innerMethodComponentContextArray, outerMethodComponentContextArray, index);
+        String stringToParse = unwrapString(in, '{', '}');
 
+        // Parse name from string
+        String[] nameAndParameters = stringToParse.split(DELIMITER, 2);
+        System.out.println("nameAndParameters: " + Arrays.toString(nameAndParameters));
+        checkExpectedArrayLength(nameAndParameters, 2);
+        String name = parseName(nameAndParameters[0]);
+        System.out.println("name: " + name);
+        String parametersString = nameAndParameters[1];
+        Map<String, Object> parameters = parseParameters(parametersString);
         return new MethodComponentContext(name, parameters);
     }
 
-    private static Map<String, Object> parseParameters(
-        String[] innerMethodComponentContextArray,
-        String[] outerMethodComponentContextArray,
-        int index
-    ) {
-        Map<String, Object> parameters = new HashMap<>();
-        if (innerMethodComponentContextArray.length > 2) {
-            for (int i = 1; i < innerMethodComponentContextArray.length; i++) {
-                String substring = innerMethodComponentContextArray[i];
-                if (i == 1) {
-                    substring = substring.substring(substring.indexOf("=") + 2);
-                }
-                if (substring.charAt(0) == ']') {
-                    break;
-                }
-                String key = substring.substring(0, substring.indexOf("="));
-                String stringValue = substring.substring(substring.indexOf("=") + 1);
-                Object value;
-                // Parameters will always be a MethodComponentContext, String, integer, or boolean
-                // https://github.com/opensearch-project/k-NN/blob/2.12/src/main/java/org/opensearch/knn/index/Parameter.java
-                if (stringValue.isEmpty()) {
-                    value = fromString(outerMethodComponentContextArray[index]);
-                } else if (NumberUtils.isNumber(stringValue)) {
-                    value = Integer.parseInt(stringValue);
-                } else if (stringValue.equals("true") || stringValue.equals("false")) {
-                    value = Boolean.parseBoolean(stringValue);
-                } else {
-                    stringValue = stringValue.replace(DELIMITER_PLACEHOLDER, ModelMetadata.DELIMITER);
-                    value = stringValue;
-                }
-
-                parameters.put(key, value);
-            }
-        } else {
-            parameters = Collections.emptyMap();
+    private static String parseName(String candidateNameString) {
+        // Expecting candidateNameString to look like "name=ivf"
+        checkStringNotEmpty(candidateNameString);
+        String[] nameKeyAndValue = candidateNameString.split("=");
+        checkStringMatches(nameKeyAndValue[0], "name");
+        if (nameKeyAndValue.length == 1) {
+            return "";
         }
+        checkExpectedArrayLength(nameKeyAndValue, 2);
+        return nameKeyAndValue[1];
+    }
+
+    private static Map<String, Object> parseParameters(String candidateParameterString) {
+        checkStringNotEmpty(candidateParameterString);
+        String[] parametersKeyAndValue = candidateParameterString.split("=", 2);
+        checkStringMatches(parametersKeyAndValue[0], "parameters");
+        if (parametersKeyAndValue.length == 1) {
+            return Collections.emptyMap();
+        }
+        checkExpectedArrayLength(parametersKeyAndValue, 2);
+        return parseParametersValue(parametersKeyAndValue[1]);
+    }
+
+    private static Map<String, Object> parseParametersValue(String candidateParameterValueString) {
+        // Expected input is [nlist=4;type=fp16;encoder={name=sq;parameters=[nprobes=2;clip=false;]};]
+        System.out.println("parameter value: " + candidateParameterValueString);
+        checkStringNotEmpty(candidateParameterValueString);
+        candidateParameterValueString = unwrapString(candidateParameterValueString, '[', ']');
+        Map<String, Object> parameters = new HashMap<>();
+        while (!candidateParameterValueString.isEmpty()) {
+            String[] keyAndValueToParse = candidateParameterValueString.split("=", 2);
+            if (keyAndValueToParse.length == 1 && keyAndValueToParse[0].charAt(0) == ';') {
+                break;
+            }
+            String key = keyAndValueToParse[0];
+            ValueAndRestToParse parsed = parseParameterValueAndRestToParse(keyAndValueToParse[1]);
+            parameters.put(key, parsed.getValue());
+            candidateParameterValueString = parsed.getRestToParse();
+        }
+
         return parameters;
+    }
+
+    private static ValueAndRestToParse parseParameterValueAndRestToParse(String candidateParameterValueAndRestToParse) {
+        if (candidateParameterValueAndRestToParse.charAt(0) == '{') {
+            int endOfNestedMap = findClosingPosition(candidateParameterValueAndRestToParse, '{', '}');
+            String nestedMethodContext = candidateParameterValueAndRestToParse.substring(0, endOfNestedMap + 1);
+            System.out.println("nested method context: " + nestedMethodContext);
+            Object nestedParse = fromString(nestedMethodContext);
+            String restToParse = candidateParameterValueAndRestToParse.substring(endOfNestedMap + 1);
+            return new ValueAndRestToParse(nestedParse, restToParse);
+        }
+
+        String[] stringValueAndRestToParse = candidateParameterValueAndRestToParse.split(DELIMITER, 2);
+        String stringValue = stringValueAndRestToParse[0];
+        System.out.println("string value: " + stringValue);
+        Object value;
+        if (NumberUtils.isNumber(stringValue)) {
+            value = Integer.parseInt(stringValue);
+        } else if (stringValue.equals("true") || stringValue.equals("false")) {
+            value = Boolean.parseBoolean(stringValue);
+        } else {
+            stringValue = stringValue.replace(DELIMITER_PLACEHOLDER, ModelMetadata.DELIMITER);
+            value = stringValue;
+        }
+
+        return new ValueAndRestToParse(value, stringValueAndRestToParse[1]);
+    }
+
+    private static String unwrapString(String in, char expectedStart, char expectedEnd) {
+        if (in.length() < 2) {
+            throw new IllegalArgumentException("Invalid string.");
+        }
+
+        if (in.charAt(0) != expectedStart || in.charAt(in.length() - 1) != expectedEnd) {
+            throw new IllegalArgumentException("Invalid string." + in);
+        }
+        return in.substring(1, in.length() - 1);
+    }
+
+    private static int findClosingPosition(String in, char expectedStart, char expectedEnd) {
+        int nestedLevel = 0;
+        for (int i = 0; i < in.length(); i++) {
+            if (in.charAt(i) == expectedStart) {
+                nestedLevel++;
+                continue;
+            }
+
+            if (in.charAt(i) == expectedEnd) {
+                nestedLevel--;
+            }
+
+            if (nestedLevel == 0) {
+                return i;
+            }
+        }
+
+        throw new IllegalArgumentException("Invalid string. No end to the nesting");
+    }
+
+    private static void checkStringNotEmpty(String string) {
+        if (string.isEmpty()) {
+            //TODO: Come up with better exception
+            throw new RuntimeException("think of better exception");
+        }
+    }
+
+    private static void checkStringMatches(String string, String expected) {
+        if (!Objects.equals(string, expected)) {
+            //TODO: Come up with better exception
+            throw new RuntimeException("think of better exception");
+        }
+    }
+
+    private static void checkExpectedArrayLength(String[] array, int expectedLength) {
+        if (null == array) {
+            //TODO: Come up with better exception
+            throw new RuntimeException("think of better exception");
+        }
+
+        if (array.length != expectedLength) {
+            //TODO: Come up with better exception
+            throw new RuntimeException("not expected length");
+        }
+    }
+
+    @AllArgsConstructor
+    @Getter
+    private static class ValueAndRestToParse {
+        private final Object value;
+        private final String restToParse;
     }
 
     @Override

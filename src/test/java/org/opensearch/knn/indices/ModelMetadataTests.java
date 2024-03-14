@@ -550,7 +550,7 @@ public class ModelMetadataTests extends KNNTestCase {
             + ","
             + nodeAssignment
             + ","
-            + methodComponentContext;
+            + methodComponentContext.toClusterStateString();
 
         String stringRep2 = knnEngine.getName()
             + ","
