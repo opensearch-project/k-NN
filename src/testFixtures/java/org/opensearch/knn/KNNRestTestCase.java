@@ -122,6 +122,11 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
 
         String serverUrl = System.getProperty("jmx.serviceUrl");
+        if (serverUrl == null) {
+            log.error("Failed to dump coverage because JMX Service URL is null");
+            throw new IllegalArgumentException("JMX Service URL is null");
+        }
+
         try (JMXConnector connector = JMXConnectorFactory.connect(new JMXServiceURL(serverUrl))) {
             IProxy proxy = MBeanServerInvocationHandler.newProxyInstance(
                 connector.getMBeanServerConnection(),
@@ -130,7 +135,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
                 false
             );
 
-            Path path = Path.of(jacocoBuildPath, "integTest.exec");
+            Path path = Path.of(Path.of(jacocoBuildPath, "integTest.exec").toFile().getCanonicalPath());
             Files.write(path, proxy.getExecutionData(false));
         } catch (Exception ex) {
             log.error("Failed to dump coverage: ", ex);
