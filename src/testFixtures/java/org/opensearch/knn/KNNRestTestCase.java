@@ -17,6 +17,7 @@ import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
@@ -331,6 +332,28 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .startObject("method")
             .field("name", algoName)
             .field("engine", knnEngine)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+    }
+
+    /**
+     * Utility to create a Knn Index Mapping with specific algorithm, engine and spaceType
+     */
+    protected String createKnnIndexMapping(String fieldName, Integer dimensions, String algoName, String knnEngine, String spaceType)
+        throws IOException {
+        return XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
+            .field(KNNConstants.DIMENSION, dimensions.toString())
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, algoName)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType)
+            .field(KNNConstants.KNN_ENGINE, knnEngine)
             .endObject()
             .endObject()
             .endObject()
