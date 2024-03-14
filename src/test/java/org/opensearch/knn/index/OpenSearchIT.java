@@ -13,6 +13,8 @@ package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Floats;
+import java.util.Locale;
+import lombok.SneakyThrows;
 import org.junit.BeforeClass;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
@@ -261,6 +263,35 @@ public class OpenSearchIT extends KNNRestTestCase {
         Float[] vector2 = { 6.0f, 7.0f, 8.0f, 9.0f, 10.0f };
         ex = expectThrows(ResponseException.class, () -> addKnnDoc(INDEX_NAME, "3", FIELD_NAME, vector2));
         assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString("Vector dimension mismatch. Expected: 4, Given: 5"));
+    }
+
+    @SneakyThrows
+    public void testIndexingVectorValidation_zeroVector() {
+        Settings settings = Settings.builder().put(getKNNDefaultIndexSettings()).build();
+        final boolean valid = randomBoolean();
+        final String method = KNNConstants.METHOD_HNSW;
+        String engine;
+        String spaceType;
+        if (valid) {
+            engine = randomFrom(KNNEngine.values()).getName();
+            spaceType = SpaceType.L2.getValue();
+        } else {
+            engine = randomFrom(KNNConstants.LUCENE_NAME, KNNConstants.NMSLIB_NAME);
+            spaceType = SpaceType.COSINESIMIL.getValue();
+        }
+        createKnnIndex(INDEX_NAME, settings, createKnnIndexMapping(FIELD_NAME, 4, method, engine, spaceType));
+        Float[] zeroVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        if (valid) {
+            addKnnDoc(INDEX_NAME, "1", FIELD_NAME, zeroVector);
+        } else {
+            ResponseException ex = expectThrows(ResponseException.class, () -> addKnnDoc(INDEX_NAME, "1", FIELD_NAME, zeroVector));
+            assertTrue(
+                EntityUtils.toString(ex.getResponse().getEntity())
+                    .contains(
+                        String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", SpaceType.COSINESIMIL.getValue())
+                    )
+            );
+        }
     }
 
     public void testVectorMappingValidation_noDimension() throws Exception {

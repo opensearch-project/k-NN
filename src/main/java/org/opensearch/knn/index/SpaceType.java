@@ -11,10 +11,13 @@
 
 package org.opensearch.knn.index;
 
+import java.util.Locale;
 import org.apache.lucene.index.VectorSimilarityFunction;
 
 import java.util.HashSet;
 import java.util.Set;
+
+import static org.opensearch.knn.common.KNNVectorUtil.isZeroVector;
 
 /**
  * Enum contains spaces supported for approximate nearest neighbor search in the k-NN plugin. Each engine's methods are
@@ -43,6 +46,24 @@ public enum SpaceType {
         @Override
         public VectorSimilarityFunction getVectorSimilarityFunction() {
             return VectorSimilarityFunction.COSINE;
+        }
+
+        @Override
+        public void validateVector(byte[] vector) {
+            if (isZeroVector(vector)) {
+                throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", getValue())
+                );
+            }
+        }
+
+        @Override
+        public void validateVector(float[] vector) {
+            if (isZeroVector(vector)) {
+                throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", getValue())
+                );
+            }
         }
     },
     L1("l1") {
@@ -76,7 +97,7 @@ public enum SpaceType {
 
         @Override
         public VectorSimilarityFunction getVectorSimilarityFunction() {
-            return VectorSimilarityFunction.DOT_PRODUCT;
+            return VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT;
         }
     },
     HAMMING_BIT("hammingbit") {
@@ -103,6 +124,24 @@ public enum SpaceType {
      */
     public VectorSimilarityFunction getVectorSimilarityFunction() {
         throw new UnsupportedOperationException(String.format("Space [%s] does not have a vector similarity function", getValue()));
+    }
+
+    /**
+     * Validate if the given byte vector is supported by this space type
+     *
+     * @param vector     the given vector
+     */
+    public void validateVector(byte[] vector) {
+        // do nothing
+    }
+
+    /**
+     * Validate if the given float vector is supported by this space type
+     *
+     * @param vector     the given vector
+     */
+    public void validateVector(float[] vector) {
+        // do nothing
     }
 
     /**

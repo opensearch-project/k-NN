@@ -5,36 +5,36 @@
 
 package org.opensearch.knn.index.query;
 
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.MatchNoDocsQuery;
+import org.apache.lucene.search.Query;
+import org.opensearch.core.ParseField;
+import org.opensearch.core.common.ParsingException;
 import org.opensearch.core.common.Strings;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
+import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.plugin.stats.KNNCounter;
-import org.apache.lucene.search.Query;
-import org.opensearch.core.ParseField;
-import org.opensearch.core.common.ParsingException;
-import org.opensearch.core.common.io.stream.StreamInput;
-import org.opensearch.core.common.io.stream.StreamOutput;
-import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.index.mapper.MappedFieldType;
-import org.opensearch.index.query.AbstractQueryBuilder;
-import org.opensearch.index.query.QueryShardContext;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Objects;
-
+import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
 
 /**
  * Helper class to build the KNN query
@@ -284,12 +284,17 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         KNNMethodContext knnMethodContext = knnVectorFieldType.getKnnMethodContext();
         KNNEngine knnEngine = KNNEngine.DEFAULT;
         VectorDataType vectorDataType = knnVectorFieldType.getVectorDataType();
+        SpaceType spaceType = knnVectorFieldType.getSpaceType();
 
         if (fieldDimension == -1) {
+            if (spaceType != null) {
+                throw new IllegalStateException("Space type should be null when the field uses a model");
+            }
             // If dimension is not set, the field uses a model and the information needs to be retrieved from there
             ModelMetadata modelMetadata = getModelMetadataForField(knnVectorFieldType);
             fieldDimension = modelMetadata.getDimension();
             knnEngine = modelMetadata.getKnnEngine();
+            spaceType = modelMetadata.getSpaceType();
         } else if (knnMethodContext != null) {
             // If the dimension is set but the knnMethodContext is not then the field is using the legacy mapping
             knnEngine = knnMethodContext.getKnnEngine();
@@ -308,6 +313,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 validateByteVectorValue(vector[i]);
                 byteVector[i] = (byte) vector[i];
             }
+            spaceType.validateVector(byteVector);
+        } else {
+            spaceType.validateVector(vector);
         }
 
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine)
