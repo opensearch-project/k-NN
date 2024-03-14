@@ -157,7 +157,7 @@ public class KNNWeightTests extends KNNTestCase {
         SpaceType spaceType = SpaceType.L2;
         final Function<Float, Float> scoreTranslator = spaceType::scoreTranslation;
         final String modelId = "modelId";
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any(), anyInt(), any()))
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), any(), any(), anyInt(), any()))
             .thenReturn(getKNNQueryResults());
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, (BitSetProducer) null);
@@ -300,7 +300,7 @@ public class KNNWeightTests extends KNNTestCase {
     @SneakyThrows
     public void testEmptyQueryResults() {
         final KNNQueryResult[] knnQueryResults = new KNNQueryResult[] {};
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any(), anyInt(), any()))
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), any(), any(), anyInt(), any()))
             .thenReturn(knnQueryResults);
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, (BitSetProducer) null);
@@ -350,7 +350,7 @@ public class KNNWeightTests extends KNNTestCase {
             filterBitSet.set(docId);
         }
         jniServiceMockedStatic.when(
-            () -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), eq(filterBitSet.getBits()), anyInt(), any())
+            () -> JNIService.queryIndex(anyLong(), any(), anyInt(), any(), eq(filterBitSet.getBits()), anyInt(), any())
         ).thenReturn(getFilteredKNNQueryResults());
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
@@ -411,7 +411,7 @@ public class KNNWeightTests extends KNNTestCase {
         assertEquals(FILTERED_DOC_ID_TO_SCORES.size(), docIdSetIterator.cost());
 
         jniServiceMockedStatic.verify(
-            () -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), eq(filterBitSet.getBits()), anyInt(), any())
+            () -> JNIService.queryIndex(anyLong(), any(), anyInt(), any(), eq(filterBitSet.getBits()), anyInt(), any())
         );
 
         final List<Integer> actualDocIds = new ArrayList<>();
@@ -677,17 +677,14 @@ public class KNNWeightTests extends KNNTestCase {
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, 1, INDEX_NAME, null, bitSetProducer);
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f, null);
 
-        jniServiceMockedStatic.when(
-            () -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any(), anyInt(), eq(parentsFilter))
-        ).thenReturn(getKNNQueryResults());
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), any(), any(), anyInt(), eq(parentsFilter)))
+            .thenReturn(getKNNQueryResults());
 
         // Execute
         Scorer knnScorer = knnWeight.scorer(leafReaderContext);
 
         // Verify
-        jniServiceMockedStatic.verify(
-            () -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any(), anyInt(), eq(parentsFilter))
-        );
+        jniServiceMockedStatic.verify(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), any(), any(), anyInt(), eq(parentsFilter)));
         assertNotNull(knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         assertNotNull(docIdSetIterator);
@@ -746,7 +743,7 @@ public class KNNWeightTests extends KNNTestCase {
         final Set<String> segmentFiles,
         final Map<String, String> fileAttributes
     ) throws IOException {
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), anyString(), any(), anyInt(), any()))
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), any(), any(), anyInt(), any()))
             .thenReturn(getKNNQueryResults());
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, (BitSetProducer) null);

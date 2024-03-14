@@ -185,7 +185,7 @@ public class TrainingJob implements Runnable {
                 trainParameters,
                 model.getModelMetadata().getDimension(),
                 trainingDataAllocation.getMemoryAddress(),
-                model.getModelMetadata().getKnnEngine().getName()
+                model.getModelMetadata().getKnnEngine()
             );
 
             // Once training finishes, update model

@@ -52,10 +52,10 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             Arrays.fill(vectors[i], 1f);
         }
         Map<String, Object> parameters = ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
-        JNIService.createIndex(ids, vectors, path, parameters, knnEngine.getName());
+        JNIService.createIndex(ids, vectors, path, parameters, knnEngine);
 
         // Load index into memory
-        long memoryAddress = JNIService.loadIndex(path, parameters, knnEngine.getName());
+        long memoryAddress = JNIService.loadIndex(path, parameters, knnEngine);
 
         @SuppressWarnings("unchecked")
         WatcherHandle<FileWatcher> watcherHandle = (WatcherHandle<FileWatcher>) mock(WatcherHandle.class);
