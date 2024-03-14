@@ -143,7 +143,7 @@ public interface NativeMemoryAllocation {
 
             // memoryAddress is sometimes initialized to 0. If this is ever the case, freeing will surely fail.
             if (memoryAddress != 0) {
-                JNIService.free(memoryAddress, knnEngine.getName());
+                JNIService.free(memoryAddress, knnEngine);
             }
         }
 

@@ -205,7 +205,7 @@ public class TrainingJobTests extends KNNTestCase {
             indexPath.toString(),
             model.getModelBlob(),
             ImmutableMap.of(INDEX_THREAD_QTY, 1),
-            knnEngine.getName()
+            knnEngine
         );
         assertNotEquals(0, new File(indexPath.toString()).length());
     }
