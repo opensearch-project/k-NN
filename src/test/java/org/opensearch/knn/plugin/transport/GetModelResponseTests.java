@@ -43,7 +43,7 @@ public class GetModelResponseTests extends KNNTestCase {
             "test model",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
     }
 

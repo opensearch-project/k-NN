@@ -42,7 +42,7 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, isRemoveRequest, modelMetadata);
 
@@ -67,7 +67,7 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         UpdateModelMetadataRequest updateModelMetadataRequest1 = new UpdateModelMetadataRequest("test", true, null);
@@ -107,7 +107,7 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest("test", true, modelMetadata);
 

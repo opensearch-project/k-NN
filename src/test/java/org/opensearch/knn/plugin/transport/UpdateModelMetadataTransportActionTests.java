@@ -68,7 +68,7 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         // Get update transport action

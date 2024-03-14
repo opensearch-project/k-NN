@@ -56,7 +56,7 @@ public class TrainingJobTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
         when(knnMethodContext.getKnnEngine()).thenReturn(KNNEngine.DEFAULT);
         when(knnMethodContext.getSpaceType()).thenReturn(SpaceType.DEFAULT);
-        when(knnMethodContext.getMethodComponentContext()).thenReturn(MethodComponentContext.DEFAULT);
+        when(knnMethodContext.getMethodComponentContext()).thenReturn(MethodComponentContext.EMPTY);
 
         TrainingJob trainingJob = new TrainingJob(
             modelId,
@@ -79,7 +79,7 @@ public class TrainingJobTests extends KNNTestCase {
         String description = "test description";
         String error = "";
         String nodeAssignment = "test-node";
-        MethodComponentContext methodComponentContext = MethodComponentContext.DEFAULT;
+        MethodComponentContext methodComponentContext = MethodComponentContext.EMPTY;
 
         KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
         when(knnMethodContext.getKnnEngine()).thenReturn(knnEngine);
@@ -108,7 +108,7 @@ public class TrainingJobTests extends KNNTestCase {
                 description,
                 error,
                 nodeAssignment,
-                MethodComponentContext.DEFAULT
+                MethodComponentContext.EMPTY
             ),
             null,
             modelID

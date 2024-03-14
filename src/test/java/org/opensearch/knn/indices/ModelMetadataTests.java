@@ -45,7 +45,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         BytesStreamOutput streamOutput = new BytesStreamOutput();
@@ -67,7 +67,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         assertEquals(knnEngine, modelMetadata.getKnnEngine());
@@ -84,7 +84,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         assertEquals(spaceType, modelMetadata.getSpaceType());
@@ -101,7 +101,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         assertEquals(dimension, modelMetadata.getDimension());
@@ -118,7 +118,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         assertEquals(modelState, modelMetadata.getState());
@@ -135,7 +135,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         assertEquals(timeValue, modelMetadata.getTimestamp());
@@ -152,7 +152,7 @@ public class ModelMetadataTests extends KNNTestCase {
             description,
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         assertEquals(description, modelMetadata.getDescription());
@@ -169,7 +169,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             error,
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         assertEquals(error, modelMetadata.getError());
@@ -186,7 +186,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         assertEquals(modelState, modelMetadata.getState());
@@ -207,7 +207,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             error,
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         assertEquals(error, modelMetadata.getError());
@@ -226,7 +226,7 @@ public class ModelMetadataTests extends KNNTestCase {
         String description = "test-description";
         String error = "test-error";
         String nodeAssignment = "";
-        MethodComponentContext methodComponentContext = MethodComponentContext.DEFAULT;
+        MethodComponentContext methodComponentContext = MethodComponentContext.EMPTY;
 
         String expected = knnEngine.getName()
             + ","
@@ -255,7 +255,7 @@ public class ModelMetadataTests extends KNNTestCase {
             description,
             error,
             nodeAssignment,
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         assertEquals(expected, modelMetadata.toString());
@@ -275,7 +275,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         ModelMetadata modelMetadata2 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -286,7 +286,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         ModelMetadata modelMetadata3 = new ModelMetadata(
@@ -298,7 +298,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         ModelMetadata modelMetadata4 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -309,7 +309,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         ModelMetadata modelMetadata5 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -320,7 +320,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         ModelMetadata modelMetadata6 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -331,7 +331,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         ModelMetadata modelMetadata7 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -342,7 +342,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         ModelMetadata modelMetadata8 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -353,7 +353,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "diff descript",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         ModelMetadata modelMetadata9 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -364,7 +364,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "diff error",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         ModelMetadata modelMetadata10 = new ModelMetadata(
@@ -406,7 +406,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         ModelMetadata modelMetadata2 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -417,7 +417,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         ModelMetadata modelMetadata3 = new ModelMetadata(
@@ -429,7 +429,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         ModelMetadata modelMetadata4 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -440,7 +440,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         ModelMetadata modelMetadata5 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -451,7 +451,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         ModelMetadata modelMetadata6 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -462,7 +462,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         ModelMetadata modelMetadata7 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -473,7 +473,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         ModelMetadata modelMetadata8 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -484,7 +484,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "diff descript",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         ModelMetadata modelMetadata9 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -495,7 +495,7 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "diff error",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         ModelMetadata modelMetadata10 = new ModelMetadata(
@@ -532,7 +532,7 @@ public class ModelMetadataTests extends KNNTestCase {
         String description = "test-description";
         String error = "test-error";
         String nodeAssignment = "test-node";
-        MethodComponentContext methodComponentContext = MethodComponentContext.DEFAULT;
+        MethodComponentContext methodComponentContext = MethodComponentContext.EMPTY;
 
         String stringRep1 = knnEngine.getName()
             + ","
@@ -575,7 +575,7 @@ public class ModelMetadataTests extends KNNTestCase {
             description,
             error,
             nodeAssignment,
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         ModelMetadata expected2 = new ModelMetadata(
@@ -587,7 +587,7 @@ public class ModelMetadataTests extends KNNTestCase {
             description,
             error,
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         ModelMetadata fromString1 = ModelMetadata.fromString(stringRep1);
@@ -622,7 +622,7 @@ public class ModelMetadataTests extends KNNTestCase {
             }
         };
         MethodComponentContext methodComponentContext = new MethodComponentContext("hnsw", parameters);
-        MethodComponentContext emptyMethodComponentContext = MethodComponentContext.DEFAULT;
+        MethodComponentContext emptyMethodComponentContext = MethodComponentContext.EMPTY;
 
         ModelMetadata expected = new ModelMetadata(
             knnEngine,

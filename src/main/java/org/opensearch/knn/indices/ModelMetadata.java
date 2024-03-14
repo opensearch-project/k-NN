@@ -78,7 +78,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), IndexUtil.MODEL_METHOD_COMPONENT_CONTEXT_KEY)) {
             this.methodComponentContext = new MethodComponentContext(in);
         } else {
-            this.methodComponentContext = MethodComponentContext.DEFAULT;
+            this.methodComponentContext = MethodComponentContext.EMPTY;
         }
     }
 
@@ -306,7 +306,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
                 description,
                 error,
                 "",
-                MethodComponentContext.DEFAULT
+                MethodComponentContext.EMPTY
             );
         } else if (modelMetadataArray.length == 8) {
             log.debug("Model metadata contains training node assignment.  Assuming empty method component context.");
@@ -327,7 +327,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
                 description,
                 error,
                 trainingNodeAssignment,
-                MethodComponentContext.DEFAULT
+                MethodComponentContext.EMPTY
             );
         } else if (modelMetadataArray.length == 9) {
             log.debug("Model metadata contains training node assignment and method context");
@@ -339,7 +339,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             String description = modelMetadataArray[5];
             String error = modelMetadataArray[6];
             String trainingNodeAssignment = modelMetadataArray[7];
-            MethodComponentContext methodComponentContext = MethodComponentContext.fromString(modelMetadataArray[8]);
+            MethodComponentContext methodComponentContext = MethodComponentContext.fromClusterStateString(modelMetadataArray[8]);
             return new ModelMetadata(
                 knnEngine,
                 spaceType,
@@ -402,7 +402,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
                 throw new IllegalArgumentException("Error parsing method component context");
             }
         } else {
-            methodComponentContext = MethodComponentContext.DEFAULT;
+            methodComponentContext = MethodComponentContext.EMPTY;
         }
 
         // {"name":"ivf","parameters":{"encoder":{"name":"pq","parameters":{"code_size":8,"m":2}}}}

@@ -213,7 +213,7 @@ public class KNNCodecTestCase extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         Model mockModel = new Model(modelMetadata1, modelBlob, modelId);

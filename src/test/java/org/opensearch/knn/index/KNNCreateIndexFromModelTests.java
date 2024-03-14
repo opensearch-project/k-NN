@@ -63,7 +63,7 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
             "",
             "",
             "test-node",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
 
         Model model = new Model(modelMetadata, modelBlob, modelId);

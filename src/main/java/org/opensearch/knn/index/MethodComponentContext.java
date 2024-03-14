@@ -43,7 +43,9 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 @RequiredArgsConstructor
 public class MethodComponentContext implements ToXContentFragment, Writeable {
 
-    public static final MethodComponentContext DEFAULT = new MethodComponentContext("", Collections.emptyMap());
+    // EMPTY method component context can only occur if a model originated on a cluster before 2.13.0 and the cluster is then upgraded to
+    // 2.13.0
+    public static final MethodComponentContext EMPTY = new MethodComponentContext("", Collections.emptyMap());
 
     private static final String DELIMITER = ";";
     private static final String DELIMITER_PLACEHOLDER = "$%$";
@@ -252,7 +254,7 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
      * @param in a string representation of MethodComponentContext
      * @return a MethodComponentContext object
      */
-    public static MethodComponentContext fromString(String in) {
+    public static MethodComponentContext fromClusterStateString(String in) {
         String stringToParse = unwrapString(in, '{', '}');
 
         // Parse name from string
@@ -314,7 +316,7 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
             int endOfNestedMap = findClosingPosition(candidateParameterValueAndRestToParse, '{', '}');
             String nestedMethodContext = candidateParameterValueAndRestToParse.substring(0, endOfNestedMap + 1);
             System.out.println("nested method context: " + nestedMethodContext);
-            Object nestedParse = fromString(nestedMethodContext);
+            Object nestedParse = fromClusterStateString(nestedMethodContext);
             String restToParse = candidateParameterValueAndRestToParse.substring(endOfNestedMap + 1);
             return new ValueAndRestToParse(nestedParse, restToParse);
         }
@@ -368,26 +370,26 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
 
     private static void checkStringNotEmpty(String string) {
         if (string.isEmpty()) {
-            //TODO: Come up with better exception
+            // TODO: Come up with better exception
             throw new RuntimeException("think of better exception");
         }
     }
 
     private static void checkStringMatches(String string, String expected) {
         if (!Objects.equals(string, expected)) {
-            //TODO: Come up with better exception
+            // TODO: Come up with better exception
             throw new RuntimeException("think of better exception");
         }
     }
 
     private static void checkExpectedArrayLength(String[] array, int expectedLength) {
         if (null == array) {
-            //TODO: Come up with better exception
+            // TODO: Come up with better exception
             throw new RuntimeException("think of better exception");
         }
 
         if (array.length != expectedLength) {
-            //TODO: Come up with better exception
+            // TODO: Come up with better exception
             throw new RuntimeException("not expected length");
         }
     }

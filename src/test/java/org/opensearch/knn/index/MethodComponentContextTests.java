@@ -319,7 +319,7 @@ public class MethodComponentContextTests extends KNNTestCase {
             }
         };
 
-        MethodComponentContext methodComponentContext1 = MethodComponentContext.DEFAULT;
+        MethodComponentContext methodComponentContext1 = MethodComponentContext.EMPTY;
         MethodComponentContext methodComponentContext2 = new MethodComponentContext("ivf", null);
         MethodComponentContext methodComponentContext3 = new MethodComponentContext("ivf", parameters3);
         MethodComponentContext methodComponentContext4 = new MethodComponentContext("ivf", parameters4);
@@ -336,12 +336,12 @@ public class MethodComponentContextTests extends KNNTestCase {
         assertEquals("{name=;parameters=[]}", contextString1);
         assertEquals("{name=ivf;parameters=[]}", contextString2);
 
-        MethodComponentContext methodComponentContextFromString1 = MethodComponentContext.fromString(contextString1);
-        MethodComponentContext methodComponentContextFromString2 = MethodComponentContext.fromString(contextString2);
-        MethodComponentContext methodComponentContextFromString3 = MethodComponentContext.fromString(contextString3);
-        MethodComponentContext methodComponentContextFromString4 = MethodComponentContext.fromString(contextString4);
-        MethodComponentContext methodComponentContextFromString5 = MethodComponentContext.fromString(contextString5);
-        MethodComponentContext methodComponentContextFromString6 = MethodComponentContext.fromString(contextString6);
+        MethodComponentContext methodComponentContextFromString1 = MethodComponentContext.fromClusterStateString(contextString1);
+        MethodComponentContext methodComponentContextFromString2 = MethodComponentContext.fromClusterStateString(contextString2);
+        MethodComponentContext methodComponentContextFromString3 = MethodComponentContext.fromClusterStateString(contextString3);
+        MethodComponentContext methodComponentContextFromString4 = MethodComponentContext.fromClusterStateString(contextString4);
+        MethodComponentContext methodComponentContextFromString5 = MethodComponentContext.fromClusterStateString(contextString5);
+        MethodComponentContext methodComponentContextFromString6 = MethodComponentContext.fromClusterStateString(contextString6);
 
         assertEquals(methodComponentContext1, methodComponentContextFromString1);
         assertEquals(new MethodComponentContext("ivf", Collections.emptyMap()), methodComponentContextFromString2);

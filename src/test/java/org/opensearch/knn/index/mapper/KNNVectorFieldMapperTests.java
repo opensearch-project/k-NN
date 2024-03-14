@@ -165,7 +165,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         builder.modelId.setValue(modelId);
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
@@ -693,7 +693,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.DEFAULT
+            MethodComponentContext.EMPTY
         );
         when(mockModelDao.getMetadata(modelId)).thenReturn(mockModelMetadata);
 

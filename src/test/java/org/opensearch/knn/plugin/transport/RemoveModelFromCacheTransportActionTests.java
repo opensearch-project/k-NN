@@ -78,7 +78,7 @@ public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestC
                 "description",
                 "",
                 "",
-                MethodComponentContext.DEFAULT
+                MethodComponentContext.EMPTY
             ),
             new byte[128],
             modelId

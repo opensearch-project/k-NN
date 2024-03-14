@@ -352,7 +352,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
                 "Empty description",
                 "",
                 "",
-                MethodComponentContext.DEFAULT
+                MethodComponentContext.EMPTY
             ),
             modelBytes,
             modelId
