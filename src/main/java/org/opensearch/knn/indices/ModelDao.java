@@ -466,6 +466,9 @@ public interface ModelDao {
         }
 
         private String getMapping() throws IOException {
+            if (ModelDao.class.getClassLoader() == null) {
+                throw new IllegalStateException("ClassLoader of ModelDao Class is null");
+            }
             URL url = ModelDao.class.getClassLoader().getResource(MODEL_INDEX_MAPPING_PATH);
             if (url == null) {
                 throw new IllegalStateException("Unable to retrieve mapping for \"" + MODEL_INDEX_NAME + "\"");

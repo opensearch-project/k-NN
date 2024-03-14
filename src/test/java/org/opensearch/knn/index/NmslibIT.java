@@ -44,8 +44,11 @@ public class NmslibIT extends KNNRestTestCase {
 
     @BeforeClass
     public static void setUpClass() throws IOException {
-        URL testIndexVectors = FaissIT.class.getClassLoader().getResource("data/test_vectors_1000x128.json");
-        URL testQueries = FaissIT.class.getClassLoader().getResource("data/test_queries_100x128.csv");
+        if (NmslibIT.class.getClassLoader() == null) {
+            throw new IllegalStateException("ClassLoader of NmslibIT Class is null");
+        }
+        URL testIndexVectors = NmslibIT.class.getClassLoader().getResource("data/test_vectors_1000x128.json");
+        URL testQueries = NmslibIT.class.getClassLoader().getResource("data/test_queries_100x128.csv");
         assert testIndexVectors != null;
         assert testQueries != null;
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());
