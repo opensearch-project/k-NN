@@ -10,20 +10,21 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.index.mapper.NumberFieldMapper;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class KNNScoringSpaceFactoryTests extends KNNTestCase {
     public void testValidSpaces() {
 
         KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(knnVectorFieldType.getDimension()).thenReturn(3);
         NumberFieldMapper.NumberFieldType numberFieldType = new NumberFieldMapper.NumberFieldType(
             "field",
             NumberFieldMapper.NumberType.LONG
         );
-        List<Float> floatQueryObject = new ArrayList<>();
+        List<Float> floatQueryObject = List.of(1.0f, 1.0f, 1.0f);
         Long longQueryObject = 0L;
 
         assertTrue(

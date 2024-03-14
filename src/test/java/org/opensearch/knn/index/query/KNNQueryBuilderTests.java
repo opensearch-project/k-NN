@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import com.google.common.collect.ImmutableMap;
+import java.util.Locale;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
@@ -244,6 +245,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.L2);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertEquals(knnQueryBuilder.getK(), query.getK());
@@ -260,6 +262,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.L2);
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of());
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
         when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
@@ -277,6 +280,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.L2);
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of());
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
         when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
@@ -294,6 +298,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.L2);
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of());
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, methodComponentContext);
         when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
@@ -320,6 +325,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
         when(modelMetadata.getDimension()).thenReturn(4);
         when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
+        when(modelMetadata.getSpaceType()).thenReturn(SpaceType.COSINESIMIL);
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
         KNNQueryBuilder.initialize(modelDao);
@@ -354,6 +360,48 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockNumberField);
         expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
+    }
+
+    public void testDoToQuery_InvalidZeroFloatVector() {
+        float[] queryVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.COSINESIMIL);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> knnQueryBuilder.doToQuery(mockQueryShardContext)
+        );
+        assertEquals(
+            String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", SpaceType.COSINESIMIL.getValue()),
+            exception.getMessage()
+        );
+    }
+
+    public void testDoToQuery_InvalidZeroByteVector() {
+        float[] queryVector = { 0.0f, 0.0f, 0.0f, 0.0f };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BYTE);
+        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.COSINESIMIL);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> knnQueryBuilder.doToQuery(mockQueryShardContext)
+        );
+        assertEquals(
+            String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", SpaceType.COSINESIMIL.getValue()),
+            exception.getMessage()
+        );
     }
 
     public void testSerialization() throws Exception {

@@ -5,6 +5,9 @@
 
 package org.opensearch.knn.index.mapper;
 
+import java.io.IOException;
+import java.util.Locale;
+import java.util.Optional;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
@@ -15,13 +18,10 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
-
-import java.io.IOException;
-import java.util.Locale;
-import java.util.Optional;
 
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
@@ -75,7 +75,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     }
 
     @Override
-    protected void parseCreateField(ParseContext context, int dimension) throws IOException {
+    protected void parseCreateField(ParseContext context, int dimension, SpaceType spaceType) throws IOException {
 
         validateIfKNNPluginEnabled();
         validateIfCircuitBreakerIsNotTriggered();
@@ -86,6 +86,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
                 return;
             }
             final byte[] array = bytesArrayOptional.get();
+            spaceType.validateVector(array);
             KnnByteVectorField point = new KnnByteVectorField(name(), array, fieldType);
 
             context.doc().add(point);
@@ -101,7 +102,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
                 return;
             }
             final float[] array = floatsArrayOptional.get();
-
+            spaceType.validateVector(array);
             KnnVectorField point = new KnnVectorField(name(), array, fieldType);
 
             context.doc().add(point);

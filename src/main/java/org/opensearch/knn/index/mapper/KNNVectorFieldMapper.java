@@ -5,22 +5,29 @@
 
 package org.opensearch.knn.index.mapper;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Supplier;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
-import org.opensearch.Version;
-import org.opensearch.common.ValidationException;
-import org.opensearch.knn.common.KNNConstants;
-
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.search.DocValuesFieldExistsQuery;
 import org.apache.lucene.search.Query;
+import org.opensearch.Version;
 import org.opensearch.common.Explicit;
+import org.opensearch.common.Nullable;
+import org.opensearch.common.ValidationException;
+import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.index.fielddata.IndexFieldData;
 import org.opensearch.index.mapper.FieldMapper;
 import org.opensearch.index.mapper.MappedFieldType;
@@ -32,9 +39,11 @@ import org.opensearch.index.mapper.TextSearchInfo;
 import org.opensearch.index.mapper.ValueFetcher;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryShardException;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -42,25 +51,16 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.search.aggregations.support.CoreValuesSourceType;
 import org.opensearch.search.lookup.SearchLookup;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.function.Supplier;
-
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
+import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVectorValue;
+import static org.opensearch.knn.common.KNNValidationUtil.validateVectorDimension;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithEngine;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithKnnIndexSetting;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFloatVectorValue;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDimension;
 
 /**
  * Field Mapper for KNN vector type.
@@ -313,7 +313,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             return new LegacyFieldMapper(
                 name,
-                new KNNVectorFieldType(buildFullName(context), metaValue, dimension.getValue(), vectorDataType.getValue()),
+                new KNNVectorFieldType(
+                    buildFullName(context),
+                    metaValue,
+                    dimension.getValue(),
+                    vectorDataType.getValue(),
+                    SpaceType.getSpace(spaceType)
+                ),
                 multiFieldsBuilder,
                 copyToBuilder,
                 ignoreMalformed,
@@ -384,17 +390,24 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         String modelId;
         KNNMethodContext knnMethodContext;
         VectorDataType vectorDataType;
+        SpaceType spaceType;
 
-        public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, VectorDataType vectorDataType) {
-            this(name, meta, dimension, null, null, vectorDataType);
+        public KNNVectorFieldType(
+            String name,
+            Map<String, String> meta,
+            int dimension,
+            VectorDataType vectorDataType,
+            SpaceType spaceType
+        ) {
+            this(name, meta, dimension, null, null, vectorDataType, spaceType);
         }
 
         public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, KNNMethodContext knnMethodContext) {
-            this(name, meta, dimension, knnMethodContext, null, DEFAULT_VECTOR_DATA_TYPE_FIELD);
+            this(name, meta, dimension, knnMethodContext, null, DEFAULT_VECTOR_DATA_TYPE_FIELD, knnMethodContext.getSpaceType());
         }
 
         public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, KNNMethodContext knnMethodContext, String modelId) {
-            this(name, meta, dimension, knnMethodContext, modelId, DEFAULT_VECTOR_DATA_TYPE_FIELD);
+            this(name, meta, dimension, knnMethodContext, modelId, DEFAULT_VECTOR_DATA_TYPE_FIELD, null);
         }
 
         public KNNVectorFieldType(
@@ -404,22 +417,24 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             KNNMethodContext knnMethodContext,
             VectorDataType vectorDataType
         ) {
-            this(name, meta, dimension, knnMethodContext, null, vectorDataType);
+            this(name, meta, dimension, knnMethodContext, null, vectorDataType, knnMethodContext.getSpaceType());
         }
 
         public KNNVectorFieldType(
             String name,
             Map<String, String> meta,
             int dimension,
-            KNNMethodContext knnMethodContext,
-            String modelId,
-            VectorDataType vectorDataType
+            @Nullable KNNMethodContext knnMethodContext,
+            @Nullable String modelId,
+            VectorDataType vectorDataType,
+            @Nullable SpaceType spaceType
         ) {
             super(name, false, false, true, TextSearchInfo.NONE, meta);
             this.dimension = dimension;
             this.modelId = modelId;
             this.knnMethodContext = knnMethodContext;
             this.vectorDataType = vectorDataType;
+            this.spaceType = spaceType;
         }
 
         @Override
@@ -496,10 +511,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     @Override
     protected void parseCreateField(ParseContext context) throws IOException {
-        parseCreateField(context, fieldType().getDimension());
+        parseCreateField(context, fieldType().getDimension(), fieldType().getSpaceType());
     }
 
-    protected void parseCreateField(ParseContext context, int dimension) throws IOException {
+    protected void parseCreateField(ParseContext context, int dimension, SpaceType spaceType) throws IOException {
 
         validateIfKNNPluginEnabled();
         validateIfCircuitBreakerIsNotTriggered();
@@ -507,10 +522,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         if (VectorDataType.BYTE == vectorDataType) {
             Optional<byte[]> bytesArrayOptional = getBytesFromContext(context, dimension);
 
-            if (!bytesArrayOptional.isPresent()) {
+            if (bytesArrayOptional.isEmpty()) {
                 return;
             }
             final byte[] array = bytesArrayOptional.get();
+            spaceType.validateVector(array);
             VectorField point = new VectorField(name(), array, fieldType);
 
             context.doc().add(point);
@@ -518,12 +534,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         } else if (VectorDataType.FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
 
-            if (!floatsArrayOptional.isPresent()) {
+            if (floatsArrayOptional.isEmpty()) {
                 return;
             }
             final float[] array = floatsArrayOptional.get();
+            spaceType.validateVector(array);
             VectorField point = new VectorField(name(), array, fieldType);
-
             context.doc().add(point);
             addStoredFieldForVectorField(context, fieldType, name(), point.toString());
         } else {

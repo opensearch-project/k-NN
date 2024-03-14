@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin.script;
 
+import java.util.List;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.plugin.stats.KNNCounter;
@@ -13,11 +14,10 @@ import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.NumberFieldMapper;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.Base64;
 
 import static org.opensearch.index.mapper.NumberFieldMapper.NumberType.LONG;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
+import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 
 public class KNNScoringSpaceUtil {
 
@@ -108,7 +108,7 @@ public class KNNScoringSpaceUtil {
     public static float[] convertVectorToPrimitive(Object vector, VectorDataType vectorDataType) {
         float[] primitiveVector = null;
         if (vector != null) {
-            final ArrayList<Number> tmp = (ArrayList<Number>) vector;
+            final List<Number> tmp = (List<Number>) vector;
             primitiveVector = new float[tmp.size()];
             for (int i = 0; i < primitiveVector.length; i++) {
                 float value = tmp.get(i).floatValue();
