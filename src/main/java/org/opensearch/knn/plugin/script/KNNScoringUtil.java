@@ -5,16 +5,16 @@
 
 package org.opensearch.knn.plugin.script;
 
-import org.opensearch.knn.index.KNNVectorScriptDocValues;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.opensearch.knn.index.VectorDataType;
-
 import java.math.BigInteger;
 import java.util.List;
 import java.util.Objects;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.opensearch.knn.index.KNNVectorScriptDocValues;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
+import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 
 public class KNNScoringUtil {
     private static Logger logger = LogManager.getLogger(KNNScoringUtil.class);
@@ -134,11 +134,9 @@ public class KNNScoringUtil {
      * @return cosine score
      */
     public static float cosineSimilarity(List<Number> queryVector, KNNVectorScriptDocValues docValues, Number queryVectorMagnitude) {
-        return cosinesimilOptimized(
-            toFloat(queryVector, docValues.getVectorDataType()),
-            docValues.getValue(),
-            queryVectorMagnitude.floatValue()
-        );
+        float[] inputVector = toFloat(queryVector, docValues.getVectorDataType());
+        SpaceType.COSINESIMIL.validateVector(inputVector);
+        return cosinesimilOptimized(inputVector, docValues.getValue(), queryVectorMagnitude.floatValue());
     }
 
     /**
@@ -183,7 +181,9 @@ public class KNNScoringUtil {
      * @return cosine score
      */
     public static float cosineSimilarity(List<Number> queryVector, KNNVectorScriptDocValues docValues) {
-        return cosinesimil(toFloat(queryVector, docValues.getVectorDataType()), docValues.getValue());
+        float[] inputVector = toFloat(queryVector, docValues.getVectorDataType());
+        SpaceType.COSINESIMIL.validateVector(inputVector);
+        return cosinesimil(inputVector, docValues.getValue());
     }
 
     /**

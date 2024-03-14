@@ -71,21 +71,21 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 public class KNNVectorFieldMapperTests extends KNNTestCase {
 
-    private final static String TEST_FIELD_NAME = "test-field-name";
+    private static final String TEST_FIELD_NAME = "test-field-name";
 
-    private final static int TEST_DIMENSION = 17;
+    private static final int TEST_DIMENSION = 17;
 
-    private final static float TEST_VECTOR_VALUE = 1.5f;
+    private static final float TEST_VECTOR_VALUE = 1.5f;
 
-    private final static float[] TEST_VECTOR = createInitializedFloatArray(TEST_DIMENSION, TEST_VECTOR_VALUE);
+    private static final float[] TEST_VECTOR = createInitializedFloatArray(TEST_DIMENSION, TEST_VECTOR_VALUE);
 
-    private final static byte TEST_BYTE_VECTOR_VALUE = 10;
-    private final static byte[] TEST_BYTE_VECTOR = createInitializedByteArray(TEST_DIMENSION, TEST_BYTE_VECTOR_VALUE);
+    private static final byte TEST_BYTE_VECTOR_VALUE = 10;
+    private static final byte[] TEST_BYTE_VECTOR = createInitializedByteArray(TEST_DIMENSION, TEST_BYTE_VECTOR_VALUE);
 
-    private final static BytesRef TEST_VECTOR_BYTES_REF = new BytesRef(
+    private static final BytesRef TEST_VECTOR_BYTES_REF = new BytesRef(
         KNNVectorSerializerFactory.getDefaultSerializer().floatToByteArray(TEST_VECTOR)
     );
-    private final static BytesRef TEST_BYTE_VECTOR_BYTES_REF = new BytesRef(TEST_BYTE_VECTOR);
+    private static final BytesRef TEST_BYTE_VECTOR_BYTES_REF = new BytesRef(TEST_BYTE_VECTOR);
     private static final String DIMENSION_FIELD_NAME = "dimension";
     private static final String KNN_VECTOR_TYPE = "knn_vector";
     private static final String TYPE_FIELD_NAME = "type";
@@ -757,8 +757,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         doReturn(Optional.of(TEST_VECTOR)).when(luceneFieldMapper).getFloatsFromContext(parseContext, TEST_DIMENSION);
         doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
         doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
-
-        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION);
+        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION, luceneFieldMapper.fieldType().spaceType);
 
         // Document should have 2 fields: one for VectorField (binary doc values) and one for KnnVectorField
         List<IndexableField> fields = document.getFields();
@@ -796,7 +795,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
         doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
 
-        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION);
+        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION, luceneFieldMapper.fieldType().spaceType);
 
         // Document should have 1 field: one for KnnVectorField
         fields = document.getFields();
@@ -825,7 +824,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
         doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
 
-        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION);
+        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION, luceneFieldMapper.fieldType().spaceType);
 
         // Document should have 2 fields: one for VectorField (binary doc values) and one for KnnByteVectorField
         List<IndexableField> fields = document.getFields();
@@ -862,7 +861,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
         doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
 
-        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION);
+        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION, luceneFieldMapper.fieldType().spaceType);
 
         // Document should have 1 field: one for KnnByteVectorField
         fields = document.getFields();
