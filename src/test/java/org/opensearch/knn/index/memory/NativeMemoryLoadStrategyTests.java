@@ -53,7 +53,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
             Arrays.fill(vectors[i], 1f);
         }
         Map<String, Object> parameters = ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
-        JNIService.createIndex(ids, vectors, path, parameters, knnEngine.getName());
+        JNIService.createIndex(ids, vectors, path, parameters, knnEngine);
 
         // Setup mock resource manager
         ResourceWatcherService resourceWatcherService = mock(ResourceWatcherService.class);
@@ -74,7 +74,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         // Confirm that the file was loaded by querying
         float[] query = new float[dimension];
         Arrays.fill(query, numVectors + 1);
-        KNNQueryResult[] results = JNIService.queryIndex(indexAllocation.getMemoryAddress(), query, 2, knnEngine.getName(), null, 0, null);
+        KNNQueryResult[] results = JNIService.queryIndex(indexAllocation.getMemoryAddress(), query, 2, knnEngine, null, 0, null);
         assertTrue(results.length > 0);
     }
 

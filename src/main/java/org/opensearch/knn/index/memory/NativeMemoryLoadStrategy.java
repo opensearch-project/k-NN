@@ -92,7 +92,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             fileWatcher.init();
 
             KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(indexPath.toString());
-            long memoryAddress = JNIService.loadIndex(indexPath.toString(), indexEntryContext.getParameters(), knnEngine.getName());
+            long memoryAddress = JNIService.loadIndex(indexPath.toString(), indexEntryContext.getParameters(), knnEngine);
             final WatcherHandle<FileWatcher> watcherHandle = resourceWatcherService.add(fileWatcher);
 
             return new NativeMemoryAllocation.IndexAllocation(
