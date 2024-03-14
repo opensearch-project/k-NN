@@ -85,6 +85,30 @@ class FaissService {
     public static native long loadIndex(String indexPath);
 
     /**
+     * Determine if index contains shared state.
+     *
+     * @param indexAddr address of index to be checked.
+     * @return true if index requires shared index state; false otherwise
+     */
+    public static native boolean isSharedIndexStateRequired(long indexAddr);
+
+    /**
+     * Initialize the shared state for an index
+     *
+     * @param indexAddr address of the index to initialize from
+     * @return Address of shared index state address
+     */
+    public static native long initSharedIndexState(long indexAddr);
+
+    /**
+     * Set the index state for an index
+     *
+     * @param indexAddr address of index to set state for
+     * @param shareIndexStateAddr address of shared state to be set
+     */
+    public static native void setSharedIndexState(long indexAddr, long shareIndexStateAddr);
+
+    /**
      * Query an index without filter
      *
      * If the "knn" field is a nested field, each vector value within that nested field will be assigned its
@@ -124,6 +148,13 @@ class FaissService {
      * Free native memory pointer
      */
     public static native void free(long indexPointer);
+
+    /**
+     * Deallocate memory of the shared index state
+     *
+     * @param shareIndexStateAddr address of shared state
+     */
+    public static native void freeSharedIndexState(long shareIndexStateAddr);
 
     /**
      * Initialize library

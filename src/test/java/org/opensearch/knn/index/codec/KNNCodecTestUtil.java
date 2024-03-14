@@ -334,16 +334,12 @@ public class KNNCodecTestUtil {
     ) {
         String filePath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(), fileName)
             .toString();
-        long indexPtr = JNIService.loadIndex(
-            filePath,
-            Maps.newHashMap(ImmutableMap.of(SPACE_TYPE, spaceType.getValue())),
-            knnEngine.getName()
-        );
+        long indexPtr = JNIService.loadIndex(filePath, Maps.newHashMap(ImmutableMap.of(SPACE_TYPE, spaceType.getValue())), knnEngine);
         int k = 2;
         float[] queryVector = new float[dimension];
-        KNNQueryResult[] results = JNIService.queryIndex(indexPtr, queryVector, k, knnEngine.getName(), null, 0, null);
+        KNNQueryResult[] results = JNIService.queryIndex(indexPtr, queryVector, k, knnEngine, null, 0, null);
         assertTrue(results.length > 0);
-        JNIService.free(indexPtr, knnEngine.getName());
+        JNIService.free(indexPtr, knnEngine);
     }
 
     public static float[][] getRandomVectors(int count, int dimension) {

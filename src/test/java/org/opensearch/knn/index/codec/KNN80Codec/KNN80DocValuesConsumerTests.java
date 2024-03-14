@@ -341,7 +341,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             SpaceType.L2.getValue()
         );
 
-        byte[] modelBytes = JNIService.trainIndex(parameters, dimension, trainingPtr, knnEngine.getName());
+        byte[] modelBytes = JNIService.trainIndex(parameters, dimension, trainingPtr, knnEngine);
         Model model = new Model(
             new ModelMetadata(
                 knnEngine,

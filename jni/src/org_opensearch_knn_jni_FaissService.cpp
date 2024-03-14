@@ -75,6 +75,38 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex(JNIEn
     return NULL;
 }
 
+JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_FaissService_isSharedIndexStateRequired
+        (JNIEnv * env, jclass cls, jlong indexPointerJ)
+{
+    try {
+        return knn_jni::faiss_wrapper::IsSharedIndexStateRequired(indexPointerJ);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+    return NULL;
+}
+
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_initSharedIndexState
+        (JNIEnv * env, jclass cls, jlong indexPointerJ)
+{
+    try {
+        return knn_jni::faiss_wrapper::InitSharedIndexState(indexPointerJ);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+    return NULL;
+}
+
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_setSharedIndexState
+        (JNIEnv * env, jclass cls, jlong indexPointerJ, jlong shareIndexStatePointerJ)
+{
+    try {
+        knn_jni::faiss_wrapper::SetSharedIndexState(indexPointerJ, shareIndexStatePointerJ);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+}
+
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryIndex(JNIEnv * env, jclass cls,
                                                                                    jlong indexPointerJ,
                                                                                    jfloatArray queryVectorJ, jint kJ, jintArray parentIdsJ)
@@ -104,6 +136,16 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_free(JNIEnv * en
 {
     try {
         return knn_jni::faiss_wrapper::Free(indexPointerJ);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+}
+
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_freeSharedIndexState
+        (JNIEnv * env, jclass cls, jlong shareIndexStatePointerJ)
+{
+    try {
+        knn_jni::faiss_wrapper::FreeSharedIndexState(shareIndexStatePointerJ);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
