@@ -18,6 +18,7 @@
 #include "jni_util.h"
 #include "test_util.h"
 #include "faiss/IndexHNSW.h"
+#include "faiss/IndexIVFPQ.h"
 
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -202,6 +203,37 @@ TEST(FaissLoadIndexTest, HNSWPQDisableSdcTable) {
     auto pqIndex = dynamic_cast<faiss::IndexPQ*>(hnswPQIndex->storage);
     ASSERT_NE(pqIndex, nullptr);
     ASSERT_EQ(0, pqIndex->pq.sdc_table.size());
+}
+
+TEST(FaissLoadIndexTest, IVFPQDisablePrecomputeTable) {
+    faiss::idx_t numIds = 256;
+    int dim = 2;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    std::vector<float> vectors = test_util::RandomVectors(dim, numIds, randomDataMin, randomDataMax);
+
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    faiss::MetricType metricType = faiss::METRIC_L2;
+    std::string indexDescription = "IVF4,PQ1x4";
+
+    std::unique_ptr<faiss::Index> faissIndex(test_util::FaissCreateIndex(dim, indexDescription, metricType));
+    test_util::FaissTrainIndex(faissIndex.get(), numIds, vectors.data());
+    auto faissIndexWithIDMap = test_util::FaissAddData(faissIndex.get(), ids, vectors);
+    test_util::FaissWriteIndex(&faissIndexWithIDMap, indexPath);
+
+    // Setup jni
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    std::unique_ptr<faiss::Index> loadedIndexPointer(
+            reinterpret_cast<faiss::Index *>(knn_jni::faiss_wrapper::LoadIndex(
+                    &mockJNIUtil, jniEnv, (jstring)&indexPath)));
+
+    // Cast down until we get to the ivfpq-l2 state
+    auto idMapIndex = dynamic_cast<faiss::IndexIDMap *>(loadedIndexPointer.get());
+    ASSERT_NE(idMapIndex, nullptr);
+    auto ivfpqIndex = dynamic_cast<faiss::IndexIVFPQ *>(idMapIndex->index);
+    ASSERT_NE(ivfpqIndex, nullptr);
+    ASSERT_EQ(0, ivfpqIndex->precomputed_table->size());
 }
 
 TEST(FaissQueryIndexTest, BasicAssertions) {
@@ -500,4 +532,95 @@ TEST(FaissCreateHnswSQfp16IndexTest, BasicAssertions) {
     
     // Clean up
     std::remove(indexPath.c_str());
+}
+
+TEST(FaissIsSharedIndexStateRequired, BasicAssertions) {
+    int d = 128;
+    int hnswM = 16;
+    int ivfNlist = 4;
+    int pqM = 1;
+    int pqCodeSize = 8;
+    std::unique_ptr<faiss::IndexHNSW> indexHNSWL2(new faiss::IndexHNSW(d, hnswM, faiss::METRIC_L2));
+    std::unique_ptr<faiss::IndexIVFPQ> indexIVFPQIP(new faiss::IndexIVFPQ(
+                new faiss::IndexFlat(d, faiss::METRIC_INNER_PRODUCT),
+                d,
+                ivfNlist,
+                pqM,
+                pqCodeSize,
+                faiss::METRIC_INNER_PRODUCT
+            ));
+    std::unique_ptr<faiss::IndexIVFPQ> indexIVFPQL2(new faiss::IndexIVFPQ(
+                new faiss::IndexFlat(d, faiss::METRIC_L2),
+                d,
+                ivfNlist,
+                pqM,
+                pqCodeSize,
+                faiss::METRIC_L2
+            ));
+    std::unique_ptr<faiss::IndexIDMap> indexIDMapIVFPQL2(new faiss::IndexIDMap(
+                new faiss::IndexIVFPQ(
+                        new faiss::IndexFlat(d, faiss::METRIC_L2),
+                        d,
+                        ivfNlist,
+                        pqM,
+                        pqCodeSize,
+                        faiss::METRIC_L2
+                )
+            ));
+    std::unique_ptr<faiss::IndexIDMap> indexIDMapIVFPQIP(new faiss::IndexIDMap(
+                new faiss::IndexIVFPQ(
+                        new faiss::IndexFlat(d, faiss::METRIC_INNER_PRODUCT),
+                        d,
+                        ivfNlist,
+                        pqM,
+                        pqCodeSize,
+                        faiss::METRIC_INNER_PRODUCT
+                )
+            ));
+    jlong nullAddress = 0;
+
+    ASSERT_FALSE(knn_jni::faiss_wrapper::IsSharedIndexStateRequired((jlong) indexHNSWL2.get()));
+    ASSERT_FALSE(knn_jni::faiss_wrapper::IsSharedIndexStateRequired((jlong) indexIVFPQIP.get()));
+    ASSERT_FALSE(knn_jni::faiss_wrapper::IsSharedIndexStateRequired((jlong) indexIDMapIVFPQIP.get()));
+    ASSERT_FALSE(knn_jni::faiss_wrapper::IsSharedIndexStateRequired((jlong) nullAddress));
+
+    ASSERT_TRUE(knn_jni::faiss_wrapper::IsSharedIndexStateRequired((jlong) indexIVFPQL2.get()));
+    ASSERT_TRUE(knn_jni::faiss_wrapper::IsSharedIndexStateRequired((jlong) indexIDMapIVFPQL2.get()));
+}
+
+TEST(FaissInitAndSetSharedIndexState, BasicAssertions) {
+    faiss::idx_t numIds = 256;
+    int dim = 2;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    std::vector<float> vectors = test_util::RandomVectors(dim, numIds, randomDataMin, randomDataMax);
+
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    faiss::MetricType metricType = faiss::METRIC_L2;
+    std::string indexDescription = "IVF4,PQ1x4";
+
+    std::unique_ptr<faiss::Index> faissIndex(test_util::FaissCreateIndex(dim, indexDescription, metricType));
+    test_util::FaissTrainIndex(faissIndex.get(), numIds, vectors.data());
+    auto faissIndexWithIDMap = test_util::FaissAddData(faissIndex.get(), ids, vectors);
+    test_util::FaissWriteIndex(&faissIndexWithIDMap, indexPath);
+
+    // Setup jni
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    std::unique_ptr<faiss::Index> loadedIndexPointer(
+            reinterpret_cast<faiss::Index *>(knn_jni::faiss_wrapper::LoadIndex(
+                    &mockJNIUtil, jniEnv, (jstring)&indexPath)));
+
+    auto idMapIndex = dynamic_cast<faiss::IndexIDMap *>(loadedIndexPointer.get());
+    ASSERT_NE(idMapIndex, nullptr);
+    auto ivfpqIndex = dynamic_cast<faiss::IndexIVFPQ *>(idMapIndex->index);
+    ASSERT_NE(ivfpqIndex, nullptr);
+    ASSERT_EQ(0, ivfpqIndex->precomputed_table->size());
+    jlong sharedModelAddress = knn_jni::faiss_wrapper::InitSharedIndexState((jlong) loadedIndexPointer.get());
+    ASSERT_EQ(0, ivfpqIndex->precomputed_table->size());
+    knn_jni::faiss_wrapper::SetSharedIndexState((jlong) loadedIndexPointer.get(), sharedModelAddress);
+    ASSERT_EQ(sharedModelAddress, (jlong) ivfpqIndex->precomputed_table);
+    ASSERT_NE(0, ivfpqIndex->precomputed_table->size());
+    ASSERT_EQ(1, ivfpqIndex->use_precomputed_table);
+    knn_jni::faiss_wrapper::FreeSharedIndexState(sharedModelAddress);
 }

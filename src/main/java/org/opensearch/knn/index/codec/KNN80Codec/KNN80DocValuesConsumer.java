@@ -186,7 +186,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY)
         );
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            JNIService.createIndexFromTemplate(pair.docs, pair.vectors, indexPath, model, parameters, knnEngine.getName());
+            JNIService.createIndexFromTemplate(pair.docs, pair.vectors, indexPath, model, parameters, knnEngine);
             return null;
         });
     }
@@ -228,7 +228,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
         // Pass the path for the nms library to save the file
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            JNIService.createIndex(pair.docs, pair.vectors, indexPath, parameters, knnEngine.getName());
+            JNIService.createIndex(pair.docs, pair.vectors, indexPath, parameters, knnEngine);
             return null;
         });
     }

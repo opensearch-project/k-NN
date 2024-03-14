@@ -50,7 +50,7 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
             ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "Flat", SPACE_TYPE, spaceType.getValue()),
             dimension,
             vectorsPointer,
-            KNNEngine.FAISS.getName()
+            KNNEngine.FAISS
         );
 
         // Setup model

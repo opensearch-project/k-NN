@@ -44,16 +44,40 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    isSharedIndexStateRequired
+ * Signature: (J)Z
+ */
+JNIEXPORT jboolean JNICALL Java_org_opensearch_knn_jni_FaissService_isSharedIndexStateRequired
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    initSharedIndexState
+ * Signature: (J)J
+ */
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_initSharedIndexState
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    setSharedIndexState
+ * Signature: (JJ)V
+ */
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_setSharedIndexState
+  (JNIEnv *, jclass, jlong, jlong);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
  * Method:    queryIndex
- * Signature: (J[FI)[Lorg/opensearch/knn/index/query/KNNQueryResult;
+ * Signature: (J[FI[I)[Lorg/opensearch/knn/index/query/KNNQueryResult;
  */
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryIndex
   (JNIEnv *, jclass, jlong, jfloatArray, jint, jintArray);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
- * Method:    queryIndex_WithFilter
- * Signature: (J[FI[J)[Lorg/opensearch/knn/index/query/KNNQueryResult;
+ * Method:    queryIndexWithFilter
+ * Signature: (J[FI[JI[I)[Lorg/opensearch/knn/index/query/KNNQueryResult;
  */
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryIndexWithFilter
   (JNIEnv *, jclass, jlong, jfloatArray, jint, jlongArray, jint, jintArray);
@@ -64,6 +88,14 @@ JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryInd
  * Signature: (J)V
  */
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_free
+  (JNIEnv *, jclass, jlong);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    freeSharedIndexState
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_freeSharedIndexState
   (JNIEnv *, jclass, jlong);
 
 /*
