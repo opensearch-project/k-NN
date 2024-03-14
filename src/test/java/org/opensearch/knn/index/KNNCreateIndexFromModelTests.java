@@ -27,7 +27,6 @@ import org.opensearch.knn.indices.ModelState;
 import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -64,7 +63,7 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
             "",
             "",
             "test-node",
-            new MethodComponentContext("", Collections.emptyMap())
+            MethodComponentContext.DEFAULT
         );
 
         Model model = new Model(modelMetadata, modelBlob, modelId);

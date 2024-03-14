@@ -27,7 +27,6 @@ import org.opensearch.threadpool.ThreadPool;
 import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -69,7 +68,7 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
             "",
             "",
             "",
-            new MethodComponentContext("", Collections.emptyMap())
+            MethodComponentContext.DEFAULT
         );
 
         // Get update transport action

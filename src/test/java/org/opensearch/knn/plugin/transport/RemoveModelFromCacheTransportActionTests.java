@@ -26,7 +26,6 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 
-import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.mock;
@@ -79,7 +78,7 @@ public class RemoveModelFromCacheTransportActionTests extends KNNSingleNodeTestC
                 "description",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             new byte[128],
             modelId

@@ -43,10 +43,14 @@ import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.core.xcontent.ToXContent;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.common.exception.DeleteModelWhenInTrainStateException;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
 import org.opensearch.knn.plugin.transport.RemoveModelFromCacheAction;
@@ -288,6 +292,13 @@ public interface ModelDao {
                     put(KNNConstants.MODEL_DESCRIPTION, modelMetadata.getDescription());
                     put(KNNConstants.MODEL_ERROR, modelMetadata.getError());
                     put(KNNConstants.MODEL_NODE_ASSIGNMENT, modelMetadata.getNodeAssignment());
+
+                    MethodComponentContext methodComponentContext = modelMetadata.getMethodComponentContext();
+                    if (!methodComponentContext.getName().isEmpty()) {
+                        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+                        builder = methodComponentContext.toXContent(builder, ToXContent.EMPTY_PARAMS).endObject();
+                        put(KNNConstants.MODEL_METHOD_COMPONENT_CONTEXT, builder.toString());
+                    }
                 }
             };
 

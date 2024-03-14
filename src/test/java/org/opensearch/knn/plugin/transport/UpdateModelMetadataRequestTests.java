@@ -22,7 +22,6 @@ import org.opensearch.knn.indices.ModelState;
 import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Collections;
 
 public class UpdateModelMetadataRequestTests extends KNNTestCase {
 
@@ -43,7 +42,7 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             "",
             "",
             "",
-            new MethodComponentContext("", Collections.emptyMap())
+            MethodComponentContext.DEFAULT
         );
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest(modelId, isRemoveRequest, modelMetadata);
 
@@ -68,7 +67,7 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             "",
             "",
             "",
-            new MethodComponentContext("", Collections.emptyMap())
+            MethodComponentContext.DEFAULT
         );
 
         UpdateModelMetadataRequest updateModelMetadataRequest1 = new UpdateModelMetadataRequest("test", true, null);
@@ -108,7 +107,7 @@ public class UpdateModelMetadataRequestTests extends KNNTestCase {
             "",
             "",
             "",
-            new MethodComponentContext("", Collections.emptyMap())
+            MethodComponentContext.DEFAULT
         );
         UpdateModelMetadataRequest updateModelMetadataRequest = new UpdateModelMetadataRequest("test", true, modelMetadata);
 

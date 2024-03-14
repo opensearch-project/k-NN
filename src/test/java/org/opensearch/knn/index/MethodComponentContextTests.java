@@ -319,19 +319,19 @@ public class MethodComponentContextTests extends KNNTestCase {
             }
         };
 
-        MethodComponentContext methodComponentContext1 = new MethodComponentContext("", Collections.emptyMap());
+        MethodComponentContext methodComponentContext1 = MethodComponentContext.DEFAULT;
         MethodComponentContext methodComponentContext2 = new MethodComponentContext("ivf", null);
         MethodComponentContext methodComponentContext3 = new MethodComponentContext("ivf", parameters3);
         MethodComponentContext methodComponentContext4 = new MethodComponentContext("ivf", parameters4);
         MethodComponentContext methodComponentContext5 = new MethodComponentContext("ivf", parameters5);
         MethodComponentContext methodComponentContext6 = new MethodComponentContext("ivf", parameters6);
 
-        String contextString1 = methodComponentContext1.toString();
-        String contextString2 = methodComponentContext2.toString();
-        String contextString3 = methodComponentContext3.toString();
-        String contextString4 = methodComponentContext4.toString();
-        String contextString5 = methodComponentContext5.toString();
-        String contextString6 = methodComponentContext6.toString();
+        String contextString1 = methodComponentContext1.toClusterStateString();
+        String contextString2 = methodComponentContext2.toClusterStateString();
+        String contextString3 = methodComponentContext3.toClusterStateString();
+        String contextString4 = methodComponentContext4.toClusterStateString();
+        String contextString5 = methodComponentContext5.toClusterStateString();
+        String contextString6 = methodComponentContext6.toClusterStateString();
 
         assertEquals("{name=;parameters=[]}", contextString1);
         assertEquals("{name=ivf;parameters=[]}", contextString2);

@@ -43,7 +43,6 @@ import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -353,7 +352,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
                 "Empty description",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             modelBytes,
             modelId

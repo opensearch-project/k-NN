@@ -21,6 +21,7 @@ import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.mapper.MapperParsingException;
 
 import java.io.IOException;
@@ -47,6 +48,7 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
     public static final MethodComponentContext DEFAULT = new MethodComponentContext("", Collections.emptyMap());
 
     private static final String DELIMITER = ";";
+    private static final String DELIMITER_PLACEHOLDER = "$%$";
 
     @Getter
     private final String name;
@@ -168,6 +170,15 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
         return builder;
     }
 
+    public static MethodComponentContext fromXContent(XContentParser xContentParser) throws IOException {
+        // If it is a fresh parser, move to the first token
+        if (xContentParser.currentToken() == null) {
+            xContentParser.nextToken();
+        }
+        Map<String, Object> parsedMap = xContentParser.map();
+        return MethodComponentContext.parse(parsedMap);
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
@@ -208,20 +219,27 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
      *
      * @return string representation
      */
-    @Override
-    public String toString() {
+    public String toClusterStateString() {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append("{name=").append(name).append(DELIMITER);
         stringBuilder.append("parameters=[");
         if (Objects.nonNull(parameters)) {
             for (Map.Entry<String, Object> entry : parameters.entrySet()) {
                 stringBuilder.append(entry.getKey()).append("=");
-                String value = entry.getValue().toString();
+                Object objectValue = entry.getValue();
+                String value;
+                if (objectValue instanceof MethodComponentContext) {
+                    value = ((MethodComponentContext) objectValue).toClusterStateString();
+                } else {
+                    value = entry.getValue().toString();
+                }
                 // Model Metadata uses a delimiter to split the input string in its fromString method
+                // https://github.com/opensearch-project/k-NN/blob/2.12/src/main/java/org/opensearch/knn/indices/ModelMetadata.java#L265
                 // If any of the values in the method component context contain this delimiter,
                 // then the method will not work correctly. Therefore, we replace the delimiter with an uncommon
                 // sequence that is very unlikely to appear in the value itself.
-                value = value.replace(ModelMetadata.DELIMITER, "$%$");
+                // https://github.com/opensearch-project/k-NN/issues/1337
+                value = value.replace(ModelMetadata.DELIMITER, DELIMITER_PLACEHOLDER);
                 stringBuilder.append(value).append(DELIMITER);
             }
         }
@@ -230,7 +248,7 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
     }
 
     /**
-     * This method converts a string created by the toString() method of MethodComponentContext
+     * This method converts a string created by the toClusterStateString() method of MethodComponentContext
      * to a MethodComponentContext object.
      *
      * @param in a string representation of MethodComponentContext
@@ -244,14 +262,17 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
         }
         String[] innerMethodComponentContextArray = outerMethodComponentContextArray[index].split(DELIMITER, -1);
         index++;
-        String name = "";
-        name = innerMethodComponentContextArray[0].substring(innerMethodComponentContextArray[0].indexOf("=") + 1);
+        String name = innerMethodComponentContextArray[0].substring(innerMethodComponentContextArray[0].indexOf("=") + 1);
         Map<String, Object> parameters = parseParameters(innerMethodComponentContextArray, outerMethodComponentContextArray, index);
 
         return new MethodComponentContext(name, parameters);
     }
 
-    private static Map<String,Object> parseParameters(String[] innerMethodComponentContextArray, String[] outerMethodComponentContextArray, int index) {
+    private static Map<String, Object> parseParameters(
+        String[] innerMethodComponentContextArray,
+        String[] outerMethodComponentContextArray,
+        int index
+    ) {
         Map<String, Object> parameters = new HashMap<>();
         if (innerMethodComponentContextArray.length > 2) {
             for (int i = 1; i < innerMethodComponentContextArray.length; i++) {
@@ -274,7 +295,7 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
                 } else if (stringValue.equals("true") || stringValue.equals("false")) {
                     value = Boolean.parseBoolean(stringValue);
                 } else {
-                    stringValue = stringValue.replace("$%$", ModelMetadata.DELIMITER);
+                    stringValue = stringValue.replace(DELIMITER_PLACEHOLDER, ModelMetadata.DELIMITER);
                     value = stringValue;
                 }
 

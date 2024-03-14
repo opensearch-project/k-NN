@@ -14,11 +14,14 @@ package org.opensearch.knn.indices;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.knn.index.MethodComponentContext;
@@ -26,10 +29,11 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static org.opensearch.core.xcontent.DeprecationHandler.IGNORE_DEPRECATIONS;
 
 @Log4j2
 public class ModelMetadata implements Writeable, ToXContentObject {
@@ -74,7 +78,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), IndexUtil.MODEL_METHOD_COMPONENT_CONTEXT_KEY)) {
             this.methodComponentContext = new MethodComponentContext(in);
         } else {
-            this.methodComponentContext = new MethodComponentContext("", Collections.emptyMap());
+            this.methodComponentContext = MethodComponentContext.DEFAULT;
         }
     }
 
@@ -235,7 +239,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             description,
             error,
             trainingNodeAssignment,
-            methodComponentContext.toString()
+            methodComponentContext.toClusterStateString()
         );
     }
 
@@ -266,6 +270,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             .append(getTimestamp())
             .append(getDescription())
             .append(getError())
+            .append(getMethodComponentContext())
             .toHashCode();
     }
 
@@ -301,7 +306,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
                 description,
                 error,
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             );
         } else if (modelMetadataArray.length == 8) {
             log.debug("Model metadata contains training node assignment.  Assuming empty method component context.");
@@ -322,7 +327,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
                 description,
                 error,
                 trainingNodeAssignment,
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             );
         } else if (modelMetadataArray.length == 9) {
             log.debug("Model metadata contains training node assignment and method context");
@@ -385,9 +390,22 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             trainingNodeAssignment = "";
         }
 
-        if (methodComponentContext == null) {
-            methodComponentContext = new MethodComponentContext("", Collections.emptyMap());
+        if (Objects.nonNull(methodComponentContext)) {
+            try {
+                XContentParser xContentParser = JsonXContent.jsonXContent.createParser(
+                    NamedXContentRegistry.EMPTY,
+                    IGNORE_DEPRECATIONS,
+                    objectToString(methodComponentContext)
+                );
+                methodComponentContext = MethodComponentContext.fromXContent(xContentParser);
+            } catch (IOException e) {
+                throw new IllegalArgumentException("Error parsing method component context");
+            }
+        } else {
+            methodComponentContext = MethodComponentContext.DEFAULT;
         }
+
+        // {"name":"ivf","parameters":{"encoder":{"name":"pq","parameters":{"code_size":8,"m":2}}}}
 
         ModelMetadata modelMetadata = new ModelMetadata(
             KNNEngine.getEngine(objectToString(engine)),

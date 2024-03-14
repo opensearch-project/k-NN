@@ -23,7 +23,6 @@ import org.opensearch.knn.index.util.KNNEngine;
 
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.mock;
@@ -46,7 +45,7 @@ public class ModelCacheTests extends KNNTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             "hello".getBytes(),
             modelId
@@ -83,7 +82,7 @@ public class ModelCacheTests extends KNNTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             new byte[BYTES_PER_KILOBYTES + 1],
             modelId
@@ -141,7 +140,7 @@ public class ModelCacheTests extends KNNTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             new byte[size1],
             modelId1
@@ -157,7 +156,7 @@ public class ModelCacheTests extends KNNTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             new byte[size2],
             modelId2
@@ -201,7 +200,7 @@ public class ModelCacheTests extends KNNTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             new byte[size1],
             modelId1
@@ -217,7 +216,7 @@ public class ModelCacheTests extends KNNTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
 
             ),
             new byte[size2],
@@ -267,7 +266,7 @@ public class ModelCacheTests extends KNNTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             "hello".getBytes(),
             modelId
@@ -313,7 +312,7 @@ public class ModelCacheTests extends KNNTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             new byte[modelSize],
             modelId
@@ -382,7 +381,7 @@ public class ModelCacheTests extends KNNTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             new byte[modelSize1],
             modelId1
@@ -424,7 +423,7 @@ public class ModelCacheTests extends KNNTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             new byte[modelSize1],
             modelId1
@@ -442,7 +441,7 @@ public class ModelCacheTests extends KNNTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             new byte[modelSize2],
             modelId2
@@ -488,7 +487,7 @@ public class ModelCacheTests extends KNNTestCase {
                     "",
                     "",
                     "",
-                    new MethodComponentContext("", Collections.emptyMap())
+                    MethodComponentContext.DEFAULT
                 ),
                 new byte[BYTES_PER_KILOBYTES * 2],
                 modelId

@@ -54,7 +54,6 @@ import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -214,7 +213,7 @@ public class KNNCodecTestCase extends KNNTestCase {
             "",
             "",
             "",
-            new MethodComponentContext("", Collections.emptyMap())
+            MethodComponentContext.DEFAULT
         );
 
         Model mockModel = new Model(modelMetadata1, modelBlob, modelId);

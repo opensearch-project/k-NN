@@ -170,7 +170,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
             "",
             "",
             "",
-            new MethodComponentContext("", Collections.emptyMap())
+            MethodComponentContext.DEFAULT
         );
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
 

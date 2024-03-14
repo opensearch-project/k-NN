@@ -154,7 +154,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             modelBlob,
             modelId
@@ -174,7 +174,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             modelBlob,
             modelId
@@ -202,7 +202,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                new MethodComponentContext("test", Collections.emptyMap())
             ),
             modelBlob,
             modelId
@@ -263,7 +263,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             modelBlob,
             modelId
@@ -325,7 +325,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             modelBlob,
             "any-id"
@@ -362,7 +362,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             null,
             modelId
@@ -401,7 +401,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             modelBlob,
             modelId
@@ -452,7 +452,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             modelBlob,
             modelId
@@ -471,7 +471,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             null,
             modelId
@@ -508,7 +508,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             "",
             "",
             "",
-            new MethodComponentContext("", Collections.emptyMap())
+            MethodComponentContext.DEFAULT
         );
 
         Model model = new Model(modelMetadata, modelBlob, modelId);
@@ -585,7 +585,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             modelBlob,
             modelId
@@ -619,7 +619,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             modelBlob,
             modelId1
@@ -687,7 +687,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             modelBlob,
             modelId
@@ -729,7 +729,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("", Collections.emptyMap())
+                MethodComponentContext.DEFAULT
             ),
             modelBlob,
             modelId
