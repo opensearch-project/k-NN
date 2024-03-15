@@ -83,7 +83,8 @@ public class TrainingJob implements Runnable {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 description,
                 "",
-                nodeAssignment
+                nodeAssignment,
+                knnMethodContext.getMethodComponentContext()
             ),
             null,
             this.modelId

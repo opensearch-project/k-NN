@@ -62,7 +62,8 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-            "test-node"
+            "test-node",
+            MethodComponentContext.EMPTY
         );
 
         Model model = new Model(modelMetadata, modelBlob, modelId);

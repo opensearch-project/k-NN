@@ -48,6 +48,7 @@ public class KNNConstants {
     public static final String MODEL_DESCRIPTION = "description";
     public static final String MODEL_ERROR = "error";
     public static final String MODEL_NODE_ASSIGNMENT = "training_node_assignment";
+    public static final String MODEL_METHOD_COMPONENT_CONTEXT = "model_definition";
     public static final String PARAM_SIZE = "size";
     public static final Integer SEARCH_MODEL_MIN_SIZE = 1;
     public static final Integer SEARCH_MODEL_MAX_SIZE = 1000;
