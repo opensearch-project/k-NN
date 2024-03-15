@@ -26,7 +26,11 @@ import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.mapper.MapperParsingException;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
@@ -370,15 +374,13 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
 
     private static void checkStringNotEmpty(String string) {
         if (string.isEmpty()) {
-            // TODO: Come up with better exception
-            throw new RuntimeException("think of better exception");
+            throw new RuntimeException("Unable to parse MethodComponentContext");
         }
     }
 
     private static void checkStringMatches(String string, String expected) {
         if (!Objects.equals(string, expected)) {
-            // TODO: Come up with better exception
-            throw new RuntimeException("think of better exception");
+            throw new RuntimeException("Unexpected key in MethodComponentContext.  Expected 'name' or 'parameters'");
         }
     }
 
