@@ -11,24 +11,29 @@
 
 package org.opensearch.knn.index;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import org.apache.commons.lang.math.NumberUtils;
 import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
 import org.opensearch.core.xcontent.ToXContentFragment;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.mapper.MapperParsingException;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.opensearch.knn.indices.ModelMetadata;
 
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -40,6 +45,13 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  */
 @RequiredArgsConstructor
 public class MethodComponentContext implements ToXContentFragment, Writeable {
+
+    // EMPTY method component context can only occur if a model originated on a cluster before 2.13.0 and the cluster is then upgraded to
+    // 2.13.0
+    public static final MethodComponentContext EMPTY = new MethodComponentContext("", Collections.emptyMap());
+
+    private static final String DELIMITER = ";";
+    private static final String DELIMITER_PLACEHOLDER = "$%$";
 
     @Getter
     private final String name;
@@ -161,6 +173,15 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
         return builder;
     }
 
+    public static MethodComponentContext fromXContent(XContentParser xContentParser) throws IOException {
+        // If it is a fresh parser, move to the first token
+        if (xContentParser.currentToken() == null) {
+            xContentParser.nextToken();
+        }
+        Map<String, Object> parsedMap = xContentParser.map();
+        return MethodComponentContext.parse(parsedMap);
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
@@ -191,6 +212,187 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
             return Collections.emptyMap();
         }
         return parameters;
+    }
+
+    /**
+     *
+     * Provides a String representation of MethodComponentContext
+     * Sample return:
+     * {name=ivf;parameters=[nlist=4;type=fp16;encoder={name=sq;parameters=[nprobes=2;clip=false;]};]}
+     *
+     * @return string representation
+     */
+    public String toClusterStateString() {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("{name=").append(name).append(DELIMITER);
+        stringBuilder.append("parameters=[");
+        if (Objects.nonNull(parameters)) {
+            for (Map.Entry<String, Object> entry : parameters.entrySet()) {
+                stringBuilder.append(entry.getKey()).append("=");
+                Object objectValue = entry.getValue();
+                String value;
+                if (objectValue instanceof MethodComponentContext) {
+                    value = ((MethodComponentContext) objectValue).toClusterStateString();
+                } else {
+                    value = entry.getValue().toString();
+                }
+                // Model Metadata uses a delimiter to split the input string in its fromString method
+                // https://github.com/opensearch-project/k-NN/blob/2.12/src/main/java/org/opensearch/knn/indices/ModelMetadata.java#L265
+                // If any of the values in the method component context contain this delimiter,
+                // then the method will not work correctly. Therefore, we replace the delimiter with an uncommon
+                // sequence that is very unlikely to appear in the value itself.
+                // https://github.com/opensearch-project/k-NN/issues/1337
+                value = value.replace(ModelMetadata.DELIMITER, DELIMITER_PLACEHOLDER);
+                stringBuilder.append(value).append(DELIMITER);
+            }
+        }
+        stringBuilder.append("]}");
+        return stringBuilder.toString();
+    }
+
+    /**
+     * This method converts a string created by the toClusterStateString() method of MethodComponentContext
+     * to a MethodComponentContext object.
+     *
+     * @param in a string representation of MethodComponentContext
+     * @return a MethodComponentContext object
+     */
+    public static MethodComponentContext fromClusterStateString(String in) {
+        String stringToParse = unwrapString(in, '{', '}');
+
+        // Parse name from string
+        String[] nameAndParameters = stringToParse.split(DELIMITER, 2);
+        checkExpectedArrayLength(nameAndParameters, 2);
+        String name = parseName(nameAndParameters[0]);
+        String parametersString = nameAndParameters[1];
+        Map<String, Object> parameters = parseParameters(parametersString);
+        return new MethodComponentContext(name, parameters);
+    }
+
+    private static String parseName(String candidateNameString) {
+        // Expecting candidateNameString to look like "name=ivf"
+        checkStringNotEmpty(candidateNameString);
+        String[] nameKeyAndValue = candidateNameString.split("=");
+        checkStringMatches(nameKeyAndValue[0], "name");
+        if (nameKeyAndValue.length == 1) {
+            return "";
+        }
+        checkExpectedArrayLength(nameKeyAndValue, 2);
+        return nameKeyAndValue[1];
+    }
+
+    private static Map<String, Object> parseParameters(String candidateParameterString) {
+        checkStringNotEmpty(candidateParameterString);
+        String[] parametersKeyAndValue = candidateParameterString.split("=", 2);
+        checkStringMatches(parametersKeyAndValue[0], "parameters");
+        if (parametersKeyAndValue.length == 1) {
+            return Collections.emptyMap();
+        }
+        checkExpectedArrayLength(parametersKeyAndValue, 2);
+        return parseParametersValue(parametersKeyAndValue[1]);
+    }
+
+    private static Map<String, Object> parseParametersValue(String candidateParameterValueString) {
+        // Expected input is [nlist=4;type=fp16;encoder={name=sq;parameters=[nprobes=2;clip=false;]};]
+        checkStringNotEmpty(candidateParameterValueString);
+        candidateParameterValueString = unwrapString(candidateParameterValueString, '[', ']');
+        Map<String, Object> parameters = new HashMap<>();
+        while (!candidateParameterValueString.isEmpty()) {
+            String[] keyAndValueToParse = candidateParameterValueString.split("=", 2);
+            if (keyAndValueToParse.length == 1 && keyAndValueToParse[0].charAt(0) == ';') {
+                break;
+            }
+            String key = keyAndValueToParse[0];
+            ValueAndRestToParse parsed = parseParameterValueAndRestToParse(keyAndValueToParse[1]);
+            parameters.put(key, parsed.getValue());
+            candidateParameterValueString = parsed.getRestToParse();
+        }
+
+        return parameters;
+    }
+
+    private static ValueAndRestToParse parseParameterValueAndRestToParse(String candidateParameterValueAndRestToParse) {
+        if (candidateParameterValueAndRestToParse.charAt(0) == '{') {
+            int endOfNestedMap = findClosingPosition(candidateParameterValueAndRestToParse, '{', '}');
+            String nestedMethodContext = candidateParameterValueAndRestToParse.substring(0, endOfNestedMap + 1);
+            Object nestedParse = fromClusterStateString(nestedMethodContext);
+            String restToParse = candidateParameterValueAndRestToParse.substring(endOfNestedMap + 1);
+            return new ValueAndRestToParse(nestedParse, restToParse);
+        }
+
+        String[] stringValueAndRestToParse = candidateParameterValueAndRestToParse.split(DELIMITER, 2);
+        String stringValue = stringValueAndRestToParse[0];
+        Object value;
+        if (NumberUtils.isNumber(stringValue)) {
+            value = Integer.parseInt(stringValue);
+        } else if (stringValue.equals("true") || stringValue.equals("false")) {
+            value = Boolean.parseBoolean(stringValue);
+        } else {
+            stringValue = stringValue.replace(DELIMITER_PLACEHOLDER, ModelMetadata.DELIMITER);
+            value = stringValue;
+        }
+
+        return new ValueAndRestToParse(value, stringValueAndRestToParse[1]);
+    }
+
+    private static String unwrapString(String in, char expectedStart, char expectedEnd) {
+        if (in.length() < 2) {
+            throw new IllegalArgumentException("Invalid string.");
+        }
+
+        if (in.charAt(0) != expectedStart || in.charAt(in.length() - 1) != expectedEnd) {
+            throw new IllegalArgumentException("Invalid string." + in);
+        }
+        return in.substring(1, in.length() - 1);
+    }
+
+    private static int findClosingPosition(String in, char expectedStart, char expectedEnd) {
+        int nestedLevel = 0;
+        for (int i = 0; i < in.length(); i++) {
+            if (in.charAt(i) == expectedStart) {
+                nestedLevel++;
+                continue;
+            }
+
+            if (in.charAt(i) == expectedEnd) {
+                nestedLevel--;
+            }
+
+            if (nestedLevel == 0) {
+                return i;
+            }
+        }
+
+        throw new IllegalArgumentException("Invalid string. No end to the nesting");
+    }
+
+    private static void checkStringNotEmpty(String string) {
+        if (string.isEmpty()) {
+            throw new IllegalArgumentException("Unable to parse MethodComponentContext");
+        }
+    }
+
+    private static void checkStringMatches(String string, String expected) {
+        if (!Objects.equals(string, expected)) {
+            throw new IllegalArgumentException("Unexpected key in MethodComponentContext.  Expected 'name' or 'parameters'");
+        }
+    }
+
+    private static void checkExpectedArrayLength(String[] array, int expectedLength) {
+        if (null == array) {
+            throw new IllegalArgumentException("Error parsing MethodComponentContext.  Array is null.");
+        }
+
+        if (array.length != expectedLength) {
+            throw new IllegalArgumentException("Error parsing MethodComponentContext.  Array is not expected length.");
+        }
+    }
+
+    @AllArgsConstructor
+    @Getter
+    private static class ValueAndRestToParse {
+        private final Object value;
+        private final String restToParse;
     }
 
     @Override
