@@ -263,10 +263,8 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
 
         // Parse name from string
         String[] nameAndParameters = stringToParse.split(DELIMITER, 2);
-        System.out.println("nameAndParameters: " + Arrays.toString(nameAndParameters));
         checkExpectedArrayLength(nameAndParameters, 2);
         String name = parseName(nameAndParameters[0]);
-        System.out.println("name: " + name);
         String parametersString = nameAndParameters[1];
         Map<String, Object> parameters = parseParameters(parametersString);
         return new MethodComponentContext(name, parameters);
@@ -297,7 +295,6 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
 
     private static Map<String, Object> parseParametersValue(String candidateParameterValueString) {
         // Expected input is [nlist=4;type=fp16;encoder={name=sq;parameters=[nprobes=2;clip=false;]};]
-        System.out.println("parameter value: " + candidateParameterValueString);
         checkStringNotEmpty(candidateParameterValueString);
         candidateParameterValueString = unwrapString(candidateParameterValueString, '[', ']');
         Map<String, Object> parameters = new HashMap<>();
@@ -319,7 +316,6 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
         if (candidateParameterValueAndRestToParse.charAt(0) == '{') {
             int endOfNestedMap = findClosingPosition(candidateParameterValueAndRestToParse, '{', '}');
             String nestedMethodContext = candidateParameterValueAndRestToParse.substring(0, endOfNestedMap + 1);
-            System.out.println("nested method context: " + nestedMethodContext);
             Object nestedParse = fromClusterStateString(nestedMethodContext);
             String restToParse = candidateParameterValueAndRestToParse.substring(endOfNestedMap + 1);
             return new ValueAndRestToParse(nestedParse, restToParse);
@@ -327,7 +323,6 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
 
         String[] stringValueAndRestToParse = candidateParameterValueAndRestToParse.split(DELIMITER, 2);
         String stringValue = stringValueAndRestToParse[0];
-        System.out.println("string value: " + stringValue);
         Object value;
         if (NumberUtils.isNumber(stringValue)) {
             value = Integer.parseInt(stringValue);
@@ -374,25 +369,23 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
 
     private static void checkStringNotEmpty(String string) {
         if (string.isEmpty()) {
-            throw new RuntimeException("Unable to parse MethodComponentContext");
+            throw new IllegalArgumentException("Unable to parse MethodComponentContext");
         }
     }
 
     private static void checkStringMatches(String string, String expected) {
         if (!Objects.equals(string, expected)) {
-            throw new RuntimeException("Unexpected key in MethodComponentContext.  Expected 'name' or 'parameters'");
+            throw new IllegalArgumentException("Unexpected key in MethodComponentContext.  Expected 'name' or 'parameters'");
         }
     }
 
     private static void checkExpectedArrayLength(String[] array, int expectedLength) {
         if (null == array) {
-            // TODO: Come up with better exception
-            throw new RuntimeException("think of better exception");
+            throw new IllegalArgumentException("Error parsing MethodComponentContext.  Array is null.");
         }
 
         if (array.length != expectedLength) {
-            // TODO: Come up with better exception
-            throw new RuntimeException("not expected length");
+            throw new IllegalArgumentException("Error parsing MethodComponentContext.  Array is not expected length.");
         }
     }
 

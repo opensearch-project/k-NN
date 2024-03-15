@@ -405,8 +405,6 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             methodComponentContext = MethodComponentContext.EMPTY;
         }
 
-        // {"name":"ivf","parameters":{"encoder":{"name":"pq","parameters":{"code_size":8,"m":2}}}}
-
         ModelMetadata modelMetadata = new ModelMetadata(
             KNNEngine.getEngine(objectToString(engine)),
             SpaceType.getSpace(objectToString(space)),
