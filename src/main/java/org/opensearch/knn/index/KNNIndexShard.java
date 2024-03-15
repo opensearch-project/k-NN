@@ -5,6 +5,9 @@
 
 package org.opensearch.knn.index;
 
+import com.google.common.annotations.VisibleForTesting;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FilterLeafReader;
@@ -24,13 +27,14 @@ import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.index.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFilePrefix;
@@ -41,8 +45,8 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileSu
  */
 @Log4j2
 public class KNNIndexShard {
-    private IndexShard indexShard;
-    private NativeMemoryCacheManager nativeMemoryCacheManager;
+    private final IndexShard indexShard;
+    private final NativeMemoryCacheManager nativeMemoryCacheManager;
     private static final String INDEX_SHARD_CLEAR_CACHE_SEARCHER = "knn-clear-cache";
 
     /**
@@ -83,14 +87,19 @@ public class KNNIndexShard {
     public void warmup() throws IOException {
         log.info("[KNN] Warming up index: [{}]", getIndexName());
         try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-warmup")) {
-            getAllEnginePaths(searcher.getIndexReader()).forEach((key, value) -> {
+            getAllEngineFileContexts(searcher.getIndexReader()).forEach((engineFileContext) -> {
                 try {
                     nativeMemoryCacheManager.get(
                         new NativeMemoryEntryContext.IndexEntryContext(
-                            key,
+                            engineFileContext.getIndexPath(),
                             NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                            getParametersAtLoading(value, KNNEngine.getEngineNameFromPath(key), getIndexName()),
-                            getIndexName()
+                            getParametersAtLoading(
+                                engineFileContext.getSpaceType(),
+                                KNNEngine.getEngineNameFromPath(engineFileContext.getIndexPath()),
+                                getIndexName()
+                            ),
+                            getIndexName(),
+                            engineFileContext.getModelId()
                         ),
                         true
                     );
@@ -117,7 +126,9 @@ public class KNNIndexShard {
             indexAllocation.writeLock();
             log.info("[KNN] Evicting index from cache: [{}]", indexName);
             try (Engine.Searcher searcher = indexShard.acquireSearcher(INDEX_SHARD_CLEAR_CACHE_SEARCHER)) {
-                getAllEnginePaths(searcher.getIndexReader()).forEach((key, value) -> nativeMemoryCacheManager.invalidate(key));
+                getAllEngineFileContexts(searcher.getIndexReader()).forEach(
+                    (engineFileContext) -> nativeMemoryCacheManager.invalidate(engineFileContext.getIndexPath())
+                );
             } catch (IOException ex) {
                 log.error("[KNN] Failed to evict index from cache: [{}]", indexName, ex);
                 throw new RuntimeException(ex);
@@ -128,22 +139,23 @@ public class KNNIndexShard {
     }
 
     /**
-     * For the given shard, get all of its engine paths
+     * For the given shard, get all of its engine file context objects
      *
-     * @param indexReader IndexReader to read the file paths for the shard
-     * @return List of engine file Paths
+     * @param indexReader IndexReader to read the information for each segment in the shard
+     * @return List of engine contexts
      * @throws IOException Thrown when the SegmentReader is attempting to read the segments files
      */
-    public Map<String, SpaceType> getAllEnginePaths(IndexReader indexReader) throws IOException {
-        Map<String, SpaceType> engineFiles = new HashMap<>();
+    @VisibleForTesting
+    List<EngineFileContext> getAllEngineFileContexts(IndexReader indexReader) throws IOException {
+        List<EngineFileContext> engineFiles = new ArrayList<>();
         for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
-            engineFiles.putAll(getEnginePaths(indexReader, knnEngine));
+            engineFiles.addAll(getEngineFileContexts(indexReader, knnEngine));
         }
         return engineFiles;
     }
 
-    private Map<String, SpaceType> getEnginePaths(IndexReader indexReader, KNNEngine knnEngine) throws IOException {
-        Map<String, SpaceType> engineFiles = new HashMap<>();
+    List<EngineFileContext> getEngineFileContexts(IndexReader indexReader, KNNEngine knnEngine) throws IOException {
+        List<EngineFileContext> engineFiles = new ArrayList<>();
 
         for (LeafReaderContext leafReaderContext : indexReader.leaves()) {
             SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(leafReaderContext.reader());
@@ -158,15 +170,17 @@ public class KNNIndexShard {
                     // was L2. So, if Space Type is not present, just fall back to L2
                     String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
                     SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
+                    String modelId = fieldInfo.attributes().getOrDefault(MODEL_ID, null);
 
-                    engineFiles.putAll(
-                        getEnginePaths(
+                    engineFiles.addAll(
+                        getEngineFileContexts(
                             reader.getSegmentInfo().files(),
                             reader.getSegmentInfo().info.name,
                             fieldInfo.name,
                             fileExtension,
                             shardPath,
-                            spaceType
+                            spaceType,
+                            modelId
                         )
                     );
                 }
@@ -175,13 +189,15 @@ public class KNNIndexShard {
         return engineFiles;
     }
 
-    protected Map<String, SpaceType> getEnginePaths(
+    @VisibleForTesting
+    List<EngineFileContext> getEngineFileContexts(
         Collection<String> files,
         String segmentName,
         String fieldName,
         String fileExtension,
         Path shardPath,
-        SpaceType spaceType
+        SpaceType spaceType,
+        String modelId
     ) {
         String prefix = buildEngineFilePrefix(segmentName);
         String suffix = buildEngineFileSuffix(fieldName, fileExtension);
@@ -189,6 +205,16 @@ public class KNNIndexShard {
             .filter(fileName -> fileName.startsWith(prefix))
             .filter(fileName -> fileName.endsWith(suffix))
             .map(fileName -> shardPath.resolve(fileName).toString())
-            .collect(Collectors.toMap(fileName -> fileName, fileName -> spaceType));
+            .map(fileName -> new EngineFileContext(spaceType, modelId, fileName))
+            .collect(Collectors.toList());
+    }
+
+    @AllArgsConstructor
+    @Getter
+    @VisibleForTesting
+    static class EngineFileContext {
+        private final SpaceType spaceType;
+        private final String modelId;
+        private final String indexPath;
     }
 }

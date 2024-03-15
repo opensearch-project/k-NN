@@ -12,6 +12,8 @@
 package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
+import org.junit.BeforeClass;
+import org.mockito.MockedStatic;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -24,12 +26,16 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.jni.JNIService;
 
 import java.util.Map;
 import java.util.Objects;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
@@ -37,6 +43,15 @@ import static org.opensearch.knn.index.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.KNNSettings.KNN_ALGO_PARAM_EF_SEARCH;
 
 public class IndexUtilTests extends KNNTestCase {
+
+    private static MockedStatic<JNIService> jniServiceMockedStatic;
+    private static final long TEST_INDEX_ADDRESS = 0;
+
+    @BeforeClass
+    public static void setUpClass() {
+        jniServiceMockedStatic = mockStatic(JNIService.class);
+    }
+
     public void testGetLoadParameters() {
         // Test faiss to ensure that space type gets set properly
         SpaceType spaceType1 = SpaceType.COSINESIMIL;
@@ -205,5 +220,31 @@ public class IndexUtilTests extends KNNTestCase {
         ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao);
 
         assert (Objects.requireNonNull(e).getMessage().matches("Validation Failed: 1: Invalid index. Index does not contain a mapping;"));
+    }
+
+    public void testIsShareableStateContainedInIndex_whenIndexNotModelBased_thenReturnFalse() {
+        String modelId = null;
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        assertFalse(IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, TEST_INDEX_ADDRESS));
+    }
+
+    public void testIsShareableStateContainedInIndex_whenEngineIsNotFaiss_thenReturnFalse() {
+        String modelId = "test-model";
+        KNNEngine knnEngine = KNNEngine.NMSLIB;
+        assertFalse(IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, TEST_INDEX_ADDRESS));
+    }
+
+    public void testIsShareableStateContainedInIndex_whenFaissHNSWIsUsed_thenReturnFalse() {
+        jniServiceMockedStatic.when(() -> JNIService.isSharedIndexStateRequired(anyLong(), any())).thenReturn(false);
+        String modelId = "test-model";
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        assertFalse(IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, TEST_INDEX_ADDRESS));
+    }
+
+    public void testIsShareableStateContainedInIndex_whenJNIIsSharedIndexStateRequiredIsTrue_thenReturnTrue() {
+        jniServiceMockedStatic.when(() -> JNIService.isSharedIndexStateRequired(anyLong(), any())).thenReturn(true);
+        String modelId = "test-model";
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        assertTrue(IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, TEST_INDEX_ADDRESS));
     }
 }

@@ -23,6 +23,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.jni.JNIService;
 
 import java.io.File;
 import java.util.Collections;
@@ -262,5 +263,20 @@ public class IndexUtil {
             return false;
         }
         return version.onOrAfter(minimalRequiredVersion);
+    }
+
+    /**
+     * Checks if index requires shared state
+     *
+     * @param knnEngine The knnEngine associated with the index
+     * @param modelId The modelId associated with the index
+     * @param indexAddr Address to check if loaded index requires shared state
+     * @return true if state can be shared; false otherwise
+     */
+    public static boolean isSharedIndexStateRequired(KNNEngine knnEngine, String modelId, long indexAddr) {
+        if (StringUtils.isEmpty(modelId) || KNNEngine.FAISS != knnEngine) {
+            return false;
+        }
+        return JNIService.isSharedIndexStateRequired(indexAddr, knnEngine);
     }
 }
