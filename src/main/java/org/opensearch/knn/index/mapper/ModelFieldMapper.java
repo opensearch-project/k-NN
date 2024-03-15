@@ -61,6 +61,6 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
             );
         }
 
-        parseCreateField(context, modelMetadata.getDimension(), modelMetadata.getSpaceType());
+        parseCreateField(context, modelMetadata.getDimension(), modelMetadata.getSpaceType(), modelMetadata.getMethodComponentContext());
     }
 }

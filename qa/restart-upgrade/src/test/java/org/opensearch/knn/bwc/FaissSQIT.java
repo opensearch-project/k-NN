@@ -40,6 +40,7 @@ import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -271,6 +272,76 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
             queryTestData(testIndex, TEST_FIELD, DIMENSION, NUM_DOCS);
             deleteKNNIndex(TRAIN_INDEX);
             deleteKNNIndex(testIndex);
+            deleteModel(TEST_MODEL);
+            validateGraphEviction();
+        }
+    }
+
+    public void testIVFSQFP16_onUpgradeWhenClipToFp16isTrueAndIndexedWithOutOfFP16Range_thenSucceed() throws Exception {
+        if (!isRunningAgainstOldCluster()) {
+            int dimension = 2;
+
+            // Add training data
+            createBasicKnnIndex(TRAIN_INDEX, TRAIN_TEST_FIELD, dimension);
+            int trainingDataCount = 200;
+            bulkIngestRandomVectors(TRAIN_INDEX, TRAIN_TEST_FIELD, trainingDataCount, dimension);
+
+            XContentBuilder builder = XContentFactory.jsonBuilder()
+                .startObject()
+                .field(NAME, METHOD_IVF)
+                .field(KNN_ENGINE, FAISS_NAME)
+                .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+                .startObject(PARAMETERS)
+                .field(METHOD_PARAMETER_NLIST, 1)
+                .startObject(METHOD_ENCODER_PARAMETER)
+                .field(NAME, ENCODER_SQ)
+                .startObject(PARAMETERS)
+                .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+                .field(FAISS_SQ_CLIP, true)
+                .endObject()
+                .endObject()
+                .endObject()
+                .endObject();
+            Map<String, Object> method = xContentBuilderToMap(builder);
+
+            trainModel(TEST_MODEL, TRAIN_INDEX, TRAIN_TEST_FIELD, dimension, method, "faiss ivf sqfp16 test description");
+
+            // Make sure training succeeds after 30 seconds
+            assertTrainingSucceeds(TEST_MODEL, 30, 1000);
+
+            // Create knn index from model
+            String indexMapping = XContentFactory.jsonBuilder()
+                .startObject()
+                .startObject("properties")
+                .startObject(TEST_FIELD)
+                .field("type", "knn_vector")
+                .field(MODEL_ID, TEST_MODEL)
+                .endObject()
+                .endObject()
+                .endObject()
+                .toString();
+
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), indexMapping);
+            Float[] vector1 = { -65523.76f, 65504.2f };
+            Float[] vector2 = { -270.85f, 65514.2f };
+            Float[] vector3 = { -150.9f, 65504.0f };
+            Float[] vector4 = { -20.89f, 100000000.0f };
+            addKnnDoc(testIndex, "1", TEST_FIELD, vector1);
+            addKnnDoc(testIndex, "2", TEST_FIELD, vector2);
+            addKnnDoc(testIndex, "3", TEST_FIELD, vector3);
+            addKnnDoc(testIndex, "4", TEST_FIELD, vector4);
+
+            float[] queryVector = { -10.5f, 25.48f };
+            int k = 4;
+            Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(TEST_FIELD, queryVector, k), k);
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), TEST_FIELD);
+            assertEquals(k, results.size());
+            for (int i = 0; i < k; i++) {
+                assertEquals(k - i, Integer.parseInt(results.get(i).getDocId()));
+            }
+
+            deleteKNNIndex(testIndex);
+            deleteKNNIndex(TRAIN_INDEX);
             deleteModel(TEST_MODEL);
             validateGraphEviction();
         }

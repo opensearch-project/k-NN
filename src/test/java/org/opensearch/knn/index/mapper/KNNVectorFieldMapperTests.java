@@ -739,10 +739,16 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         when(parseContext.path()).thenReturn(contentPath);
 
         LuceneFieldMapper luceneFieldMapper = Mockito.spy(new LuceneFieldMapper(inputBuilder.build()));
-        doReturn(Optional.of(TEST_VECTOR)).when(luceneFieldMapper).getFloatsFromContext(parseContext, TEST_DIMENSION);
+        doReturn(Optional.of(TEST_VECTOR)).when(luceneFieldMapper)
+            .getFloatsFromContext(parseContext, TEST_DIMENSION, new MethodComponentContext(METHOD_HNSW, Collections.emptyMap()));
         doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
         doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
-        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION, luceneFieldMapper.fieldType().spaceType);
+        luceneFieldMapper.parseCreateField(
+            parseContext,
+            TEST_DIMENSION,
+            luceneFieldMapper.fieldType().spaceType,
+            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext()
+        );
 
         // Document should have 2 fields: one for VectorField (binary doc values) and one for KnnVectorField
         List<IndexableField> fields = document.getFields();
@@ -776,11 +782,17 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         inputBuilder.hasDocValues(false);
         luceneFieldMapper = Mockito.spy(new LuceneFieldMapper(inputBuilder.build()));
-        doReturn(Optional.of(TEST_VECTOR)).when(luceneFieldMapper).getFloatsFromContext(parseContext, TEST_DIMENSION);
+        doReturn(Optional.of(TEST_VECTOR)).when(luceneFieldMapper)
+            .getFloatsFromContext(parseContext, TEST_DIMENSION, new MethodComponentContext(METHOD_HNSW, Collections.emptyMap()));
         doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
         doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
 
-        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION, luceneFieldMapper.fieldType().spaceType);
+        luceneFieldMapper.parseCreateField(
+            parseContext,
+            TEST_DIMENSION,
+            luceneFieldMapper.fieldType().spaceType,
+            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext()
+        );
 
         // Document should have 1 field: one for KnnVectorField
         fields = document.getFields();
@@ -809,7 +821,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
         doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
 
-        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION, luceneFieldMapper.fieldType().spaceType);
+        luceneFieldMapper.parseCreateField(
+            parseContext,
+            TEST_DIMENSION,
+            luceneFieldMapper.fieldType().spaceType,
+            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext()
+        );
 
         // Document should have 2 fields: one for VectorField (binary doc values) and one for KnnByteVectorField
         List<IndexableField> fields = document.getFields();
@@ -846,7 +863,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
         doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
 
-        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION, luceneFieldMapper.fieldType().spaceType);
+        luceneFieldMapper.parseCreateField(
+            parseContext,
+            TEST_DIMENSION,
+            luceneFieldMapper.fieldType().spaceType,
+            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext()
+        );
 
         // Document should have 1 field: one for KnnByteVectorField
         fields = document.getFields();
