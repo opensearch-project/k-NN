@@ -14,13 +14,17 @@ package org.opensearch.knn.indices;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.opensearch.common.xcontent.json.JsonXContent;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.ToXContentObject;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.IndexUtil;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -29,19 +33,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.opensearch.knn.common.KNNConstants.DIMENSION;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
-import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
-import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
-import static org.opensearch.knn.common.KNNConstants.MODEL_NODE_ASSIGNMENT;
+import static org.opensearch.core.xcontent.DeprecationHandler.IGNORE_DEPRECATIONS;
 
 @Log4j2
 public class ModelMetadata implements Writeable, ToXContentObject {
 
-    private static final String DELIMITER = ",";
+    public static final String DELIMITER = ",";
 
     final private KNNEngine knnEngine;
     final private SpaceType spaceType;
@@ -51,6 +48,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     final private String timestamp;
     final private String description;
     final private String trainingNodeAssignment;
+    private MethodComponentContext methodComponentContext;
     private String error;
 
     /**
@@ -76,6 +74,12 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         } else {
             this.trainingNodeAssignment = "";
         }
+
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), IndexUtil.MODEL_METHOD_COMPONENT_CONTEXT_KEY)) {
+            this.methodComponentContext = new MethodComponentContext(in);
+        } else {
+            this.methodComponentContext = MethodComponentContext.EMPTY;
+        }
     }
 
     /**
@@ -88,6 +92,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
      * @param timestamp timevalue when model was created
      * @param description information about the model
      * @param error error message associated with model
+     * @param trainingNodeAssignment node assignment for the model
+     * @param methodComponentContext method component context associated with model
      */
     public ModelMetadata(
         KNNEngine knnEngine,
@@ -97,7 +103,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         String timestamp,
         String description,
         String error,
-        String trainingNodeAssignment
+        String trainingNodeAssignment,
+        MethodComponentContext methodComponentContext
     ) {
         this.knnEngine = Objects.requireNonNull(knnEngine, "knnEngine must not be null");
         this.spaceType = Objects.requireNonNull(spaceType, "spaceType must not be null");
@@ -118,6 +125,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         this.description = Objects.requireNonNull(description, "description must not be null");
         this.error = Objects.requireNonNull(error, "error must not be null");
         this.trainingNodeAssignment = Objects.requireNonNull(trainingNodeAssignment, "node assignment must not be null");
+        this.methodComponentContext = Objects.requireNonNull(methodComponentContext, "method context must not be null");
     }
 
     /**
@@ -193,6 +201,15 @@ public class ModelMetadata implements Writeable, ToXContentObject {
     }
 
     /**
+     * getter for model's method context
+     *
+     * @return knnMethodContext
+     */
+    public MethodComponentContext getMethodComponentContext() {
+        return methodComponentContext;
+    }
+
+    /**
      * setter for model's state
      *
      * @param state of the model
@@ -221,7 +238,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             timestamp,
             description,
             error,
-            trainingNodeAssignment
+            trainingNodeAssignment,
+            methodComponentContext.toClusterStateString()
         );
     }
 
@@ -252,6 +270,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             .append(getTimestamp())
             .append(getDescription())
             .append(getError())
+            .append(getMethodComponentContext())
             .toHashCode();
     }
 
@@ -268,7 +287,9 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         // Because models can be created on older versions and the cluster can be upgraded after,
         // we need to accept model metadata arrays both with and without the training node assignment.
         if (modelMetadataArray.length == 7) {
-            log.debug("Model metadata array does not contain training node assignment. Assuming empty string.");
+            log.debug(
+                "Model metadata array does not contain training node assignment or method component context. Assuming empty string node assignment and empty method component context."
+            );
             KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
             SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
             int dimension = Integer.parseInt(modelMetadataArray[2]);
@@ -276,9 +297,19 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             String timestamp = modelMetadataArray[4];
             String description = modelMetadataArray[5];
             String error = modelMetadataArray[6];
-            return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, "");
+            return new ModelMetadata(
+                knnEngine,
+                spaceType,
+                dimension,
+                modelState,
+                timestamp,
+                description,
+                error,
+                "",
+                MethodComponentContext.EMPTY
+            );
         } else if (modelMetadataArray.length == 8) {
-            log.debug("Model metadata contains training node assignment");
+            log.debug("Model metadata contains training node assignment.  Assuming empty method component context.");
             KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
             SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
             int dimension = Integer.parseInt(modelMetadataArray[2]);
@@ -287,11 +318,43 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             String description = modelMetadataArray[5];
             String error = modelMetadataArray[6];
             String trainingNodeAssignment = modelMetadataArray[7];
-            return new ModelMetadata(knnEngine, spaceType, dimension, modelState, timestamp, description, error, trainingNodeAssignment);
+            return new ModelMetadata(
+                knnEngine,
+                spaceType,
+                dimension,
+                modelState,
+                timestamp,
+                description,
+                error,
+                trainingNodeAssignment,
+                MethodComponentContext.EMPTY
+            );
+        } else if (modelMetadataArray.length == 9) {
+            log.debug("Model metadata contains training node assignment and method context");
+            KNNEngine knnEngine = KNNEngine.getEngine(modelMetadataArray[0]);
+            SpaceType spaceType = SpaceType.getSpace(modelMetadataArray[1]);
+            int dimension = Integer.parseInt(modelMetadataArray[2]);
+            ModelState modelState = ModelState.getModelState(modelMetadataArray[3]);
+            String timestamp = modelMetadataArray[4];
+            String description = modelMetadataArray[5];
+            String error = modelMetadataArray[6];
+            String trainingNodeAssignment = modelMetadataArray[7];
+            MethodComponentContext methodComponentContext = MethodComponentContext.fromClusterStateString(modelMetadataArray[8]);
+            return new ModelMetadata(
+                knnEngine,
+                spaceType,
+                dimension,
+                modelState,
+                timestamp,
+                description,
+                error,
+                trainingNodeAssignment,
+                methodComponentContext
+            );
         } else {
             throw new IllegalArgumentException(
                 "Illegal format for model metadata. Must be of the form "
-                    + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>\" or \"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>\"."
+                    + "\"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>\" or \"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>\" or \"<KNNEngine>,<SpaceType>,<Dimension>,<ModelState>,<Timestamp>,<Description>,<Error>,<NodeAssignment>,<MethodContext>\"."
             );
         }
     }
@@ -321,9 +384,25 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         Object description = modelSourceMap.get(KNNConstants.MODEL_DESCRIPTION);
         Object error = modelSourceMap.get(KNNConstants.MODEL_ERROR);
         Object trainingNodeAssignment = modelSourceMap.get(KNNConstants.MODEL_NODE_ASSIGNMENT);
+        Object methodComponentContext = modelSourceMap.get(KNNConstants.MODEL_METHOD_COMPONENT_CONTEXT);
 
         if (trainingNodeAssignment == null) {
             trainingNodeAssignment = "";
+        }
+
+        if (Objects.nonNull(methodComponentContext)) {
+            try {
+                XContentParser xContentParser = JsonXContent.jsonXContent.createParser(
+                    NamedXContentRegistry.EMPTY,
+                    IGNORE_DEPRECATIONS,
+                    objectToString(methodComponentContext)
+                );
+                methodComponentContext = MethodComponentContext.fromXContent(xContentParser);
+            } catch (IOException e) {
+                throw new IllegalArgumentException("Error parsing method component context");
+            }
+        } else {
+            methodComponentContext = MethodComponentContext.EMPTY;
         }
 
         ModelMetadata modelMetadata = new ModelMetadata(
@@ -334,7 +413,8 @@ public class ModelMetadata implements Writeable, ToXContentObject {
             objectToString(timestamp),
             objectToString(description),
             objectToString(error),
-            objectToString(trainingNodeAssignment)
+            objectToString(trainingNodeAssignment),
+            (MethodComponentContext) methodComponentContext
         );
         return modelMetadata;
     }
@@ -351,20 +431,28 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(out.getVersion(), IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
             out.writeString(getNodeAssignment());
         }
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(out.getVersion(), IndexUtil.MODEL_METHOD_COMPONENT_CONTEXT_KEY)) {
+            getMethodComponentContext().writeTo(out);
+        }
     }
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.field(MODEL_STATE, getState().getName());
-        builder.field(MODEL_TIMESTAMP, getTimestamp());
-        builder.field(MODEL_DESCRIPTION, getDescription());
-        builder.field(MODEL_ERROR, getError());
+        builder.field(KNNConstants.MODEL_STATE, getState().getName());
+        builder.field(KNNConstants.MODEL_TIMESTAMP, getTimestamp());
+        builder.field(KNNConstants.MODEL_DESCRIPTION, getDescription());
+        builder.field(KNNConstants.MODEL_ERROR, getError());
 
-        builder.field(METHOD_PARAMETER_SPACE_TYPE, getSpaceType().getValue());
-        builder.field(DIMENSION, getDimension());
-        builder.field(KNN_ENGINE, getKnnEngine().getName());
+        builder.field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, getSpaceType().getValue());
+        builder.field(KNNConstants.DIMENSION, getDimension());
+        builder.field(KNNConstants.KNN_ENGINE, getKnnEngine().getName());
         if (IndexUtil.isClusterOnOrAfterMinRequiredVersion(IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
-            builder.field(MODEL_NODE_ASSIGNMENT, getNodeAssignment());
+            builder.field(KNNConstants.MODEL_NODE_ASSIGNMENT, getNodeAssignment());
+        }
+        if (IndexUtil.isClusterOnOrAfterMinRequiredVersion(IndexUtil.MODEL_METHOD_COMPONENT_CONTEXT_KEY)) {
+            builder.field(KNNConstants.MODEL_METHOD_COMPONENT_CONTEXT).startObject();
+            getMethodComponentContext().toXContent(builder, params);
+            builder.endObject();
         }
         return builder;
     }

@@ -26,6 +26,12 @@
     },
     "model_blob": {
       "type": "binary"
+    },
+    "node_assignment": {
+      "type": "keyword"
+    },
+    "method_component_context": {
+      "type": "keyword"
     }
   }
 }

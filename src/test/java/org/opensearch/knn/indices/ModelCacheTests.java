@@ -17,6 +17,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -43,7 +44,8 @@ public class ModelCacheTests extends KNNTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                MethodComponentContext.EMPTY
             ),
             "hello".getBytes(),
             modelId
@@ -79,7 +81,8 @@ public class ModelCacheTests extends KNNTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                MethodComponentContext.EMPTY
             ),
             new byte[BYTES_PER_KILOBYTES + 1],
             modelId
@@ -136,7 +139,8 @@ public class ModelCacheTests extends KNNTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                MethodComponentContext.EMPTY
             ),
             new byte[size1],
             modelId1
@@ -151,7 +155,8 @@ public class ModelCacheTests extends KNNTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                MethodComponentContext.EMPTY
             ),
             new byte[size2],
             modelId2
@@ -194,7 +199,8 @@ public class ModelCacheTests extends KNNTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                MethodComponentContext.EMPTY
             ),
             new byte[size1],
             modelId1
@@ -209,7 +215,9 @@ public class ModelCacheTests extends KNNTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                MethodComponentContext.EMPTY
+
             ),
             new byte[size2],
             modelId2
@@ -257,7 +265,8 @@ public class ModelCacheTests extends KNNTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                MethodComponentContext.EMPTY
             ),
             "hello".getBytes(),
             modelId
@@ -302,7 +311,8 @@ public class ModelCacheTests extends KNNTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                MethodComponentContext.EMPTY
             ),
             new byte[modelSize],
             modelId
@@ -370,7 +380,8 @@ public class ModelCacheTests extends KNNTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                MethodComponentContext.EMPTY
             ),
             new byte[modelSize1],
             modelId1
@@ -411,7 +422,8 @@ public class ModelCacheTests extends KNNTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                MethodComponentContext.EMPTY
             ),
             new byte[modelSize1],
             modelId1
@@ -428,7 +440,8 @@ public class ModelCacheTests extends KNNTestCase {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 "",
                 "",
-                ""
+                "",
+                MethodComponentContext.EMPTY
             ),
             new byte[modelSize2],
             modelId2
@@ -473,7 +486,8 @@ public class ModelCacheTests extends KNNTestCase {
                     ZonedDateTime.now(ZoneOffset.UTC).toString(),
                     "",
                     "",
-                    ""
+                    "",
+                    MethodComponentContext.EMPTY
                 ),
                 new byte[BYTES_PER_KILOBYTES * 2],
                 modelId
