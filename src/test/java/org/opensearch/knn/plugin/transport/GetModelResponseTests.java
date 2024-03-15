@@ -68,7 +68,7 @@ public class GetModelResponseTests extends KNNTestCase {
             GetModelResponse getModelResponse = new GetModelResponse(model);
             String expectedResponseString =
                 "{\"model_id\":\"test-model\",\"model_blob\":\"aGVsbG8=\",\"state\":\"created\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\",\"training_node_assignment\":\"\",\"model_definition\":{\"name\":\"\",\"parameters\":{}}}";
-            XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
+            XContentBuilder xContentBuilder = MediaTypeRegistry.contentBuilder(XContentType.JSON);
             getModelResponse.toXContent(xContentBuilder, null);
             assertEquals(expectedResponseString, xContentBuilder.toString());
         }
@@ -84,7 +84,7 @@ public class GetModelResponseTests extends KNNTestCase {
             GetModelResponse getModelResponse = new GetModelResponse(model);
             String expectedResponseString =
                 "{\"model_id\":\"test-model\",\"model_blob\":\"\",\"state\":\"failed\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\",\"training_node_assignment\":\"\",\"model_definition\":{\"name\":\"\",\"parameters\":{}}}";
-            XContentBuilder xContentBuilder = XContentFactory.jsonBuilder();
+            XContentBuilder xContentBuilder = MediaTypeRegistry.contentBuilder(XContentType.JSON);
             getModelResponse.toXContent(xContentBuilder, null);
             assertEquals(expectedResponseString, xContentBuilder.toString());
         }
