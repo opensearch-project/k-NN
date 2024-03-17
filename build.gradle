@@ -570,6 +570,22 @@ tasks.register('buildJniLib', Exec) {
 
 jar.finalizedBy validateLibraryUsage
 
+tasks.register('jniTest', Exec) {
+    if (!Os.isFamily(Os.FAMILY_WINDOWS)) {
+        dependsOn cmakeJniLib
+        var args = ''
+        if (System.getProperty("gtest_filter") != null) {
+            args = '--gtest_filter=' + System.getProperty("gtest_filter")
+        }
+        workingDir 'jni'
+        commandLine 'make' , 'jni_test'
+        commandLine './bin/jni_test' , "${args}"
+    }
+}
+
+// Ensure that jniTest task is running during the ./gradlew build
+check.dependsOn jniTest
+
 tasks.register('buildJniTest', Test) {
     dependsOn buildJniLib
     testClassesDirs = sourceSets.test.output.classesDirs
