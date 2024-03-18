@@ -274,7 +274,7 @@ public class IndexUtil {
      * @return true if state can be shared; false otherwise
      */
     public static boolean isSharedIndexStateRequired(KNNEngine knnEngine, String modelId, long indexAddr) {
-        if (StringUtils.isEmpty(modelId) || KNNEngine.FAISS != knnEngine) {
+        if (StringUtils.isEmpty(modelId)) {
             return false;
         }
         return JNIService.isSharedIndexStateRequired(indexAddr, knnEngine);

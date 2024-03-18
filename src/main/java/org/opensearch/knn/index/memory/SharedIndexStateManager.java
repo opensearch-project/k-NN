@@ -97,15 +97,14 @@ class SharedIndexStateManager {
         this.readWriteLock.writeLock().lock();
 
         try {
-            if (!sharedIndexStateCache.containsKey(sharedIndexState.getModelId())) {
+            SharedIndexStateEntry sharedIndexStateEntry;
+            if ((sharedIndexStateEntry = sharedIndexStateCache.get(sharedIndexState.getModelId())) == null) {
                 // This should not happen. Will log the error and return to prevent crash
                 log.error("Attempting to evict model from cache but it is not present: {}", sharedIndexState.getModelId());
-                this.readWriteLock.writeLock().unlock();
                 return;
             }
 
-            long refCount = sharedIndexStateCache.get(sharedIndexState.getModelId()).decRef();
-            if (refCount <= 0) {
+            if (sharedIndexStateEntry.decRef() <= 0) {
                 log.info("Evicting entry from shared index state cache for key {}", sharedIndexState.getModelId());
                 sharedIndexStateCache.remove(sharedIndexState.getModelId());
                 JNIService.freeSharedIndexState(sharedIndexState.getSharedIndexStateAddress(), sharedIndexState.getKnnEngine());

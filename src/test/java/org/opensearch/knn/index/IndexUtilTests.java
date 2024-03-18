@@ -228,12 +228,6 @@ public class IndexUtilTests extends KNNTestCase {
         assertFalse(IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, TEST_INDEX_ADDRESS));
     }
 
-    public void testIsShareableStateContainedInIndex_whenEngineIsNotFaiss_thenReturnFalse() {
-        String modelId = "test-model";
-        KNNEngine knnEngine = KNNEngine.NMSLIB;
-        assertFalse(IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, TEST_INDEX_ADDRESS));
-    }
-
     public void testIsShareableStateContainedInIndex_whenFaissHNSWIsUsed_thenReturnFalse() {
         jniServiceMockedStatic.when(() -> JNIService.isSharedIndexStateRequired(anyLong(), any())).thenReturn(false);
         String modelId = "test-model";
