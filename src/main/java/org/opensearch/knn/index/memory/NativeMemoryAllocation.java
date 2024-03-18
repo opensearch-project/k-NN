@@ -91,6 +91,7 @@ public interface NativeMemoryAllocation {
         private final String openSearchIndexName;
         private final ReadWriteLock readWriteLock;
         private final WatcherHandle<FileWatcher> watcherHandle;
+        private final SharedIndexState sharedIndexState;
 
         /**
          * Constructor
@@ -112,6 +113,31 @@ public interface NativeMemoryAllocation {
             String openSearchIndexName,
             WatcherHandle<FileWatcher> watcherHandle
         ) {
+            this(executorService, memoryAddress, size, knnEngine, indexPath, openSearchIndexName, watcherHandle, null);
+        }
+
+        /**
+         * Constructor
+         *
+         * @param executorService Executor service used to close the allocation
+         * @param memoryAddress Pointer in memory to the index
+         * @param size Size this index consumes in kilobytes
+         * @param knnEngine KNNEngine associated with the index allocation
+         * @param indexPath File path to index
+         * @param openSearchIndexName Name of OpenSearch index this index is associated with
+         * @param watcherHandle Handle for watching index file
+         * @param sharedIndexState Shared index state. If not shared state present, pass null.
+         */
+        IndexAllocation(
+            ExecutorService executorService,
+            long memoryAddress,
+            int size,
+            KNNEngine knnEngine,
+            String indexPath,
+            String openSearchIndexName,
+            WatcherHandle<FileWatcher> watcherHandle,
+            SharedIndexState sharedIndexState
+        ) {
             this.executor = executorService;
             this.closed = false;
             this.knnEngine = knnEngine;
@@ -121,6 +147,7 @@ public interface NativeMemoryAllocation {
             this.readWriteLock = new ReentrantReadWriteLock();
             this.size = size;
             this.watcherHandle = watcherHandle;
+            this.sharedIndexState = sharedIndexState;
         }
 
         @Override
@@ -144,6 +171,10 @@ public interface NativeMemoryAllocation {
             // memoryAddress is sometimes initialized to 0. If this is ever the case, freeing will surely fail.
             if (memoryAddress != 0) {
                 JNIService.free(memoryAddress, knnEngine);
+            }
+
+            if (sharedIndexState != null) {
+                SharedIndexStateManager.getInstance().release(sharedIndexState);
             }
         }
 
