@@ -82,6 +82,20 @@ public class LuceneTests extends KNNTestCase {
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext4 = KNNMethodContext.parse(in);
         assertNotNull(luceneHNSW.validate(knnMethodContext4));
+
+        // Check INNER_PRODUCT is supported with Lucene Engine
+        xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
+            .field(METHOD_PARAMETER_M, m)
+            .endObject()
+            .endObject();
+        in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext5 = KNNMethodContext.parse(in);
+        assertNull(luceneHNSW.validate(knnMethodContext5));
     }
 
     public void testGetExtension() {
