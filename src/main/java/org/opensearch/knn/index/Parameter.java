@@ -67,6 +67,31 @@ public abstract class Parameter<T> {
     public abstract ValidationException validate(Object value);
 
     /**
+     * Boolean method parameter
+     */
+    public static class BooleanParameter extends Parameter<Boolean> {
+        public BooleanParameter(String name, Boolean defaultValue, Predicate<Boolean> validator) {
+            super(name, defaultValue, validator);
+        }
+
+        @Override
+        public ValidationException validate(Object value) {
+            ValidationException validationException = null;
+            if (!(value instanceof Boolean)) {
+                validationException = new ValidationException();
+                validationException.addValidationError(String.format("value not of type Boolean for Boolean parameter [%s].", getName()));
+                return validationException;
+            }
+
+            if (!validator.test((Boolean) value)) {
+                validationException = new ValidationException();
+                validationException.addValidationError(String.format("parameter validation failed for Boolean parameter [%s].", getName()));
+            }
+            return validationException;
+        }
+    }
+
+    /**
      * Integer method parameter
      */
     public static class IntegerParameter extends Parameter<Integer> {
