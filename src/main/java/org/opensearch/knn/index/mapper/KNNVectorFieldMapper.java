@@ -599,6 +599,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             return false;
         }
 
+        // Validate if the object is of type MethodComponentContext before casting it later
+        if (!(methodComponentParams.get(METHOD_ENCODER_PARAMETER) instanceof MethodComponentContext)) {
+            return false;
+        }
+
         MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) methodComponentParams.get(METHOD_ENCODER_PARAMETER);
 
         // returns true if encoder name is "sq" and type is "fp16"
