@@ -13,8 +13,7 @@ package org.opensearch.knn.bwc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hc.core5.http.ParseException;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.http.util.EntityUtils;
 import org.opensearch.client.Response;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -43,8 +42,8 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
 public class FaissSQIT extends AbstractRestartUpgradeTestCase {
     private static final String TEST_FIELD = "test-field";
@@ -361,8 +360,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
         fail("Graphs are not getting evicted");
     }
 
-    private void queryTestData(final String indexName, final String fieldName, final int dimension, final int numDocs) throws IOException,
-        ParseException {
+    private void queryTestData(final String indexName, final String fieldName, final int dimension, final int numDocs) throws IOException {
         float[] queryVector = new float[dimension];
         Arrays.fill(queryVector, (float) numDocs);
         int k = 10;
