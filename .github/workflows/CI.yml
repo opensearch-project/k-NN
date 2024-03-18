@@ -45,10 +45,8 @@ jobs:
           cd jni/external/faiss
           git apply --ignore-space-change --ignore-whitespace --3way ../../patches/faiss/0001-Custom-patch-to-support-multi-vector.patch
           rm ../../patches/faiss/0001-Custom-patch-to-support-multi-vector.patch
-          git apply --ignore-space-change --ignore-whitespace --3way ../../patches/faiss/0002-Custom-patch-to-support-AVX2-Linux-CI.patch
-          rm ../../patches/faiss/0002-Custom-patch-to-support-AVX2-Linux-CI.patch
-          git apply --ignore-space-change --ignore-whitespace --3way ../../patches/faiss/0003-Enable-precomp-table-to-be-shared-ivfpq.patch
-          rm ../../patches/faiss/0003-Enable-precomp-table-to-be-shared-ivfpq.patch
+          git apply --ignore-space-change --ignore-whitespace --3way ../../patches/faiss/0002-Enable-precomp-table-to-be-shared-ivfpq.patch
+          rm ../../patches/faiss/0002-Enable-precomp-table-to-be-shared-ivfpq.patch
           cd ../nmslib
           git apply --ignore-space-change --ignore-whitespace --3way ../../patches/nmslib/0001-Initialize-maxlevel-during-add-from-enterpoint-level.patch
           rm ../../patches/nmslib/0001-Initialize-maxlevel-during-add-from-enterpoint-level.patch
