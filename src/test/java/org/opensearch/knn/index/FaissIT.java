@@ -39,6 +39,7 @@ import java.util.Random;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
@@ -50,6 +51,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.NAME;
@@ -494,6 +496,116 @@ public class FaissIT extends KNNRestTestCase {
         }
 
         fail("Graphs are not getting evicted");
+    }
+
+    /**
+     * This test confirms that sharing index state for IVFPQ-l2 indices functions properly. The main functionality that
+     * needs to be confirmed is that once an index gets deleted, it will not cause a failure for the non-deleted index.
+     *
+     * The workflow will be:
+     * 1. Create a model
+     * 2. Create two indices index from the model
+     * 3. Load the native index files from the first index
+     * 4. Assert search works
+     * 5. Load the native index files (which will reuse the shared state from the initial index)
+     * 6. Assert search works on the second index
+     * 7. Delete the first index and wait
+     * 8. Assert search works on the second index
+     */
+    @SneakyThrows
+    public void testSharedIndexState_whenOneIndexDeleted_thenSecondIndexIsStillSearchable() {
+        String firstIndexName = "test-index-1";
+        String secondIndexName = "test-index-2";
+        String trainingIndexName = "training-index";
+
+        String modelId = "test-model";
+        String modelDescription = "ivfpql2 model for testing shared state";
+
+        int dimension = testData.indexData.vectors[0].length;
+        SpaceType spaceType = SpaceType.L2;
+        int ivfNlist = 4;
+        int ivfNprobes = 4;
+        int pqCodeSize = 8;
+        int pqM = 1;
+        int docCount = 100;
+
+        // training data needs to be at least equal to the number of centroids for PQ
+        // which is 2^8 = 256. 8 because thats the only valid code_size for HNSWPQ
+        int trainingDataCount = 256;
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NPROBES, ivfNprobes)
+            .field(METHOD_PARAMETER_NLIST, ivfNlist)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_PQ)
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_M, pqCodeSize)
+            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, pqM)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        createBasicKnnIndex(trainingIndexName, FIELD_NAME, dimension);
+        ingestDataAndTrainModel(modelId, trainingIndexName, FIELD_NAME, dimension, modelDescription, in, trainingDataCount);
+        assertTrainingSucceeds(modelId, 360, 1000);
+
+        createIndexFromModelAndIngestDocuments(firstIndexName, modelId, docCount);
+        createIndexFromModelAndIngestDocuments(secondIndexName, modelId, docCount);
+
+        doKnnWarmup(List.of(firstIndexName));
+        validateSearchWorkflow(firstIndexName, testData.queries, 10);
+        doKnnWarmup(List.of(secondIndexName));
+        validateSearchWorkflow(secondIndexName, testData.queries, 10);
+        deleteKNNIndex(firstIndexName);
+        // wait for all index files to be cleaned up from original index. empirically determined to take 25 seconds.
+        // will give 15 second buffer from that
+        Thread.sleep(1000 * 45);
+        validateSearchWorkflow(secondIndexName, testData.queries, 10);
+        deleteModel(modelId);
+    }
+
+    @SneakyThrows
+    private void createIndexFromModelAndIngestDocuments(String indexName, String modelId, int docCount) {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("model_id", modelId)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        String mapping = builder.toString();
+        createKnnIndex(indexName, mapping);
+        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
+
+        for (int i = 0; i < Math.min(testData.indexData.docs.length, docCount); i++) {
+            addKnnDoc(
+                indexName,
+                Integer.toString(testData.indexData.docs[i]),
+                FIELD_NAME,
+                Floats.asList(testData.indexData.vectors[i]).toArray()
+            );
+        }
+        refreshAllNonSystemIndices();
+        assertEquals(Math.min(testData.indexData.docs.length, docCount), getDocCount(indexName));
+    }
+
+    @SneakyThrows
+    private void validateSearchWorkflow(String indexName, float[][] queries, int k) {
+        for (float[] query : queries) {
+            Response response = searchKNNIndex(indexName, new KNNQueryBuilder(FIELD_NAME, query, k), k);
+            String responseBody = EntityUtils.toString(response.getEntity());
+            List<KNNResult> knnResults = parseSearchResponse(responseBody, FIELD_NAME);
+            assertEquals(k, knnResults.size());
+        }
     }
 
     public void testDocUpdate() throws IOException {

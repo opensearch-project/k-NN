@@ -16,9 +16,7 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -97,38 +95,35 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         assertEquals(2, NativeMemoryCacheManager.getInstance().getIndicesCacheStats().get(testIndexName).get(GRAPH_COUNT));
     }
 
-    public void testGetHNSWPaths() throws IOException, ExecutionException, InterruptedException {
+    public void testGetAllEngineFileContexts() throws IOException, ExecutionException, InterruptedException {
         IndexService indexService = createKNNIndex(testIndexName);
         createKnnIndexMapping(testIndexName, testFieldName, dimensions);
-        IndexShard indexShard;
-        KNNIndexShard knnIndexShard;
-        Engine.Searcher searcher;
-        Map<String, SpaceType> hnswPaths;
 
-        indexShard = indexService.iterator().next();
-        knnIndexShard = new KNNIndexShard(indexShard);
+        IndexShard indexShard = indexService.iterator().next();
+        KNNIndexShard knnIndexShard = new KNNIndexShard(indexShard);
 
-        searcher = indexShard.acquireSearcher("test-hnsw-paths-1");
-        hnswPaths = knnIndexShard.getAllEnginePaths(searcher.getIndexReader());
-        assertEquals(0, hnswPaths.size());
+        Engine.Searcher searcher = indexShard.acquireSearcher("test-hnsw-paths-1");
+        List<KNNIndexShard.EngineFileContext> engineFileContexts = knnIndexShard.getAllEngineFileContexts(searcher.getIndexReader());
+        assertEquals(0, engineFileContexts.size());
         searcher.close();
 
         addKnnDoc(testIndexName, "1", testFieldName, new Float[] { 2.5F, 3.5F });
 
         searcher = indexShard.acquireSearcher("test-hnsw-paths-2");
-        hnswPaths = knnIndexShard.getAllEnginePaths(searcher.getIndexReader());
-        assertEquals(1, hnswPaths.size());
-        List<String> paths = new ArrayList<>(hnswPaths.keySet());
+        engineFileContexts = knnIndexShard.getAllEngineFileContexts(searcher.getIndexReader());
+        assertEquals(1, engineFileContexts.size());
+        List<String> paths = engineFileContexts.stream().map(KNNIndexShard.EngineFileContext::getIndexPath).collect(Collectors.toList());
         assertTrue(paths.get(0).contains("hnsw") || paths.get(0).contains("hnswc"));
         searcher.close();
     }
 
-    public void testGetEnginePaths() {
+    public void testGetEngineFileContexts() {
         // Check that the correct engine paths are being returned by the KNNIndexShard
         String segmentName = "_0";
         String fieldName = "test_field";
         String fileExt = ".test";
         SpaceType spaceType = SpaceType.L2;
+        String modelId = "test-model";
 
         Set<String> includedFileNames = ImmutableSet.of(
             String.format("%s_111_%s%s", segmentName, fieldName, fileExt),
@@ -147,9 +142,17 @@ public class KNNIndexShardTests extends KNNSingleNodeTestCase {
         KNNIndexShard knnIndexShard = new KNNIndexShard(null);
 
         Path path = Paths.get("");
-        Map<String, SpaceType> included = knnIndexShard.getEnginePaths(files, segmentName, fieldName, fileExt, path, spaceType);
+        List<KNNIndexShard.EngineFileContext> included = knnIndexShard.getEngineFileContexts(
+            files,
+            segmentName,
+            fieldName,
+            fileExt,
+            path,
+            spaceType,
+            modelId
+        );
 
         assertEquals(includedFileNames.size(), included.size());
-        included.keySet().forEach(o -> assertTrue(includedFileNames.contains(o)));
+        included.stream().map(KNNIndexShard.EngineFileContext::getIndexPath).forEach(o -> assertTrue(includedFileNames.contains(o)));
     }
 }
