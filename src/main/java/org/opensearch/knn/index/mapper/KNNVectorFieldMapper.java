@@ -64,7 +64,6 @@ import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
-import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
@@ -530,10 +529,23 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     @Override
     protected void parseCreateField(ParseContext context) throws IOException {
-        parseCreateField(context, fieldType().getDimension(), fieldType().getSpaceType());
+        parseCreateField(
+            context,
+            fieldType().getDimension(),
+            fieldType().getSpaceType(),
+            getMethodComponentContext(fieldType().getKnnMethodContext())
+        );
     }
 
-    protected void parseCreateField(ParseContext context, int dimension, SpaceType spaceType) throws IOException {
+    private MethodComponentContext getMethodComponentContext(KNNMethodContext knnMethodContext) {
+        if (Objects.isNull(knnMethodContext)) {
+            return null;
+        }
+        return knnMethodContext.getMethodComponentContext();
+    }
+
+    protected void parseCreateField(ParseContext context, int dimension, SpaceType spaceType, MethodComponentContext methodComponentContext)
+        throws IOException {
 
         validateIfKNNPluginEnabled();
         validateIfCircuitBreakerIsNotTriggered();
@@ -551,7 +563,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             context.doc().add(point);
             addStoredFieldForVectorField(context, fieldType, name(), point.toString());
         } else if (VectorDataType.FLOAT == vectorDataType) {
-            Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
+            Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension, methodComponentContext);
 
             if (floatsArrayOptional.isEmpty()) {
                 return;
@@ -571,34 +583,35 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     }
 
     // Verify mapping and return true if it is a "faiss" Index using "sq" encoder of type "fp16"
-    protected boolean isFaissSQfp16(KNNMethodContext knnMethodContext) {
-
-        // KNNMethodContext shouldn't be null
-        if (Objects.isNull(knnMethodContext)) {
+    protected boolean isFaissSQfp16(MethodComponentContext methodComponentContext) {
+        if (Objects.isNull(methodComponentContext)) {
             return false;
         }
 
-        // engine should be faiss
-        if (!FAISS_NAME.equals(knnMethodContext.getKnnEngine().getName())) {
+        if (methodComponentContext.getParameters().size() == 0) {
             return false;
         }
 
-        // Should have Method Component Parameters
-        if (knnMethodContext.getMethodComponentContext().getParameters().size() == 0) {
-            return false;
-        }
-        Map<String, Object> methodComponentParams = knnMethodContext.getMethodComponentContext().getParameters();
+        Map<String, Object> methodComponentParams = methodComponentContext.getParameters();
 
         // The method component parameters should have an encoder
         if (!methodComponentParams.containsKey(METHOD_ENCODER_PARAMETER)) {
             return false;
         }
 
-        MethodComponentContext methodComponentContext = (MethodComponentContext) methodComponentParams.get(METHOD_ENCODER_PARAMETER);
+        // Validate if the object is of type MethodComponentContext before casting it later
+        if (!(methodComponentParams.get(METHOD_ENCODER_PARAMETER) instanceof MethodComponentContext)) {
+            return false;
+        }
+
+        MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) methodComponentParams.get(METHOD_ENCODER_PARAMETER);
 
         // returns true if encoder name is "sq" and type is "fp16"
-        return ENCODER_SQ.equals(methodComponentContext.getName())
-            && FAISS_SQ_ENCODER_FP16.equals(methodComponentContext.getParameters().getOrDefault(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16));
+        return ENCODER_SQ.equals(encoderMethodComponentContext.getName())
+            && FAISS_SQ_ENCODER_FP16.equals(
+                encoderMethodComponentContext.getParameters().getOrDefault(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            );
+
     }
 
     // Verify mapping and return the value of "clip" parameter(default false) for a "faiss" Index
@@ -659,21 +672,19 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         return Optional.of(array);
     }
 
-    Optional<float[]> getFloatsFromContext(ParseContext context, int dimension) throws IOException {
+    Optional<float[]> getFloatsFromContext(ParseContext context, int dimension, MethodComponentContext methodComponentContext)
+        throws IOException {
         context.path().add(simpleName());
 
         // Returns an optional array of float values where each value in the vector is parsed as a float and validated
         // if it is a finite number and within the fp16 range of [-65504 to 65504] by default if Faiss encoder is SQ and type is 'fp16'.
         // If the encoder parameter, "clip" is set to True, if the vector value is outside the FP16 range then it will be
         // clipped to FP16 range.
-        boolean isFaissSQfp16Flag = isFaissSQfp16(fieldType().getKnnMethodContext());
+        boolean isFaissSQfp16Flag = isFaissSQfp16(methodComponentContext);
         boolean clipVectorValueToFP16RangeFlag = false;
         if (isFaissSQfp16Flag) {
             clipVectorValueToFP16RangeFlag = isFaissSQClipToFP16RangeEnabled(
-                (MethodComponentContext) fieldType().getKnnMethodContext()
-                    .getMethodComponentContext()
-                    .getParameters()
-                    .get(METHOD_ENCODER_PARAMETER)
+                (MethodComponentContext) methodComponentContext.getParameters().get(METHOD_ENCODER_PARAMETER)
             );
         }
 

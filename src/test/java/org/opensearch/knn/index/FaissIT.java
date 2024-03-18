@@ -569,6 +569,185 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testIVFSQFP16_whenIndexedWithOutOfFP16Range_thenThrowException() {
+        String modelId = "test-model-ivf-sqfp16";
+        int dimension = 128;
+
+        String trainingIndexName = "train-index-ivf-sqfp16";
+        String trainingFieldName = "train-field-ivf-sqfp16";
+
+        // Add training data
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        int trainingDataCount = 200;
+        bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
+
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> method = xContentBuilderToMap(builder);
+
+        trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, "faiss ivf sqfp16 test description");
+
+        // Make sure training succeeds after 30 seconds
+        assertTrainingSucceeds(modelId, 30, 1000);
+
+        // Create knn index from model
+        String fieldName = "test-field-name-ivf-sqfp16";
+        String indexName = "test-index-name-ivf-sqfp16";
+        String indexMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), indexMapping);
+        Float[] vector = { -10.76f, 65504.2f };
+
+        ResponseException ex = expectThrows(ResponseException.class, () -> addKnnDoc(indexName, "1", fieldName, vector));
+        assertTrue(
+            ex.getMessage()
+                .contains(
+                    String.format(
+                        Locale.ROOT,
+                        "encoder name is set as [%s] and type is set as [%s] in index mapping. But, KNN vector values are not within in the FP16 range [%f, %f]",
+                        ENCODER_SQ,
+                        FAISS_SQ_ENCODER_FP16,
+                        FP16_MIN_VALUE,
+                        FP16_MAX_VALUE
+                    )
+                )
+        );
+
+        Float[] vector1 = { -65506.84f, 12.56f };
+
+        ResponseException ex1 = expectThrows(ResponseException.class, () -> addKnnDoc(indexName, "2", fieldName, vector1));
+        assertTrue(
+            ex1.getMessage()
+                .contains(
+                    String.format(
+                        Locale.ROOT,
+                        "encoder name is set as [%s] and type is set as [%s] in index mapping. But, KNN vector values are not within in the FP16 range [%f, %f]",
+                        ENCODER_SQ,
+                        FAISS_SQ_ENCODER_FP16,
+                        FP16_MIN_VALUE,
+                        FP16_MAX_VALUE
+                    )
+                )
+        );
+
+        Float[] vector2 = { -65526.4567f, 65526.4567f };
+
+        ResponseException ex2 = expectThrows(ResponseException.class, () -> addKnnDoc(indexName, "3", fieldName, vector2));
+        assertTrue(
+            ex2.getMessage()
+                .contains(
+                    String.format(
+                        Locale.ROOT,
+                        "encoder name is set as [%s] and type is set as [%s] in index mapping. But, KNN vector values are not within in the FP16 range [%f, %f]",
+                        ENCODER_SQ,
+                        FAISS_SQ_ENCODER_FP16,
+                        FP16_MIN_VALUE,
+                        FP16_MAX_VALUE
+                    )
+                )
+        );
+        deleteKNNIndex(indexName);
+        deleteKNNIndex(trainingIndexName);
+        deleteModel(modelId);
+    }
+
+    @SneakyThrows
+    public void testIVFSQFP16_whenClipToFp16isTrueAndIndexedWithOutOfFP16Range_thenSucceed() {
+        String modelId = "test-model-ivf-sqfp16";
+        int dimension = 2;
+
+        String trainingIndexName = "train-index-ivf-sqfp16";
+        String trainingFieldName = "train-field-ivf-sqfp16";
+
+        // Add training data
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        int trainingDataCount = 200;
+        bulkIngestRandomVectors(trainingIndexName, trainingFieldName, trainingDataCount, dimension);
+
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 1)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            .field(FAISS_SQ_CLIP, true)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> method = xContentBuilderToMap(builder);
+
+        trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, "faiss ivf sqfp16 test description");
+
+        // Make sure training succeeds after 30 seconds
+        assertTrainingSucceeds(modelId, 30, 1000);
+
+        // Create knn index from model
+        String fieldName = "test-field-name-ivf-sqfp16";
+        String indexName = "test-index-name-ivf-sqfp16";
+        String indexMapping = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+
+        createKnnIndex(indexName, getKNNDefaultIndexSettings(), indexMapping);
+        Float[] vector1 = { -65523.76f, 65504.2f };
+        Float[] vector2 = { -270.85f, 65514.2f };
+        Float[] vector3 = { -150.9f, 65504.0f };
+        Float[] vector4 = { -20.89f, 100000000.0f };
+        addKnnDoc(indexName, "1", fieldName, vector1);
+        addKnnDoc(indexName, "2", fieldName, vector2);
+        addKnnDoc(indexName, "3", fieldName, vector3);
+        addKnnDoc(indexName, "4", fieldName, vector4);
+
+        float[] queryVector = { -10.5f, 25.48f };
+        int k = 4;
+        Response searchResponse = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, queryVector, k), k);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
+        assertEquals(k, results.size());
+        for (int i = 0; i < k; i++) {
+            assertEquals(k - i, Integer.parseInt(results.get(i).getDocId()));
+        }
+
+        deleteKNNIndex(indexName);
+        deleteKNNIndex(trainingIndexName);
+        deleteModel(modelId);
+        validateGraphEviction();
+    }
+
+    @SneakyThrows
     public void testEndToEnd_whenMethodIsHNSWPQAndHyperParametersNotSet_thenSucceed() {
         String indexName = "test-index";
         String fieldName = "test-field";
