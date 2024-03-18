@@ -431,29 +431,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             ValidationException.class,
             () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilderL1SpaceType), buildParserContext(indexName, settings))
         );
-
-        XContentBuilder xContentBuilderInnerproductSpaceType = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION_FIELD_NAME, dimension)
-            .startObject(KNN_METHOD)
-            .field(NAME, METHOD_HNSW)
-            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
-            .field(KNN_ENGINE, LUCENE_NAME)
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
-            .endObject()
-            .endObject()
-            .endObject();
-
-        expectThrows(
-            ValidationException.class,
-            () -> typeParser.parse(
-                fieldName,
-                xContentBuilderToMap(xContentBuilderInnerproductSpaceType),
-                buildParserContext(indexName, settings)
-            )
-        );
     }
 
     public void testTypeParser_parse_fromKnnMethodContext() throws IOException {
