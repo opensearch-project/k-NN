@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Disable sdc table for HNSWPQ read-only indices [#1518](https://github.com/opensearch-project/k-NN/pull/1518)
 * Switch SpaceType.INNERPRODUCT's vector similarity function to MAXIMUM_INNER_PRODUCT [#1532](https://github.com/opensearch-project/k-NN/pull/1532)
 * Add patch to fix arm segfault in nmslib during ingestion [#1541](https://github.com/opensearch-project/k-NN/pull/1541)
+* Share ivfpq-l2 table allocations across indices on load [#1558](https://github.com/opensearch-project/k-NN/pull/1558)
 ### Infrastructure
 * Manually install zlib for win CI [#1513](https://github.com/opensearch-project/k-NN/pull/1513)
 * Update k-NN build artifact script to enable SIMD on ARM for Faiss [#1543](https://github.com/opensearch-project/k-NN/pull/1543)

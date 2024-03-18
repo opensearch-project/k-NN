@@ -12,6 +12,7 @@
 package org.opensearch.knn.index.memory;
 
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.IndexUtil;
 
 import java.io.IOException;
@@ -63,6 +64,8 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         private final NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy;
         private final String openSearchIndexName;
         private final Map<String, Object> parameters;
+        @Nullable
+        private final String modelId;
 
         /**
          * Constructor
@@ -78,10 +81,30 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             Map<String, Object> parameters,
             String openSearchIndexName
         ) {
+            this(indexPath, indexLoadStrategy, parameters, openSearchIndexName, null);
+        }
+
+        /**
+         * Constructor
+         *
+         * @param indexPath path to index file. Also used as key in cache.
+         * @param indexLoadStrategy strategy to load index into memory
+         * @param parameters load time parameters
+         * @param openSearchIndexName opensearch index associated with index
+         * @param modelId model to be loaded. If none available, pass null
+         */
+        public IndexEntryContext(
+            String indexPath,
+            NativeMemoryLoadStrategy.IndexLoadStrategy indexLoadStrategy,
+            Map<String, Object> parameters,
+            String openSearchIndexName,
+            String modelId
+        ) {
             super(indexPath);
             this.indexLoadStrategy = indexLoadStrategy;
             this.openSearchIndexName = openSearchIndexName;
             this.parameters = parameters;
+            this.modelId = modelId;
         }
 
         @Override
@@ -110,6 +133,15 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          */
         public Map<String, Object> getParameters() {
             return parameters;
+        }
+
+        /**
+         * Getter
+         *
+         * @return return model ID for the index. null if no model is in use
+         */
+        public String getModelId() {
+            return modelId;
         }
 
         private static class IndexSizeCalculator implements Function<IndexEntryContext, Integer> {
