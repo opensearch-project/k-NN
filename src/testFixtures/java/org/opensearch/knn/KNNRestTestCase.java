@@ -6,6 +6,7 @@
 package org.opensearch.knn;
 
 import com.google.common.primitives.Floats;
+import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
@@ -455,6 +456,13 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Force merge KNN index segments
      */
     protected void forceMergeKnnIndex(String index) throws Exception {
+        forceMergeKnnIndex(index, 1);
+    }
+
+    /**
+     * Force merge KNN index segments
+     */
+    protected void forceMergeKnnIndex(String index, int maxSegments) throws Exception {
         Request request = new Request("POST", "/" + index + "/_refresh");
 
         Response response = client().performRequest(request);
@@ -462,7 +470,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         request = new Request("POST", "/" + index + "/_forcemerge");
 
-        request.addParameter("max_num_segments", "1");
+        request.addParameter("max_num_segments", String.valueOf(maxSegments));
         request.addParameter("flush", "true");
         response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -663,6 +671,12 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Response response = client().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
         return response;
+    }
+
+    @SneakyThrows
+    protected void doKnnWarmup(List<String> indices) {
+        Response response = knnWarmup(indices);
+        assertEquals(response.getStatusLine().getStatusCode(), 200);
     }
 
     /**

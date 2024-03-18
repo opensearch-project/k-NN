@@ -143,6 +143,12 @@ public class TestUtils {
             pq = new PriorityQueue<>(k, new DistComparator());
             for (int j = 0; j < indexVectors.length; j++) {
                 float dist = computeDistFromSpaceType(spaceType, indexVectors[j], queryVectors[i]);
+
+                // Need to invert distance for IP or COSINE because higher is better in these cases
+                if (spaceType == SpaceType.INNER_PRODUCT || spaceType == SpaceType.COSINESIMIL) {
+                    dist *= -1;
+                }
+
                 pq = insertWithOverflow(pq, k, dist, j);
             }
 
@@ -203,6 +209,11 @@ public class TestUtils {
         for (int id = 0; id < numDocs; id++) {
             float[] indexVector = idVectorProducer.getVector(id);
             float dist = computeDistFromSpaceType(spaceType, indexVector, queryVector);
+            // Need to invert distance for IP or COSINE because higher is better in these cases
+            if (spaceType == SpaceType.INNER_PRODUCT || spaceType == SpaceType.COSINESIMIL) {
+                dist *= -1;
+            }
+
             pq = insertWithOverflow(pq, k, dist, id);
         }
         return pq;
