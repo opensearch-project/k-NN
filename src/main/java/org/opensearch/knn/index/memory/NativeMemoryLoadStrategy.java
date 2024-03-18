@@ -11,7 +11,9 @@
 
 package org.opensearch.knn.index.memory;
 
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.core.action.ActionListener;
+import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.training.TrainingDataConsumer;
@@ -41,6 +43,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
      */
     T load(U nativeMemoryEntryContext) throws IOException;
 
+    @Log4j2
     class IndexLoadStrategy
         implements
             NativeMemoryLoadStrategy<NativeMemoryAllocation.IndexAllocation, NativeMemoryEntryContext.IndexEntryContext>,
@@ -92,17 +95,25 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             fileWatcher.init();
 
             KNNEngine knnEngine = KNNEngine.getEngineNameFromPath(indexPath.toString());
-            long memoryAddress = JNIService.loadIndex(indexPath.toString(), indexEntryContext.getParameters(), knnEngine);
-            final WatcherHandle<FileWatcher> watcherHandle = resourceWatcherService.add(fileWatcher);
+            long indexAddress = JNIService.loadIndex(indexPath.toString(), indexEntryContext.getParameters(), knnEngine);
+            SharedIndexState sharedIndexState = null;
+            String modelId = indexEntryContext.getModelId();
+            if (IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, indexAddress)) {
+                log.info("Index with model: \"{}\" requires shared state. Retrieving shared state.", modelId);
+                sharedIndexState = SharedIndexStateManager.getInstance().get(indexAddress, modelId, knnEngine);
+                JNIService.setSharedIndexState(indexAddress, sharedIndexState.getSharedIndexStateAddress(), knnEngine);
+            }
 
+            final WatcherHandle<FileWatcher> watcherHandle = resourceWatcherService.add(fileWatcher);
             return new NativeMemoryAllocation.IndexAllocation(
                 executor,
-                memoryAddress,
+                indexAddress,
                 indexEntryContext.calculateSizeInKB(),
                 knnEngine,
                 indexPath.toString(),
                 indexEntryContext.getOpenSearchIndexName(),
-                watcherHandle
+                watcherHandle,
+                sharedIndexState
             );
         }
 

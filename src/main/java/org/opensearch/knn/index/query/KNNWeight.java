@@ -256,7 +256,8 @@ public class KNNWeight extends Weight {
                     indexPath.toString(),
                     NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
                     getParametersAtLoading(spaceType, knnEngine, knnQuery.getIndexName()),
-                    knnQuery.getIndexName()
+                    knnQuery.getIndexName(),
+                    modelId
                 ),
                 true
             );
