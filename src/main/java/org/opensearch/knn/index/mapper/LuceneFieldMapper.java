@@ -18,6 +18,7 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
@@ -75,7 +76,8 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     }
 
     @Override
-    protected void parseCreateField(ParseContext context, int dimension, SpaceType spaceType) throws IOException {
+    protected void parseCreateField(ParseContext context, int dimension, SpaceType spaceType, MethodComponentContext methodComponentContext)
+        throws IOException {
 
         validateIfKNNPluginEnabled();
         validateIfCircuitBreakerIsNotTriggered();
@@ -96,7 +98,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
                 context.doc().add(new VectorField(name(), array, vectorFieldType));
             }
         } else if (VectorDataType.FLOAT == vectorDataType) {
-            Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
+            Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension, methodComponentContext);
 
             if (floatsArrayOptional.isEmpty()) {
                 return;

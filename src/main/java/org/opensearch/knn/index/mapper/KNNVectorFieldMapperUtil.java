@@ -23,12 +23,55 @@ import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Locale;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FP16_MAX_VALUE;
+import static org.opensearch.knn.common.KNNConstants.FP16_MIN_VALUE;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVectorValue;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class KNNVectorFieldMapperUtil {
+
+    /**
+     * Validate the float vector value and throw exception if it is not a number or not in the finite range
+     * or is not within the FP16 range of [-65504 to 65504].
+     *
+     * @param value float vector value
+     */
+    public static void validateFP16VectorValue(float value) {
+        validateFloatVectorValue(value);
+
+        if (value < FP16_MIN_VALUE || value > FP16_MAX_VALUE) {
+            throw new IllegalArgumentException(
+                String.format(
+                    Locale.ROOT,
+                    "encoder name is set as [%s] and type is set as [%s] in index mapping. But, KNN vector values are not within in the FP16 range [%f, %f]",
+                    ENCODER_SQ,
+                    FAISS_SQ_ENCODER_FP16,
+                    FP16_MIN_VALUE,
+                    FP16_MAX_VALUE
+                )
+            );
+        }
+    }
+
+    /**
+     * Validate the float vector value and if it is outside FP16 range,
+     * then it will be clipped to FP16 range of [-65504 to 65504].
+     *
+     * @param value  float vector value
+     * @return  vector value clipped to FP16 range
+     */
+    public static float clipVectorValueToFP16Range(float value) {
+        validateFloatVectorValue(value);
+        if (value < FP16_MIN_VALUE) return FP16_MIN_VALUE;
+        if (value > FP16_MAX_VALUE) return FP16_MAX_VALUE;
+        return value;
+    }
+
     /**
      * Validates and throws exception if data_type field is set in the index mapping
      * using any VectorDataType (other than float, which is default) because other
