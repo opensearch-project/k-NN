@@ -20,5 +20,5 @@ Compatible with OpenSearch 2.13.0
 * Update k-NN build artifact script to enable SIMD on ARM for Faiss [#1543](https://github.com/opensearch-project/k-NN/pull/1543)
 ### Maintenance
 * Bump faiss lib commit to 32f0e8cf92cd2275b60364517bb1cce67aa29a55 [#1443](https://github.com/opensearch-project/k-NN/pull/1443)
-* Fix FieldInfo Parameters Mismatch [#1489](https://github.com/opensearch-project/k-NN/pull/1489)
+* Fix FieldInfo Parameters Mismatch [#1490](https://github.com/opensearch-project/k-NN/pull/1490)
 * Upgrade faiss to 12b92e9 [#1509](https://github.com/opensearch-project/k-NN/pull/1509)
