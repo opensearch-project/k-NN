@@ -8,6 +8,8 @@ package org.opensearch.knn.index;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.BytesRefBuilder;
 import org.opensearch.index.fielddata.LeafFieldData;
 import org.opensearch.index.fielddata.ScriptDocValues;
 import org.opensearch.index.fielddata.SortedBinaryDocValues;
@@ -48,6 +50,44 @@ public class KNNVectorDVLeafFieldData implements LeafFieldData {
 
     @Override
     public SortedBinaryDocValues getBytesValues() {
-        throw new UnsupportedOperationException("knn vector field '" + fieldName + "' doesn't support sorting");
+        try {
+            final BinaryDocValues binaryDocValues = DocValues.getBinary(reader, fieldName);
+            SortedBinaryDocValues sortedBinaryDocValues = new SortedBinaryDocValues() {
+
+                private boolean docExists = false;
+                float[] floats = null;
+                int pos = 0;
+                BytesRefBuilder bytesRefBuilder = new BytesRefBuilder();
+
+                @Override
+                public boolean advanceExact(int doc) throws IOException {
+                    if (binaryDocValues.advanceExact(doc)) {
+                        docExists = true;
+                        floats = vectorDataType.getVectorFromDocValues(binaryDocValues.binaryValue());
+                        pos = 0;
+                        return docExists;
+                    }
+                    docExists = false;
+                    return docExists;
+                }
+
+                @Override
+                public int docValueCount() {
+                    return docExists ? floats.length : 0;
+                }
+
+                @Override
+                public BytesRef nextValue() throws IOException {
+                    Float v = floats[pos++];
+                    bytesRefBuilder.clear();
+                    bytesRefBuilder.copyChars(v.toString());
+                    return bytesRefBuilder.get();
+                }
+            };
+            return sortedBinaryDocValues;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 }
