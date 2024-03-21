@@ -570,7 +570,7 @@ faiss::IndexIVFPQ * extractIVFPQIndex(faiss::Index * index) {
 }
 
 jobjectArray knn_jni::faiss_wrapper::RangeSearch(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong indexPointerJ,
-                                                 jfloatArray queryVectorJ, jfloat radiusJ) {
+                                                 jfloatArray queryVectorJ, jfloat radiusJ, jint maxResultWindowJ) {
     if (queryVectorJ == nullptr) {
         throw std::runtime_error("Query Vector cannot be null");
     }
@@ -589,6 +589,11 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearch(knn_jni::JNIUtilInterface *jniU
 
     // Process the results, lims[1] contains the total number of results found for single query
     int resultSize = res.lims[1];
+
+    // Limit the result size to maxResultWindowJ so that we don't return more than the max result window
+    if (resultSize > maxResultWindowJ) {
+        resultSize = maxResultWindowJ;
+    }
 
     jclass resultClass = jniUtil->FindClass(env,"org/opensearch/knn/index/query/KNNQueryResult");
     jmethodID allArgs = jniUtil->FindMethod(env, "org/opensearch/knn/index/query/KNNQueryResult", "<init>");

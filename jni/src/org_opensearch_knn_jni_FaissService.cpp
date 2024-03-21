@@ -202,10 +202,11 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_freeVectors(JNIE
 
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_rangeSearchIndex(JNIEnv * env, jclass cls,
                                                                                    jlong indexPointerJ,
-                                                                                   jfloatArray queryVectorJ, jfloat radiusJ)
+                                                                                   jfloatArray queryVectorJ,
+                                                                                   jfloat radiusJ, jint maxResultWindowJ)
 {
     try {
-        return knn_jni::faiss_wrapper::RangeSearch(&jniUtil, env, indexPointerJ, queryVectorJ, radiusJ);
+        return knn_jni::faiss_wrapper::RangeSearch(&jniUtil, env, indexPointerJ, queryVectorJ, radiusJ, maxResultWindowJ);
 
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);

@@ -261,11 +261,18 @@ public class JNIService {
      * @param queryVector vector to be used for query
      * @param radius search within radius threshold
      * @param engineName name of the engine to use
+     * @param indexMaxResultWindow maximum number of results to return
      * @return KNNQueryResult array of neighbors within radius
      */
-    public static KNNQueryResult[] radiusQueryIndex(long indexPointer, float[] queryVector, float radius, String engineName) {
+    public static KNNQueryResult[] radiusQueryIndex(
+        long indexPointer,
+        float[] queryVector,
+        float radius,
+        String engineName,
+        int indexMaxResultWindow
+    ) {
         if (KNNEngine.FAISS.getName().equals(engineName)) {
-            return FaissService.rangeSearchIndex(indexPointer, queryVector, radius);
+            return FaissService.rangeSearchIndex(indexPointer, queryVector, radius, indexMaxResultWindow);
         }
         throw new IllegalArgumentException("RadiusQueryIndex not supported for provided engine");
     }

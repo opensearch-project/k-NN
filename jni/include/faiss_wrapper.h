@@ -80,10 +80,11 @@ namespace knn_jni {
          * @param indexPointerJ - pointer to the index
          * @param queryVectorJ - the query vector
          * @param radiusJ - the radius for the range search
+         * @param maxResultsWindowJ - the maximum number of results to return
          * @return an array of RangeQueryResults
          */
         jobjectArray RangeSearch(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong indexPointerJ, jfloatArray queryVectorJ,
-                    jfloat radiusJ);
+                    jfloat radiusJ, jint maxResultsWindowJ);
     }
 }
 

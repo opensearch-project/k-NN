@@ -136,7 +136,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_freeVectors
 * Signature: (J[F[F)J
 */
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_rangeSearchIndex
-  (JNIEnv *, jclass, jlong, jfloatArray, jfloat);
+  (JNIEnv *, jclass, jlong, jfloatArray, jfloat, jint);
 
 #ifdef __cplusplus
 }

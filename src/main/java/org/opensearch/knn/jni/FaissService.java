@@ -194,7 +194,8 @@ class FaissService {
      * @param indexPointer pointer to index in memory
      * @param queryVector vector to be used for query
      * @param radius search within radius threshold
+     * @param indexMaxResultWindow maximum number of results to return
      * @return KNNQueryResult array of neighbors within radius
      */
-    public static native KNNQueryResult[] rangeSearchIndex(long indexPointer, float[] queryVector, float radius);
+    public static native KNNQueryResult[] rangeSearchIndex(long indexPointer, float[] queryVector, float radius, int indexMaxResultWindow);
 }
