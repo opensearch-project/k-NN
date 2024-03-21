@@ -35,7 +35,7 @@ public class KNNVectorScriptDocValuesTests extends KNNTestCase {
         createKNNVectorDocument(directory);
         reader = DirectoryReader.open(directory);
         LeafReaderContext leafReaderContext = reader.getContext().leaves().get(0);
-        scriptDocValues = new KNNVectorScriptDocValues(
+        scriptDocValues = KNNVectorScriptDocValues.create(
             leafReaderContext.reader().getBinaryDocValues(MOCK_INDEX_FIELD_NAME),
             MOCK_INDEX_FIELD_NAME,
             VectorDataType.FLOAT
