@@ -74,7 +74,14 @@ namespace knn_jni {
         jbyteArray TrainIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject parametersJ, jint dimension,
                               jlong trainVectorsPointerJ);
 
-        // Execute a range search against the index located in memory at indexPointerJ.
+        /*
+         * Perform a range search against the index located in memory at indexPointerJ.
+         *
+         * @param indexPointerJ - pointer to the index
+         * @param queryVectorJ - the query vector
+         * @param radiusJ - the radius for the range search
+         * @return an array of RangeQueryResults
+         */
         jobjectArray RangeSearch(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong indexPointerJ, jfloatArray queryVectorJ,
                     jfloat radiusJ);
     }

@@ -583,6 +583,7 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearch(knn_jni::JNIUtilInterface *jniU
 
     float *rawQueryVector = jniUtil->GetFloatArrayElements(env, queryVectorJ, nullptr);
 
+    // The res will be freed by ~RangeSearchResult() in FAISS
     faiss::RangeSearchResult res(1, true);
     indexReader->range_search(1, rawQueryVector, radiusJ, &res);
 
