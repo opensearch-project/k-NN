@@ -194,8 +194,7 @@ class FaissService {
      * @param indexPointer pointer to index in memory
      * @param queryVector vector to be used for query
      * @param radius search within radius threshold
-     * @param engineName name of the engine to use
      * @return KNNQueryResult array of neighbors within radius
      */
-    public static native KNNQueryResult[] rangeSearchIndex(long indexPointer, float[] queryVector, float radius, String engineName);
+    public static native KNNQueryResult[] rangeSearchIndex(long indexPointer, float[] queryVector, float radius);
 }
