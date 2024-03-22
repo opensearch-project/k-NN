@@ -1,0 +1,15 @@
+{
+  "name":"ivf",
+  "engine":"faiss",
+  "space_type": "l2",
+    "parameters":{
+      "encoder": {
+        "name": "sq",
+        "parameters": {
+          "type": "fp16"
+        }
+      },
+      "nlist": 128,
+      "nprobes": 8
+  }
+}

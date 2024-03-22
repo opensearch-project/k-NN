@@ -71,10 +71,12 @@ TESTS="./release-configs/faiss-hnsw/filtering/relaxed-filter/relaxed-filter-test
 ./release-configs/faiss-hnsw/nested/simple/simple-nested-test.yml
 ./release-configs/faiss-hnsw/test.yml
 ./release-configs/faiss-hnswpq/test.yml
+./release-configs/faiss-hnsw-sqfp16/test.yml
 ./release-configs/faiss-ivf/filtering/relaxed-filter/relaxed-filter-test.yml
 ./release-configs/faiss-ivf/filtering/restrictive-filter/restrictive-filter-test.yml
 ./release-configs/faiss-ivf/test.yml
 ./release-configs/faiss-ivfpq/test.yml
+./release-configs/faiss-ivf-sqfp16/test.yml
 ./release-configs/lucene-hnsw/filtering/relaxed-filter/relaxed-filter-test.yml
 ./release-configs/lucene-hnsw/filtering/restrictive-filter/restrictive-filter-test.yml
 ./release-configs/lucene-hnsw/nested/simple/simple-nested-test.yml
