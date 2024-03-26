@@ -1,3 +1,5 @@
+# IMPORTANT NOTE: No new features will be added to this tool . This tool is currently in maintanence mode. All new features will be added to [vector search workload]( https://github.com/opensearch-project/opensearch-benchmark-workloads/tree/main/vectorsearch)
+
 # OpenSearch k-NN Benchmarking
 - [Welcome!](#welcome)
 - [Install Prerequisites](#install-prerequisites)
