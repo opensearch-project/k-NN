@@ -73,7 +73,7 @@ public class KNNVectorDVLeafFieldData implements LeafFieldData {
 
                 @Override
                 public int docValueCount() {
-                    return docExists ? floats.length : 0;
+                    return docExists ? floats.length : 1;
                 }
 
                 @Override

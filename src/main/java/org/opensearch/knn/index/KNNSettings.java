@@ -27,12 +27,7 @@ import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
 
 import java.security.InvalidParameterException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -77,6 +72,7 @@ public class KNNSettings {
     public static final String MODEL_CACHE_SIZE_LIMIT = "knn.model.cache.size.limit";
     public static final String ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD = "index.knn.advanced.filtered_exact_search_threshold";
     public static final String KNN_FAISS_AVX2_DISABLED = "knn.faiss.avx2.disabled";
+    public static final String KNN_SYNTHETIC_SOURCE_ENABLED = "knn.synthetic_source.enabled";
 
     /**
      * Default setting values
@@ -234,6 +230,12 @@ public class KNNSettings {
 
     public static final Setting<Boolean> KNN_FAISS_AVX2_DISABLED_SETTING = Setting.boolSetting(KNN_FAISS_AVX2_DISABLED, false, NodeScope);
 
+    public static final Setting<Boolean> KNN_SYNTHETIC_SOURCE_ENABLED_SETTING = Setting.boolSetting(
+            KNN_SYNTHETIC_SOURCE_ENABLED,
+            false,
+            IndexScope
+    );
+
     /**
      * Dynamic settings
      */
@@ -347,6 +349,10 @@ public class KNNSettings {
             return KNN_FAISS_AVX2_DISABLED_SETTING;
         }
 
+        if (KNN_SYNTHETIC_SOURCE_ENABLED.equals(key)) {
+            return KNN_SYNTHETIC_SOURCE_ENABLED_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -364,7 +370,8 @@ public class KNNSettings {
             MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
             MODEL_CACHE_SIZE_LIMIT_SETTING,
             ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
-            KNN_FAISS_AVX2_DISABLED_SETTING
+            KNN_FAISS_AVX2_DISABLED_SETTING,
+            KNN_SYNTHETIC_SOURCE_ENABLED_SETTING
         );
         return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream()).collect(Collectors.toList());
     }
@@ -395,6 +402,14 @@ public class KNNSettings {
             .index(indexName)
             .getSettings()
             .getAsInt(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE);
+    }
+
+    public static boolean isKNNSyntheticEnabled(final String indexName) {
+        return KNNSettings.state().clusterService.state()
+                .getMetadata()
+                .index(indexName)
+                .getSettings()
+                .getAsBoolean(KNN_SYNTHETIC_SOURCE_ENABLED, false);
     }
 
     public void initialize(Client client, ClusterService clusterService) {
