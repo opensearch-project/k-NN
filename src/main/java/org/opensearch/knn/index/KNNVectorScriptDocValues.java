@@ -6,6 +6,7 @@
 package org.opensearch.knn.index;
 
 import java.io.IOException;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -60,7 +61,17 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
         throw new UnsupportedOperationException("knn vector does not support this operation");
     }
 
+    /**
+     * Creates a KNNVectorScriptDocValues object based on the provided parameters.
+     *
+     * @param values          The DocIdSetIterator representing the vector values.
+     * @param fieldName       The name of the field.
+     * @param vectorDataType  The data type of the vector.
+     * @return A KNNVectorScriptDocValues object based on the type of the values.
+     * @throws IllegalArgumentException If the type of values is unsupported.
+     */
     public static KNNVectorScriptDocValues create(DocIdSetIterator values, String fieldName, VectorDataType vectorDataType) {
+        Objects.requireNonNull(values, "values must not be null");
         if (values instanceof ByteVectorValues) {
             return new KNNByteVectorScriptDocValues((ByteVectorValues) values, fieldName, vectorDataType);
         } else if (values instanceof FloatVectorValues) {
@@ -117,5 +128,21 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
         protected float[] doGetValue() throws IOException {
             return getVectorDataType().getVectorFromDocValues(values.binaryValue());
         }
+    }
+
+    /**
+     * Creates an empty KNNVectorScriptDocValues object based on the provided field name and vector data type.
+     *
+     * @param fieldName The name of the field.
+     * @param type      The data type of the vector.
+     * @return An empty KNNVectorScriptDocValues object.
+     */
+    public static KNNVectorScriptDocValues emptyValues(String fieldName, VectorDataType type) {
+        return new KNNVectorScriptDocValues(DocIdSetIterator.empty(), fieldName, type) {
+            @Override
+            protected float[] doGetValue() throws IOException {
+                throw new UnsupportedOperationException("empty values");
+            }
+        };
     }
 }

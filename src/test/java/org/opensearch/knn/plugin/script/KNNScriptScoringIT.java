@@ -5,8 +5,10 @@
 
 package org.opensearch.knn.plugin.script;
 
+import java.io.IOException;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
@@ -21,6 +23,7 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.script.Script;
 
 import java.util.ArrayList;
@@ -35,12 +38,29 @@ import java.util.stream.Collectors;
 import static org.hamcrest.Matchers.containsString;
 
 public class KNNScriptScoringIT extends KNNRestTestCase {
+    private void randomCreateKNNIndex() throws IOException {
+        if (randomBoolean()) {
+            createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        } else {
+            createKnnIndex(
+                INDEX_NAME,
+                createKnnIndexMapping(
+                    FIELD_NAME,
+                    2,
+                    KNNConstants.METHOD_HNSW,
+                    KNNEngine.LUCENE.getName(),
+                    SpaceType.DEFAULT.getValue(),
+                    randomBoolean()
+                )
+            );
+        }
+    }
 
     public void testKNNL2ScriptScore() throws Exception {
         /*
          * Create knn index and populate data
          */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        randomCreateKNNIndex();
         Float[] f1 = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, f1);
 
@@ -93,7 +113,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         /*
          * Create knn index and populate data
          */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        randomCreateKNNIndex();
         Float[] f1 = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, f1);
 
@@ -146,7 +166,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         /*
          * Create knn index and populate data
          */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        randomCreateKNNIndex();
         Float[] f1 = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, f1);
 
@@ -199,7 +219,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         /*
          * Create knn index and populate data
          */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        randomCreateKNNIndex();
         Float[] f1 = { 1.0f, -1.0f };
         addKnnDoc(INDEX_NAME, "0", FIELD_NAME, f1);
 
@@ -251,7 +271,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         /*
          * Create knn index and populate data
          */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        randomCreateKNNIndex();
 
         /**
          * Construct Search Request
@@ -293,7 +313,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         /*
          * Create knn index and populate data
          */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        randomCreateKNNIndex();
 
         /**
          * Construct Search Request
@@ -316,7 +336,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         /*
          * Create knn index and populate data
          */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        randomCreateKNNIndex();
 
         /**
          * Construct Search Request
@@ -349,7 +369,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         /*
          * Create knn index and populate data
          */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        randomCreateKNNIndex();
         Float[] f1 = { 1.0f, -1.0f };
         addKnnDoc(INDEX_NAME, "0", FIELD_NAME, f1);
 
@@ -372,7 +392,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         /*
          * Create knn index and populate data
          */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        randomCreateKNNIndex();
         Float[] f1 = { 1.0f, 1.0f };
         addDocWithNumericField(INDEX_NAME, "0", "price", 10);
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, f1);
@@ -636,7 +656,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         /*
          * Create knn index and populate data
          */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        randomCreateKNNIndex();
         Float[] f1 = { -2.0f, -2.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, f1);
 
@@ -690,7 +710,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         /*
          * Create knn index and populate data
          */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        randomCreateKNNIndex();
         Float[] f1 = { 6.0f, 6.0f };
         addKnnDoc(INDEX_NAME, "1", FIELD_NAME, f1);
 

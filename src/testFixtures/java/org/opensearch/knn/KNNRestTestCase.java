@@ -329,20 +329,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Utility to create a Knn Index Mapping with specific algorithm and engine
      */
     protected String createKnnIndexMapping(String fieldName, Integer dimensions, String algoName, String knnEngine) throws IOException {
-        return XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(fieldName)
-            .field("type", "knn_vector")
-            .field("dimension", dimensions.toString())
-            .startObject("method")
-            .field("name", algoName)
-            .field("engine", knnEngine)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .toString();
+        return this.createKnnIndexMapping(fieldName, dimensions, algoName, knnEngine, SpaceType.DEFAULT.getValue());
     }
 
     /**
@@ -350,12 +337,27 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected String createKnnIndexMapping(String fieldName, Integer dimensions, String algoName, String knnEngine, String spaceType)
         throws IOException {
+        return this.createKnnIndexMapping(fieldName, dimensions, algoName, knnEngine, spaceType, true);
+    }
+
+    /**
+     * Utility to create a Knn Index Mapping with specific algorithm, engine, spaceType and docValues
+     */
+    protected String createKnnIndexMapping(
+        String fieldName,
+        Integer dimensions,
+        String algoName,
+        String knnEngine,
+        String spaceType,
+        boolean docValues
+    ) throws IOException {
         return XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(fieldName)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
             .field(KNNConstants.DIMENSION, dimensions.toString())
+            .field("doc_values", docValues)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, algoName)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType)

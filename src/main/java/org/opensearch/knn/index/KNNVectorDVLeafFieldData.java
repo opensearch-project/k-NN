@@ -41,17 +41,18 @@ public class KNNVectorDVLeafFieldData implements LeafFieldData {
     @Override
     public ScriptDocValues<float[]> getScriptValues() {
         try {
-            DocIdSetIterator values = null;
             FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(fieldName);
-            System.out.println(fieldInfo);
+            if (fieldInfo == null) {
+                return KNNVectorScriptDocValues.emptyValues(fieldName, vectorDataType);
+            }
+
+            DocIdSetIterator values = null;
             if (fieldInfo.hasVectorValues()) {
                 values = fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32
                     ? reader.getFloatVectorValues(fieldName)
                     : reader.getByteVectorValues(fieldName);
-                System.out.println("use vector values");
             } else {
                 values = DocValues.getBinary(reader, fieldName);
-                System.out.println("use binary values");
             }
             return KNNVectorScriptDocValues.create(values, fieldName, vectorDataType);
         } catch (IOException e) {
