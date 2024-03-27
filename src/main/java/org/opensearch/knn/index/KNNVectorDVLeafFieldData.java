@@ -8,7 +8,6 @@ package org.opensearch.knn.index;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.LeafReader;
-import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.opensearch.index.fielddata.LeafFieldData;
 import org.opensearch.index.fielddata.ScriptDocValues;
@@ -46,11 +45,18 @@ public class KNNVectorDVLeafFieldData implements LeafFieldData {
                 return KNNVectorScriptDocValues.emptyValues(fieldName, vectorDataType);
             }
 
-            DocIdSetIterator values = null;
+            DocIdSetIterator values;
             if (fieldInfo.hasVectorValues()) {
-                values = fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32
-                    ? reader.getFloatVectorValues(fieldName)
-                    : reader.getByteVectorValues(fieldName);
+                switch (fieldInfo.getVectorEncoding()) {
+                    case FLOAT32:
+                        values = reader.getFloatVectorValues(fieldName);
+                        break;
+                    case BYTE:
+                        values = reader.getByteVectorValues(fieldName);
+                        break;
+                    default:
+                        throw new IllegalStateException("Unsupported Lucene vector encoding: " + fieldInfo.getVectorEncoding());
+                }
             } else {
                 values = DocValues.getBinary(reader, fieldName);
             }

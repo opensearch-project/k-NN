@@ -38,23 +38,6 @@ import java.util.stream.Collectors;
 import static org.hamcrest.Matchers.containsString;
 
 public class KNNScriptScoringIT extends KNNRestTestCase {
-    private void randomCreateKNNIndex() throws IOException {
-        if (randomBoolean()) {
-            createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
-        } else {
-            createKnnIndex(
-                INDEX_NAME,
-                createKnnIndexMapping(
-                    FIELD_NAME,
-                    2,
-                    KNNConstants.METHOD_HNSW,
-                    KNNEngine.LUCENE.getName(),
-                    SpaceType.DEFAULT.getValue(),
-                    randomBoolean()
-                )
-            );
-        }
-    }
 
     public void testKNNL2ScriptScore() throws Exception {
         /*
@@ -810,5 +793,27 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         assertEquals(1, secondQueryCacheMap.get("miss_count"));
         // assert that the request cache was hit at second request
         assertEquals(1, secondQueryCacheMap.get("hit_count"));
+    }
+
+    /**
+     * Create native knn index or Lucene knn index with/without doc values randomly
+     * @throws IOException
+     */
+    private void randomCreateKNNIndex() throws IOException {
+        if (randomBoolean()) {
+            createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
+        } else {
+            createKnnIndex(
+                INDEX_NAME,
+                createKnnIndexMapping(
+                    FIELD_NAME,
+                    2,
+                    KNNConstants.METHOD_HNSW,
+                    KNNEngine.LUCENE.getName(),
+                    SpaceType.DEFAULT.getValue(),
+                    randomBoolean()
+                )
+            );
+        }
     }
 }
