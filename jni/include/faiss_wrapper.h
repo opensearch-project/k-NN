@@ -73,6 +73,18 @@ namespace knn_jni {
         // Return the serialized representation
         jbyteArray TrainIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject parametersJ, jint dimension,
                               jlong trainVectorsPointerJ);
+
+        /*
+         * Perform a range search against the index located in memory at indexPointerJ.
+         *
+         * @param indexPointerJ - pointer to the index
+         * @param queryVectorJ - the query vector
+         * @param radiusJ - the radius for the range search
+         * @param maxResultsWindowJ - the maximum number of results to return
+         * @return an array of RangeQueryResults
+         */
+        jobjectArray RangeSearch(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong indexPointerJ, jfloatArray queryVectorJ,
+                    jfloat radiusJ, jint maxResultsWindowJ);
     }
 }
 
