@@ -109,8 +109,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
      * @param distance the distance threshold for the nearest neighbours
      */
     public KNNQueryBuilder distance(Float distance) {
-        if (distance == null || distance < 0) {
-            throw new IllegalArgumentException("[" + NAME + "] requires distance >= 0");
+        if (distance == null) {
+            throw new IllegalArgumentException("[" + NAME + "] requires distance to be set");
         }
         if (k != 0) {
             throw new IllegalArgumentException("[" + NAME + "] requires either k or distance must be set");
@@ -401,6 +401,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         // We need transform distance radius to right type of engine required radius.
         Float radius = null;
         if (this.distance != null) {
+            if (this.distance < 0 && !SpaceType.INNER_PRODUCT.equals(spaceType)) {
+                throw new IllegalArgumentException("[" + NAME + "] requires distance to be non-negative for space type: " + spaceType);
+            }
             radius = knnEngine.distanceToRadialThreshold(this.distance, spaceType);
         }
 

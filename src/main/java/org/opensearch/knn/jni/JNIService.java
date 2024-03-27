@@ -271,7 +271,7 @@ public class JNIService {
         KNNEngine knnEngine,
         int indexMaxResultWindow
     ) {
-        if (KNNEngine.FAISS.getName().equals(knnEngine.getName())) {
+        if (KNNEngine.FAISS == knnEngine) {
             return FaissService.rangeSearchIndex(indexPointer, queryVector, radius, indexMaxResultWindow);
         }
         throw new IllegalArgumentException("RadiusQueryIndex not supported for provided engine");

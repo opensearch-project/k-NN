@@ -20,7 +20,6 @@ import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.IndexModule;
-import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManagerDto;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
@@ -469,20 +468,6 @@ public class KNNSettings {
                 KNNSettings.KNN_ALGO_PARAM_EF_SEARCH,
                 IndexHyperParametersUtil.getHNSWEFSearchValue(indexMetadata.getCreationVersion())
             );
-    }
-
-    /**
-     * Get the max result window for the index
-     *
-     * @param index index name
-     * @return max result window
-     */
-    public static int getIndexMaxResultWindow(String index) {
-        final Settings indexSettings = KNNSettings.state().clusterService.state().metadata().index(index).getSettings();
-        return indexSettings.getAsInt(
-            IndexSettings.MAX_RESULT_WINDOW_SETTING.getKey(),
-            IndexSettings.MAX_RESULT_WINDOW_SETTING.getDefault(indexSettings)
-        );
     }
 
     public void setClusterService(ClusterService clusterService) {

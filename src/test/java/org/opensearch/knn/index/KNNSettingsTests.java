@@ -15,7 +15,6 @@ import org.opensearch.common.network.NetworkModule;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.env.Environment;
-import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.node.MockNode;
@@ -169,39 +168,6 @@ public class KNNSettingsTests extends KNNTestCase {
         boolean actualKNNFaissAVX2Disabled = KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX2_DISABLED);
         mockNode.close();
         assertEquals(expectedKNNFaissAVX2Disabled, actualKNNFaissAVX2Disabled);
-    }
-
-    @SneakyThrows
-    public void testGetIndexMaxWindowResultValue_whenMaxResultWindowSeyByUser_thenReturnValue() {
-        Integer userDefinedMaxResultWindow = 20000;
-        Node mockNode = createMockNode(Collections.emptyMap());
-        mockNode.start();
-        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
-        mockNode.client().admin().cluster().state(new ClusterStateRequest()).actionGet();
-        final Settings settings = Settings.builder()
-            .put(IndexSettings.MAX_RESULT_WINDOW_SETTING.getKey(), userDefinedMaxResultWindow)
-            .build();
-
-        mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME, settings)).actionGet();
-        KNNSettings.state().setClusterService(clusterService);
-
-        Integer maxResultWindow = KNNSettings.getIndexMaxResultWindow(INDEX_NAME);
-        mockNode.close();
-        assertEquals(userDefinedMaxResultWindow, maxResultWindow);
-    }
-
-    @SneakyThrows
-    public void testGetIndexMaxResultWindowValue_whenNoValuesProvidedByUsers_thenDefaultSettingsUsed() {
-        Node mockNode = createMockNode(Collections.emptyMap());
-        mockNode.start();
-        ClusterService clusterService = mockNode.injector().getInstance(ClusterService.class);
-        mockNode.client().admin().cluster().state(new ClusterStateRequest()).actionGet();
-        mockNode.client().admin().indices().create(new CreateIndexRequest(INDEX_NAME)).actionGet();
-        KNNSettings.state().setClusterService(clusterService);
-
-        Integer maxResultWindow = KNNSettings.getIndexMaxResultWindow(INDEX_NAME);
-        mockNode.close();
-        assertEquals(IndexSettings.MAX_RESULT_WINDOW_SETTING.getDefault(Settings.EMPTY), maxResultWindow);
     }
 
     private Node createMockNode(Map<String, Object> configSettings) throws IOException {

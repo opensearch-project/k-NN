@@ -288,13 +288,12 @@ public class KNNWeight extends Weight {
                     parentIds
                 );
             } else {
-                int indexMaxResultWindow = KNNSettings.getIndexMaxResultWindow(knnQuery.getIndexName());
                 results = JNIService.radiusQueryIndex(
                     indexAllocation.getMemoryAddress(),
                     knnQuery.getQueryVector(),
                     knnQuery.getRadius(),
                     knnEngine,
-                    indexMaxResultWindow
+                    knnQuery.getContext().getMaxResultWindow()
                 );
             }
         } catch (Exception e) {

@@ -41,7 +41,10 @@ public class KNNQuery extends Query {
     @Getter
     @Setter
     // Radius for radius query, set to -1.0 for KNN query to avoid exception in OpenSearch Query null checks
-    private Float radius = -1.0f;
+    private float radius = -1.0f;
+    @Getter
+    @Setter
+    private Context context;
 
     public KNNQuery(
         final String field,
@@ -79,6 +82,7 @@ public class KNNQuery extends Query {
      * @param field field name
      * @param queryVector query vector
      * @param indexName index name
+     * @param parentsFilter parent filter
      */
     public KNNQuery(String field, float[] queryVector, String indexName, BitSetProducer parentsFilter) {
         this.field = field;
@@ -95,6 +99,17 @@ public class KNNQuery extends Query {
      */
     public KNNQuery radius(Float radius) {
         this.radius = radius;
+        return this;
+    }
+
+    /**
+     * Constructor for KNNQuery with Context
+     *
+     * @param context Context for KNNQuery
+     * @return KNNQuery
+     */
+    public KNNQuery kNNQueryContext(Context context) {
+        this.context = context;
         return this;
     }
 
@@ -183,5 +198,18 @@ public class KNNQuery extends Query {
             && Objects.equals(k, other.k)
             && Objects.equals(indexName, other.indexName)
             && Objects.equals(filterQuery, other.filterQuery);
+    }
+
+    /**
+     * Context for KNNQuery
+     */
+    @Setter
+    @Getter
+    public static class Context {
+        int maxResultWindow;
+
+        public Context(int maxResultWindow) {
+            this.maxResultWindow = maxResultWindow;
+        }
     }
 }

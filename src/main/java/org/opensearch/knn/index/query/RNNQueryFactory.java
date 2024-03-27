@@ -15,6 +15,7 @@ import org.apache.lucene.search.ByteVectorSimilarityQuery;
 import org.apache.lucene.search.FloatVectorSimilarityQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.join.BitSetProducer;
+import org.opensearch.index.IndexSettings;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -68,14 +69,16 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final VectorDataType vectorDataType = createQueryRequest.getVectorDataType();
         final Query filterQuery = getFilterQuery(createQueryRequest);
 
-        BitSetProducer parentFilter = null;
-        if (createQueryRequest.getContext().isPresent()) {
-            QueryShardContext context = createQueryRequest.getContext().get();
-            parentFilter = context.getParentFilter();
-        }
-
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
-            KNNQuery rnnQuery = new KNNQuery(fieldName, vector, indexName, parentFilter).radius(radius);
+            BitSetProducer parentFilter = null;
+            QueryShardContext context = createQueryRequest.getContext().get();
+
+            if (createQueryRequest.getContext().isPresent()) {
+                parentFilter = context.getParentFilter();
+            }
+            IndexSettings indexSettings = context.getIndexSettings();
+            KNNQuery.Context knnQueryContext = new KNNQuery.Context(indexSettings.getMaxResultWindow());
+            KNNQuery rnnQuery = new KNNQuery(fieldName, vector, indexName, parentFilter).radius(radius).kNNQueryContext(knnQueryContext);
             if (filterQuery != null && KNNEngine.getEnginesThatSupportsFilters().contains(createQueryRequest.getKnnEngine())) {
                 log.debug("Creating custom radius search with filters for index: {}, field: {} , r: {}", indexName, fieldName, radius);
                 rnnQuery.filterQuery(filterQuery);
