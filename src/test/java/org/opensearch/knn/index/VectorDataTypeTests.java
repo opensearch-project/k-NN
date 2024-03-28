@@ -57,7 +57,7 @@ public class VectorDataTypeTests extends KNNTestCase {
         createKNNFloatVectorDocument(directory);
         reader = DirectoryReader.open(directory);
         LeafReaderContext leafReaderContext = reader.getContext().leaves().get(0);
-        return new KNNVectorScriptDocValues(
+        return KNNVectorScriptDocValues.create(
             leafReaderContext.reader().getBinaryDocValues(VectorDataTypeTests.MOCK_FLOAT_INDEX_FIELD_NAME),
             VectorDataTypeTests.MOCK_FLOAT_INDEX_FIELD_NAME,
             VectorDataType.FLOAT
@@ -70,7 +70,7 @@ public class VectorDataTypeTests extends KNNTestCase {
         createKNNByteVectorDocument(directory);
         reader = DirectoryReader.open(directory);
         LeafReaderContext leafReaderContext = reader.getContext().leaves().get(0);
-        return new KNNVectorScriptDocValues(
+        return KNNVectorScriptDocValues.create(
             leafReaderContext.reader().getBinaryDocValues(VectorDataTypeTests.MOCK_BYTE_INDEX_FIELD_NAME),
             VectorDataTypeTests.MOCK_BYTE_INDEX_FIELD_NAME,
             VectorDataType.BYTE

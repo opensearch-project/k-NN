@@ -39,7 +39,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 import static org.hamcrest.Matchers.containsString;
 
@@ -143,7 +142,7 @@ public class OpenSearchIT extends KNNRestTestCase {
 
             List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName1);
             for (int j = 0; j < k; j++) {
-                float[] primitiveArray = Floats.toArray(Arrays.stream(knnResults.get(j).getVector()).collect(Collectors.toList()));
+                float[] primitiveArray = knnResults.get(j).getVector();
                 assertEquals(
                     knnEngine1.score(1 - KNNScoringUtil.cosinesimil(testData.queries[i], primitiveArray), spaceType1),
                     actualScores.get(j),
@@ -159,7 +158,7 @@ public class OpenSearchIT extends KNNRestTestCase {
 
             actualScores = parseSearchResponseScore(responseBody, fieldName2);
             for (int j = 0; j < k; j++) {
-                float[] primitiveArray = Floats.toArray(Arrays.stream(knnResults.get(j).getVector()).collect(Collectors.toList()));
+                float[] primitiveArray = knnResults.get(j).getVector();
                 assertEquals(
                     knnEngine2.score(KNNScoringUtil.l2Squared(testData.queries[i], primitiveArray), spaceType2),
                     actualScores.get(j),

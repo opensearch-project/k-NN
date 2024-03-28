@@ -30,11 +30,9 @@ import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 import static org.hamcrest.Matchers.containsString;
 
@@ -115,7 +113,7 @@ public class NmslibIT extends KNNRestTestCase {
 
             List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName);
             for (int j = 0; j < k; j++) {
-                float[] primitiveArray = Floats.toArray(Arrays.stream(knnResults.get(j).getVector()).collect(Collectors.toList()));
+                float[] primitiveArray = knnResults.get(j).getVector();
                 assertEquals(
                     KNNEngine.NMSLIB.score(KNNScoringUtil.l1Norm(testData.queries[i], primitiveArray), spaceType),
                     actualScores.get(j),
