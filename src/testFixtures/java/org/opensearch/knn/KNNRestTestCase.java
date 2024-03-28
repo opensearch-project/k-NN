@@ -245,10 +245,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
         @SuppressWarnings("unchecked")
         List<KNNResult> knnSearchResponses = hits.stream().map(hit -> {
             @SuppressWarnings("unchecked")
-            Float[] vector = Arrays.stream(
-                ((ArrayList<Float>) ((Map<String, Object>) ((Map<String, Object>) hit).get("_source")).get(fieldName)).toArray()
-            ).map(Object::toString).map(Float::valueOf).toArray(Float[]::new);
-            return new KNNResult((String) ((Map<String, Object>) hit).get("_id"), vector);
+            final float[] vector = Floats.toArray(
+                Arrays.stream(
+                    ((ArrayList<Float>) ((Map<String, Object>) ((Map<String, Object>) hit).get("_source")).get(fieldName)).toArray()
+                ).map(Object::toString).map(Float::valueOf).collect(Collectors.toList())
+            );
+            return new KNNResult(
+                (String) ((Map<String, Object>) hit).get("_id"),
+                vector,
+                ((Double) ((Map<String, Object>) hit).get("_score")).floatValue()
+            );
         }).collect(Collectors.toList());
 
         return knnSearchResponses;
@@ -482,7 +488,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     /**
      * Add a single KNN Doc to an index
      */
-    protected void addKnnDoc(String index, String docId, String fieldName, Object[] vector) throws IOException {
+    protected <T> void addKnnDoc(String index, String docId, String fieldName, T vector) throws IOException {
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vector).endObject();
@@ -1043,8 +1049,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         int i = 0;
 
         for (KNNResult result : results) {
-            float[] primitiveArray = Floats.toArray(Arrays.stream(result.getVector()).collect(Collectors.toList()));
-            vectors[i++] = primitiveArray;
+            vectors[i++] = result.getVector();
         }
 
         return vectors;
