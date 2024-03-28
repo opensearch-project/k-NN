@@ -415,7 +415,7 @@ public class KNNWeight extends Weight {
             filterIdsCount,
             KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName())
         );
-        if (knnQuery.getRadius() >= 0) {
+        if (knnQuery.getRadius() != null) {
             return false;
         }
         int filterThresholdValue = KNNSettings.getFilteredExactSearchThreshold(knnQuery.getIndexName());

@@ -40,8 +40,7 @@ public class KNNQuery extends Query {
     private BitSetProducer parentsFilter;
     @Getter
     @Setter
-    // Radius for radius query, set to -1.0 for KNN query to avoid exception in OpenSearch Query null checks
-    private float radius = -1.0f;
+    private Float radius = null;
     @Getter
     @Setter
     private Context context;
