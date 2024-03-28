@@ -191,6 +191,24 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_transferVectors
     return (jlong) vect;
 }
 
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_transferVectorsV2(JNIEnv * env, jclass cls,
+jlong vectorsPointerJ,
+        jobjectArray vectorsJ)
+{
+    std::vector<float> *vect;
+    if ((long) vectorsPointerJ == 0) {
+        vect = new std::vector<float>;
+    } else {
+        vect = reinterpret_cast<std::vector<float>*>(vectorsPointerJ);
+    }
+
+    int dim = jniUtil.GetInnerDimensionOf2dJavaFloatArray(env, vectorsJ);
+    auto dataset = jniUtil.Convert2dJavaObjectArrayToCppFloatVector(env, vectorsJ, dim);
+    vect->insert(vect->end(), dataset.begin(), dataset.end());
+
+    return (jlong) vect;
+}
+
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_freeVectors(JNIEnv * env, jclass cls,
                                                                             jlong vectorsPointerJ)
 {
