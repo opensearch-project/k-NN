@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchParseException;
@@ -48,6 +49,7 @@ import static org.opensearch.common.unit.MemorySizeValue.parseBytesSizeValueOrHe
  * 2. KNN settings to enable/disable plugin, circuit breaker settings
  * 3. KNN settings to manage graphs loaded in native memory
  */
+@Log4j2
 public class KNNSettings {
 
     private static final Logger logger = LogManager.getLogger(KNNSettings.class);
@@ -81,6 +83,7 @@ public class KNNSettings {
     /**
      * Default setting values
      */
+    public static final boolean KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE = false;
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE = "l2";
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_M = 16;
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH = 100;
@@ -232,7 +235,11 @@ public class KNNSettings {
         Dynamic
     );
 
-    public static final Setting<Boolean> KNN_FAISS_AVX2_DISABLED_SETTING = Setting.boolSetting(KNN_FAISS_AVX2_DISABLED, false, NodeScope);
+    public static final Setting<Boolean> KNN_FAISS_AVX2_DISABLED_SETTING = Setting.boolSetting(
+        KNN_FAISS_AVX2_DISABLED,
+        KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE,
+        NodeScope
+    );
 
     /**
      * Dynamic settings
@@ -386,7 +393,19 @@ public class KNNSettings {
     }
 
     public static boolean isFaissAVX2Disabled() {
-        return KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX2_DISABLED);
+        try {
+            return KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX2_DISABLED);
+        } catch (Exception e) {
+            // In some UTs we identified that cluster setting is not set properly an leads to NPE. This check will avoid
+            // those cases and will still return the default value.
+            log.warn(
+                "Unable to get setting value {} from cluster settings. Using default value as {}",
+                KNN_FAISS_AVX2_DISABLED,
+                KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE,
+                e
+            );
+            return KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE;
+        }
     }
 
     public static Integer getFilteredExactSearchThreshold(final String indexName) {
