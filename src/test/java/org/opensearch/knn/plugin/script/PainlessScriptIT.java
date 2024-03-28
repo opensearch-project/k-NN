@@ -53,6 +53,10 @@ public class PainlessScriptIT extends KNNRestTestCase {
                 builder.field("dimension", property.getDimension());
             }
 
+            if (property.getDocValues() != null) {
+                builder.field("doc_values", property.getDocValues());
+            }
+
             if (property.getKnnMethodContext() != null) {
                 builder.startObject(KNNConstants.KNN_METHOD);
                 property.getKnnMethodContext().toXContent(builder, ToXContent.EMPTY_PARAMS);
@@ -554,12 +558,14 @@ public class PainlessScriptIT extends KNNRestTestCase {
     public void testL2ScriptingWithLuceneBackedIndex() throws Exception {
         List<MappingProperty> properties = new ArrayList<>();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
-            KNNEngine.NMSLIB,
+            KNNEngine.LUCENE,
             SpaceType.DEFAULT,
             new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
         );
         properties.add(
-            new MappingProperty(FIELD_NAME, KNNVectorFieldMapper.CONTENT_TYPE).dimension("2").knnMethodContext(knnMethodContext)
+            new MappingProperty(FIELD_NAME, KNNVectorFieldMapper.CONTENT_TYPE).dimension("2")
+                .knnMethodContext(knnMethodContext)
+                .docValues(randomBoolean())
         );
 
         String source = String.format("1/(1 + l2Squared([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
@@ -585,6 +591,7 @@ public class PainlessScriptIT extends KNNRestTestCase {
         private String dimension;
 
         private KNNMethodContext knnMethodContext;
+        private Boolean docValues;
 
         MappingProperty(String name, String type) {
             this.name = name;
@@ -598,6 +605,11 @@ public class PainlessScriptIT extends KNNRestTestCase {
 
         MappingProperty knnMethodContext(KNNMethodContext knnMethodContext) {
             this.knnMethodContext = knnMethodContext;
+            return this;
+        }
+
+        MappingProperty docValues(boolean docValues) {
+            this.docValues = docValues;
             return this;
         }
 
@@ -615,6 +627,10 @@ public class PainlessScriptIT extends KNNRestTestCase {
 
         String getType() {
             return type;
+        }
+
+        Boolean getDocValues() {
+            return docValues;
         }
     }
 }

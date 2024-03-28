@@ -245,10 +245,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
         @SuppressWarnings("unchecked")
         List<KNNResult> knnSearchResponses = hits.stream().map(hit -> {
             @SuppressWarnings("unchecked")
-            Float[] vector = Arrays.stream(
-                ((ArrayList<Float>) ((Map<String, Object>) ((Map<String, Object>) hit).get("_source")).get(fieldName)).toArray()
-            ).map(Object::toString).map(Float::valueOf).toArray(Float[]::new);
-            return new KNNResult((String) ((Map<String, Object>) hit).get("_id"), vector);
+            final float[] vector = Floats.toArray(
+                Arrays.stream(
+                    ((ArrayList<Float>) ((Map<String, Object>) ((Map<String, Object>) hit).get("_source")).get(fieldName)).toArray()
+                ).map(Object::toString).map(Float::valueOf).collect(Collectors.toList())
+            );
+            return new KNNResult(
+                (String) ((Map<String, Object>) hit).get("_id"),
+                vector,
+                ((Double) ((Map<String, Object>) hit).get("_score")).floatValue()
+            );
         }).collect(Collectors.toList());
 
         return knnSearchResponses;
@@ -329,20 +335,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Utility to create a Knn Index Mapping with specific algorithm and engine
      */
     protected String createKnnIndexMapping(String fieldName, Integer dimensions, String algoName, String knnEngine) throws IOException {
-        return XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(fieldName)
-            .field("type", "knn_vector")
-            .field("dimension", dimensions.toString())
-            .startObject("method")
-            .field("name", algoName)
-            .field("engine", knnEngine)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .toString();
+        return this.createKnnIndexMapping(fieldName, dimensions, algoName, knnEngine, SpaceType.DEFAULT.getValue());
     }
 
     /**
@@ -350,12 +343,27 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected String createKnnIndexMapping(String fieldName, Integer dimensions, String algoName, String knnEngine, String spaceType)
         throws IOException {
+        return this.createKnnIndexMapping(fieldName, dimensions, algoName, knnEngine, spaceType, true);
+    }
+
+    /**
+     * Utility to create a Knn Index Mapping with specific algorithm, engine, spaceType and docValues
+     */
+    protected String createKnnIndexMapping(
+        String fieldName,
+        Integer dimensions,
+        String algoName,
+        String knnEngine,
+        String spaceType,
+        boolean docValues
+    ) throws IOException {
         return XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(fieldName)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
             .field(KNNConstants.DIMENSION, dimensions.toString())
+            .field("doc_values", docValues)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, algoName)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType)
@@ -480,7 +488,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     /**
      * Add a single KNN Doc to an index
      */
-    protected void addKnnDoc(String index, String docId, String fieldName, Object[] vector) throws IOException {
+    protected <T> void addKnnDoc(String index, String docId, String fieldName, T vector) throws IOException {
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vector).endObject();
@@ -1041,8 +1049,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         int i = 0;
 
         for (KNNResult result : results) {
-            float[] primitiveArray = Floats.toArray(Arrays.stream(result.getVector()).collect(Collectors.toList()));
-            vectors[i++] = primitiveArray;
+            vectors[i++] = result.getVector();
         }
 
         return vectors;
