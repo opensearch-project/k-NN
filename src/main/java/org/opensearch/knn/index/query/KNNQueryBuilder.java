@@ -401,7 +401,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         // We need transform distance radius to right type of engine required radius.
         Float radius = null;
         if (this.distance != null) {
-            if (this.distance < 0 && !SpaceType.INNER_PRODUCT.equals(spaceType)) {
+            if (this.distance < 0 && SpaceType.INNER_PRODUCT.equals(spaceType) == false) {
                 throw new IllegalArgumentException("[" + NAME + "] requires distance to be non-negative for space type: " + spaceType);
             }
             radius = knnEngine.distanceToRadialThreshold(this.distance, spaceType);
