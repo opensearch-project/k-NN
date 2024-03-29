@@ -7,6 +7,8 @@ package org.opensearch.knn.index.query;
 
 import java.util.Arrays;
 import java.util.Objects;
+
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.lucene.search.BooleanClause;
@@ -204,11 +206,8 @@ public class KNNQuery extends Query {
      */
     @Setter
     @Getter
+    @AllArgsConstructor
     public static class Context {
         int maxResultWindow;
-
-        public Context(int maxResultWindow) {
-            this.maxResultWindow = maxResultWindow;
-        }
     }
 }
