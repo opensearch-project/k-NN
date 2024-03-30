@@ -190,3 +190,17 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_transferVectors
 
     return (jlong) vect;
 }
+
+JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_rangeSearchIndex(JNIEnv * env, jclass cls,
+                                                                                   jlong indexPointerJ,
+                                                                                   jfloatArray queryVectorJ,
+                                                                                   jfloat radiusJ, jint maxResultWindowJ)
+{
+    try {
+        return knn_jni::faiss_wrapper::RangeSearch(&jniUtil, env, indexPointerJ, queryVectorJ, radiusJ, maxResultWindowJ);
+
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+    return nullptr;
+}

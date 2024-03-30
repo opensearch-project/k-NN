@@ -262,4 +262,27 @@ public class JNIService {
     public static long transferVectors(long vectorsPointer, float[][] trainingData) {
         return FaissService.transferVectors(vectorsPointer, trainingData);
     }
+
+    /**
+     * Range search index for a given query vector
+     *
+     * @param indexPointer pointer to index in memory
+     * @param queryVector vector to be used for query
+     * @param radius search within radius threshold
+     * @param knnEngine engine to query index
+     * @param indexMaxResultWindow maximum number of results to return
+     * @return KNNQueryResult array of neighbors within radius
+     */
+    public static KNNQueryResult[] radiusQueryIndex(
+        long indexPointer,
+        float[] queryVector,
+        float radius,
+        KNNEngine knnEngine,
+        int indexMaxResultWindow
+    ) {
+        if (KNNEngine.FAISS == knnEngine) {
+            return FaissService.rangeSearchIndex(indexPointer, queryVector, radius, indexMaxResultWindow);
+        }
+        throw new IllegalArgumentException("RadiusQueryIndex not supported for provided engine");
+    }
 }
