@@ -44,6 +44,8 @@ namespace test_util {
         // TODO: Figure out why this cant use "new" MOCK_METHOD
         MOCK_METHOD(std::vector<float>, Convert2dJavaObjectArrayToCppFloatVector,
                     (JNIEnv * env, jobjectArray array2dJ, int dim));
+        MOCK_METHOD(void, Convert2dJavaObjectArrayAndStoreToFloatVector,
+                    (JNIEnv * env, jobjectArray array2dJ, int dim, std::vector<float>*vect));
         MOCK_METHOD(std::vector<int64_t>, ConvertJavaIntArrayToCppIntVector,
                     (JNIEnv * env, jintArray arrayJ));
         MOCK_METHOD2(ConvertJavaMapToCppMap,

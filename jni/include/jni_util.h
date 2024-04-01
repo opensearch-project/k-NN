@@ -69,6 +69,9 @@ namespace knn_jni {
         virtual std::vector<float> Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env, jobjectArray array2dJ,
                                                                             int dim) = 0;
 
+        virtual void Convert2dJavaObjectArrayAndStoreToFloatVector(JNIEnv *env, jobjectArray array2dJ,
+                                                                   int dim, std::vector<float> *vect ) = 0;
+
         virtual std::vector<int64_t> ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ) = 0;
 
         // --------------------------------------------------------------------------
@@ -164,6 +167,7 @@ namespace knn_jni {
         void ReleaseLongArrayElements(JNIEnv *env, jlongArray array, jlong *elems, jint mode);
         void SetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index, jobject val);
         void SetByteArrayRegion(JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte * buf);
+        void Convert2dJavaObjectArrayAndStoreToFloatVector(JNIEnv *env, jobjectArray array2dJ, int dim, std::vector<float> *vect);
 
     private:
         std::unordered_map<std::string, jclass> cachedClasses;

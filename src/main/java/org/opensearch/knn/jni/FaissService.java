@@ -173,33 +173,26 @@ class FaissService {
     public static native byte[] trainIndex(Map<String, Object> indexParameters, int dimension, long trainVectorsPointer);
 
     /**
+     * <p>
+     * The function is deprecated. Use {@link JNICommons#storeVectorData(long, float[][], long)}
+     * </p>
      * Transfer vectors from Java to native
      *
      * @param vectorsPointer pointer to vectors in native memory. Should be 0 to create vector as well
      * @param trainingData data to be transferred
      * @return pointer to native memory location of training data
      */
+    @Deprecated(since = "2.14.0", forRemoval = true)
     public static native long transferVectors(long vectorsPointer, float[][] trainingData);
 
     /**
-     * Transfer vectors from Java to native layer. This is the version 2 of transfer vector functionality. The
-     * difference between this and the version 1 is, this version puts vectors at the end rather than in front.
-     * Keeping this name as V2 for now, will come up with better name going forward.
      * <p>
-     * TODO: Rename the function
-     * <br>
-     * TODO: Make this function native function and use a common cpp file to host these functions.
+     *     The function is deprecated. Use {@link JNICommons#freeVectorData(long)}
      * </p>
-     * @param vectorsPointer pointer to vectors in native memory. Should be 0 to create vector as well
-     * @param data data to be transferred
-     * @return pointer to native memory location for data
-     */
-    public static native long transferVectorsV2(long vectorsPointer, float[][] data);
-
-    /**
      * Free vectors from memory
      *
      * @param vectorsPointer to be freed
      */
+    @Deprecated(since = "2.14.0", forRemoval = true)
     public static native void freeVectors(long vectorsPointer);
 }

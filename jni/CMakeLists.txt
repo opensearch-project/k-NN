@@ -61,7 +61,7 @@ endif()
 # ----------------------------------------------------------------------------
 
 # ---------------------------------- COMMON ----------------------------------
-add_library(${TARGET_LIB_COMMON} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/jni_util.cpp)
+add_library(${TARGET_LIB_COMMON} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/jni_util.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_JNICommons.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/commons.cpp)
 target_include_directories(${TARGET_LIB_COMMON} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE})
 set_target_properties(${TARGET_LIB_COMMON} PROPERTIES SUFFIX ${LIB_EXT})
 set_target_properties(${TARGET_LIB_COMMON} PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -236,6 +236,7 @@ if ("${WIN32}" STREQUAL "")
                 tests/faiss_util_test.cpp
                 tests/nmslib_wrapper_test.cpp
                 tests/test_util.cpp
+                tests/commons_test.cpp
                 )
 
         target_link_libraries(

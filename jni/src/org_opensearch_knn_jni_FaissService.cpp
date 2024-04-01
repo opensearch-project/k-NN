@@ -13,7 +13,6 @@
 
 #include <jni.h>
 
-#include <algorithm>
 #include <vector>
 
 #include "faiss_wrapper.h"
@@ -187,24 +186,6 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_transferVectors
     int dim = jniUtil.GetInnerDimensionOf2dJavaFloatArray(env, vectorsJ);
     auto dataset = jniUtil.Convert2dJavaObjectArrayToCppFloatVector(env, vectorsJ, dim);
     vect->insert(vect->begin(), dataset.begin(), dataset.end());
-
-    return (jlong) vect;
-}
-
-JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_transferVectorsV2(JNIEnv * env, jclass cls,
-jlong vectorsPointerJ,
-        jobjectArray vectorsJ)
-{
-    std::vector<float> *vect;
-    if ((long) vectorsPointerJ == 0) {
-        vect = new std::vector<float>;
-    } else {
-        vect = reinterpret_cast<std::vector<float>*>(vectorsPointerJ);
-    }
-
-    int dim = jniUtil.GetInnerDimensionOf2dJavaFloatArray(env, vectorsJ);
-    auto dataset = jniUtil.Convert2dJavaObjectArrayToCppFloatVector(env, vectorsJ, dim);
-    vect->insert(vect->end(), dataset.begin(), dataset.end());
 
     return (jlong) vect;
 }
