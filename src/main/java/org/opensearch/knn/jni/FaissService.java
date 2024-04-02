@@ -53,24 +53,27 @@ class FaissService {
      * Create an index for the native library
      *
      * @param ids array of ids mapping to the data passed in
-     * @param data array of float arrays to be indexed
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim dimension of the vector to be indexed
      * @param indexPath path to save index file to
      * @param parameters parameters to build index
      */
-    public static native void createIndex(int[] ids, float[][] data, String indexPath, Map<String, Object> parameters);
+    public static native void createIndex(int[] ids, long vectorsAddress, int dim, String indexPath, Map<String, Object> parameters);
 
     /**
      * Create an index for the native library with a provided template index
      *
      * @param ids array of ids mapping to the data passed in
-     * @param data array of float arrays to be indexed
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim dimension of the vector to be indexed
      * @param indexPath path to save index file to
      * @param templateIndex empty template index
      * @param parameters additional build time parameters
      */
     public static native void createIndexFromTemplate(
         int[] ids,
-        float[][] data,
+        long vectorsAddress,
+        int dim,
         String indexPath,
         byte[] templateIndex,
         Map<String, Object> parameters
@@ -184,15 +187,4 @@ class FaissService {
      */
     @Deprecated(since = "2.14.0", forRemoval = true)
     public static native long transferVectors(long vectorsPointer, float[][] trainingData);
-
-    /**
-     * <p>
-     *     The function is deprecated. Use {@link JNICommons#freeVectorData(long)}
-     * </p>
-     * Free vectors from memory
-     *
-     * @param vectorsPointer to be freed
-     */
-    @Deprecated(since = "2.14.0", forRemoval = true)
-    public static native void freeVectors(long vectorsPointer);
 }
