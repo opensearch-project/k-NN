@@ -223,6 +223,13 @@ int knn_jni::JNIUtil::ConvertJavaObjectToCppInteger(JNIEnv *env, jobject objectJ
 
 std::vector<float> knn_jni::JNIUtil::Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env, jobjectArray array2dJ,
                                                                               int dim) {
+    std::vector<float> vect;
+    Convert2dJavaObjectArrayAndStoreToFloatVector(env, array2dJ, dim, &vect);
+    return vect;
+}
+
+void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToFloatVector(JNIEnv *env, jobjectArray array2dJ,
+                                                                     int dim, std::vector<float> *vect) {
 
     if (array2dJ == nullptr) {
         throw std::runtime_error("Array cannot be null");
@@ -231,7 +238,6 @@ std::vector<float> knn_jni::JNIUtil::Convert2dJavaObjectArrayToCppFloatVector(JN
     int numVectors = env->GetArrayLength(array2dJ);
     this->HasExceptionInStack(env);
 
-    std::vector<float> floatVectorCpp;
     for (int i = 0; i < numVectors; ++i) {
         auto vectorArray = (jfloatArray)env->GetObjectArrayElement(array2dJ, i);
         this->HasExceptionInStack(env, "Unable to get object array element");
@@ -247,13 +253,12 @@ std::vector<float> knn_jni::JNIUtil::Convert2dJavaObjectArrayToCppFloatVector(JN
         }
 
         for(int j = 0; j < dim; ++j) {
-            floatVectorCpp.push_back(vector[j]);
+            vect->push_back(vector[j]);
         }
         env->ReleaseFloatArrayElements(vectorArray, vector, JNI_ABORT);
     }
     this->HasExceptionInStack(env);
     env->DeleteLocalRef(array2dJ);
-    return floatVectorCpp;
 }
 
 std::vector<int64_t> knn_jni::JNIUtil::ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ) {

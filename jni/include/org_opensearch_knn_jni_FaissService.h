@@ -124,14 +124,6 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_transferVectors
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
- * Method:    transferVectorsV2
- * Signature: (J[[F)J
- */
-JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_transferVectorsV2
-        (JNIEnv *, jclass, jlong, jobjectArray);
-
-/*
- * Class:     org_opensearch_knn_jni_FaissService
  * Method:    freeVectors
  * Signature: (J)V
  */
