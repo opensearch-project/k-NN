@@ -39,6 +39,9 @@ public enum SpaceType {
 
         @Override
         public float scoreToDistanceTranslation(float score) {
+            if (score == 0) {
+                throw new IllegalArgumentException(String.format(Locale.ROOT, "score cannot be 0 when space type is [%s]", getValue()));
+            }
             return 1 / score - 1;
         }
     },

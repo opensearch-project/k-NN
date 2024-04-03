@@ -98,7 +98,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (k == null) {
             throw new IllegalArgumentException("[" + NAME + "] requires k to be set");
         }
-        validSingleQueryType(k, distance, score);
+        validateSingleQueryType(k, distance, score);
         if (k <= 0 || k > K_MAX) {
             throw new IllegalArgumentException("[" + NAME + "] requires 0 < k <= " + K_MAX);
         }
@@ -115,7 +115,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (distance == null) {
             throw new IllegalArgumentException("[" + NAME + "] requires distance to be set");
         }
-        validSingleQueryType(k, distance, score);
+        validateSingleQueryType(k, distance, score);
         this.distance = distance;
         return this;
     }
@@ -129,7 +129,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (score == null) {
             throw new IllegalArgumentException("[" + NAME + "] requires score to be set");
         }
-        validSingleQueryType(k, distance, score);
+        validateSingleQueryType(k, distance, score);
         if (score <= 0) {
             throw new IllegalArgumentException("[" + NAME + "] requires score greater than 0");
         }
@@ -295,7 +295,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
         }
 
-        validSingleQueryType(k, distance, score);
+        validateSingleQueryType(k, distance, score);
 
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector)).filter(filter)
             .ignoreUnmapped(ignoreUnmapped)
@@ -542,7 +542,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return NAME;
     }
 
-    private static void validSingleQueryType(Integer k, Float distance, Float score) {
+    private static void validateSingleQueryType(Integer k, Float distance, Float score) {
         int countSetFields = 0;
 
         if (k != null && k != 0) {
