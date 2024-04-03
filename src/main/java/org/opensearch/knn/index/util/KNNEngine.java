@@ -159,6 +159,11 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
+    public Float scoreToRadialThreshold(Float score, SpaceType spaceType) {
+        return knnLibrary.scoreToRadialThreshold(score, spaceType);
+    }
+
+    @Override
     public ValidationException validateMethod(KNNMethodContext knnMethodContext) {
         return knnLibrary.validateMethod(knnMethodContext);
     }

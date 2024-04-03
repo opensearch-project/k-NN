@@ -56,6 +56,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
  * Implements NativeLibrary for the faiss native library
  */
 class Faiss extends NativeLibrary {
+    Map<SpaceType, Function<Float, Float>> scoreTransform;
 
     // TODO: Current version is not really current version. Instead, it encodes information in the file name
     // about the compatibility version the file is created with. In the future, we should refactor this so that it
@@ -67,6 +68,14 @@ class Faiss extends NativeLibrary {
         SpaceType.INNER_PRODUCT,
         rawScore -> SpaceType.INNER_PRODUCT.scoreTranslation(-1 * rawScore)
     );
+
+    // Map that transforms radial search score threshold to faiss required distance
+    private final static Map<SpaceType, Function<Float, Float>> SCORE_TO_DISTANCE_TRANSFORMATIONS = ImmutableMap.<
+        SpaceType,
+        Function<Float, Float>>builder()
+        .put(SpaceType.INNER_PRODUCT, score -> score > 1 ? 1 - score : 1 / score - 1)
+        .put(SpaceType.L2, score -> 1 / score - 1)
+        .build();
 
     // Define encoders supported by faiss
     private final static MethodComponentContext ENCODER_DEFAULT = new MethodComponentContext(
@@ -301,7 +310,13 @@ class Faiss extends NativeLibrary {
         ).addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build()
     );
 
-    final static Faiss INSTANCE = new Faiss(METHODS, SCORE_TRANSLATIONS, CURRENT_VERSION, KNNConstants.FAISS_EXTENSION);
+    final static Faiss INSTANCE = new Faiss(
+        METHODS,
+        SCORE_TRANSLATIONS,
+        CURRENT_VERSION,
+        KNNConstants.FAISS_EXTENSION,
+        SCORE_TO_DISTANCE_TRANSFORMATIONS
+    );
 
     /**
      * Constructor for Faiss
@@ -315,15 +330,23 @@ class Faiss extends NativeLibrary {
         Map<String, KNNMethod> methods,
         Map<SpaceType, Function<Float, Float>> scoreTranslation,
         String currentVersion,
-        String extension
+        String extension,
+        Map<SpaceType, Function<Float, Float>> scoreTransform
     ) {
         super(methods, scoreTranslation, currentVersion, extension);
+        this.scoreTransform = scoreTransform;
     }
 
     @Override
     public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
         // Faiss engine uses distance as is and does not need transformation
         return distance;
+    }
+
+    @Override
+    public Float scoreToRadialThreshold(Float score, SpaceType spaceType) {
+        // Faiss engine uses distance as is and need transformation
+        return this.scoreTransform.get(spaceType).apply(score);
     }
 
     /**
