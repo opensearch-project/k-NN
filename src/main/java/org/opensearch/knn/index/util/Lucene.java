@@ -48,11 +48,12 @@ public class Lucene extends JVMLibrary {
         ).addSpaces(SpaceType.L2, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT).build()
     );
 
+    // Map that overrides the default distance translations for Lucene, check more details in knn documentation:
+    // https://opensearch.org/docs/latest/search-plugins/knn/approximate-knn/#spaces
     private final static Map<SpaceType, Function<Float, Float>> DISTANCE_TRANSLATIONS = ImmutableMap.<
         SpaceType,
         Function<Float, Float>>builder()
         .put(SpaceType.COSINESIMIL, distance -> (2 - distance) / 2)
-        .put(SpaceType.L2, distance -> 1 / (1 + distance))
         .put(SpaceType.INNER_PRODUCT, distance -> distance <= 0 ? 1 / (1 - distance) : distance + 1)
         .build();
 
@@ -91,7 +92,10 @@ public class Lucene extends JVMLibrary {
     @Override
     public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
         // Lucene requires score threshold to be parameterized when calling the radius search.
-        return this.distanceTransform.get(spaceType).apply(distance);
+        if (this.distanceTransform.containsKey(spaceType)) {
+            return this.distanceTransform.get(spaceType).apply(distance);
+        }
+        return spaceType.scoreTranslation(distance);
     }
 
     @Override

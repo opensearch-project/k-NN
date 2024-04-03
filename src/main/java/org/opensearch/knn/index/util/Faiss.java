@@ -69,13 +69,11 @@ class Faiss extends NativeLibrary {
         rawScore -> SpaceType.INNER_PRODUCT.scoreTranslation(-1 * rawScore)
     );
 
-    // Map that transforms radial search score threshold to faiss required distance
+    // Map that overrides radial search score threshold to faiss required distance, check more details in knn documentation:
+    // https://opensearch.org/docs/latest/search-plugins/knn/approximate-knn/#spaces
     private final static Map<SpaceType, Function<Float, Float>> SCORE_TO_DISTANCE_TRANSFORMATIONS = ImmutableMap.<
         SpaceType,
-        Function<Float, Float>>builder()
-        .put(SpaceType.INNER_PRODUCT, score -> score > 1 ? 1 - score : 1 / score - 1)
-        .put(SpaceType.L2, score -> 1 / score - 1)
-        .build();
+        Function<Float, Float>>builder().put(SpaceType.INNER_PRODUCT, score -> score > 1 ? 1 - score : 1 / score - 1).build();
 
     // Define encoders supported by faiss
     private final static MethodComponentContext ENCODER_DEFAULT = new MethodComponentContext(
@@ -346,7 +344,10 @@ class Faiss extends NativeLibrary {
     @Override
     public Float scoreToRadialThreshold(Float score, SpaceType spaceType) {
         // Faiss engine uses distance as is and need transformation
-        return this.scoreTransform.get(spaceType).apply(score);
+        if (this.scoreTransform.containsKey(spaceType)) {
+            return this.scoreTransform.get(spaceType).apply(score);
+        }
+        return spaceType.scoreToDistanceTranslation(score);
     }
 
     /**
