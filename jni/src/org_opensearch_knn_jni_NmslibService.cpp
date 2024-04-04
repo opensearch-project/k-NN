@@ -38,11 +38,11 @@ void JNI_OnUnload(JavaVM *vm, void *reserved) {
 }
 
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_NmslibService_createIndex(JNIEnv * env, jclass cls, jintArray idsJ,
-                                                                             jobjectArray vectorsJ, jstring indexPathJ,
+                                                                             jlong vectorsAddressJ, jint dimJ, jstring indexPathJ,
                                                                              jobject parametersJ)
 {
     try {
-        knn_jni::nmslib_wrapper::CreateIndex(&jniUtil, env, idsJ, vectorsJ, indexPathJ, parametersJ);
+        knn_jni::nmslib_wrapper::CreateIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexPathJ, parametersJ);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }

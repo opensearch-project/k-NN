@@ -30,17 +30,14 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
     // Define the data
     faiss::idx_t numIds = 200;
     std::vector<faiss::idx_t> ids;
-    std::vector<std::vector<float>> vectors;
+    std::vector<float> vectors;
     int dim = 2;
+    vectors.reserve(dim * numIds);
     for (int64_t i = 0; i < numIds; ++i) {
         ids.push_back(i);
-
-        std::vector<float> vect;
-        vect.reserve(dim);
         for (int j = 0; j < dim; ++j) {
-            vect.push_back(test_util::RandomFloat(-500.0, 500.0));
+            vectors.push_back(test_util::RandomFloat(-500.0, 500.0));
         }
-        vectors.push_back(vect);
     }
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
@@ -63,7 +60,7 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
     // Create the index
     knn_jni::faiss_wrapper::CreateIndex(
             &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
-            reinterpret_cast<jobjectArray>(&vectors), (jstring)&indexPath,
+            (jlong) &vectors, dim , (jstring)&indexPath,
             (jobject)&parametersMap);
 
     // Make sure index can be loaded
@@ -77,17 +74,14 @@ TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
     // Define the data
     faiss::idx_t numIds = 100;
     std::vector<faiss::idx_t> ids;
-    std::vector<std::vector<float>> vectors;
+    std::vector<float> vectors;
     int dim = 2;
+    vectors.reserve(dim * numIds);
     for (int64_t i = 0; i < numIds; ++i) {
         ids.push_back(i);
-
-        std::vector<float> vect;
-        vect.reserve(dim);
         for (int j = 0; j < dim; ++j) {
-            vect.push_back(test_util::RandomFloat(-500.0, 500.0));
+            vectors.push_back(test_util::RandomFloat(-500.0, 500.0));
         }
-        vectors.push_back(vect);
     }
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
@@ -113,7 +107,7 @@ TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
 
     knn_jni::faiss_wrapper::CreateIndexFromTemplate(
             &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
-            reinterpret_cast<jobjectArray>(&vectors), (jstring)&indexPath,
+            (jlong)&vectors, dim, (jstring)&indexPath,
             reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)),
             (jobject) &parametersMap
             );
@@ -486,17 +480,14 @@ TEST(FaissCreateHnswSQfp16IndexTest, BasicAssertions) {
     // Define the data
     faiss::idx_t numIds = 200;
     std::vector<faiss::idx_t> ids;
-    std::vector<std::vector<float>> vectors;
+    std::vector<float> vectors;
     int dim = 2;
+    vectors.reserve(dim * numIds);
     for (int64_t i = 0; i < numIds; ++i) {
         ids.push_back(i);
-
-        std::vector<float> vect;
-        vect.reserve(dim);
         for (int j = 0; j < dim; ++j) {
-            vect.push_back(test_util::RandomFloat(-500.0, 500.0));
+            vectors.push_back(test_util::RandomFloat(-500.0, 500.0));
         }
-        vectors.push_back(vect);
     }
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
@@ -519,7 +510,7 @@ TEST(FaissCreateHnswSQfp16IndexTest, BasicAssertions) {
     // Create the index
     knn_jni::faiss_wrapper::CreateIndex(
             &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
-            reinterpret_cast<jobjectArray>(&vectors), (jstring)&indexPath,
+            (jlong)&vectors, dim, (jstring)&indexPath,
             (jobject)&parametersMap);
 
     // Make sure index can be loaded

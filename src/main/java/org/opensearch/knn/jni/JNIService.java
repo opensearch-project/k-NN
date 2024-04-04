@@ -26,19 +26,28 @@ public class JNIService {
      * Create an index for the native library
      *
      * @param ids        array of ids mapping to the data passed in
-     * @param data       array of float arrays to be indexed
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim        dimension of the vector to be indexed
      * @param indexPath  path to save index file to
      * @param parameters parameters to build index
      * @param knnEngine  engine to build index for
      */
-    public static void createIndex(int[] ids, float[][] data, String indexPath, Map<String, Object> parameters, KNNEngine knnEngine) {
+    public static void createIndex(
+        int[] ids,
+        long vectorsAddress,
+        int dim,
+        String indexPath,
+        Map<String, Object> parameters,
+        KNNEngine knnEngine
+    ) {
+
         if (KNNEngine.NMSLIB == knnEngine) {
-            NmslibService.createIndex(ids, data, indexPath, parameters);
+            NmslibService.createIndex(ids, vectorsAddress, dim, indexPath, parameters);
             return;
         }
 
         if (KNNEngine.FAISS == knnEngine) {
-            FaissService.createIndex(ids, data, indexPath, parameters);
+            FaissService.createIndex(ids, vectorsAddress, dim, indexPath, parameters);
             return;
         }
 
@@ -49,7 +58,8 @@ public class JNIService {
      * Create an index for the native library with a provided template index
      *
      * @param ids           array of ids mapping to the data passed in
-     * @param data          array of float arrays to be indexed
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim           dimension of vectors to be indexed
      * @param indexPath     path to save index file to
      * @param templateIndex empty template index
      * @param parameters    parameters to build index
@@ -57,14 +67,15 @@ public class JNIService {
      */
     public static void createIndexFromTemplate(
         int[] ids,
-        float[][] data,
+        long vectorsAddress,
+        int dim,
         String indexPath,
         byte[] templateIndex,
         Map<String, Object> parameters,
         KNNEngine knnEngine
     ) {
         if (KNNEngine.FAISS == knnEngine) {
-            FaissService.createIndexFromTemplate(ids, data, indexPath, templateIndex, parameters);
+            FaissService.createIndexFromTemplate(ids, vectorsAddress, dim, indexPath, templateIndex, parameters);
             return;
         }
 
@@ -247,18 +258,5 @@ public class JNIService {
     @Deprecated(since = "2.14.0", forRemoval = true)
     public static long transferVectors(long vectorsPointer, float[][] trainingData) {
         return FaissService.transferVectors(vectorsPointer, trainingData);
-    }
-
-    /**
-     * <p>
-     *  The function is deprecated. Use {@link JNICommons#freeVectorData(long)}
-     * </p>
-     * Free vectors from memory
-     *
-     * @param vectorsPointer to be freed
-     */
-    @Deprecated(since = "2.14.0", forRemoval = true)
-    public static void freeVectors(long vectorsPointer) {
-        FaissService.freeVectors(vectorsPointer);
     }
 }

@@ -5,9 +5,13 @@
 
 package org.opensearch.knn.index.codec.util;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.knn.jni.JNICommons;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -26,21 +30,24 @@ public class KNNCodecUtil {
     // Java rounds each array size up to multiples of 8 bytes
     public static final int JAVA_ROUNDING_NUMBER = 8;
 
+    @AllArgsConstructor
     public static final class Pair {
-        public Pair(int[] docs, float[][] vectors, SerializationMode serializationMode) {
-            this.docs = docs;
-            this.vectors = vectors;
-            this.serializationMode = serializationMode;
-        }
-
         public int[] docs;
-        public float[][] vectors;
+        @Getter
+        @Setter
+        private long vectorAddress;
+        @Getter
+        @Setter
+        private int dimension;
         public SerializationMode serializationMode;
+
     }
 
     public static KNNCodecUtil.Pair getFloats(BinaryDocValues values) throws IOException {
         ArrayList<float[]> vectorList = new ArrayList<>();
         ArrayList<Integer> docIdList = new ArrayList<>();
+        long vectorAddress = 0;
+        int dimension = 0;
         SerializationMode serializationMode = SerializationMode.COLLECTION_OF_FLOATS;
         for (int doc = values.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = values.nextDoc()) {
             BytesRef bytesref = values.binaryValue();
@@ -48,20 +55,22 @@ public class KNNCodecUtil {
                 serializationMode = KNNVectorSerializerFactory.serializerModeFromStream(byteStream);
                 final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
                 final float[] vector = vectorSerializer.byteToFloatArray(byteStream);
+                dimension = vector.length;
                 vectorList.add(vector);
             }
             docIdList.add(doc);
         }
-        return new KNNCodecUtil.Pair(
-            docIdList.stream().mapToInt(Integer::intValue).toArray(),
-            vectorList.toArray(new float[][] {}),
-            serializationMode
-        );
+        if (vectorList.isEmpty() == false) {
+            vectorAddress = JNICommons.storeVectorData(
+                vectorAddress,
+                vectorList.toArray(new float[][] {}),
+                (long) vectorList.size() * dimension
+            );
+        }
+        return new KNNCodecUtil.Pair(docIdList.stream().mapToInt(Integer::intValue).toArray(), vectorAddress, dimension, serializationMode);
     }
 
-    public static long calculateArraySize(float[][] vectors, SerializationMode serializationMode) {
-        int vectorLength = vectors[0].length;
-        int numVectors = vectors.length;
+    public static long calculateArraySize(int numVectors, int vectorLength, SerializationMode serializationMode) {
         if (serializationMode == SerializationMode.ARRAY) {
             int vectorSize = vectorLength * FLOAT_BYTE_SIZE + JAVA_ARRAY_HEADER_SIZE;
             if (vectorSize % JAVA_ROUNDING_NUMBER != 0) {

@@ -42,11 +42,12 @@ class NmslibService {
      * Create an index for the native library
      *
      * @param ids array of ids mapping to the data passed in
-     * @param data array of float arrays to be indexed
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim dimension of the vector to be indexed
      * @param indexPath path to save index file to
      * @param parameters parameters to build index
      */
-    public static native void createIndex(int[] ids, float[][] data, String indexPath, Map<String, Object> parameters);
+    public static native void createIndex(int[] ids, long vectorsAddress, int dim, String indexPath, Map<String, Object> parameters);
 
     /**
      * Load an index into memory
