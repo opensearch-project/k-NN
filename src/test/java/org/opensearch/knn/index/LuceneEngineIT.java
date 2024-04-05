@@ -51,6 +51,14 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
     private static final Float[][] TEST_INDEX_VECTORS = { { 1.0f, 1.0f, 1.0f }, { 2.0f, 2.0f, 2.0f }, { 3.0f, 3.0f, 3.0f } };
     private static final Float[][] TEST_COSINESIMIL_INDEX_VECTORS = { { 6.0f, 7.0f, 3.0f }, { 3.0f, 2.0f, 5.0f }, { 4.0f, 5.0f, 7.0f } };
+    private static final Float[][] TEST_INNER_PRODUCT_INDEX_VECTORS = {
+        { 1.0f, 1.0f, 1.0f },
+        { 2.0f, 2.0f, 2.0f },
+        { 3.0f, 3.0f, 3.0f },
+        { -1.0f, -1.0f, -1.0f },
+        { -2.0f, -2.0f, -2.0f },
+        { -3.0f, -3.0f, -3.0f } };
+
     private static final float[][] TEST_QUERY_VECTORS = { { 1.0f, 1.0f, 1.0f }, { 2.0f, 2.0f, 2.0f }, { 3.0f, 3.0f, 3.0f } };
 
     private static final Map<VectorSimilarityFunction, Function<Float, Float>> VECTOR_SIMILARITY_TO_SCORE = ImmutableMap.of(
@@ -59,7 +67,9 @@ public class LuceneEngineIT extends KNNRestTestCase {
         VectorSimilarityFunction.DOT_PRODUCT,
         (similarity) -> (1 + similarity) / 2,
         VectorSimilarityFunction.COSINE,
-        (similarity) -> (1 + similarity) / 2
+        (similarity) -> (1 + similarity) / 2,
+        VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
+        (similarity) -> similarity <= 0 ? 1 / (1 - similarity) : similarity + 1
     );
     private static final String DIMENSION_FIELD_NAME = "dimension";
     private static final String KNN_VECTOR_TYPE = "knn_vector";
@@ -318,55 +328,115 @@ public class LuceneEngineIT extends KNNRestTestCase {
         assertArrayEquals(knnResultsBeforeIndexClosure.toArray(), knnResultsAfterIndexClosure.toArray());
     }
 
-    public void testRadiusSearch_usingL2Metrics_usingFloatType() throws Exception {
+    public void testRadiusSearch_usingDistanceThreshold_usingL2Metrics_usingFloatType() throws Exception {
         createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
         for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
             addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
         }
 
-        final float radius = 3.5f;
+        final float distance = 3.5f;
         final int[] expectedResults = { 2, 3, 2 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, radius, SpaceType.L2, expectedResults, null, null);
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.L2, expectedResults, null, null);
     }
 
-    public void testRadiusSearch_usingCosineMetrics_usingFloatType() throws Exception {
+    public void testRadiusSearch_usingScoreThreshold_usingL2Metrics_usingFloatType() throws Exception {
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
+        for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
+            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
+        }
+
+        final float score = 0.23f;
+        final int[] expectedResults = { 2, 3, 2 };
+
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.L2, expectedResults, null, null);
+    }
+
+    public void testRadiusSearch_usingDistanceThreshold_usingCosineMetrics_usingFloatType() throws Exception {
         createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.COSINESIMIL, VectorDataType.FLOAT);
         for (int j = 0; j < TEST_COSINESIMIL_INDEX_VECTORS.length; j++) {
             addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_COSINESIMIL_INDEX_VECTORS[j]);
         }
 
-        final float radius = 0.03f;
+        final float distance = 0.03f;
         final int[] expectedResults = { 1, 1, 1 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, radius, SpaceType.COSINESIMIL, expectedResults, null, null);
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.COSINESIMIL, expectedResults, null, null);
     }
 
-    public void testRadiusSearch_usingL2Metrics_usingByteType() throws Exception {
+    public void testRadiusSearch_usingScoreThreshold_usingCosineMetrics_usingFloatType() throws Exception {
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.COSINESIMIL, VectorDataType.FLOAT);
+        for (int j = 0; j < TEST_COSINESIMIL_INDEX_VECTORS.length; j++) {
+            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_COSINESIMIL_INDEX_VECTORS[j]);
+        }
+
+        final float score = 0.97f;
+        final int[] expectedResults = { 1, 1, 1 };
+
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.COSINESIMIL, expectedResults, null, null);
+    }
+
+    public void testRadiusSearch_usingScoreThreshold_usingInnerProductMetrics_usingFloatType() throws Exception {
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
+        for (int j = 0; j < TEST_INNER_PRODUCT_INDEX_VECTORS.length; j++) {
+            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INNER_PRODUCT_INDEX_VECTORS[j]);
+        }
+
+        final float score = 2f;
+        final int[] expectedResults = { 1, 1, 1 };
+
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.INNER_PRODUCT, expectedResults, null, null);
+    }
+
+    public void testRadiusSearch_usingDistanceThreshold_usingL2Metrics_usingByteType() throws Exception {
         createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.BYTE);
         for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
             addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
         }
 
-        final float radius = 3.5f;
+        final float distance = 3.5f;
         final int[] expectedResults = { 2, 2, 2 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, radius, SpaceType.L2, expectedResults, null, null);
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.L2, expectedResults, null, null);
     }
 
-    public void testRadiusSearch_usingCosineMetrics_usingByteType() throws Exception {
+    public void testRadiusSearch_usingScoreThreshold_usingL2Metrics_usingByteType() throws Exception {
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.BYTE);
+        for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
+            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
+        }
+
+        final float score = 0.23f;
+        final int[] expectedResults = { 2, 2, 2 };
+
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.L2, expectedResults, null, null);
+    }
+
+    public void testRadiusSearch_usingDistanceThreshold_usingCosineMetrics_usingByteType() throws Exception {
         createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.COSINESIMIL, VectorDataType.BYTE);
         for (int j = 0; j < TEST_COSINESIMIL_INDEX_VECTORS.length; j++) {
             addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_COSINESIMIL_INDEX_VECTORS[j]);
         }
 
-        final float radius = 0.05f;
+        final float distance = 0.05f;
         final int[] expectedResults = { 2, 2, 2 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, radius, SpaceType.COSINESIMIL, expectedResults, null, null);
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.COSINESIMIL, expectedResults, null, null);
     }
 
-    public void testRadiusSearch_withFilter_usingL2Metrics_usingFloatType() throws Exception {
+    public void testRadiusSearch_usingScoreThreshold_usingCosineMetrics_usingByteType() throws Exception {
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.COSINESIMIL, VectorDataType.BYTE);
+        for (int j = 0; j < TEST_COSINESIMIL_INDEX_VECTORS.length; j++) {
+            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_COSINESIMIL_INDEX_VECTORS[j]);
+        }
+
+        final float score = 0.97f;
+        final int[] expectedResults = { 2, 2, 2 };
+
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.COSINESIMIL, expectedResults, null, null);
+    }
+
+    public void testRadiusSearch_usingDistanceThreshold_withFilter_usingL2Metrics_usingFloatType() throws Exception {
         createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
         addKnnDocWithAttributes(DOC_ID, new float[] { 6.0f, 7.9f, 3.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
         addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.2f, 2.1f, 4.8f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
@@ -374,10 +444,24 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
         refreshIndex(INDEX_NAME);
 
-        final float radius = 45.0f;
+        final float distance = 45.0f;
         final int[] expectedResults = { 1, 1, 1 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, radius, SpaceType.L2, expectedResults, COLOR_FIELD_NAME, "red");
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.L2, expectedResults, COLOR_FIELD_NAME, "red");
+    }
+
+    public void testRadiusSearch_usingScoreThreshold_withFilter_usingCosineMetrics_usingFloatType() throws Exception {
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.COSINESIMIL, VectorDataType.FLOAT);
+        addKnnDocWithAttributes(DOC_ID, new float[] { 6.0f, 7.9f, 3.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
+        addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.2f, 2.1f, 4.8f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
+        addKnnDocWithAttributes(DOC_ID_3, new float[] { 4.1f, 5.0f, 7.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
+
+        refreshIndex(INDEX_NAME);
+
+        final float score = 0.02f;
+        final int[] expectedResults = { 1, 1, 1 };
+
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.COSINESIMIL, expectedResults, COLOR_FIELD_NAME, "red");
     }
 
     private void createKnnIndexMappingWithLuceneEngine(int dimension, SpaceType spaceType, VectorDataType vectorDataType) throws Exception {
@@ -532,7 +616,8 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
     private void validateRadiusSearchResults(
         final float[][] searchVectors,
-        final float radius,
+        final Float distanceThreshold,
+        final Float scoreThreshold,
         final SpaceType spaceType,
         final int[] expectedResults,
         @Nullable final String filterField,
@@ -543,7 +628,13 @@ public class LuceneEngineIT extends KNNRestTestCase {
             builder.startObject("knn");
             builder.startObject(FIELD_NAME);
             builder.field("vector", searchVectors[i]);
-            builder.field("distance", radius);
+            if (distanceThreshold != null) {
+                builder.field("distance", distanceThreshold);
+            } else if (scoreThreshold != null) {
+                builder.field("score", scoreThreshold);
+            } else {
+                throw new IllegalArgumentException("Either distance or score must be provided");
+            }
             if (filterField != null && filterValue != null) {
                 builder.startObject("filter");
                 builder.startObject("term");
@@ -562,13 +653,17 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
             List<Float> actualScores = parseSearchResponseScore(responseBody, FIELD_NAME);
             for (KNNResult result : radiusResults) {
-                float[] primitiveArray = Floats.toArray(Arrays.stream(result.getVector()).collect(Collectors.toList()));
-                float distance = TestUtils.computeDistFromSpaceType(spaceType, primitiveArray, searchVectors[i]);
+                float[] vector = result.getVector();
+                float distance = TestUtils.computeDistFromSpaceType(spaceType, vector, searchVectors[i]);
                 float rawScore = VECTOR_SIMILARITY_TO_SCORE.get(spaceType.getVectorSimilarityFunction()).apply(distance);
                 if (spaceType == SpaceType.COSINESIMIL) {
                     distance = 1 - distance;
                 }
-                assertTrue(distance <= radius);
+                if (distanceThreshold != null) {
+                    assertTrue(distance <= distanceThreshold);
+                } else {
+                    assertTrue(rawScore >= scoreThreshold);
+                }
                 assertEquals(KNNEngine.LUCENE.score(rawScore, spaceType), actualScores.get(radiusResults.indexOf(result)), 0.0001);
             }
         }

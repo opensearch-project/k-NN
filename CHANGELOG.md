@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Features
 * Support distance type radius search for Lucene engine [#1498](https://github.com/opensearch-project/k-NN/pull/1498)
 * Support distance type radius search for Faiss engine [#1546](https://github.com/opensearch-project/k-NN/pull/1546)
+* Support score type threshold in radial search [#1589](https://github.com/opensearch-project/k-NN/pull/1589)
 ### Enhancements
 * Make the HitQueue size more appropriate for exact search [#1549](https://github.com/opensearch-project/k-NN/pull/1549)
 * Support script score when doc value is disabled [#1573](https://github.com/opensearch-project/k-NN/pull/1573)

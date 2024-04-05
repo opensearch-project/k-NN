@@ -36,6 +36,14 @@ public enum SpaceType {
         public VectorSimilarityFunction getVectorSimilarityFunction() {
             return VectorSimilarityFunction.EUCLIDEAN;
         }
+
+        @Override
+        public float scoreToDistanceTranslation(float score) {
+            if (score == 0) {
+                throw new IllegalArgumentException(String.format(Locale.ROOT, "score cannot be 0 when space type is [%s]", getValue()));
+            }
+            return 1 / score - 1;
+        }
     },
     COSINESIMIL("cosinesimil") {
         @Override
@@ -169,5 +177,15 @@ public enum SpaceType {
             }
         }
         throw new IllegalArgumentException("Unable to find space: " + spaceTypeName);
+    }
+
+    /**
+     * Translate a score to a distance for this space type
+     *
+     * @param score score to translate
+     * @return translated distance
+     */
+    public float scoreToDistanceTranslation(float score) {
+        throw new UnsupportedOperationException(String.format("Space [%s] does not have a score to distance translation", getValue()));
     }
 }
