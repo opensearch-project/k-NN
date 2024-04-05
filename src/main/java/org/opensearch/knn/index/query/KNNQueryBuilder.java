@@ -52,6 +52,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     public static final ParseField FILTER_FIELD = new ParseField("filter");
     public static final ParseField IGNORE_UNMAPPED_FIELD = new ParseField("ignore_unmapped");
     public static final ParseField DISTANCE_FIELD = new ParseField("distance");
+    public static final ParseField SCORE_FIELD = new ParseField("score");
     public static final int K_MAX = 10000;
     /**
      * The name for the knn query
@@ -64,6 +65,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private final float[] vector;
     private int k = 0;
     private Float distance = null;
+    private Float score = null;
     private QueryBuilder filter;
     private boolean ignoreUnmapped = false;
 
@@ -92,12 +94,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
      *
      * @param k K nearest neighbours for the given vector
      */
-    public KNNQueryBuilder k(int k) {
+    public KNNQueryBuilder k(Integer k) {
+        if (k == null) {
+            throw new IllegalArgumentException("[" + NAME + "] requires k to be set");
+        }
+        validateSingleQueryType(k, distance, score);
         if (k <= 0 || k > K_MAX) {
             throw new IllegalArgumentException("[" + NAME + "] requires 0 < k <= " + K_MAX);
-        }
-        if (distance != null) {
-            throw new IllegalArgumentException("[" + NAME + "] requires either k or distance must be set");
         }
         this.k = k;
         return this;
@@ -112,10 +115,25 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (distance == null) {
             throw new IllegalArgumentException("[" + NAME + "] requires distance to be set");
         }
-        if (k != 0) {
-            throw new IllegalArgumentException("[" + NAME + "] requires either k or distance must be set");
-        }
+        validateSingleQueryType(k, distance, score);
         this.distance = distance;
+        return this;
+    }
+
+    /**
+     * Builder method for score
+     *
+     * @param score the score threshold for the nearest neighbours
+     */
+    public KNNQueryBuilder score(Float score) {
+        if (score == null) {
+            throw new IllegalArgumentException("[" + NAME + "] requires score to be set");
+        }
+        validateSingleQueryType(k, distance, score);
+        if (score <= 0) {
+            throw new IllegalArgumentException("[" + NAME + "] requires score greater than 0");
+        }
+        this.score = score;
         return this;
     }
 
@@ -163,6 +181,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         this.filter = filter;
         this.ignoreUnmapped = false;
         this.distance = null;
+        this.score = null;
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -200,6 +219,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
                 distance = in.readOptionalFloat();
             }
+            if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
+                score = in.readOptionalFloat();
+            }
         } catch (IOException ex) {
             throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder", ex);
         }
@@ -211,6 +233,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         float boost = AbstractQueryBuilder.DEFAULT_BOOST;
         Integer k = null;
         Float distance = null;
+        Float score = null;
         QueryBuilder filter = null;
         String queryName = null;
         String currentFieldName = null;
@@ -241,6 +264,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                             queryName = parser.text();
                         } else if (DISTANCE_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                             distance = (Float) NumberFieldMapper.NumberType.FLOAT.parse(parser.objectBytes(), false);
+                        } else if (SCORE_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
+                            score = (Float) NumberFieldMapper.NumberType.FLOAT.parse(parser.objectBytes(), false);
                         } else {
                             throw new ParsingException(
                                 parser.getTokenLocation(),
@@ -270,9 +295,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
         }
 
-        if ((k != null && distance != null) || (k == null && distance == null)) {
-            throw new IllegalArgumentException("[" + NAME + "] requires either k or distance must be set");
-        }
+        validateSingleQueryType(k, distance, score);
 
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector)).filter(filter)
             .ignoreUnmapped(ignoreUnmapped)
@@ -281,8 +304,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
         if (k != null) {
             knnQueryBuilder.k(k);
-        } else {
+        } else if (distance != null) {
             knnQueryBuilder.distance(distance);
+        } else if (score != null) {
+            knnQueryBuilder.score(score);
         }
 
         return knnQueryBuilder;
@@ -299,6 +324,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
         if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
             out.writeOptionalFloat(distance);
+        }
+        if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
+            out.writeOptionalFloat(score);
         }
     }
 
@@ -322,6 +350,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
     public float getDistance() {
         return this.distance;
+    }
+
+    public float getScore() {
+        return this.score;
     }
 
     public QueryBuilder getFilter() {
@@ -357,6 +389,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
         if (ignoreUnmapped) {
             builder.field(IGNORE_UNMAPPED_FIELD.getPreferredName(), ignoreUnmapped);
+        }
+        if (score != null) {
+            builder.field(SCORE_FIELD.getPreferredName(), score);
         }
         printBoostAndQueryName(builder);
         builder.endObject();
@@ -397,14 +432,21 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             spaceType = knnMethodContext.getSpaceType();
         }
 
-        // Currently, k-NN supports distance type radius search.
-        // We need transform distance radius to right type of engine required radius.
+        // Currently, k-NN supports distance and score types radial search
+        // We need transform distance/score to right type of engine required radius.
         Float radius = null;
         if (this.distance != null) {
             if (this.distance < 0 && SpaceType.INNER_PRODUCT.equals(spaceType) == false) {
                 throw new IllegalArgumentException("[" + NAME + "] requires distance to be non-negative for space type: " + spaceType);
             }
             radius = knnEngine.distanceToRadialThreshold(this.distance, spaceType);
+        }
+
+        if (this.score != null) {
+            if (this.score > 1 && SpaceType.INNER_PRODUCT.equals(spaceType) == false) {
+                throw new IllegalArgumentException("[" + NAME + "] requires score to be in the range (0, 1] for space type: " + spaceType);
+            }
+            radius = knnEngine.scoreToRadialThreshold(this.score, spaceType);
         }
 
         if (fieldDimension != vector.length) {
@@ -464,7 +506,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .build();
             return RNNQueryFactory.create(createQueryRequest);
         }
-        throw new IllegalArgumentException("[" + NAME + "] requires either k or distance must be set");
+        throw new IllegalArgumentException("[" + NAME + "] requires either k or distance or score to be set");
     }
 
     private ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
@@ -498,5 +540,25 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     @Override
     public String getWriteableName() {
         return NAME;
+    }
+
+    private static void validateSingleQueryType(Integer k, Float distance, Float score) {
+        int countSetFields = 0;
+
+        if (k != null && k != 0) {
+            countSetFields++;
+        }
+        if (distance != null) {
+            countSetFields++;
+        }
+        if (score != null) {
+            countSetFields++;
+        }
+
+        if (countSetFields != 1) {
+            throw new IllegalArgumentException(
+                "[" + NAME + "] requires only one query type to be set, it can be either k, distance, or score"
+            );
+        }
     }
 }
