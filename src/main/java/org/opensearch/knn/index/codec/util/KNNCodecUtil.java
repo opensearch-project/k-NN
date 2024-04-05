@@ -11,16 +11,16 @@ import lombok.Setter;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.codec.KNN80Codec.KNN80BinaryDocValues;
 import org.opensearch.knn.jni.JNICommons;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
 public class KNNCodecUtil {
-
-    public static final String HNSW_EXTENSION = ".hnsw";
-    public static final String HNSW_COMPOUND_EXTENSION = ".hnswc";
     // Floats are 4 bytes in size
     public static final int FLOAT_BYTE_SIZE = 4;
     // References to objects are 4 bytes in size
@@ -44,11 +44,16 @@ public class KNNCodecUtil {
     }
 
     public static KNNCodecUtil.Pair getFloats(BinaryDocValues values) throws IOException {
-        ArrayList<float[]> vectorList = new ArrayList<>();
-        ArrayList<Integer> docIdList = new ArrayList<>();
+        List<float[]> vectorList = new ArrayList<>();
+        List<Integer> docIdList = new ArrayList<>();
         long vectorAddress = 0;
         int dimension = 0;
         SerializationMode serializationMode = SerializationMode.COLLECTION_OF_FLOATS;
+
+        long totalLiveDocs = getTotalLiveDocsCount(values);
+        long vectorsStreamingMemoryLimit = KNNSettings.getVectorStreamingMemoryLimit().getBytes();
+        long vectorsPerTransfer = Integer.MIN_VALUE;
+
         for (int doc = values.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = values.nextDoc()) {
             BytesRef bytesref = values.binaryValue();
             try (ByteArrayInputStream byteStream = new ByteArrayInputStream(bytesref.bytes, bytesref.offset, bytesref.length)) {
@@ -56,16 +61,27 @@ public class KNNCodecUtil {
                 final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
                 final float[] vector = vectorSerializer.byteToFloatArray(byteStream);
                 dimension = vector.length;
+
+                if (vectorsPerTransfer == Integer.MIN_VALUE) {
+                    vectorsPerTransfer = (dimension * Float.BYTES * totalLiveDocs) / vectorsStreamingMemoryLimit;
+                }
+                if (vectorList.size() == vectorsPerTransfer) {
+                    vectorAddress = JNICommons.storeVectorData(
+                        vectorAddress,
+                        vectorList.toArray(new float[][] {}),
+                        totalLiveDocs * dimension
+                    );
+                    // We should probably come up with a better way to reuse the vectorList memory which we have
+                    // created. Problem here is doing like this can lead to a lot of list memory which is of no use and
+                    // will be garbage collected later on, but it creates pressure on JVM. We should revisit this.
+                    vectorList = new ArrayList<>();
+                }
                 vectorList.add(vector);
             }
             docIdList.add(doc);
         }
         if (vectorList.isEmpty() == false) {
-            vectorAddress = JNICommons.storeVectorData(
-                vectorAddress,
-                vectorList.toArray(new float[][] {}),
-                (long) vectorList.size() * dimension
-            );
+            vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
         }
         return new KNNCodecUtil.Pair(docIdList.stream().mapToInt(Integer::intValue).toArray(), vectorAddress, dimension, serializationMode);
     }
@@ -104,5 +120,15 @@ public class KNNCodecUtil {
 
     public static String buildEngineFileSuffix(String fieldName, String extension) {
         return String.format("_%s%s", fieldName, extension);
+    }
+
+    private static long getTotalLiveDocsCount(final BinaryDocValues binaryDocValues) {
+        long totalLiveDocs;
+        if (binaryDocValues instanceof KNN80BinaryDocValues) {
+            totalLiveDocs = ((KNN80BinaryDocValues) binaryDocValues).getTotalLiveDocs();
+        } else {
+            totalLiveDocs = binaryDocValues.cost();
+        }
+        return totalLiveDocs;
     }
 }

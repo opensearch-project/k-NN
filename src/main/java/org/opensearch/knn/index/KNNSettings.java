@@ -68,6 +68,7 @@ public class KNNSettings {
     public static final String KNN_ALGO_PARAM_INDEX_THREAD_QTY = "knn.algo_param.index_thread_qty";
     public static final String KNN_MEMORY_CIRCUIT_BREAKER_ENABLED = "knn.memory.circuit_breaker.enabled";
     public static final String KNN_MEMORY_CIRCUIT_BREAKER_LIMIT = "knn.memory.circuit_breaker.limit";
+    public static final String KNN_VECTOR_STREAMING_MEMORY_LIMIT_IN_MB = "knn.vector_streaming_memory.limit";
     public static final String KNN_CIRCUIT_BREAKER_TRIGGERED = "knn.circuit_breaker.triggered";
     public static final String KNN_CACHE_ITEM_EXPIRY_ENABLED = "knn.cache.item.expiry.enabled";
     public static final String KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES = "knn.cache.item.expiry.minutes";
@@ -93,12 +94,22 @@ public class KNNSettings {
     public static final Integer KNN_DEFAULT_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE = 10; // By default, set aside 10% of the JVM for the limit
     public static final Integer KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE = 25; // Model cache limit cannot exceed 25% of the JVM heap
     public static final String KNN_DEFAULT_MEMORY_CIRCUIT_BREAKER_LIMIT = "50%";
+    public static final String KNN_DEFAULT_VECTOR_STREAMING_MEMORY_LIMIT_PCT = "1%";
 
     public static final Integer ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE = -1;
 
     /**
      * Settings Definition
      */
+
+    // This setting controls how much memory should be used to transfer vectors from Java to JNI Layer. The default
+    // 1% of the JVM heap
+    public static final Setting<ByteSizeValue> KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING = Setting.memorySizeSetting(
+        KNN_VECTOR_STREAMING_MEMORY_LIMIT_IN_MB,
+        KNN_DEFAULT_VECTOR_STREAMING_MEMORY_LIMIT_PCT,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
 
     public static final Setting<String> INDEX_KNN_SPACE_TYPE = Setting.simpleString(
         KNN_SPACE_TYPE,
@@ -354,6 +365,10 @@ public class KNNSettings {
             return KNN_FAISS_AVX2_DISABLED_SETTING;
         }
 
+        if (KNN_VECTOR_STREAMING_MEMORY_LIMIT_IN_MB.equals(key)) {
+            return KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -371,7 +386,8 @@ public class KNNSettings {
             MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
             MODEL_CACHE_SIZE_LIMIT_SETTING,
             ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
-            KNN_FAISS_AVX2_DISABLED_SETTING
+            KNN_FAISS_AVX2_DISABLED_SETTING,
+            KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING
         );
         return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream()).collect(Collectors.toList());
     }
@@ -473,6 +489,10 @@ public class KNNSettings {
                 );
             }
         });
+    }
+
+    public static ByteSizeValue getVectorStreamingMemoryLimit() {
+        return KNNSettings.state().getSettingValue(KNN_VECTOR_STREAMING_MEMORY_LIMIT_IN_MB);
     }
 
     /**
