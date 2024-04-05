@@ -129,7 +129,7 @@ fi
 ./gradlew publishPluginZipPublicationToMavenLocal -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER -Dopensearch.version=$VERSION
 
 # Add lib to zip
-zipPath=$(find "$(pwd)" -path \*build/distributions/*.zip)
+zipPath=$(find "$(pwd)/build/distributions" -path \*.zip)
 distributions="$(dirname "${zipPath}")"
 mkdir $distributions/lib
 libPrefix="libopensearchknn"
