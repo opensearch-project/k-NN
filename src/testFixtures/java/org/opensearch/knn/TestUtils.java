@@ -295,9 +295,7 @@ public class TestUtils {
                     vectorsArray[i][j] = vectorsList.get(i)[j];
                 }
             }
-            long memoryAddress = JNICommons.storeVectorData(0, vectorsArray, (long) vectorsArray.length * vectorsArray[0].length);
-
-            return new Pair(idsArray, memoryAddress, vectorsArray[0].length, SerializationMode.COLLECTION_OF_FLOATS, vectorsArray);
+            return new Pair(idsArray, vectorsArray[0].length, SerializationMode.COLLECTION_OF_FLOATS, vectorsArray);
         }
 
         private float[][] readQueries(String path) throws IOException {
@@ -329,12 +327,13 @@ public class TestUtils {
             return queryArray;
         }
 
+        public long loadDataToMemoryAddress() {
+            return JNICommons.storeVectorData(0, indexData.vectors, (long) indexData.vectors.length * indexData.vectors[0].length);
+        }
+
         @AllArgsConstructor
         public static class Pair {
             public int[] docs;
-            @Getter
-            @Setter
-            private long vectorAddress;
             @Getter
             @Setter
             private int dimension;

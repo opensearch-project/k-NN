@@ -153,6 +153,12 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, J
         }
         jniUtil->ReleaseIntArrayElements(env, idsJ, idsCpp, JNI_ABORT);
 
+        // Releasing the vectorsAddressJ memory as that is not required once we have created the index.
+        // This is not the ideal approach, please refer this gh issue for long term solution:
+        // https://github.com/opensearch-project/k-NN/issues/1600
+        //commons::freeVectorData(vectorsAddressJ);
+        delete inputVectors;
+
         std::unique_ptr<similarity::Index<float>> index;
         index.reset(similarity::MethodFactoryRegistry<float>::Instance().CreateMethod(false, "hnsw", spaceTypeCpp, *(space), dataset));
         index->CreateIndex(similarity::AnyParams(indexParameters));

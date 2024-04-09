@@ -16,7 +16,6 @@ import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
@@ -111,67 +110,57 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         throws IOException {
         // Get values to be indexed
         BinaryDocValues values = valuesProducer.getBinary(field);
-        KNNCodecUtil.Pair pair = null;
-        try {
-            pair = KNNCodecUtil.getFloats(values);
-            if (pair.getVectorAddress() == 0 || pair.docs.length == 0) {
-                logger.info("Skipping engine index creation as there are no vectors or docs in the segment");
-                return;
-            }
-            long arraySize = calculateArraySize(pair.docs.length, pair.getDimension(), pair.serializationMode);
-            if (isMerge) {
-                KNNGraphValue.MERGE_CURRENT_OPERATIONS.increment();
-                KNNGraphValue.MERGE_CURRENT_DOCS.incrementBy(pair.docs.length);
-                KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.incrementBy(arraySize);
-            }
-            // Increment counter for number of graph index requests
-            KNNCounter.GRAPH_INDEX_REQUESTS.increment();
-            final KNNEngine knnEngine = getKNNEngine(field);
-            final String engineFileName = buildEngineFileName(
-                state.segmentInfo.name,
-                knnEngine.getVersion(),
-                field.name,
-                knnEngine.getExtension()
-            );
-            final String indexPath = Paths.get(
-                ((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
-                engineFileName
-            ).toString();
-            KNNCodecUtil.Pair finalPair = pair;
-            NativeIndexCreator indexCreator;
-            // Create library index either from model or from scratch
-            if (field.attributes().containsKey(MODEL_ID)) {
-                String modelId = field.attributes().get(MODEL_ID);
-                Model model = ModelCache.getInstance().get(modelId);
-                if (model.getModelBlob() == null) {
-                    throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
-                }
-                indexCreator = () -> createKNNIndexFromTemplate(model.getModelBlob(), finalPair, knnEngine, indexPath);
-            } else {
-                indexCreator = () -> createKNNIndexFromScratch(field, finalPair, knnEngine, indexPath);
-            }
-
-            if (isMerge) {
-                recordMergeStats(pair.docs.length, arraySize);
-            }
-
-            if (isRefresh) {
-                recordRefreshStats();
-            }
-
-            // This is a bit of a hack. We have to create an output here and then immediately close it to ensure that
-            // engineFileName is added to the tracked files by Lucene's TrackingDirectoryWrapper. Otherwise, the file will
-            // not be marked as added to the directory.
-            state.directory.createOutput(engineFileName, state.context).close();
-            indexCreator.createIndex();
-            writeFooter(indexPath, engineFileName);
-        } finally {
-            // Freeing up the Native memory where vectors was stored. We added a try block here to ensure that even
-            // in case of exceptions we are freeing up the space to avoid memory leaks.
-            if (pair != null) {
-                JNICommons.freeVectorData(pair.getVectorAddress());
-            }
+        KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
+        if (pair.getVectorAddress() == 0 || pair.docs.length == 0) {
+            logger.info("Skipping engine index creation as there are no vectors or docs in the segment");
+            return;
         }
+        long arraySize = calculateArraySize(pair.docs.length, pair.getDimension(), pair.serializationMode);
+        if (isMerge) {
+            KNNGraphValue.MERGE_CURRENT_OPERATIONS.increment();
+            KNNGraphValue.MERGE_CURRENT_DOCS.incrementBy(pair.docs.length);
+            KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.incrementBy(arraySize);
+        }
+        // Increment counter for number of graph index requests
+        KNNCounter.GRAPH_INDEX_REQUESTS.increment();
+        final KNNEngine knnEngine = getKNNEngine(field);
+        final String engineFileName = buildEngineFileName(
+            state.segmentInfo.name,
+            knnEngine.getVersion(),
+            field.name,
+            knnEngine.getExtension()
+        );
+        final String indexPath = Paths.get(
+            ((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
+            engineFileName
+        ).toString();
+        NativeIndexCreator indexCreator;
+        // Create library index either from model or from scratch
+        if (field.attributes().containsKey(MODEL_ID)) {
+            String modelId = field.attributes().get(MODEL_ID);
+            Model model = ModelCache.getInstance().get(modelId);
+            if (model.getModelBlob() == null) {
+                throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
+            }
+            indexCreator = () -> createKNNIndexFromTemplate(model.getModelBlob(), pair, knnEngine, indexPath);
+        } else {
+            indexCreator = () -> createKNNIndexFromScratch(field, pair, knnEngine, indexPath);
+        }
+
+        if (isMerge) {
+            recordMergeStats(pair.docs.length, arraySize);
+        }
+
+        if (isRefresh) {
+            recordRefreshStats();
+        }
+
+        // This is a bit of a hack. We have to create an output here and then immediately close it to ensure that
+        // engineFileName is added to the tracked files by Lucene's TrackingDirectoryWrapper. Otherwise, the file will
+        // not be marked as added to the directory.
+        state.directory.createOutput(engineFileName, state.context).close();
+        indexCreator.createIndex();
+        writeFooter(indexPath, engineFileName);
     }
 
     private void recordMergeStats(int length, long arraySize) {
