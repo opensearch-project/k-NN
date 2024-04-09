@@ -111,11 +111,11 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         // Get values to be indexed
         BinaryDocValues values = valuesProducer.getBinary(field);
         KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
-        if (pair.vectors.length == 0 || pair.docs.length == 0) {
-            logger.info("Skipping engine index creation as there are no vectors or docs in the documents");
+        if (pair.getVectorAddress() == 0 || pair.docs.length == 0) {
+            logger.info("Skipping engine index creation as there are no vectors or docs in the segment");
             return;
         }
-        long arraySize = calculateArraySize(pair.vectors, pair.serializationMode);
+        long arraySize = calculateArraySize(pair.docs.length, pair.getDimension(), pair.serializationMode);
         if (isMerge) {
             KNNGraphValue.MERGE_CURRENT_OPERATIONS.increment();
             KNNGraphValue.MERGE_CURRENT_DOCS.incrementBy(pair.docs.length);
@@ -123,31 +123,27 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         }
         // Increment counter for number of graph index requests
         KNNCounter.GRAPH_INDEX_REQUESTS.increment();
-        // Create library index either from model or from scratch
-        String engineFileName;
-        String indexPath;
-        NativeIndexCreator indexCreator;
         final KNNEngine knnEngine = getKNNEngine(field);
+        final String engineFileName = buildEngineFileName(
+            state.segmentInfo.name,
+            knnEngine.getVersion(),
+            field.name,
+            knnEngine.getExtension()
+        );
+        final String indexPath = Paths.get(
+            ((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
+            engineFileName
+        ).toString();
+        NativeIndexCreator indexCreator;
+        // Create library index either from model or from scratch
         if (field.attributes().containsKey(MODEL_ID)) {
-
             String modelId = field.attributes().get(MODEL_ID);
             Model model = ModelCache.getInstance().get(modelId);
-
-            engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getVersion(), field.name, knnEngine.getExtension());
-            indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(), engineFileName)
-                .toString();
-
             if (model.getModelBlob() == null) {
-                throw new RuntimeException("There is no trained model with id \"" + modelId + "\"");
+                throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
             }
-
             indexCreator = () -> createKNNIndexFromTemplate(model.getModelBlob(), pair, knnEngine, indexPath);
         } else {
-
-            engineFileName = buildEngineFileName(state.segmentInfo.name, knnEngine.getVersion(), field.name, knnEngine.getExtension());
-            indexPath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(), engineFileName)
-                .toString();
-
             indexCreator = () -> createKNNIndexFromScratch(field, pair, knnEngine, indexPath);
         }
 
@@ -186,7 +182,15 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY)
         );
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            JNIService.createIndexFromTemplate(pair.docs, pair.vectors, indexPath, model, parameters, knnEngine);
+            JNIService.createIndexFromTemplate(
+                pair.docs,
+                pair.getVectorAddress(),
+                pair.getDimension(),
+                indexPath,
+                model,
+                parameters,
+                knnEngine
+            );
             return null;
         });
     }
@@ -228,7 +232,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
         // Pass the path for the nms library to save the file
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            JNIService.createIndex(pair.docs, pair.vectors, indexPath, parameters, knnEngine);
+            JNIService.createIndex(pair.docs, pair.getVectorAddress(), pair.getDimension(), indexPath, parameters, knnEngine);
             return null;
         });
     }

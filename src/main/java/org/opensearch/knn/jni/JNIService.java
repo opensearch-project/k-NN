@@ -23,22 +23,34 @@ import java.util.Map;
 public class JNIService {
 
     /**
-     * Create an index for the native library
+     * Create an index for the native library. The memory occupied by the vectorsAddress will be freed up during the
+     * function call. So Java layer doesn't need to free up the memory. This is not an ideal behavior because Java layer
+     * created the memory address and that should only free up the memory. We are tracking the proper fix for this on this
+     * <a href="https://github.com/opensearch-project/k-NN/issues/1600">issue</a>
      *
      * @param ids        array of ids mapping to the data passed in
-     * @param data       array of float arrays to be indexed
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim        dimension of the vector to be indexed
      * @param indexPath  path to save index file to
      * @param parameters parameters to build index
      * @param knnEngine  engine to build index for
      */
-    public static void createIndex(int[] ids, float[][] data, String indexPath, Map<String, Object> parameters, KNNEngine knnEngine) {
+    public static void createIndex(
+        int[] ids,
+        long vectorsAddress,
+        int dim,
+        String indexPath,
+        Map<String, Object> parameters,
+        KNNEngine knnEngine
+    ) {
+
         if (KNNEngine.NMSLIB == knnEngine) {
-            NmslibService.createIndex(ids, data, indexPath, parameters);
+            NmslibService.createIndex(ids, vectorsAddress, dim, indexPath, parameters);
             return;
         }
 
         if (KNNEngine.FAISS == knnEngine) {
-            FaissService.createIndex(ids, data, indexPath, parameters);
+            FaissService.createIndex(ids, vectorsAddress, dim, indexPath, parameters);
             return;
         }
 
@@ -49,7 +61,8 @@ public class JNIService {
      * Create an index for the native library with a provided template index
      *
      * @param ids           array of ids mapping to the data passed in
-     * @param data          array of float arrays to be indexed
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim           dimension of vectors to be indexed
      * @param indexPath     path to save index file to
      * @param templateIndex empty template index
      * @param parameters    parameters to build index
@@ -57,14 +70,15 @@ public class JNIService {
      */
     public static void createIndexFromTemplate(
         int[] ids,
-        float[][] data,
+        long vectorsAddress,
+        int dim,
         String indexPath,
         byte[] templateIndex,
         Map<String, Object> parameters,
         KNNEngine knnEngine
     ) {
         if (KNNEngine.FAISS == knnEngine) {
-            FaissService.createIndexFromTemplate(ids, data, indexPath, templateIndex, parameters);
+            FaissService.createIndexFromTemplate(ids, vectorsAddress, dim, indexPath, templateIndex, parameters);
             return;
         }
 
@@ -235,44 +249,17 @@ public class JNIService {
     }
 
     /**
+     * <p>
+     *  The function is deprecated. Use {@link JNICommons#storeVectorData(long, float[][], long)}
+     * </p>
      * Transfer vectors from Java to native
      *
      * @param vectorsPointer pointer to vectors in native memory. Should be 0 to create vector as well
      * @param trainingData data to be transferred
      * @return pointer to native memory location of training data
      */
+    @Deprecated(since = "2.14.0", forRemoval = true)
     public static long transferVectors(long vectorsPointer, float[][] trainingData) {
         return FaissService.transferVectors(vectorsPointer, trainingData);
-    }
-
-    /**
-     * Free vectors from memory
-     *
-     * @param vectorsPointer to be freed
-     */
-    public static void freeVectors(long vectorsPointer) {
-        FaissService.freeVectors(vectorsPointer);
-    }
-
-    /**
-     * Experimental: Transfer vectors from Java to native layer. This is the version 2 of transfer vector
-     * functionality. The difference between this and the version 1 is, this version puts vectors at the end rather
-     * than in front. Keeping this name as V2 for now, will come up with better name going forward.
-     * <p>
-     * This is not a production ready function for now. Adding this to ensure that we are able to run atleast 1
-     * micro-benchmarks.
-     * </p>
-     * <p>
-     * TODO: Rename the function
-     * <br>
-     * TODO: Make this function native function and use a common cpp file to host these functions.
-     * </p>
-     * @param vectorsPointer pointer to vectors in native memory. Should be 0 to create vector as well
-     * @param data data to be transferred
-     * @return pointer to native memory location for data
-     *
-     */
-    public static long transferVectorsV2(long vectorsPointer, float[][] data) {
-        return FaissService.transferVectorsV2(vectorsPointer, data);
     }
 }

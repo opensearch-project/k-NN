@@ -72,6 +72,7 @@ public class KNNConstants {
 
     // nmslib specific constants
     public static final String NMSLIB_NAME = "nmslib";
+    public static final String COMMONS_NAME = "common";
     public static final String SPACE_TYPE = "spaceType"; // used as field info key
     public static final String HNSW_ALGO_M = "M";
     public static final String HNSW_ALGO_EF_CONSTRUCTION = "efConstruction";
@@ -120,6 +121,8 @@ public class KNNConstants {
     public static final String FAISS_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + FAISS_NAME;
     public static final String FAISS_AVX2_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + FAISS_NAME + "_avx2";
     public static final String NMSLIB_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + NMSLIB_NAME;
+
+    public static final String COMMON_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + COMMONS_NAME;
 
     // API Constants
     public static final String CLEAR_CACHE = "clear_cache";
