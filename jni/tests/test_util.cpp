@@ -45,6 +45,14 @@ test_util::MockJNIUtil::MockJNIUtil() {
                 return data;
             });
 
+    ON_CALL(*this, Convert2dJavaObjectArrayAndStoreToFloatVector)
+            .WillByDefault([this](JNIEnv *env, jobjectArray array2dJ, int dim, std::vector<float>* data) {
+                for (const auto &v :
+                        (*reinterpret_cast<std::vector<std::vector<float>> *>(array2dJ)))
+                    for (auto item : v) data->push_back(item);
+            });
+
+
     // arrayJ is re-interpreted as std::vector<int64_t> *
     ON_CALL(*this, ConvertJavaIntArrayToCppIntVector)
             .WillByDefault([this](JNIEnv *env, jintArray arrayJ) {

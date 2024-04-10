@@ -32,14 +32,19 @@ std::string TranslateSpaceType(const std::string& spaceType);
 const similarity::LabelType DEFAULT_LABEL = -1;
 
 void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
-                                          jobjectArray vectorsJ, jstring indexPathJ, jobject parametersJ) {
+                                          jlong vectorsAddressJ, jint dimJ,
+                                          jstring indexPathJ, jobject parametersJ) {
 
     if (idsJ == nullptr) {
         throw std::runtime_error("IDs cannot be null");
     }
 
-    if (vectorsJ == nullptr) {
-        throw std::runtime_error("Vectors cannot be null");
+    if (vectorsAddressJ <= 0) {
+        throw std::runtime_error("VectorsAddress cannot be less than 0");
+    }
+
+    if(dimJ <= 0) {
+        throw std::runtime_error("Vectors dimensions cannot be less than or equal to 0");
     }
 
     if (indexPathJ == nullptr) {
@@ -91,12 +96,18 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, J
     space.reset(similarity::SpaceFactoryRegistry<float>::Instance().CreateSpace(spaceTypeCpp,similarity::AnyParams()));
 
     // Get number of ids and vectors and dimension
-    int numVectors = jniUtil->GetJavaObjectArrayLength(env, vectorsJ);
+    auto *inputVectors = reinterpret_cast<std::vector<float>*>(vectorsAddressJ);
+    int dim = (int)dimJ;
+    // The number of vectors can be int here because a lucene segment number of total docs never crosses INT_MAX value
+    int numVectors = (int) ( inputVectors->size() / (uint64_t) dim);
+    if(numVectors == 0) {
+        throw std::runtime_error("Number of vectors cannot be 0");
+    }
+
     int numIds = jniUtil->GetJavaIntArrayLength(env, idsJ);
     if (numIds != numVectors) {
         throw std::runtime_error("Number of IDs does not match number of vectors");
     }
-    int dim = jniUtil->GetInnerDimensionOf2dJavaFloatArray(env, vectorsJ);
 
     // Read dataset
     similarity::ObjectVector dataset;
@@ -105,10 +116,12 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, J
     try {
         // Read in data set
         idsCpp = jniUtil->GetIntArrayElements(env, idsJ, nullptr);
-
-        float* floatArrayCpp;
-        jfloatArray floatArrayJ;
         size_t vectorSizeInBytes = dim*sizeof(float);
+        // vectorPointer needs to be unsigned long long, this will ensure that out of range doesn't happen for this pointer
+        // when the values of numVectors * dim becomes very large.
+        // Example: for 10M vectors of 1536 dim vectorPointer max value will be ~15.3B which is already > range of ints.
+        // keeping it unsigned long long we will never go above the range.
+        unsigned long long vectorPointer = 0;
 
         // Allocate a large buffer that will contain all the vectors. Allocating the objects in one large buffer as
         // opposed to individually will prevent heap fragmentation. We have observed that allocating individual
@@ -134,17 +147,17 @@ void knn_jni::nmslib_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, J
             memcpy(ptr, &vectorSizeInBytes, similarity::DATALENGTH_SIZE);
             ptr += similarity::DATALENGTH_SIZE;
 
-            floatArrayJ = (jfloatArray)jniUtil->GetObjectArrayElement(env, vectorsJ, i);
-            if (dim != jniUtil->GetJavaFloatArrayLength(env, floatArrayJ)) {
-                throw std::runtime_error("Dimension of vectors is inconsistent");
-            }
-
-            floatArrayCpp = jniUtil->GetFloatArrayElements(env, floatArrayJ, nullptr);
-            memcpy(ptr, floatArrayCpp, vectorSizeInBytes);
-            jniUtil->ReleaseFloatArrayElements(env, floatArrayJ, floatArrayCpp, JNI_ABORT);
+            memcpy(ptr, &(inputVectors->at(vectorPointer)), vectorSizeInBytes);
             ptr += vectorSizeInBytes;
+            vectorPointer += dim;
         }
         jniUtil->ReleaseIntArrayElements(env, idsJ, idsCpp, JNI_ABORT);
+
+        // Releasing the vectorsAddressJ memory as that is not required once we have created the index.
+        // This is not the ideal approach, please refer this gh issue for long term solution:
+        // https://github.com/opensearch-project/k-NN/issues/1600
+        //commons::freeVectorData(vectorsAddressJ);
+        delete inputVectors;
 
         std::unique_ptr<similarity::Index<float>> index;
         index.reset(similarity::MethodFactoryRegistry<float>::Instance().CreateMethod(false, "hnsw", spaceTypeCpp, *(space), dataset));

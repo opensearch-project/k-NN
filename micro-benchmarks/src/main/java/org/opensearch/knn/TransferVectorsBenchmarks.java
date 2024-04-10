@@ -23,7 +23,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.opensearch.knn.jni.JNIService;
+import org.opensearch.knn.jni.JNICommons;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,9 +42,9 @@ import java.util.concurrent.TimeUnit;
 @State(Scope.Benchmark)
 public class TransferVectorsBenchmarks {
     private static final Random random = new Random(1212121212);
-    private static final int TOTAL_NUMBER_OF_VECTOR_TO_BE_TRANSFERRED = 1000000;
+    private static final long TOTAL_NUMBER_OF_VECTOR_TO_BE_TRANSFERRED = 1000000;
 
-    @Param({ "128", "256", "384", "512" })
+    @Param({ "128", "256", "384", "512", "960", "1024", "1536" })
     private int dimension;
 
     @Param({ "100000", "500000", "1000000" })
@@ -61,20 +61,30 @@ public class TransferVectorsBenchmarks {
     }
 
     @Benchmark
-    public void transferVectors() {
+    public void transferVectors_withCapacity() {
         long vectorsAddress = 0;
         List<float[]> vectorToTransfer = new ArrayList<>();
+        long startingIndex = 0;
         for (float[] floats : vectorList) {
             if (vectorToTransfer.size() == vectorsPerTransfer) {
-                vectorsAddress = JNIService.transferVectorsV2(vectorsAddress, vectorToTransfer.toArray(new float[][] {}));
+                vectorsAddress = JNICommons.storeVectorData(
+                    vectorsAddress,
+                    vectorToTransfer.toArray(new float[][] {}),
+                    dimension * TOTAL_NUMBER_OF_VECTOR_TO_BE_TRANSFERRED
+                );
+                startingIndex += vectorsPerTransfer;
                 vectorToTransfer = new ArrayList<>();
             }
             vectorToTransfer.add(floats);
         }
         if (!vectorToTransfer.isEmpty()) {
-            vectorsAddress = JNIService.transferVectorsV2(vectorsAddress, vectorToTransfer.toArray(new float[][] {}));
+            vectorsAddress = JNICommons.storeVectorData(
+                vectorsAddress,
+                vectorToTransfer.toArray(new float[][] {}),
+                dimension * TOTAL_NUMBER_OF_VECTOR_TO_BE_TRANSFERRED
+            );
         }
-        JNIService.freeVectors(vectorsAddress);
+        JNICommons.freeVectorData(vectorsAddress);
     }
 
     private float[] generateRandomVector(int dimensions) {

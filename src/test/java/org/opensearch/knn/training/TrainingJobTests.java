@@ -25,6 +25,7 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 
 import java.io.File;
@@ -170,7 +171,7 @@ public class TrainingJobTests extends KNNTestCase {
 
         when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
         doAnswer(invocationOnMock -> {
-            JNIService.freeVectors(memoryAddress);
+            JNICommons.freeVectorData(memoryAddress);
             return null;
         }).when(nativeMemoryCacheManager).invalidate(tdataKey);
 
@@ -197,11 +198,12 @@ public class TrainingJobTests extends KNNTestCase {
         int[] ids = { 1, 2, 3, 4 };
         float[][] vectors = new float[ids.length][dimension];
         fillFloatArrayRandomly(vectors);
-
+        long vectorsMemoryAddress = JNICommons.storeVectorData(0, vectors, (long) vectors.length * vectors[0].length);
         Path indexPath = createTempFile();
         JNIService.createIndexFromTemplate(
             ids,
-            vectors,
+            vectorsMemoryAddress,
+            vectors[0].length,
             indexPath.toString(),
             model.getModelBlob(),
             ImmutableMap.of(INDEX_THREAD_QTY, 1),
@@ -456,7 +458,7 @@ public class TrainingJobTests extends KNNTestCase {
 
         when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
         doAnswer(invocationOnMock -> {
-            JNIService.freeVectors(memoryAddress);
+            JNICommons.freeVectorData(memoryAddress);
             return null;
         }).when(nativeMemoryCacheManager).invalidate(tdataKey);
 
