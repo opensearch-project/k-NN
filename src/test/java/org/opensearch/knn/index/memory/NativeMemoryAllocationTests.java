@@ -15,6 +15,7 @@ import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.IndexUtil;
+import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -52,7 +53,8 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             Arrays.fill(vectors[i], 1f);
         }
         Map<String, Object> parameters = ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
-        JNIService.createIndex(ids, vectors, path, parameters, knnEngine);
+        long vectorMemoryAddress = JNICommons.storeVectorData(0, vectors, numVectors * dimension);
+        JNIService.createIndex(ids, vectorMemoryAddress, dimension, path, parameters, knnEngine);
 
         // Load index into memory
         long memoryAddress = JNIService.loadIndex(path, parameters, knnEngine);

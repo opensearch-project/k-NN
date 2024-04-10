@@ -16,6 +16,7 @@ import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.SpaceType;
@@ -53,7 +54,8 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
             Arrays.fill(vectors[i], 1f);
         }
         Map<String, Object> parameters = ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
-        JNIService.createIndex(ids, vectors, path, parameters, knnEngine);
+        long memoryAddress = JNICommons.storeVectorData(0, vectors, numVectors * dimension);
+        JNIService.createIndex(ids, memoryAddress, dimension, path, parameters, knnEngine);
 
         // Setup mock resource manager
         ResourceWatcherService resourceWatcherService = mock(ResourceWatcherService.class);
