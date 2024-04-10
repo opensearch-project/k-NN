@@ -38,6 +38,7 @@ import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
@@ -357,7 +358,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             modelBytes,
             modelId
         );
-        JNIService.freeVectors(trainingPtr);
+        JNICommons.freeVectorData(trainingPtr);
 
         // Setup the model cache to return the correct model
         ModelDao modelDao = mock(ModelDao.class);

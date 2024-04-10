@@ -21,10 +21,10 @@ extern "C" {
 /*
  * Class:     org_opensearch_knn_jni_NmslibService
  * Method:    createIndex
- * Signature: ([I[[FLjava/lang/String;Ljava/util/Map;)V
+ * Signature: ([IJILjava/lang/String;Ljava/util/Map;)V
  */
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_NmslibService_createIndex
-  (JNIEnv *, jclass, jintArray, jobjectArray, jstring, jobject);
+        (JNIEnv *, jclass, jintArray, jlong, jint, jstring, jobject);
 
 /*
  * Class:     org_opensearch_knn_jni_NmslibService

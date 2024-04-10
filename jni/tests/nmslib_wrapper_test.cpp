@@ -39,17 +39,14 @@ TEST(NmslibCreateIndexTest, BasicAssertions) {
     // Define index data
     int numIds = 100;
     std::vector<int> ids;
-    std::vector<std::vector<float>> vectors;
+    auto *vectors = new std::vector<float>();
     int dim = 2;
-    for (int i = 0; i < numIds; ++i) {
+    vectors->reserve(dim * numIds);
+    for (int64_t i = 0; i < numIds; ++i) {
         ids.push_back(i);
-
-        std::vector<float> vect;
-        vect.reserve(dim);
         for (int j = 0; j < dim; ++j) {
-            vect.push_back(test_util::RandomFloat(-500.0, 500.0));
+            vectors->push_back(test_util::RandomFloat(-500.0, 500.0));
         }
-        vectors.push_back(vect);
     }
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".nmslib");
@@ -70,7 +67,7 @@ TEST(NmslibCreateIndexTest, BasicAssertions) {
     EXPECT_CALL(mockJNIUtil,
                 GetJavaObjectArrayLength(
                         jniEnv, reinterpret_cast<jobjectArray>(&vectors)))
-            .WillRepeatedly(Return(vectors.size()));
+            .WillRepeatedly(Return(vectors->size()));
 
     EXPECT_CALL(mockJNIUtil,
                 GetJavaIntArrayLength(jniEnv, reinterpret_cast<jintArray>(&ids)))
@@ -79,7 +76,7 @@ TEST(NmslibCreateIndexTest, BasicAssertions) {
     // Create the index
     knn_jni::nmslib_wrapper::CreateIndex(
             &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
-            reinterpret_cast<jobjectArray>(&vectors), (jstring)&indexPath,
+            (jlong) vectors, dim, (jstring)&indexPath,
             (jobject)&parametersMap);
 
     // Make sure index can be loaded
