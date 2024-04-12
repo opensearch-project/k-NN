@@ -348,11 +348,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return this.k;
     }
 
-    public float getMax_distance() {
+    public float getMaxDistance() {
         return this.max_distance;
     }
 
-    public float getMin_score() {
+    public float getMinScore() {
         return this.min_score;
     }
 

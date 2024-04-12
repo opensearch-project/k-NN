@@ -159,7 +159,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());
         builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
-        builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), knnQueryBuilder.getMax_distance());
+        builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), knnQueryBuilder.getMaxDistance());
         builder.endObject();
         builder.endObject();
         XContentParser contentParser = createParser(builder);
@@ -175,7 +175,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());
         builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
-        builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), knnQueryBuilder.getMin_score());
+        builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), knnQueryBuilder.getMinScore());
         builder.endObject();
         builder.endObject();
         XContentParser contentParser = createParser(builder);
@@ -218,7 +218,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());
         builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
-        builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), knnQueryBuilder.getMax_distance());
+        builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), knnQueryBuilder.getMaxDistance());
         builder.field(KNNQueryBuilder.FILTER_FIELD.getPreferredName(), knnQueryBuilder.getFilter());
         builder.endObject();
         builder.endObject();
@@ -240,7 +240,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());
         builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
-        builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), knnQueryBuilder.getMin_score());
+        builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), knnQueryBuilder.getMinScore());
         builder.field(KNNQueryBuilder.FILTER_FIELD.getPreferredName(), knnQueryBuilder.getFilter());
         builder.endObject();
         builder.endObject();
@@ -699,7 +699,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
 
         KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
-        assertEquals(knnQueryBuilder.getMax_distance(), query.getRadius(), 0);
+        assertEquals(knnQueryBuilder.getMaxDistance(), query.getRadius(), 0);
         assertEquals(knnQueryBuilder.fieldName(), query.getField());
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
     }
@@ -731,7 +731,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
 
-        assertEquals(1 / knnQueryBuilder.getMin_score() - 1, query.getRadius(), 0);
+        assertEquals(1 / knnQueryBuilder.getMinScore() - 1, query.getRadius(), 0);
         assertEquals(knnQueryBuilder.fieldName(), query.getField());
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
     }
@@ -847,9 +847,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 if (k != null) {
                     assertEquals(k.intValue(), deserializedKnnQueryBuilder.getK());
                 } else if (distance != null) {
-                    assertEquals(distance.floatValue(), deserializedKnnQueryBuilder.getMax_distance(), 0.0f);
+                    assertEquals(distance.floatValue(), deserializedKnnQueryBuilder.getMaxDistance(), 0.0f);
                 } else {
-                    assertEquals(score.floatValue(), deserializedKnnQueryBuilder.getMin_score(), 0.0f);
+                    assertEquals(score.floatValue(), deserializedKnnQueryBuilder.getMinScore(), 0.0f);
                 }
                 if (queryBuilderOptional.isPresent()) {
                     assertNotNull(deserializedKnnQueryBuilder.getFilter());
