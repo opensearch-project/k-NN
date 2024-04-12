@@ -64,6 +64,11 @@ public class KNNCodecUtil {
 
                 if (vectorsPerTransfer == Integer.MIN_VALUE) {
                     vectorsPerTransfer = (dimension * Float.BYTES * totalLiveDocs) / vectorsStreamingMemoryLimit;
+                    // This condition comes if vectorsStreamingMemoryLimit is higher than total number floats to transfer
+                    // Doing this will reduce 1 extra trip to JNI layer.
+                    if (vectorsPerTransfer == 0) {
+                        vectorsPerTransfer = totalLiveDocs;
+                    }
                 }
                 if (vectorList.size() == vectorsPerTransfer) {
                     vectorAddress = JNICommons.storeVectorData(
