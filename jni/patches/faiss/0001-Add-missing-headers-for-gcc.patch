@@ -1,0 +1,26 @@
+diff --git a/faiss/Clustering.h b/faiss/Clustering.h
+index ef1f00ad..ae341115 100644
+--- a/faiss/Clustering.h
++++ b/faiss/Clustering.h
+@@ -10,7 +10,7 @@
+ #ifndef FAISS_CLUSTERING_H
+ #define FAISS_CLUSTERING_H
+ #include <faiss/Index.h>
+-
++#include <cstdint>
+ #include <vector>
+ 
+ namespace faiss {
+diff --git a/faiss/Index.h b/faiss/Index.h
+index 3d1bdb99..eaed1b14 100644
+--- a/faiss/Index.h
++++ b/faiss/Index.h
+@@ -16,6 +16,8 @@
+ #include <string>
+ #include <typeinfo>
+ 
++#include <cstdint>
++
+ #define FAISS_VERSION_MAJOR 1
+ #define FAISS_VERSION_MINOR 8
+ #define FAISS_VERSION_PATCH 0

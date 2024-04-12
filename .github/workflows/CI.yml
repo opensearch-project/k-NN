@@ -59,6 +59,15 @@ jobs:
       - name: Checkout k-NN
         uses: actions/checkout@v1
 
+      - name: Apply Git Patch
+        # Deleting file at the end to skip `git apply` inside CMAKE file
+        run: |
+          git submodule update --init -- jni/external/faiss
+          cd jni/external/faiss
+          git apply --ignore-space-change --ignore-whitespace --3way ../../patches/faiss/0001-Add-missing-headers-for-gcc.patch
+          rm ../../patches/faiss/0001-Add-missing-headers-for-gcc.patch
+        working-directory: ${{ github.workspace }}
+
       - name: Setup Java ${{ matrix.java }}
         uses: actions/setup-java@v1
         with:
@@ -75,6 +84,15 @@ jobs:
           echo "C:/Users/runneradmin/scoop/apps/mingw/current/bin" >> $env:GITHUB_PATH
           Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
           refreshenv
+
+      - name: Install Zlib Using Scoop
+        run: |
+          echo "C:/Users/runneradmin/scoop/shims" >> $env:GITHUB_PATH
+          Import-Module "$env:ChocolateyInstall\helpers\chocolateyProfile.psm1"
+          refreshenv
+          scoop bucket add extras
+          scoop install zlib
+          regedit /s "C:\\Users\\runneradmin\\scoop\\apps\\zlib\\current\\register.reg"
 
       - name: Download OpenBLAS
         run: |
