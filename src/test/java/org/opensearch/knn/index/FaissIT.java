@@ -1702,9 +1702,9 @@ public class FaissIT extends KNNRestTestCase {
             queryBuilder.startObject(fieldName);
             queryBuilder.field("vector", queryVector);
             if (distanceThreshold != null) {
-                queryBuilder.field("distance", distanceThreshold);
+                queryBuilder.field("max_distance", distanceThreshold);
             } else if (scoreThreshold != null) {
-                queryBuilder.field("score", scoreThreshold);
+                queryBuilder.field("min_score", scoreThreshold);
             } else {
                 throw new IllegalArgumentException("Invalid threshold");
             }

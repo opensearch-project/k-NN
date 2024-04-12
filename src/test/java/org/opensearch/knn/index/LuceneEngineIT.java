@@ -629,9 +629,9 @@ public class LuceneEngineIT extends KNNRestTestCase {
             builder.startObject(FIELD_NAME);
             builder.field("vector", searchVectors[i]);
             if (distanceThreshold != null) {
-                builder.field("distance", distanceThreshold);
+                builder.field("max_distance", distanceThreshold);
             } else if (scoreThreshold != null) {
-                builder.field("score", scoreThreshold);
+                builder.field("min_score", scoreThreshold);
             } else {
                 throw new IllegalArgumentException("Either distance or score must be provided");
             }
