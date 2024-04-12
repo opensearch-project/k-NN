@@ -92,7 +92,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             KnnByteVectorField point = new KnnByteVectorField(name(), array, fieldType);
 
             context.doc().add(point);
-            addStoredFieldForVectorField(context, fieldType, name(), point.toString());
+            addStoredFieldForVectorField(context, fieldType, name(), point);
 
             if (hasDocValues && vectorFieldType != null) {
                 context.doc().add(new VectorField(name(), array, vectorFieldType));
@@ -108,7 +108,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             KnnVectorField point = new KnnVectorField(name(), array, fieldType);
 
             context.doc().add(point);
-            addStoredFieldForVectorField(context, fieldType, name(), point.toString());
+            addStoredFieldForVectorField(context, fieldType, name(), point);
 
             if (hasDocValues && vectorFieldType != null) {
                 context.doc().add(new VectorField(name(), array, vectorFieldType));
