@@ -8,9 +8,8 @@ package org.opensearch.knn.index;
 import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.FilterLeafReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
@@ -20,6 +19,7 @@ import org.apache.lucene.store.FilterDirectory;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
@@ -30,6 +30,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
@@ -42,11 +43,11 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileSu
 /**
  * KNNIndexShard wraps IndexShard and adds methods to perform k-NN related operations against the shard
  */
+@Log4j2
 public class KNNIndexShard {
     private IndexShard indexShard;
     private NativeMemoryCacheManager nativeMemoryCacheManager;
-
-    private static Logger logger = LogManager.getLogger(KNNIndexShard.class);
+    private static final String INDEX_SHARD_CLEAR_CACHE_SEARCHER = "knn-clear-cache";
 
     /**
      * Constructor to generate KNNIndexShard. We do not perform validation that the index the shard is from
@@ -84,7 +85,7 @@ public class KNNIndexShard {
      * @throws IOException Thrown when getting the HNSW Paths to be loaded in
      */
     public void warmup() throws IOException {
-        logger.info("[KNN] Warming up index: " + getIndexName());
+        log.info("[KNN] Warming up index: [{}]", getIndexName());
         try (Engine.Searcher searcher = indexShard.acquireSearcher("knn-warmup")) {
             getAllEngineFileContexts(searcher.getIndexReader()).forEach((engineFileContext) -> {
                 try {
@@ -106,6 +107,34 @@ public class KNNIndexShard {
                     throw new RuntimeException(ex);
                 }
             });
+        }
+    }
+
+    /**
+     * Removes all the k-NN segments for this shard from the cache.
+     * Adding write lock onto the NativeMemoryAllocation of the index that needs to be evicted from cache.
+     * Write lock will be unlocked after the index is evicted. This locking mechanism is used to avoid
+     * conflicts with queries fired on this index when the index is being evicted from cache.
+     */
+    public void clearCache() {
+        String indexName = getIndexName();
+        Optional<NativeMemoryAllocation> indexAllocationOptional;
+        NativeMemoryAllocation indexAllocation;
+        indexAllocationOptional = nativeMemoryCacheManager.getIndexMemoryAllocation(indexName);
+        if (indexAllocationOptional.isPresent()) {
+            indexAllocation = indexAllocationOptional.get();
+            indexAllocation.writeLock();
+            log.info("[KNN] Evicting index from cache: [{}]", indexName);
+            try (Engine.Searcher searcher = indexShard.acquireSearcher(INDEX_SHARD_CLEAR_CACHE_SEARCHER)) {
+                getAllEngineFileContexts(searcher.getIndexReader()).forEach(
+                    (engineFileContext) -> nativeMemoryCacheManager.invalidate(engineFileContext.getIndexPath())
+                );
+            } catch (IOException ex) {
+                log.error("[KNN] Failed to evict index from cache: [{}]", indexName, ex);
+                throw new RuntimeException(ex);
+            } finally {
+                indexAllocation.writeUnlock();
+            }
         }
     }
 

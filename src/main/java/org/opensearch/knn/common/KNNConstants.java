@@ -127,4 +127,7 @@ public class KNNConstants {
     // Please refer this github issue for more details for choosing this value:
     // https://github.com/opensearch-project/k-NN/issues/1049#issuecomment-1694741092
     public static int MAX_DISTANCE_COMPUTATIONS = 2048000;
+
+    // API Constants
+    public static final String CLEAR_CACHE = "clear_cache";
 }

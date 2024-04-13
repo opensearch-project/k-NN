@@ -31,6 +31,7 @@ import org.opensearch.knn.plugin.rest.RestKNNStatsHandler;
 import org.opensearch.knn.plugin.rest.RestKNNWarmupHandler;
 import org.opensearch.knn.plugin.rest.RestSearchModelHandler;
 import org.opensearch.knn.plugin.rest.RestTrainModelHandler;
+import org.opensearch.knn.plugin.rest.RestClearCacheHandler;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.plugin.stats.KNNStats;
 import org.opensearch.knn.plugin.transport.DeleteModelAction;
@@ -41,6 +42,8 @@ import org.opensearch.knn.plugin.transport.KNNStatsAction;
 import org.opensearch.knn.plugin.transport.KNNStatsTransportAction;
 import org.opensearch.knn.plugin.transport.KNNWarmupAction;
 import org.opensearch.knn.plugin.transport.KNNWarmupTransportAction;
+import org.opensearch.knn.plugin.transport.ClearCacheAction;
+import org.opensearch.knn.plugin.transport.ClearCacheTransportAction;
 import com.google.common.collect.ImmutableList;
 
 import org.opensearch.action.ActionRequest;
@@ -236,6 +239,7 @@ public class KNNPlugin extends Plugin
         RestDeleteModelHandler restDeleteModelHandler = new RestDeleteModelHandler();
         RestTrainModelHandler restTrainModelHandler = new RestTrainModelHandler();
         RestSearchModelHandler restSearchModelHandler = new RestSearchModelHandler();
+        RestClearCacheHandler restClearCacheHandler = new RestClearCacheHandler(clusterService, indexNameExpressionResolver);
 
         return ImmutableList.of(
             restKNNStatsHandler,
@@ -243,7 +247,8 @@ public class KNNPlugin extends Plugin
             restGetModelHandler,
             restDeleteModelHandler,
             restTrainModelHandler,
-            restSearchModelHandler
+            restSearchModelHandler,
+            restClearCacheHandler
         );
     }
 
@@ -263,7 +268,8 @@ public class KNNPlugin extends Plugin
             new ActionHandler<>(TrainingModelAction.INSTANCE, TrainingModelTransportAction.class),
             new ActionHandler<>(RemoveModelFromCacheAction.INSTANCE, RemoveModelFromCacheTransportAction.class),
             new ActionHandler<>(SearchModelAction.INSTANCE, SearchModelTransportAction.class),
-            new ActionHandler<>(UpdateModelGraveyardAction.INSTANCE, UpdateModelGraveyardTransportAction.class)
+            new ActionHandler<>(UpdateModelGraveyardAction.INSTANCE, UpdateModelGraveyardTransportAction.class),
+            new ActionHandler<>(ClearCacheAction.INSTANCE, ClearCacheTransportAction.class)
         );
     }
 
