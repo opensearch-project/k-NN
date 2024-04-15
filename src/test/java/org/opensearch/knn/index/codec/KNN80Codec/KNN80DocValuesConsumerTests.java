@@ -38,6 +38,7 @@ import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
+import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
@@ -341,13 +342,23 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             SpaceType.L2.getValue()
         );
 
-        byte[] modelBytes = JNIService.trainIndex(parameters, dimension, trainingPtr, knnEngine.getName());
+        byte[] modelBytes = JNIService.trainIndex(parameters, dimension, trainingPtr, knnEngine);
         Model model = new Model(
-            new ModelMetadata(knnEngine, spaceType, dimension, ModelState.CREATED, "timestamp", "Empty description", "", ""),
+            new ModelMetadata(
+                knnEngine,
+                spaceType,
+                dimension,
+                ModelState.CREATED,
+                "timestamp",
+                "Empty description",
+                "",
+                "",
+                MethodComponentContext.EMPTY
+            ),
             modelBytes,
             modelId
         );
-        JNIService.freeVectors(trainingPtr);
+        JNICommons.freeVectorData(trainingPtr);
 
         // Setup the model cache to return the correct model
         ModelDao modelDao = mock(ModelDao.class);

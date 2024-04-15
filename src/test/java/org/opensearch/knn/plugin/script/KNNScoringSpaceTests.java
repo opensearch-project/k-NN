@@ -5,8 +5,10 @@
 
 package org.opensearch.knn.plugin.script;
 
+import java.util.Locale;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.index.mapper.BinaryFieldMapper;
 import org.opensearch.index.mapper.NumberFieldMapper;
@@ -59,11 +61,26 @@ public class KNNScoringSpaceTests extends KNNTestCase {
 
         assertEquals(3F, cosineSimilarity.scoringMethod.apply(arrayFloat2, arrayFloat), 0.1F);
 
+        // invalid zero vector
+        final List<Float> queryZeroVector = List.of(0.0f, 0.0f, 0.0f);
+        IllegalArgumentException exception1 = expectThrows(
+            IllegalArgumentException.class,
+            () -> new KNNScoringSpace.CosineSimilarity(queryZeroVector, fieldType)
+        );
+        assertEquals(
+            String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", SpaceType.COSINESIMIL.getValue()),
+            exception1.getMessage()
+        );
+
         NumberFieldMapper.NumberFieldType invalidFieldType = new NumberFieldMapper.NumberFieldType(
             "field",
             NumberFieldMapper.NumberType.INTEGER
         );
-        expectThrows(IllegalArgumentException.class, () -> new KNNScoringSpace.CosineSimilarity(arrayListQueryObject, invalidFieldType));
+        IllegalArgumentException exception2 = expectThrows(
+            IllegalArgumentException.class,
+            () -> new KNNScoringSpace.CosineSimilarity(arrayListQueryObject, invalidFieldType)
+        );
+        assertEquals("Incompatible field_type for cosine space. The field type must be knn_vector.", exception2.getMessage());
     }
 
     public void testInnerProdSimilarity() {

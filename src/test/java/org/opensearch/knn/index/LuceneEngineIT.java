@@ -7,13 +7,12 @@ package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Floats;
 import lombok.SneakyThrows;
 import org.apache.commons.lang.math.RandomUtils;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.lucene.util.VectorUtil;
 import org.junit.After;
-import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -78,36 +77,6 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
     public void testQuery_cosine() throws Exception {
         baseQueryTest(SpaceType.COSINESIMIL);
-    }
-
-    public void testQuery_innerProduct_notSupported() throws Exception {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject(PROPERTIES_FIELD_NAME)
-            .startObject(FIELD_NAME)
-            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION_FIELD_NAME, DIMENSION)
-            .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, KNNEngine.LUCENE.getMethod(METHOD_HNSW).getMethodComponent().getName())
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
-            .startObject(KNNConstants.PARAMETERS)
-            .field(KNNConstants.METHOD_PARAMETER_M, M)
-            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-
-        String mapping = builder.toString();
-
-        createIndex(INDEX_NAME, getKNNDefaultIndexSettings());
-
-        Request request = new Request("PUT", "/" + INDEX_NAME + "/_mapping");
-        request.setJsonEntity(mapping);
-
-        expectThrows(ResponseException.class, () -> client().performRequest(request));
     }
 
     public void testQuery_invalidVectorDimensionInQuery() throws Exception {
@@ -337,14 +306,14 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final float[] searchVector = TEST_QUERY_VECTORS[0];
         final int k = 1 + RandomUtils.nextInt(TEST_INDEX_VECTORS.length);
 
-        final List<Float[]> knnResultsBeforeIndexClosure = queryResults(searchVector, k);
+        final List<float[]> knnResultsBeforeIndexClosure = queryResults(searchVector, k);
 
         closeIndex(INDEX_NAME);
         openIndex(INDEX_NAME);
 
         ensureGreen(INDEX_NAME);
 
-        final List<Float[]> knnResultsAfterIndexClosure = queryResults(searchVector, k);
+        final List<float[]> knnResultsAfterIndexClosure = queryResults(searchVector, k);
 
         assertArrayEquals(knnResultsBeforeIndexClosure.toArray(), knnResultsAfterIndexClosure.toArray());
     }
@@ -395,7 +364,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
             List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName);
             for (int j = 0; j < k; j++) {
-                float[] primitiveArray = Floats.toArray(Arrays.stream(knnResults.get(j).getVector()).collect(Collectors.toList()));
+                float[] primitiveArray = knnResults.get(j).getVector();
                 float distance = TestUtils.computeDistFromSpaceType(spaceType, primitiveArray, queryVector);
                 float rawScore = VECTOR_SIMILARITY_TO_SCORE.get(spaceType.getVectorSimilarityFunction()).apply(distance);
                 assertEquals(KNNEngine.LUCENE.score(rawScore, spaceType), actualScores.get(j), 0.0001);
@@ -403,7 +372,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         }
     }
 
-    private List<Float[]> queryResults(final float[] searchVector, final int k) throws Exception {
+    private List<float[]> queryResults(final float[] searchVector, final int k) throws Exception {
         final String responseBody = EntityUtils.toString(
             searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, searchVector, k), k).getEntity()
         );
@@ -448,5 +417,54 @@ public class LuceneEngineIT extends KNNRestTestCase {
                 .collect(Collectors.toList())
                 .containsAll(expectedDocIdsKLimitsFilterResult)
         );
+    }
+
+    @SneakyThrows
+    public void test_whenUsingIP_thenSuccess() {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", 2)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNEngine.LUCENE.getMethod(KNNConstants.METHOD_HNSW).getMethodComponent().getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        final String mapping = builder.toString();
+        createKnnIndex(INDEX_NAME, mapping);
+
+        final List<Float[]> dataVectors = Arrays.asList(new Float[] { -2.0f, 2.0f }, new Float[] { 2.0f, -2.0f });
+        final List<String> ids = Arrays.asList(DOC_ID, DOC_ID_2);
+
+        // Ingest all the documents
+        for (int i = 0; i < dataVectors.size(); i++) {
+            addKnnDoc(INDEX_NAME, ids.get(i), FIELD_NAME, dataVectors.get(i));
+        }
+        refreshIndex(INDEX_NAME);
+
+        float[] queryVector = new float[] { -2.0f, 2.0f };
+        int k = 2;
+        final Response response = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(FIELD_NAME, queryVector, k, QueryBuilders.matchAllQuery()),
+            k
+        );
+        final String responseBody = EntityUtils.toString(response.getEntity());
+        final List<Float> knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
+
+        // Check that the expected scores are returned
+        final List<Float> expectedScores = Arrays.asList(
+            VectorUtil.scaleMaxInnerProductScore(8.0f),
+            VectorUtil.scaleMaxInnerProductScore(-8.0f)
+        );
+        assertEquals(expectedScores.size(), knnResults.size());
+        for (int i = 0; i < expectedScores.size(); i++) {
+            assertEquals(expectedScores.get(i), knnResults.get(i), 0.0000001);
+        }
     }
 }

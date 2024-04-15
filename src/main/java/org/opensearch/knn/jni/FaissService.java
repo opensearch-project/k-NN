@@ -19,6 +19,9 @@ import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Map;
 
+import static org.opensearch.knn.index.KNNSettings.isFaissAVX2Disabled;
+import static org.opensearch.knn.jni.PlatformUtils.isAVX2SupportedBySystem;
+
 /**
  * Service to interact with faiss jni layer. Class dependencies should be minimal
  *
@@ -31,7 +34,15 @@ class FaissService {
 
     static {
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            System.loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);
+
+            // Even if the underlying system supports AVX2, users can override and disable it by using the
+            // 'knn.faiss.avx2.disabled' setting by setting it to true in the opensearch.yml configuration
+            if (!isFaissAVX2Disabled() && isAVX2SupportedBySystem()) {
+                System.loadLibrary(KNNConstants.FAISS_AVX2_JNI_LIBRARY_NAME);
+            } else {
+                System.loadLibrary(KNNConstants.FAISS_JNI_LIBRARY_NAME);
+            }
+
             initLibrary();
             KNNEngine.FAISS.setInitialized(true);
             return null;
@@ -39,27 +50,33 @@ class FaissService {
     }
 
     /**
-     * Create an index for the native library
+     * Create an index for the native library The memory occupied by the vectorsAddress will be freed up during the
+     * function call. So Java layer doesn't need to free up the memory. This is not an ideal behavior because Java layer
+     * created the memory address and that should only free up the memory. We are tracking the proper fix for this on this
+     * <a href="https://github.com/opensearch-project/k-NN/issues/1600">issue</a>
      *
      * @param ids array of ids mapping to the data passed in
-     * @param data array of float arrays to be indexed
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim dimension of the vector to be indexed
      * @param indexPath path to save index file to
      * @param parameters parameters to build index
      */
-    public static native void createIndex(int[] ids, float[][] data, String indexPath, Map<String, Object> parameters);
+    public static native void createIndex(int[] ids, long vectorsAddress, int dim, String indexPath, Map<String, Object> parameters);
 
     /**
      * Create an index for the native library with a provided template index
      *
      * @param ids array of ids mapping to the data passed in
-     * @param data array of float arrays to be indexed
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim dimension of the vector to be indexed
      * @param indexPath path to save index file to
      * @param templateIndex empty template index
      * @param parameters additional build time parameters
      */
     public static native void createIndexFromTemplate(
         int[] ids,
-        float[][] data,
+        long vectorsAddress,
+        int dim,
         String indexPath,
         byte[] templateIndex,
         Map<String, Object> parameters
@@ -72,6 +89,30 @@ class FaissService {
      * @return pointer to location in memory the index resides in
      */
     public static native long loadIndex(String indexPath);
+
+    /**
+     * Determine if index contains shared state.
+     *
+     * @param indexAddr address of index to be checked.
+     * @return true if index requires shared index state; false otherwise
+     */
+    public static native boolean isSharedIndexStateRequired(long indexAddr);
+
+    /**
+     * Initialize the shared state for an index
+     *
+     * @param indexAddr address of the index to initialize from
+     * @return Address of shared index state address
+     */
+    public static native long initSharedIndexState(long indexAddr);
+
+    /**
+     * Set the index state for an index
+     *
+     * @param indexAddr address of index to set state for
+     * @param shareIndexStateAddr address of shared state to be set
+     */
+    public static native void setSharedIndexState(long indexAddr, long shareIndexStateAddr);
 
     /**
      * Query an index without filter
@@ -115,6 +156,13 @@ class FaissService {
     public static native void free(long indexPointer);
 
     /**
+     * Deallocate memory of the shared index state
+     *
+     * @param shareIndexStateAddr address of shared state
+     */
+    public static native void freeSharedIndexState(long shareIndexStateAddr);
+
+    /**
      * Initialize library
      *
      */
@@ -131,18 +179,15 @@ class FaissService {
     public static native byte[] trainIndex(Map<String, Object> indexParameters, int dimension, long trainVectorsPointer);
 
     /**
+     * <p>
+     * The function is deprecated. Use {@link JNICommons#storeVectorData(long, float[][], long)}
+     * </p>
      * Transfer vectors from Java to native
      *
      * @param vectorsPointer pointer to vectors in native memory. Should be 0 to create vector as well
      * @param trainingData data to be transferred
      * @return pointer to native memory location of training data
      */
+    @Deprecated(since = "2.14.0", forRemoval = true)
     public static native long transferVectors(long vectorsPointer, float[][] trainingData);
-
-    /**
-     * Free vectors from memory
-     *
-     * @param vectorsPointer to be freed
-     */
-    public static native void freeVectors(long vectorsPointer);
 }

@@ -53,6 +53,10 @@ import java.util.stream.Collectors;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FP16_MAX_VALUE;
+import static org.opensearch.knn.common.KNNConstants.FP16_MIN_VALUE;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
@@ -68,24 +72,26 @@ import static org.opensearch.Version.CURRENT;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.clipVectorValueToFP16Range;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFP16VectorValue;
 
 public class KNNVectorFieldMapperTests extends KNNTestCase {
 
-    private final static String TEST_FIELD_NAME = "test-field-name";
+    private static final String TEST_FIELD_NAME = "test-field-name";
 
-    private final static int TEST_DIMENSION = 17;
+    private static final int TEST_DIMENSION = 17;
 
-    private final static float TEST_VECTOR_VALUE = 1.5f;
+    private static final float TEST_VECTOR_VALUE = 1.5f;
 
-    private final static float[] TEST_VECTOR = createInitializedFloatArray(TEST_DIMENSION, TEST_VECTOR_VALUE);
+    private static final float[] TEST_VECTOR = createInitializedFloatArray(TEST_DIMENSION, TEST_VECTOR_VALUE);
 
-    private final static byte TEST_BYTE_VECTOR_VALUE = 10;
-    private final static byte[] TEST_BYTE_VECTOR = createInitializedByteArray(TEST_DIMENSION, TEST_BYTE_VECTOR_VALUE);
+    private static final byte TEST_BYTE_VECTOR_VALUE = 10;
+    private static final byte[] TEST_BYTE_VECTOR = createInitializedByteArray(TEST_DIMENSION, TEST_BYTE_VECTOR_VALUE);
 
-    private final static BytesRef TEST_VECTOR_BYTES_REF = new BytesRef(
+    private static final BytesRef TEST_VECTOR_BYTES_REF = new BytesRef(
         KNNVectorSerializerFactory.getDefaultSerializer().floatToByteArray(TEST_VECTOR)
     );
-    private final static BytesRef TEST_BYTE_VECTOR_BYTES_REF = new BytesRef(TEST_BYTE_VECTOR);
+    private static final BytesRef TEST_BYTE_VECTOR_BYTES_REF = new BytesRef(TEST_BYTE_VECTOR);
     private static final String DIMENSION_FIELD_NAME = "dimension";
     private static final String KNN_VECTOR_TYPE = "knn_vector";
     private static final String TYPE_FIELD_NAME = "type";
@@ -164,7 +170,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-            ""
+            "",
+            MethodComponentContext.EMPTY
         );
         builder.modelId.setValue(modelId);
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
@@ -430,29 +437,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             ValidationException.class,
             () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilderL1SpaceType), buildParserContext(indexName, settings))
         );
-
-        XContentBuilder xContentBuilderInnerproductSpaceType = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-            .field(DIMENSION_FIELD_NAME, dimension)
-            .startObject(KNN_METHOD)
-            .field(NAME, METHOD_HNSW)
-            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
-            .field(KNN_ENGINE, LUCENE_NAME)
-            .startObject(PARAMETERS)
-            .field(METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
-            .endObject()
-            .endObject()
-            .endObject();
-
-        expectThrows(
-            ValidationException.class,
-            () -> typeParser.parse(
-                fieldName,
-                xContentBuilderToMap(xContentBuilderInnerproductSpaceType),
-                buildParserContext(indexName, settings)
-            )
-        );
     }
 
     public void testTypeParser_parse_fromKnnMethodContext() throws IOException {
@@ -691,7 +675,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-            ""
+            "",
+            MethodComponentContext.EMPTY
         );
         when(mockModelDao.getMetadata(modelId)).thenReturn(mockModelMetadata);
 
@@ -754,11 +739,16 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         when(parseContext.path()).thenReturn(contentPath);
 
         LuceneFieldMapper luceneFieldMapper = Mockito.spy(new LuceneFieldMapper(inputBuilder.build()));
-        doReturn(Optional.of(TEST_VECTOR)).when(luceneFieldMapper).getFloatsFromContext(parseContext, TEST_DIMENSION);
+        doReturn(Optional.of(TEST_VECTOR)).when(luceneFieldMapper)
+            .getFloatsFromContext(parseContext, TEST_DIMENSION, new MethodComponentContext(METHOD_HNSW, Collections.emptyMap()));
         doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
         doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
-
-        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION);
+        luceneFieldMapper.parseCreateField(
+            parseContext,
+            TEST_DIMENSION,
+            luceneFieldMapper.fieldType().spaceType,
+            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext()
+        );
 
         // Document should have 2 fields: one for VectorField (binary doc values) and one for KnnVectorField
         List<IndexableField> fields = document.getFields();
@@ -792,11 +782,17 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         inputBuilder.hasDocValues(false);
         luceneFieldMapper = Mockito.spy(new LuceneFieldMapper(inputBuilder.build()));
-        doReturn(Optional.of(TEST_VECTOR)).when(luceneFieldMapper).getFloatsFromContext(parseContext, TEST_DIMENSION);
+        doReturn(Optional.of(TEST_VECTOR)).when(luceneFieldMapper)
+            .getFloatsFromContext(parseContext, TEST_DIMENSION, new MethodComponentContext(METHOD_HNSW, Collections.emptyMap()));
         doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
         doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
 
-        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION);
+        luceneFieldMapper.parseCreateField(
+            parseContext,
+            TEST_DIMENSION,
+            luceneFieldMapper.fieldType().spaceType,
+            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext()
+        );
 
         // Document should have 1 field: one for KnnVectorField
         fields = document.getFields();
@@ -825,7 +821,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
         doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
 
-        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION);
+        luceneFieldMapper.parseCreateField(
+            parseContext,
+            TEST_DIMENSION,
+            luceneFieldMapper.fieldType().spaceType,
+            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext()
+        );
 
         // Document should have 2 fields: one for VectorField (binary doc values) and one for KnnByteVectorField
         List<IndexableField> fields = document.getFields();
@@ -862,7 +863,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
         doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
 
-        luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION);
+        luceneFieldMapper.parseCreateField(
+            parseContext,
+            TEST_DIMENSION,
+            luceneFieldMapper.fieldType().spaceType,
+            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext()
+        );
 
         // Document should have 1 field: one for KnnByteVectorField
         fields = document.getFields();
@@ -871,6 +877,45 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertTrue(field instanceof KnnByteVectorField);
         knnByteVectorField = (KnnByteVectorField) field;
         assertArrayEquals(TEST_BYTE_VECTOR, knnByteVectorField.vectorValue());
+    }
+
+    public void testValidateFp16VectorValue_outOfRange_throwsException() {
+        IllegalArgumentException ex = expectThrows(IllegalArgumentException.class, () -> validateFP16VectorValue(65505.25f));
+        assertTrue(
+            ex.getMessage()
+                .contains(
+                    String.format(
+                        Locale.ROOT,
+                        "encoder name is set as [%s] and type is set as [%s] in index mapping. But, KNN vector values are not within in the FP16 range [%f, %f]",
+                        ENCODER_SQ,
+                        FAISS_SQ_ENCODER_FP16,
+                        FP16_MIN_VALUE,
+                        FP16_MAX_VALUE
+                    )
+                )
+        );
+
+        IllegalArgumentException ex1 = expectThrows(IllegalArgumentException.class, () -> validateFP16VectorValue(-65525.65f));
+        assertTrue(
+            ex1.getMessage()
+                .contains(
+                    String.format(
+                        Locale.ROOT,
+                        "encoder name is set as [%s] and type is set as [%s] in index mapping. But, KNN vector values are not within in the FP16 range [%f, %f]",
+                        ENCODER_SQ,
+                        FAISS_SQ_ENCODER_FP16,
+                        FP16_MIN_VALUE,
+                        FP16_MAX_VALUE
+                    )
+                )
+        );
+    }
+
+    public void testClipVectorValuetoFP16Range_succeed() {
+        assertEquals(65504.0f, clipVectorValueToFP16Range(65504.10f), 0.0f);
+        assertEquals(65504.0f, clipVectorValueToFP16Range(1000000.89f), 0.0f);
+        assertEquals(-65504.0f, clipVectorValueToFP16Range(-65504.10f), 0.0f);
+        assertEquals(-65504.0f, clipVectorValueToFP16Range(-1000000.89f), 0.0f);
     }
 
     private LuceneFieldMapper.CreateLuceneFieldMapperInput.CreateLuceneFieldMapperInputBuilder createLuceneFieldMapperInputBuilder(

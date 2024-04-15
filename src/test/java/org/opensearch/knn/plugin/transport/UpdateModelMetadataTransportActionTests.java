@@ -17,6 +17,7 @@ import org.opensearch.cluster.ClusterState;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.knn.KNNSingleNodeTestCase;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -66,7 +67,8 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-            ""
+            "",
+            MethodComponentContext.EMPTY
         );
 
         // Get update transport action

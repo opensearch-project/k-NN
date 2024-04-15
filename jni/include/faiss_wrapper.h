@@ -19,19 +19,31 @@ namespace knn_jni {
     namespace faiss_wrapper {
         // Create an index with ids and vectors. The configuration is defined by values in the Java map, parametersJ.
         // The index is serialized to indexPathJ.
-        void CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ, jobjectArray vectorsJ,
+        void CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ, jlong vectorsAddressJ, jint dimJ,
                          jstring indexPathJ, jobject parametersJ);
 
         // Create an index with ids and vectors. Instead of creating a new index, this function creates the index
         // based off of the template index passed in. The index is serialized to indexPathJ.
         void CreateIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
-                                     jobjectArray vectorsJ, jstring indexPathJ, jbyteArray templateIndexJ,
+                                     jlong vectorsAddressJ, jint dimJ, jstring indexPathJ, jbyteArray templateIndexJ,
                                      jobject parametersJ);
 
         // Load an index from indexPathJ into memory.
         //
         // Return a pointer to the loaded index
         jlong LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ);
+
+        // Check if a loaded index requires shared state
+        bool IsSharedIndexStateRequired(jlong indexPointerJ);
+
+        // Initializes the shared index state from an index. Note, this will not set the state for
+        // the index pointed to by indexPointerJ. To set it, SetSharedIndexState needs to be called.
+        //
+        // Return a pointer to the shared index state
+        jlong InitSharedIndexState(jlong indexPointerJ);
+
+        // Sets the sharedIndexState for an index
+        void SetSharedIndexState(jlong indexPointerJ, jlong shareIndexStatePointerJ);
 
         // Execute a query against the index located in memory at indexPointerJ.
         //
@@ -48,6 +60,9 @@ namespace knn_jni {
 
         // Free the index located in memory at indexPointerJ
         void Free(jlong indexPointer);
+
+        // Free shared index state in memory at shareIndexStatePointerJ
+        void FreeSharedIndexState(jlong shareIndexStatePointerJ);
 
         // Perform initilization operations for the library
         void InitLibrary();

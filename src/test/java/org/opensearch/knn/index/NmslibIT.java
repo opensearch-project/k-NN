@@ -30,11 +30,9 @@ import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 import static org.hamcrest.Matchers.containsString;
 
@@ -44,8 +42,11 @@ public class NmslibIT extends KNNRestTestCase {
 
     @BeforeClass
     public static void setUpClass() throws IOException {
-        URL testIndexVectors = FaissIT.class.getClassLoader().getResource("data/test_vectors_1000x128.json");
-        URL testQueries = FaissIT.class.getClassLoader().getResource("data/test_queries_100x128.csv");
+        if (NmslibIT.class.getClassLoader() == null) {
+            throw new IllegalStateException("ClassLoader of NmslibIT Class is null");
+        }
+        URL testIndexVectors = NmslibIT.class.getClassLoader().getResource("data/test_vectors_1000x128.json");
+        URL testQueries = NmslibIT.class.getClassLoader().getResource("data/test_queries_100x128.csv");
         assert testIndexVectors != null;
         assert testQueries != null;
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());
@@ -112,7 +113,7 @@ public class NmslibIT extends KNNRestTestCase {
 
             List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName);
             for (int j = 0; j < k; j++) {
-                float[] primitiveArray = Floats.toArray(Arrays.stream(knnResults.get(j).getVector()).collect(Collectors.toList()));
+                float[] primitiveArray = knnResults.get(j).getVector();
                 assertEquals(
                     KNNEngine.NMSLIB.score(KNNScoringUtil.l1Norm(testData.queries[i], primitiveArray), spaceType),
                     actualScores.get(j),

@@ -23,6 +23,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.jni.JNIService;
 
 import java.io.File;
 import java.util.Collections;
@@ -37,13 +38,16 @@ import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 public class IndexUtil {
 
     public static final String MODEL_NODE_ASSIGNMENT_KEY = KNNConstants.MODEL_NODE_ASSIGNMENT;
+    public static final String MODEL_METHOD_COMPONENT_CONTEXT_KEY = KNNConstants.MODEL_METHOD_COMPONENT_CONTEXT;
 
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED = Version.V_2_11_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_NODE_ASSIGNMENT = Version.V_2_12_0;
+    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_METHOD_COMPONENT_CONTEXT = Version.V_2_13_0;
     private static final Map<String, Version> minimalRequiredVersionMap = new HashMap<String, Version>() {
         {
             put("ignore_unmapped", MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED);
             put(MODEL_NODE_ASSIGNMENT_KEY, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_NODE_ASSIGNMENT);
+            put(MODEL_METHOD_COMPONENT_CONTEXT_KEY, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_METHOD_COMPONENT_CONTEXT);
         }
     };
 
@@ -262,5 +266,20 @@ public class IndexUtil {
             return false;
         }
         return version.onOrAfter(minimalRequiredVersion);
+    }
+
+    /**
+     * Checks if index requires shared state
+     *
+     * @param knnEngine The knnEngine associated with the index
+     * @param modelId The modelId associated with the index
+     * @param indexAddr Address to check if loaded index requires shared state
+     * @return true if state can be shared; false otherwise
+     */
+    public static boolean isSharedIndexStateRequired(KNNEngine knnEngine, String modelId, long indexAddr) {
+        if (StringUtils.isEmpty(modelId)) {
+            return false;
+        }
+        return JNIService.isSharedIndexStateRequired(indexAddr, knnEngine);
     }
 }

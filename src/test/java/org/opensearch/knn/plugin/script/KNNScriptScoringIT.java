@@ -5,8 +5,11 @@
 
 package org.opensearch.knn.plugin.script;
 
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
@@ -21,6 +24,9 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.script.Script;
 
 import java.util.ArrayList;
@@ -37,214 +43,19 @@ import static org.hamcrest.Matchers.containsString;
 public class KNNScriptScoringIT extends KNNRestTestCase {
 
     public void testKNNL2ScriptScore() throws Exception {
-        /*
-         * Create knn index and populate data
-         */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
-        Float[] f1 = { 6.0f, 6.0f };
-        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, f1);
-
-        Float[] f2 = { 2.0f, 2.0f };
-        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, f2);
-
-        Float[] f3 = { 4.0f, 4.0f };
-        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, f3);
-
-        Float[] f4 = { 3.0f, 3.0f };
-        addKnnDoc(INDEX_NAME, "4", FIELD_NAME, f4);
-
-        /**
-         * Construct Search Request
-         */
-        QueryBuilder qb = new MatchAllQueryBuilder();
-        Map<String, Object> params = new HashMap<>();
-        /*
-         *   params": {
-         *       "field": "my_dense_vector",
-         *       "vector": [2.0, 2.0]
-         *      }
-         */
-        float[] queryVector = { 1.0f, 1.0f };
-        params.put("field", FIELD_NAME);
-        params.put("query_value", queryVector);
-        params.put("space_type", SpaceType.L2.getValue());
-        Request request = constructKNNScriptQueryRequest(INDEX_NAME, qb, params);
-        Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
-        List<String> expectedDocids = Arrays.asList("2", "4", "3", "1");
-
-        List<String> actualDocids = new ArrayList<>();
-        for (KNNResult result : results) {
-            actualDocids.add(result.getDocId());
-        }
-
-        assertEquals(4, results.size());
-
-        // assert document order
-        assertEquals("2", results.get(0).getDocId());
-        assertEquals("4", results.get(1).getDocId());
-        assertEquals("3", results.get(2).getDocId());
-        assertEquals("1", results.get(3).getDocId());
+        testKNNScriptScore(SpaceType.L2);
     }
 
     public void testKNNL1ScriptScore() throws Exception {
-        /*
-         * Create knn index and populate data
-         */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
-        Float[] f1 = { 6.0f, 6.0f };
-        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, f1);
-
-        Float[] f2 = { 4.0f, 1.0f };
-        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, f2);
-
-        Float[] f3 = { 3.0f, 3.0f };
-        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, f3);
-
-        Float[] f4 = { 5.0f, 5.0f };
-        addKnnDoc(INDEX_NAME, "4", FIELD_NAME, f4);
-
-        /**
-         * Construct Search Request
-         */
-        QueryBuilder qb = new MatchAllQueryBuilder();
-        Map<String, Object> params = new HashMap<>();
-        /*
-         *   params": {
-         *       "field": "my_dense_vector",
-         *       "vector": [1.0, 1.0]
-         *      }
-         */
-        float[] queryVector = { 1.0f, 1.0f };
-        params.put("field", FIELD_NAME);
-        params.put("query_value", queryVector);
-        params.put("space_type", SpaceType.L1);
-        Request request = constructKNNScriptQueryRequest(INDEX_NAME, qb, params);
-        Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
-        List<String> expectedDocids = Arrays.asList("2", "4", "3", "1");
-
-        List<String> actualDocids = new ArrayList<>();
-        for (KNNResult result : results) {
-            actualDocids.add(result.getDocId());
-        }
-
-        assertEquals(4, results.size());
-
-        // assert document order
-        assertEquals("2", results.get(0).getDocId());
-        assertEquals("3", results.get(1).getDocId());
-        assertEquals("4", results.get(2).getDocId());
-        assertEquals("1", results.get(3).getDocId());
+        testKNNScriptScore(SpaceType.L1);
     }
 
     public void testKNNLInfScriptScore() throws Exception {
-        /*
-         * Create knn index and populate data
-         */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
-        Float[] f1 = { 6.0f, 6.0f };
-        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, f1);
-
-        Float[] f2 = { 4.0f, 1.0f };
-        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, f2);
-
-        Float[] f3 = { 3.0f, 3.0f };
-        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, f3);
-
-        Float[] f4 = { 5.0f, 5.0f };
-        addKnnDoc(INDEX_NAME, "4", FIELD_NAME, f4);
-
-        /**
-         * Construct Search Request
-         */
-        QueryBuilder qb = new MatchAllQueryBuilder();
-        Map<String, Object> params = new HashMap<>();
-        /*
-         *   params": {
-         *       "field": "my_dense_vector",
-         *       "vector": [1.0, 1.0]
-         *      }
-         */
-        float[] queryVector = { 1.0f, 1.0f };
-        params.put("field", FIELD_NAME);
-        params.put("query_value", queryVector);
-        params.put("space_type", SpaceType.LINF.getValue());
-        Request request = constructKNNScriptQueryRequest(INDEX_NAME, qb, params);
-        Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
-        List<String> expectedDocids = Arrays.asList("3", "2", "4", "1");
-
-        List<String> actualDocids = new ArrayList<>();
-        for (KNNResult result : results) {
-            actualDocids.add(result.getDocId());
-        }
-
-        assertEquals(4, results.size());
-
-        // assert document order
-        assertEquals("3", results.get(0).getDocId());
-        assertEquals("2", results.get(1).getDocId());
-        assertEquals("4", results.get(2).getDocId());
-        assertEquals("1", results.get(3).getDocId());
+        testKNNScriptScore(SpaceType.LINF);
     }
 
     public void testKNNCosineScriptScore() throws Exception {
-        /*
-         * Create knn index and populate data
-         */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
-        Float[] f1 = { 1.0f, -1.0f };
-        addKnnDoc(INDEX_NAME, "0", FIELD_NAME, f1);
-
-        Float[] f2 = { 1.0f, 0.0f };
-        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, f2);
-
-        Float[] f3 = { 1.0f, 1.0f };
-        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, f3);
-
-        /**
-         * Construct Search Request
-         */
-        QueryBuilder qb = new MatchAllQueryBuilder();
-        Map<String, Object> params = new HashMap<>();
-        /*
-         *   params": {
-         *       "field": "my_dense_vector",
-         *       "query_value": [2.0, 2.0],
-         *       "space_type": "L2"
-         *      }
-         *
-         *
-         */
-        float[] queryVector = { 2.0f, -2.0f };
-        params.put("field", FIELD_NAME);
-        params.put("query_value", queryVector);
-        params.put("space_type", SpaceType.COSINESIMIL.getValue());
-        Request request = constructKNNScriptQueryRequest(INDEX_NAME, qb, params);
-        Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
-        List<String> expectedDocids = Arrays.asList("0", "1", "2");
-
-        List<String> actualDocids = new ArrayList<>();
-        for (KNNResult result : results) {
-            actualDocids.add(result.getDocId());
-        }
-
-        assertEquals(3, results.size());
-
-        // assert document order
-        assertEquals("0", results.get(0).getDocId());
-        assertEquals("1", results.get(1).getDocId());
-        assertEquals("2", results.get(2).getDocId());
+        testKNNScriptScore(SpaceType.COSINESIMIL);
     }
 
     public void testKNNInvalidSourceScript() throws Exception {
@@ -396,10 +207,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
             responseBody
         ).map().get("hits")).get("hits");
 
-        List<String> docIds = hits.stream().map(hit -> {
-            String id = ((String) ((Map<String, Object>) hit).get("_id"));
-            return id;
-        }).collect(Collectors.toList());
+        List<String> docIds = hits.stream().map(hit -> ((String) ((Map<String, Object>) hit).get("_id"))).collect(Collectors.toList());
         // assert document order
         assertEquals("1", docIds.get(0));
         assertEquals("0", docIds.get(1));
@@ -633,57 +441,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     public void testKNNInnerProdScriptScore() throws Exception {
-        /*
-         * Create knn index and populate data
-         */
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2));
-        Float[] f1 = { -2.0f, -2.0f };
-        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, f1);
-
-        Float[] f2 = { 1.0f, 1.0f };
-        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, f2);
-
-        Float[] f3 = { 2.0f, 2.0f };
-        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, f3);
-
-        Float[] f4 = { 2.0f, -2.0f };
-        addKnnDoc(INDEX_NAME, "4", FIELD_NAME, f4);
-
-        /**
-         * Construct Search Request
-         */
-        QueryBuilder qb = new MatchAllQueryBuilder();
-        Map<String, Object> params = new HashMap<>();
-        /*
-         *   params": {
-         *       "field": "my_dense_vector",
-         *       "query_value": [1.0, 1.0],
-         *       "space_type": "innerproduct",
-         *      }
-         */
-        float[] queryVector = { 1.0f, 1.0f };
-        params.put("field", FIELD_NAME);
-        params.put("query_value", queryVector);
-        params.put("space_type", SpaceType.INNER_PRODUCT.getValue());
-        Request request = constructKNNScriptQueryRequest(INDEX_NAME, qb, params);
-        Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
-        List<String> expectedDocids = Arrays.asList("3", "2", "4", "1");
-
-        List<String> actualDocids = new ArrayList<>();
-        for (KNNResult result : results) {
-            actualDocids.add(result.getDocId());
-        }
-
-        assertEquals(4, results.size());
-
-        // assert document order
-        assertEquals("3", results.get(0).getDocId());
-        assertEquals("2", results.get(1).getDocId());
-        assertEquals("4", results.get(2).getDocId());
-        assertEquals("1", results.get(3).getDocId());
+        testKNNScriptScore(SpaceType.INNER_PRODUCT);
     }
 
     public void testKNNScriptScoreWithRequestCacheEnabled() throws Exception {
@@ -790,5 +548,122 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         assertEquals(1, secondQueryCacheMap.get("miss_count"));
         // assert that the request cache was hit at second request
         assertEquals(1, secondQueryCacheMap.get("hit_count"));
+    }
+
+    private List<String> createMappers(int dimensions) throws Exception {
+        return List.of(
+            createKnnIndexMapping(FIELD_NAME, dimensions),
+            createKnnIndexMapping(
+                FIELD_NAME,
+                dimensions,
+                KNNConstants.METHOD_HNSW,
+                KNNEngine.LUCENE.getName(),
+                SpaceType.DEFAULT.getValue(),
+                true
+            ),
+            createKnnIndexMapping(
+                FIELD_NAME,
+                dimensions,
+                KNNConstants.METHOD_HNSW,
+                KNNEngine.LUCENE.getName(),
+                SpaceType.DEFAULT.getValue(),
+                false
+            )
+        );
+    }
+
+    private float[] randomVector(int dimensions) {
+        final float[] vector = new float[dimensions];
+        for (int i = 0; i < dimensions; i++) {
+            vector[i] = randomFloat();
+        }
+        return vector;
+    }
+
+    private Map<String, KNNResult> createDataset(Function<float[], Float> scoreFunction, int dimensions, int numDocs) {
+        final Map<String, KNNResult> dataset = new HashMap<>(numDocs);
+        for (int i = 0; i < numDocs; i++) {
+            final float[] vector = randomVector(dimensions);
+            final float score = scoreFunction.apply(vector);
+            dataset.put(Integer.toString(i), new KNNResult(Integer.toString(i), vector, score));
+        }
+        return dataset;
+    }
+
+    private BiFunction<float[], float[], Float> getScoreFunction(SpaceType spaceType, float[] queryVector) {
+        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
+            FIELD_NAME,
+            Collections.emptyMap(),
+            queryVector.length,
+            VectorDataType.FLOAT,
+            null
+        );
+        List<Float> target = new ArrayList<>(queryVector.length);
+        for (float f : queryVector) {
+            target.add(f);
+        }
+        KNNScoringSpace knnScoringSpace = KNNScoringSpaceFactory.create(spaceType.getValue(), target, knnVectorFieldType);
+        switch (spaceType) {
+            case L1:
+                return ((KNNScoringSpace.L1) knnScoringSpace).scoringMethod;
+            case L2:
+                return ((KNNScoringSpace.L2) knnScoringSpace).scoringMethod;
+            case LINF:
+                return ((KNNScoringSpace.LInf) knnScoringSpace).scoringMethod;
+            case COSINESIMIL:
+                return ((KNNScoringSpace.CosineSimilarity) knnScoringSpace).scoringMethod;
+            case INNER_PRODUCT:
+                return ((KNNScoringSpace.InnerProd) knnScoringSpace).scoringMethod;
+            default:
+                throw new IllegalArgumentException();
+        }
+    }
+
+    private void testKNNScriptScore(SpaceType spaceType) throws Exception {
+        final int dims = randomIntBetween(2, 10);
+        final float[] queryVector = randomVector(dims);
+        final BiFunction<float[], float[], Float> scoreFunction = getScoreFunction(spaceType, queryVector);
+        for (String mapper : createMappers(dims)) {
+            createIndexAndAssertScriptScore(mapper, spaceType, scoreFunction, dims, queryVector);
+        }
+    }
+
+    private void createIndexAndAssertScriptScore(
+        String mapper,
+        SpaceType spaceType,
+        BiFunction<float[], float[], Float> scoreFunction,
+        int dimensions,
+        float[] queryVector
+    ) throws Exception {
+        /*
+         * Create knn index and populate data
+         */
+        createKnnIndex(INDEX_NAME, mapper);
+        Map<String, KNNResult> dataset = createDataset(v -> scoreFunction.apply(queryVector, v), dimensions, randomIntBetween(4, 10));
+        for (Map.Entry<String, KNNResult> entry : dataset.entrySet()) {
+            addKnnDoc(INDEX_NAME, entry.getKey(), FIELD_NAME, entry.getValue().getVector());
+        }
+
+        /**
+         * Construct Search Request
+         */
+        QueryBuilder qb = new MatchAllQueryBuilder();
+        Map<String, Object> params = new HashMap<>();
+        /*
+         *   params": {
+         *       "field": FIELD_NAME,
+         *       "vector": queryVector
+         *      }
+         */
+        params.put("field", FIELD_NAME);
+        params.put("query_value", queryVector);
+        params.put("space_type", spaceType.getValue());
+        Request request = constructKNNScriptQueryRequest(INDEX_NAME, qb, params);
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+        assertTrue(results.stream().allMatch(r -> dataset.get(r.getDocId()).equals(r)));
+        deleteKNNIndex(INDEX_NAME);
     }
 }

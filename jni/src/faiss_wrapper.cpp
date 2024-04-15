@@ -21,6 +21,7 @@
 #include "faiss/MetaIndexes.h"
 #include "faiss/Index.h"
 #include "faiss/impl/IDSelector.h"
+#include "faiss/IndexIVFPQ.h"
 
 #include <algorithm>
 #include <jni.h>
@@ -73,15 +74,26 @@ void buildFilterIdsBitMap(const int* filterIds, int filterIdsLength, uint8_t* bi
 
 std::unique_ptr<faiss::IDGrouperBitmap> buildIDGrouperBitmap(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env, jintArray parentIdsJ, std::vector<uint64_t>* bitmap);
 
-void knn_jni::faiss_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
-                                         jobjectArray vectorsJ, jstring indexPathJ, jobject parametersJ) {
+// Check if a loaded index is an IVFPQ index with l2 space type
+bool isIndexIVFPQL2(faiss::Index * index);
+
+// Gets IVFPQ index from a faiss index. For faiss, we wrap the index in the type
+// IndexIDMap which has member that will point to underlying index that stores the data
+faiss::IndexIVFPQ * extractIVFPQIndex(faiss::Index * index);
+
+void knn_jni::faiss_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ, jlong vectorsAddressJ, jint dimJ,
+                                         jstring indexPathJ, jobject parametersJ) {
 
     if (idsJ == nullptr) {
         throw std::runtime_error("IDs cannot be null");
     }
 
-    if (vectorsJ == nullptr) {
-        throw std::runtime_error("Vectors cannot be null");
+    if (vectorsAddressJ <= 0) {
+        throw std::runtime_error("VectorsAddress cannot be less than 0");
+    }
+
+    if(dimJ <= 0) {
+        throw std::runtime_error("Vectors dimensions cannot be less than or equal to 0");
     }
 
     if (indexPathJ == nullptr) {
@@ -101,15 +113,19 @@ void knn_jni::faiss_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JN
     std::string spaceTypeCpp(jniUtil->ConvertJavaObjectToCppString(env, spaceTypeJ));
     faiss::MetricType metric = TranslateSpaceToMetric(spaceTypeCpp);
 
-    // Read data set
-    int numVectors = jniUtil->GetJavaObjectArrayLength(env, vectorsJ);
+    // Read vectors from memory address
+    auto *inputVectors = reinterpret_cast<std::vector<float>*>(vectorsAddressJ);
+    int dim = (int)dimJ;
+    // The number of vectors can be int here because a lucene segment number of total docs never crosses INT_MAX value
+    int numVectors = (int) (inputVectors->size() / (uint64_t) dim);
+    if(numVectors == 0) {
+        throw std::runtime_error("Number of vectors cannot be 0");
+    }
+
     int numIds = jniUtil->GetJavaIntArrayLength(env, idsJ);
     if (numIds != numVectors) {
         throw std::runtime_error("Number of IDs does not match number of vectors");
     }
-
-    int dim = jniUtil->GetInnerDimensionOf2dJavaFloatArray(env, vectorsJ);
-    auto dataset = jniUtil->Convert2dJavaObjectArrayToCppFloatVector(env, vectorsJ, dim);
 
     // Create faiss index
     jobject indexDescriptionJ = knn_jni::GetJObjectFromMapOrThrow(parametersCpp, knn_jni::INDEX_DESCRIPTION);
@@ -140,22 +156,30 @@ void knn_jni::faiss_wrapper::CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JN
 
     auto idVector = jniUtil->ConvertJavaIntArrayToCppIntVector(env, idsJ);
     faiss::IndexIDMap idMap = faiss::IndexIDMap(indexWriter.get());
-    idMap.add_with_ids(numVectors, dataset.data(), idVector.data());
+    idMap.add_with_ids(numVectors, inputVectors->data(), idVector.data());
 
     // Write the index to disk
     std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
     faiss::write_index(&idMap, indexPathCpp.c_str());
+    // Releasing the vectorsAddressJ memory as that is not required once we have created the index.
+    // This is not the ideal approach, please refer this gh issue for long term solution:
+    // https://github.com/opensearch-project/k-NN/issues/1600
+    delete inputVectors;
 }
 
 void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
-                                                     jobjectArray vectorsJ, jstring indexPathJ,
+                                                     jlong vectorsAddressJ, jint dimJ, jstring indexPathJ,
                                                      jbyteArray templateIndexJ, jobject parametersJ) {
     if (idsJ == nullptr) {
         throw std::runtime_error("IDs cannot be null");
     }
 
-    if (vectorsJ == nullptr) {
-        throw std::runtime_error("Vectors cannot be null");
+    if (vectorsAddressJ <= 0) {
+        throw std::runtime_error("VectorsAddress cannot be less than 0");
+    }
+
+    if(dimJ <= 0) {
+        throw std::runtime_error("Vectors dimensions cannot be less than or equal to 0");
     }
 
     if (indexPathJ == nullptr) {
@@ -175,14 +199,14 @@ void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface *
     jniUtil->DeleteLocalRef(env, parametersJ);
 
     // Read data set
-    int numVectors = jniUtil->GetJavaObjectArrayLength(env, vectorsJ);
+    // Read vectors from memory address
+    auto *inputVectors = reinterpret_cast<std::vector<float>*>(vectorsAddressJ);
+    int dim = (int)dimJ;
+    int numVectors = (int) (inputVectors->size() / (uint64_t) dim);
     int numIds = jniUtil->GetJavaIntArrayLength(env, idsJ);
     if (numIds != numVectors) {
         throw std::runtime_error("Number of IDs does not match number of vectors");
     }
-
-    int dim = jniUtil->GetInnerDimensionOf2dJavaFloatArray(env, vectorsJ);
-    auto dataset = jniUtil->Convert2dJavaObjectArrayToCppFloatVector(env, vectorsJ, dim);
 
     // Get vector of bytes from jbytearray
     int indexBytesCount = jniUtil->GetJavaBytesArrayLength(env, templateIndexJ);
@@ -200,8 +224,11 @@ void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface *
 
     auto idVector = jniUtil->ConvertJavaIntArrayToCppIntVector(env, idsJ);
     faiss::IndexIDMap idMap =  faiss::IndexIDMap(indexWriter.get());
-    idMap.add_with_ids(numVectors, dataset.data(), idVector.data());
-
+    idMap.add_with_ids(numVectors, inputVectors->data(), idVector.data());
+    // Releasing the vectorsAddressJ memory as that is not required once we have created the index.
+    // This is not the ideal approach, please refer this gh issue for long term solution:
+    // https://github.com/opensearch-project/k-NN/issues/1600
+    delete inputVectors;
     // Write the index to disk
     std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
     faiss::write_index(&idMap, indexPathCpp.c_str());
@@ -214,8 +241,58 @@ jlong knn_jni::faiss_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
 
     std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
     // Skipping IO_FLAG_PQ_SKIP_SDC_TABLE because the index is read only and the sdc table is only used during ingestion
-    faiss::Index* indexReader = faiss::read_index(indexPathCpp.c_str(), faiss::IO_FLAG_READ_ONLY | faiss::IO_FLAG_PQ_SKIP_SDC_TABLE);
+    // Skipping IO_PRECOMPUTE_TABLE because it is only needed for IVFPQ-l2 and it leads to high memory consumption if
+    // done for each segment. Instead, we will set it later on with `setSharedIndexState`
+    faiss::Index* indexReader = faiss::read_index(indexPathCpp.c_str(), faiss::IO_FLAG_READ_ONLY | faiss::IO_FLAG_PQ_SKIP_SDC_TABLE | faiss::IO_FLAG_SKIP_PRECOMPUTE_TABLE);
     return (jlong) indexReader;
+}
+
+bool knn_jni::faiss_wrapper::IsSharedIndexStateRequired(jlong indexPointerJ) {
+    auto * index = reinterpret_cast<faiss::Index*>(indexPointerJ);
+    return isIndexIVFPQL2(index);
+}
+
+jlong knn_jni::faiss_wrapper::InitSharedIndexState(jlong indexPointerJ) {
+    auto * index = reinterpret_cast<faiss::Index*>(indexPointerJ);
+    if (!isIndexIVFPQL2(index)) {
+        throw std::runtime_error("Unable to init shared index state from index. index is not of type IVFPQ-l2");
+    }
+
+    auto * indexIVFPQ = extractIVFPQIndex(index);
+    int use_precomputed_table = 0;
+    auto * sharedMemoryAddress = new faiss::AlignedTable<float>();
+    faiss::initialize_IVFPQ_precomputed_table(
+            use_precomputed_table,
+            indexIVFPQ->quantizer,
+            indexIVFPQ->pq,
+            *sharedMemoryAddress,
+            indexIVFPQ->by_residual,
+            indexIVFPQ->verbose);
+    return (jlong) sharedMemoryAddress;
+}
+
+void knn_jni::faiss_wrapper::SetSharedIndexState(jlong indexPointerJ, jlong shareIndexStatePointerJ) {
+    auto * index = reinterpret_cast<faiss::Index*>(indexPointerJ);
+    if (!isIndexIVFPQL2(index)) {
+        throw std::runtime_error("Unable to set shared index state from index. index is not of type IVFPQ-l2");
+    }
+    auto * indexIVFPQ = extractIVFPQIndex(index);
+
+    //TODO: Currently, the only shared state is that of the AlignedTable associated with
+    // IVFPQ-l2 index type (see https://github.com/opensearch-project/k-NN/issues/1507). In the future,
+    // this will be generalized and more information will be needed to determine the shared type. But, until then,
+    // this is fine.
+    auto *alignTable = reinterpret_cast<faiss::AlignedTable<float>*>(shareIndexStatePointerJ);
+    // In faiss, usePrecomputedTable can have a couple different values:
+    //  -1  -> dont use the table
+    //   0  -> tell initialize_IVFPQ_precomputed_table to select the best value and change the value
+    //   1  -> default behavior
+    //   2  -> Index is of type "MultiIndexQuantizer"
+    // This index will be of type IndexIVFPQ always. We never create "MultiIndexQuantizer". So, the value we
+    // want is 1.
+    // (ref: https://github.com/facebookresearch/faiss/blob/v1.8.0/faiss/IndexIVFPQ.cpp#L383-L410)
+    int usePrecomputedTable = 1;
+    indexIVFPQ->set_precomputed_table(alignTable, usePrecomputedTable);
 }
 
 jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
@@ -335,6 +412,15 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
 void knn_jni::faiss_wrapper::Free(jlong indexPointer) {
     auto *indexWrapper = reinterpret_cast<faiss::Index*>(indexPointer);
     delete indexWrapper;
+}
+
+void knn_jni::faiss_wrapper::FreeSharedIndexState(jlong shareIndexStatePointerJ) {
+    //TODO: Currently, the only shared state is that of the AlignedTable associated with
+    // IVFPQ-l2 index type (see https://github.com/opensearch-project/k-NN/issues/1507). In the future,
+    // this will be generalized and more information will be needed to determine the shared type. But, until then,
+    // this is fine.
+    auto *alignTable = reinterpret_cast<faiss::AlignedTable<float>*>(shareIndexStatePointerJ);
+    delete alignTable;
 }
 
 void knn_jni::faiss_wrapper::InitLibrary() {
@@ -468,4 +554,36 @@ std::unique_ptr<faiss::IDGrouperBitmap> buildIDGrouperBitmap(knn_jni::JNIUtilInt
     std::unique_ptr<faiss::IDGrouperBitmap> idGrouper = faiss_util::buildIDGrouperBitmap(parentIdsArray, parentIdsLength, bitmap);
     jniUtil->ReleaseIntArrayElements(env, parentIdsJ, parentIdsArray, JNI_ABORT);
     return idGrouper;
+}
+
+bool isIndexIVFPQL2(faiss::Index * index) {
+    faiss::Index * candidateIndex = index;
+    // Unwrap the index if it is wrapped in IndexIDMap. Dynamic cast will "Safely converts pointers and references to
+    // classes up, down, and sideways along the inheritance hierarchy." It will return a nullptr if the
+    // cast fails. (ref: https://en.cppreference.com/w/cpp/language/dynamic_cast)
+    if (auto indexIDMap = dynamic_cast<faiss::IndexIDMap *>(index)) {
+        candidateIndex = indexIDMap->index;
+    }
+
+    // Check if the index is of type IndexIVFPQ. If so, confirm its metric type is
+    // l2.
+    if (auto indexIVFPQ = dynamic_cast<faiss::IndexIVFPQ *>(candidateIndex)) {
+        return faiss::METRIC_L2 == indexIVFPQ->metric_type;
+    }
+
+    return false;
+}
+
+faiss::IndexIVFPQ * extractIVFPQIndex(faiss::Index * index) {
+    faiss::Index * candidateIndex = index;
+    if (auto indexIDMap = dynamic_cast<faiss::IndexIDMap *>(index)) {
+        candidateIndex = indexIDMap->index;
+    }
+
+    faiss::IndexIVFPQ * indexIVFPQ;
+    if ((indexIVFPQ = dynamic_cast<faiss::IndexIVFPQ *>(candidateIndex))) {
+        return indexIVFPQ;
+    }
+
+    throw std::runtime_error("Unable to extract IVFPQ index. IVFPQ index not present.");
 }

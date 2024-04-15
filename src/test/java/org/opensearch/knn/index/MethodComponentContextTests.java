@@ -281,4 +281,73 @@ public class MethodComponentContextTests extends KNNTestCase {
         assertNotEquals(methodContext1.hashCode(), methodContext4.hashCode());
         assertEquals(methodContext4.hashCode(), methodContext5.hashCode());
     }
+
+    public void testToStringFromString() {
+        HashMap<String, Object> parameters3 = new HashMap<String, Object>() {
+            {
+                put("nlist", 4);
+                put("nprobes", 2);
+            }
+        };
+
+        HashMap<String, Object> parameters4 = new HashMap<String, Object>() {
+            {
+                put("nlist", 4);
+                put("type", "fp16");
+            }
+        };
+
+        HashMap<String, Object> nestedParameters = new HashMap<String, Object>() {
+            {
+                put("nprobes", 2);
+                put("clip", false);
+            }
+        };
+        HashMap<String, Object> parameters5 = new HashMap<String, Object>() {
+            {
+                put("nlist", 4);
+                put("type", "fp16");
+                put("encoder", new MethodComponentContext("sq", nestedParameters));
+            }
+        };
+
+        HashMap<String, Object> parameters6 = new HashMap<String, Object>() {
+            {
+                put("nlist", 4);
+                put("encoder", new MethodComponentContext("sq", nestedParameters));
+                put("type", "fp16");
+            }
+        };
+
+        MethodComponentContext methodComponentContext1 = MethodComponentContext.EMPTY;
+        MethodComponentContext methodComponentContext2 = new MethodComponentContext("ivf", null);
+        MethodComponentContext methodComponentContext3 = new MethodComponentContext("ivf", parameters3);
+        MethodComponentContext methodComponentContext4 = new MethodComponentContext("ivf", parameters4);
+        MethodComponentContext methodComponentContext5 = new MethodComponentContext("ivf", parameters5);
+        MethodComponentContext methodComponentContext6 = new MethodComponentContext("ivf", parameters6);
+
+        String contextString1 = methodComponentContext1.toClusterStateString();
+        String contextString2 = methodComponentContext2.toClusterStateString();
+        String contextString3 = methodComponentContext3.toClusterStateString();
+        String contextString4 = methodComponentContext4.toClusterStateString();
+        String contextString5 = methodComponentContext5.toClusterStateString();
+        String contextString6 = methodComponentContext6.toClusterStateString();
+
+        assertEquals("{name=;parameters=[]}", contextString1);
+        assertEquals("{name=ivf;parameters=[]}", contextString2);
+
+        MethodComponentContext methodComponentContextFromString1 = MethodComponentContext.fromClusterStateString(contextString1);
+        MethodComponentContext methodComponentContextFromString2 = MethodComponentContext.fromClusterStateString(contextString2);
+        MethodComponentContext methodComponentContextFromString3 = MethodComponentContext.fromClusterStateString(contextString3);
+        MethodComponentContext methodComponentContextFromString4 = MethodComponentContext.fromClusterStateString(contextString4);
+        MethodComponentContext methodComponentContextFromString5 = MethodComponentContext.fromClusterStateString(contextString5);
+        MethodComponentContext methodComponentContextFromString6 = MethodComponentContext.fromClusterStateString(contextString6);
+
+        assertEquals(methodComponentContext1, methodComponentContextFromString1);
+        assertEquals(new MethodComponentContext("ivf", Collections.emptyMap()), methodComponentContextFromString2);
+        assertEquals(methodComponentContext3, methodComponentContextFromString3);
+        assertEquals(methodComponentContext4, methodComponentContextFromString4);
+        assertEquals(methodComponentContext5, methodComponentContextFromString5);
+        assertEquals(methodComponentContext6, methodComponentContextFromString6);
+    }
 }

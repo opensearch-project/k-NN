@@ -197,7 +197,7 @@ public class KNNCodecTestCase extends KNNTestCase {
             ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, "Flat", SPACE_TYPE, spaceType.getValue()),
             dimension,
             vectorsPointer,
-            KNNEngine.FAISS.getName()
+            KNNEngine.FAISS
         );
 
         // Setup model cache
@@ -212,7 +212,8 @@ public class KNNCodecTestCase extends KNNTestCase {
             ZonedDateTime.now(ZoneOffset.UTC).toString(),
             "",
             "",
-            ""
+            "",
+            MethodComponentContext.EMPTY
         );
 
         Model mockModel = new Model(modelMetadata1, modelBlob, modelId);

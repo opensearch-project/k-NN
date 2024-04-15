@@ -6,17 +6,20 @@
 package org.opensearch.knn;
 
 import com.google.common.collect.ImmutableMap;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
-import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.SerializationMode;
+import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 import java.util.Comparator;
 import java.util.Random;
@@ -143,6 +146,12 @@ public class TestUtils {
             pq = new PriorityQueue<>(k, new DistComparator());
             for (int j = 0; j < indexVectors.length; j++) {
                 float dist = computeDistFromSpaceType(spaceType, indexVectors[j], queryVectors[i]);
+
+                // Need to invert distance for IP or COSINE because higher is better in these cases
+                if (spaceType == SpaceType.INNER_PRODUCT || spaceType == SpaceType.COSINESIMIL) {
+                    dist *= -1;
+                }
+
                 pq = insertWithOverflow(pq, k, dist, j);
             }
 
@@ -203,6 +212,11 @@ public class TestUtils {
         for (int id = 0; id < numDocs; id++) {
             float[] indexVector = idVectorProducer.getVector(id);
             float dist = computeDistFromSpaceType(spaceType, indexVector, queryVector);
+            // Need to invert distance for IP or COSINE because higher is better in these cases
+            if (spaceType == SpaceType.INNER_PRODUCT || spaceType == SpaceType.COSINESIMIL) {
+                dist *= -1;
+            }
+
             pq = insertWithOverflow(pq, k, dist, id);
         }
         return pq;
@@ -237,7 +251,7 @@ public class TestUtils {
      * Class to read in some test data from text files
      */
     public static class TestData {
-        public KNNCodecUtil.Pair indexData;
+        public Pair indexData;
         public float[][] queries;
 
         public TestData(String testIndexVectorsPath, String testQueriesPath) throws IOException {
@@ -245,7 +259,7 @@ public class TestUtils {
             queries = readQueries(testQueriesPath);
         }
 
-        private KNNCodecUtil.Pair readIndexData(String path) throws IOException {
+        private Pair readIndexData(String path) throws IOException {
             List<Integer> idsList = new ArrayList<>();
             List<Float[]> vectorsList = new ArrayList<>();
 
@@ -281,8 +295,7 @@ public class TestUtils {
                     vectorsArray[i][j] = vectorsList.get(i)[j];
                 }
             }
-
-            return new KNNCodecUtil.Pair(idsArray, vectorsArray, SerializationMode.COLLECTION_OF_FLOATS);
+            return new Pair(idsArray, vectorsArray[0].length, SerializationMode.COLLECTION_OF_FLOATS, vectorsArray);
         }
 
         private float[][] readQueries(String path) throws IOException {
@@ -312,6 +325,20 @@ public class TestUtils {
                 }
             }
             return queryArray;
+        }
+
+        public long loadDataToMemoryAddress() {
+            return JNICommons.storeVectorData(0, indexData.vectors, (long) indexData.vectors.length * indexData.vectors[0].length);
+        }
+
+        @AllArgsConstructor
+        public static class Pair {
+            public int[] docs;
+            @Getter
+            @Setter
+            private int dimension;
+            public SerializationMode serializationMode;
+            public float[][] vectors;
         }
     }
 }

@@ -6,24 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.0](https://github.com/opensearch-project/k-NN/compare/2.x...HEAD)
 ### Features
 ### Enhancements
-### Bug Fixes
+### Bug Fixes 
 ### Infrastructure
 ### Documentation
 ### Maintenance
 ### Refactoring
 
-## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.12...2.x)
+## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.13...2.x)
 ### Features
 ### Enhancements
-* Optize Faiss Query With Filters: Reduce iteration and memory for id filter [#1402](https://github.com/opensearch-project/k-NN/pull/1402)
-* Serialize all models into cluster metadata [#1499](https://github.com/opensearch-project/k-NN/pull/1499)
+* Make the HitQueue size more appropriate for exact search [#1549](https://github.com/opensearch-project/k-NN/pull/1549)
+* Support script score when doc value is disabled [#1573](https://github.com/opensearch-project/k-NN/pull/1573)
+* Implemented the Streaming Feature to stream vectors from Java to JNI layer to enable creation of larger segments for vector indices [#1604](https://github.com/opensearch-project/k-NN/pull/1604)
+* Remove unnecessary toString conversion of vector field and added some minor optimization in KNNCodec [1613](https://github.com/opensearch-project/k-NN/pull/1613)
 ### Bug Fixes
-* Disable sdc table for HNSWPQ read-only indices [#1518](https://github.com/opensearch-project/k-NN/pull/1518)
 ### Infrastructure
-* Manually install zlib for win CI [#1513](https://github.com/opensearch-project/k-NN/pull/1513)
+* Add micro-benchmark module in k-NN plugin for benchmark streaming vectors to JNI layer functionality. [#1583](https://github.com/opensearch-project/k-NN/pull/1583)
 ### Documentation
 ### Maintenance
-* Bump faiss lib commit to 32f0e8cf92cd2275b60364517bb1cce67aa29a55 [#1443](https://github.com/opensearch-project/k-NN/pull/1443)
-* Fix FieldInfo Parameters Mismatch [#1489](https://github.com/opensearch-project/k-NN/pull/1489)
-* Upgrade faiss to 12b92e9 [#1509](https://github.com/opensearch-project/k-NN/pull/1509)
 ### Refactoring

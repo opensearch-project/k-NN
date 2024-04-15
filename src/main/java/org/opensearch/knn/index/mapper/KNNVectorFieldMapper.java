@@ -5,22 +5,29 @@
 
 package org.opensearch.knn.index.mapper;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Supplier;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
-import org.opensearch.Version;
-import org.opensearch.common.ValidationException;
-import org.opensearch.knn.common.KNNConstants;
-
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.search.DocValuesFieldExistsQuery;
 import org.apache.lucene.search.Query;
+import org.opensearch.Version;
 import org.opensearch.common.Explicit;
+import org.opensearch.common.Nullable;
+import org.opensearch.common.ValidationException;
+import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.common.xcontent.support.XContentMapValues;
 import org.opensearch.index.fielddata.IndexFieldData;
 import org.opensearch.index.mapper.FieldMapper;
 import org.opensearch.index.mapper.MappedFieldType;
@@ -32,9 +39,12 @@ import org.opensearch.index.mapper.TextSearchInfo;
 import org.opensearch.index.mapper.ValueFetcher;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryShardException;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -48,19 +58,27 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
 
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
+import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
+import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVectorValue;
+import static org.opensearch.knn.common.KNNValidationUtil.validateVectorDimension;
 import static org.opensearch.knn.index.KNNSettings.KNN_INDEX;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.clipVectorValueToFP16Range;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFP16VectorValue;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithEngine;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataTypeWithKnnIndexSetting;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateByteVectorValue;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFloatVectorValue;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDimension;
 
 /**
  * Field Mapper for KNN vector type.
@@ -313,7 +331,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             return new LegacyFieldMapper(
                 name,
-                new KNNVectorFieldType(buildFullName(context), metaValue, dimension.getValue(), vectorDataType.getValue()),
+                new KNNVectorFieldType(
+                    buildFullName(context),
+                    metaValue,
+                    dimension.getValue(),
+                    vectorDataType.getValue(),
+                    SpaceType.getSpace(spaceType)
+                ),
                 multiFieldsBuilder,
                 copyToBuilder,
                 ignoreMalformed,
@@ -384,17 +408,24 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         String modelId;
         KNNMethodContext knnMethodContext;
         VectorDataType vectorDataType;
+        SpaceType spaceType;
 
-        public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, VectorDataType vectorDataType) {
-            this(name, meta, dimension, null, null, vectorDataType);
+        public KNNVectorFieldType(
+            String name,
+            Map<String, String> meta,
+            int dimension,
+            VectorDataType vectorDataType,
+            SpaceType spaceType
+        ) {
+            this(name, meta, dimension, null, null, vectorDataType, spaceType);
         }
 
         public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, KNNMethodContext knnMethodContext) {
-            this(name, meta, dimension, knnMethodContext, null, DEFAULT_VECTOR_DATA_TYPE_FIELD);
+            this(name, meta, dimension, knnMethodContext, null, DEFAULT_VECTOR_DATA_TYPE_FIELD, knnMethodContext.getSpaceType());
         }
 
         public KNNVectorFieldType(String name, Map<String, String> meta, int dimension, KNNMethodContext knnMethodContext, String modelId) {
-            this(name, meta, dimension, knnMethodContext, modelId, DEFAULT_VECTOR_DATA_TYPE_FIELD);
+            this(name, meta, dimension, knnMethodContext, modelId, DEFAULT_VECTOR_DATA_TYPE_FIELD, null);
         }
 
         public KNNVectorFieldType(
@@ -404,22 +435,24 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             KNNMethodContext knnMethodContext,
             VectorDataType vectorDataType
         ) {
-            this(name, meta, dimension, knnMethodContext, null, vectorDataType);
+            this(name, meta, dimension, knnMethodContext, null, vectorDataType, knnMethodContext.getSpaceType());
         }
 
         public KNNVectorFieldType(
             String name,
             Map<String, String> meta,
             int dimension,
-            KNNMethodContext knnMethodContext,
-            String modelId,
-            VectorDataType vectorDataType
+            @Nullable KNNMethodContext knnMethodContext,
+            @Nullable String modelId,
+            VectorDataType vectorDataType,
+            @Nullable SpaceType spaceType
         ) {
             super(name, false, false, true, TextSearchInfo.NONE, meta);
             this.dimension = dimension;
             this.modelId = modelId;
             this.knnMethodContext = knnMethodContext;
             this.vectorDataType = vectorDataType;
+            this.spaceType = spaceType;
         }
 
         @Override
@@ -496,10 +529,23 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     @Override
     protected void parseCreateField(ParseContext context) throws IOException {
-        parseCreateField(context, fieldType().getDimension());
+        parseCreateField(
+            context,
+            fieldType().getDimension(),
+            fieldType().getSpaceType(),
+            getMethodComponentContext(fieldType().getKnnMethodContext())
+        );
     }
 
-    protected void parseCreateField(ParseContext context, int dimension) throws IOException {
+    private MethodComponentContext getMethodComponentContext(KNNMethodContext knnMethodContext) {
+        if (Objects.isNull(knnMethodContext)) {
+            return null;
+        }
+        return knnMethodContext.getMethodComponentContext();
+    }
+
+    protected void parseCreateField(ParseContext context, int dimension, SpaceType spaceType, MethodComponentContext methodComponentContext)
+        throws IOException {
 
         validateIfKNNPluginEnabled();
         validateIfCircuitBreakerIsNotTriggered();
@@ -507,25 +553,26 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         if (VectorDataType.BYTE == vectorDataType) {
             Optional<byte[]> bytesArrayOptional = getBytesFromContext(context, dimension);
 
-            if (!bytesArrayOptional.isPresent()) {
+            if (bytesArrayOptional.isEmpty()) {
                 return;
             }
             final byte[] array = bytesArrayOptional.get();
+            spaceType.validateVector(array);
             VectorField point = new VectorField(name(), array, fieldType);
 
             context.doc().add(point);
-            addStoredFieldForVectorField(context, fieldType, name(), point.toString());
+            addStoredFieldForVectorField(context, fieldType, name(), point);
         } else if (VectorDataType.FLOAT == vectorDataType) {
-            Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
+            Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension, methodComponentContext);
 
-            if (!floatsArrayOptional.isPresent()) {
+            if (floatsArrayOptional.isEmpty()) {
                 return;
             }
             final float[] array = floatsArrayOptional.get();
+            spaceType.validateVector(array);
             VectorField point = new VectorField(name(), array, fieldType);
-
             context.doc().add(point);
-            addStoredFieldForVectorField(context, fieldType, name(), point.toString());
+            addStoredFieldForVectorField(context, fieldType, name(), point);
         } else {
             throw new IllegalArgumentException(
                 String.format(Locale.ROOT, "Cannot parse context for unsupported values provided for field [%s]", VECTOR_DATA_TYPE_FIELD)
@@ -533,6 +580,47 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }
 
         context.path().remove();
+    }
+
+    // Verify mapping and return true if it is a "faiss" Index using "sq" encoder of type "fp16"
+    protected boolean isFaissSQfp16(MethodComponentContext methodComponentContext) {
+        if (Objects.isNull(methodComponentContext)) {
+            return false;
+        }
+
+        if (methodComponentContext.getParameters().size() == 0) {
+            return false;
+        }
+
+        Map<String, Object> methodComponentParams = methodComponentContext.getParameters();
+
+        // The method component parameters should have an encoder
+        if (!methodComponentParams.containsKey(METHOD_ENCODER_PARAMETER)) {
+            return false;
+        }
+
+        // Validate if the object is of type MethodComponentContext before casting it later
+        if (!(methodComponentParams.get(METHOD_ENCODER_PARAMETER) instanceof MethodComponentContext)) {
+            return false;
+        }
+
+        MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) methodComponentParams.get(METHOD_ENCODER_PARAMETER);
+
+        // returns true if encoder name is "sq" and type is "fp16"
+        return ENCODER_SQ.equals(encoderMethodComponentContext.getName())
+            && FAISS_SQ_ENCODER_FP16.equals(
+                encoderMethodComponentContext.getParameters().getOrDefault(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
+            );
+
+    }
+
+    // Verify mapping and return the value of "clip" parameter(default false) for a "faiss" Index
+    // using "sq" encoder of type "fp16".
+    protected boolean isFaissSQClipToFP16RangeEnabled(MethodComponentContext methodComponentContext) {
+        if (Objects.nonNull(methodComponentContext)) {
+            return (boolean) methodComponentContext.getParameters().getOrDefault(FAISS_SQ_CLIP, false);
+        }
+        return false;
     }
 
     void validateIfCircuitBreakerIsNotTriggered() {
@@ -584,8 +672,21 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         return Optional.of(array);
     }
 
-    Optional<float[]> getFloatsFromContext(ParseContext context, int dimension) throws IOException {
+    Optional<float[]> getFloatsFromContext(ParseContext context, int dimension, MethodComponentContext methodComponentContext)
+        throws IOException {
         context.path().add(simpleName());
+
+        // Returns an optional array of float values where each value in the vector is parsed as a float and validated
+        // if it is a finite number and within the fp16 range of [-65504 to 65504] by default if Faiss encoder is SQ and type is 'fp16'.
+        // If the encoder parameter, "clip" is set to True, if the vector value is outside the FP16 range then it will be
+        // clipped to FP16 range.
+        boolean isFaissSQfp16Flag = isFaissSQfp16(methodComponentContext);
+        boolean clipVectorValueToFP16RangeFlag = false;
+        if (isFaissSQfp16Flag) {
+            clipVectorValueToFP16RangeFlag = isFaissSQClipToFP16RangeEnabled(
+                (MethodComponentContext) methodComponentContext.getParameters().get(METHOD_ENCODER_PARAMETER)
+            );
+        }
 
         ArrayList<Float> vector = new ArrayList<>();
         XContentParser.Token token = context.parser().currentToken();
@@ -594,13 +695,30 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             token = context.parser().nextToken();
             while (token != XContentParser.Token.END_ARRAY) {
                 value = context.parser().floatValue();
-                validateFloatVectorValue(value);
+                if (isFaissSQfp16Flag) {
+                    if (clipVectorValueToFP16RangeFlag) {
+                        value = clipVectorValueToFP16Range(value);
+                    } else {
+                        validateFP16VectorValue(value);
+                    }
+                } else {
+                    validateFloatVectorValue(value);
+                }
+
                 vector.add(value);
                 token = context.parser().nextToken();
             }
         } else if (token == XContentParser.Token.VALUE_NUMBER) {
             value = context.parser().floatValue();
-            validateFloatVectorValue(value);
+            if (isFaissSQfp16Flag) {
+                if (clipVectorValueToFP16RangeFlag) {
+                    value = clipVectorValueToFP16Range(value);
+                } else {
+                    validateFP16VectorValue(value);
+                }
+            } else {
+                validateFloatVectorValue(value);
+            }
             vector.add(value);
             context.parser().nextToken();
         } else if (token == XContentParser.Token.VALUE_NULL) {

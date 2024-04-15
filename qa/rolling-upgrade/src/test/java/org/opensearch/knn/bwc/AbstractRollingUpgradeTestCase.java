@@ -71,6 +71,9 @@ public abstract class AbstractRollingUpgradeTestCase extends KNNRestTestCase {
     }
 
     protected final ClusterType getClusterType() {
+        if (System.getProperty(BWCSUITE_CLUSTER) == null) {
+            throw new IllegalArgumentException(String.format("[%s] value is null", BWCSUITE_CLUSTER));
+        }
         return ClusterType.instance(System.getProperty(BWCSUITE_CLUSTER));
     }
 

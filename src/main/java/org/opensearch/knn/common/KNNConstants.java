@@ -48,6 +48,7 @@ public class KNNConstants {
     public static final String MODEL_DESCRIPTION = "description";
     public static final String MODEL_ERROR = "error";
     public static final String MODEL_NODE_ASSIGNMENT = "training_node_assignment";
+    public static final String MODEL_METHOD_COMPONENT_CONTEXT = "model_definition";
     public static final String PARAM_SIZE = "size";
     public static final Integer SEARCH_MODEL_MIN_SIZE = 1;
     public static final Integer SEARCH_MODEL_MAX_SIZE = 1000;
@@ -71,6 +72,7 @@ public class KNNConstants {
 
     // nmslib specific constants
     public static final String NMSLIB_NAME = "nmslib";
+    public static final String COMMONS_NAME = "common";
     public static final String SPACE_TYPE = "spaceType"; // used as field info key
     public static final String HNSW_ALGO_M = "M";
     public static final String HNSW_ALGO_EF_CONSTRUCTION = "efConstruction";
@@ -96,6 +98,7 @@ public class KNNConstants {
     public static final String FAISS_SQ_TYPE = "type";
     public static final String FAISS_SQ_ENCODER_FP16 = "fp16";
     public static final List<String> FAISS_SQ_ENCODER_TYPES = List.of(FAISS_SQ_ENCODER_FP16);
+    public static final String FAISS_SQ_CLIP = "clip";
 
     // Parameter defaults/limits
     public static final Integer ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT = 1;
@@ -110,10 +113,16 @@ public class KNNConstants {
     public static final Integer MODEL_CACHE_CAPACITY_ATROPHY_THRESHOLD_IN_MINUTES = 30;
     public static final Integer MODEL_CACHE_EXPIRE_AFTER_ACCESS_TIME_MINUTES = 30;
 
+    public static final Float FP16_MAX_VALUE = 65504.0f;
+    public static final Float FP16_MIN_VALUE = -65504.0f;
+
     // Lib names
     private static final String JNI_LIBRARY_PREFIX = "opensearchknn_";
     public static final String FAISS_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + FAISS_NAME;
+    public static final String FAISS_AVX2_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + FAISS_NAME + "_avx2";
     public static final String NMSLIB_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + NMSLIB_NAME;
+
+    public static final String COMMON_JNI_LIBRARY_NAME = JNI_LIBRARY_PREFIX + COMMONS_NAME;
 
     // API Constants
     public static final String CLEAR_CACHE = "clear_cache";

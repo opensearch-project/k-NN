@@ -93,11 +93,9 @@ if [ "$ARCHITECTURE" = "x64" ]; then
     sed -i -e 's/-march=native/-march=x86-64/g' external/nmslib/similarity_search/CMakeLists.txt
 fi
 
-# For arm, march=native is broken in centos 7. Manually override to lowest version of armv8. Also, disable simd in faiss
-# file. This is broken on centos 7 as well.
+# For arm, march=native is broken in centos 7. Manually override to lowest version of armv8.
 if [ "$ARCHITECTURE" = "arm64" ]; then
     sed -i -e 's/-march=native/-march=armv8-a/g' external/nmslib/similarity_search/CMakeLists.txt
-    sed -i -e 's/__aarch64__/__undefine_aarch64__/g' external/faiss/faiss/utils/distances_simd.cpp
 fi
 
 if [ "$JAVA_HOME" = "" ]; then
@@ -119,13 +117,19 @@ fi
 
 # Build k-NN lib and plugin through gradle tasks
 cd $work_dir
-# Gradle build is used here to replace gradle assemble due to build will also call cmake and make before generating jars
-./gradlew build --no-daemon --refresh-dependencies -x integTest -DskipTests=true -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
+./gradlew build --no-daemon --refresh-dependencies -x integTest -x test -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
+./gradlew :buildJniLib -Dsimd.enabled=false
+
+if [ "$PLATFORM" != "windows" ] && [ "$ARCHITECTURE" = "x64" ]; then
+  echo "Building k-NN library after enabling AVX2"
+  ./gradlew :buildJniLib -Dsimd.enabled=true
+fi
+
 ./gradlew publishPluginZipPublicationToZipStagingRepository -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
 ./gradlew publishPluginZipPublicationToMavenLocal -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER -Dopensearch.version=$VERSION
 
 # Add lib to zip
-zipPath=$(find "$(pwd)" -path \*build/distributions/*.zip)
+zipPath=$(find "$(pwd)/build/distributions" -path \*.zip)
 distributions="$(dirname "${zipPath}")"
 mkdir $distributions/lib
 libPrefix="libopensearchknn"
@@ -149,20 +153,6 @@ ls -l $distributions/lib
 cd $distributions
 zip -ur $zipPath lib
 cd $work_dir
-
-if [ "$PLATFORM" != "windows" ]; then
-  echo "Building k-NN libraries after enabling SIMD"
-  ./gradlew :buildJniLib -Dsimd.enabled=true
-  mkdir $distributions/lib_simd
-  cp -v $ompPath $distributions/lib_simd
-  cp -v ./jni/release/${libPrefix}* $distributions/lib_simd
-  ls -l $distributions/lib_simd
-
-  # Add lib_simd directory to the k-NN plugin zip
-  cd $distributions
-  zip -ur $zipPath lib_simd
-  cd $work_dir
-fi
 
 echo "COPY ${distributions}/*.zip"
 mkdir -p $OUTPUT/plugins

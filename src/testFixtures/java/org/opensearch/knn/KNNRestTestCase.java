@@ -6,6 +6,7 @@
 package org.opensearch.knn;
 
 import com.google.common.primitives.Floats;
+import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
@@ -17,6 +18,7 @@ import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
@@ -121,6 +123,11 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
 
         String serverUrl = System.getProperty("jmx.serviceUrl");
+        if (serverUrl == null) {
+            log.error("Failed to dump coverage because JMX Service URL is null");
+            throw new IllegalArgumentException("JMX Service URL is null");
+        }
+
         try (JMXConnector connector = JMXConnectorFactory.connect(new JMXServiceURL(serverUrl))) {
             IProxy proxy = MBeanServerInvocationHandler.newProxyInstance(
                 connector.getMBeanServerConnection(),
@@ -129,7 +136,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
                 false
             );
 
-            Path path = Path.of(jacocoBuildPath, "integTest.exec");
+            Path path = Path.of(Path.of(jacocoBuildPath, "integTest.exec").toFile().getCanonicalPath());
             Files.write(path, proxy.getExecutionData(false));
         } catch (Exception ex) {
             log.error("Failed to dump coverage: ", ex);
@@ -238,10 +245,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
         @SuppressWarnings("unchecked")
         List<KNNResult> knnSearchResponses = hits.stream().map(hit -> {
             @SuppressWarnings("unchecked")
-            Float[] vector = Arrays.stream(
-                ((ArrayList<Float>) ((Map<String, Object>) ((Map<String, Object>) hit).get("_source")).get(fieldName)).toArray()
-            ).map(Object::toString).map(Float::valueOf).toArray(Float[]::new);
-            return new KNNResult((String) ((Map<String, Object>) hit).get("_id"), vector);
+            final float[] vector = Floats.toArray(
+                Arrays.stream(
+                    ((ArrayList<Float>) ((Map<String, Object>) ((Map<String, Object>) hit).get("_source")).get(fieldName)).toArray()
+                ).map(Object::toString).map(Float::valueOf).collect(Collectors.toList())
+            );
+            return new KNNResult(
+                (String) ((Map<String, Object>) hit).get("_id"),
+                vector,
+                ((Double) ((Map<String, Object>) hit).get("_score")).floatValue()
+            );
         }).collect(Collectors.toList());
 
         return knnSearchResponses;
@@ -322,15 +335,39 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Utility to create a Knn Index Mapping with specific algorithm and engine
      */
     protected String createKnnIndexMapping(String fieldName, Integer dimensions, String algoName, String knnEngine) throws IOException {
+        return this.createKnnIndexMapping(fieldName, dimensions, algoName, knnEngine, SpaceType.DEFAULT.getValue());
+    }
+
+    /**
+     * Utility to create a Knn Index Mapping with specific algorithm, engine and spaceType
+     */
+    protected String createKnnIndexMapping(String fieldName, Integer dimensions, String algoName, String knnEngine, String spaceType)
+        throws IOException {
+        return this.createKnnIndexMapping(fieldName, dimensions, algoName, knnEngine, spaceType, true);
+    }
+
+    /**
+     * Utility to create a Knn Index Mapping with specific algorithm, engine, spaceType and docValues
+     */
+    protected String createKnnIndexMapping(
+        String fieldName,
+        Integer dimensions,
+        String algoName,
+        String knnEngine,
+        String spaceType,
+        boolean docValues
+    ) throws IOException {
         return XContentFactory.jsonBuilder()
             .startObject()
             .startObject("properties")
             .startObject(fieldName)
-            .field("type", "knn_vector")
-            .field("dimension", dimensions.toString())
-            .startObject("method")
-            .field("name", algoName)
-            .field("engine", knnEngine)
+            .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
+            .field(KNNConstants.DIMENSION, dimensions.toString())
+            .field("doc_values", docValues)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, algoName)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType)
+            .field(KNNConstants.KNN_ENGINE, knnEngine)
             .endObject()
             .endObject()
             .endObject()
@@ -427,6 +464,13 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Force merge KNN index segments
      */
     protected void forceMergeKnnIndex(String index) throws Exception {
+        forceMergeKnnIndex(index, 1);
+    }
+
+    /**
+     * Force merge KNN index segments
+     */
+    protected void forceMergeKnnIndex(String index, int maxSegments) throws Exception {
         Request request = new Request("POST", "/" + index + "/_refresh");
 
         Response response = client().performRequest(request);
@@ -434,7 +478,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         request = new Request("POST", "/" + index + "/_forcemerge");
 
-        request.addParameter("max_num_segments", "1");
+        request.addParameter("max_num_segments", String.valueOf(maxSegments));
         request.addParameter("flush", "true");
         response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -444,7 +488,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     /**
      * Add a single KNN Doc to an index
      */
-    protected void addKnnDoc(String index, String docId, String fieldName, Object[] vector) throws IOException {
+    protected <T> void addKnnDoc(String index, String docId, String fieldName, T vector) throws IOException {
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vector).endObject();
@@ -635,6 +679,12 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Response response = client().performRequest(request);
         assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
         return response;
+    }
+
+    @SneakyThrows
+    protected void doKnnWarmup(List<String> indices) {
+        Response response = knnWarmup(indices);
+        assertEquals(response.getStatusLine().getStatusCode(), 200);
     }
 
     /**
@@ -999,8 +1049,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         int i = 0;
 
         for (KNNResult result : results) {
-            float[] primitiveArray = Floats.toArray(Arrays.stream(result.getVector()).collect(Collectors.toList()));
-            vectors[i++] = primitiveArray;
+            vectors[i++] = result.getVector();
         }
 
         return vectors;

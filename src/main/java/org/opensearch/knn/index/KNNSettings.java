@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index;
 
+import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchParseException;
@@ -48,6 +49,7 @@ import static org.opensearch.common.unit.MemorySizeValue.parseBytesSizeValueOrHe
  * 2. KNN settings to enable/disable plugin, circuit breaker settings
  * 3. KNN settings to manage graphs loaded in native memory
  */
+@Log4j2
 public class KNNSettings {
 
     private static final Logger logger = LogManager.getLogger(KNNSettings.class);
@@ -66,6 +68,7 @@ public class KNNSettings {
     public static final String KNN_ALGO_PARAM_INDEX_THREAD_QTY = "knn.algo_param.index_thread_qty";
     public static final String KNN_MEMORY_CIRCUIT_BREAKER_ENABLED = "knn.memory.circuit_breaker.enabled";
     public static final String KNN_MEMORY_CIRCUIT_BREAKER_LIMIT = "knn.memory.circuit_breaker.limit";
+    public static final String KNN_VECTOR_STREAMING_MEMORY_LIMIT_IN_MB = "knn.vector_streaming_memory.limit";
     public static final String KNN_CIRCUIT_BREAKER_TRIGGERED = "knn.circuit_breaker.triggered";
     public static final String KNN_CACHE_ITEM_EXPIRY_ENABLED = "knn.cache.item.expiry.enabled";
     public static final String KNN_CACHE_ITEM_EXPIRY_TIME_MINUTES = "knn.cache.item.expiry.minutes";
@@ -76,10 +79,12 @@ public class KNNSettings {
     public static final String MODEL_INDEX_NUMBER_OF_REPLICAS = "knn.model.index.number_of_replicas";
     public static final String MODEL_CACHE_SIZE_LIMIT = "knn.model.cache.size.limit";
     public static final String ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD = "index.knn.advanced.filtered_exact_search_threshold";
+    public static final String KNN_FAISS_AVX2_DISABLED = "knn.faiss.avx2.disabled";
 
     /**
      * Default setting values
      */
+    public static final boolean KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE = false;
     public static final String INDEX_KNN_DEFAULT_SPACE_TYPE = "l2";
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_M = 16;
     public static final Integer INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH = 100;
@@ -89,12 +94,22 @@ public class KNNSettings {
     public static final Integer KNN_DEFAULT_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE = 10; // By default, set aside 10% of the JVM for the limit
     public static final Integer KNN_MAX_MODEL_CACHE_SIZE_LIMIT_PERCENTAGE = 25; // Model cache limit cannot exceed 25% of the JVM heap
     public static final String KNN_DEFAULT_MEMORY_CIRCUIT_BREAKER_LIMIT = "50%";
+    public static final String KNN_DEFAULT_VECTOR_STREAMING_MEMORY_LIMIT_PCT = "1%";
 
     public static final Integer ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE = -1;
 
     /**
      * Settings Definition
      */
+
+    // This setting controls how much memory should be used to transfer vectors from Java to JNI Layer. The default
+    // 1% of the JVM heap
+    public static final Setting<ByteSizeValue> KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING = Setting.memorySizeSetting(
+        KNN_VECTOR_STREAMING_MEMORY_LIMIT_IN_MB,
+        KNN_DEFAULT_VECTOR_STREAMING_MEMORY_LIMIT_PCT,
+        Setting.Property.Dynamic,
+        Setting.Property.NodeScope
+    );
 
     public static final Setting<String> INDEX_KNN_SPACE_TYPE = Setting.simpleString(
         KNN_SPACE_TYPE,
@@ -230,6 +245,13 @@ public class KNNSettings {
         NodeScope,
         Dynamic
     );
+
+    public static final Setting<Boolean> KNN_FAISS_AVX2_DISABLED_SETTING = Setting.boolSetting(
+        KNN_FAISS_AVX2_DISABLED,
+        KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE,
+        NodeScope
+    );
+
     /**
      * Dynamic settings
      */
@@ -339,6 +361,14 @@ public class KNNSettings {
             return ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING;
         }
 
+        if (KNN_FAISS_AVX2_DISABLED.equals(key)) {
+            return KNN_FAISS_AVX2_DISABLED_SETTING;
+        }
+
+        if (KNN_VECTOR_STREAMING_MEMORY_LIMIT_IN_MB.equals(key)) {
+            return KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -355,7 +385,9 @@ public class KNNSettings {
             MODEL_INDEX_NUMBER_OF_SHARDS_SETTING,
             MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING,
             MODEL_CACHE_SIZE_LIMIT_SETTING,
-            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING
+            ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
+            KNN_FAISS_AVX2_DISABLED_SETTING,
+            KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING
         );
         return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream()).collect(Collectors.toList());
     }
@@ -374,6 +406,22 @@ public class KNNSettings {
 
     public static double getCircuitBreakerUnsetPercentage() {
         return KNNSettings.state().getSettingValue(KNNSettings.KNN_CIRCUIT_BREAKER_UNSET_PERCENTAGE);
+    }
+
+    public static boolean isFaissAVX2Disabled() {
+        try {
+            return KNNSettings.state().getSettingValue(KNNSettings.KNN_FAISS_AVX2_DISABLED);
+        } catch (Exception e) {
+            // In some UTs we identified that cluster setting is not set properly an leads to NPE. This check will avoid
+            // those cases and will still return the default value.
+            log.warn(
+                "Unable to get setting value {} from cluster settings. Using default value as {}",
+                KNN_FAISS_AVX2_DISABLED,
+                KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE,
+                e
+            );
+            return KNN_DEFAULT_FAISS_AVX2_DISABLED_VALUE;
+        }
     }
 
     public static Integer getFilteredExactSearchThreshold(final String indexName) {
@@ -441,6 +489,10 @@ public class KNNSettings {
                 );
             }
         });
+    }
+
+    public static ByteSizeValue getVectorStreamingMemoryLimit() {
+        return KNNSettings.state().getSettingValue(KNN_VECTOR_STREAMING_MEMORY_LIMIT_IN_MB);
     }
 
     /**

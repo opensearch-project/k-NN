@@ -83,7 +83,8 @@ public class TrainingJob implements Runnable {
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 description,
                 "",
-                nodeAssignment
+                nodeAssignment,
+                knnMethodContext.getMethodComponentContext()
             ),
             null,
             this.modelId
@@ -185,7 +186,7 @@ public class TrainingJob implements Runnable {
                 trainParameters,
                 model.getModelMetadata().getDimension(),
                 trainingDataAllocation.getMemoryAddress(),
-                model.getModelMetadata().getKnnEngine().getName()
+                model.getModelMetadata().getKnnEngine()
             );
 
             // Once training finishes, update model
