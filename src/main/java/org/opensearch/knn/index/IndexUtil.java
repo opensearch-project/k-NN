@@ -23,6 +23,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.jni.JNIService;
 
 import java.io.File;
@@ -195,7 +196,7 @@ public class IndexUtil {
             }
 
             ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
-            if (modelMetadata == null) {
+            if (modelMetadata == null || !modelMetadata.getState().equals(ModelState.CREATED)) {
                 exception.addValidationError(String.format("Model \"%s\" for field \"%s\" does not exist.", modelId, field));
                 return exception;
             }

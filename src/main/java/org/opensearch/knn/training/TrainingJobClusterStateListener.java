@@ -109,7 +109,8 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
         if (modelDao.isCreated()) {
             List<String> modelIds = searchModelIds();
             for (String modelId : modelIds) {
-                ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+                Model model = modelDao.get(modelId);
+                ModelMetadata modelMetadata = model.getModelMetadata();
                 if (modelMetadata.getState().equals(ModelState.TRAINING)) {
                     updateModelStateAsFailed(modelId, modelMetadata, "Training failed to complete as cluster crashed");
                 }

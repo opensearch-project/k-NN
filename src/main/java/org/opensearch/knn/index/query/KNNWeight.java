@@ -40,6 +40,7 @@ import org.opensearch.knn.index.query.filtered.NestedFilteredIdsKNNIterator;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 
@@ -213,7 +214,7 @@ public class KNNWeight extends Weight {
         String modelId = fieldInfo.getAttribute(MODEL_ID);
         if (modelId != null) {
             ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
-            if (modelMetadata == null) {
+            if (modelMetadata == null || !modelMetadata.getState().equals(ModelState.CREATED)) {
                 throw new RuntimeException("Model \"" + modelId + "\" does not exist.");
             }
 
