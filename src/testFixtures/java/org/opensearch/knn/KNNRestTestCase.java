@@ -203,6 +203,23 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
+     * Run KNN Search on Index with XContentBuilder query
+     */
+    protected Response searchKNNIndex(String index, XContentBuilder xContentBuilder, int resultSize) throws IOException {
+        Request request = new Request("POST", "/" + index + "/_search");
+        request.setJsonEntity(xContentBuilder.toString());
+
+        request.addParameter("size", Integer.toString(resultSize));
+        request.addParameter("explain", Boolean.toString(true));
+        request.addParameter("search_type", "query_then_fetch");
+
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        return response;
+    }
+
+    /**
      * Run exists search
      */
     protected Response searchExists(String index, ExistsQueryBuilder existsQueryBuilder, int resultSize) throws IOException {

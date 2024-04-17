@@ -32,6 +32,7 @@ public enum KNNEngine implements KNNLibrary {
 
     private static final Set<KNNEngine> CUSTOM_SEGMENT_FILE_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB, KNNEngine.FAISS);
     private static final Set<KNNEngine> ENGINES_SUPPORTING_FILTERS = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
+    public static final Set<KNNEngine> ENGINES_SUPPORTING_RADIAL_SEARCH = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
 
     private static Map<KNNEngine, Integer> MAX_DIMENSIONS_BY_ENGINE = Map.of(
         KNNEngine.NMSLIB,
@@ -150,6 +151,16 @@ public enum KNNEngine implements KNNLibrary {
     @Override
     public float score(float rawScore, SpaceType spaceType) {
         return knnLibrary.score(rawScore, spaceType);
+    }
+
+    @Override
+    public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
+        return knnLibrary.distanceToRadialThreshold(distance, spaceType);
+    }
+
+    @Override
+    public Float scoreToRadialThreshold(Float score, SpaceType spaceType) {
+        return knnLibrary.scoreToRadialThreshold(score, spaceType);
     }
 
     @Override

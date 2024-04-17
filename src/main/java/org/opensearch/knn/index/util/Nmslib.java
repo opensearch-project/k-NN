@@ -68,4 +68,13 @@ class Nmslib extends NativeLibrary {
     ) {
         super(methods, scoreTranslation, currentVersion, extension);
     }
+
+    @Override
+    public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
+        return distance;
+    }
+
+    public Float scoreToRadialThreshold(Float score, SpaceType spaceType) {
+        return score;
+    }
 }
