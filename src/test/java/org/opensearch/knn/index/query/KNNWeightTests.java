@@ -61,6 +61,7 @@ import java.util.stream.Collectors;
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -689,6 +690,68 @@ public class KNNWeightTests extends KNNTestCase {
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         assertNotNull(docIdSetIterator);
         assertEquals(DOC_ID_TO_SCORES.size(), docIdSetIterator.cost());
+    }
+
+    @SneakyThrows
+    public void testDoANNSearch_whenRadialIsDefined_thenCallJniRadiusQueryIndex() {
+        final float[] queryVector = new float[] { 0.1f, 0.3f };
+        final float radius = 0.5f;
+        final int maxResults = 1000;
+        jniServiceMockedStatic.when(() -> JNIService.radiusQueryIndex(anyLong(), any(), anyFloat(), any(), anyInt()))
+            .thenReturn(getKNNQueryResults());
+        KNNQuery.Context context = mock(KNNQuery.Context.class);
+        when(context.getMaxResultWindow()).thenReturn(maxResults);
+
+        final KNNQuery query = new KNNQuery(FIELD_NAME, queryVector, INDEX_NAME, null).radius(radius).kNNQueryContext(context);
+        final float boost = (float) randomDoubleBetween(0, 10, true);
+        final KNNWeight knnWeight = new KNNWeight(query, boost);
+
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        final SegmentReader reader = mock(SegmentReader.class);
+        when(leafReaderContext.reader()).thenReturn(reader);
+
+        final FSDirectory directory = mock(FSDirectory.class);
+        when(reader.directory()).thenReturn(directory);
+        final SegmentInfo segmentInfo = new SegmentInfo(
+            directory,
+            Version.LATEST,
+            Version.LATEST,
+            SEGMENT_NAME,
+            100,
+            true,
+            false,
+            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            Map.of(),
+            new byte[StringHelper.ID_LENGTH],
+            Map.of(),
+            Sort.RELEVANCE
+        );
+        segmentInfo.setFiles(SEGMENT_FILES_FAISS);
+        final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
+        when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
+
+        final Path path = mock(Path.class);
+        when(directory.getDirectory()).thenReturn(path);
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        when(reader.getFieldInfos()).thenReturn(fieldInfos);
+        when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
+        when(fieldInfo.attributes()).thenReturn(Map.of(SPACE_TYPE, SpaceType.L2.getValue(), KNN_ENGINE, KNNEngine.FAISS.getName()));
+
+        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+        assertNotNull(knnScorer);
+        jniServiceMockedStatic.verify(() -> JNIService.radiusQueryIndex(anyLong(), any(), anyFloat(), any(), anyInt()));
+
+        final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
+
+        final List<Integer> actualDocIds = new ArrayList<>();
+        final Map<Integer, Float> translatedScores = getTranslatedScores(SpaceType.L2::scoreTranslation);
+        for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
+            actualDocIds.add(docId);
+            assertEquals(translatedScores.get(docId) * boost, knnScorer.score(), 0.01f);
+        }
+        assertEquals(docIdSetIterator.cost(), actualDocIds.size());
+        assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
     }
 
     private SegmentReader getMockedSegmentReader() {

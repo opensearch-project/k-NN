@@ -278,6 +278,283 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
+    public void testEndToEnd_whenDoRadiusSearch_whenDistanceThreshold_whenMethodIsHNSWFlat_thenSucceed() {
+        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
+        SpaceType spaceType = SpaceType.L2;
+
+        List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
+        List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
+        List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
+
+        Integer dimension = testData.indexData.vectors[0].length;
+
+        // Create an index
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(KNNConstants.PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
+            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
+            .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        String mapping = builder.toString();
+
+        createKnnIndex(INDEX_NAME, mapping);
+        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(INDEX_NAME)));
+
+        // Index the test data
+        for (int i = 0; i < testData.indexData.docs.length; i++) {
+            addKnnDoc(
+                INDEX_NAME,
+                Integer.toString(testData.indexData.docs[i]),
+                FIELD_NAME,
+                Floats.asList(testData.indexData.vectors[i]).toArray()
+            );
+        }
+
+        // Assert we have the right number of documents
+        refreshAllNonSystemIndices();
+        assertEquals(testData.indexData.docs.length, getDocCount(INDEX_NAME));
+
+        float distance = 300000000000f;
+        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, distance, null, spaceType);
+
+        // Delete index
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testEndToEnd_whenDoRadiusSearch_whenScoreThreshold_whenMethodIsHNSWFlat_thenSucceed() {
+        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
+        SpaceType spaceType = SpaceType.L2;
+
+        List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
+        List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
+        List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
+
+        Integer dimension = testData.indexData.vectors[0].length;
+
+        // Create an index
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(KNNConstants.PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
+            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
+            .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        String mapping = builder.toString();
+
+        createKnnIndex(INDEX_NAME, mapping);
+        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(INDEX_NAME)));
+
+        // Index the test data
+        for (int i = 0; i < testData.indexData.docs.length; i++) {
+            addKnnDoc(
+                INDEX_NAME,
+                Integer.toString(testData.indexData.docs[i]),
+                FIELD_NAME,
+                Floats.asList(testData.indexData.vectors[i]).toArray()
+            );
+        }
+
+        // Assert we have the right number of documents
+        refreshAllNonSystemIndices();
+        assertEquals(testData.indexData.docs.length, getDocCount(INDEX_NAME));
+
+        float score = 0.00001f;
+
+        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, null, score, spaceType);
+
+        // Delete index
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testEndToEnd_whenDoRadiusSearch_whenMoreThanOneScoreThreshold_whenMethodIsHNSWFlat_thenSucceed() {
+        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
+        SpaceType spaceType = SpaceType.INNER_PRODUCT;
+
+        List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
+        List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
+        List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
+
+        Integer dimension = testData.indexData.vectors[0].length;
+
+        // Create an index
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(FIELD_NAME)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(KNNConstants.PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
+            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
+            .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        String mapping = builder.toString();
+
+        createKnnIndex(INDEX_NAME, mapping);
+        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(INDEX_NAME)));
+
+        // Index the test data
+        for (int i = 0; i < testData.indexData.docs.length; i++) {
+            addKnnDoc(
+                INDEX_NAME,
+                Integer.toString(testData.indexData.docs[i]),
+                FIELD_NAME,
+                Floats.asList(testData.indexData.vectors[i]).toArray()
+            );
+        }
+
+        // Assert we have the right number of documents
+        refreshAllNonSystemIndices();
+        assertEquals(testData.indexData.docs.length, getDocCount(INDEX_NAME));
+
+        float score = 5f;
+
+        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, null, score, spaceType);
+
+        // Delete index
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testEndToEnd_whenDoRadiusSearch__whenDistanceThreshold_whenMethodIsHNSWPQ_thenSucceed() {
+        String indexName = "test-index";
+        String fieldName = "test-field";
+        String trainingIndexName = "training-index";
+        String trainingFieldName = "training-field";
+
+        String modelId = "test-model";
+        String modelDescription = "test model";
+
+        List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
+        List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
+        List<Integer> efSearchValues = ImmutableList.of(16, 32, 64, 128);
+        List<Integer> pqMValues = ImmutableList.of(2, 4, 8);
+
+        // training data needs to be at least equal to the number of centroids for PQ
+        // which is 2^8 = 256. 8 because that's the only valid code_size for HNSWPQ
+        int trainingDataCount = 256;
+
+        SpaceType spaceType = SpaceType.L2;
+
+        int dimension = testData.indexData.vectors[0].length;
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
+            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
+            .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_PQ)
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_M, pqMValues.get(random().nextInt(pqMValues.size())))
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, in, trainingDataCount);
+        assertTrainingSucceeds(modelId, 360, 1000);
+
+        // Create an index
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("model_id", modelId)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        String mapping = builder.toString();
+
+        createKnnIndex(indexName, mapping);
+
+        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
+
+        // Index the test data
+        for (int i = 0; i < testData.indexData.docs.length; i++) {
+            addKnnDoc(
+                indexName,
+                Integer.toString(testData.indexData.docs[i]),
+                fieldName,
+                Floats.asList(testData.indexData.vectors[i]).toArray()
+            );
+        }
+
+        // Assert we have the right number of documents in the index
+        refreshAllNonSystemIndices();
+        assertEquals(testData.indexData.docs.length, getDocCount(indexName));
+
+        float distance = 300000000000f;
+
+        validateRadiusSearchResults(indexName, fieldName, testData.queries, distance, null, spaceType);
+
+        // Delete index
+        deleteKNNIndex(indexName);
+        deleteModel(modelId);
+
+        // Search every 5 seconds 14 times to confirm graph gets evicted
+        int intervals = 14;
+        for (int i = 0; i < intervals; i++) {
+            if (getTotalGraphsInCache() == 0) {
+                return;
+            }
+
+            Thread.sleep(5 * 1000);
+        }
+
+        fail("Graphs are not getting evicted");
+    }
+
+    @SneakyThrows
     public void testEndToEnd_whenMethodIsHNSWPQ_thenSucceed() {
         String indexName = "test-index";
         String fieldName = "test-field";
@@ -1409,5 +1686,46 @@ public class FaissIT extends KNNRestTestCase {
         }
 
         fail("Graphs are not getting evicted");
+    }
+
+    private void validateRadiusSearchResults(
+        String indexName,
+        String fieldName,
+        float[][] queryVectors,
+        Float distanceThreshold,
+        Float scoreThreshold,
+        final SpaceType spaceType
+    ) throws IOException, ParseException {
+        for (float[] queryVector : queryVectors) {
+            XContentBuilder queryBuilder = XContentFactory.jsonBuilder().startObject().startObject("query");
+            queryBuilder.startObject("knn");
+            queryBuilder.startObject(fieldName);
+            queryBuilder.field("vector", queryVector);
+            if (distanceThreshold != null) {
+                queryBuilder.field("max_distance", distanceThreshold);
+            } else if (scoreThreshold != null) {
+                queryBuilder.field("min_score", scoreThreshold);
+            } else {
+                throw new IllegalArgumentException("Invalid threshold");
+            }
+            queryBuilder.endObject();
+            queryBuilder.endObject();
+            queryBuilder.endObject().endObject();
+            final String responseBody = EntityUtils.toString(searchKNNIndex(indexName, queryBuilder, 10).getEntity());
+
+            List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
+
+            for (KNNResult knnResult : knnResults) {
+                float[] vector = knnResult.getVector();
+                float distance = TestUtils.computeDistFromSpaceType(spaceType, vector, queryVector);
+                if (spaceType == SpaceType.L2) {
+                    assertTrue(KNNScoringUtil.l2Squared(queryVector, vector) <= distance);
+                } else if (spaceType == SpaceType.INNER_PRODUCT) {
+                    assertTrue(KNNScoringUtil.innerProduct(queryVector, vector) >= distance);
+                } else {
+                    throw new IllegalArgumentException("Invalid space type");
+                }
+            }
+        }
     }
 }

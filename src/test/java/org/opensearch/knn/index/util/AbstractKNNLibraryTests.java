@@ -128,6 +128,15 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         }
 
         @Override
+        public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
+            return 0f;
+        }
+
+        public Float scoreToRadialThreshold(Float score, SpaceType spaceType) {
+            return 0f;
+        }
+
+        @Override
         public int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension) {
             return 0;
         }
