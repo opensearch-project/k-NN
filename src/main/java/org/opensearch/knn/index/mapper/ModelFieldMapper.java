@@ -11,6 +11,7 @@ import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelUtil;
 
 import java.io.IOException;
 
@@ -50,7 +51,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         // model when ingestion starts.
         ModelMetadata modelMetadata = this.modelDao.getMetadata(modelId);
 
-        if (modelMetadata == null) {
+        if (!ModelUtil.isModelPresent(modelMetadata) || !ModelUtil.isModelCreated(modelMetadata)) {
             throw new IllegalStateException(
                 String.format(
                     "Model \"%s\" from %s's mapping does not exist. Because the \"%s\" parameter is not updatable, this index will need to be recreated with a valid model.",

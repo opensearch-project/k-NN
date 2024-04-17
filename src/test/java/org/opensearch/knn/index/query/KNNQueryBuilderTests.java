@@ -37,6 +37,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 import org.opensearch.plugins.SearchPlugin;
 
 import java.io.IOException;
@@ -304,6 +305,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(modelMetadata.getDimension()).thenReturn(4);
         when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         when(modelMetadata.getSpaceType()).thenReturn(SpaceType.COSINESIMIL);
+        when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
         KNNQueryBuilder.initialize(modelDao);

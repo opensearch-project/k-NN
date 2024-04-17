@@ -31,6 +31,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
@@ -347,7 +348,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
-        if (modelMetadata == null) {
+        if (!ModelUtil.isModelPresent(modelMetadata) || !ModelUtil.isModelCreated(modelMetadata)) {
             throw new IllegalArgumentException(String.format("Model ID '%s' does not exist.", modelId));
         }
         return modelMetadata;
