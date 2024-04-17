@@ -661,6 +661,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
         // Mock the model dao to return metadata for modelId to recognize it is a duplicate
         ModelMetadata trainingFieldModelMetadata = mock(ModelMetadata.class);
         when(trainingFieldModelMetadata.getDimension()).thenReturn(dimension);
+        when(trainingFieldModelMetadata.getState()).thenReturn(ModelState.CREATED);
 
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.getMetadata(modelId)).thenReturn(null);

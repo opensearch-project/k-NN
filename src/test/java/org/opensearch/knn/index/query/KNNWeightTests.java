@@ -45,6 +45,7 @@ import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.jni.JNIService;
 
 import java.io.IOException;
@@ -166,6 +167,7 @@ public class KNNWeightTests extends KNNTestCase {
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
         when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         when(modelMetadata.getSpaceType()).thenReturn(spaceType);
+        when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
         when(modelDao.getMetadata(eq("modelId"))).thenReturn(modelMetadata);
 
         KNNWeight.initialize(modelDao);
