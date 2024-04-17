@@ -398,7 +398,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         float resultSimilarity = KNNEngine.LUCENE.distanceToRadialThreshold(MAX_DISTANCE, SpaceType.L2);
 
         assertTrue(query.toString().contains("resultSimilarity=" + resultSimilarity));
-        assertTrue(query.toString().contains("traversalSimilarity=" + DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO * resultSimilarity));
+        assertTrue(
+            query.toString().contains("traversalSimilarity=" + DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO * resultSimilarity)
+        );
     }
 
     public void testDoToQuery_whenNormal_whenDoRadiusSearch_whenScoreThreshold_thenSucceed() {
