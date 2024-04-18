@@ -5,20 +5,34 @@
 
 package org.opensearch.knn.index;
 
+import lombok.SneakyThrows;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.opensearch.client.Response;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
+import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.NAME;
+import static org.opensearch.knn.common.KNNConstants.QUERY;
+import static org.opensearch.knn.common.KNNConstants.TYPE;
+import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+
 public class KNNMapperSearcherIT extends KNNRestTestCase {
-    private static final Logger logger = LogManager.getLogger(KNNMapperSearcherIT.class);
+
+    private static final String INDEX_NAME = "test_index";
+    private static final String FIELD_NAME = "test_vector";
 
     /**
      * Test Data set
@@ -239,4 +253,166 @@ public class KNNMapperSearcherIT extends KNNRestTestCase {
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
         assertEquals(results.size(), 4);
     }
+
+    /**
+     * Request:
+     * {
+     *   "stored_fields": ["test_vector"],
+     *   "query": {
+     *     "match_all": {}
+     *   }
+     * }
+     *
+     * Example Response:
+     * {
+     *   "took":248,
+     *   "timed_out":false,
+     *   "_shards":{
+     *     "total":1,
+     *     "successful":1,
+     *     "skipped":0,
+     *     "failed":0
+     *   },
+     *   "hits":{
+     *     "total":{
+     *       "value":1,
+     *       "relation":"eq"
+     *     },
+     *     "max_score":1.0,
+     *     "hits":[
+     *       {
+     *         "_index":"test_index",
+     *         "_id":"1",
+     *         "_score":1.0,
+     *         "fields":{"test_vector":[[-128,0,1,127]]}
+     *       }
+     *     ]
+     *   }
+     * }
+     */
+    @SneakyThrows
+    public void testStoredFields_whenByteDataType_thenSucceed() {
+        // Create index with stored field and confirm that we can properly retrieve it
+        int[] testVector = new int[] { -128, 0, 1, 127 };
+        String expectedResponse = String.format("\"fields\":{\"%s\":[[-128,0,1,127]]}}", FIELD_NAME);
+        createKnnIndex(
+            INDEX_NAME,
+            createVectorMapping(testVector.length, KNNEngine.LUCENE.getName(), VectorDataType.BYTE.getValue(), true)
+        );
+        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, testVector);
+
+        final XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.field(STORED_QUERY_FIELD, List.of(FIELD_NAME));
+        builder.startObject(QUERY);
+        builder.startObject(MATCH_ALL_QUERY_FIELD);
+        builder.endObject();
+        builder.endObject();
+        builder.endObject();
+
+        String response = EntityUtils.toString(performSearch(INDEX_NAME, builder.toString()).getEntity());
+        assertTrue(response.contains(expectedResponse));
+
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    /**
+     * Request:
+     * {
+     *   "stored_fields": ["test_vector"],
+     *   "query": {
+     *     "match_all": {}
+     *   }
+     * }
+     *
+     * Example Response:
+     * {
+     *   "took":248,
+     *   "timed_out":false,
+     *   "_shards":{
+     *     "total":1,
+     *     "successful":1,
+     *     "skipped":0,
+     *     "failed":0
+     *   },
+     *   "hits":{
+     *     "total":{
+     *       "value":1,
+     *       "relation":"eq"
+     *     },
+     *     "max_score":1.0,
+     *     "hits":[
+     *       {
+     *         "_index":"test_index",
+     *         "_id":"1",
+     *         "_score":1.0,
+     *         "fields":{"test_vector":[[-100.0,100.0,0.0,1.0]]}
+     *       }
+     *     ]
+     *   }
+     * }
+     */
+    @SneakyThrows
+    public void testStoredFields_whenFloatDataType_thenSucceed() {
+        List<KNNEngine> enginesToTest = List.of(KNNEngine.NMSLIB, KNNEngine.FAISS, KNNEngine.LUCENE);
+        float[] testVector = new float[] { -100.0f, 100.0f, 0f, 1f };
+        String expectedResponse = String.format("\"fields\":{\"%s\":[[-100.0,100.0,0.0,1.0]]}}", FIELD_NAME);
+        for (KNNEngine knnEngine : enginesToTest) {
+            createKnnIndex(INDEX_NAME, createVectorMapping(testVector.length, knnEngine.getName(), VectorDataType.FLOAT.getValue(), true));
+            addKnnDoc(INDEX_NAME, "1", FIELD_NAME, testVector);
+
+            final XContentBuilder builder = XContentFactory.jsonBuilder();
+            builder.startObject();
+            builder.field(STORED_QUERY_FIELD, List.of(FIELD_NAME));
+            builder.startObject(QUERY);
+            builder.startObject(MATCH_ALL_QUERY_FIELD);
+            builder.endObject();
+            builder.endObject();
+            builder.endObject();
+
+            String response = EntityUtils.toString(performSearch(INDEX_NAME, builder.toString()).getEntity());
+            assertTrue(response.contains(expectedResponse));
+
+            deleteKNNIndex(INDEX_NAME);
+        }
+    }
+
+    /**
+     * Mapping
+     * {
+     *     "properties": {
+     *         "test_vector": {
+     *             "type": "knn_vector",
+     *             "dimension": {dimension},
+     *             "data_type": "{type}",
+     *             "stored": true
+     *             "method": {
+     *                 "name": "hnsw",
+     *                 "engine": "{engine}"
+     *             }
+     *         }
+     *     }
+     * }
+     */
+    @SneakyThrows
+    private String createVectorMapping(final int dimension, final String engine, final String dataType, final boolean isStored) {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD)
+            .startObject(FIELD_NAME)
+            .field(TYPE, TYPE_KNN_VECTOR)
+            .field(DIMENSION, dimension)
+            .field(VECTOR_DATA_TYPE_FIELD, dataType)
+            .field(STORE_FIELD, isStored)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, engine)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        return builder.toString();
+    }
+
 }

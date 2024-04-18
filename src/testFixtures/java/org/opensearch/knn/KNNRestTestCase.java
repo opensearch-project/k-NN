@@ -107,6 +107,10 @@ import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 public class KNNRestTestCase extends ODFERestTestCase {
     public static final String INDEX_NAME = "test_index";
     public static final String FIELD_NAME = "test_field";
+    public static final String PROPERTIES_FIELD = "properties";
+    public static final String STORE_FIELD = "store";
+    public static final String STORED_QUERY_FIELD = "stored_fields";
+    public static final String MATCH_ALL_QUERY_FIELD = "match_all";
     private static final String DOCUMENT_FIELD_SOURCE = "_source";
     private static final String DOCUMENT_FIELD_FOUND = "found";
     protected static final int DELAY_MILLI_SEC = 1000;

@@ -37,7 +37,7 @@ public enum VectorDataType {
         }
 
         @Override
-        public float[] getVectorFromDocValues(BytesRef binaryValue) {
+        public float[] getVectorFromBytesRef(BytesRef binaryValue) {
             float[] vector = new float[binaryValue.length];
             int i = 0;
             int j = binaryValue.offset;
@@ -56,7 +56,7 @@ public enum VectorDataType {
         }
 
         @Override
-        public float[] getVectorFromDocValues(BytesRef binaryValue) {
+        public float[] getVectorFromBytesRef(BytesRef binaryValue) {
             ByteArrayInputStream byteStream = new ByteArrayInputStream(binaryValue.bytes, binaryValue.offset, binaryValue.length);
             final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
             return vectorSerializer.byteToFloatArray(byteStream);
@@ -81,12 +81,12 @@ public enum VectorDataType {
     public abstract FieldType createKnnVectorFieldType(int dimension, VectorSimilarityFunction vectorSimilarityFunction);
 
     /**
-     * Deserializes float vector from doc values binary value.
+     * Deserializes float vector from BytesRef.
      *
-     * @param binaryValue Binary Value of DocValues
+     * @param binaryValue Binary Value
      * @return float vector deserialized from binary value
      */
-    public abstract float[] getVectorFromDocValues(BytesRef binaryValue);
+    public abstract float[] getVectorFromBytesRef(BytesRef binaryValue);
 
     /**
      * Validates if given VectorDataType is in the list of supported data types.
