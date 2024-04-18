@@ -587,3 +587,47 @@ faiss::IndexIVFPQ * extractIVFPQIndex(faiss::Index * index) {
 
     throw std::runtime_error("Unable to extract IVFPQ index. IVFPQ index not present.");
 }
+
+jobjectArray knn_jni::faiss_wrapper::RangeSearch(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong indexPointerJ,
+                                                 jfloatArray queryVectorJ, jfloat radiusJ, jint maxResultWindowJ) {
+    if (queryVectorJ == nullptr) {
+        throw std::runtime_error("Query Vector cannot be null");
+    }
+
+    auto *indexReader = reinterpret_cast<faiss::IndexIDMap *>(indexPointerJ);
+
+    if (indexReader == nullptr) {
+        throw std::runtime_error("Invalid pointer to indexReader");
+    }
+
+    float *rawQueryVector = jniUtil->GetFloatArrayElements(env, queryVectorJ, nullptr);
+
+    // The res will be freed by ~RangeSearchResult() in FAISS
+    // The second parameter is always true, as lims is allocated by FAISS
+    faiss::RangeSearchResult res(1, true);
+    indexReader->range_search(1, rawQueryVector, radiusJ, &res);
+
+    // lims is structured to support batched queries, it has a length of nq + 1 (where nq is the number of queries),
+    // lims[i] - lims[i-1] gives the number of results for the i-th query. With a single query we used in k-NN,
+    // res.lims[0] is always 0, and res.lims[1] gives the total number of matching entries found.
+    int resultSize = res.lims[1];
+
+    // Limit the result size to maxResultWindowJ so that we don't return more than the max result window
+    // TODO: In the future, we should prevent this via FAISS's ResultHandler.
+    if (resultSize > maxResultWindowJ) {
+        resultSize = maxResultWindowJ;
+    }
+
+    jclass resultClass = jniUtil->FindClass(env,"org/opensearch/knn/index/query/KNNQueryResult");
+    jmethodID allArgs = jniUtil->FindMethod(env, "org/opensearch/knn/index/query/KNNQueryResult", "<init>");
+
+    jobjectArray results = jniUtil->NewObjectArray(env, resultSize, resultClass, nullptr);
+
+    jobject result;
+    for(int i = 0; i < resultSize; ++i) {
+        result = jniUtil->NewObject(env, resultClass, allArgs, res.labels[i], res.distances[i]);
+        jniUtil->SetObjectArrayElement(env, results, i, result);
+    }
+
+    return results;
+}
