@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.lucene.search.FloatVectorSimilarityQuery;
 import java.util.Locale;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.MatchNoDocsQuery;
@@ -18,6 +19,7 @@ import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.index.IndexSettings;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
@@ -41,8 +43,10 @@ import org.opensearch.plugins.SearchPlugin;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.Mockito.anyString;
@@ -50,11 +54,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
+import static org.opensearch.knn.index.util.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 
 public class KNNQueryBuilderTests extends KNNTestCase {
 
     private static final String FIELD_NAME = "myvector";
     private static final int K = 1;
+    private static final Float MAX_DISTANCE = 1.0f;
+    private static final Float MIN_SCORE = 0.5f;
     private static final TermQueryBuilder TERM_QUERY = QueryBuilders.termQuery("field", "value");
     private static final float[] QUERY_VECTOR = new float[] { 1.0f, 2.0f, 3.0f, 4.0f };
 
@@ -77,6 +84,32 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector, KNNQueryBuilder.K_MAX + K));
     }
 
+    public void testInvalidDistance() {
+        float[] queryVector = { 1.0f, 1.0f };
+        /**
+         * null distance
+         */
+        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(null));
+    }
+
+    public void testInvalidScore() {
+        float[] queryVector = { 1.0f, 1.0f };
+        /**
+         * null min_score
+         */
+        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(null));
+
+        /**
+         * negative min_score
+         */
+        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(-1.0f));
+
+        /**
+         * min_score = 0
+         */
+        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(0.0f));
+    }
+
     public void testEmptyVector() {
         /**
          * null query vector
@@ -89,6 +122,18 @@ public class KNNQueryBuilderTests extends KNNTestCase {
          */
         float[] queryVector1 = {};
         expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector1, K));
+
+        /**
+         * null query vector with distance
+         */
+        float[] queryVector2 = null;
+        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector2).maxDistance(MAX_DISTANCE));
+
+        /**
+         * empty query vector with distance
+         */
+        float[] queryVector3 = {};
+        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector3).maxDistance(MAX_DISTANCE));
     }
 
     public void testFromXContent() throws Exception {
@@ -107,7 +152,39 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertEquals(knnQueryBuilder, actualBuilder);
     }
 
-    public void testFromXContent_WithFilter() throws Exception {
+    public void testFromXContent_whenDoRadiusSearch_whenDistanceThreshold_thenSucceed() throws Exception {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(MAX_DISTANCE);
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(knnQueryBuilder.fieldName());
+        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
+        builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), knnQueryBuilder.getMaxDistance());
+        builder.endObject();
+        builder.endObject();
+        XContentParser contentParser = createParser(builder);
+        contentParser.nextToken();
+        KNNQueryBuilder actualBuilder = KNNQueryBuilder.fromXContent(contentParser);
+        assertEquals(knnQueryBuilder, actualBuilder);
+    }
+
+    public void testFromXContent_whenDoRadiusSearch_whenScoreThreshold_thenSucceed() throws Exception {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(MAX_DISTANCE);
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(knnQueryBuilder.fieldName());
+        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
+        builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), knnQueryBuilder.getMinScore());
+        builder.endObject();
+        builder.endObject();
+        XContentParser contentParser = createParser(builder);
+        contentParser.nextToken();
+        KNNQueryBuilder actualBuilder = KNNQueryBuilder.fromXContent(contentParser);
+        assertEquals(knnQueryBuilder, actualBuilder);
+    }
+
+    public void testFromXContent_withFilter() throws Exception {
         final ClusterService clusterService = mockClusterService(Version.CURRENT);
 
         final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
@@ -151,7 +228,51 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         expectThrows(IllegalArgumentException.class, () -> KNNQueryBuilder.fromXContent(contentParser));
     }
 
-    public void testFromXContent_invalidQueryVectorType() throws Exception {
+    public void testFromXContent_wenDoRadiusSearch_whenDistanceThreshold_whenFilter_thenSucceed() throws Exception {
+        final ClusterService clusterService = mockClusterService(Version.CURRENT);
+
+        final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
+        knnClusterUtil.initialize(clusterService);
+
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(MAX_DISTANCE).filter(TERM_QUERY);
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(knnQueryBuilder.fieldName());
+        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
+        builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), knnQueryBuilder.getMaxDistance());
+        builder.field(KNNQueryBuilder.FILTER_FIELD.getPreferredName(), knnQueryBuilder.getFilter());
+        builder.endObject();
+        builder.endObject();
+        XContentParser contentParser = createParser(builder);
+        contentParser.nextToken();
+        KNNQueryBuilder actualBuilder = KNNQueryBuilder.fromXContent(contentParser);
+        assertEquals(knnQueryBuilder, actualBuilder);
+    }
+
+    public void testFromXContent_wenDoRadiusSearch_whenScoreThreshold_whenFilter_thenSucceed() throws Exception {
+        final ClusterService clusterService = mockClusterService(Version.CURRENT);
+
+        final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
+        knnClusterUtil.initialize(clusterService);
+
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(MIN_SCORE).filter(TERM_QUERY);
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(knnQueryBuilder.fieldName());
+        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
+        builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), knnQueryBuilder.getMinScore());
+        builder.field(KNNQueryBuilder.FILTER_FIELD.getPreferredName(), knnQueryBuilder.getFilter());
+        builder.endObject();
+        builder.endObject();
+        XContentParser contentParser = createParser(builder);
+        contentParser.nextToken();
+        KNNQueryBuilder actualBuilder = KNNQueryBuilder.fromXContent(contentParser);
+        assertEquals(knnQueryBuilder, actualBuilder);
+    }
+
+    public void testFromXContent_InvalidQueryVectorType() throws Exception {
         final ClusterService clusterService = mockClusterService(Version.CURRENT);
 
         final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
@@ -168,6 +289,34 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         builder.startObject(FIELD_NAME);
         builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), invalidTypeQueryVector);
         builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), K);
+        builder.endObject();
+        builder.endObject();
+        XContentParser contentParser = createParser(builder);
+        contentParser.nextToken();
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNQueryBuilder.fromXContent(contentParser)
+        );
+        assertTrue(exception.getMessage().contains("[knn] field 'vector' requires to be an array of numbers"));
+    }
+
+    public void testFromXContent_whenDoRadiusSearch_whenInputInvalidQueryVectorType_thenException() throws Exception {
+        final ClusterService clusterService = mockClusterService(Version.CURRENT);
+
+        final KNNClusterUtil knnClusterUtil = KNNClusterUtil.instance();
+        knnClusterUtil.initialize(clusterService);
+
+        List<Object> invalidTypeQueryVector = new ArrayList<>();
+        invalidTypeQueryVector.add(1.5);
+        invalidTypeQueryVector.add(2.5);
+        invalidTypeQueryVector.add("a");
+        invalidTypeQueryVector.add(null);
+
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(FIELD_NAME);
+        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), invalidTypeQueryVector);
+        builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), MAX_DISTANCE);
         builder.endObject();
         builder.endObject();
         XContentParser contentParser = createParser(builder);
@@ -253,6 +402,178 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
     }
 
+    public void testDoToQuery_whenNormal_whenDoRadiusSearch_whenDistanceThreshold_thenSucceed() {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(MAX_DISTANCE);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of());
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        FloatVectorSimilarityQuery query = (FloatVectorSimilarityQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+        assertTrue(query.toString().contains("resultSimilarity=" + KNNEngine.LUCENE.distanceToRadialThreshold(MAX_DISTANCE, SpaceType.L2)));
+    }
+
+    public void testDoToQuery_whenNormal_whenDoRadiusSearch_whenScoreThreshold_thenSucceed() {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(MIN_SCORE);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of());
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        FloatVectorSimilarityQuery query = (FloatVectorSimilarityQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+        assertTrue(query.toString().contains("resultSimilarity=" + 0.5f));
+    }
+
+    public void testDoToQuery_whenDoRadiusSearch_whenPassNegativeDistance_whenSupportedSpaceType_thenSucceed() {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        float negativeDistance = -1.0f;
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(negativeDistance);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of());
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(
+            new KNNMethodContext(KNNEngine.FAISS, SpaceType.INNER_PRODUCT, methodComponentContext)
+        );
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(indexSettings.getMaxResultWindow()).thenReturn(1000);
+
+        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+
+        assertEquals(negativeDistance, query.getRadius(), 0);
+    }
+
+    public void testDoToQuery_whenDoRadiusSearch_whenPassNegativeDistance_whenUnSupportedSpaceType_thenException() {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        float negativeDistance = -1.0f;
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(negativeDistance);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of());
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(
+            new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext)
+        );
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(indexSettings.getMaxResultWindow()).thenReturn(1000);
+
+        expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
+    }
+
+    public void testDoToQuery_whenDoRadiusSearch_whenPassScoreMoreThanOne_whenSupportedSpaceType_thenSucceed() {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        float score = 5f;
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(score);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of());
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(
+            new KNNMethodContext(KNNEngine.FAISS, SpaceType.INNER_PRODUCT, methodComponentContext)
+        );
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(indexSettings.getMaxResultWindow()).thenReturn(1000);
+
+        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+
+        assertEquals(1 - score, query.getRadius(), 0);
+    }
+
+    public void testDoToQuery_whenDoRadiusSearch_whenPassScoreMoreThanOne_whenUnsupportedSpaceType_thenException() {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        float score = 5f;
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(score);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of());
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(
+            new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext)
+        );
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(indexSettings.getMaxResultWindow()).thenReturn(1000);
+
+        expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
+    }
+
+    public void testDoToQuery_whenPassNegativeDistance_whenSupportedSpaceType_thenSucceed() {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        float negativeDistance = -1.0f;
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(negativeDistance);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of());
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(
+            new KNNMethodContext(KNNEngine.FAISS, SpaceType.INNER_PRODUCT, methodComponentContext)
+        );
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(indexSettings.getMaxResultWindow()).thenReturn(1000);
+
+        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+
+        assertEquals(negativeDistance, query.getRadius(), 0);
+    }
+
+    public void testDoToQuery_whenPassNegativeDistance_whenUnSupportedSpaceType_thenException() {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        float negativeDistance = -1.0f;
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(negativeDistance);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of());
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(
+            new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext)
+        );
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(indexSettings.getMaxResultWindow()).thenReturn(1000);
+
+        expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
+    }
+
     public void testDoToQuery_KnnQueryWithFilter() throws Exception {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K, TERM_QUERY);
@@ -270,6 +591,42 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         Query query = knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertNotNull(query);
         assertTrue(query.getClass().isAssignableFrom(KnnFloatVectorQuery.class));
+    }
+
+    public void testDoToQuery_whenDoRadiusSearch_whenDistanceThreshold_whenFilter_thenSucceed() {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(MAX_DISTANCE).filter(TERM_QUERY);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of());
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        Query query = knnQueryBuilder.doToQuery(mockQueryShardContext);
+        assertNotNull(query);
+        assertTrue(query.getClass().isAssignableFrom(FloatVectorSimilarityQuery.class));
+    }
+
+    public void testDoToQuery_whenDoRadiusSearch_whenScoreThreshold_whenFilter_thenSucceed() {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(MIN_SCORE).filter(TERM_QUERY);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of());
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        Query query = knnQueryBuilder.doToQuery(mockQueryShardContext);
+        assertNotNull(query);
+        assertTrue(query.getClass().isAssignableFrom(FloatVectorSimilarityQuery.class));
     }
 
     public void testDoToQuery_WhenknnQueryWithFilterAndFaissEngine_thenSuccess() {
@@ -333,6 +690,70 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertEquals(knnQueryBuilder.getK(), query.getK());
+        assertEquals(knnQueryBuilder.fieldName(), query.getField());
+        assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
+    }
+
+    public void testDoToQuery_whenFromModel_whenDoRadiusSearch_whenDistanceThreshold_thenSucceed() {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(MAX_DISTANCE);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+
+        when(mockKNNVectorField.getDimension()).thenReturn(-K);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(null);
+        String modelId = "test-model-id";
+        when(mockKNNVectorField.getModelId()).thenReturn(modelId);
+
+        ModelMetadata modelMetadata = mock(ModelMetadata.class);
+        when(modelMetadata.getDimension()).thenReturn(4);
+        when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
+        when(modelMetadata.getSpaceType()).thenReturn(SpaceType.L2);
+        ModelDao modelDao = mock(ModelDao.class);
+        when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
+        KNNQueryBuilder.initialize(modelDao);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(indexSettings.getMaxResultWindow()).thenReturn(1000);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+
+        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+        assertEquals(knnQueryBuilder.getMaxDistance(), query.getRadius(), 0);
+        assertEquals(knnQueryBuilder.fieldName(), query.getField());
+        assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
+    }
+
+    public void testDoToQuery_whenFromModel_whenDoRadiusSearch_whenScoreThreshold_thenSucceed() {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(MIN_SCORE);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+
+        when(mockKNNVectorField.getDimension()).thenReturn(-K);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(null);
+        String modelId = "test-model-id";
+        when(mockKNNVectorField.getModelId()).thenReturn(modelId);
+
+        ModelMetadata modelMetadata = mock(ModelMetadata.class);
+        when(modelMetadata.getDimension()).thenReturn(4);
+        when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
+        when(modelMetadata.getSpaceType()).thenReturn(SpaceType.L2);
+        ModelDao modelDao = mock(ModelDao.class);
+        when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
+        KNNQueryBuilder.initialize(modelDao);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(indexSettings.getMaxResultWindow()).thenReturn(1000);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+
+        assertEquals(1 / knnQueryBuilder.getMinScore() - 1, query.getRadius(), 0);
         assertEquals(knnQueryBuilder.fieldName(), query.getField());
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
     }
@@ -405,11 +826,18 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     }
 
     public void testSerialization() throws Exception {
-        assertSerialization(Version.CURRENT, Optional.empty());
+        // For k-NN search
+        assertSerialization(Version.CURRENT, Optional.empty(), K, null, null);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), K, null, null);
+        assertSerialization(Version.V_2_3_0, Optional.empty(), K, null, null);
 
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY));
+        // For distance threshold search
+        assertSerialization(Version.CURRENT, Optional.empty(), null, MAX_DISTANCE, null);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, MAX_DISTANCE, null);
 
-        assertSerialization(Version.V_2_3_0, Optional.empty());
+        // For score threshold search
+        assertSerialization(Version.CURRENT, Optional.empty(), null, null, MIN_SCORE);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, MIN_SCORE);
     }
 
     public void testIgnoreUnmapped() throws IOException {
@@ -424,10 +852,14 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mock(QueryShardContext.class)));
     }
 
-    private void assertSerialization(final Version version, final Optional<QueryBuilder> queryBuilderOptional) throws Exception {
-        final KNNQueryBuilder knnQueryBuilder = queryBuilderOptional.isPresent()
-            ? new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, K, queryBuilderOptional.get())
-            : new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, K);
+    private void assertSerialization(
+        final Version version,
+        final Optional<QueryBuilder> queryBuilderOptional,
+        Integer k,
+        Float distance,
+        Float score
+    ) throws Exception {
+        final KNNQueryBuilder knnQueryBuilder = getKnnQueryBuilder(queryBuilderOptional, k, distance, score);
 
         final ClusterService clusterService = mockClusterService(version);
 
@@ -446,7 +878,13 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 final KNNQueryBuilder deserializedKnnQueryBuilder = (KNNQueryBuilder) deserializedQuery;
                 assertEquals(FIELD_NAME, deserializedKnnQueryBuilder.fieldName());
                 assertArrayEquals(QUERY_VECTOR, (float[]) deserializedKnnQueryBuilder.vector(), 0.0f);
-                assertEquals(K, deserializedKnnQueryBuilder.getK());
+                if (k != null) {
+                    assertEquals(k.intValue(), deserializedKnnQueryBuilder.getK());
+                } else if (distance != null) {
+                    assertEquals(distance.floatValue(), deserializedKnnQueryBuilder.getMaxDistance(), 0.0f);
+                } else {
+                    assertEquals(score.floatValue(), deserializedKnnQueryBuilder.getMinScore(), 0.0f);
+                }
                 if (queryBuilderOptional.isPresent()) {
                     assertNotNull(deserializedKnnQueryBuilder.getFilter());
                     assertEquals(queryBuilderOptional.get(), deserializedKnnQueryBuilder.getFilter());
@@ -454,6 +892,49 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                     assertNull(deserializedKnnQueryBuilder.getFilter());
                 }
             }
+        }
+    }
+
+    private static KNNQueryBuilder getKnnQueryBuilder(Optional<QueryBuilder> queryBuilderOptional, Integer k, Float distance, Float score) {
+        final KNNQueryBuilder knnQueryBuilder;
+        if (k != null) {
+            knnQueryBuilder = queryBuilderOptional.isPresent()
+                ? new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, k, queryBuilderOptional.get())
+                : new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, k);
+        } else if (distance != null) {
+            knnQueryBuilder = queryBuilderOptional.isPresent()
+                ? new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR).maxDistance(distance).filter(queryBuilderOptional.get())
+                : new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR).maxDistance(distance);
+        } else if (score != null) {
+            knnQueryBuilder = queryBuilderOptional.isPresent()
+                ? new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR).minScore(score).filter(queryBuilderOptional.get())
+                : new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR).minScore(score);
+        } else {
+            throw new IllegalArgumentException("Either k or distance must be provided");
+        }
+        return knnQueryBuilder;
+    }
+
+    public void testRadialSearch_whenUnsupportedEngine_thenThrowException() {
+        List<KNNEngine> unsupportedEngines = Arrays.stream(KNNEngine.values())
+            .filter(knnEngine -> !ENGINES_SUPPORTING_RADIAL_SEARCH.contains(knnEngine))
+            .collect(Collectors.toList());
+        for (KNNEngine knnEngine : unsupportedEngines) {
+            KNNMethodContext knnMethodContext = new KNNMethodContext(
+                knnEngine,
+                SpaceType.L2,
+                new MethodComponentContext(METHOD_HNSW, ImmutableMap.of())
+            );
+            KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR).maxDistance(MAX_DISTANCE);
+            KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+            QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+            Index dummyIndex = new Index("dummy", "dummy");
+            when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+            when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+            when(mockKNNVectorField.getDimension()).thenReturn(4);
+            when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+
+            expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
         }
     }
 }
