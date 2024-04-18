@@ -15,3 +15,4 @@ This document contains a list of maintainers in this repo. See [opensearch-proje
 | Ryan Bogan              | [ryanbogan](https://github.com/ryanbogan)             | Amazon      |
 | Vamshi Vijay Nakkirtha  | [vamshin](https://github.com/vamshin)                 | Amazon      |
 | Vijayan Balasubramanian | [VijayanB](https://github.com/VijayanB)               | Amazon      |
+| Yuncheng Lu             | [luyuncheng](https://github.com/luyuncheng)           | Bytedance   |
