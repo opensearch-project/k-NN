@@ -198,8 +198,8 @@ public class IndexUtil {
             }
 
             ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
-            if (!ModelUtil.isModelPresent(modelMetadata) || !ModelUtil.isModelCreated(modelMetadata)) {
-                exception.addValidationError(String.format("Model \"%s\" for field \"%s\" does not exist.", modelId, field));
+            if (!ModelUtil.isModelCreated(modelMetadata)) {
+                exception.addValidationError(String.format("Model \"%s\" for field \"%s\" is not created.", modelId, field));
                 return exception;
             }
 

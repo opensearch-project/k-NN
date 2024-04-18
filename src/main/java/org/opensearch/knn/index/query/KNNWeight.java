@@ -214,8 +214,8 @@ public class KNNWeight extends Weight {
         String modelId = fieldInfo.getAttribute(MODEL_ID);
         if (modelId != null) {
             ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
-            if (!ModelUtil.isModelPresent(modelMetadata) || !ModelUtil.isModelCreated(modelMetadata)) {
-                throw new RuntimeException("Model \"" + modelId + "\" does not exist.");
+            if (!ModelUtil.isModelCreated(modelMetadata)) {
+                throw new RuntimeException("Model \"" + modelId + "\" is not created.");
             }
 
             knnEngine = modelMetadata.getKnnEngine();

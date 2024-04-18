@@ -51,10 +51,10 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         // model when ingestion starts.
         ModelMetadata modelMetadata = this.modelDao.getMetadata(modelId);
 
-        if (!ModelUtil.isModelPresent(modelMetadata) || !ModelUtil.isModelCreated(modelMetadata)) {
+        if (!ModelUtil.isModelCreated(modelMetadata)) {
             throw new IllegalStateException(
                 String.format(
-                    "Model \"%s\" from %s's mapping does not exist. Because the \"%s\" parameter is not updatable, this index will need to be recreated with a valid model.",
+                    "Model \"%s\" from %s's mapping is not created. Because the \"%s\" parameter is not updatable, this index will need to be recreated with a valid model.",
                     modelId,
                     context.mapperService().index().getName(),
                     MODEL_ID

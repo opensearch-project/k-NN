@@ -11,6 +11,9 @@
 
 package org.opensearch.knn.indices;
 
+/**
+ * A utility class for models.
+ */
 public class ModelUtil {
 
     public static boolean isModelPresent(ModelMetadata modelMetadata) {
@@ -18,6 +21,9 @@ public class ModelUtil {
     }
 
     public static boolean isModelCreated(ModelMetadata modelMetadata) {
+        if (!isModelPresent(modelMetadata)) {
+            return false;
+        }
         return modelMetadata.getState().equals(ModelState.CREATED);
     }
 

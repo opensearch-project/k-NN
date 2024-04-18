@@ -518,8 +518,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
-        if (!ModelUtil.isModelPresent(modelMetadata) || !ModelUtil.isModelCreated(modelMetadata)) {
-            throw new IllegalArgumentException(String.format("Model ID '%s' does not exist.", modelId));
+        if (!ModelUtil.isModelCreated(modelMetadata)) {
+            throw new IllegalArgumentException(String.format("Model ID '%s' is not created.", modelId));
         }
         return modelMetadata;
     }

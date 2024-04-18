@@ -256,7 +256,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(fieldInfo.getAttribute(eq(MODEL_ID))).thenReturn(modelId);
 
         RuntimeException ex = expectThrows(RuntimeException.class, () -> knnWeight.scorer(leafReaderContext));
-        assertEquals(String.format("Model \"%s\" does not exist.", modelId), ex.getMessage());
+        assertEquals(String.format("Model \"%s\" is not created.", modelId), ex.getMessage());
     }
 
     @SneakyThrows
