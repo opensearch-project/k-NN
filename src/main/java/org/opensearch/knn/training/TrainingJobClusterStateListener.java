@@ -109,8 +109,7 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
         if (modelDao.isCreated()) {
             List<String> modelIds = searchModelIds();
             for (String modelId : modelIds) {
-                Model model = modelDao.get(modelId);
-                ModelMetadata modelMetadata = model.getModelMetadata();
+                ModelMetadata modelMetadata = getModelMetadata(modelId);
                 if (modelMetadata.getState().equals(ModelState.TRAINING)) {
                     updateModelStateAsFailed(modelId, modelMetadata, "Training failed to complete as cluster crashed");
                 }
@@ -123,7 +122,7 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
             List<String> modelIds = searchModelIds();
             for (DiscoveryNode removedNode : removedNodes) {
                 for (String modelId : modelIds) {
-                    ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+                    ModelMetadata modelMetadata = getModelMetadata(modelId);
                     if (modelMetadata.getNodeAssignment().equals(removedNode.getEphemeralId())
                         && modelMetadata.getState().equals(ModelState.TRAINING)) {
                         updateModelStateAsFailed(modelId, modelMetadata, "Training failed to complete as node dropped");
@@ -173,5 +172,18 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
                 log.error("Failed to update model state", e);
             }
         });
+    }
+
+    private ModelMetadata getModelMetadata(String modelId) throws ExecutionException, InterruptedException {
+        ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+        // On versions prior to 2.14, only models in created state are present in model metadata.
+        if (modelMetadata == null) {
+            log.info(
+                "Model metadata is null in cluster metadata. This can happen for models training on nodes prior to OpenSearch version 2.14.0.  Fetching model information from system index."
+            );
+            Model model = modelDao.get(modelId);
+            return model.getModelMetadata();
+        }
+        return modelMetadata;
     }
 }
