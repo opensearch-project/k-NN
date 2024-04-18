@@ -9,7 +9,9 @@ project(KNNPlugin_JNI)
 
 # ---------------------------------- SETUP ----------------------------------
 # Target libraries to be compiled
-set(TARGET_LIB_COMMON opensearchknn_common)  # Shared library with common utilities
+# Shared library with common utilities. Not a JNI library. Other JNI libs should depend on this one.
+set(TARGET_LIB_UTIL opensearchknn_util)
+set(TARGET_LIB_COMMON opensearchknn_common)  # common lib for JNI
 set(TARGET_LIB_NMSLIB opensearchknn_nmslib)  # nmslib JNI
 set(TARGET_LIB_FAISS opensearchknn_faiss)    # faiss JNI
 set(TARGET_LIBS "")  # Libs to be installed
@@ -60,8 +62,25 @@ elseif(${CMAKE_SYSTEM_PROCESSOR} STREQUAL x86_64)
 endif()
 # ----------------------------------------------------------------------------
 
+# ---------------------------------- UTIL ----------------------------------
+add_library(${TARGET_LIB_UTIL} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/jni_util.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/commons.cpp)
+target_include_directories(${TARGET_LIB_UTIL} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE})
+set_target_properties(${TARGET_LIB_UTIL} PROPERTIES SUFFIX ${LIB_EXT})
+set_target_properties(${TARGET_LIB_UTIL} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+if (NOT "${WIN32}" STREQUAL "")
+    # Use RUNTIME_OUTPUT_DIRECTORY, to build the target library (opensearchknn_util) in the specified directory at runtime.
+    set_target_properties(${TARGET_LIB_UTIL} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
+else()
+    set_target_properties(${TARGET_LIB_UTIL} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
+endif()
+
+list(APPEND TARGET_LIBS ${TARGET_LIB_UTIL})
+# ----------------------------------------------------------------------------
+
 # ---------------------------------- COMMON ----------------------------------
-add_library(${TARGET_LIB_COMMON} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/jni_util.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_JNICommons.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/commons.cpp)
+add_library(${TARGET_LIB_COMMON} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_JNICommons.cpp)
+target_link_libraries(${TARGET_LIB_COMMON} ${TARGET_LIB_UTIL})
 target_include_directories(${TARGET_LIB_COMMON} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE})
 set_target_properties(${TARGET_LIB_COMMON} PROPERTIES SUFFIX ${LIB_EXT})
 set_target_properties(${TARGET_LIB_COMMON} PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -103,7 +122,7 @@ if (${CONFIG_NMSLIB} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} 
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search)
 
     add_library(${TARGET_LIB_NMSLIB} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_NmslibService.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/nmslib_wrapper.cpp)
-    target_link_libraries(${TARGET_LIB_NMSLIB} NonMetricSpaceLib ${TARGET_LIB_COMMON})
+    target_link_libraries(${TARGET_LIB_NMSLIB} NonMetricSpaceLib ${TARGET_LIB_UTIL})
     target_include_directories(${TARGET_LIB_NMSLIB} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE} ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search/include)
     set_target_properties(${TARGET_LIB_NMSLIB} PROPERTIES SUFFIX ${LIB_EXT})
     set_target_properties(${TARGET_LIB_NMSLIB} PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -190,7 +209,7 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
         ${CMAKE_CURRENT_SOURCE_DIR}/src/faiss_wrapper.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/faiss_util.cpp
     )
-    target_link_libraries(${TARGET_LIB_FAISS} ${TARGET_LINK_FAISS_LIB} ${TARGET_LIB_COMMON} OpenMP::OpenMP_CXX)
+    target_link_libraries(${TARGET_LIB_FAISS} ${TARGET_LINK_FAISS_LIB} ${TARGET_LIB_UTIL} OpenMP::OpenMP_CXX)
     target_include_directories(${TARGET_LIB_FAISS} PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         $ENV{JAVA_HOME}/include
@@ -249,6 +268,7 @@ if ("${WIN32}" STREQUAL "")
                 ${TARGET_LIB_FAISS}
                 ${TARGET_LIB_NMSLIB}
                 ${TARGET_LIB_COMMON}
+                ${TARGET_LIB_UTIL}
         )
 
         target_include_directories(jni_test PRIVATE
@@ -266,55 +286,4 @@ if ("${WIN32}" STREQUAL "")
     endif ()
 endif()
 
-# ---------------------------------------------------------------------------
-
-# -------------------------------- INSTALL ----------------------------------
-# Installation rules for shared library
-install(TARGETS ${TARGET_LIBS}
-        LIBRARY DESTINATION lib
-        COMPONENT library)
-
-set(KNN_MAINTAINER "OpenSearch Team <opensearch@amazon.com>")
-set(OPENSEARCH_DOWNLOAD_URL "https://opensearch.org/downloads.html")
-set(CPACK_PACKAGE_NAME ${KNN_PACKAGE_NAME})
-set(CPACK_PACKAGE_VERSION ${KNN_PLUGIN_VERSION})
-set(CMAKE_INSTALL_PREFIX /usr)
-set(CPACK_GENERATOR "RPM;DEB")
-set(CPACK_OUTPUT_FILE_PREFIX packages)
-set(CPACK_PACKAGE_RELEASE 1)
-set(CPACK_PACKAGE_VENDOR "Amazon")
-set(CPACK_PACKAGE_CONTACT "Maintainer: ${KNN_MAINTAINER}")
-set(CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
-set(CPACK_COMPONENTS_GROUPING IGNORE)
-get_cmake_property(CPACK_COMPONENTS_ALL COMPONENTS)
-list(REMOVE_ITEM CPACK_COMPONENTS_ALL "Unspecified")
-
-# Component variable
-set(KNN_PACKAGE_NAME opensearch-knnlib)
-set(KNN_PACKAGE_DESCRIPTION "KNN JNI libraries built off of nmslib and faiss for OpenSearch")
-
-# RPM
-set(CPACK_RPM_PACKAGE_LICENSE "ASL-2.0")
-set(CPACK_RPM_COMPONENT_INSTALL ON)
-set(CPACK_RPM_PACKAGE_URL ${OPENSEARCH_DOWNLOAD_URL})
-set(CPACK_RPM_PACKAGE_RELEASE ${CPACK_PACKAGE_RELEASE})
-
-set(CPACK_RPM_PACKAGE_NAME ${KNN_PACKAGE_NAME})
-set(CPACK_RPM_FILE_NAME "${CPACK_RPM_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${JVM_OS_TYPE}-${MACH_ARCH}.rpm")
-set(CPACK_RPM_PACKAGE_DESCRIPTION ${KNN_PACKAGE_DESCRIPTION})
-set(CPACK_RPM_PACKAGE_SUMMARY "OpenSearch k-NN JNI Library with nmslib and faiss")
-
-# DEB
-set(CPACK_DEBIAN_PACKAGE_HOMEPAGE ${OPENSEARCH_DOWNLOAD_URL})
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER ${KNN_MAINTAINER})
-set(CPACK_DEBIAN_PACKAGE_VERSION ${CPACK_PACKAGE_VERSION})
-set(CPACK_DEBIAN_PACKAGE_SECTION "libs")
-set(CPACK_DEB_COMPONENT_INSTALL ON)
-
-set(CPACK_DEBIAN_PACKAGE_NAME ${KNN_PACKAGE_NAME})
-set(CPACK_DEBIAN_FILE_NAME "${CPACK_DEBIAN_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${JVM_OS_TYPE}-${MACH_ARCH}.deb")
-set(CPACK_DEBIAN_DESCRIPTION ${KNN_PACKAGE_DESCRIPTION})
-set(CPACK_DEBIAN_PACKAGE_SOURCE ${CPACK_DEBIAN_PACKAGE_NAME})
-
-include(CPack)
 # ---------------------------------------------------------------------------
