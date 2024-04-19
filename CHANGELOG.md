@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Infrastructure
 * Add micro-benchmark module in k-NN plugin for benchmark streaming vectors to JNI layer functionality. [#1583](https://github.com/opensearch-project/k-NN/pull/1583)
 * Add arm64 check when SIMD is disabled [#1618](https://github.com/opensearch-project/k-NN/pull/1618)
+* Skip rebuild from scratch after cmake is ran [#1636](https://github.com/opensearch-project/k-NN/pull/1636)
 ### Documentation
 ### Maintenance
 ### Refactoring
