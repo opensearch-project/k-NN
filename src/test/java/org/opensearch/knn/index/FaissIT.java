@@ -232,7 +232,7 @@ public class FaissIT extends KNNRestTestCase {
 
         final Set<Integer> docIdsToBeDeleted = new HashSet<>();
         while (docIdsToBeDeleted.size() < 10) {
-            docIdsToBeDeleted.add(randomInt(testData.indexData.docs.length));
+            docIdsToBeDeleted.add(randomInt(testData.indexData.docs.length - 1));
         }
 
         for (Integer id : docIdsToBeDeleted) {
@@ -741,6 +741,7 @@ public class FaissIT extends KNNRestTestCase {
             .field(KNN_ENGINE, FAISS_NAME)
             .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
             .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NPROBES, 4)
             .startObject(METHOD_ENCODER_PARAMETER)
             .field(NAME, ENCODER_SQ)
             .startObject(PARAMETERS)
