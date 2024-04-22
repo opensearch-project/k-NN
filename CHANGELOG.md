@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.13...2.x)
 ### Features
-* Support radial search in k-NN plugin [#1617](https://github.com/opensearch-project/k-NN/pull/1617)
+* Support radial search in k-NN plugin [#814](https://github.com/opensearch-project/k-NN/issues/814)
 ### Enhancements
 * Make the HitQueue size more appropriate for exact search [#1549](https://github.com/opensearch-project/k-NN/pull/1549)
 * Support script score when doc value is disabled [#1573](https://github.com/opensearch-project/k-NN/pull/1573)
