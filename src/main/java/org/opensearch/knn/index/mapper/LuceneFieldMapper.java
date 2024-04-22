@@ -25,7 +25,8 @@ import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.addStoredFieldForVectorField;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
+import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.buildDocValuesFieldType;
 
 /**
@@ -92,7 +93,9 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             KnnByteVectorField point = new KnnByteVectorField(name(), array, fieldType);
 
             context.doc().add(point);
-            addStoredFieldForVectorField(context, fieldType, name(), point);
+            if (this.stored) {
+                context.doc().add(createStoredFieldForByteVector(name(), array));
+            }
 
             if (hasDocValues && vectorFieldType != null) {
                 context.doc().add(new VectorField(name(), array, vectorFieldType));
@@ -108,7 +111,9 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             KnnVectorField point = new KnnVectorField(name(), array, fieldType);
 
             context.doc().add(point);
-            addStoredFieldForVectorField(context, fieldType, name(), point);
+            if (this.stored) {
+                context.doc().add(createStoredFieldForFloatVector(name(), array));
+            }
 
             if (hasDocValues && vectorFieldType != null) {
                 context.doc().add(new VectorField(name(), array, vectorFieldType));
