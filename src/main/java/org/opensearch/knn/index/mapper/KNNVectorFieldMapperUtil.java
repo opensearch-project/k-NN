@@ -13,15 +13,16 @@ package org.opensearch.knn.index.mapper;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.DocValuesType;
+import org.apache.lucene.util.BytesRef;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
-import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 import org.opensearch.knn.index.util.KNNEngine;
 
+import java.util.Arrays;
 import java.util.Locale;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
@@ -44,7 +45,6 @@ public class KNNVectorFieldMapperUtil {
      */
     public static void validateFP16VectorValue(float value) {
         validateFloatVectorValue(value);
-
         if (value < FP16_MIN_VALUE || value > FP16_MAX_VALUE) {
             throw new IllegalArgumentException(
                 String.format(
@@ -136,9 +136,39 @@ public class KNNVectorFieldMapperUtil {
         return field;
     }
 
-    public static void addStoredFieldForVectorField(ParseContext context, FieldType fieldType, String mapperName, Field vectorField) {
-        if (fieldType.stored()) {
-            context.doc().add(new StoredField(mapperName, vectorField.toString()));
+    /**
+     * Creates a stored field for a byte vector
+     *
+     * @param name field name
+     * @param vector vector to be added to stored field
+     */
+    public static StoredField createStoredFieldForByteVector(String name, byte[] vector) {
+        return new StoredField(name, vector);
+    }
+
+    /**
+     * Creates a stored field for a float vector
+     *
+     * @param name field name
+     * @param vector vector to be added to stored field
+     */
+    public static StoredField createStoredFieldForFloatVector(String name, float[] vector) {
+        return new StoredField(name, KNNVectorSerializerFactory.getDefaultSerializer().floatToByteArray(vector));
+    }
+
+    /**
+     * @param storedVector Vector representation in bytes
+     * @param vectorDataType type of vector
+     * @return either int[] or float[] of corresponding vector
+     */
+    public static Object deserializeStoredVector(BytesRef storedVector, VectorDataType vectorDataType) {
+        if (VectorDataType.BYTE == vectorDataType) {
+            byte[] bytes = storedVector.bytes;
+            int[] byteAsIntArray = new int[bytes.length];
+            Arrays.setAll(byteAsIntArray, i -> bytes[i]);
+            return byteAsIntArray;
         }
+
+        return vectorDataType.getVectorFromBytesRef(storedVector);
     }
 }

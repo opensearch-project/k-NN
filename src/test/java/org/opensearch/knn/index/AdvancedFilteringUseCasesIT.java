@@ -54,8 +54,6 @@ public class AdvancedFilteringUseCasesIT extends KNNRestTestCase {
 
     private static final String FIELD_NAME_VECTOR = "test_vector";
 
-    private static final String PROPERTIES_FIELD = "properties";
-
     private static final String FILTER_FIELD = "filter";
 
     private static final String TERM_FIELD = "term";
