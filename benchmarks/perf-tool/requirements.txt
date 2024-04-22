@@ -4,8 +4,6 @@
 #
 #    pip-compile
 #
-cached-property==1.5.2
-    # via h5py
 cerberus==1.3.4
     # via -r requirements.in
 certifi==2023.7.22
@@ -16,7 +14,7 @@ charset-normalizer==2.0.4
     # via requests
 h5py==3.3.0
     # via -r requirements.in
-idna==3.2
+idna==3.7
     # via requests
 numpy==1.24.2
     # via
