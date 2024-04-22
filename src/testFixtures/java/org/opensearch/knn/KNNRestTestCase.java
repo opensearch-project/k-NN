@@ -107,6 +107,10 @@ import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 public class KNNRestTestCase extends ODFERestTestCase {
     public static final String INDEX_NAME = "test_index";
     public static final String FIELD_NAME = "test_field";
+    public static final String PROPERTIES_FIELD = "properties";
+    public static final String STORE_FIELD = "store";
+    public static final String STORED_QUERY_FIELD = "stored_fields";
+    public static final String MATCH_ALL_QUERY_FIELD = "match_all";
     private static final String DOCUMENT_FIELD_SOURCE = "_source";
     private static final String DOCUMENT_FIELD_FOUND = "found";
     protected static final int DELAY_MILLI_SEC = 1000;
@@ -474,7 +478,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
     /**
      * Add a single KNN Doc to an index
      */
-    protected void addKnnDoc(String index, String docId, String fieldName, Object[] vector) throws IOException {
+    protected <T> void addKnnDoc(String index, String docId, String fieldName, T vector) throws IOException {
         Request request = new Request("POST", "/" + index + "/_doc/" + docId + "?refresh=true");
 
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field(fieldName, vector).endObject();
