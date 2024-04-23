@@ -195,7 +195,7 @@ public class KNNVectorFieldMapperUtil {
      * @param knnVectorFieldType knn vector field type
      * @return expected dimensions
      */
-    public static int getExpectedDimensions(KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType) {
+    public static int getExpectedDimensions(final KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType) {
         int expectedDimensions = knnVectorFieldType.getDimension();
         if (isModelBasedIndex(expectedDimensions)) {
             ModelMetadata modelMetadata = getModelMetadataForField(knnVectorFieldType);
@@ -214,7 +214,7 @@ public class KNNVectorFieldMapperUtil {
      * @param knnVectorField knn vector field
      * @return the model metadata from knnVectorField
      */
-    private static ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
+    private static ModelMetadata getModelMetadataForField(final KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
         String modelId = knnVectorField.getModelId();
 
         if (modelId == null) {
