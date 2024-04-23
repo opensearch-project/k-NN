@@ -37,20 +37,11 @@ jobs:
         uses: actions/checkout@v1
         with:
           submodules: true
-
-        # Git functionality in CMAKE file does not work with given ubuntu image. Therefore, handling it here.
-      - name: Apply Git Patch
-        # Deleting file at the end to skip `git apply` inside CMAKE file
+      # Setup git user so that patches for native libraries can be applied and committed
+      - name: Setup git user
         run: |
-          cd jni/external/faiss
-          git apply --ignore-space-change --ignore-whitespace --3way ../../patches/faiss/0001-Custom-patch-to-support-multi-vector.patch
-          rm ../../patches/faiss/0001-Custom-patch-to-support-multi-vector.patch
-          git apply --ignore-space-change --ignore-whitespace --3way ../../patches/faiss/0002-Enable-precomp-table-to-be-shared-ivfpq.patch
-          rm ../../patches/faiss/0002-Enable-precomp-table-to-be-shared-ivfpq.patch
-          cd ../nmslib
-          git apply --ignore-space-change --ignore-whitespace --3way ../../patches/nmslib/0001-Initialize-maxlevel-during-add-from-enterpoint-level.patch
-          rm ../../patches/nmslib/0001-Initialize-maxlevel-during-add-from-enterpoint-level.patch
-        working-directory: ${{ github.workspace }}
+          su `id -un 1000` -c 'git config --global user.name "github-actions[bot]"'
+          su `id -un 1000` -c 'git config --global user.email "github-actions[bot]@users.noreply.github.com"'
 
       - name: Setup Java ${{ matrix.java }}
         uses: actions/setup-java@v1

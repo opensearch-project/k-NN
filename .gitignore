@@ -17,9 +17,7 @@ oss/*
 jni/CMakeCache.txt
 jni/CMakeFiles
 jni/Makefile
-jni/cmake*
-jni/CPack*
-jni/_CPack*
+jni/cmake_install.cmake
 jni/release
 jni/packages
 jni/CTestTestfile.cmake
