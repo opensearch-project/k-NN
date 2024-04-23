@@ -21,6 +21,9 @@ import org.opensearch.index.mapper.ParametrizedFieldMapper;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelUtil;
 
 import java.util.Arrays;
 import java.util.Locale;
@@ -34,8 +37,21 @@ import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVectorValue;
 
+/**
+ * Utility class for KNNVectorFieldMapper
+ */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class KNNVectorFieldMapperUtil {
+
+    private static ModelDao modelDao;
+
+    /**
+     * Initializes static instance variables
+     * @param modelDao ModelDao object
+     */
+    public static void initialize(final ModelDao modelDao) {
+        KNNVectorFieldMapperUtil.modelDao = modelDao;
+    }
 
     /**
      * Validate the float vector value and throw exception if it is not a number or not in the finite range
@@ -170,5 +186,47 @@ public class KNNVectorFieldMapperUtil {
         }
 
         return vectorDataType.getVectorFromBytesRef(storedVector);
+    }
+
+    /**
+     * Get the expected dimensions from a specified knn vector field type.
+     *
+     * If the field is model-based, get dimensions from model metadata.
+     * @param knnVectorFieldType knn vector field type
+     * @return expected dimensions
+     */
+    public static int getExpectedDimensions(KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType) {
+        int expectedDimensions = knnVectorFieldType.getDimension();
+        if (isModelBasedIndex(expectedDimensions)) {
+            ModelMetadata modelMetadata = getModelMetadataForField(knnVectorFieldType);
+            expectedDimensions = modelMetadata.getDimension();
+        }
+        return expectedDimensions;
+    }
+
+    private static boolean isModelBasedIndex(int expectedDimensions) {
+        return expectedDimensions == -1;
+    }
+
+    /**
+     * Returns the model metadata for a specified knn vector field
+     *
+     * @param knnVectorField knn vector field
+     * @return the model metadata from knnVectorField
+     */
+    private static ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
+        String modelId = knnVectorField.getModelId();
+
+        if (modelId == null) {
+            throw new IllegalArgumentException(
+                String.format("Field '%s' does not have model.", knnVectorField.getKnnMethodContext().getMethodComponentContext().getName())
+            );
+        }
+
+        ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+        if (!ModelUtil.isModelCreated(modelMetadata)) {
+            throw new IllegalArgumentException(String.format("Model ID '%s' is not created.", modelId));
+        }
+        return modelMetadata;
     }
 }
