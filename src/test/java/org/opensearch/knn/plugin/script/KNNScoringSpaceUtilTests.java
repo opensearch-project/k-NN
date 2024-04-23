@@ -6,10 +6,15 @@
 package org.opensearch.knn.plugin.script;
 
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.index.mapper.BinaryFieldMapper;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.knn.indices.ModelDao;
+import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -74,5 +79,45 @@ public class KNNScoringSpaceUtilTests extends KNNTestCase {
 
         String invalidObject = "invalidObject";
         expectThrows(ClassCastException.class, () -> KNNScoringSpaceUtil.parseToFloatArray(invalidObject, 3, VectorDataType.FLOAT));
+    }
+
+    public void testGetExpectedDimensions() {
+        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(knnVectorFieldType.getDimension()).thenReturn(3);
+
+        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldTypeModelBased = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(knnVectorFieldTypeModelBased.getDimension()).thenReturn(-1);
+        String modelId = "test-model";
+        when(knnVectorFieldTypeModelBased.getModelId()).thenReturn(modelId);
+
+        ModelDao modelDao = mock(ModelDao.class);
+        ModelMetadata modelMetadata = mock(ModelMetadata.class);
+        when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
+        when(modelMetadata.getDimension()).thenReturn(4);
+        when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
+
+        KNNScoringSpaceUtil.initialize(modelDao);
+
+        assertEquals(3, KNNScoringSpaceUtil.getExpectedDimensions(knnVectorFieldType));
+        assertEquals(4, KNNScoringSpaceUtil.getExpectedDimensions(knnVectorFieldTypeModelBased));
+
+        when(modelMetadata.getState()).thenReturn(ModelState.TRAINING);
+
+        IllegalArgumentException e = expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNScoringSpaceUtil.getExpectedDimensions(knnVectorFieldTypeModelBased)
+        );
+        assertEquals(String.format("Model ID '%s' is not created.", modelId), e.getMessage());
+
+        when(knnVectorFieldTypeModelBased.getModelId()).thenReturn(null);
+        KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
+        MethodComponentContext methodComponentContext = mock(MethodComponentContext.class);
+        String fieldName = "test-field";
+        when(methodComponentContext.getName()).thenReturn(fieldName);
+        when(knnMethodContext.getMethodComponentContext()).thenReturn(methodComponentContext);
+        when(knnVectorFieldTypeModelBased.getKnnMethodContext()).thenReturn(knnMethodContext);
+
+        e = expectThrows(IllegalArgumentException.class, () -> KNNScoringSpaceUtil.getExpectedDimensions(knnVectorFieldTypeModelBased));
+        assertEquals(String.format("Field '%s' does not have model.", fieldName), e.getMessage());
     }
 }

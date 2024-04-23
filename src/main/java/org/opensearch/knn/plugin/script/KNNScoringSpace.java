@@ -28,6 +28,7 @@ import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.parseToFloatA
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.parseToLong;
 
 public interface KNNScoringSpace {
+
     /**
      * Return the correct scoring script for a given query. The scoring script
      *
@@ -60,7 +61,7 @@ public interface KNNScoringSpace {
 
             this.processedQuery = parseToFloatArray(
                 query,
-                ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension(),
+                KNNScoringSpaceUtil.getExpectedDimensions((KNNVectorFieldMapper.KNNVectorFieldType) fieldType),
                 ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getVectorDataType()
             );
             this.scoringMethod = (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.l2Squared(q, v));
@@ -96,7 +97,7 @@ public interface KNNScoringSpace {
 
             this.processedQuery = parseToFloatArray(
                 query,
-                ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension(),
+                KNNScoringSpaceUtil.getExpectedDimensions((KNNVectorFieldMapper.KNNVectorFieldType) fieldType),
                 ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getVectorDataType()
             );
             SpaceType.COSINESIMIL.validateVector(processedQuery);
@@ -191,7 +192,7 @@ public interface KNNScoringSpace {
 
             this.processedQuery = parseToFloatArray(
                 query,
-                ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension(),
+                KNNScoringSpaceUtil.getExpectedDimensions((KNNVectorFieldMapper.KNNVectorFieldType) fieldType),
                 ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getVectorDataType()
             );
             this.scoringMethod = (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.l1Norm(q, v));
@@ -226,7 +227,7 @@ public interface KNNScoringSpace {
 
             this.processedQuery = parseToFloatArray(
                 query,
-                ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension(),
+                KNNScoringSpaceUtil.getExpectedDimensions((KNNVectorFieldMapper.KNNVectorFieldType) fieldType),
                 ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getVectorDataType()
             );
             this.scoringMethod = (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.lInfNorm(q, v));
@@ -263,7 +264,7 @@ public interface KNNScoringSpace {
 
             this.processedQuery = parseToFloatArray(
                 query,
-                ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getDimension(),
+                KNNScoringSpaceUtil.getExpectedDimensions((KNNVectorFieldMapper.KNNVectorFieldType) fieldType),
                 ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getVectorDataType()
             );
             this.scoringMethod = (float[] q, float[] v) -> KNNWeight.normalizeScore(-KNNScoringUtil.innerProduct(q, v));
