@@ -7,6 +7,8 @@ cmake_minimum_required(VERSION 3.23.1)
 
 project(KNNPlugin_JNI)
 
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/macros.cmake)
+
 # ---------------------------------- SETUP ----------------------------------
 # Target libraries to be compiled
 # Shared library with common utilities. Not a JNI library. Other JNI libs should depend on this one.
@@ -65,16 +67,7 @@ endif()
 # ---------------------------------- UTIL ----------------------------------
 add_library(${TARGET_LIB_UTIL} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/jni_util.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/commons.cpp)
 target_include_directories(${TARGET_LIB_UTIL} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE})
-set_target_properties(${TARGET_LIB_UTIL} PROPERTIES SUFFIX ${LIB_EXT})
-set_target_properties(${TARGET_LIB_UTIL} PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
-if (NOT "${WIN32}" STREQUAL "")
-    # Use RUNTIME_OUTPUT_DIRECTORY, to build the target library (opensearchknn_util) in the specified directory at runtime.
-    set_target_properties(${TARGET_LIB_UTIL} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
-else()
-    set_target_properties(${TARGET_LIB_UTIL} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
-endif()
-
+opensearch_set_common_properties(${TARGET_LIB_UTIL})
 list(APPEND TARGET_LIBS ${TARGET_LIB_UTIL})
 # ----------------------------------------------------------------------------
 
@@ -82,58 +75,17 @@ list(APPEND TARGET_LIBS ${TARGET_LIB_UTIL})
 add_library(${TARGET_LIB_COMMON} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_JNICommons.cpp)
 target_link_libraries(${TARGET_LIB_COMMON} ${TARGET_LIB_UTIL})
 target_include_directories(${TARGET_LIB_COMMON} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE})
-set_target_properties(${TARGET_LIB_COMMON} PROPERTIES SUFFIX ${LIB_EXT})
-set_target_properties(${TARGET_LIB_COMMON} PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
-if (NOT "${WIN32}" STREQUAL "")
-# Use RUNTIME_OUTPUT_DIRECTORY, to build the target library (opensearchknn_common) in the specified directory at runtime.
-    set_target_properties(${TARGET_LIB_COMMON} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
-else()
-    set_target_properties(${TARGET_LIB_COMMON} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
-endif()
-
+opensearch_set_common_properties(${TARGET_LIB_COMMON})
 list(APPEND TARGET_LIBS ${TARGET_LIB_COMMON})
 # ----------------------------------------------------------------------------
 
 # ---------------------------------- NMSLIB ----------------------------------
 if (${CONFIG_NMSLIB} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} STREQUAL ON)
-    # Check if nmslib exists
-    find_path(NMS_REPO_DIR NAMES similarity_search PATHS ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib NO_DEFAULT_PATH)
-
-    # If not, pull the updated submodule
-    if (NOT EXISTS ${NMS_REPO_DIR})
-        message(STATUS "Could not find nmslib. Pulling updated submodule.")
-        execute_process(COMMAND git submodule update --init -- external/nmslib WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-    endif ()
-
-    # Check if patch exist, this is to skip git apply during CI build. See CI.yml with ubuntu.
-    find_path(PATCH_FILE NAMES 0001-Initialize-maxlevel-during-add-from-enterpoint-level.patch PATHS ${CMAKE_CURRENT_SOURCE_DIR}/patches/nmslib NO_DEFAULT_PATH)
-
-    # If it exists, apply patches
-    if (EXISTS ${PATCH_FILE})
-        message(STATUS "Applying custom patches.")
-        execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace --3way ${CMAKE_CURRENT_SOURCE_DIR}/patches/nmslib/0001-Initialize-maxlevel-during-add-from-enterpoint-level.patch WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib ERROR_VARIABLE ERROR_MSG RESULT_VARIABLE RESULT_CODE)
-
-        if(RESULT_CODE)
-            message(FATAL_ERROR "Failed to apply patch:\n${ERROR_MSG}")
-        endif()
-    endif()
-
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search)
-
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/init-nmslib.cmake)
     add_library(${TARGET_LIB_NMSLIB} SHARED ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_NmslibService.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/nmslib_wrapper.cpp)
     target_link_libraries(${TARGET_LIB_NMSLIB} NonMetricSpaceLib ${TARGET_LIB_UTIL})
     target_include_directories(${TARGET_LIB_NMSLIB} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include $ENV{JAVA_HOME}/include $ENV{JAVA_HOME}/include/${JVM_OS_TYPE} ${CMAKE_CURRENT_SOURCE_DIR}/external/nmslib/similarity_search/include)
-    set_target_properties(${TARGET_LIB_NMSLIB} PROPERTIES SUFFIX ${LIB_EXT})
-    set_target_properties(${TARGET_LIB_NMSLIB} PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
-    if (NOT "${WIN32}" STREQUAL "")
-    # Use RUNTIME_OUTPUT_DIRECTORY, to build the target library (opensearchknn_nmslib) in the specified directory at runtime.
-        set_target_properties(${TARGET_LIB_NMSLIB} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
-    else()
-        set_target_properties(${TARGET_LIB_NMSLIB} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
-    endif()
-
+    opensearch_set_common_properties(${TARGET_LIB_NMSLIB})
     list(APPEND TARGET_LIBS ${TARGET_LIB_NMSLIB})
 endif ()
 
@@ -141,68 +93,8 @@ endif ()
 
 # ---------------------------------- FAISS ----------------------------------
 if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} STREQUAL ON)
-    set(BUILD_TESTING OFF)          # Avoid building faiss tests
-    set(BLA_STATIC ON)              # Statically link BLAS
-
-    if(NOT DEFINED SIMD_ENABLED)
-        set(SIMD_ENABLED true)   # set default value as true if the argument is not set
-    endif()
-
-    if(${CMAKE_SYSTEM_NAME} STREQUAL Windows OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "aarch64" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "arm64" OR NOT ${SIMD_ENABLED})
-        set(FAISS_OPT_LEVEL generic)    # Keep optimization level as generic on Windows OS as it is not supported due to MINGW64 compiler issue. Also, on aarch64 avx2 is not supported.
-        set(TARGET_LINK_FAISS_LIB faiss)
-    else()
-        set(FAISS_OPT_LEVEL avx2)       # Keep optimization level as avx2 to improve performance on Linux and Mac.
-        set(TARGET_LINK_FAISS_LIB faiss_avx2)
-        string(PREPEND LIB_EXT "_avx2") # Prepend "_avx2" to lib extension to create the library as "libopensearchknn_faiss_avx2.so" on linux and "libopensearchknn_faiss_avx2.jnilib" on mac
-    endif()
-
-    if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
-        if(CMAKE_C_COMPILER_ID MATCHES "Clang\$")
-            set(OpenMP_C_FLAGS "-Xpreprocessor -fopenmp")
-            set(OpenMP_C_LIB_NAMES "omp")
-            set(OpenMP_omp_LIBRARY /usr/local/opt/libomp/lib/libomp.dylib)
-        endif()
-
-        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang\$")
-            set(OpenMP_CXX_FLAGS "-Xpreprocessor -fopenmp -I/usr/local/opt/libomp/include")
-            set(OpenMP_CXX_LIB_NAMES "omp")
-            set(OpenMP_omp_LIBRARY /usr/local/opt/libomp/lib/libomp.dylib)
-        endif()
-    endif()
-
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/init-faiss.cmake)
     find_package(OpenMP REQUIRED)
-    find_package(ZLIB REQUIRED)
-    find_package(BLAS REQUIRED)
-    enable_language(Fortran)
-    find_package(LAPACK REQUIRED)
-
-    # Check if faiss exists
-    find_path(FAISS_REPO_DIR NAMES faiss PATHS ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss NO_DEFAULT_PATH)
-
-    # If not, pull the updated submodule
-    if (NOT EXISTS ${FAISS_REPO_DIR})
-        message(STATUS "Could not find faiss. Pulling updated submodule.")
-        execute_process(COMMAND git submodule update --init -- external/faiss WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-    endif ()
-
-    # Check if patch exist, this is to skip git apply during CI build. See CI.yml with ubuntu.
-    find_path(PATCH_FILE NAMES 0001-Custom-patch-to-support-multi-vector.patch 0002-Enable-precomp-table-to-be-shared-ivfpq.patch PATHS ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss NO_DEFAULT_PATH)
-
-    # If it exists, apply patches
-    if (EXISTS ${PATCH_FILE})
-        message(STATUS "Applying custom patches.")
-        execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace --3way ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0001-Custom-patch-to-support-multi-vector.patch WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ERROR_VARIABLE ERROR_MSG RESULT_VARIABLE RESULT_CODE)
-        execute_process(COMMAND git apply --ignore-space-change --ignore-whitespace --3way ${CMAKE_CURRENT_SOURCE_DIR}/patches/faiss/0002-Enable-precomp-table-to-be-shared-ivfpq.patch WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss ERROR_VARIABLE ERROR_MSG RESULT_VARIABLE RESULT_CODE)
-        if(RESULT_CODE)
-            message(FATAL_ERROR "Failed to apply patch:\n${ERROR_MSG}")
-        endif()
-    endif()
-
-    set(FAISS_ENABLE_GPU OFF)
-    set(FAISS_ENABLE_PYTHON OFF)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/faiss EXCLUDE_FROM_ALL)
-
     add_library(
         ${TARGET_LIB_FAISS} SHARED
         ${CMAKE_CURRENT_SOURCE_DIR}/src/org_opensearch_knn_jni_FaissService.cpp
@@ -216,16 +108,7 @@ if (${CONFIG_FAISS} STREQUAL ON OR ${CONFIG_ALL} STREQUAL ON OR ${CONFIG_TEST} S
         $ENV{JAVA_HOME}/include/${JVM_OS_TYPE}
         ${CMAKE_CURRENT_SOURCE_DIR}/external/faiss
     )
-    set_target_properties(${TARGET_LIB_FAISS} PROPERTIES SUFFIX ${LIB_EXT})
-    set_target_properties(${TARGET_LIB_FAISS} PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
-    if (NOT "${WIN32}" STREQUAL "")
-    # Use RUNTIME_OUTPUT_DIRECTORY, to build the target library (opensearchknn_faiss) in the specified directory at runtime.
-        set_target_properties(${TARGET_LIB_FAISS} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
-    else()
-        set_target_properties(${TARGET_LIB_FAISS} PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/release)
-    endif()
-
+    opensearch_set_common_properties(${TARGET_LIB_FAISS})
     list(APPEND TARGET_LIBS ${TARGET_LIB_FAISS})
 endif ()
 
