@@ -341,13 +341,7 @@ public interface ModelDao {
                 );
             }, listener::onFailure);
 
-            // After the model is indexed, update metadata only if the model is in CREATED state
-            ActionListener<IndexResponse> onIndexListener;
-            if (ModelState.CREATED.equals(model.getModelMetadata().getState())) {
-                onIndexListener = getUpdateModelMetadataListener(model.getModelMetadata(), onMetaListener);
-            } else {
-                onIndexListener = onMetaListener;
-            }
+            ActionListener<IndexResponse> onIndexListener = getUpdateModelMetadataListener(model.getModelMetadata(), onMetaListener);
 
             // Create the model index if it does not already exist
             Runnable indexModelRunnable = () -> indexRequestBuilder.execute(onIndexListener);

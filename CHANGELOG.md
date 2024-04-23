@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Support script score when doc value is disabled [#1573](https://github.com/opensearch-project/k-NN/pull/1573)
 * Implemented the Streaming Feature to stream vectors from Java to JNI layer to enable creation of larger segments for vector indices [#1604](https://github.com/opensearch-project/k-NN/pull/1604)
 * Remove unnecessary toString conversion of vector field and added some minor optimization in KNNCodec [1613](https://github.com/opensearch-project/k-NN/pull/1613)
+* Serialize all models into cluster metadata [#1499](https://github.com/opensearch-project/k-NN/pull/1499)
 ### Bug Fixes
 * Add stored fields for knn_vector type [#1630](https://github.com/opensearch-project/k-NN/pull/1630)
 ### Infrastructure

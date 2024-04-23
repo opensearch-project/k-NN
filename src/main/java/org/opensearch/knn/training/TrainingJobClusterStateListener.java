@@ -109,10 +109,9 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
         if (modelDao.isCreated()) {
             List<String> modelIds = searchModelIds();
             for (String modelId : modelIds) {
-                Model model = modelDao.get(modelId);
-                ModelMetadata modelMetadata = model.getModelMetadata();
+                ModelMetadata modelMetadata = getModelMetadata(modelId);
                 if (modelMetadata.getState().equals(ModelState.TRAINING)) {
-                    updateModelStateAsFailed(model, "Training failed to complete as cluster crashed");
+                    updateModelStateAsFailed(modelId, modelMetadata, "Training failed to complete as cluster crashed");
                 }
             }
         }
@@ -123,11 +122,10 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
             List<String> modelIds = searchModelIds();
             for (DiscoveryNode removedNode : removedNodes) {
                 for (String modelId : modelIds) {
-                    Model model = modelDao.get(modelId);
-                    ModelMetadata modelMetadata = model.getModelMetadata();
+                    ModelMetadata modelMetadata = getModelMetadata(modelId);
                     if (modelMetadata.getNodeAssignment().equals(removedNode.getEphemeralId())
                         && modelMetadata.getState().equals(ModelState.TRAINING)) {
-                        updateModelStateAsFailed(model, "Training failed to complete as node dropped");
+                        updateModelStateAsFailed(modelId, modelMetadata, "Training failed to complete as node dropped");
                     }
                 }
             }
@@ -158,9 +156,11 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
         return modelIds;
     }
 
-    private void updateModelStateAsFailed(Model model, String msg) throws IOException {
-        model.getModelMetadata().setState(ModelState.FAILED);
-        model.getModelMetadata().setError(msg);
+    private void updateModelStateAsFailed(String modelId, ModelMetadata modelMetadata, String msg) throws IOException, ExecutionException,
+        InterruptedException {
+        modelMetadata.setState(ModelState.FAILED);
+        modelMetadata.setError(msg);
+        Model model = new Model(modelMetadata, null, modelId);
         modelDao.update(model, new ActionListener<IndexResponse>() {
             @Override
             public void onResponse(IndexResponse indexResponse) {
@@ -172,5 +172,18 @@ public class TrainingJobClusterStateListener implements ClusterStateListener {
                 log.error("Failed to update model state", e);
             }
         });
+    }
+
+    private ModelMetadata getModelMetadata(String modelId) throws ExecutionException, InterruptedException {
+        ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+        // On versions prior to 2.14, only models in created state are present in model metadata.
+        if (modelMetadata == null) {
+            log.info(
+                "Model metadata is null in cluster metadata. This can happen for models training on nodes prior to OpenSearch version 2.14.0.  Fetching model information from system index."
+            );
+            Model model = modelDao.get(modelId);
+            return model.getModelMetadata();
+        }
+        return modelMetadata;
     }
 }
