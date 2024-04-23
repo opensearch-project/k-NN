@@ -24,6 +24,7 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.apache.lucene.search.Query;
 import org.opensearch.core.ParseField;
@@ -517,8 +518,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
-        if (modelMetadata == null) {
-            throw new IllegalArgumentException(String.format("Model ID '%s' does not exist.", modelId));
+        if (!ModelUtil.isModelCreated(modelMetadata)) {
+            throw new IllegalArgumentException(String.format("Model ID '%s' is not created.", modelId));
         }
         return modelMetadata;
     }
