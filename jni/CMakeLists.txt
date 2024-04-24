@@ -31,6 +31,18 @@ else()
     set(CONFIG_ALL OFF)
 endif ()
 
+# `git am` will create commits from the patches in the native libraries. This is ideal for development envs
+# because it prevents full lib rebuild everytime cmake is run. However, for build systems that will run the
+# build workflow once, it can cause issues because git commits require that the user and the user's email be set.
+# See https://github.com/opensearch-project/k-NN/issues/1651. So, we provide a flag that allows users to select between
+# the two
+if(NOT DEFINED COMMIT_LIB_PATCHES OR ${COMMIT_LIB_PATCHES} STREQUAL true)
+    set(GIT_PATCH_COMMAND am)
+else()
+    set(GIT_PATCH_COMMAND apply)
+endif()
+message(STATUS "Using the following git patch command: \"${GIT_PATCH_COMMAND}\"")
+
 # Set OS specific variables
 if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
     set(CMAKE_MACOSX_RPATH 1)

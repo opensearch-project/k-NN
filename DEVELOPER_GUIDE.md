@@ -237,6 +237,13 @@ If you want to make a custom patch on JNI library
 3. Place the patch file under `jni/patches`
 4. Make a change in `jni/CmakeLists.txt`, `.github/workflows/CI.yml` to apply the patch during build
 
+By default, in the cmake build system, these patches will be applied and committed to the native libraries. In order to 
+successfully make the commits the `user.name` and `user.email` git configurations need to be setup. If you cannot set 
+these in your environment, you can disable committing the changes to the library by passing gradle this flag: 
+`build.lib.commit_patches=false`. For example, `gradlew build -Dbuild.lib.commit_patches=false`. If the patches are 
+not committed, then the full library build process will run each time `cmake` is invoked. In a development environment, 
+it is recommended to setup the user git configuration to avoid this cost.
+
 ### Enable SIMD Optimization
 SIMD(Single Instruction/Multiple Data) Optimization is enabled by default on Linux and Mac which boosts the performance
 by enabling `AVX2` on `x86 architecture` and `NEON` on `ARM64 architecture` while building the Faiss library. But to enable SIMD, the underlying processor
