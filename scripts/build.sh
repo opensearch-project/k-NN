@@ -118,12 +118,12 @@ fi
 
 # Build k-NN lib and plugin through gradle tasks
 cd $work_dir
-./gradlew build --no-daemon --refresh-dependencies -x integTest -x test -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
-./gradlew :buildJniLib -Dsimd.enabled=false
+./gradlew build --no-daemon --refresh-dependencies -x integTest -x test -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER -Dbuild.lib.commit_patches=false
+./gradlew :buildJniLib -Dsimd.enabled=false -Dbuild.lib.commit_patches=false
 
 if [ "$PLATFORM" != "windows" ] && [ "$ARCHITECTURE" = "x64" ]; then
   echo "Building k-NN library after enabling AVX2"
-  ./gradlew :buildJniLib -Dsimd.enabled=true
+  ./gradlew :buildJniLib -Dsimd.enabled=true -Dbuild.lib.commit_patches=false
 fi
 
 ./gradlew publishPluginZipPublicationToZipStagingRepository -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
