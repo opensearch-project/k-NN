@@ -267,7 +267,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                             max_distance = (Float) NumberFieldMapper.NumberType.FLOAT.parse(parser.objectBytes(), false);
                         } else if (MIN_SCORE_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                             min_score = (Float) NumberFieldMapper.NumberType.FLOAT.parse(parser.objectBytes(), false);
-                        } else if (IGNORE_UNMAPPED_FIELD.getPreferredName().equals("ignore_unmapped")) {
+                        } else if (IGNORE_UNMAPPED_FIELD.getPreferredName().equals(currentFieldName)) {
                             if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
                                 ignoreUnmapped = parser.booleanValue();
                             }
