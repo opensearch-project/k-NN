@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Features
 ### Enhancements
 ### Bug Fixes
+* Add stored fields for knn_vector type [#1630](https://github.com/opensearch-project/k-NN/pull/1630)
 ### Infrastructure
 ### Documentation
 ### Maintenance

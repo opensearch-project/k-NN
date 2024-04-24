@@ -43,7 +43,7 @@ public final class KNNVectorScriptDocValues extends ScriptDocValues<float[]> {
             throw new IllegalStateException(errorMessage);
         }
         try {
-            return vectorDataType.getVectorFromDocValues(binaryDocValues.binaryValue());
+            return vectorDataType.getVectorFromBytesRef(binaryDocValues.binaryValue());
         } catch (IOException e) {
             throw ExceptionsHelper.convertToOpenSearchException(e);
         }
