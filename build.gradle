@@ -18,6 +18,9 @@ buildscript {
         opensearch_group = "org.opensearch"
         isSnapshot = "true" == System.getProperty("build.snapshot", "true")
         simd_enabled = System.getProperty("simd.enabled", "true")
+        // Flag to determine whether cmake build system should apply patches and commit. In automated build environments
+        // set this to false. In dev environments, set to true
+        commit_lib_patches = System.getProperty("build.lib.commit_patches", "true")
 
         version_tokens = opensearch_version.tokenize('-')
         opensearch_build = version_tokens[0] + '.0'
@@ -303,10 +306,10 @@ task cmakeJniLib(type:Exec) {
     workingDir 'jni'
     if (Os.isFamily(Os.FAMILY_WINDOWS)) {
         dependsOn windowsPatches
-        commandLine 'cmake', '.', "-G", "Unix Makefiles", "-DKNN_PLUGIN_VERSION=${opensearch_version}", "-DBLAS_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll", "-DLAPACK_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll", "-DSIMD_ENABLED=${simd_enabled}"
+        commandLine 'cmake', '.', "-G", "Unix Makefiles", "-DKNN_PLUGIN_VERSION=${opensearch_version}", "-DBLAS_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll", "-DLAPACK_LIBRARIES=$rootDir\\src\\main\\resources\\windowsDependencies\\libopenblas.dll", "-DSIMD_ENABLED=${simd_enabled}", "-DCOMMIT_LIB_PATCHES=${commit_lib_patches}"
     }
     else {
-        commandLine 'cmake', '.', "-DKNN_PLUGIN_VERSION=${opensearch_version}", "-DSIMD_ENABLED=${simd_enabled}"
+        commandLine 'cmake', '.', "-DKNN_PLUGIN_VERSION=${opensearch_version}", "-DSIMD_ENABLED=${simd_enabled}", "-DCOMMIT_LIB_PATCHES=${commit_lib_patches}"
     }
 }
 
