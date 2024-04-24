@@ -136,4 +136,5 @@ public class KNNConstants {
 
     public static final Float DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO = 0.95f;
     public static final String MIN_SCORE = "min_score";
+    public static final String MAX_DISTANCE = "max_distance";
 }

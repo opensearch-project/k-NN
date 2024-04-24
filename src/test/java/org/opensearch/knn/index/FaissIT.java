@@ -57,12 +57,14 @@ import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.FP16_MAX_VALUE;
 import static org.opensearch.knn.common.KNNConstants.FP16_MIN_VALUE;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -1733,9 +1735,9 @@ public class FaissIT extends KNNRestTestCase {
             queryBuilder.startObject(fieldName);
             queryBuilder.field("vector", queryVector);
             if (distanceThreshold != null) {
-                queryBuilder.field("max_distance", distanceThreshold);
+                queryBuilder.field(MAX_DISTANCE, distanceThreshold);
             } else if (scoreThreshold != null) {
-                queryBuilder.field("min_score", scoreThreshold);
+                queryBuilder.field(MIN_SCORE, scoreThreshold);
             } else {
                 throw new IllegalArgumentException("Invalid threshold");
             }

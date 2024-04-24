@@ -37,6 +37,8 @@ import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 
+import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
+import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
 import static org.opensearch.knn.index.util.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
@@ -52,8 +54,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     public static final ParseField K_FIELD = new ParseField("k");
     public static final ParseField FILTER_FIELD = new ParseField("filter");
     public static final ParseField IGNORE_UNMAPPED_FIELD = new ParseField("ignore_unmapped");
-    public static final ParseField MAX_DISTANCE_FIELD = new ParseField("max_distance");
-    public static final ParseField MIN_SCORE_FIELD = new ParseField("min_score");
+    public static final ParseField MAX_DISTANCE_FIELD = new ParseField(MAX_DISTANCE);
+    public static final ParseField MIN_SCORE_FIELD = new ParseField(MIN_SCORE);
     public static final int K_MAX = 10000;
     /**
      * The name for the knn query
