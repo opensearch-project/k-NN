@@ -64,7 +64,7 @@ One easy way to install on mac or linux is to use pip:
 pip install cmake==3.23.3
 ```
 
-On Mac M1 machines, install cmake using:
+On Mac M series machines, install cmake using:
 ```bash
 brew install cmake
 ```
@@ -84,9 +84,9 @@ Additionally, the `gcc` toolchain needs to be installed on Mac. To install, run:
 brew install gcc
 ```
 
-#### Extra setup for Mac M1 Machines
+#### Additional setup for Mac M series Machines
 
-The following commands enable running/building k-NN on M1 machines:
+The following commands enable running/building k-NN on M series machines:
 
 ```bash
 // Go to k-NN folder
@@ -102,6 +102,7 @@ cd jni
 sed -i -e 's/\/usr\/local\/opt\/libomp\//\/opt\/homebrew\/opt\/llvm\//g' CMakeLists.txt
 sed -i -e 's/-march=native/-mcpu=apple-m1/g' external/nmslib/similarity_search/CMakeLists.txt
 sed -i -e 's/pragma message WARN/pragma message /g' external/nmslib/similarity_search/src/distcomp_scalar.cc
+// Change to apple-m1, apple-m2 and apple-m3 according to your mac chipset
 sed -i -e 's/-mcpu=apple-a14/-mcpu=apple-m1/g' external/nmslib/python_bindings/setup.py
 sed -i -e 's/__aarch64__/__undefine_aarch64__/g' external/faiss/faiss/utils/distances_simd.cpp
 
@@ -128,7 +129,7 @@ Next, obtain a minimum distribution tarball of the k-NN version you want to buil
 4. You should see a opensearch-min-<version>-SNAPSHOT-darwin-x64.tar.gz file present in distribution/archives/darwin-tar/build/distributions/
 5. Build k-NN by passing the OpenSearch distribution path in `./gradlew <integTest/run> -PcustomDistributionUrl="<Full path to .tar.gz file you noted above>"`
 
-If you want to start OpenSearch directly on Mac M1, make sure to use JDK for ARM. Otherwise, you will see the following error: `mach-o file, but is an incompatible architecture (have 'arm64', need 'x86_64')`. It is better to start OpenSearch by running `bash opensearch-tar-install.sh` instead of `./bin/opensearch`. To run `./bin/opensearch`, the environment variable `JAVA_LIBRARY_PATH` needs to be set correctly so that OpenSearch can find the JNI library:
+If you want to start OpenSearch directly on Mac M series, make sure to use JDK for ARM. Otherwise, you will see the following error: `mach-o file, but is an incompatible architecture (have 'arm64', need 'x86_64')`. It is better to start OpenSearch by running `bash opensearch-tar-install.sh` instead of `./bin/opensearch`. To run `./bin/opensearch`, the environment variable `JAVA_LIBRARY_PATH` needs to be set correctly so that OpenSearch can find the JNI library:
 
 ```
 export OPENSEARCH_HOME=the directory of opensearch...
@@ -178,11 +179,24 @@ Please follow these formatting guidelines:
 OpenSearch k-NN uses a [Gradle](https://docs.gradle.org/6.6.1/userguide/userguide.html) wrapper for its build. 
 Run `gradlew` on Unix systems.
 
+Tests use `JAVA11_HOME` environment variable, make sure to add it in the export path else the tests might fail. 
+e.g 
+```
+echo "export JAVA11_HOME=<JDK11 path>" >> ~/.zshrc
+source ~/.zshrc
+```
+
 Build OpenSearch k-NN using `gradlew build` 
 
 ```
 ./gradlew build
 ```
+
+For Mac M series machines use
+```
+./gradlew build -PcustomDistributionUrl="<Full path to .tar.gz file file you noted above>"
+```
+
 
 ### JNI Library
 
@@ -213,10 +227,10 @@ run:
 ./bin/jni_test
 
 # To run nmslib tests
-./bin/jni_test --gtest_filter=Nmslib*
+./bin/jni_test --gtest_filter='Nmslib*'
 
 # To run faiss tests
-./bin/jni_test --gtest_filter=Faiss*
+./bin/jni_test --gtest_filter='Faiss*'
 ```
 
 ### JNI Library Artifacts
@@ -264,11 +278,13 @@ cmake . -DSIMD_ENABLED=true
 ## Run OpenSearch k-NN
 
 ### Run Single-node Cluster Locally
-Run OpenSearch k-NN using `gradlew run`.
+Run OpenSearch k-NN using `gradlew run`. For Mac M series add ```-PcustomDistributionUrl=``` argument.
 
 ```shell script
 ./gradlew run
 ```
+
+
 That will build OpenSearch and start it, writing its log above Gradle's status message. We log a lot of stuff on startup, specifically these lines tell you that plugin is ready.
 ```
 [2020-05-29T14:50:35,167][INFO ][o.e.h.AbstractHttpServerTransport] [runTask-0] publish_address {127.0.0.1:9200}, bound_addresses {[::1]:9200}, {127.0.0.1:9200}
