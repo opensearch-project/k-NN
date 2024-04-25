@@ -555,7 +555,6 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
     public void testKNNScriptScoreOnModelBasedIndex() throws Exception {
         int dimensions = randomIntBetween(2, 10);
-        String modelName = TEST_MODEL;
         String trainMapping = createKnnIndexMapping(TRAIN_FIELD_PARAMETER, dimensions);
         createKnnIndex(TRAIN_INDEX_PARAMETER, trainMapping);
         bulkIngestRandomVectors(TRAIN_INDEX_PARAMETER, TRAIN_FIELD_PARAMETER, dimensions * 3, dimensions);
@@ -571,15 +570,15 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
             .endObject();
         Map<String, Object> method = xContentBuilderToMap(methodBuilder);
 
-        trainModel(modelName, TRAIN_INDEX_PARAMETER, TRAIN_FIELD_PARAMETER, dimensions, method, "test model for script score");
-        assertTrainingSucceeds(modelName, 30, 1000);
+        trainModel(TEST_MODEL, TRAIN_INDEX_PARAMETER, TRAIN_FIELD_PARAMETER, dimensions, method, "test model for script score");
+        assertTrainingSucceeds(TEST_MODEL, 30, 1000);
 
         String testMapping = XContentFactory.jsonBuilder()
             .startObject()
             .startObject(PROPERTIES_FIELD)
             .startObject(FIELD_NAME)
             .field(TYPE, TYPE_KNN_VECTOR)
-            .field(MODEL_ID, modelName)
+            .field(MODEL_ID, TEST_MODEL)
             .endObject()
             .endObject()
             .endObject()
