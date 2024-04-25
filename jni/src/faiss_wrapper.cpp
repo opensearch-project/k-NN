@@ -27,7 +27,6 @@
 #include <jni.h>
 #include <string>
 #include <vector>
-#include <iostream>
 
 // Defines type of IDSelector
 enum FilterIdsSelectorType{

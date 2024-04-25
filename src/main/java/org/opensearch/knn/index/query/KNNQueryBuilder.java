@@ -80,13 +80,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
      */
     public KNNQueryBuilder(String fieldName, float[] vector) {
         if (Strings.isNullOrEmpty(fieldName)) {
-            throw new IllegalArgumentException("[" + NAME + "] requires fieldName");
+            throw new IllegalArgumentException(String.format("[%s] requires fieldName", NAME));
         }
         if (vector == null) {
-            throw new IllegalArgumentException("[" + NAME + "] requires query vector");
+            throw new IllegalArgumentException(String.format("[%s] requires query vector", NAME));
         }
         if (vector.length == 0) {
-            throw new IllegalArgumentException("[" + NAME + "] query vector is empty");
+            throw new IllegalArgumentException(String.format("[%s] query vector is empty", NAME));
         }
         this.fieldName = fieldName;
         this.vector = vector;
@@ -99,11 +99,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
      */
     public KNNQueryBuilder k(Integer k) {
         if (k == null) {
-            throw new IllegalArgumentException("[" + NAME + "] requires k to be set");
+            throw new IllegalArgumentException(String.format("[%s] requires k to be set", NAME));
         }
         validateSingleQueryType(k, maxDistance, minScore);
         if (k <= 0 || k > K_MAX) {
-            throw new IllegalArgumentException("[" + NAME + "] requires 0 < k <= " + K_MAX);
+            throw new IllegalArgumentException(String.format("[%s] requires k to be in the range (0, %d]", NAME, K_MAX));
         }
         this.k = k;
         return this;
@@ -116,7 +116,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
      */
     public KNNQueryBuilder maxDistance(Float maxDistance) {
         if (maxDistance == null) {
-            throw new IllegalArgumentException("[" + NAME + "] requires maxDistance to be set");
+            throw new IllegalArgumentException(String.format("[%s] requires maxDistance to be set", NAME));
         }
         validateSingleQueryType(k, maxDistance, minScore);
         this.maxDistance = maxDistance;
@@ -130,11 +130,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
      */
     public KNNQueryBuilder minScore(Float minScore) {
         if (minScore == null) {
-            throw new IllegalArgumentException("[" + NAME + "] requires minScore to be set");
+            throw new IllegalArgumentException(String.format("[%s] requires minScore to be set", NAME));
         }
         validateSingleQueryType(k, maxDistance, minScore);
         if (minScore <= 0) {
-            throw new IllegalArgumentException("[" + NAME + "] requires minScore greater than 0");
+            throw new IllegalArgumentException(String.format("[%s] requires minScore to be greater than 0", NAME));
         }
         this.minScore = minScore;
         return this;
@@ -163,19 +163,19 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
     public KNNQueryBuilder(String fieldName, float[] vector, int k, QueryBuilder filter) {
         if (Strings.isNullOrEmpty(fieldName)) {
-            throw new IllegalArgumentException("[" + NAME + "] requires fieldName");
+            throw new IllegalArgumentException(String.format("[%s] requires fieldName", NAME));
         }
         if (vector == null) {
-            throw new IllegalArgumentException("[" + NAME + "] requires query vector");
+            throw new IllegalArgumentException(String.format("[%s] requires query vector", NAME));
         }
         if (vector.length == 0) {
-            throw new IllegalArgumentException("[" + NAME + "] query vector is empty");
+            throw new IllegalArgumentException(String.format("[%s] query vector is empty", NAME));
         }
         if (k <= 0) {
-            throw new IllegalArgumentException("[" + NAME + "] requires k > 0");
+            throw new IllegalArgumentException(String.format("[%s] requires k > 0", NAME));
         }
         if (k > K_MAX) {
-            throw new IllegalArgumentException("[" + NAME + "] requires k <= " + K_MAX);
+            throw new IllegalArgumentException(String.format("[%s] requires k <= %d", NAME, K_MAX));
         }
 
         this.fieldName = fieldName;
@@ -440,14 +440,18 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         Float radius = null;
         if (this.maxDistance != null) {
             if (this.maxDistance < 0 && SpaceType.INNER_PRODUCT.equals(spaceType) == false) {
-                throw new IllegalArgumentException("[" + NAME + "] requires distance to be non-negative for space type: " + spaceType);
+                throw new IllegalArgumentException(
+                    String.format("[" + NAME + "] requires distance to be non-negative for space type: %s", spaceType)
+                );
             }
             radius = knnEngine.distanceToRadialThreshold(this.maxDistance, spaceType);
         }
 
         if (this.minScore != null) {
             if (this.minScore > 1 && SpaceType.INNER_PRODUCT.equals(spaceType) == false) {
-                throw new IllegalArgumentException("[" + NAME + "] requires score to be in the range (0, 1] for space type: " + spaceType);
+                throw new IllegalArgumentException(
+                    String.format("[" + NAME + "] requires score to be in the range [0, 1] for space type: %s", spaceType)
+                );
             }
             radius = knnEngine.scoreToRadialThreshold(this.minScore, spaceType);
         }
@@ -509,7 +513,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .build();
             return RNNQueryFactory.create(createQueryRequest);
         }
-        throw new IllegalArgumentException("[" + NAME + "] requires either k or distance or score to be set");
+        throw new IllegalArgumentException(String.format("[%s] requires k or distance or score to be set", NAME));
     }
 
     private ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
@@ -559,9 +563,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         if (countSetFields != 1) {
-            throw new IllegalArgumentException(
-                "[" + NAME + "] requires only one query type to be set, it can be either k, distance, or score"
-            );
+            throw new IllegalArgumentException(String.format("[%s] requires exactly one of k, distance or score to be set", NAME));
         }
     }
 }
