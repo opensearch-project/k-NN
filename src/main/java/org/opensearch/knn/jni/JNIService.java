@@ -271,6 +271,9 @@ public class JNIService {
      * @param radius search within radius threshold
      * @param knnEngine engine to query index
      * @param indexMaxResultWindow maximum number of results to return
+     * @param filteredIds list of doc ids to include in the query result
+     * @param filterIdsType how to filter ids: Batch or BitMap
+     * @param parentIds parent ids of the vectors
      * @return KNNQueryResult array of neighbors within radius
      */
     public static KNNQueryResult[] radiusQueryIndex(
@@ -278,10 +281,24 @@ public class JNIService {
         float[] queryVector,
         float radius,
         KNNEngine knnEngine,
-        int indexMaxResultWindow
+        int indexMaxResultWindow,
+        long[] filteredIds,
+        int filterIdsType,
+        int[] parentIds
     ) {
         if (KNNEngine.FAISS == knnEngine) {
-            return FaissService.rangeSearchIndex(indexPointer, queryVector, radius, indexMaxResultWindow);
+            if (ArrayUtils.isNotEmpty(filteredIds)) {
+                return FaissService.rangeSearchIndexWithFilter(
+                    indexPointer,
+                    queryVector,
+                    radius,
+                    indexMaxResultWindow,
+                    filteredIds,
+                    filterIdsType,
+                    parentIds
+                );
+            }
+            return FaissService.rangeSearchIndex(indexPointer, queryVector, radius, indexMaxResultWindow, parentIds);
         }
         throw new IllegalArgumentException("RadiusQueryIndex not supported for provided engine");
     }

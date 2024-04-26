@@ -699,8 +699,9 @@ public class KNNWeightTests extends KNNTestCase {
         final float[] queryVector = new float[] { 0.1f, 0.3f };
         final float radius = 0.5f;
         final int maxResults = 1000;
-        jniServiceMockedStatic.when(() -> JNIService.radiusQueryIndex(anyLong(), any(), anyFloat(), any(), anyInt()))
-            .thenReturn(getKNNQueryResults());
+        jniServiceMockedStatic.when(
+            () -> JNIService.radiusQueryIndex(anyLong(), any(), anyFloat(), any(), anyInt(), any(), anyInt(), any())
+        ).thenReturn(getKNNQueryResults());
         KNNQuery.Context context = mock(KNNQuery.Context.class);
         when(context.getMaxResultWindow()).thenReturn(maxResults);
 
@@ -742,7 +743,9 @@ public class KNNWeightTests extends KNNTestCase {
 
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
-        jniServiceMockedStatic.verify(() -> JNIService.radiusQueryIndex(anyLong(), any(), anyFloat(), any(), anyInt()));
+        jniServiceMockedStatic.verify(
+            () -> JNIService.radiusQueryIndex(anyLong(), any(), anyFloat(), any(), anyInt(), any(), anyInt(), any())
+        );
 
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
 
