@@ -628,7 +628,7 @@ TEST(FaissRangeSearchQueryIndexTest, BasicAssertions) {
 
     // Define query data
     float radius = 100000.0;
-    int numQueries = 2;
+    int numQueries = 100;
     std::vector<std::vector<float>> queries;
 
     for (int i = 0; i < numQueries; i++) {
@@ -659,7 +659,7 @@ TEST(FaissRangeSearchQueryIndexTest, BasicAssertions) {
                         knn_jni::faiss_wrapper::RangeSearch(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), radius, maxResultWindow)));
+                                reinterpret_cast<jfloatArray>(&query), radius, maxResultWindow, nullptr)));
 
         // assert result size is not 0
         ASSERT_NE(0, results->size());
@@ -684,7 +684,7 @@ TEST(FaissRangeSearchQueryIndexTest_WhenHitMaxWindowResult, BasicAssertions){
 
     // Define query data
     float radius = 100000.0;
-    int numQueries = 2;
+    int numQueries = 100;
     std::vector<std::vector<float>> queries;
 
     for (int i = 0; i < numQueries; i++) {
@@ -715,12 +715,160 @@ TEST(FaissRangeSearchQueryIndexTest_WhenHitMaxWindowResult, BasicAssertions){
                         knn_jni::faiss_wrapper::RangeSearch(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), radius, maxResultWindow)));
+                                reinterpret_cast<jfloatArray>(&query), radius, maxResultWindow, nullptr)));
 
         // assert result size is not 0
         ASSERT_NE(0, results->size());
         // assert result size is equal to maxResultWindow
         ASSERT_EQ(maxResultWindow, results->size());
+
+        // Need to free up each result
+        for (auto it : *results) {
+            delete it;
+        }
+    }
+}
+
+TEST(FaissRangeSearchQueryIndexTestWithFilterTest, BasicAssertions) {
+    // Define the index data
+    faiss::idx_t numIds = 200;
+    int dim = 2;
+    std::vector<faiss::idx_t> ids = test_util::Range(numIds);
+    std::vector<float> vectors = test_util::RandomVectors(dim, numIds, randomDataMin, randomDataMax);
+
+    faiss::MetricType metricType = faiss::METRIC_L2;
+    std::string method = "HNSW32,Flat";
+
+    // Define query data
+    float radius = 100000.0;
+    int numQueries = 100;
+    std::vector<std::vector<float>> queries;
+
+    for (int i = 0; i < numQueries; i++) {
+        std::vector<float> query;
+        query.reserve(dim);
+        for (int j = 0; j < dim; j++) {
+            query.push_back(test_util::RandomFloat(randomDataMin, randomDataMax));
+        }
+        queries.push_back(query);
+    }
+
+    // Create the index
+    std::unique_ptr<faiss::Index> createdIndex(
+            test_util::FaissCreateIndex(dim, method, metricType));
+    auto createdIndexWithData =
+            test_util::FaissAddData(createdIndex.get(), ids, vectors);
+
+    // Setup jni
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    int num_bits = test_util::bits2words(164);
+    std::vector<jlong> bitmap(num_bits,0);
+    std::vector<int64_t> filterIds;
+
+    for (int64_t i = 154; i < 163; i++) {
+        filterIds.push_back(i);
+        test_util::setBitSet(i, bitmap.data(), bitmap.size());
+    }
+    std::unordered_set<int> filterIdSet(filterIds.begin(), filterIds.end());
+
+    int maxResultWindow = 20000;
+
+    for (auto query : queries) {
+        std::unique_ptr<std::vector<std::pair<int, float> *>> results(
+                reinterpret_cast<std::vector<std::pair<int, float> *> *>(
+
+                        knn_jni::faiss_wrapper::RangeSearchWithFilter(
+                                &mockJNIUtil, jniEnv,
+                                reinterpret_cast<jlong>(&createdIndexWithData),
+                                reinterpret_cast<jfloatArray>(&query), radius, maxResultWindow,
+                                reinterpret_cast<jlongArray>(&bitmap), 0, nullptr)));
+
+        // assert result size is not 0
+        ASSERT_NE(0, results->size());
+        ASSERT_TRUE(results->size() <= filterIds.size());
+        for (const auto& pairPtr : *results) {
+            auto it = filterIdSet.find(pairPtr->first);
+            ASSERT_NE(it, filterIdSet.end());
+        }
+
+        // Need to free up each result
+        for (auto it : *results) {
+            delete it;
+        }
+    }
+}
+
+TEST(FaissRangeSearchQueryIndexTestWithParentFilterTest, BasicAssertions) {
+    // Define the index data
+    faiss::idx_t numIds = 100;
+    std::vector<faiss::idx_t> ids;
+    std::vector<float> vectors;
+    std::vector<int> parentIds;
+    int dim = 2;
+    for (int64_t i = 1; i < numIds + 1; i++) {
+        if (i % 10 == 0) {
+            parentIds.push_back(i);
+            continue;
+        }
+        ids.push_back(i);
+        for (int j = 0; j < dim; j++) {
+            vectors.push_back(test_util::RandomFloat(-500.0, 500.0));
+        }
+    }
+
+    faiss::MetricType metricType = faiss::METRIC_L2;
+    std::string method = "HNSW32,Flat";
+
+    // Define query data
+    float radius = 100000.0;
+    int numQueries = 1;
+    std::vector<std::vector<float>> queries;
+
+    for (int i = 0; i < numQueries; i++) {
+        std::vector<float> query;
+        query.reserve(dim);
+        for (int j = 0; j < dim; j++) {
+            query.push_back(test_util::RandomFloat(-500.0, 500.0));
+        }
+        queries.push_back(query);
+    }
+
+    // Create the index
+    std::unique_ptr<faiss::Index> createdIndex(
+            test_util::FaissCreateIndex(dim, method, metricType));
+    auto createdIndexWithData =
+            test_util::FaissAddData(createdIndex.get(), ids, vectors);
+
+    // Setup jni
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    EXPECT_CALL(mockJNIUtil,
+                GetJavaIntArrayLength(
+                        jniEnv, reinterpret_cast<jintArray>(&parentIds)))
+            .WillRepeatedly(Return(parentIds.size()));
+
+    int maxResultWindow = 10000;
+
+    for (auto query : queries) {
+        std::unique_ptr<std::vector<std::pair<int, float> *>> results(
+                reinterpret_cast<std::vector<std::pair<int, float> *> *>(
+
+                        knn_jni::faiss_wrapper::RangeSearchWithFilter(
+                                &mockJNIUtil, jniEnv,
+                                reinterpret_cast<jlong>(&createdIndexWithData),
+                                reinterpret_cast<jfloatArray>(&query), radius, maxResultWindow, nullptr, 0,
+                                reinterpret_cast<jintArray>(&parentIds))));
+
+        // assert result size is not 0
+        ASSERT_NE(0, results->size());
+        // Result should be one for each group
+        std::set<int> idSet;
+        for (const auto& pairPtr : *results) {
+            idSet.insert(pairPtr->first / 10);
+        }
+        ASSERT_NE(0, idSet.size());
 
         // Need to free up each result
         for (auto it : *results) {

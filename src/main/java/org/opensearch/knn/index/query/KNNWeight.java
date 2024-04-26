@@ -294,7 +294,10 @@ public class KNNWeight extends Weight {
                     knnQuery.getQueryVector(),
                     knnQuery.getRadius(),
                     knnEngine,
-                    knnQuery.getContext().getMaxResultWindow()
+                    knnQuery.getContext().getMaxResultWindow(),
+                    filterIds,
+                    filterType.getValue(),
+                    parentIds
                 );
             }
         } catch (Exception e) {

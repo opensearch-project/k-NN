@@ -23,6 +23,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.client.ResponseException;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNResult;
@@ -34,6 +35,7 @@ import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -55,12 +57,14 @@ import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
 import static org.opensearch.knn.common.KNNConstants.FP16_MAX_VALUE;
 import static org.opensearch.knn.common.KNNConstants.FP16_MIN_VALUE;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -91,7 +95,7 @@ public class FaissIT extends KNNRestTestCase {
         String indexName = "test-index-1";
         String fieldName = "test-field-1";
 
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
+        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(METHOD_HNSW);
         SpaceType spaceType = SpaceType.L2;
 
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
@@ -108,10 +112,10 @@ public class FaissIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .startObject(KNNConstants.PARAMETERS)
+            .field(NAME, hnswMethod.getMethodComponent().getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
@@ -180,7 +184,7 @@ public class FaissIT extends KNNRestTestCase {
         String indexName = "test-index-1";
         String fieldName = "test-field-1";
 
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
+        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(METHOD_HNSW);
         SpaceType spaceType = SpaceType.L2;
 
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
@@ -197,10 +201,10 @@ public class FaissIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .startObject(KNNConstants.PARAMETERS)
+            .field(NAME, hnswMethod.getMethodComponent().getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
@@ -279,7 +283,7 @@ public class FaissIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testEndToEnd_whenDoRadiusSearch_whenDistanceThreshold_whenMethodIsHNSWFlat_thenSucceed() {
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
+        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(METHOD_HNSW);
         SpaceType spaceType = SpaceType.L2;
 
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
@@ -296,10 +300,10 @@ public class FaissIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .startObject(KNNConstants.PARAMETERS)
+            .field(NAME, hnswMethod.getMethodComponent().getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
@@ -330,7 +334,7 @@ public class FaissIT extends KNNRestTestCase {
         assertEquals(testData.indexData.docs.length, getDocCount(INDEX_NAME));
 
         float distance = 300000000000f;
-        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, distance, null, spaceType);
+        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, distance, null, spaceType, null);
 
         // Delete index
         deleteKNNIndex(INDEX_NAME);
@@ -338,7 +342,7 @@ public class FaissIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testEndToEnd_whenDoRadiusSearch_whenScoreThreshold_whenMethodIsHNSWFlat_thenSucceed() {
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
+        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(METHOD_HNSW);
         SpaceType spaceType = SpaceType.L2;
 
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
@@ -355,10 +359,10 @@ public class FaissIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .startObject(KNNConstants.PARAMETERS)
+            .field(NAME, hnswMethod.getMethodComponent().getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
@@ -390,7 +394,7 @@ public class FaissIT extends KNNRestTestCase {
 
         float score = 0.00001f;
 
-        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, null, score, spaceType);
+        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, null, score, spaceType, null);
 
         // Delete index
         deleteKNNIndex(INDEX_NAME);
@@ -398,7 +402,7 @@ public class FaissIT extends KNNRestTestCase {
 
     @SneakyThrows
     public void testEndToEnd_whenDoRadiusSearch_whenMoreThanOneScoreThreshold_whenMethodIsHNSWFlat_thenSucceed() {
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
+        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(METHOD_HNSW);
         SpaceType spaceType = SpaceType.INNER_PRODUCT;
 
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
@@ -415,10 +419,10 @@ public class FaissIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .startObject(KNNConstants.PARAMETERS)
+            .field(NAME, hnswMethod.getMethodComponent().getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
@@ -450,14 +454,14 @@ public class FaissIT extends KNNRestTestCase {
 
         float score = 5f;
 
-        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, null, score, spaceType);
+        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, null, score, spaceType, null);
 
         // Delete index
         deleteKNNIndex(INDEX_NAME);
     }
 
     @SneakyThrows
-    public void testEndToEnd_whenDoRadiusSearch__whenDistanceThreshold_whenMethodIsHNSWPQ_thenSucceed() {
+    public void testEndToEnd_whenDoRadiusSearch_whenDistanceThreshold_whenMethodIsHNSWPQ_thenSucceed() {
         String indexName = "test-index";
         String fieldName = "test-field";
         String trainingIndexName = "training-index";
@@ -535,7 +539,7 @@ public class FaissIT extends KNNRestTestCase {
 
         float distance = 300000000000f;
 
-        validateRadiusSearchResults(indexName, fieldName, testData.queries, distance, null, spaceType);
+        validateRadiusSearchResults(indexName, fieldName, testData.queries, distance, null, spaceType, null);
 
         // Delete index
         deleteKNNIndex(indexName);
@@ -552,6 +556,32 @@ public class FaissIT extends KNNRestTestCase {
         }
 
         fail("Graphs are not getting evicted");
+    }
+
+    @SneakyThrows
+    public void testRadialQuery_withFilter_thenSuccess() {
+        setupKNNIndexForFilterQuery();
+
+        final float[][] searchVector = new float[][] { { 3.3f, 3.0f, 5.0f } };
+        TermQueryBuilder termQueryBuilder = QueryBuilders.termQuery("color", "red");
+        List<String> expectedDocIds = Arrays.asList(DOC_ID_3);
+
+        float distance = 15f;
+        List<List<KNNResult>> queryResult = validateRadiusSearchResults(
+            INDEX_NAME,
+            FIELD_NAME,
+            searchVector,
+            distance,
+            null,
+            SpaceType.L2,
+            termQueryBuilder
+        );
+
+        assertEquals(1, queryResult.get(0).size());
+        assertEquals(expectedDocIds.get(0), queryResult.get(0).get(0).getDocId());
+
+        // Delete index
+        deleteKNNIndex(INDEX_NAME);
     }
 
     @SneakyThrows
@@ -670,7 +700,7 @@ public class FaissIT extends KNNRestTestCase {
         String indexName = "test-index-hnsw-sqfp16";
         String fieldName = "test-field-hnsw-sqfp16";
 
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
+        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(METHOD_HNSW);
         SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
         Random random = new Random();
         SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
@@ -690,10 +720,10 @@ public class FaissIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .startObject(KNNConstants.PARAMETERS)
+            .field(NAME, hnswMethod.getMethodComponent().getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
@@ -784,7 +814,7 @@ public class FaissIT extends KNNRestTestCase {
         String indexName = "test-index-sqfp16";
         String fieldName = "test-field-sqfp16";
 
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
+        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(METHOD_HNSW);
         SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
         Random random = new Random();
         SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
@@ -803,10 +833,10 @@ public class FaissIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .startObject(KNNConstants.PARAMETERS)
+            .field(NAME, hnswMethod.getMethodComponent().getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
@@ -886,7 +916,7 @@ public class FaissIT extends KNNRestTestCase {
         String indexName = "test-index-sqfp16-clip-fp16";
         String fieldName = "test-field-sqfp16";
 
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
+        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(METHOD_HNSW);
         Random random = new Random();
 
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
@@ -903,10 +933,10 @@ public class FaissIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
-            .startObject(KNNConstants.PARAMETERS)
+            .field(NAME, hnswMethod.getMethodComponent().getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
             .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, efConstructionValues.get(random().nextInt(efConstructionValues.size())))
             .field(KNNConstants.METHOD_PARAMETER_EF_SEARCH, efSearchValues.get(random().nextInt(efSearchValues.size())))
@@ -1351,7 +1381,7 @@ public class FaissIT extends KNNRestTestCase {
         String fieldName = "test-field-1";
         Integer dimension = 2;
 
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
+        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(METHOD_HNSW);
         SpaceType spaceType = SpaceType.L2;
 
         // Create an index
@@ -1362,9 +1392,9 @@ public class FaissIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(NAME, hnswMethod.getMethodComponent().getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -1387,7 +1417,7 @@ public class FaissIT extends KNNRestTestCase {
         String fieldName = "test-field-1";
         Integer dimension = 2;
 
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
+        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(METHOD_HNSW);
         SpaceType spaceType = SpaceType.L2;
 
         // Create an index
@@ -1398,9 +1428,9 @@ public class FaissIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(NAME, hnswMethod.getMethodComponent().getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -1576,9 +1606,9 @@ public class FaissIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", 2)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW).getMethodComponent().getName())
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(NAME, KNNEngine.FAISS.getMethod(METHOD_HNSW).getMethodComponent().getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -1627,9 +1657,9 @@ public class FaissIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", 3)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW).getMethodComponent().getName())
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
+            .field(NAME, KNNEngine.FAISS.getMethod(METHOD_HNSW).getMethodComponent().getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .endObject()
             .endObject()
             .endObject()
@@ -1689,25 +1719,30 @@ public class FaissIT extends KNNRestTestCase {
         fail("Graphs are not getting evicted");
     }
 
-    private void validateRadiusSearchResults(
+    private List<List<KNNResult>> validateRadiusSearchResults(
         String indexName,
         String fieldName,
         float[][] queryVectors,
         Float distanceThreshold,
         Float scoreThreshold,
-        final SpaceType spaceType
+        final SpaceType spaceType,
+        TermQueryBuilder filterQuery
     ) throws IOException, ParseException {
+        List<List<KNNResult>> queryResults = new ArrayList<>();
         for (float[] queryVector : queryVectors) {
             XContentBuilder queryBuilder = XContentFactory.jsonBuilder().startObject().startObject("query");
             queryBuilder.startObject("knn");
             queryBuilder.startObject(fieldName);
             queryBuilder.field("vector", queryVector);
             if (distanceThreshold != null) {
-                queryBuilder.field("max_distance", distanceThreshold);
+                queryBuilder.field(MAX_DISTANCE, distanceThreshold);
             } else if (scoreThreshold != null) {
-                queryBuilder.field("min_score", scoreThreshold);
+                queryBuilder.field(MIN_SCORE, scoreThreshold);
             } else {
                 throw new IllegalArgumentException("Invalid threshold");
+            }
+            if (filterQuery != null) {
+                queryBuilder.field("filter", filterQuery);
             }
             queryBuilder.endObject();
             queryBuilder.endObject();
@@ -1727,6 +1762,8 @@ public class FaissIT extends KNNRestTestCase {
                     throw new IllegalArgumentException("Invalid space type");
                 }
             }
+            queryResults.add(knnResults);
         }
+        return queryResults;
     }
 }

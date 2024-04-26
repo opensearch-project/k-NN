@@ -32,6 +32,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.PATH;
@@ -152,7 +153,64 @@ public class NestedSearchIT extends KNNRestTestCase {
         updateIndexSettings(INDEX_NAME, Settings.builder().put(KNNSettings.ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, 100));
 
         Float[] queryVector = { 3f, 3f, 3f };
-        Response response = queryNestedField(INDEX_NAME, 3, queryVector, FIELD_NAME_PARKING, FIELD_VALUE_TRUE);
+        Response response = queryNestedField(INDEX_NAME, 3, queryVector, FIELD_NAME_PARKING, FIELD_VALUE_TRUE, null);
+        String entity = EntityUtils.toString(response.getEntity());
+        List<String> docIds = parseIds(entity);
+        assertEquals(2, docIds.size());
+        assertEquals("3", docIds.get(0));
+        assertEquals("1", docIds.get(1));
+        assertEquals(2, parseTotalSearchHits(entity));
+    }
+
+    /**
+     * {
+     * 	"query": {
+     * 		"nested": {
+     * 			"path": "test_nested",
+     * 			"query": {
+     * 				"knn": {
+     * 					"test_nested.test_vector": {
+     * 						"vector": [
+     * 							1, 1, 1
+     * 						],
+     * 						"min_score": 0.00001,
+     * 						"filter": {
+     * 							"term": {
+     * 								"parking": "true"
+     *                          }
+     *                      }
+     * 					}
+     * 				}
+     * 			}
+     * 		}
+     * 	 }
+     * }
+     *
+     */
+    @SneakyThrows
+    public void testNestedWithFaiss_whenFilter_whenDoRadialSearch_thenReturnCorrectResults() {
+        createKnnIndex(3, KNNEngine.FAISS.getName());
+
+        for (int i = 1; i < 4; i++) {
+            float value = (float) i;
+            String doc = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
+                .addVectors(
+                    FIELD_NAME_VECTOR,
+                    new Float[] { value, value, value },
+                    new Float[] { value, value, value },
+                    new Float[] { value, value, value }
+                )
+                .addTopLevelField(FIELD_NAME_PARKING, i % 2 == 1 ? FIELD_VALUE_TRUE : FIELD_VALUE_FALSE)
+                .build();
+            addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
+        }
+        refreshIndex(INDEX_NAME);
+        forceMergeKnnIndex(INDEX_NAME);
+
+        Float[] queryVector = { 3f, 3f, 3f };
+        Float minScore = 0.00001f;
+        Response response = queryNestedField(INDEX_NAME, null, queryVector, FIELD_NAME_PARKING, FIELD_VALUE_TRUE, minScore);
+
         String entity = EntityUtils.toString(response.getEntity());
         List<String> docIds = parseIds(entity);
         assertEquals(2, docIds.size());
@@ -215,22 +273,29 @@ public class NestedSearchIT extends KNNRestTestCase {
     }
 
     private Response queryNestedField(final String index, final int k, final Object[] vector) throws IOException {
-        return queryNestedField(index, k, vector, null, null);
+        return queryNestedField(index, k, vector, null, null, null);
     }
 
     private Response queryNestedField(
         final String index,
-        final int k,
+        final Integer k,
         final Object[] vector,
         final String filterName,
-        final String filterValue
+        final String filterValue,
+        final Float minScore
     ) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject(QUERY);
         builder.startObject(TYPE_NESTED);
         builder.field(PATH, FIELD_NAME_NESTED);
         builder.startObject(QUERY).startObject(KNN).startObject(FIELD_NAME_NESTED + "." + FIELD_NAME_VECTOR);
         builder.field(VECTOR, vector);
-        builder.field(K, k);
+        if (minScore != null) {
+            builder.field(MIN_SCORE, minScore);
+        } else if (k != null) {
+            builder.field(K, k);
+        } else {
+            throw new IllegalArgumentException("k or minScore must be provided in the query");
+        }
         if (filterName != null && filterValue != null) {
             builder.startObject(FIELD_FILTER);
             builder.startObject(FIELD_TERM);

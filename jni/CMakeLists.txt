@@ -36,7 +36,7 @@ endif ()
 # build workflow once, it can cause issues because git commits require that the user and the user's email be set.
 # See https://github.com/opensearch-project/k-NN/issues/1651. So, we provide a flag that allows users to select between
 # the two
-if(NOT DEFINED COMMIT_LIB_PATCHES OR ${COMMIT_LIB_PATCHES} STREQUAL true)
+if(NOT DEFINED COMMIT_LIB_PATCHES OR "${COMMIT_LIB_PATCHES}" STREQUAL true)
     set(GIT_PATCH_COMMAND am)
 else()
     set(GIT_PATCH_COMMAND apply)

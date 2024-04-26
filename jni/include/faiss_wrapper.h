@@ -75,16 +75,34 @@ namespace knn_jni {
                               jlong trainVectorsPointerJ);
 
         /*
+         * Perform a range search with filter against the index located in memory at indexPointerJ.
+         *
+         * @param indexPointerJ - pointer to the index
+         * @param queryVectorJ - the query vector
+         * @param radiusJ - the radius for the range search
+         * @param maxResultsWindowJ - the maximum number of results to return
+         * @param filterIdsJ - the filter ids
+         * @param filterIdsTypeJ - the filter ids type
+         * @param parentIdsJ - the parent ids
+         *
+         * @return an array of RangeQueryResults
+         */
+        jobjectArray RangeSearchWithFilter(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong indexPointerJ, jfloatArray queryVectorJ,
+                                           jfloat radiusJ, jint maxResultWindowJ, jlongArray filterIdsJ, jint filterIdsTypeJ, jintArray parentIdsJ);
+
+        /*
          * Perform a range search against the index located in memory at indexPointerJ.
          *
          * @param indexPointerJ - pointer to the index
          * @param queryVectorJ - the query vector
          * @param radiusJ - the radius for the range search
          * @param maxResultsWindowJ - the maximum number of results to return
+         * @param parentIdsJ - the parent ids
+         *
          * @return an array of RangeQueryResults
          */
         jobjectArray RangeSearch(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong indexPointerJ, jfloatArray queryVectorJ,
-                    jfloat radiusJ, jint maxResultsWindowJ);
+                    jfloat radiusJ, jint maxResultWindowJ, jintArray parentIdsJ);
     }
 }
 
