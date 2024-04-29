@@ -36,6 +36,7 @@ public class KNNCodecServiceTests extends KNNTestCase {
         super.setUp();
         IndexMetadata indexMetadata = mock(IndexMetadata.class);
         when(indexMetadata.getIndex()).thenReturn(new Index(TEST_INDEX, INDEX_UUID.toString()));
+        when(indexMetadata.getCustomData(IndexMetadata.REMOTE_STORE_CUSTOM_KEY)).thenReturn(null);
         when(indexMetadata.getSettings()).thenReturn(Settings.EMPTY);
         Settings settings = Settings.builder().put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, Integer.toString(NUM_OF_SHARDS)).build();
         indexSettings = new IndexSettings(indexMetadata, settings);
