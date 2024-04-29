@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Serialize all models into cluster metadata [#1499](https://github.com/opensearch-project/k-NN/pull/1499)
 ### Bug Fixes
 * Add stored fields for knn_vector type [#1630](https://github.com/opensearch-project/k-NN/pull/1630)
+* Enable script score to work with model based indices [#1649](https://github.com/opensearch-project/k-NN/pull/1649)
 ### Infrastructure
 * Add micro-benchmark module in k-NN plugin for benchmark streaming vectors to JNI layer functionality. [#1583](https://github.com/opensearch-project/k-NN/pull/1583)
 * Add arm64 check when SIMD is disabled [#1618](https://github.com/opensearch-project/k-NN/pull/1618)
