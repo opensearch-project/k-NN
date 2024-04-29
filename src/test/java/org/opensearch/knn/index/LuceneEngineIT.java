@@ -34,7 +34,9 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
@@ -629,9 +631,9 @@ public class LuceneEngineIT extends KNNRestTestCase {
             builder.startObject(FIELD_NAME);
             builder.field("vector", searchVectors[i]);
             if (distanceThreshold != null) {
-                builder.field("max_distance", distanceThreshold);
+                builder.field(MAX_DISTANCE, distanceThreshold);
             } else if (scoreThreshold != null) {
-                builder.field("min_score", scoreThreshold);
+                builder.field(MIN_SCORE, scoreThreshold);
             } else {
                 throw new IllegalArgumentException("Either distance or score must be provided");
             }
