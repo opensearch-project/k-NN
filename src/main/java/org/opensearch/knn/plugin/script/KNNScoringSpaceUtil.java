@@ -19,6 +19,9 @@ import java.util.Base64;
 import static org.opensearch.index.mapper.NumberFieldMapper.NumberType.LONG;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 
+/**
+ * Utility class for KNNScoringSpace
+ */
 public class KNNScoringSpaceUtil {
 
     /**
