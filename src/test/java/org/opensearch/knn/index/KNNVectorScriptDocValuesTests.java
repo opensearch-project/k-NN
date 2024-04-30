@@ -5,15 +5,7 @@
 
 package org.opensearch.knn.index;
 
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.KnnByteVectorField;
-import org.apache.lucene.document.KnnFloatVectorField;
-import org.apache.lucene.index.BinaryDocValues;
-import org.apache.lucene.index.ByteVectorValues;
-import org.apache.lucene.index.DocValues;
-import org.apache.lucene.index.FloatVectorValues;
-import org.apache.lucene.index.LeafReader;
-import org.apache.lucene.search.DocIdSetIterator;
+import org.apache.lucene.index.LeafReaderContext;
 import org.opensearch.knn.KNNTestCase;
 import org.apache.lucene.tests.analysis.MockAnalyzer;
 import org.apache.lucene.document.BinaryDocValuesField;
@@ -41,39 +33,26 @@ public class KNNVectorScriptDocValuesTests extends KNNTestCase {
     public void setUp() throws Exception {
         super.setUp();
         directory = newDirectory();
-        Class<? extends DocIdSetIterator> valuesClass = randomFrom(BinaryDocValues.class, ByteVectorValues.class, FloatVectorValues.class);
-        createKNNVectorDocument(directory, valuesClass);
+        createKNNVectorDocument(directory);
         reader = DirectoryReader.open(directory);
-        LeafReader leafReader = reader.getContext().leaves().get(0).reader();
-        DocIdSetIterator vectorValues;
-        if (BinaryDocValues.class.equals(valuesClass)) {
-            vectorValues = DocValues.getBinary(leafReader, MOCK_INDEX_FIELD_NAME);
-        } else if (ByteVectorValues.class.equals(valuesClass)) {
-            vectorValues = leafReader.getByteVectorValues(MOCK_INDEX_FIELD_NAME);
-        } else {
-            vectorValues = leafReader.getFloatVectorValues(MOCK_INDEX_FIELD_NAME);
-        }
-
-        scriptDocValues = KNNVectorScriptDocValues.create(vectorValues, MOCK_INDEX_FIELD_NAME, VectorDataType.FLOAT);
+        LeafReaderContext leafReaderContext = reader.getContext().leaves().get(0);
+        scriptDocValues = new KNNVectorScriptDocValues(
+            leafReaderContext.reader().getBinaryDocValues(MOCK_INDEX_FIELD_NAME),
+            MOCK_INDEX_FIELD_NAME,
+            VectorDataType.FLOAT
+        );
     }
 
-    private void createKNNVectorDocument(Directory directory, Class<? extends DocIdSetIterator> valuesClass) throws IOException {
+    private void createKNNVectorDocument(Directory directory) throws IOException {
         IndexWriterConfig conf = newIndexWriterConfig(new MockAnalyzer(random()));
         IndexWriter writer = new IndexWriter(directory, conf);
         Document knnDocument = new Document();
-        Field field;
-        if (BinaryDocValues.class.equals(valuesClass)) {
-            field = new BinaryDocValuesField(
+        knnDocument.add(
+            new BinaryDocValuesField(
                 MOCK_INDEX_FIELD_NAME,
                 new VectorField(MOCK_INDEX_FIELD_NAME, SAMPLE_VECTOR_DATA, new FieldType()).binaryValue()
-            );
-        } else if (ByteVectorValues.class.equals(valuesClass)) {
-            field = new KnnByteVectorField(MOCK_INDEX_FIELD_NAME, SAMPLE_BYTE_VECTOR_DATA);
-        } else {
-            field = new KnnFloatVectorField(MOCK_INDEX_FIELD_NAME, SAMPLE_VECTOR_DATA);
-        }
-
-        knnDocument.add(field);
+            )
+        );
         writer.addDocument(knnDocument);
         writer.commit();
         writer.close();
@@ -104,19 +83,5 @@ public class KNNVectorScriptDocValuesTests extends KNNTestCase {
 
     public void testGet() throws IOException {
         expectThrows(UnsupportedOperationException.class, () -> scriptDocValues.get(0));
-    }
-
-    public void testUnsupportedValues() throws IOException {
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> KNNVectorScriptDocValues.create(DocValues.emptyNumeric(), MOCK_INDEX_FIELD_NAME, VectorDataType.FLOAT)
-        );
-    }
-
-    public void testEmptyValues() throws IOException {
-        KNNVectorScriptDocValues values = KNNVectorScriptDocValues.emptyValues(MOCK_INDEX_FIELD_NAME, VectorDataType.FLOAT);
-        assertEquals(0, values.size());
-        scriptDocValues.setNextDocId(0);
-        assertEquals(0, values.size());
     }
 }

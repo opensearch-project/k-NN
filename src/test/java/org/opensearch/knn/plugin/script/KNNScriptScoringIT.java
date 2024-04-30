@@ -603,16 +603,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
                 dimensions,
                 KNNConstants.METHOD_HNSW,
                 KNNEngine.LUCENE.getName(),
-                SpaceType.DEFAULT.getValue(),
-                true
-            ),
-            createKnnIndexMapping(
-                FIELD_NAME,
-                dimensions,
-                KNNConstants.METHOD_HNSW,
-                KNNEngine.LUCENE.getName(),
-                SpaceType.DEFAULT.getValue(),
-                false
+                SpaceType.DEFAULT.getValue()
             )
         );
     }
