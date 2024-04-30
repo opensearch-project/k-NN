@@ -41,13 +41,15 @@ if (${CMAKE_SYSTEM_NAME} STREQUAL Darwin)
 endif()
 
 find_package(ZLIB REQUIRED)
+
+# Statically link BLAS - ensure this is before we find the blas package so we dont dynamically link
+set(BLA_STATIC ON)
 find_package(BLAS REQUIRED)
 enable_language(Fortran)
 find_package(LAPACK REQUIRED)
 
 # Set relevant properties
 set(BUILD_TESTING OFF)          # Avoid building faiss tests
-set(BLA_STATIC ON)              # Statically link BLAS
 set(FAISS_ENABLE_GPU OFF)
 set(FAISS_ENABLE_PYTHON OFF)
 
