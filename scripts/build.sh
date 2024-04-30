@@ -109,6 +109,7 @@ fi
 # https://github.com/opensearch-project/opensearch-build/issues/4386
 # https://github.com/opensearch-project/opensearch-build/issues/4379#issuecomment-2067191682
 # https://github.com/opensearch-project/opensearch-build/issues/4379#issuecomment-2083623882
+# https://github.com/opensearch-project/opensearch-build/issues/4379#issuecomment-2084133839
 GCC_VERSION=`gcc --version | head -n 1 | cut -d ' ' -f3`
 GCC_REQUIRED_VERSION=11.2.1
 COMPARE_VERSION=`echo $GCC_REQUIRED_VERSION $GCC_VERSION | tr ' ' '\n' | sort -V | uniq | head -n 1`
