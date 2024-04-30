@@ -103,14 +103,14 @@ if [ "$JAVA_HOME" = "" ]; then
     echo "SET JAVA_HOME=$JAVA_HOME"
 fi
 
-# Ensure gcc version is > 10.3.1 and < 12.0.0 for faiss 1.7.4+ / SIMD Neon support on ARM64 compilation
+# Ensure gcc version is > 11.2.1 and < 12.0.0 for faiss 1.7.4+ / SIMD Neon support on ARM64 compilation
 # https://github.com/opensearch-project/k-NN/issues/975
 # https://github.com/opensearch-project/k-NN/issues/1138
 # https://github.com/opensearch-project/opensearch-build/issues/4386
 # https://github.com/opensearch-project/opensearch-build/issues/4379#issuecomment-2067191682
 # https://github.com/opensearch-project/opensearch-build/issues/4379#issuecomment-2083623882
 GCC_VERSION=`gcc --version | head -n 1 | cut -d ' ' -f3`
-GCC_REQUIRED_VERSION=10.3.1
+GCC_REQUIRED_VERSION=11.2.1
 COMPARE_VERSION=`echo $GCC_REQUIRED_VERSION $GCC_VERSION | tr ' ' '\n' | sort -V | uniq | head -n 1`
 if [ "$COMPARE_VERSION" != "$GCC_REQUIRED_VERSION" ]; then
     echo "gcc version on this env is older than $GCC_REQUIRED_VERSION, exit 1"
