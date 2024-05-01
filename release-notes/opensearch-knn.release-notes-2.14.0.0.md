@@ -3,6 +3,7 @@
 Compatible with OpenSearch 2.14.0
 
 ### Features
+* Add k-NN clear cache api [#740](https://github.com/opensearch-project/k-NN/pull/740)
 * Support radial search in k-NN plugin [#1617](https://github.com/opensearch-project/k-NN/pull/1617)
 * Support filter and nested field in faiss engine radial search [#1652](https://github.com/opensearch-project/k-NN/pull/1652)
 ### Enhancements
