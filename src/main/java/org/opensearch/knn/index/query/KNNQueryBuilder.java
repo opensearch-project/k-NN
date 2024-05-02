@@ -242,7 +242,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         String currentFieldName = null;
         boolean ignoreUnmapped = false;
         XContentParser.Token token;
-        KNNCounter.KNN_QUERY_REQUESTS.increment();
         while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
             if (token == XContentParser.Token.FIELD_NAME) {
                 currentFieldName = parser.currentName();
@@ -279,7 +278,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                         String tokenName = parser.currentName();
                         if (FILTER_FIELD.getPreferredName().equals(tokenName)) {
                             log.debug(String.format("Start parsing filter for field [%s]", fieldName));
-                            KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS.increment();
                             filter = parseInnerQueryBuilder(parser);
                         } else {
                             throw new ParsingException(parser.getTokenLocation(), "[" + NAME + "] unknown token [" + token + "]");
@@ -299,6 +297,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         validateSingleQueryType(k, maxDistance, minScore);
+
+        updateQueryStats(k, minScore, maxDistance, filter);
 
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector)).filter(filter)
             .ignoreUnmapped(ignoreUnmapped)
@@ -564,6 +564,25 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
         if (countSetFields != 1) {
             throw new IllegalArgumentException(String.format("[%s] requires exactly one of k, distance or score to be set", NAME));
+        }
+    }
+
+    private static void updateQueryStats(Integer k, Float minScore, Float maxDistance, QueryBuilder filter) {
+        if (k != null) {
+            KNNCounter.KNN_QUERY_REQUESTS.increment();
+            if (filter != null) {
+                KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS.increment();
+            }
+        } else if (minScore != null) {
+            KNNCounter.MIN_SCORE_QUERY_REQUESTS.increment();
+            if (filter != null) {
+                KNNCounter.MIN_SCORE_QUERY_WITH_FILTER_REQUESTS.increment();
+            }
+        } else if (maxDistance != null) {
+            KNNCounter.MAX_DISTANCE_QUERY_REQUESTS.increment();
+            if (filter != null) {
+                KNNCounter.MAX_DISTANCE_QUERY_WITH_FILTER_REQUESTS.increment();
+            }
         }
     }
 }
