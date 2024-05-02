@@ -99,12 +99,12 @@ cd k-NN
 cd jni
 
 // File changes required
-sed -i -e 's/\/usr\/local\/opt\/libomp\//\/opt\/homebrew\/opt\/llvm\//g' CMakeLists.txt
-sed -i -e 's/-march=native/-mcpu=apple-m1/g' external/nmslib/similarity_search/CMakeLists.txt
-sed -i -e 's/pragma message WARN/pragma message /g' external/nmslib/similarity_search/src/distcomp_scalar.cc
-// Change to apple-m1, apple-m2 and apple-m3 according to your mac chipset
-sed -i -e 's/-mcpu=apple-a14/-mcpu=apple-m1/g' external/nmslib/python_bindings/setup.py
+sed -i -e 's/\/usr\/local\/opt\/libomp\//\/opt\/homebrew\/opt\/llvm\//g' cmake/init-faiss.cmake
 sed -i -e 's/__aarch64__/__undefine_aarch64__/g' external/faiss/faiss/utils/distances_simd.cpp
+sed -i -e 's/pragma message WARN/pragma message /g' external/nmslib/similarity_search/src/distcomp_scalar.cc
+// Change -mcpu value to use chip version according to your M series, for example, -mcpu=apple-m1
+sed -i -e 's/-march=native/-mcpu=apple-m1/g' external/nmslib/similarity_search/CMakeLists.txt
+sed -i -e 's/-mcpu=apple-a14/-mcpu=apple-m1/g' external/nmslib/python_bindings/setup.py
 
 // Install llvm
 brew install llvm
@@ -214,7 +214,7 @@ cmake .
 make
 
 # To just build the libraries
-make opensearchknn_nmslib opensearchknn_nmslib
+make opensearchknn_faiss opensearchknn_nmslib
 ```
 
 The libraries will be placed in the `jni/release` directory.
