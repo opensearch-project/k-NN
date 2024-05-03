@@ -61,7 +61,7 @@ jobs:
             echo "avx2 not available on system"
             su `id -un 1000` -c "whoami && java -version && ./gradlew build -Dsimd.enabled=false"
           fi  
-          
+
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
@@ -75,7 +75,7 @@ jobs:
 
     name: Build and Test k-NN Plugin on MacOS
     needs: Get-CI-Image-Tag
-    runs-on: macos-latest
+    runs-on: macos-12
 
     steps:
       - name: Checkout k-NN
@@ -92,39 +92,17 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
 
-      - name: Build native libraries
+      - name: Install dependencies on macos
         run: |
-          git submodule update --init --recursive
           brew reinstall gcc
-          brew install llvm
-          brew install openblas
-          export FC=/opt/homebrew/bin/gfortran
-          export PATH=/opt/homebrew/opt/llvm/bin:$PATH
-          export CC=/opt/homebrew/opt/llvm/bin/clang
-          export CXX=/opt/homebrew/opt/llvm/bin/clang++
-          cd jni
-          sed -i -e 's/\/usr\/local\/opt\/libomp\//\/opt\/homebrew\/opt\/llvm\//g' cmake/init-faiss.cmake
-          sed -i -e 's/__aarch64__/__undefine_aarch64__/g' external/faiss/faiss/utils/distances_simd.cpp
-          sed -i -e 's/pragma message WARN/pragma message /g' external/nmslib/similarity_search/src/distcomp_scalar.cc
-          sed -i -e 's/-march=native/-mcpu=apple-m1/g' external/nmslib/similarity_search/CMakeLists.txt
-          sed -i -e 's/-mcpu=apple-a14/-mcpu=apple-m1/g' external/nmslib/python_bindings/setup.py
-          if sysctl -n machdep.cpu.features | grep -i AVX2;
-          then
-              echo "avx2 available on system"
-              cmake . --fresh
-          else
-              echo "avx2 not available on system"
-              cmake . --fresh -DSIMD_ENABLED=true
-          fi
-          cmake . --fresh
-          make
+          export FC=/usr/local/Cellar/gcc/12.2.0/bin/gfortran
 
       - name: Run build
         run: |
-          if sysctl -n machdep.cpu.features | grep -i AVX2;
+          if sysctl -n machdep.cpu.features machdep.cpu.leaf7_features | grep -i AVX2
           then
               echo "avx2 available on system"
-              ./gradlew build
+              ./gradlew build 
           else
               echo "avx2 not available on system"
               ./gradlew build -Dsimd.enabled=false
