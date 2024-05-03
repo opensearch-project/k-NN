@@ -13,3 +13,4 @@ This document contains a list of maintainers in this repo. See [opensearch-proje
 | Navneet Verma           | [navneet1v](https://github.com/navneet1v)             | Amazon      |
 | Vamshi Vijay Nakkirtha  | [vamshin](https://github.com/vamshin)                 | Amazon      |
 | Vijayan Balasubramanian | [VijayanB](https://github.com/VijayanB)               | Amazon      |
+| Yuncheng Lu             | [luyuncheng](https://github.com/luyuncheng)           | Bytedance   |
