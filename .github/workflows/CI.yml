@@ -61,7 +61,7 @@ jobs:
             echo "avx2 not available on system"
             su `id -un 1000` -c "whoami && java -version && ./gradlew build -Dsimd.enabled=false"
           fi  
-          
+
 
       - name: Upload Coverage Report
         uses: codecov/codecov-action@v1
@@ -75,7 +75,7 @@ jobs:
 
     name: Build and Test k-NN Plugin on MacOS
     needs: Get-CI-Image-Tag
-    runs-on: macos-latest
+    runs-on: macos-12
 
     steps:
       - name: Checkout k-NN
@@ -166,4 +166,3 @@ jobs:
       - name: Run build
         run: |
           ./gradlew.bat build -D'simd.enabled=false'
-
