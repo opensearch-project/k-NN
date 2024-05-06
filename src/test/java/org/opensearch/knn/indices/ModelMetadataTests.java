@@ -608,20 +608,7 @@ public class ModelMetadataTests extends KNNTestCase {
         String description = "test-description";
         String error = "test-error";
         String nodeAssignment = "test-node";
-        Map<String, Object> nestedParameters = new HashMap<String, Object>() {
-            {
-                put("testNestedKey1", "testNestedString");
-                put("testNestedKey2", 1);
-            }
-        };
-        Map<String, Object> parameters = new HashMap<>() {
-            {
-                put("testKey1", "testString");
-                put("testKey2", 0);
-                put("testKey3", new MethodComponentContext("ivf", nestedParameters));
-            }
-        };
-        MethodComponentContext methodComponentContext = new MethodComponentContext("hnsw", parameters);
+        MethodComponentContext methodComponentContext = getMethodComponentContext();
         MethodComponentContext emptyMethodComponentContext = MethodComponentContext.EMPTY;
 
         ModelMetadata expected = new ModelMetadata(
