@@ -12,9 +12,6 @@
 package org.opensearch.knn.index;
 
 public class KnnCircuitBreakerException extends RuntimeException {
-    public KnnCircuitBreakerException() {
-        super();
-    }
 
     /**
      * Constructs a KnnCircuitBreakerException with the specified detail
