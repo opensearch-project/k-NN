@@ -104,6 +104,9 @@ public class RestTrainModelHandler extends BaseRestHandler {
                 searchSize = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
             } else if (MODEL_DESCRIPTION.equals(fieldName) && ensureNotSet(fieldName, description)) {
                 description = parser.textOrNull();
+                if (description.contains(",")) {
+                    throw new IllegalArgumentException("Model description cannot contain any commas: ','");
+                }
             } else {
                 throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is not a valid " + "parameter.");
             }
