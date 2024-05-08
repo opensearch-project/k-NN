@@ -11,6 +11,9 @@
 
 package org.opensearch.knn.index;
 
+/**
+ * An exception to be thrown when the k-NN circuit breaker is triggered.
+ */
 public class KnnCircuitBreakerException extends RuntimeException {
 
     /**
@@ -20,8 +23,8 @@ public class KnnCircuitBreakerException extends RuntimeException {
      *
      * @param s the String that contains a detailed message
      */
-    public KnnCircuitBreakerException(String s) {
-        super(s);
+    public KnnCircuitBreakerException(final String message) {
+        super(message);
     }
 
     /**
