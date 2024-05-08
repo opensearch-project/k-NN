@@ -13,6 +13,7 @@ package org.opensearch.knn.plugin.action;
 
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
@@ -190,6 +191,66 @@ public class RestTrainModelHandlerIT extends KNNRestTestCase {
         assertEquals(modelId, responseMap.get(MODEL_ID));
 
         assertTrainingFails(modelId, 30, 1000);
+    }
+
+    public void testTrainModel_fail_commaInDescription() throws Exception {
+        // Test checks that training when passing in an id succeeds
+
+        String modelId = "test-model-id";
+        String trainingIndexName = "train-index";
+        String trainingFieldName = "train-field";
+        int dimension = 8;
+
+        // Create a training index and randomly ingest data into it
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+
+        // Call the train API with this definition:
+        /*
+            {
+              "training_index": "train_index",
+              "training_field": "train_field",
+              "dimension": 8,
+              "description": "this should be allowed to be null",
+              "method": {
+                  "name":"ivf",
+                  "engine":"faiss",
+                  "space_type": "l2",
+                  "parameters":{
+                    "nlist":1,
+                    "encoder":{
+                        "name":"pq",
+                        "parameters":{
+                            "code_size":2,
+                            "m": 2
+                        }
+                    }
+                  }
+              }
+            }
+        */
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, "ivf")
+            .field(KNN_ENGINE, "faiss")
+            .field(METHOD_PARAMETER_SPACE_TYPE, "l2")
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NLIST, 1)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, "pq")
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, 2)
+            .field(ENCODER_PARAMETER_PQ_M, 2)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> method = xContentBuilderToMap(builder);
+
+        Exception e = expectThrows(
+            ResponseException.class,
+            () -> trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, "dummy description, with comma")
+        );
+        assertTrue(e.getMessage().contains("Model description cannot contain any commas: ','"));
     }
 
     public void testTrainModel_success_withId() throws Exception {

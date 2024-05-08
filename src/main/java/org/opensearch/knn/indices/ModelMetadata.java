@@ -67,6 +67,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         // Description and error may be empty. However, reading the string will work as long as they are not null
         // which is checked in constructor and setters
         this.description = in.readString();
+        ModelUtil.blockCommasInModelDescription(this.description);
         this.error = in.readString();
 
         if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), IndexUtil.MODEL_NODE_ASSIGNMENT_KEY)) {
@@ -123,6 +124,7 @@ public class ModelMetadata implements Writeable, ToXContentObject {
         this.state = new AtomicReference<>(Objects.requireNonNull(modelState, "modelState must not be null"));
         this.timestamp = Objects.requireNonNull(timestamp, "timestamp must not be null");
         this.description = Objects.requireNonNull(description, "description must not be null");
+        ModelUtil.blockCommasInModelDescription(this.description);
         this.error = Objects.requireNonNull(error, "error must not be null");
         this.trainingNodeAssignment = Objects.requireNonNull(trainingNodeAssignment, "node assignment must not be null");
         this.methodComponentContext = Objects.requireNonNull(methodComponentContext, "method context must not be null");
