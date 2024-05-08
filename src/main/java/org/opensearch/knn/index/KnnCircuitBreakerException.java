@@ -21,7 +21,7 @@ public class KnnCircuitBreakerException extends RuntimeException {
      * message.  A detail message is a String that describes this particular
      * exception.
      *
-     * @param s the String that contains a detailed message
+     * @param message the String that contains a detailed message
      */
     public KnnCircuitBreakerException(final String message) {
         super(message);
