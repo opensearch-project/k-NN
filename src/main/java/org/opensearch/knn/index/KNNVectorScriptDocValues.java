@@ -25,10 +25,21 @@ public abstract class KNNVectorScriptDocValues extends ScriptDocValues<float[]> 
     @Getter
     private final VectorDataType vectorDataType;
     private boolean docExists = false;
+    private int lastDocID = -1;
 
     @Override
     public void setNextDocId(int docId) throws IOException {
-        docExists = vectorValues.docID() == docId || vectorValues.advance(docId) == docId;
+        if (docId < lastDocID) {
+            throw new IllegalArgumentException("docs were sent out-of-order: lastDocID=" + lastDocID + " vs docID=" + docId);
+        }
+
+        lastDocID = docId;
+
+        int curDocID = vectorValues.docID();
+        if (lastDocID > curDocID) {
+            curDocID = vectorValues.advance(docId);
+        }
+        docExists = lastDocID == curDocID;
     }
 
     public float[] getValue() {
