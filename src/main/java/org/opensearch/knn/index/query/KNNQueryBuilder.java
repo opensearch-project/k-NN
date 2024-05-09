@@ -298,9 +298,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
         validateSingleQueryType(k, maxDistance, minScore);
 
-        updateQueryStats(k, filter, KNNCounter.KNN_QUERY_REQUESTS, KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS);
-        updateQueryStats(minScore, filter, KNNCounter.MIN_SCORE_QUERY_REQUESTS, KNNCounter.MIN_SCORE_QUERY_WITH_FILTER_REQUESTS);
-        updateQueryStats(maxDistance, filter, KNNCounter.MAX_DISTANCE_QUERY_REQUESTS, KNNCounter.MAX_DISTANCE_QUERY_WITH_FILTER_REQUESTS);
+        updateQueryStats(k, filter, List.of(KNNCounter.KNN_QUERY_REQUESTS, KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS));
+        updateQueryStats(minScore, filter, List.of(KNNCounter.MIN_SCORE_QUERY_REQUESTS, KNNCounter.MIN_SCORE_QUERY_WITH_FILTER_REQUESTS));
+        updateQueryStats(
+            maxDistance,
+            filter,
+            List.of(KNNCounter.MAX_DISTANCE_QUERY_REQUESTS, KNNCounter.MAX_DISTANCE_QUERY_WITH_FILTER_REQUESTS)
+        );
 
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector)).filter(filter)
             .ignoreUnmapped(ignoreUnmapped)
@@ -569,11 +573,26 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
     }
 
-    private static <T> void updateQueryStats(T queryParam, QueryBuilder filter, KNNCounter queryCounter, KNNCounter queryWithFilterCounter) {
+    /**
+     * Update query stats
+     *
+     * @param queryParam query parameter
+     * @param filter     filter
+     * @param countersToBeIncremented   stats counters, first counter is for query params and second counter is for query requests with filter
+     * @param <T>        type of query parameter
+     */
+    private static <T> void updateQueryStats(T queryParam, QueryBuilder filter, List<KNNCounter> countersToBeIncremented) {
+        if (countersToBeIncremented.size() != 2) {
+            throw new IllegalArgumentException(
+                "countersToBeIncremented should have exactly 2 counters, "
+                    + "first counter is for query params and second counter is for query requests with filter"
+            );
+        }
+
         if (queryParam != null) {
-            queryCounter.increment();
+            countersToBeIncremented.get(0).increment();
             if (filter != null) {
-                queryWithFilterCounter.increment();
+                countersToBeIncremented.get(1).increment();
             }
         }
     }
