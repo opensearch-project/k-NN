@@ -16,6 +16,7 @@ import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.TrainingJobRouterAction;
 import org.opensearch.knn.plugin.transport.TrainingModelRequest;
@@ -104,6 +105,7 @@ public class RestTrainModelHandler extends BaseRestHandler {
                 searchSize = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
             } else if (MODEL_DESCRIPTION.equals(fieldName) && ensureNotSet(fieldName, description)) {
                 description = parser.textOrNull();
+                ModelUtil.blockCommasInModelDescription(description);
             } else {
                 throw new IllegalArgumentException("Unable to parse token. \"" + fieldName + "\" is not a valid " + "parameter.");
             }

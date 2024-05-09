@@ -16,6 +16,12 @@ package org.opensearch.knn.indices;
  */
 public class ModelUtil {
 
+    public static void blockCommasInModelDescription(String description) {
+        if (description.contains(",")) {
+            throw new IllegalArgumentException("Model description cannot contain any commas: ','");
+        }
+    }
+
     public static boolean isModelPresent(ModelMetadata modelMetadata) {
         return modelMetadata != null;
     }

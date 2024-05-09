@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Features
 ### Enhancements
 ### Bug Fixes
+* Block commas in model description [#1692](https://github.com/opensearch-project/k-NN/pull/1692)
 ### Infrastructure
 ### Documentation
 ### Maintenance

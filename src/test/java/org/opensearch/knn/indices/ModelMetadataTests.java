@@ -608,20 +608,7 @@ public class ModelMetadataTests extends KNNTestCase {
         String description = "test-description";
         String error = "test-error";
         String nodeAssignment = "test-node";
-        Map<String, Object> nestedParameters = new HashMap<String, Object>() {
-            {
-                put("testNestedKey1", "testNestedString");
-                put("testNestedKey2", 1);
-            }
-        };
-        Map<String, Object> parameters = new HashMap<>() {
-            {
-                put("testKey1", "testString");
-                put("testKey2", 0);
-                put("testKey3", new MethodComponentContext("ivf", nestedParameters));
-            }
-        };
-        MethodComponentContext methodComponentContext = new MethodComponentContext("hnsw", parameters);
+        MethodComponentContext methodComponentContext = getMethodComponentContext();
         MethodComponentContext emptyMethodComponentContext = MethodComponentContext.EMPTY;
 
         ModelMetadata expected = new ModelMetadata(
@@ -667,6 +654,51 @@ public class ModelMetadataTests extends KNNTestCase {
         metadataAsMap.put(KNNConstants.MODEL_NODE_ASSIGNMENT, null);
         metadataAsMap.put(KNNConstants.MODEL_METHOD_COMPONENT_CONTEXT, null);
         assertEquals(expected2, fromMap);
+    }
 
+    public void testBlockCommasInDescription() {
+        KNNEngine knnEngine = KNNEngine.DEFAULT;
+        SpaceType spaceType = SpaceType.L2;
+        int dimension = 128;
+        ModelState modelState = ModelState.TRAINING;
+        String timestamp = ZonedDateTime.now(ZoneOffset.UTC).toString();
+        String description = "Test, comma, description";
+        String error = "test-error";
+        String nodeAssignment = "test-node";
+        MethodComponentContext methodComponentContext = getMethodComponentContext();
+
+        Exception e = expectThrows(
+            IllegalArgumentException.class,
+            () -> new ModelMetadata(
+                knnEngine,
+                spaceType,
+                dimension,
+                modelState,
+                timestamp,
+                description,
+                error,
+                nodeAssignment,
+                methodComponentContext
+            )
+        );
+        assertEquals("Model description cannot contain any commas: ','", e.getMessage());
+    }
+
+    private static MethodComponentContext getMethodComponentContext() {
+        Map<String, Object> nestedParameters = new HashMap<String, Object>() {
+            {
+                put("testNestedKey1", "testNestedString");
+                put("testNestedKey2", 1);
+            }
+        };
+        Map<String, Object> parameters = new HashMap<>() {
+            {
+                put("testKey1", "testString");
+                put("testKey2", 0);
+                put("testKey3", new MethodComponentContext("ivf", nestedParameters));
+            }
+        };
+        MethodComponentContext methodComponentContext = new MethodComponentContext("hnsw", parameters);
+        return methodComponentContext;
     }
 }
