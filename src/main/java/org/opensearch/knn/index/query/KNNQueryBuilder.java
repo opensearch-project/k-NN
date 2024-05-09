@@ -298,7 +298,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
         validateSingleQueryType(k, maxDistance, minScore);
 
-        updateQueryStats(k, minScore, maxDistance, filter);
+        updateQueryStats(k, filter, KNNCounter.KNN_QUERY_REQUESTS, KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS);
+        updateQueryStats(minScore, filter, KNNCounter.MIN_SCORE_QUERY_REQUESTS, KNNCounter.MIN_SCORE_QUERY_WITH_FILTER_REQUESTS);
+        updateQueryStats(maxDistance, filter, KNNCounter.MAX_DISTANCE_QUERY_REQUESTS, KNNCounter.MAX_DISTANCE_QUERY_WITH_FILTER_REQUESTS);
 
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector)).filter(filter)
             .ignoreUnmapped(ignoreUnmapped)
@@ -567,21 +569,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
     }
 
-    private static void updateQueryStats(Integer k, Float minScore, Float maxDistance, QueryBuilder filter) {
-        if (k != null) {
-            KNNCounter.KNN_QUERY_REQUESTS.increment();
+    static <T> void updateQueryStats(T queryParam, QueryBuilder filter, KNNCounter queryCounter, KNNCounter queryWithFilterCounter) {
+        if (queryParam != null) {
+            queryCounter.increment();
             if (filter != null) {
-                KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS.increment();
-            }
-        } else if (minScore != null) {
-            KNNCounter.MIN_SCORE_QUERY_REQUESTS.increment();
-            if (filter != null) {
-                KNNCounter.MIN_SCORE_QUERY_WITH_FILTER_REQUESTS.increment();
-            }
-        } else if (maxDistance != null) {
-            KNNCounter.MAX_DISTANCE_QUERY_REQUESTS.increment();
-            if (filter != null) {
-                KNNCounter.MAX_DISTANCE_QUERY_WITH_FILTER_REQUESTS.increment();
+                queryWithFilterCounter.increment();
             }
         }
     }
