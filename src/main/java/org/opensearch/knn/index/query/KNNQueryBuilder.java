@@ -569,7 +569,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
     }
 
-    static <T> void updateQueryStats(T queryParam, QueryBuilder filter, KNNCounter queryCounter, KNNCounter queryWithFilterCounter) {
+    private static <T> void updateQueryStats(T queryParam, QueryBuilder filter, KNNCounter queryCounter, KNNCounter queryWithFilterCounter) {
         if (queryParam != null) {
             queryCounter.increment();
             if (filter != null) {
