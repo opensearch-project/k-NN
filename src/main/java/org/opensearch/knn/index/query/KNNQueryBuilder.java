@@ -20,12 +20,12 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
-import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.apache.lucene.search.Query;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.common.ParsingException;
@@ -296,15 +296,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
         }
 
-        validateSingleQueryType(k, maxDistance, minScore);
-
-        updateQueryStats(k, filter, List.of(KNNCounter.KNN_QUERY_REQUESTS, KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS));
-        updateQueryStats(minScore, filter, List.of(KNNCounter.MIN_SCORE_QUERY_REQUESTS, KNNCounter.MIN_SCORE_QUERY_WITH_FILTER_REQUESTS));
-        updateQueryStats(
-            maxDistance,
-            filter,
-            List.of(KNNCounter.MAX_DISTANCE_QUERY_REQUESTS, KNNCounter.MAX_DISTANCE_QUERY_WITH_FILTER_REQUESTS)
-        );
+        VectorQueryType vectorQueryType = validateSingleQueryType(k, maxDistance, minScore);
+        vectorQueryType.getQueryStatCounter().increment();
+        if (filter != null) {
+            vectorQueryType.getQueryWithFilterStatCounter().increment();
+        }
 
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector)).filter(filter)
             .ignoreUnmapped(ignoreUnmapped)
@@ -555,45 +551,27 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return NAME;
     }
 
-    private static void validateSingleQueryType(Integer k, Float distance, Float score) {
+    private static VectorQueryType validateSingleQueryType(Integer k, Float distance, Float score) {
         int countSetFields = 0;
+        VectorQueryType vectorQueryType = null;
 
         if (k != null && k != 0) {
             countSetFields++;
+            vectorQueryType = VectorQueryType.K;
         }
         if (distance != null) {
             countSetFields++;
+            vectorQueryType = VectorQueryType.MAX_DISTANCE;
         }
         if (score != null) {
             countSetFields++;
+            vectorQueryType = VectorQueryType.MIN_SCORE;
         }
 
         if (countSetFields != 1) {
             throw new IllegalArgumentException(String.format("[%s] requires exactly one of k, distance or score to be set", NAME));
         }
-    }
 
-    /**
-     * Update query stats
-     *
-     * @param queryParam query parameter
-     * @param filter     filter
-     * @param countersToBeIncremented   stats counters, first counter is for query params and second counter is for query requests with filter
-     * @param <T>        type of query parameter
-     */
-    private static <T> void updateQueryStats(T queryParam, QueryBuilder filter, List<KNNCounter> countersToBeIncremented) {
-        if (countersToBeIncremented.size() != 2) {
-            throw new IllegalArgumentException(
-                "countersToBeIncremented should have exactly 2 counters, "
-                    + "first counter is for query params and second counter is for query requests with filter"
-            );
-        }
-
-        if (queryParam != null) {
-            countersToBeIncremented.get(0).increment();
-            if (filter != null) {
-                countersToBeIncremented.get(1).increment();
-            }
-        }
+        return vectorQueryType;
     }
 }
