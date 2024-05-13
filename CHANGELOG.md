@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.14...2.x)
 ### Features
 ### Enhancements
+* Add KnnCircuitBreakerException and modify exception message [#1688](https://github.com/opensearch-project/k-NN/pull/1688)
 ### Bug Fixes
 * Block commas in model description [#1692](https://github.com/opensearch-project/k-NN/pull/1692)
 ### Infrastructure

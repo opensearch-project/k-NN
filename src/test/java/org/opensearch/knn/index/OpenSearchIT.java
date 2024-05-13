@@ -189,8 +189,8 @@ public class OpenSearchIT extends KNNRestTestCase {
 
         Float[] vector = { 6.0f, 6.0f };
         ResponseException ex = expectThrows(ResponseException.class, () -> addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector));
-        String expMessage = "Indexing knn vector fields is rejected as circuit breaker triggered."
-            + " Check _opendistro/_knn/stats for detailed state";
+        String expMessage =
+            "Parsing the created knn vector fields prior to indexing has failed as the circuit breaker triggered.  This indicates that the cluster is low on memory resources and cannot index more documents at the moment. Check _plugins/_knn/stats for the circuit breaker status.";
         assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString(expMessage));
 
         // reset
@@ -207,8 +207,8 @@ public class OpenSearchIT extends KNNRestTestCase {
         updateClusterSettings("knn.circuit_breaker.triggered", "true");
         Float[] updatedVector = { 8.0f, 8.0f };
         ResponseException ex = expectThrows(ResponseException.class, () -> updateKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector));
-        String expMessage = "Indexing knn vector fields is rejected as circuit breaker triggered."
-            + " Check _opendistro/_knn/stats for detailed state";
+        String expMessage =
+            "Parsing the created knn vector fields prior to indexing has failed as the circuit breaker triggered.  This indicates that the cluster is low on memory resources and cannot index more documents at the moment. Check _plugins/_knn/stats for the circuit breaker status.";
         assertThat(EntityUtils.toString(ex.getResponse().getEntity()), containsString(expMessage));
 
         // reset
