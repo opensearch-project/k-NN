@@ -42,6 +42,7 @@ import org.opensearch.index.mapper.ValueFetcher;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.QueryShardException;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.KnnCircuitBreakerException;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KNNVectorIndexFieldData;
@@ -624,8 +625,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     void validateIfCircuitBreakerIsNotTriggered() {
         if (KNNSettings.isCircuitBreakerTriggered()) {
-            throw new IllegalStateException(
-                "Indexing knn vector fields is rejected as circuit breaker triggered. Check _opendistro/_knn/stats for detailed state"
+            throw new KnnCircuitBreakerException(
+                "Parsing the created knn vector fields prior to indexing has failed as the circuit breaker triggered.  This indicates that the cluster is low on memory resources and cannot index more documents at the moment. Check _plugins/_knn/stats for the circuit breaker status."
             );
         }
     }
