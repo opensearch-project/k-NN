@@ -96,6 +96,7 @@ public class KNNScoringUtil {
      * @return cosine score
      */
     public static float cosinesimilOptimized(float[] queryVector, float[] inputVector, float normQueryVector) {
+        requireEqualDimension(queryVector, inputVector);
         float normInputVector = 0.0f;
         for (int i = 0; i < queryVector.length; i++) {
             normInputVector += inputVector[i] * inputVector[i];
