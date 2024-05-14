@@ -5,42 +5,43 @@
 
 package org.opensearch.knn.index.query;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.search.MatchNoDocsQuery;
-import org.opensearch.core.common.Strings;
 import org.apache.commons.lang.StringUtils;
+import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.common.ParsingException;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
-import org.opensearch.knn.plugin.stats.KNNCounter;
-import org.opensearch.index.query.AbstractQueryBuilder;
-import org.opensearch.index.query.QueryShardContext;
 
-import static org.opensearch.knn.index.IndexUtil.*;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+
 import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
+import static org.opensearch.knn.index.IndexUtil.minimalRequiredVersionMap;
 import static org.opensearch.knn.index.util.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 
 /**
@@ -246,7 +247,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         String queryName = null;
         String currentFieldName = null;
         XContentParser.Token token;
-        KNNCounter.KNN_QUERY_REQUESTS.increment();
         while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
             if (token == XContentParser.Token.FIELD_NAME) {
                 currentFieldName = parser.currentName();
@@ -283,7 +283,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                         String tokenName = parser.currentName();
                         if (FILTER_FIELD.getPreferredName().equals(tokenName)) {
                             log.debug(String.format("Start parsing filter for field [%s]", fieldName));
-                            KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS.increment();
                             // Query filters are supported starting from a certain k-NN version only, exact version is defined by
                             // MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER variable.
                             // Here we're checking if all cluster nodes has at least that version or higher. This check is required
@@ -322,7 +321,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
         }
 
-        validateSingleQueryType(k, maxDistance, minScore);
+        VectorQueryType vectorQueryType = validateSingleQueryType(k, maxDistance, minScore);
+        vectorQueryType.getQueryStatCounter().increment();
+        if (filter != null) {
+            vectorQueryType.getQueryWithFilterStatCounter().increment();
+        }
 
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector)).filter(filter)
             .boost(boost)
@@ -580,21 +583,27 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return NAME;
     }
 
-    private static void validateSingleQueryType(Integer k, Float distance, Float score) {
+    private static VectorQueryType validateSingleQueryType(Integer k, Float distance, Float score) {
         int countSetFields = 0;
+        VectorQueryType vectorQueryType = null;
 
         if (k != null && k != 0) {
             countSetFields++;
+            vectorQueryType = VectorQueryType.K;
         }
         if (distance != null) {
             countSetFields++;
+            vectorQueryType = VectorQueryType.MAX_DISTANCE;
         }
         if (score != null) {
             countSetFields++;
+            vectorQueryType = VectorQueryType.MIN_SCORE;
         }
 
         if (countSetFields != 1) {
             throw new IllegalArgumentException(String.format("[%s] requires exactly one of k, distance or score to be set", NAME));
         }
+
+        return vectorQueryType;
     }
 }
