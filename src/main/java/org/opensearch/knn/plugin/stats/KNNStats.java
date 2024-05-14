@@ -90,12 +90,32 @@ public class KNNStats {
     }
 
     private void addQueryStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {
+        // KNN Query Stats
         builder.put(StatNames.KNN_QUERY_REQUESTS.getName(), new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.KNN_QUERY_REQUESTS)))
             .put(
                 StatNames.KNN_QUERY_WITH_FILTER_REQUESTS.getName(),
                 new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS))
             );
 
+        // Min Score Query Stats
+        builder.put(
+            StatNames.MIN_SCORE_QUERY_REQUESTS.getName(),
+            new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.MIN_SCORE_QUERY_REQUESTS))
+        )
+            .put(
+                StatNames.MIN_SCORE_QUERY_WITH_FILTER_REQUESTS.getName(),
+                new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.MIN_SCORE_QUERY_WITH_FILTER_REQUESTS))
+            );
+
+        // Max Distance Query Stats
+        builder.put(
+            StatNames.MAX_DISTANCE_QUERY_REQUESTS.getName(),
+            new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.MAX_DISTANCE_QUERY_REQUESTS))
+        )
+            .put(
+                StatNames.MAX_DISTANCE_QUERY_WITH_FILTER_REQUESTS.getName(),
+                new KNNStat<>(false, new KNNCounterSupplier(KNNCounter.MAX_DISTANCE_QUERY_WITH_FILTER_REQUESTS))
+            );
     }
 
     private void addNativeMemoryStats(ImmutableMap.Builder<String, KNNStat<?>> builder) {

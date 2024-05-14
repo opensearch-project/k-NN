@@ -20,12 +20,12 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
-import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.apache.lucene.search.Query;
 import org.opensearch.core.ParseField;
 import org.opensearch.core.common.ParsingException;
@@ -242,7 +242,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         String currentFieldName = null;
         boolean ignoreUnmapped = false;
         XContentParser.Token token;
-        KNNCounter.KNN_QUERY_REQUESTS.increment();
         while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
             if (token == XContentParser.Token.FIELD_NAME) {
                 currentFieldName = parser.currentName();
@@ -279,7 +278,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                         String tokenName = parser.currentName();
                         if (FILTER_FIELD.getPreferredName().equals(tokenName)) {
                             log.debug(String.format("Start parsing filter for field [%s]", fieldName));
-                            KNNCounter.KNN_QUERY_WITH_FILTER_REQUESTS.increment();
                             filter = parseInnerQueryBuilder(parser);
                         } else {
                             throw new ParsingException(parser.getTokenLocation(), "[" + NAME + "] unknown token [" + token + "]");
@@ -298,7 +296,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
         }
 
-        validateSingleQueryType(k, maxDistance, minScore);
+        VectorQueryType vectorQueryType = validateSingleQueryType(k, maxDistance, minScore);
+        vectorQueryType.getQueryStatCounter().increment();
+        if (filter != null) {
+            vectorQueryType.getQueryWithFilterStatCounter().increment();
+        }
 
         KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(fieldName, ObjectsToFloats(vector)).filter(filter)
             .ignoreUnmapped(ignoreUnmapped)
@@ -549,21 +551,27 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return NAME;
     }
 
-    private static void validateSingleQueryType(Integer k, Float distance, Float score) {
+    private static VectorQueryType validateSingleQueryType(Integer k, Float distance, Float score) {
         int countSetFields = 0;
+        VectorQueryType vectorQueryType = null;
 
         if (k != null && k != 0) {
             countSetFields++;
+            vectorQueryType = VectorQueryType.K;
         }
         if (distance != null) {
             countSetFields++;
+            vectorQueryType = VectorQueryType.MAX_DISTANCE;
         }
         if (score != null) {
             countSetFields++;
+            vectorQueryType = VectorQueryType.MIN_SCORE;
         }
 
         if (countSetFields != 1) {
             throw new IllegalArgumentException(String.format("[%s] requires exactly one of k, distance or score to be set", NAME));
         }
+
+        return vectorQueryType;
     }
 }
