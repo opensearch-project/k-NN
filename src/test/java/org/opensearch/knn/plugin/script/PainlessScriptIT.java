@@ -342,7 +342,7 @@ public class PainlessScriptIT extends KNNRestTestCase {
 
     // test fails without size check before executing method
     public void testCosineSimilarityNormalizedScriptScoreFails() throws Exception {
-        String source = String.format("1 + cosineSimilarity([2.0f, -2.0f], doc['%s'], 3.0f)", FIELD_NAME);
+        String source = String.format("1 + cosineSimilarity([2.0f, -2.0f], doc['%s'])", FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getCosineTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         expectThrows(ResponseException.class, () -> client().performRequest(request));
@@ -350,7 +350,7 @@ public class PainlessScriptIT extends KNNRestTestCase {
     }
 
     public void testCosineSimilarityNormalizedScriptScore() throws Exception {
-        String source = String.format("1 + cosineSimilarity([2.0f, -2.0f], doc['%s'], 3.0f)", FIELD_NAME);
+        String source = String.format("1 + cosineSimilarity([2.0f, -2.0f], doc['%s'])", FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getCosineTestData());
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -366,11 +366,7 @@ public class PainlessScriptIT extends KNNRestTestCase {
     }
 
     public void testCosineSimilarityNormalizedScriptScoreWithNumericField() throws Exception {
-        String source = String.format(
-            "doc['%s'].size() == 0 ? 0 : 1 + cosineSimilarity([2.0f, -2.0f], doc['%s'], 3.0f)",
-            FIELD_NAME,
-            FIELD_NAME
-        );
+        String source = String.format("doc['%s'].size() == 0 ? 0 : 1 + cosineSimilarity([2.0f, -2.0f], doc['%s'])", FIELD_NAME, FIELD_NAME);
         Request request = buildPainlessScoreScriptRequest(source, 3, getCosineTestData());
         addDocWithNumericField(INDEX_NAME, "100", NUMERIC_INDEX_FIELD_NAME, 1000);
         Response response = client().performRequest(request);
