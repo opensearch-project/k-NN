@@ -96,8 +96,11 @@ public class KNNScoringUtil {
      * @return cosine score
      */
     public static float cosinesimilOptimized(float[] queryVector, float[] inputVector, float normQueryVector) {
+        requireEqualDimension(queryVector, inputVector);
+        float dotProduct = 0.0f;
         float normInputVector = 0.0f;
         for (int i = 0; i < queryVector.length; i++) {
+            dotProduct += queryVector[i] * inputVector[i];
             normInputVector += inputVector[i] * inputVector[i];
         }
         float normalizedProduct = normQueryVector * normInputVector;
@@ -105,7 +108,7 @@ public class KNNScoringUtil {
             logger.debug("Invalid vectors for cosine. Returning minimum score to put this result to end");
             return 0.0f;
         }
-        return (float) (VectorUtil.dotProduct(queryVector, inputVector) / (Math.sqrt(normalizedProduct)));
+        return (float) (dotProduct / (Math.sqrt(normalizedProduct)));
     }
 
     /**
@@ -140,28 +143,12 @@ public class KNNScoringUtil {
      */
     public static float cosinesimil(float[] queryVector, float[] inputVector) {
         requireEqualDimension(queryVector, inputVector);
-        int numZeroInInput = 0;
-        int numZeroInQuery = 0;
-        float cosine = 0.0f;
-        for (int i = 0; i < inputVector.length; i++) {
-            if (inputVector[i] == 0) {
-                numZeroInInput++;
-            }
-
-            if (queryVector[i] == 0) {
-                numZeroInQuery++;
-            }
-        }
-        if (numZeroInInput == inputVector.length || numZeroInQuery == queryVector.length) {
-            return cosine;
-        }
         try {
-            cosine = VectorUtil.cosine(queryVector, inputVector);
-        } catch (IllegalArgumentException e) {
+            return VectorUtil.cosine(queryVector, inputVector);
+        } catch (IllegalArgumentException | AssertionError e) {
             logger.debug("Invalid vectors for cosine. Returning minimum score to put this result to end");
             return 0.0f;
         }
-        return cosine;
     }
 
     /**
