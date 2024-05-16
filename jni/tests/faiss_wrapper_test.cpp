@@ -287,7 +287,6 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
             delete it;
         }
     }
-    std::cout << "Test end";
 }
 
 //Test for a bug reported in https://github.com/opensearch-project/k-NN/issues/1435
@@ -672,7 +671,7 @@ TEST(FaissRangeSearchQueryIndexTest, BasicAssertions) {
                         knn_jni::faiss_wrapper::RangeSearch(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, methodParamsJ, maxResultWindow, nullptr)));
+                                reinterpret_cast<jfloatArray>(&query), radius, maxResultWindow, nullptr)));
 
         // assert result size is not 0
         ASSERT_NE(0, results->size());
@@ -696,6 +695,7 @@ TEST(FaissRangeSearchQueryIndexTest_WhenHitMaxWindowResult, BasicAssertions){
     std::string method = "HNSW32,Flat";
 
     // Define query data
+    float radius = 100000.0;
     int numQueries = 100;
     std::vector<std::vector<float>> queries;
 
@@ -727,7 +727,7 @@ TEST(FaissRangeSearchQueryIndexTest_WhenHitMaxWindowResult, BasicAssertions){
                         knn_jni::faiss_wrapper::RangeSearch(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, nullptr, maxResultWindow, nullptr)));
+                                reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, maxResultWindow, nullptr)));
 
         // assert result size is not 0
         ASSERT_NE(0, results->size());
@@ -833,6 +833,7 @@ TEST(FaissRangeSearchQueryIndexTestWithParentFilterTest, BasicAssertions) {
     std::string method = "HNSW32,Flat";
 
     // Define query data
+    float radius = 100000.0;
     int numQueries = 1;
     std::vector<std::vector<float>> queries;
 
