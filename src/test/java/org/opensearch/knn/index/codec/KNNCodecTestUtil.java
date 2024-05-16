@@ -326,6 +326,7 @@ public class KNNCodecTestUtil {
     }
 
     public static void assertLoadableByEngine(
+        Integer efSearch,
         SegmentWriteState state,
         String fileName,
         KNNEngine knnEngine,
@@ -337,7 +338,7 @@ public class KNNCodecTestUtil {
         long indexPtr = JNIService.loadIndex(filePath, Maps.newHashMap(ImmutableMap.of(SPACE_TYPE, spaceType.getValue())), knnEngine);
         int k = 2;
         float[] queryVector = new float[dimension];
-        KNNQueryResult[] results = JNIService.queryIndex(indexPtr, queryVector, k, knnEngine, null, 0, null);
+        KNNQueryResult[] results = JNIService.queryIndex(indexPtr, queryVector, k, efSearch, knnEngine, null, 0, null);
         assertTrue(results.length > 0);
         JNIService.free(indexPtr, knnEngine);
     }

@@ -296,12 +296,12 @@ void knn_jni::faiss_wrapper::SetSharedIndexState(jlong indexPointerJ, jlong shar
 }
 
 jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                                jfloatArray queryVectorJ, jint kJ, jintArray parentIdsJ) {
-    return knn_jni::faiss_wrapper::QueryIndex_WithFilter(jniUtil, env, indexPointerJ, queryVectorJ, kJ, nullptr, 0, parentIdsJ);
+                                                jfloatArray queryVectorJ, jint kJ, jint queryEfSearchJ, jintArray parentIdsJ) {
+    return knn_jni::faiss_wrapper::QueryIndex_WithFilter(jniUtil, env, indexPointerJ, queryVectorJ, kJ, queryEfSearchJ, nullptr, 0, parentIdsJ);
 }
 
 jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                                jfloatArray queryVectorJ, jint kJ, jlongArray filterIdsJ, jint filterIdsTypeJ, jintArray parentIdsJ) {
+                                                jfloatArray queryVectorJ, jint kJ, jint queryEfSearchJ, jlongArray filterIdsJ, jint filterIdsTypeJ, jintArray parentIdsJ) {
 
     if (queryVectorJ == nullptr) {
         throw std::runtime_error("Query Vector cannot be null");
@@ -340,9 +340,8 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         std::vector<uint64_t> idGrouperBitmap;
         auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
         if(hnswReader) {
-            // Setting the ef_search value equal to what was provided during index creation. SearchParametersHNSW has a default
-            // value of ef_search = 16 which will then be used.
-            hnswParams.efSearch = hnswReader->hnsw.efSearch;
+            // Query param efseatch supersedes ef_search provided during index setting.
+            hnswParams.efSearch = queryEfSearchJ == -1 ? hnswReader->hnsw.efSearch : queryEfSearchJ;
             hnswParams.sel = idSelector.get();
             if (parentIdsJ != nullptr) {
                 idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
@@ -371,12 +370,13 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         std::unique_ptr<faiss::IDGrouperBitmap> idGrouper;
         std::vector<uint64_t> idGrouperBitmap;
         auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
-        if(hnswReader!= nullptr && parentIdsJ != nullptr) {
-            // Setting the ef_search value equal to what was provided during index creation. SearchParametersHNSW has a default
-            // value of ef_search = 16 which will then be used.
-            hnswParams.efSearch = hnswReader->hnsw.efSearch;
-            idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
-            hnswParams.grp = idGrouper.get();
+        if(hnswReader!= nullptr) {
+            // Query param efseatch supersedes ef_search provided during index setting.
+            hnswParams.efSearch = queryEfSearchJ == -1 ? hnswReader->hnsw.efSearch : queryEfSearchJ;
+            if (parentIdsJ != nullptr) {
+                idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
+                hnswParams.grp = idGrouper.get();
+            }
             searchParameters = &hnswParams;
         }
         try {

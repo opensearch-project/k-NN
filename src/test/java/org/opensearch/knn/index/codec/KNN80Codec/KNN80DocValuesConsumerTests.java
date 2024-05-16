@@ -70,6 +70,8 @@ import static org.opensearch.knn.index.codec.KNNCodecTestUtil.RandomVectorDocVal
 
 public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
+    private static final int EF_SEARCH = 10;
+
     private static Directory directory;
     private static Codec codec;
 
@@ -202,7 +204,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertValidFooter(state.directory, expectedFile);
 
         // The document should be readable by nmslib
-        assertLoadableByEngine(state, expectedFile, knnEngine, spaceType, dimension);
+        assertLoadableByEngine(null, state, expectedFile, knnEngine, spaceType, dimension);
 
         // The graph creation statistics should be updated
         assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
@@ -255,7 +257,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertValidFooter(state.directory, expectedFile);
 
         // The document should be readable by nmslib
-        assertLoadableByEngine(state, expectedFile, knnEngine, spaceType, dimension);
+        assertLoadableByEngine(null, state, expectedFile, knnEngine, spaceType, dimension);
 
         // The graph creation statistics should be updated
         assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
@@ -316,7 +318,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertValidFooter(state.directory, expectedFile);
 
         // The document should be readable by faiss
-        assertLoadableByEngine(state, expectedFile, knnEngine, spaceType, dimension);
+        assertLoadableByEngine(EF_SEARCH, state, expectedFile, knnEngine, spaceType, dimension);
 
         // The graph creation statistics should be updated
         assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
@@ -411,7 +413,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertValidFooter(state.directory, expectedFile);
 
         // The document should be readable by faiss
-        assertLoadableByEngine(state, expectedFile, knnEngine, spaceType, dimension);
+        assertLoadableByEngine(EF_SEARCH, state, expectedFile, knnEngine, spaceType, dimension);
 
         // The graph creation statistics should be updated
         assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());

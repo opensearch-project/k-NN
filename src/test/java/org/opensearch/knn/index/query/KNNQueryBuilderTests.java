@@ -1,6 +1,12 @@
 /*
- * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
  */
 
 package org.opensearch.knn.index.query;
@@ -53,8 +59,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO;
-import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.*;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
 import static org.opensearch.knn.index.util.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 
@@ -62,6 +67,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     private static final String FIELD_NAME = "myvector";
     private static final int K = 1;
+    private static final int EF_SEARCH = 10;
     private static final Float MAX_DISTANCE = 1.0f;
     private static final Float MIN_SCORE = 0.5f;
     private static final TermQueryBuilder TERM_QUERY = QueryBuilders.termQuery("field", "value");
@@ -91,7 +97,10 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         /**
          * null distance
          */
-        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(null));
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector).maxDistance(null).build()
+        );
     }
 
     public void testInvalidScore() {
@@ -99,17 +108,26 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         /**
          * null min_score
          */
-        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(null));
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector).minScore(null).build()
+        );
 
         /**
          * negative min_score
          */
-        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(-1.0f));
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector).minScore(-1.0f).build()
+        );
 
         /**
          * min_score = 0
          */
-        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(0.0f));
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector).minScore(0.0f).build()
+        );
     }
 
     public void testEmptyVector() {
@@ -129,13 +147,19 @@ public class KNNQueryBuilderTests extends KNNTestCase {
          * null query vector with distance
          */
         float[] queryVector2 = null;
-        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector2).maxDistance(MAX_DISTANCE));
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector2).maxDistance(MAX_DISTANCE).build()
+        );
 
         /**
          * empty query vector with distance
          */
         float[] queryVector3 = {};
-        expectThrows(IllegalArgumentException.class, () -> new KNNQueryBuilder(FIELD_NAME, queryVector3).maxDistance(MAX_DISTANCE));
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector3).maxDistance(MAX_DISTANCE).build()
+        );
     }
 
     public void testFromXContent() throws Exception {
@@ -154,9 +178,35 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertEquals(knnQueryBuilder, actualBuilder);
     }
 
+    public void testFromXContent_KnnWithEfSearch() throws Exception {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(K)
+            .efSearch(EF_SEARCH)
+            .build();
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(knnQueryBuilder.fieldName());
+        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
+        builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), knnQueryBuilder.getK());
+        builder.field(KNNQueryBuilder.EF_SEARCH_FIELD.getPreferredName(), knnQueryBuilder.getEfSearch());
+        builder.endObject();
+        builder.endObject();
+        XContentParser contentParser = createParser(builder);
+        contentParser.nextToken();
+        KNNQueryBuilder actualBuilder = KNNQueryBuilder.fromXContent(contentParser);
+        assertEquals(knnQueryBuilder, actualBuilder);
+    }
+
     public void testFromXContent_whenDoRadiusSearch_whenDistanceThreshold_thenSucceed() throws Exception {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(MAX_DISTANCE);
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .maxDistance(MAX_DISTANCE)
+            .build();
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());
@@ -172,12 +222,16 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testFromXContent_whenDoRadiusSearch_whenScoreThreshold_thenSucceed() throws Exception {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(MAX_DISTANCE);
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .minScore(MAX_DISTANCE)
+            .build();
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());
         builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
-        builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), knnQueryBuilder.getMinScore());
+        builder.field(KNNQueryBuilder.MIN_SCORE_FIELD.getPreferredName(), knnQueryBuilder.getMinScore());
         builder.endObject();
         builder.endObject();
         XContentParser contentParser = createParser(builder);
@@ -208,6 +262,30 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertEquals(knnQueryBuilder, actualBuilder);
     }
 
+    public void testFromXContent_KnnWithEfSearch_withFilter() throws Exception {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(K)
+            .filter(TERM_QUERY)
+            .efSearch(EF_SEARCH)
+            .build();
+        XContentBuilder builder = XContentFactory.jsonBuilder();
+        builder.startObject();
+        builder.startObject(knnQueryBuilder.fieldName());
+        builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
+        builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), knnQueryBuilder.getK());
+        builder.field(KNNQueryBuilder.EF_SEARCH_FIELD.getPreferredName(), knnQueryBuilder.getEfSearch());
+        builder.field(KNNQueryBuilder.FILTER_FIELD.getPreferredName(), knnQueryBuilder.getFilter());
+        builder.endObject();
+        builder.endObject();
+        XContentParser contentParser = createParser(builder);
+        contentParser.nextToken();
+        KNNQueryBuilder actualBuilder = KNNQueryBuilder.fromXContent(contentParser);
+        assertEquals(knnQueryBuilder, actualBuilder);
+    }
+
     public void testFromXContent_wenDoRadiusSearch_whenDistanceThreshold_whenFilter_thenSucceed() throws Exception {
         final ClusterService clusterService = mockClusterService(Version.CURRENT);
 
@@ -215,7 +293,13 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         knnClusterUtil.initialize(clusterService);
 
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(MAX_DISTANCE).filter(TERM_QUERY);
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .maxDistance(MAX_DISTANCE)
+            .filter(TERM_QUERY)
+            .build();
+
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());
@@ -237,12 +321,17 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         knnClusterUtil.initialize(clusterService);
 
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(MIN_SCORE).filter(TERM_QUERY);
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .minScore(MIN_SCORE)
+            .filter(TERM_QUERY)
+            .build();
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());
         builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
-        builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), knnQueryBuilder.getMinScore());
+        builder.field(KNNQueryBuilder.MIN_SCORE_FIELD.getPreferredName(), knnQueryBuilder.getMinScore());
         builder.field(KNNQueryBuilder.FILTER_FIELD.getPreferredName(), knnQueryBuilder.getFilter());
         builder.endObject();
         builder.endObject();
@@ -384,7 +473,11 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testDoToQuery_whenNormal_whenDoRadiusSearch_whenDistanceThreshold_thenSucceed() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(MAX_DISTANCE);
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .maxDistance(MAX_DISTANCE)
+            .build();
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -406,7 +499,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testDoToQuery_whenNormal_whenDoRadiusSearch_whenScoreThreshold_thenSucceed() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(MIN_SCORE);
+
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector).minScore(MIN_SCORE).build();
+
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -424,7 +519,12 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     public void testDoToQuery_whenDoRadiusSearch_whenPassNegativeDistance_whenSupportedSpaceType_thenSucceed() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         float negativeDistance = -1.0f;
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(negativeDistance);
+
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .maxDistance(negativeDistance)
+            .build();
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -448,7 +548,12 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     public void testDoToQuery_whenDoRadiusSearch_whenPassNegativeDistance_whenUnSupportedSpaceType_thenException() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         float negativeDistance = -1.0f;
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(negativeDistance);
+
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .maxDistance(negativeDistance)
+            .build();
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -470,7 +575,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     public void testDoToQuery_whenDoRadiusSearch_whenPassScoreMoreThanOne_whenSupportedSpaceType_thenSucceed() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         float score = 5f;
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(score);
+
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector).minScore(score).build();
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -494,7 +600,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     public void testDoToQuery_whenDoRadiusSearch_whenPassScoreMoreThanOne_whenUnsupportedSpaceType_thenException() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         float score = 5f;
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(score);
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector).minScore(score).build();
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -516,7 +622,12 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     public void testDoToQuery_whenPassNegativeDistance_whenSupportedSpaceType_thenSucceed() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         float negativeDistance = -1.0f;
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(negativeDistance);
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .maxDistance(negativeDistance)
+            .build();
+
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -540,7 +651,13 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     public void testDoToQuery_whenPassNegativeDistance_whenUnSupportedSpaceType_thenException() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         float negativeDistance = -1.0f;
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(negativeDistance);
+
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .maxDistance(negativeDistance)
+            .build();
+
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -559,9 +676,15 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
     }
 
-    public void testDoToQuery_KnnQueryWithFilter() throws Exception {
+    public void testDoToQuery_KnnQueryWithFilter_Lucene() throws Exception {
+        // Given
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K, TERM_QUERY);
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(K)
+            .filter(TERM_QUERY)
+            .build();
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -573,14 +696,25 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
         when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+
+        // When
         Query query = knnQueryBuilder.doToQuery(mockQueryShardContext);
+
+        // Then
         assertNotNull(query);
         assertTrue(query.getClass().isAssignableFrom(KnnFloatVectorQuery.class));
     }
 
     public void testDoToQuery_whenDoRadiusSearch_whenDistanceThreshold_whenFilter_thenSucceed() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(MAX_DISTANCE).filter(TERM_QUERY);
+
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .maxDistance(MAX_DISTANCE)
+            .filter(TERM_QUERY)
+            .build();
+
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -598,7 +732,12 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testDoToQuery_whenDoRadiusSearch_whenScoreThreshold_whenFilter_thenSucceed() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(MIN_SCORE).filter(TERM_QUERY);
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .maxDistance(MAX_DISTANCE)
+            .filter(TERM_QUERY)
+            .build();
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -615,8 +754,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     }
 
     public void testDoToQuery_WhenknnQueryWithFilterAndFaissEngine_thenSuccess() {
+        // Given
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K, TERM_QUERY);
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -627,9 +766,22 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
         when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+
+        // When
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(K)
+            .filter(TERM_QUERY)
+            .efSearch(EF_SEARCH)
+            .build();
+
         Query query = knnQueryBuilder.doToQuery(mockQueryShardContext);
+
+        // Then
         assertNotNull(query);
         assertTrue(query.getClass().isAssignableFrom(KNNQuery.class));
+        assertEquals(EF_SEARCH, ((KNNQuery) query).getEfSearch().intValue());
     }
 
     public void testDoToQuery_whenknnQueryWithFilterAndNmsLibEngine_thenException() {
@@ -682,7 +834,13 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testDoToQuery_whenFromModel_whenDoRadiusSearch_whenDistanceThreshold_thenSucceed() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).maxDistance(MAX_DISTANCE);
+
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .maxDistance(MAX_DISTANCE)
+            .build();
+
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -715,7 +873,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testDoToQuery_whenFromModel_whenDoRadiusSearch_whenScoreThreshold_thenSucceed() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector).minScore(MIN_SCORE);
+
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector).minScore(MIN_SCORE).build();
+
         Index dummyIndex = new Index("dummy", "dummy");
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
@@ -879,12 +1039,22 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 : new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, k);
         } else if (distance != null) {
             knnQueryBuilder = queryBuilderOptional.isPresent()
-                ? new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR).maxDistance(distance).filter(queryBuilderOptional.get())
-                : new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR).maxDistance(distance);
+                ? KNNQueryBuilder.builder()
+                    .fieldName(FIELD_NAME)
+                    .vector(QUERY_VECTOR)
+                    .maxDistance(distance)
+                    .filter(queryBuilderOptional.get())
+                    .build()
+                : KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).maxDistance(distance).build();
         } else if (score != null) {
             knnQueryBuilder = queryBuilderOptional.isPresent()
-                ? new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR).minScore(score).filter(queryBuilderOptional.get())
-                : new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR).minScore(score);
+                ? KNNQueryBuilder.builder()
+                    .fieldName(FIELD_NAME)
+                    .vector(QUERY_VECTOR)
+                    .minScore(score)
+                    .filter(queryBuilderOptional.get())
+                    .build()
+                : KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).minScore(score).build();
         } else {
             throw new IllegalArgumentException("Either k or distance must be provided");
         }
@@ -893,14 +1063,17 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testIgnoreUnmapped() throws IOException {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K);
-        knnQueryBuilder.ignoreUnmapped(true);
-        assertTrue(knnQueryBuilder.getIgnoreUnmapped());
-        Query query = knnQueryBuilder.doToQuery(mock(QueryShardContext.class));
+        KNNQueryBuilder.Builder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(K)
+            .ignoreUnmapped(true);
+        assertTrue(knnQueryBuilder.build().getIgnoreUnmapped());
+        Query query = knnQueryBuilder.build().doToQuery(mock(QueryShardContext.class));
         assertNotNull(query);
         assertThat(query, instanceOf(MatchNoDocsQuery.class));
         knnQueryBuilder.ignoreUnmapped(false);
-        expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mock(QueryShardContext.class)));
+        expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.build().doToQuery(mock(QueryShardContext.class)));
     }
 
     public void testRadialSearch_whenUnsupportedEngine_thenThrowException() {
@@ -913,7 +1086,13 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 SpaceType.L2,
                 new MethodComponentContext(METHOD_HNSW, ImmutableMap.of())
             );
-            KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR).maxDistance(MAX_DISTANCE);
+
+            KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+                .fieldName(FIELD_NAME)
+                .vector(QUERY_VECTOR)
+                .maxDistance(MAX_DISTANCE)
+                .build();
+
             KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
             QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
             Index dummyIndex = new Index("dummy", "dummy");

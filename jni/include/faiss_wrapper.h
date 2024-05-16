@@ -45,17 +45,27 @@ namespace knn_jni {
         // Sets the sharedIndexState for an index
         void SetSharedIndexState(jlong indexPointerJ, jlong shareIndexStatePointerJ);
 
-        // Execute a query against the index located in memory at indexPointerJ.
-        //
-        // Return an array of KNNQueryResults
+         /**
+         *  Execute a query against the index located in memory at indexPointerJ
+         *  
+         * Parameters:
+         * queryEfSearch: -1 indicates to use efsearch value used during index setting 
+         * 
+         * Return an array of KNNQueryResults
+        */
         jobjectArray QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                jfloatArray queryVectorJ, jint kJ, jintArray parentIdsJ);
+                                jfloatArray queryVectorJ, jint kJ, jint queryEfSearchJ, jintArray parentIdsJ);
 
-        // Execute a query against the index located in memory at indexPointerJ along with Filters
-        //
-        // Return an array of KNNQueryResults
+        /**
+         *  Execute a query against the index located in memory at indexPointerJ along with Filters
+         *  
+         * Parameters:
+         * queryEfSearch: -1 indicates to use efsearch value used during index setting 
+         * 
+         * Return an array of KNNQueryResults
+        */
         jobjectArray QueryIndex_WithFilter(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                                                jfloatArray queryVectorJ, jint kJ, jlongArray filterIdsJ,
+                                                                jfloatArray queryVectorJ, jint kJ, jint queryEfSearchJ, jlongArray filterIdsJ,
                                                                 jint filterIdsTypeJ, jintArray parentIdsJ);
 
         // Free the index located in memory at indexPointerJ

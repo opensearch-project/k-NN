@@ -5,12 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
-import java.util.Arrays;
-import java.util.Objects;
-
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.FieldExistsQuery;
@@ -23,26 +18,28 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.knn.index.KNNSettings;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * Custom KNN query. Query is used for KNNEngine's that create their own custom segment files. These files need to be
  * loaded and queried in a custom manner throughout the query path.
  */
+@Getter
+@Builder
+@AllArgsConstructor
 public class KNNQuery extends Query {
 
     private final String field;
     private final float[] queryVector;
     private int k;
+    private Integer efSearch;
     private final String indexName;
 
-    @Getter
     @Setter
     private Query filterQuery;
-    @Getter
     private BitSetProducer parentsFilter;
-    @Getter
-    private Float radius = null;
-    @Getter
+    private Float radius;
     private Context context;
 
     public KNNQuery(
@@ -123,22 +120,6 @@ public class KNNQuery extends Query {
         return this;
     }
 
-    public String getField() {
-        return this.field;
-    }
-
-    public float[] getQueryVector() {
-        return this.queryVector;
-    }
-
-    public int getK() {
-        return this.k;
-    }
-
-    public String getIndexName() {
-        return this.indexName;
-    }
-
     /**
      * Constructs Weight implementation for this query
      *
@@ -183,7 +164,7 @@ public class KNNQuery extends Query {
 
     @Override
     public int hashCode() {
-        return Objects.hash(field, Arrays.hashCode(queryVector), k, indexName, filterQuery);
+        return Objects.hash(field, Arrays.hashCode(queryVector), k, indexName, filterQuery, context, parentsFilter, radius, efSearch);
     }
 
     @Override
@@ -192,10 +173,15 @@ public class KNNQuery extends Query {
     }
 
     private boolean equalsTo(KNNQuery other) {
+        if (other == this) return true;
         return Objects.equals(field, other.field)
             && Arrays.equals(queryVector, other.queryVector)
             && Objects.equals(k, other.k)
+            && Objects.equals(efSearch, other.efSearch)
+            && Objects.equals(radius, other.radius)
+            && Objects.equals(context, other.context)
             && Objects.equals(indexName, other.indexName)
+            && Objects.equals(parentsFilter, other.parentsFilter)
             && Objects.equals(filterQuery, other.filterQuery);
     }
 

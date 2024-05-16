@@ -71,6 +71,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final byte[] byteVector = createQueryRequest.getByteVector();
         final VectorDataType vectorDataType = createQueryRequest.getVectorDataType();
         final Query filterQuery = getFilterQuery(createQueryRequest);
+        final Integer efSearch = createQueryRequest.getEfSearch();
 
         BitSetProducer parentFilter = null;
         if (createQueryRequest.getContext().isPresent()) {
@@ -79,12 +80,24 @@ public class KNNQueryFactory extends BaseQueryFactory {
         }
 
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
-            if (filterQuery != null && KNNEngine.getEnginesThatSupportsFilters().contains(createQueryRequest.getKnnEngine())) {
-                log.debug("Creating custom k-NN query with filters for index: {}, field: {} , k: {}", indexName, fieldName, k);
-                return new KNNQuery(fieldName, vector, k, indexName, filterQuery, parentFilter);
-            }
-            log.debug(String.format("Creating custom k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
-            return new KNNQuery(fieldName, vector, k, indexName, parentFilter);
+            final Query validatedFilterQuery = validateFilterQuerySupport(filterQuery, createQueryRequest.getKnnEngine());
+            log.debug(
+                "Creating custom k-NN query for index:{}, field:{}, k:{}, filterQuery:{}, efSearch:{}",
+                indexName,
+                fieldName,
+                k,
+                validatedFilterQuery,
+                efSearch
+            );
+            return KNNQuery.builder()
+                .field(fieldName)
+                .queryVector(vector)
+                .indexName(indexName)
+                .parentsFilter(parentFilter)
+                .k(k)
+                .efSearch(efSearch)
+                .filterQuery(validatedFilterQuery)
+                .build();
         }
 
         log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
@@ -104,6 +117,14 @@ public class KNNQueryFactory extends BaseQueryFactory {
                     )
                 );
         }
+    }
+
+    private static Query validateFilterQuerySupport(final Query filterQuery, final KNNEngine knnEngine) {
+        log.debug("filter query {}, knnEngine {}", filterQuery, knnEngine);
+        if (filterQuery != null && KNNEngine.getEnginesThatSupportsFilters().contains(knnEngine)) {
+            return filterQuery;
+        }
+        return null;
     }
 
     /**

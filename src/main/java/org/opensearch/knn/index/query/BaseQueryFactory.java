@@ -43,6 +43,7 @@ public abstract class BaseQueryFactory {
         private byte[] byteVector;
         private VectorDataType vectorDataType;
         private Integer k;
+        private Integer efSearch;
         private Float radius;
         private QueryBuilder filter;
         private QueryShardContext context;

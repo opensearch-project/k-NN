@@ -242,6 +242,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
 
     // Define query data
     int k = 10;
+    int efSearch = 100;
     int numQueries = 100;
     std::vector<std::vector<float>> queries;
 
@@ -270,7 +271,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
                         knn_jni::faiss_wrapper::QueryIndex(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), k, nullptr)));
+                                reinterpret_cast<jfloatArray>(&query), k, efSearch, nullptr)));
 
         ASSERT_EQ(k, results->size());
 
@@ -336,7 +337,7 @@ TEST(FaissQueryIndexWithFilterTest1435, BasicAssertions) {
                         knn_jni::faiss_wrapper::QueryIndex_WithFilter(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), k,
+                                reinterpret_cast<jfloatArray>(&query), k, -1,
                                 reinterpret_cast<jlongArray>(&bitmap), 0, nullptr)));
 
         ASSERT_TRUE(results->size() <= filterIds.size());
@@ -376,6 +377,7 @@ TEST(FaissQueryIndexWithParentFilterTest, BasicAssertions) {
 
     // Define query data
     int k = 20;
+    int efSearch = 100;
     int numQueries = 100;
     std::vector<std::vector<float>> queries;
 
@@ -407,7 +409,7 @@ TEST(FaissQueryIndexWithParentFilterTest, BasicAssertions) {
                         knn_jni::faiss_wrapper::QueryIndex(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), k,
+                                reinterpret_cast<jfloatArray>(&query), k, efSearch,
                                 reinterpret_cast<jintArray>(&parentIds))));
 
         // Even with k 20, result should have only 10 which is total number of groups

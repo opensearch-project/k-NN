@@ -60,13 +60,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyFloat;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
@@ -83,6 +77,7 @@ public class KNNWeightTests extends KNNTestCase {
     private static final Set<String> SEGMENT_FILES_NMSLIB = Set.of("_0.cfe", "_0_2011_target_field.hnswc");
     private static final Set<String> SEGMENT_FILES_FAISS = Set.of("_0.cfe", "_0_2011_target_field.faissc");
     private static final String CIRCUIT_BREAKER_LIMIT_100KB = "100Kb";
+    private static final Integer EF_SEARCH = 10;
 
     private static final Map<Integer, Float> DOC_ID_TO_SCORES = Map.of(10, 0.4f, 101, 0.05f, 100, 0.8f, 50, 0.52f);
     private static final Map<Integer, Float> FILTERED_DOC_ID_TO_SCORES = Map.of(101, 0.05f, 100, 0.8f, 50, 0.52f);
@@ -159,7 +154,7 @@ public class KNNWeightTests extends KNNTestCase {
         SpaceType spaceType = SpaceType.L2;
         final Function<Float, Float> scoreTranslator = spaceType::scoreTranslation;
         final String modelId = "modelId";
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), any(), any(), anyInt(), any()))
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), eq(K), isNull(), any(), any(), anyInt(), any()))
             .thenReturn(getKNNQueryResults());
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, (BitSetProducer) null);
@@ -303,7 +298,7 @@ public class KNNWeightTests extends KNNTestCase {
     @SneakyThrows
     public void testEmptyQueryResults() {
         final KNNQueryResult[] knnQueryResults = new KNNQueryResult[] {};
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), any(), any(), anyInt(), any()))
+        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), eq(K), isNull(), any(), any(), anyInt(), any()))
             .thenReturn(knnQueryResults);
 
         final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, (BitSetProducer) null);
@@ -346,6 +341,7 @@ public class KNNWeightTests extends KNNTestCase {
 
     @SneakyThrows
     public void testANNWithFilterQuery_whenDoingANN_thenSuccess() {
+        // Given
         int k = 3;
         final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
         FixedBitSet filterBitSet = new FixedBitSet(filterDocIds.length);
@@ -353,7 +349,16 @@ public class KNNWeightTests extends KNNTestCase {
             filterBitSet.set(docId);
         }
         jniServiceMockedStatic.when(
-            () -> JNIService.queryIndex(anyLong(), any(), anyInt(), any(), eq(filterBitSet.getBits()), anyInt(), any())
+            () -> JNIService.queryIndex(
+                anyLong(),
+                eq(QUERY_VECTOR),
+                eq(k),
+                eq(EF_SEARCH),
+                any(),
+                eq(filterBitSet.getBits()),
+                anyInt(),
+                any()
+            )
         ).thenReturn(getFilteredKNNQueryResults());
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
@@ -366,7 +371,15 @@ public class KNNWeightTests extends KNNTestCase {
         when(liveDocsBits.length()).thenReturn(1000);
         when(leafReaderContext.reader()).thenReturn(reader);
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, k, INDEX_NAME, FILTER_QUERY, null);
+        final KNNQuery query = KNNQuery.builder()
+            .field(FIELD_NAME)
+            .queryVector(QUERY_VECTOR)
+            .k(k)
+            .indexName(INDEX_NAME)
+            .filterQuery(FILTER_QUERY)
+            .efSearch(EF_SEARCH)
+            .build();
+
         final Weight filterQueryWeight = mock(Weight.class);
         final Scorer filterScorer = mock(Scorer.class);
         when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
@@ -406,15 +419,26 @@ public class KNNWeightTests extends KNNTestCase {
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
         when(fieldInfo.attributes()).thenReturn(attributesMap);
 
+        // When
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
-        assertNotNull(knnScorer);
 
+        // Then
+        assertNotNull(knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         assertNotNull(docIdSetIterator);
         assertEquals(FILTERED_DOC_ID_TO_SCORES.size(), docIdSetIterator.cost());
 
         jniServiceMockedStatic.verify(
-            () -> JNIService.queryIndex(anyLong(), any(), anyInt(), any(), eq(filterBitSet.getBits()), anyInt(), any())
+            () -> JNIService.queryIndex(
+                anyLong(),
+                eq(QUERY_VECTOR),
+                eq(k),
+                eq(EF_SEARCH),
+                any(),
+                eq(filterBitSet.getBits()),
+                anyInt(),
+                any()
+            )
         );
 
         final List<Integer> actualDocIds = new ArrayList<>();
@@ -677,17 +701,29 @@ public class KNNWeightTests extends KNNTestCase {
 
         // Prepare query and weight
         when(bitSetProducer.getBitSet(leafReaderContext)).thenReturn(bitset);
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, 1, INDEX_NAME, null, bitSetProducer);
+
+        final KNNQuery query = KNNQuery.builder()
+            .field(FIELD_NAME)
+            .queryVector(QUERY_VECTOR)
+            .k(1)
+            .indexName(INDEX_NAME)
+            .efSearch(EF_SEARCH)
+            .parentsFilter(bitSetProducer)
+            .build();
+
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f, null);
 
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), any(), any(), anyInt(), eq(parentsFilter)))
-            .thenReturn(getKNNQueryResults());
+        jniServiceMockedStatic.when(
+            () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(1), eq(EF_SEARCH), any(), any(), anyInt(), eq(parentsFilter))
+        ).thenReturn(getKNNQueryResults());
 
         // Execute
         Scorer knnScorer = knnWeight.scorer(leafReaderContext);
 
         // Verify
-        jniServiceMockedStatic.verify(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), any(), any(), anyInt(), eq(parentsFilter)));
+        jniServiceMockedStatic.verify(
+            () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(1), eq(EF_SEARCH), any(), any(), anyInt(), eq(parentsFilter))
+        );
         assertNotNull(knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         assertNotNull(docIdSetIterator);
@@ -811,10 +847,17 @@ public class KNNWeightTests extends KNNTestCase {
         final Set<String> segmentFiles,
         final Map<String, String> fileAttributes
     ) throws IOException {
-        jniServiceMockedStatic.when(() -> JNIService.queryIndex(anyLong(), any(), anyInt(), any(), any(), anyInt(), any()))
-            .thenReturn(getKNNQueryResults());
+        jniServiceMockedStatic.when(
+            () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(K), eq(EF_SEARCH), any(), any(), anyInt(), any())
+        ).thenReturn(getKNNQueryResults());
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, (BitSetProducer) null);
+        final KNNQuery query = KNNQuery.builder()
+            .field(FIELD_NAME)
+            .queryVector(QUERY_VECTOR)
+            .k(K)
+            .indexName(INDEX_NAME)
+            .efSearch(EF_SEARCH)
+            .build();
         final float boost = (float) randomDoubleBetween(0, 10, true);
         final KNNWeight knnWeight = new KNNWeight(query, boost);
 
