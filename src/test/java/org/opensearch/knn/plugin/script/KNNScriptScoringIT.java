@@ -644,7 +644,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         final Map<String, KNNResult> dataset = new HashMap<>(dense ? numDocsWithField : numDocsWithField * 3);
         int id = 0;
         for (int i = 0; i < numDocsWithField; i++) {
-            final int dummyDocs = dense ? 0 : randomIntBetween(1, 5);
+            final int dummyDocs = dense ? 0 : randomIntBetween(2, 5);
             for (int j = 0; j < dummyDocs; j++) {
                 dataset.put(Integer.toString(id++), null);
             }
