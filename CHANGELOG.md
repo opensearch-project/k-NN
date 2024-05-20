@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Enhancements
 * Add KnnCircuitBreakerException and modify exception message [#1688](https://github.com/opensearch-project/k-NN/pull/1688)
 * Add stats for radial search [#1684](https://github.com/opensearch-project/k-NN/pull/1684)
+* Add efSearch as a query parameter [#1707](https://github.com/opensearch-project/k-NN/pull/1707)
 ### Bug Fixes
 * Block commas in model description [#1692](https://github.com/opensearch-project/k-NN/pull/1692)
 ### Infrastructure
