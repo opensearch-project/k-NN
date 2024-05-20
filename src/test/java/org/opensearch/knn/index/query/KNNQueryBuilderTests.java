@@ -20,16 +20,13 @@ import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexSettings;
-import org.opensearch.index.query.QueryBuilder;
-import org.opensearch.index.query.QueryBuilders;
-import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.index.query.*;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.core.index.Index;
 import org.opensearch.index.mapper.NumberFieldMapper;
-import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.MethodComponentContext;
@@ -970,27 +967,38 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testSerialization() throws Exception {
         // For k-NN search
-        assertSerialization(Version.CURRENT, Optional.empty(), K, null, null);
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), K, null, null);
-        assertSerialization(Version.V_2_3_0, Optional.empty(), K, null, null);
+        assertSerialization(Version.CURRENT, Optional.empty(), K, null, null, null);
+        assertSerialization(Version.CURRENT, Optional.empty(), K, EF_SEARCH, null, null);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), K, EF_SEARCH, null, null);
+        assertSerialization(Version.V_2_3_0, Optional.empty(), K, EF_SEARCH, null, null);
+        assertSerialization(Version.V_2_3_0, Optional.empty(), K, null, null, null);
 
         // For distance threshold search
-        assertSerialization(Version.CURRENT, Optional.empty(), null, MAX_DISTANCE, null);
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, MAX_DISTANCE, null);
+        assertSerialization(Version.CURRENT, Optional.empty(), null, null, MAX_DISTANCE, null);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, MAX_DISTANCE, null);
 
         // For score threshold search
-        assertSerialization(Version.CURRENT, Optional.empty(), null, null, MIN_SCORE);
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, MIN_SCORE);
+        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, MIN_SCORE);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, MIN_SCORE);
     }
 
     private void assertSerialization(
         final Version version,
         final Optional<QueryBuilder> queryBuilderOptional,
         Integer k,
+        Integer efSearch,
         Float distance,
         Float score
     ) throws Exception {
-        final KNNQueryBuilder knnQueryBuilder = getKnnQueryBuilder(queryBuilderOptional, k, distance, score);
+        final KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .maxDistance(distance)
+            .minScore(score)
+            .k(k)
+            .efSearch(efSearch)
+            .filter(queryBuilderOptional.orElse(null))
+            .build();
 
         final ClusterService clusterService = mockClusterService(version);
 
@@ -1011,6 +1019,12 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 assertArrayEquals(QUERY_VECTOR, (float[]) deserializedKnnQueryBuilder.vector(), 0.0f);
                 if (k != null) {
                     assertEquals(k.intValue(), deserializedKnnQueryBuilder.getK());
+                    // Verifies efSearch
+                    if (version.onOrAfter(Version.V_2_15_0)) {
+                        assertEquals(efSearch, deserializedKnnQueryBuilder.getEfSearch());
+                    } else {
+                        assertNull(deserializedKnnQueryBuilder.getEfSearch());
+                    }
                 } else if (distance != null) {
                     assertEquals(distance.floatValue(), deserializedKnnQueryBuilder.getMaxDistance(), 0.0f);
                 } else {
@@ -1026,36 +1040,6 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         }
     }
 
-    private static KNNQueryBuilder getKnnQueryBuilder(Optional<QueryBuilder> queryBuilderOptional, Integer k, Float distance, Float score) {
-        final KNNQueryBuilder knnQueryBuilder;
-        if (k != null) {
-            knnQueryBuilder = queryBuilderOptional.isPresent()
-                ? new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, k, queryBuilderOptional.get())
-                : new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, k);
-        } else if (distance != null) {
-            knnQueryBuilder = queryBuilderOptional.isPresent()
-                ? KNNQueryBuilder.builder()
-                    .fieldName(FIELD_NAME)
-                    .vector(QUERY_VECTOR)
-                    .maxDistance(distance)
-                    .filter(queryBuilderOptional.get())
-                    .build()
-                : KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).maxDistance(distance).build();
-        } else if (score != null) {
-            knnQueryBuilder = queryBuilderOptional.isPresent()
-                ? KNNQueryBuilder.builder()
-                    .fieldName(FIELD_NAME)
-                    .vector(QUERY_VECTOR)
-                    .minScore(score)
-                    .filter(queryBuilderOptional.get())
-                    .build()
-                : KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).minScore(score).build();
-        } else {
-            throw new IllegalArgumentException("Either k or distance must be provided");
-        }
-        return knnQueryBuilder;
-    }
-
     public void testIgnoreUnmapped() throws IOException {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder.Builder knnQueryBuilder = KNNQueryBuilder.builder()
@@ -1063,7 +1047,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             .vector(queryVector)
             .k(K)
             .ignoreUnmapped(true);
-        assertTrue(knnQueryBuilder.build().getIgnoreUnmapped());
+        assertTrue(knnQueryBuilder.build().isIgnoreUnmapped());
         Query query = knnQueryBuilder.build().doToQuery(mock(QueryShardContext.class));
         assertNotNull(query);
         assertThat(query, instanceOf(MatchNoDocsQuery.class));

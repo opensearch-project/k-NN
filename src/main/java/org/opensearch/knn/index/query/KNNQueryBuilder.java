@@ -71,12 +71,17 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
      */
     private final String fieldName;
     private final float[] vector;
+    @Getter
     private int k;
     @Getter
     private Integer efSearch;
+    @Getter
     private Float maxDistance;
+    @Getter
     private Float minScore;
+    @Getter
     private QueryBuilder filter;
+    @Getter
     private boolean ignoreUnmapped;
 
     /**
@@ -300,7 +305,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             vector = in.readFloatArray();
             k = in.readInt();
             filter = in.readOptionalNamedWriteable(QueryBuilder.class);
-            efSearch = in.readOptionalInt();
             if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
                 ignoreUnmapped = in.readOptionalBoolean();
             }
@@ -309,6 +313,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
             if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
                 minScore = in.readOptionalFloat();
+            }
+            if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.EF_SEARCH)) {
+                efSearch = in.readOptionalInt();
             }
         } catch (IOException ex) {
             throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder", ex);
@@ -404,7 +411,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         out.writeFloatArray(vector);
         out.writeInt(k);
         out.writeOptionalNamedWriteable(filter);
-        out.writeOptionalInt(efSearch);
         if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
             out.writeOptionalBoolean(ignoreUnmapped);
         }
@@ -413,6 +419,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
         if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
             out.writeOptionalFloat(minScore);
+        }
+        if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.EF_SEARCH)) {
+            out.writeOptionalInt(efSearch);
         }
     }
 
@@ -428,26 +437,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
      */
     public Object vector() {
         return this.vector;
-    }
-
-    public int getK() {
-        return this.k;
-    }
-
-    public float getMaxDistance() {
-        return this.maxDistance;
-    }
-
-    public float getMinScore() {
-        return this.minScore;
-    }
-
-    public QueryBuilder getFilter() {
-        return this.filter;
-    }
-
-    public boolean getIgnoreUnmapped() {
-        return this.ignoreUnmapped;
     }
 
     @Override

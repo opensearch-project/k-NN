@@ -24,6 +24,7 @@ public class KNNConstants {
     public static final String KNN = "knn";
     public static final String VECTOR = "vector";
     public static final String K = "k";
+    public static final String EF_SEARCH = "ef_Search";
     public static final String TYPE_KNN_VECTOR = "knn_vector";
     public static final String METHOD_PARAMETER_EF_SEARCH = "ef_search";
     public static final String METHOD_PARAMETER_EF_CONSTRUCTION = "ef_construction";
