@@ -112,44 +112,7 @@ class Faiss extends NativeLibrary {
     // TODO: To think about in future: for PQ, if dimension is not divisible by code count, PQ will fail. Right now,
     // we do not have a way to base validation off of dimension. Failure will happen during training in JNI.
     // Define methods supported by faiss. See issue here: https://github.com/opensearch-project/k-NN/issues/1075
-    private final static Map<String, MethodComponent> HNSW_ENCODERS = ImmutableMap.<String, MethodComponent>builder()
-        .putAll(
-            ImmutableMap.of(
-                KNNConstants.ENCODER_PQ,
-                MethodComponent.Builder.builder(KNNConstants.ENCODER_PQ)
-                    .addParameter(
-                        ENCODER_PARAMETER_PQ_M,
-                        new Parameter.IntegerParameter(
-                            ENCODER_PARAMETER_PQ_M,
-                            ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT,
-                            v -> v > 0 && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT
-                        )
-                    )
-                    .addParameter(
-                        ENCODER_PARAMETER_PQ_CODE_SIZE,
-                        new Parameter.IntegerParameter(
-                            ENCODER_PARAMETER_PQ_CODE_SIZE,
-                            ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT,
-                            v -> Objects.equals(v, ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT)
-                        )
-                    )
-                    .setRequiresTraining(true)
-                    .setMapGenerator(
-                        ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
-                            FAISS_PQ_DESCRIPTION,
-                            methodComponent,
-                            methodComponentContext
-                        ).addParameter(ENCODER_PARAMETER_PQ_M, "", "").build())
-                    )
-                    .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
-                        int codeSize = ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT;
-                        return ((4L * (1L << codeSize) * dimension) / BYTES_PER_KILOBYTES) + 1;
-                    })
-                    .build()
-            )
-        )
-        .putAll(COMMON_ENCODERS)
-        .build();
+    private final static Map<String, MethodComponent> HNSW_ENCODERS = getHNSWEncoders();
 
     private final static Map<String, MethodComponent> IVF_ENCODERS = ImmutableMap.<String, MethodComponent>builder()
         .putAll(
@@ -348,6 +311,47 @@ class Faiss extends NativeLibrary {
             return this.scoreTransform.get(spaceType).apply(score);
         }
         return spaceType.scoreToDistanceTranslation(score);
+    }
+
+    private static ImmutableMap<String, MethodComponent> getHNSWEncoders() {
+        return ImmutableMap.<String, MethodComponent>builder()
+            .putAll(
+                ImmutableMap.of(
+                    KNNConstants.ENCODER_PQ,
+                    MethodComponent.Builder.builder(KNNConstants.ENCODER_PQ)
+                        .addParameter(
+                            ENCODER_PARAMETER_PQ_M,
+                            new Parameter.IntegerParameter(
+                                ENCODER_PARAMETER_PQ_M,
+                                ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT,
+                                v -> v > 0 && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT
+                            )
+                        )
+                        .addParameter(
+                            ENCODER_PARAMETER_PQ_CODE_SIZE,
+                            new Parameter.IntegerParameter(
+                                ENCODER_PARAMETER_PQ_CODE_SIZE,
+                                ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT,
+                                v -> Objects.equals(v, ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT)
+                            )
+                        )
+                        .setRequiresTraining(true)
+                        .setMapGenerator(
+                            ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+                                FAISS_PQ_DESCRIPTION,
+                                methodComponent,
+                                methodComponentContext
+                            ).addParameter(ENCODER_PARAMETER_PQ_M, "", "").build())
+                        )
+                        .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {
+                            int codeSize = ENCODER_PARAMETER_PQ_CODE_SIZE_DEFAULT;
+                            return ((4L * (1L << codeSize) * dimension) / BYTES_PER_KILOBYTES) + 1;
+                        })
+                        .build()
+                )
+            )
+            .putAll(COMMON_ENCODERS)
+            .build();
     }
 
     /**
