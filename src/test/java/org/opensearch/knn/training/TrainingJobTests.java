@@ -36,7 +36,11 @@ import java.util.concurrent.ExecutionException;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
 import static org.opensearch.knn.common.KNNConstants.INDEX_THREAD_QTY;
+import static org.opensearch.knn.common.KNNConstants.INVALID_CODE_COUNT_ERROR_MESSAGE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 
@@ -479,6 +483,82 @@ public class TrainingJobTests extends KNNTestCase {
         assertNotNull(model);
         assertEquals(ModelState.FAILED, model.getModelMetadata().getState());
         assertFalse(model.getModelMetadata().getError().isEmpty());
+    }
+
+    public void testRun_failure_invalidPQM() throws ExecutionException {
+        // In this test case, we ensure that failure happens gracefully when there isnt enough training data
+        String modelId = "test-model-id";
+
+        // Define the method setup for method that requires training
+        int dimension = 16;
+        int invalidPQM = 3;
+        KNNEngine knnEngine = KNNEngine.FAISS;
+
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            knnEngine,
+            SpaceType.INNER_PRODUCT,
+            new MethodComponentContext(
+                METHOD_IVF,
+                ImmutableMap.of(
+                    METHOD_ENCODER_PARAMETER,
+                    new MethodComponentContext(ENCODER_PQ, ImmutableMap.of(ENCODER_PARAMETER_PQ_M, invalidPQM))
+                )
+            )
+        );
+        // Set up training data
+        int tdataPoints = 2;
+        float[][] trainingData = new float[tdataPoints][dimension];
+        fillFloatArrayRandomly(trainingData);
+        long memoryAddress = JNIService.transferVectors(0, trainingData);
+
+        // Setup model manager
+        NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
+
+        // Setup mock allocation for model
+        NativeMemoryAllocation modelAllocation = mock(NativeMemoryAllocation.class);
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readLock();
+        doAnswer(invocationOnMock -> null).when(modelAllocation).readUnlock();
+        when(modelAllocation.isClosed()).thenReturn(false);
+
+        String modelKey = "model-test-key";
+        NativeMemoryEntryContext.AnonymousEntryContext modelContext = mock(NativeMemoryEntryContext.AnonymousEntryContext.class);
+        when(modelContext.getKey()).thenReturn(modelKey);
+
+        when(nativeMemoryCacheManager.get(modelContext, false)).thenReturn(modelAllocation);
+        doAnswer(invocationOnMock -> null).when(nativeMemoryCacheManager).invalidate(modelKey);
+
+        // Setup mock allocation
+        NativeMemoryAllocation nativeMemoryAllocation = mock(NativeMemoryAllocation.class);
+        doAnswer(invocationOnMock -> null).when(nativeMemoryAllocation).readLock();
+        doAnswer(invocationOnMock -> null).when(nativeMemoryAllocation).readUnlock();
+        when(nativeMemoryAllocation.isClosed()).thenReturn(false);
+        when(nativeMemoryAllocation.getMemoryAddress()).thenReturn(memoryAddress);
+
+        String tdataKey = "t-data-key";
+        NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext = mock(
+            NativeMemoryEntryContext.TrainingDataEntryContext.class
+        );
+        when(trainingDataEntryContext.getKey()).thenReturn(tdataKey);
+
+        when(nativeMemoryCacheManager.get(trainingDataEntryContext, false)).thenReturn(nativeMemoryAllocation);
+        doAnswer(invocationOnMock -> {
+            JNICommons.freeVectorData(memoryAddress);
+            return null;
+        }).when(nativeMemoryCacheManager).invalidate(tdataKey);
+
+        TrainingJob trainingJob = new TrainingJob(
+            modelId,
+            knnMethodContext,
+            nativeMemoryCacheManager,
+            trainingDataEntryContext,
+            modelContext,
+            dimension,
+            "",
+            "test-node"
+        );
+
+        IllegalArgumentException e = expectThrows(IllegalArgumentException.class, trainingJob::run);
+        assertEquals(INVALID_CODE_COUNT_ERROR_MESSAGE, e.getMessage());
     }
 
     private void fillFloatArrayRandomly(float[][] vectors) {
