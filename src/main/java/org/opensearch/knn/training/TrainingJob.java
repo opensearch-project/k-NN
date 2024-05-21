@@ -117,7 +117,6 @@ public class TrainingJob implements Runnable {
         ModelMetadata modelMetadata = model.getModelMetadata();
 
         Map<String, Object> parameters = modelMetadata.getMethodComponentContext().getParameters();
-        System.out.println(parameters);
         if (parameters.get("encoder") instanceof MethodComponentContext) {
             MethodComponentContext encoder = (MethodComponentContext) parameters.get("encoder");
             Map<String, Object> encoderParameters = encoder.getParameters();

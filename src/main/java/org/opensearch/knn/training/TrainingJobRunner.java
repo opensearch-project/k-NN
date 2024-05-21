@@ -133,7 +133,6 @@ public class TrainingJobRunner {
             threadPool.executor(TRAIN_THREAD_POOL).execute(() -> {
                 try {
                     trainingJob.run();
-                    System.out.println("Checkpoint -1");
                     serializeModel(trainingJob, loggingListener, true);
                 } catch (IOException | ExecutionException | InterruptedException e) {
                     logger.error("Unable to serialize model \"" + trainingJob.getModelId() + "\": " + e.getMessage());
@@ -141,9 +140,7 @@ public class TrainingJobRunner {
                 } catch (Exception e) {
                     logger.error("Unable to complete training for \"" + trainingJob.getModelId() + "\": " + e.getMessage());
                     KNNCounter.TRAINING_ERRORS.increment();
-                    System.out.println("Checkpoint 0");
                     if (e.getMessage().equals(KNNConstants.INVALID_CODE_COUNT_ERROR_MESSAGE)) {
-                        System.out.println("Checkpoint 1");
                         ModelMetadata modelMetadata = trainingJob.getModel().getModelMetadata();
                         modelMetadata.setState(ModelState.FAILED);
                         modelMetadata.setError(KNNConstants.INVALID_CODE_COUNT_ERROR_MESSAGE);
