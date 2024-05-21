@@ -123,10 +123,6 @@ public class TrainingJob implements Runnable {
             if (encoderParameters.get("m") instanceof Integer) {
                 int codeCount = (int) encoderParameters.get("m");
                 if (modelMetadata.getDimension() % codeCount != 0) {
-                    modelMetadata.setState(ModelState.FAILED);
-                    modelMetadata.setError(
-                        "Model failed training because the dimension of the vector is not a multiple of the number of subquantizers (m)"
-                    );
                     throw new IllegalArgumentException(KNNConstants.INVALID_CODE_COUNT_ERROR_MESSAGE);
                 }
             }
