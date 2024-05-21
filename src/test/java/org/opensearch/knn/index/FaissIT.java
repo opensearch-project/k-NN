@@ -21,6 +21,7 @@ import org.junit.BeforeClass;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.client.ResponseException;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
@@ -46,28 +47,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_PQ;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
-import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
-import static org.opensearch.knn.common.KNNConstants.FP16_MAX_VALUE;
-import static org.opensearch.knn.common.KNNConstants.FP16_MIN_VALUE;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
-import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
-import static org.opensearch.knn.common.KNNConstants.NAME;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.KNNConstants.*;
 
 public class FaissIT extends KNNRestTestCase {
     private static final String DOC_ID_1 = "doc1";
@@ -1646,6 +1626,55 @@ public class FaissIT extends KNNRestTestCase {
         for (int i = 0; i < expectedScores.size(); i++) {
             assertEquals(expectedScores.get(i), knnResults.get(i), 0.0000001);
         }
+    }
+
+    @SneakyThrows
+    public void testInvalidPQM_thenFail() {
+        String trainingIndexName = "training-index";
+        String trainingFieldName = "training-field";
+
+        String modelId = "test-model";
+        String modelDescription = "test model";
+
+        List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
+        int invalidPQM = 3;
+
+        // training data needs to be at least equal to the number of centroids for PQ
+        // which is 2^8 = 256. 8 because thats the only valid code_size for HNSWPQ
+        int trainingDataCount = 256;
+
+        SpaceType spaceType = SpaceType.L2;
+
+        Integer dimension = testData.indexData.vectors[0].length;
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .startObject(PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_PQ)
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_M, invalidPQM)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, in, trainingDataCount);
+        assertTrainingFails(modelId, 360, 1000);
+
+        Response response = getModel(modelId, null);
+
+        Map<String, Object> responseMap = createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            EntityUtils.toString(response.getEntity())
+        ).map();
+
+        assertEquals(KNNConstants.INVALID_CODE_COUNT_ERROR_MESSAGE, responseMap.get(MODEL_ERROR));
     }
 
     protected void setupKNNIndexForFilterQuery() throws Exception {
