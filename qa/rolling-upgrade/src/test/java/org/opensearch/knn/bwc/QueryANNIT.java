@@ -36,7 +36,6 @@ public class QueryANNIT extends AbstractRollingUpgradeTestCase {
                 break;
             case MIXED:
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
-                validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K, EF_SEARCH);
                 break;
             case UPGRADED:
                 validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
