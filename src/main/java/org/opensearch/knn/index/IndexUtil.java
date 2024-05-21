@@ -51,7 +51,8 @@ public class IndexUtil {
             put(MODEL_NODE_ASSIGNMENT_KEY, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_NODE_ASSIGNMENT);
             put(MODEL_METHOD_COMPONENT_CONTEXT_KEY, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_METHOD_COMPONENT_CONTEXT);
             put(KNNConstants.RADIAL_SEARCH_KEY, MINIMAL_SUPPORTED_VERSION_FOR_RADIAL_SEARCH);
-            put(KNNConstants.EF_SEARCH, Version.V_2_15_0);
+            //TODO: Make 2.15 when we merge into 2.x. Making it 3.0.0 to make sure BWC passes
+            put(KNNConstants.EF_SEARCH, Version.V_3_0_0);
         }
     };
 
