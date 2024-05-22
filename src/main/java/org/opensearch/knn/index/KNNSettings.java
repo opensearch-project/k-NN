@@ -21,6 +21,7 @@ import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.IndexModule;
+import org.opensearch.index.IndexSettings;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManagerDto;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
@@ -80,6 +81,7 @@ public class KNNSettings {
     public static final String MODEL_CACHE_SIZE_LIMIT = "knn.model.cache.size.limit";
     public static final String ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD = "index.knn.advanced.filtered_exact_search_threshold";
     public static final String KNN_FAISS_AVX2_DISABLED = "knn.faiss.avx2.disabled";
+    public static final String KNN_SYNTHETIC_SOURCE_ENABLED = "index.knn.synthetic_source.enabled";
 
     /**
      * Default setting values
@@ -252,6 +254,13 @@ public class KNNSettings {
         NodeScope
     );
 
+    public static final Setting<Boolean> KNN_SYNTHETIC_SOURCE_ENABLED_SETTING = Setting.boolSetting(
+        KNN_SYNTHETIC_SOURCE_ENABLED,
+        false,
+        IndexScope,
+        Dynamic
+    );
+
     /**
      * Dynamic settings
      */
@@ -369,6 +378,10 @@ public class KNNSettings {
             return KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING;
         }
 
+        if (KNN_SYNTHETIC_SOURCE_ENABLED.equals(key)) {
+            return KNN_SYNTHETIC_SOURCE_ENABLED_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -387,7 +400,8 @@ public class KNNSettings {
             MODEL_CACHE_SIZE_LIMIT_SETTING,
             ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
             KNN_FAISS_AVX2_DISABLED_SETTING,
-            KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING
+            KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING,
+            KNN_SYNTHETIC_SOURCE_ENABLED_SETTING
         );
         return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream()).collect(Collectors.toList());
     }
@@ -430,6 +444,14 @@ public class KNNSettings {
             .index(indexName)
             .getSettings()
             .getAsInt(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE);
+    }
+
+    /**
+     * check this index enabled/disabled synthetic source
+     * @param indexSettings settings
+     */
+    public static boolean isKNNSyntheticSourceEnabled(IndexSettings indexSettings) {
+        return indexSettings.getValue(KNN_SYNTHETIC_SOURCE_ENABLED_SETTING);
     }
 
     public void initialize(Client client, ClusterService clusterService) {
