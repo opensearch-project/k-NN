@@ -305,7 +305,11 @@ public class KNNSyntheticSourceIT extends KNNRestTestCase {
             }
         } catch (ResponseException ex) {
             assertTrue(
-                ex.toString().contains("\"type\":\"unsupported_operation_exception\",\"reason\":\"Nested Field should not be empty\"")
+                ex.toString()
+                    .contains(
+                        "Nested Path \\\"nested-field\\\" in Field \\\""
+                            + "nested-field.test-nested-field-1\\\" with _ID \\\"1\\\" can not be empty"
+                    )
             );
         }
     }
