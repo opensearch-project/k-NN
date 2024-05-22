@@ -18,8 +18,10 @@ import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
+import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.IndexOptions;
+import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.DocValuesFieldExistsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
@@ -571,6 +573,18 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             fields.add(createStoredFieldForByteVector(name(), array));
         }
         return fields;
+    }
+
+    protected Field createVectorField(float[] vectorValue, int dimension, SpaceType spaceType) {
+        // Because we will come to this function only in case when Native engines are getting used. So I am avoiding the
+        // check of use Native engines here.
+        if (this.indexCreatedVersion.onOrAfter(Version.V_2_15_0)) {
+            FieldType tempFieldType = new FieldType(fieldType);
+            tempFieldType.setVectorAttributes(dimension, VectorEncoding.FLOAT32, spaceType.getVectorSimilarityFunction());
+            tempFieldType.freeze();
+            return new KnnFloatVectorField(name(), vectorValue, tempFieldType);
+        }
+        return new VectorField(name(), vectorValue, fieldType);
     }
 
     protected void parseCreateField(ParseContext context, int dimension, SpaceType spaceType, MethodComponentContext methodComponentContext)

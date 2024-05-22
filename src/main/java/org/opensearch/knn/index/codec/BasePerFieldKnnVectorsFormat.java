@@ -11,7 +11,10 @@ import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.codec.KNN990Codec.NativeEngines99KnnVectorsFormat;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.indices.ModelCache;
 
 import java.util.Map;
 import java.util.Optional;
@@ -25,7 +28,7 @@ import java.util.function.Supplier;
 @Log4j2
 public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFormat {
 
-    private final Optional<MapperService> mapperService;
+    private final Optional<MapperService> optionalMapperService;
     private final int defaultMaxConnections;
     private final int defaultBeamWidth;
     private final Supplier<KnnVectorsFormat> defaultFormatSupplier;
@@ -42,12 +45,22 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             );
             return defaultFormatSupplier.get();
         }
-        var type = (KNNVectorFieldMapper.KNNVectorFieldType) mapperService.orElseThrow(
-            () -> new IllegalStateException(
+        if (optionalMapperService.isEmpty()) {
+            throw new IllegalStateException(
                 String.format("Cannot read field type for field [%s] because mapper service is not available", field)
-            )
-        ).fieldType(field);
-        var params = type.getKnnMethodContext().getMethodComponentContext().getParameters();
+            );
+        }
+        final KNNVectorFieldMapper.KNNVectorFieldType mappedFieldType = (KNNVectorFieldMapper.KNNVectorFieldType) optionalMapperService
+            .get()
+            .fieldType(field);
+
+        final KNNEngine knnEngine = getKNNEngine(mappedFieldType);
+        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine)) {
+            log.debug("Native Engine present hence using NativeEnginesKNNVectorsFormat. Engine found: {}", knnEngine);
+            return new NativeEngines99KnnVectorsFormat();
+        }
+
+        final Map<String, Object> params = mappedFieldType.getKnnMethodContext().getMethodComponentContext().getParameters();
         int maxConnections = getMaxConnections(params);
         int beamWidth = getBeamWidth(params);
         log.debug(
@@ -65,7 +78,8 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     }
 
     private boolean isKnnVectorFieldType(final String field) {
-        return mapperService.isPresent() && mapperService.get().fieldType(field) instanceof KNNVectorFieldMapper.KNNVectorFieldType;
+        return optionalMapperService.isPresent()
+            && optionalMapperService.get().fieldType(field) instanceof KNNVectorFieldMapper.KNNVectorFieldType;
     }
 
     private int getMaxConnections(final Map<String, Object> params) {
@@ -80,5 +94,19 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             return (int) params.get(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION);
         }
         return defaultBeamWidth;
+    }
+
+    private KNNEngine getKNNEngine(final KNNVectorFieldMapper.KNNVectorFieldType mappedFieldType) {
+        final String modelId = mappedFieldType.getModelId();
+        if (modelId != null) {
+            var model = ModelCache.getInstance().get(modelId);
+            return model.getModelMetadata().getKnnEngine();
+        }
+
+        if (mappedFieldType.getKnnMethodContext() == null) {
+            return KNNEngine.DEFAULT;
+        } else {
+            return mappedFieldType.getKnnMethodContext().getKnnEngine();
+        }
     }
 }

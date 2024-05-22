@@ -9,16 +9,22 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.lucene.index.BinaryDocValues;
+import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80BinaryDocValues;
+import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.jni.JNICommons;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 
 public class KNNCodecUtil {
     // Floats are 4 bytes in size
@@ -89,6 +95,16 @@ public class KNNCodecUtil {
             vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
         }
         return new KNNCodecUtil.Pair(docIdList.stream().mapToInt(Integer::intValue).toArray(), vectorAddress, dimension, serializationMode);
+    }
+
+    public static KNNEngine getKNNEngine(FieldInfo field) {
+        final String modelId = field.attributes().get(MODEL_ID);
+        if (modelId != null) {
+            var model = ModelCache.getInstance().get(modelId);
+            return model.getModelMetadata().getKnnEngine();
+        }
+        final String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
+        return KNNEngine.getEngine(engineName);
     }
 
     public static long calculateArraySize(int numVectors, int vectorLength, SerializationMode serializationMode) {

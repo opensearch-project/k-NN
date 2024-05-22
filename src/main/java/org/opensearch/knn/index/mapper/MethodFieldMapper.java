@@ -6,6 +6,9 @@
 package org.opensearch.knn.index.mapper;
 
 import org.apache.lucene.document.FieldType;
+import org.apache.lucene.index.DocValuesType;
+import org.apache.lucene.index.IndexOptions;
+import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.KNNMethodContext;
@@ -47,13 +50,24 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
 
         this.knnMethod = knnMethodContext;
 
-        this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
+        this.fieldType = new FieldType();
+        this.fieldType.setTokenized(false);
+        this.fieldType.setIndexOptions(IndexOptions.NONE);
+        fieldType.putAttribute(KNN_FIELD, "true"); // This attribute helps to determine knn field type
 
         this.fieldType.putAttribute(DIMENSION, String.valueOf(dimension));
         this.fieldType.putAttribute(SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
 
         KNNEngine knnEngine = knnMethodContext.getKnnEngine();
         this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
+
+        // This for new VectorValuesFormat only enabling it for Faiss right now. We will change this to a version check later on .
+        if (knnMethodContext.getMethodComponentContext().getIndexVersion().before(Version.V_2_15_0)) {
+            // fieldType.setVectorAttributes(dimension, VectorEncoding.FLOAT32,
+            // knnMethodContext.getSpaceType().getVectorSimilarityFunction());
+            // } else {
+            fieldType.setDocValuesType(DocValuesType.BINARY);
+        }
 
         try {
             this.fieldType.putAttribute(

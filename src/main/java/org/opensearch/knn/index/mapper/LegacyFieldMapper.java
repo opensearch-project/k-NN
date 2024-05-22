@@ -7,6 +7,8 @@ package org.opensearch.knn.index.mapper;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.FieldType;
+import org.apache.lucene.index.DocValuesType;
+import org.apache.lucene.index.IndexOptions;
 import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.settings.Settings;
@@ -58,7 +60,16 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
         this.m = m;
         this.efConstruction = efConstruction;
 
-        this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
+        this.fieldType = new FieldType();
+        this.fieldType.setTokenized(false);
+        this.fieldType.setIndexOptions(IndexOptions.NONE);
+        fieldType.putAttribute(KNN_FIELD, "true"); // This attribute helps to determine knn field type
+        // TODO: This code is duplicated here and also in MethodFieldMapper class, I will fix this in prod code
+        if (indexCreatedVersion.before(Version.V_2_15_0)) {
+            // fieldType.setVectorAttributes(dimension, VectorEncoding.FLOAT32, mappedFieldType.spaceType.getVectorSimilarityFunction());
+            // } else {
+            fieldType.setDocValuesType(DocValuesType.BINARY);
+        }
 
         this.fieldType.putAttribute(DIMENSION, String.valueOf(dimension));
         this.fieldType.putAttribute(SPACE_TYPE, spaceType);

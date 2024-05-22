@@ -7,7 +7,6 @@ package org.opensearch.knn.index.query;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
-import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FilterLeafReader;
@@ -101,6 +100,18 @@ public class KNNWeight extends Weight {
 
     @Override
     public Scorer scorer(LeafReaderContext context) throws IOException {
+        // print all the vectors in the segment using Float Vector Values.
+        // FloatVectorValues floatVectorValues = context.reader().getFloatVectorValues(knnQuery.getField());
+        // if (floatVectorValues == null) {
+        // log.info("floatVectorValues is null");
+        // } else {
+        // int maxDoc = context.reader().maxDoc();
+        // for (int i = 0; i < maxDoc; i++) {
+        // int docId = floatVectorValues.advance(i);
+        // float[] vector = floatVectorValues.vectorValue();
+        // log.info("docId: {}, vector: {}", docId, Arrays.toString(vector));
+        // }
+        // }
 
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
         int cardinality = filterBitSet.cardinality();
@@ -363,14 +374,20 @@ public class KNNWeight extends Weight {
         throws IOException {
         final SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(leafReaderContext.reader());
         final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
-        final BinaryDocValues values = DocValues.getBinary(leafReaderContext.reader(), fieldInfo.getName());
+        DocIdSetIterator docIdSetIterator;
+        if (fieldInfo.getVectorDimension() > 0) {
+            docIdSetIterator = reader.getFloatVectorValues(knnQuery.getField());
+        } else {
+            docIdSetIterator = DocValues.getBinary(leafReaderContext.reader(), fieldInfo.getName());
+        }
+
         final SpaceType spaceType = getSpaceType(fieldInfo);
         return knnQuery.getParentsFilter() == null
-            ? new FilteredIdsKNNIterator(filterIdsBitSet, knnQuery.getQueryVector(), values, spaceType)
+            ? new FilteredIdsKNNIterator(filterIdsBitSet, knnQuery.getQueryVector(), docIdSetIterator, spaceType)
             : new NestedFilteredIdsKNNIterator(
                 filterIdsBitSet,
                 knnQuery.getQueryVector(),
-                values,
+                docIdSetIterator,
                 spaceType,
                 knnQuery.getParentsFilter().getBitSet(leafReaderContext)
             );

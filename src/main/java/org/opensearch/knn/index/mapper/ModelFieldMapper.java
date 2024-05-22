@@ -6,6 +6,8 @@
 package org.opensearch.knn.index.mapper;
 
 import org.apache.lucene.document.FieldType;
+import org.apache.lucene.index.DocValuesType;
+import org.apache.lucene.index.IndexOptions;
 import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
@@ -39,7 +41,15 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         this.modelId = modelId;
         this.modelDao = modelDao;
 
-        this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
+        this.fieldType = new FieldType();
+        this.fieldType.setTokenized(false);
+        this.fieldType.setIndexOptions(IndexOptions.NONE);
+        fieldType.putAttribute(KNN_FIELD, "true"); // This attribute helps to determine knn field type
+        if (indexCreatedVersion.before(Version.V_2_15_0)) {
+            // fieldType.setVectorAttributes(dimension, VectorEncoding.FLOAT32, SpaceType.DEFAULT.getVectorSimilarityFunction());
+            // } else {
+            fieldType.setDocValuesType(DocValuesType.BINARY);
+        }
         this.fieldType.putAttribute(MODEL_ID, modelId);
         this.fieldType.freeze();
     }

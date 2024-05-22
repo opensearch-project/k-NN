@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.codec.KNN80Codec;
 
 import com.google.common.collect.ImmutableMap;
-import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.opensearch.common.StopWatch;
@@ -61,7 +60,7 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.calculateArraySiz
  * This class writes the KNN docvalues to the segments
  */
 @Log4j2
-class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
+public class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
     private final Logger logger = LogManager.getLogger(KNN80DocValuesConsumer.class);
 
@@ -90,20 +89,12 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     }
 
     private boolean isKNNBinaryFieldRequired(FieldInfo field) {
-        final KNNEngine knnEngine = getKNNEngine(field);
+        final KNNEngine knnEngine = KNNCodecUtil.getKNNEngine(field);
         log.debug(String.format("Read engine [%s] for field [%s]", knnEngine.getName(), field.getName()));
-        return field.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)
+        // This value will not be set: field.getVectorDimension()
+        return field.getVectorDimension() <= 0
+            && field.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)
             && KNNEngine.getEnginesThatCreateCustomSegmentFiles().stream().anyMatch(engine -> engine == knnEngine);
-    }
-
-    private KNNEngine getKNNEngine(@NonNull FieldInfo field) {
-        final String modelId = field.attributes().get(MODEL_ID);
-        if (modelId != null) {
-            var model = ModelCache.getInstance().get(modelId);
-            return model.getModelMetadata().getKnnEngine();
-        }
-        final String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
-        return KNNEngine.getEngine(engineName);
     }
 
     public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge, boolean isRefresh)
@@ -123,7 +114,18 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         }
         // Increment counter for number of graph index requests
         KNNCounter.GRAPH_INDEX_REQUESTS.increment();
-        final KNNEngine knnEngine = getKNNEngine(field);
+        if (isMerge) {
+            recordMergeStats(pair.docs.length, arraySize);
+        }
+
+        if (isRefresh) {
+            recordRefreshStats();
+        }
+        createNativeIndex(state, field, pair);
+    }
+
+    public static void createNativeIndex(SegmentWriteState state, FieldInfo field, KNNCodecUtil.Pair pair) throws IOException {
+        final KNNEngine knnEngine = KNNCodecUtil.getKNNEngine(field);
         final String engineFileName = buildEngineFileName(
             state.segmentInfo.name,
             knnEngine.getVersion(),
@@ -147,20 +149,12 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             indexCreator = () -> createKNNIndexFromScratch(field, pair, knnEngine, indexPath);
         }
 
-        if (isMerge) {
-            recordMergeStats(pair.docs.length, arraySize);
-        }
-
-        if (isRefresh) {
-            recordRefreshStats();
-        }
-
         // This is a bit of a hack. We have to create an output here and then immediately close it to ensure that
         // engineFileName is added to the tracked files by Lucene's TrackingDirectoryWrapper. Otherwise, the file will
         // not be marked as added to the directory.
         state.directory.createOutput(engineFileName, state.context).close();
         indexCreator.createIndex();
-        writeFooter(indexPath, engineFileName);
+        writeFooter(state, indexPath, engineFileName);
     }
 
     private void recordMergeStats(int length, long arraySize) {
@@ -176,7 +170,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         KNNGraphValue.REFRESH_TOTAL_OPERATIONS.increment();
     }
 
-    private void createKNNIndexFromTemplate(byte[] model, KNNCodecUtil.Pair pair, KNNEngine knnEngine, String indexPath) {
+    private static void createKNNIndexFromTemplate(byte[] model, KNNCodecUtil.Pair pair, KNNEngine knnEngine, String indexPath) {
         Map<String, Object> parameters = ImmutableMap.of(
             KNNConstants.INDEX_THREAD_QTY,
             KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY)
@@ -195,7 +189,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         });
     }
 
-    private void createKNNIndexFromScratch(FieldInfo fieldInfo, KNNCodecUtil.Pair pair, KNNEngine knnEngine, String indexPath)
+    private static void createKNNIndexFromScratch(FieldInfo fieldInfo, KNNCodecUtil.Pair pair, KNNEngine knnEngine, String indexPath)
         throws IOException {
         Map<String, Object> parameters = new HashMap<>();
         Map<String, String> fieldAttributes = fieldInfo.attributes();
@@ -295,7 +289,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         void createIndex() throws IOException;
     }
 
-    private void writeFooter(String indexPath, String engineFileName) throws IOException {
+    private static void writeFooter(SegmentWriteState state, String indexPath, String engineFileName) throws IOException {
         // Opens the engine file that was created and appends a footer to it. The footer consists of
         // 1. A Footer magic number (int - 4 bytes)
         // 2. A checksum algorithm id (int - 4 bytes)
@@ -325,7 +319,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         os.close();
     }
 
-    private boolean isChecksumValid(long value) {
+    private static boolean isChecksumValid(long value) {
         // Check pulled from
         // https://github.com/apache/lucene/blob/branch_9_0/lucene/core/src/java/org/apache/lucene/codecs/CodecUtil.java#L644-L647
         return (value & CRC32_CHECKSUM_SANITY) != 0;
