@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Support script score when doc value is disabled and fix misusing DISI [#1696](https://github.com/opensearch-project/k-NN/pull/1696)
 ### Bug Fixes
 * Block commas in model description [#1692](https://github.com/opensearch-project/k-NN/pull/1692)
+* Update threshold value after new result is added [#1715](https://github.com/opensearch-project/k-NN/pull/1715)
 ### Infrastructure
 ### Documentation
 ### Maintenance
