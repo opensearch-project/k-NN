@@ -12,4 +12,5 @@ static_import {
   float l1Norm(List, org.opensearch.knn.index.KNNVectorScriptDocValues) from_class org.opensearch.knn.plugin.script.KNNScoringUtil
   float innerProduct(List, org.opensearch.knn.index.KNNVectorScriptDocValues) from_class org.opensearch.knn.plugin.script.KNNScoringUtil
   float cosineSimilarity(List, org.opensearch.knn.index.KNNVectorScriptDocValues) from_class org.opensearch.knn.plugin.script.KNNScoringUtil
+  float cosineSimilarity(List, org.opensearch.knn.index.KNNVectorScriptDocValues, Number) from_class org.opensearch.knn.plugin.script.KNNScoringUtil
 }

@@ -63,6 +63,18 @@ public class KNNScoringUtilTests extends KNNTestCase {
         assertEquals(expectedScore, actualScore, 0.0001);
     }
 
+    public void testCosineSimilOptimizedScoringFunction() {
+        float[] queryVector = { 1.0f, 1.0f, 1.0f };
+        float[] inputVector = { 4.0f, 4.0f, 4.0f };
+        float queryVectorMagnitude = KNNScoringSpaceUtil.getVectorMagnitudeSquared(queryVector);
+        float inputVectorMagnitude = KNNScoringSpaceUtil.getVectorMagnitudeSquared(inputVector);
+        float dotProduct = 12.0f;
+        float expectedScore = (float) (dotProduct / (Math.sqrt(queryVectorMagnitude * inputVectorMagnitude)));
+
+        Float actualScore = KNNScoringUtil.cosinesimilOptimized(queryVector, inputVector, queryVectorMagnitude);
+        assertEquals(expectedScore, actualScore, 0.0001);
+    }
+
     public void testGetInvalidVectorMagnitudeSquared() {
         float[] queryVector = null;
         // vector cannot be null
@@ -80,10 +92,22 @@ public class KNNScoringUtilTests extends KNNTestCase {
         assertEquals(0, KNNScoringUtil.cosinesimil(queryVector, inputVector), 0.00001);
     }
 
+    public void testCosineSimilOptimizedQueryVectorZeroMagnitude() {
+        float[] inputVector = { 4.0f, 4.0f };
+        float[] queryVector = { 0, 0 };
+        assertTrue(0 == KNNScoringUtil.cosinesimilOptimized(queryVector, inputVector, 0.0f));
+    }
+
     public void testWrongDimensionCosineSimilScoringFunction() {
         float[] queryVector = { 1.0f, 1.0f };
         float[] inputVector = { 4.0f, 4.0f, 4.0f };
         expectThrows(IllegalArgumentException.class, () -> KNNScoringUtil.cosinesimil(queryVector, inputVector));
+    }
+
+    public void testWrongDimensionCosineSimilOPtimizedScoringFunction() {
+        float[] queryVector = { 1.0f, 1.0f };
+        float[] inputVector = { 4.0f, 4.0f, 4.0f };
+        expectThrows(IllegalArgumentException.class, () -> KNNScoringUtil.cosinesimilOptimized(queryVector, inputVector, 1.0f));
     }
 
     public void testBitHammingDistance_BitSet() {
@@ -206,11 +230,40 @@ public class KNNScoringUtilTests extends KNNTestCase {
         dataset.close();
     }
 
+    public void testCosineSimilarityOptimizedScoringFunction() throws IOException {
+        List<Number> queryVector = getTestQueryVector();
+        TestKNNScriptDocValues dataset = new TestKNNScriptDocValues();
+        dataset.createKNNVectorDocument(new float[] { 4.0f, 4.0f, 4.0f }, "test-index-field-name");
+        KNNVectorScriptDocValues scriptDocValues = dataset.getScriptDocValues("test-index-field-name");
+        scriptDocValues.setNextDocId(0);
+        Float actualScore = KNNScoringUtil.cosineSimilarity(queryVector, scriptDocValues, 3.0f);
+        assertEquals(1.0f, actualScore, 0.0001);
+        dataset.close();
+    }
+
     public void testScriptDocValuesFailsCosineSimilarityOptimized() throws IOException {
         List<Number> queryVector = getTestQueryVector();
         TestKNNScriptDocValues dataset = new TestKNNScriptDocValues();
         dataset.createKNNVectorDocument(new float[] { 4.0f, 4.0f, 4.0f }, "test-index-field-name");
         KNNVectorScriptDocValues scriptDocValues = dataset.getScriptDocValues("test-index-field-name");
+        dataset.close();
+    }
+
+    public void testZeroVectorFailsCosineSimilarityOptimized() throws IOException {
+        List<Number> queryVector = getTestZeroVector();
+        TestKNNScriptDocValues dataset = new TestKNNScriptDocValues();
+        dataset.createKNNVectorDocument(new float[] { 4.0f, 4.0f, 4.0f }, "test-index-field-name");
+        KNNVectorScriptDocValues scriptDocValues = dataset.getScriptDocValues("test-index-field-name");
+        scriptDocValues.setNextDocId(0);
+
+        IllegalArgumentException exception = expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNScoringUtil.cosineSimilarity(queryVector, scriptDocValues, 3.0f)
+        );
+        assertEquals(
+            String.format(Locale.ROOT, "zero vector is not supported when space type is [%s]", SpaceType.COSINESIMIL.getValue()),
+            exception.getMessage()
+        );
         dataset.close();
     }
 

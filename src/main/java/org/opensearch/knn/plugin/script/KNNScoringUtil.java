@@ -87,6 +87,54 @@ public class KNNScoringUtil {
     }
 
     /**
+     * This method can be used script to avoid repeated calculation of normalization
+     * for query vector for each filtered documents
+     *
+     * @param queryVector     query vector
+     * @param inputVector     input vector
+     * @param normQueryVector normalized query vector value.
+     * @return cosine score
+     */
+    public static float cosinesimilOptimized(float[] queryVector, float[] inputVector, float normQueryVector) {
+        requireEqualDimension(queryVector, inputVector);
+        float dotProduct = 0.0f;
+        float normInputVector = 0.0f;
+        for (int i = 0; i < queryVector.length; i++) {
+            dotProduct += queryVector[i] * inputVector[i];
+            normInputVector += inputVector[i] * inputVector[i];
+        }
+        float normalizedProduct = normQueryVector * normInputVector;
+        if (normalizedProduct == 0) {
+            logger.debug("Invalid vectors for cosine. Returning minimum score to put this result to end");
+            return 0.0f;
+        }
+        return (float) (dotProduct / (Math.sqrt(normalizedProduct)));
+    }
+
+    /**
+     * Allowlisted cosineSimilarity method that can be used in a script to avoid repeated
+     * calculation of normalization for the query vector.
+     * Example:
+     *  "script": {
+     *         "source": "cosineSimilarity(params.query_vector, docs[field], 1.0) ",
+     *         "params": {
+     *           "query_vector": [1, 2, 3.4],
+     *           "field": "my_dense_vector"
+     *         }
+     *       }
+     *
+     * @param queryVector          query vector
+     * @param docValues            script doc values
+     * @param queryVectorMagnitude the magnitude of the query vector.
+     * @return cosine score
+     */
+    public static float cosineSimilarity(List<Number> queryVector, KNNVectorScriptDocValues docValues, Number queryVectorMagnitude) {
+        float[] inputVector = toFloat(queryVector, docValues.getVectorDataType());
+        SpaceType.COSINESIMIL.validateVector(inputVector);
+        return cosinesimilOptimized(inputVector, docValues.getValue(), queryVectorMagnitude.floatValue());
+    }
+
+    /**
      * This method calculates cosine similarity
      *
      * @param queryVector query vector
