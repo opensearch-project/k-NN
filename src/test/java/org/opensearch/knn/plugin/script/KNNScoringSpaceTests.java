@@ -47,7 +47,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
 
     public void testCosineSimilarity() {
         float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
-        List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
+        List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(2.0, 4.0, 6.0));
         float[] arrayFloat2 = new float[] { 2.0f, 4.0f, 6.0f };
         KNNMethodContext knnMethodContext = KNNMethodContext.getDefault();
 
@@ -59,7 +59,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         );
         KNNScoringSpace.CosineSimilarity cosineSimilarity = new KNNScoringSpace.CosineSimilarity(arrayListQueryObject, fieldType);
 
-        assertEquals(3F, cosineSimilarity.scoringMethod.apply(arrayFloat2, arrayFloat), 0.1F);
+        assertEquals(2F, cosineSimilarity.scoringMethod.apply(arrayFloat2, arrayFloat), 0.1F);
 
         // invalid zero vector
         final List<Float> queryZeroVector = List.of(0.0f, 0.0f, 0.0f);

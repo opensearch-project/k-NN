@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.lucene.util.VectorUtil;
 import org.opensearch.knn.index.KNNVectorScriptDocValues;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -48,13 +49,7 @@ public class KNNScoringUtil {
      * @return L2 score
      */
     public static float l2Squared(float[] queryVector, float[] inputVector) {
-        requireEqualDimension(queryVector, inputVector);
-        float squaredDistance = 0;
-        for (int i = 0; i < inputVector.length; i++) {
-            float diff = queryVector[i] - inputVector[i];
-            squaredDistance += diff * diff;
-        }
-        return squaredDistance;
+        return VectorUtil.squareDistance(queryVector, inputVector);
     }
 
     private static float[] toFloat(List<Number> inputVector, VectorDataType vectorDataType) {
@@ -148,20 +143,12 @@ public class KNNScoringUtil {
      */
     public static float cosinesimil(float[] queryVector, float[] inputVector) {
         requireEqualDimension(queryVector, inputVector);
-        float dotProduct = 0.0f;
-        float normQueryVector = 0.0f;
-        float normInputVector = 0.0f;
-        for (int i = 0; i < queryVector.length; i++) {
-            dotProduct += queryVector[i] * inputVector[i];
-            normQueryVector += queryVector[i] * queryVector[i];
-            normInputVector += inputVector[i] * inputVector[i];
-        }
-        float normalizedProduct = normQueryVector * normInputVector;
-        if (normalizedProduct == 0) {
+        try {
+            return VectorUtil.cosine(queryVector, inputVector);
+        } catch (IllegalArgumentException | AssertionError e) {
             logger.debug("Invalid vectors for cosine. Returning minimum score to put this result to end");
             return 0.0f;
         }
-        return (float) (dotProduct / (Math.sqrt(normalizedProduct)));
     }
 
     /**
@@ -217,7 +204,6 @@ public class KNNScoringUtil {
      * @return L1 score
      */
     public static float l1Norm(float[] queryVector, float[] inputVector) {
-        requireEqualDimension(queryVector, inputVector);
         float distance = 0;
         for (int i = 0; i < inputVector.length; i++) {
             float diff = queryVector[i] - inputVector[i];
@@ -255,7 +241,6 @@ public class KNNScoringUtil {
      * @return L-inf score
      */
     public static float lInfNorm(float[] queryVector, float[] inputVector) {
-        requireEqualDimension(queryVector, inputVector);
         float distance = 0;
         for (int i = 0; i < inputVector.length; i++) {
             float diff = queryVector[i] - inputVector[i];
@@ -293,12 +278,7 @@ public class KNNScoringUtil {
      * @return dot product score
      */
     public static float innerProduct(float[] queryVector, float[] inputVector) {
-        requireEqualDimension(queryVector, inputVector);
-        float distance = 0;
-        for (int i = 0; i < inputVector.length; i++) {
-            distance += queryVector[i] * inputVector[i];
-        }
-        return distance;
+        return VectorUtil.dotProduct(queryVector, inputVector);
     }
 
     /**
