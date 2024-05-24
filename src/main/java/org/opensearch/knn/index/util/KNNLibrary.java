@@ -15,6 +15,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.training.TrainingDataSpec;
 
 import java.util.Collections;
 import java.util.List;
@@ -96,6 +97,8 @@ public interface KNNLibrary {
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
     ValidationException validateMethod(KNNMethodContext knnMethodContext);
+
+    ValidationException validateMethodWithData(KNNMethodContext knnMethodContext, TrainingDataSpec trainingDataSpec);
 
     /**
      * Returns whether training is required or not from knnMethodContext for the given library.

@@ -17,7 +17,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -115,18 +114,6 @@ public class TrainingJob implements Runnable {
         NativeMemoryAllocation trainingDataAllocation = null;
         NativeMemoryAllocation modelAnonymousAllocation = null;
         ModelMetadata modelMetadata = model.getModelMetadata();
-
-        Map<String, Object> parameters = modelMetadata.getMethodComponentContext().getParameters();
-        if (parameters.get("encoder") instanceof MethodComponentContext) {
-            MethodComponentContext encoder = (MethodComponentContext) parameters.get("encoder");
-            Map<String, Object> encoderParameters = encoder.getParameters();
-            if (encoderParameters.get("m") instanceof Integer) {
-                int codeCount = (int) encoderParameters.get("m");
-                if (modelMetadata.getDimension() % codeCount != 0) {
-                    throw new IllegalArgumentException(KNNConstants.INVALID_CODE_COUNT_ERROR_MESSAGE);
-                }
-            }
-        }
 
         try {
             // Get training data

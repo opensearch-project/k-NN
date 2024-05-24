@@ -21,7 +21,6 @@ import org.junit.BeforeClass;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.client.ResponseException;
-import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
@@ -67,7 +66,6 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
-import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
@@ -1651,7 +1649,7 @@ public class FaissIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testInvalidPQM_thenFail() {
+    public void testHNSW_InvalidPQM_thenFail() {
         String trainingIndexName = "training-index";
         String trainingFieldName = "training-field";
 
@@ -1686,17 +1684,63 @@ public class FaissIT extends KNNRestTestCase {
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
 
         createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
-        ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, in, trainingDataCount);
-        assertTrainingFails(modelId, 360, 1000);
+        ResponseException re = expectThrows(
+            ResponseException.class,
+            () -> ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, in, trainingDataCount)
+        );
+        assertTrue(
+            re.getMessage().contains("Validation Failed: 1: parameter validation failed for MethodComponentContext parameter [encoder].;")
+        );
+    }
 
-        Response response = getModel(modelId, null);
+    @SneakyThrows
+    public void testIVF_InvalidPQM_thenFail() {
+        String trainingIndexName = "training-index";
+        String trainingFieldName = "training-field";
 
-        Map<String, Object> responseMap = createParser(
-            MediaTypeRegistry.getDefaultMediaType().xContent(),
-            EntityUtils.toString(response.getEntity())
-        ).map();
+        String modelId = "test-model";
+        String modelDescription = "test model";
 
-        assertEquals(KNNConstants.INVALID_CODE_COUNT_ERROR_MESSAGE, responseMap.get(MODEL_ERROR));
+        List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
+        int invalidPQM = 3;
+
+        // training data needs to be at least equal to the number of centroids for PQ
+        // which is 2^8 = 256.
+        int trainingDataCount = 256;
+
+        int dimension = testData.indexData.vectors[0].length;
+        SpaceType spaceType = SpaceType.L2;
+        int ivfNlist = 4;
+        int ivfNprobes = 4;
+        int pqCodeSize = 8;
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NPROBES, ivfNprobes)
+            .field(METHOD_PARAMETER_NLIST, ivfNlist)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_PQ)
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_M, invalidPQM)
+            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, pqCodeSize)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        ResponseException re = expectThrows(
+            ResponseException.class,
+            () -> ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, in, trainingDataCount)
+        );
+        assertTrue(
+            re.getMessage().contains("Validation Failed: 1: parameter validation failed for MethodComponentContext parameter [encoder].;")
+        );
     }
 
     protected void setupKNNIndexForFilterQuery() throws Exception {

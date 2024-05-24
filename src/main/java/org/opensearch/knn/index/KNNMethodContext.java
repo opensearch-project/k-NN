@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.opensearch.knn.training.TrainingDataSpec;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -84,6 +85,10 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
      */
     public ValidationException validate() {
         return knnEngine.validateMethod(this);
+    }
+
+    public ValidationException validateWithData(TrainingDataSpec trainingDataSpec) {
+        return knnEngine.validateMethodWithData(this, trainingDataSpec);
     }
 
     /**

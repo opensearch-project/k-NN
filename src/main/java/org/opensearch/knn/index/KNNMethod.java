@@ -15,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.training.TrainingDataSpec;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -64,6 +65,35 @@ public class KNNMethod {
         }
 
         ValidationException methodValidation = methodComponent.validate(knnMethodContext.getMethodComponentContext());
+        if (methodValidation != null) {
+            errorMessages.addAll(methodValidation.validationErrors());
+        }
+
+        if (errorMessages.isEmpty()) {
+            return null;
+        }
+
+        ValidationException validationException = new ValidationException();
+        validationException.addValidationErrors(errorMessages);
+        return validationException;
+    }
+
+    public ValidationException validateWithData(KNNMethodContext knnMethodContext, TrainingDataSpec trainingDataSpec) {
+        List<String> errorMessages = new ArrayList<>();
+        if (!containsSpace(knnMethodContext.getSpaceType())) {
+            errorMessages.add(
+                String.format(
+                    "\"%s\" configuration does not support space type: " + "\"%s\".",
+                    this.methodComponent.getName(),
+                    knnMethodContext.getSpaceType().getValue()
+                )
+            );
+        }
+
+        ValidationException methodValidation = methodComponent.validateWithData(
+            knnMethodContext.getMethodComponentContext(),
+            trainingDataSpec
+        );
         if (methodValidation != null) {
             errorMessages.addAll(methodValidation.validationErrors());
         }

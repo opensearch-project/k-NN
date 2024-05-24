@@ -17,6 +17,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.Parameter.IntegerParameter;
 import org.opensearch.knn.index.Parameter.StringParameter;
 import org.opensearch.knn.index.Parameter.MethodComponentContextParameter;
+import org.opensearch.knn.training.TrainingDataSpec;
 
 import java.util.Map;
 
@@ -31,6 +32,12 @@ public class ParameterTests extends KNNTestCase {
             public ValidationException validate(Object value) {
                 return null;
             }
+
+            @Override
+            public ValidationException validateWithData(Object value, TrainingDataSpec trainingDataSpec) {
+                return null;
+            }
+
         };
 
         assertEquals(defaultValue, parameter.getDefaultValue());

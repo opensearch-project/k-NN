@@ -26,12 +26,10 @@ import java.util.concurrent.*;
 
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.common.KNNConstants.INVALID_CODE_COUNT_ERROR_MESSAGE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_THREAD_POOL;
 
@@ -147,63 +145,5 @@ public class TrainingJobRunnerTests extends KNNTestCase {
         // Immediately, we shutdown the executor and await its termination.
         executorService.shutdown();
         executorService.awaitTermination(10, TimeUnit.SECONDS);
-    }
-
-    @SuppressWarnings("unchecked")
-    public void testExecute_failure_invalidPQM() throws IOException, InterruptedException, ExecutionException {
-        // This test makes sure we handle the exception thrown by TrainingJob when an invalid m parameter is provided
-        // and update the model accordingly.
-
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
-
-        TrainingJobRunner trainingJobRunner = TrainingJobRunner.getInstance();
-
-        ThreadPool threadPool = mock(ThreadPool.class);
-        when(threadPool.executor(TRAIN_THREAD_POOL)).thenReturn(executorService);
-
-        String modelId = "test-model-id";
-        Model model = mock(Model.class);
-        ModelMetadata modelMetadata = mock(ModelMetadata.class);
-        when(modelMetadata.getState()).thenReturn(ModelState.TRAINING);
-        when(model.getModelMetadata()).thenReturn(modelMetadata);
-        TrainingJob trainingJob = mock(TrainingJob.class);
-        when(trainingJob.getModelId()).thenReturn(modelId);
-        when(trainingJob.getModel()).thenReturn(model);
-        doThrow(new IllegalArgumentException(INVALID_CODE_COUNT_ERROR_MESSAGE)).when(trainingJob).run();
-
-        // This gets called right after the initial put, before training begins. Just check that the model id is
-        // equal
-        ActionListener<IndexResponse> responseListener = ActionListener.wrap(
-            indexResponse -> assertEquals(modelId, indexResponse.getId()),
-            e -> fail("Failure should not have occurred")
-        );
-
-        // After put finishes, it should call the onResponse function that will call responseListener and then kickoff
-        // training.
-        ModelDao modelDao = mock(ModelDao.class);
-        when(modelDao.get(modelId)).thenReturn(model);
-        doAnswer(invocationOnMock -> {
-            assertEquals(1, trainingJobRunner.getJobCount()); // Make sure job count is correct
-            IndexResponse indexResponse = new IndexResponse(new ShardId(MODEL_INDEX_NAME, "uuid", 0), modelId, 0, 0, 0, true);
-            ((ActionListener<IndexResponse>) invocationOnMock.getArguments()[1]).onResponse(indexResponse);
-            return null;
-        }).when(modelDao).put(any(Model.class), any(ActionListener.class));
-
-        // Function finishes when update is called
-        doAnswer(invocationOnMock -> null).when(modelDao).update(any(Model.class), any(ActionListener.class));
-
-        // Finally, initialize the singleton runner, execute the job.
-        TrainingJobRunner.initialize(threadPool, modelDao);
-        trainingJobRunner.execute(trainingJob, responseListener);
-
-        // Immediately, we shutdown the executor and await its termination.
-        executorService.shutdown();
-        executorService.awaitTermination(10, TimeUnit.SECONDS);
-
-        // Make sure these methods get called once
-        verify(trainingJob, times(1)).run();
-        verify(modelDao, times(1)).put(any(Model.class), any(ActionListener.class));
-        verify(modelDao, times(1)).update(any(Model.class), any(ActionListener.class));
-        verify(trainingJob, times(3)).getModel();
     }
 }

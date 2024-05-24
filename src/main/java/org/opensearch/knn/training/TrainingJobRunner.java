@@ -16,7 +16,6 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.common.ValidationException;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -140,17 +139,6 @@ public class TrainingJobRunner {
                 } catch (Exception e) {
                     logger.error("Unable to complete training for \"" + trainingJob.getModelId() + "\": " + e.getMessage());
                     KNNCounter.TRAINING_ERRORS.increment();
-                    if (e.getMessage().equals(KNNConstants.INVALID_CODE_COUNT_ERROR_MESSAGE)) {
-                        ModelMetadata modelMetadata = trainingJob.getModel().getModelMetadata();
-                        modelMetadata.setState(ModelState.FAILED);
-                        modelMetadata.setError(KNNConstants.INVALID_CODE_COUNT_ERROR_MESSAGE);
-
-                        try {
-                            serializeModel(trainingJob, loggingListener, true);
-                        } catch (IOException | ExecutionException | InterruptedException ex) {
-                            logger.error("Unable to serialize the failure for model \"{}\": ", trainingJob.getModelId(), ex);
-                        }
-                    }
                 } finally {
                     jobCount.decrementAndGet();
                     semaphore.release();

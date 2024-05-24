@@ -17,6 +17,7 @@ import org.opensearch.common.TriFunction;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
+import org.opensearch.knn.training.TrainingDataSpec;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -88,6 +89,36 @@ public class MethodComponent {
             }
 
             parameterValidation = parameters.get(parameter.getKey()).validate(parameter.getValue());
+            if (parameterValidation != null) {
+                errorMessages.addAll(parameterValidation.validationErrors());
+            }
+        }
+
+        if (errorMessages.isEmpty()) {
+            return null;
+        }
+
+        ValidationException validationException = new ValidationException();
+        validationException.addValidationErrors(errorMessages);
+        return validationException;
+    }
+
+    public ValidationException validateWithData(MethodComponentContext methodComponentContext, TrainingDataSpec trainingDataSpec) {
+        Map<String, Object> providedParameters = methodComponentContext.getParameters();
+        List<String> errorMessages = new ArrayList<>();
+
+        if (providedParameters == null) {
+            return null;
+        }
+
+        ValidationException parameterValidation;
+        for (Map.Entry<String, Object> parameter : providedParameters.entrySet()) {
+            if (!parameters.containsKey(parameter.getKey())) {
+                errorMessages.add(String.format("Invalid parameter for method \"%s\".", getName()));
+                continue;
+            }
+
+            parameterValidation = parameters.get(parameter.getKey()).validateWithData(parameter.getValue(), trainingDataSpec);
             if (parameterValidation != null) {
                 errorMessages.addAll(parameterValidation.validationErrors());
             }
