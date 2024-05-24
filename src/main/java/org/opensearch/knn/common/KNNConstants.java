@@ -68,8 +68,6 @@ public class KNNConstants {
     public static final VectorDataType DEFAULT_VECTOR_DATA_TYPE_FIELD = VectorDataType.FLOAT;
 
     public static final String RADIAL_SEARCH_KEY = "radial_search";
-    public static final String INVALID_CODE_COUNT_ERROR_MESSAGE =
-        "The dimension of the vector is not a multiple of the number of subquantizers (m)";
 
     // Lucene specific constants
     public static final String LUCENE_NAME = "lucene";
