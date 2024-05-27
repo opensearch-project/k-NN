@@ -188,4 +188,6 @@ public enum SpaceType {
     public float scoreToDistanceTranslation(float score) {
         throw new UnsupportedOperationException(String.format("Space [%s] does not have a score to distance translation", getValue()));
     }
+
+    public static final Set<SpaceType> VECTOR_FIELD_SUPPORTED_SPACE_TYPES = Set.of(L2, COSINESIMIL, INNER_PRODUCT);
 }

@@ -18,6 +18,7 @@ import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
+import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.IndexOptions;
@@ -578,11 +579,25 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected Field createVectorField(float[] vectorValue, int dimension, SpaceType spaceType) {
         // Because we will come to this function only in case when Native engines are getting used. So I am avoiding the
         // check of use Native engines here.
-        if (this.indexCreatedVersion.onOrAfter(Version.V_2_15_0)) {
+        // Also dimension field is only accessible here hence we have to use this function to create fieldType too
+        if (this.indexCreatedVersion.onOrAfter(Version.V_2_15_0) && SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(spaceType)) {
             FieldType tempFieldType = new FieldType(fieldType);
             tempFieldType.setVectorAttributes(dimension, VectorEncoding.FLOAT32, spaceType.getVectorSimilarityFunction());
             tempFieldType.freeze();
             return new KnnFloatVectorField(name(), vectorValue, tempFieldType);
+        }
+        return new VectorField(name(), vectorValue, fieldType);
+    }
+
+    protected Field createVectorField(byte[] vectorValue, int dimension, SpaceType spaceType) {
+        // Because we will come to this function only in case when Native engines are getting used. So I am avoiding the
+        // check of use Native engines here.
+        // Also dimension field is only accessible here hence we have to use this function to create fieldType too
+        if (this.indexCreatedVersion.onOrAfter(Version.V_2_15_0) && SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(spaceType)) {
+            FieldType tempFieldType = new FieldType(fieldType);
+            tempFieldType.setVectorAttributes(dimension, VectorEncoding.BYTE, spaceType.getVectorSimilarityFunction());
+            tempFieldType.freeze();
+            return new KnnByteVectorField(name(), vectorValue, tempFieldType);
         }
         return new VectorField(name(), vectorValue, fieldType);
     }

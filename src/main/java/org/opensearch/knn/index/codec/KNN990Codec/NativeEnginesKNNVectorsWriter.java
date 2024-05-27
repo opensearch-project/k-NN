@@ -95,6 +95,10 @@ public class NativeEnginesKNNVectorsWriter extends KnnVectorsWriter {
         final FloatVectorValues floatVectorValues = KnnVectorsWriter.MergedVectorValues.mergeFloatVectorValues(fieldInfo, mergeState);
         // merging the graphs here
         final KNNCodecUtil.Pair pair = getFloatsFromFloatVectorValues(floatVectorValues);
+        if (pair.getVectorAddress() == 0 || pair.docs.length == 0) {
+            log.info("Skipping engine index creation as there are no vectors or docs to be merged");
+            return;
+        }
         KNN80DocValuesConsumer.createNativeIndex(segmentWriteState, fieldInfo, pair);
     }
 

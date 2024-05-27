@@ -12,6 +12,7 @@ import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
@@ -62,10 +63,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
 
         // This for new VectorValuesFormat only enabling it for Faiss right now. We will change this to a version check later on .
-        if (knnMethodContext.getMethodComponentContext().getIndexVersion().before(Version.V_2_15_0)) {
-            // fieldType.setVectorAttributes(dimension, VectorEncoding.FLOAT32,
-            // knnMethodContext.getSpaceType().getVectorSimilarityFunction());
-            // } else {
+        if (knnMethodContext.getMethodComponentContext().getIndexVersion().before(Version.V_2_15_0)
+            || !SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(knnMethodContext.getSpaceType())) {
             fieldType.setDocValuesType(DocValuesType.BINARY);
         }
 

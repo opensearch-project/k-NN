@@ -8,6 +8,7 @@ package org.opensearch.knn.index.codec.util;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -37,6 +38,7 @@ public class KNNCodecUtil {
     public static final int JAVA_ROUNDING_NUMBER = 8;
 
     @AllArgsConstructor
+    @ToString
     public static final class Pair {
         public int[] docs;
         @Getter

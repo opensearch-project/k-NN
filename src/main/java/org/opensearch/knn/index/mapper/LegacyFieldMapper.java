@@ -14,6 +14,7 @@ import org.opensearch.common.Explicit;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -65,9 +66,8 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
         this.fieldType.setIndexOptions(IndexOptions.NONE);
         fieldType.putAttribute(KNN_FIELD, "true"); // This attribute helps to determine knn field type
         // TODO: This code is duplicated here and also in MethodFieldMapper class, I will fix this in prod code
-        if (indexCreatedVersion.before(Version.V_2_15_0)) {
-            // fieldType.setVectorAttributes(dimension, VectorEncoding.FLOAT32, mappedFieldType.spaceType.getVectorSimilarityFunction());
-            // } else {
+        if (indexCreatedVersion.before(Version.V_2_15_0)
+            || !SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(SpaceType.getSpace(spaceType))) {
             fieldType.setDocValuesType(DocValuesType.BINARY);
         }
 
