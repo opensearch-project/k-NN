@@ -7,6 +7,7 @@ package org.opensearch.knn.index.query;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.search.FloatVectorSimilarityQuery;
+
 import java.util.Locale;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.MatchNoDocsQuery;
@@ -14,13 +15,17 @@ import org.apache.lucene.search.Query;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterModule;
 import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.Nullable;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
 import org.opensearch.core.common.io.stream.NamedWriteableRegistry;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.index.IndexSettings;
-import org.opensearch.index.query.*;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -33,6 +38,8 @@ import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.query.model.HNSWAlgoQueryParameters;
+import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -50,9 +57,10 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO;
-import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.*;
+import static org.opensearch.knn.index.IndexUtil.MINIMAL_EF_SEARCH_SUPPORT;
 import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
+import static org.opensearch.knn.index.query.KNNQueryBuilder.EF_SEARCH_FIELD;
 import static org.opensearch.knn.index.util.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 
 public class KNNQueryBuilderTests extends KNNTestCase {
@@ -60,6 +68,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     private static final String FIELD_NAME = "myvector";
     private static final int K = 1;
     private static final int EF_SEARCH = 10;
+    private static final AlgoQueryParameters HNSW_ALGO_PARAMS = HNSWAlgoQueryParameters.builder().efSearch(EF_SEARCH).build();
     private static final Float MAX_DISTANCE = 1.0f;
     private static final Float MIN_SCORE = 0.5f;
     private static final TermQueryBuilder TERM_QUERY = QueryBuilders.termQuery("field", "value");
@@ -176,14 +185,16 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             .fieldName(FIELD_NAME)
             .vector(queryVector)
             .k(K)
-            .efSearch(EF_SEARCH)
+            .algoQueryParameters(HNSW_ALGO_PARAMS)
             .build();
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());
         builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
         builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), knnQueryBuilder.getK());
-        builder.field(KNNQueryBuilder.EF_SEARCH_FIELD.getPreferredName(), knnQueryBuilder.getEfSearch());
+        builder.startObject(METHOD_PARAMETER);
+        builder.field(EF_SEARCH_FIELD.getPreferredName(), EF_SEARCH);
+        builder.endObject();
         builder.endObject();
         builder.endObject();
         XContentParser contentParser = createParser(builder);
@@ -261,14 +272,16 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             .vector(queryVector)
             .k(K)
             .filter(TERM_QUERY)
-            .efSearch(EF_SEARCH)
+            .algoQueryParameters(HNSW_ALGO_PARAMS)
             .build();
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());
         builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
         builder.field(KNNQueryBuilder.K_FIELD.getPreferredName(), knnQueryBuilder.getK());
-        builder.field(KNNQueryBuilder.EF_SEARCH_FIELD.getPreferredName(), knnQueryBuilder.getEfSearch());
+        builder.startObject(METHOD_PARAMETER);
+        builder.field(EF_SEARCH_FIELD.getPreferredName(), EF_SEARCH);
+        builder.endObject();
         builder.field(KNNQueryBuilder.FILTER_FIELD.getPreferredName(), knnQueryBuilder.getFilter());
         builder.endObject();
         builder.endObject();
@@ -765,7 +778,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             .vector(queryVector)
             .k(K)
             .filter(TERM_QUERY)
-            .efSearch(EF_SEARCH)
+            .algoQueryParameters(HNSW_ALGO_PARAMS)
             .build();
 
         Query query = knnQueryBuilder.doToQuery(mockQueryShardContext);
@@ -773,7 +786,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         // Then
         assertNotNull(query);
         assertTrue(query.getClass().isAssignableFrom(KNNQuery.class));
-        assertEquals(EF_SEARCH, ((KNNQuery) query).getEfSearch().intValue());
+        assertEquals(HNSW_ALGO_PARAMS, ((KNNQuery) query).getAlgoQueryParameters());
     }
 
     public void testDoToQuery_whenknnQueryWithFilterAndNmsLibEngine_thenException() {
@@ -967,36 +980,41 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testSerialization() throws Exception {
         // For k-NN search
-        assertSerialization(Version.CURRENT, Optional.empty(), K, null, null, null);
-        assertSerialization(Version.CURRENT, Optional.empty(), K, EF_SEARCH, null, null);
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), K, EF_SEARCH, null, null);
-        assertSerialization(Version.V_2_3_0, Optional.empty(), K, EF_SEARCH, null, null);
-        assertSerialization(Version.V_2_3_0, Optional.empty(), K, null, null, null);
+        assertSerialization(Version.CURRENT, Optional.empty(), K, null, null, null, null);
+        assertSerialization(Version.CURRENT, Optional.empty(), K, EF_SEARCH, EF_SEARCH, null, null);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), K, EF_SEARCH, EF_SEARCH, null, null);
+        assertSerialization(Version.V_2_3_0, Optional.empty(), K, EF_SEARCH, null, null, null);
+        assertSerialization(Version.V_2_3_0, Optional.empty(), K, null, null, null, null);
 
         // For distance threshold search
-        assertSerialization(Version.CURRENT, Optional.empty(), null, null, MAX_DISTANCE, null);
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, MAX_DISTANCE, null);
+        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, MAX_DISTANCE, null);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, MAX_DISTANCE, null);
 
         // For score threshold search
-        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, MIN_SCORE);
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, MIN_SCORE);
+        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, null, MIN_SCORE);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, null, MIN_SCORE);
     }
 
     private void assertSerialization(
         final Version version,
         final Optional<QueryBuilder> queryBuilderOptional,
         Integer k,
-        Integer efSearch,
+        @Nullable Integer requestEfSearch,
+        Integer expectedEfSearch,
         Float distance,
         Float score
     ) throws Exception {
+        AlgoQueryParameters algoQueryParameters = requestEfSearch == null
+            ? null
+            : HNSWAlgoQueryParameters.builder().efSearch(requestEfSearch).build();
+
         final KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(QUERY_VECTOR)
             .maxDistance(distance)
             .minScore(score)
             .k(k)
-            .efSearch(efSearch)
+            .algoQueryParameters(algoQueryParameters)
             .filter(queryBuilderOptional.orElse(null))
             .build();
 
@@ -1019,11 +1037,14 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 assertArrayEquals(QUERY_VECTOR, (float[]) deserializedKnnQueryBuilder.vector(), 0.0f);
                 if (k != null) {
                     assertEquals(k.intValue(), deserializedKnnQueryBuilder.getK());
+                    Integer actualEfSearch = Optional.ofNullable(
+                        (HNSWAlgoQueryParameters) deserializedKnnQueryBuilder.getAlgoQueryParameters()
+                    ).flatMap(HNSWAlgoQueryParameters::getEfSearch).orElse(null);
                     // Verifies efSearch
-                    if (version.onOrAfter(Version.V_2_15_0)) {
-                        assertEquals(efSearch, deserializedKnnQueryBuilder.getEfSearch());
+                    if (version.onOrAfter(MINIMAL_EF_SEARCH_SUPPORT)) {
+                        assertEquals(expectedEfSearch, actualEfSearch);
                     } else {
-                        assertNull(deserializedKnnQueryBuilder.getEfSearch());
+                        assertNull(deserializedKnnQueryBuilder.getAlgoQueryParameters());
                     }
                 } else if (distance != null) {
                     assertEquals(distance.floatValue(), deserializedKnnQueryBuilder.getMaxDistance(), 0.0f);

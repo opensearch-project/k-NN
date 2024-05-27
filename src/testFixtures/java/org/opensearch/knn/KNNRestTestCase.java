@@ -22,6 +22,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 import org.opensearch.knn.indices.ModelState;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
@@ -1119,14 +1120,20 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     // Validate KNN search on a KNN index by generating the query vector from the number of documents in the index
-    public void validateKNNSearch(String testIndex, String testField, int dimension, int numDocs, int k, Integer efSearch)
-        throws Exception {
+    public void validateKNNSearch(
+        String testIndex,
+        String testField,
+        int dimension,
+        int numDocs,
+        int k,
+        AlgoQueryParameters algoQueryParameters
+    ) throws Exception {
         float[] queryVector = new float[dimension];
         Arrays.fill(queryVector, (float) numDocs);
 
         Response searchResponse = searchKNNIndex(
             testIndex,
-            KNNQueryBuilder.builder().k(k).efSearch(efSearch).fieldName(testField).vector(queryVector).build(),
+            KNNQueryBuilder.builder().k(k).algoQueryParameters(algoQueryParameters).fieldName(testField).vector(queryVector).build(),
             k
         );
 

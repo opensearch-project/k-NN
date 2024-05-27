@@ -23,6 +23,8 @@ import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.search.NestedHelper;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.query.model.HNSWAlgoQueryParameters;
+import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Arrays;
@@ -45,7 +47,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     private final String testIndexName = "test-index";
     private final String testFieldName = "test-field";
     private final int testK = 10;
-    private final int efSearch = 100;
+    private final AlgoQueryParameters algoQueryParameters = HNSWAlgoQueryParameters.builder().efSearch(100).build();
 
     public void testCreateCustomKNNQuery() {
         for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
@@ -120,7 +122,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .field(testFieldName)
             .queryVector(testQueryVector)
             .k(testK)
-            .efSearch(efSearch)
+            .algoQueryParameters(algoQueryParameters)
             .build();
 
         // When
@@ -130,7 +132,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .fieldName(testFieldName)
             .vector(testQueryVector)
             .k(testK)
-            .efSearch(efSearch)
+            .algoQueryParameters(algoQueryParameters)
             .context(mockQueryShardContext)
             .filter(FILTER_QUERY_BUILDER)
             .build();

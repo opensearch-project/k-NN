@@ -25,6 +25,8 @@ import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.query.model.HNSWAlgoQueryParameters;
+import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
@@ -527,7 +529,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         String sqfp16IndexDescription = "HNSW16,SQfp16";
         int k = 10;
-        int efSearch = 100;
+        AlgoQueryParameters algoQueryParameters = HNSWAlgoQueryParameters.builder().efSearch(100).build();
         float[][] truncatedVectors = truncateToFp16Range(testData.indexData.vectors);
         long memoryAddress = JNICommons.storeVectorData(0, truncatedVectors, (long) truncatedVectors.length * truncatedVectors[0].length);
         Path tmpFile = createTempFile();
@@ -545,13 +547,22 @@ public class JNIServiceTests extends KNNTestCase {
         assertNotEquals(0, pointer);
 
         for (float[] query : testData.queries) {
-            KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, efSearch, KNNEngine.FAISS, null, 0, null);
+            KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, algoQueryParameters, KNNEngine.FAISS, null, 0, null);
             assertEquals(k, results.length);
         }
 
         // Filter will result in no ids
         for (float[] query : testData.queries) {
-            KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, efSearch, KNNEngine.FAISS, new long[] { 0 }, 0, null);
+            KNNQueryResult[] results = JNIService.queryIndex(
+                pointer,
+                query,
+                k,
+                algoQueryParameters,
+                KNNEngine.FAISS,
+                new long[] { 0 },
+                0,
+                null
+            );
             assertEquals(0, results.length);
         }
     }
@@ -855,7 +866,16 @@ public class JNIServiceTests extends KNNTestCase {
                 assertNotEquals(0, pointer);
 
                 for (float[] query : testData.queries) {
-                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, efSearch, KNNEngine.FAISS, null, 0, null);
+                    KNNQueryResult[] results = JNIService.queryIndex(
+                        pointer,
+                        query,
+                        k,
+                        HNSWAlgoQueryParameters.builder().efSearch(efSearch).build(),
+                        KNNEngine.FAISS,
+                        null,
+                        0,
+                        null
+                    );
                     assertEquals(k, results.length);
                 }
 
@@ -865,7 +885,7 @@ public class JNIServiceTests extends KNNTestCase {
                         pointer,
                         query,
                         k,
-                        efSearch,
+                        HNSWAlgoQueryParameters.builder().efSearch(efSearch).build(),
                         KNNEngine.FAISS,
                         new long[] { 0 },
                         0,
@@ -907,7 +927,16 @@ public class JNIServiceTests extends KNNTestCase {
                 assertNotEquals(0, pointer);
 
                 for (float[] query : testDataNested.queries) {
-                    KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, efSearch, KNNEngine.FAISS, null, 0, parentIds);
+                    KNNQueryResult[] results = JNIService.queryIndex(
+                        pointer,
+                        query,
+                        k,
+                        HNSWAlgoQueryParameters.builder().efSearch(efSearch).build(),
+                        KNNEngine.FAISS,
+                        null,
+                        0,
+                        parentIds
+                    );
                     // Verify there is no more than one result from same parent
                     Set<Integer> parentIdSet = toParentIdSet(results, idToParentIdMap);
                     assertEquals(results.length, parentIdSet.size());

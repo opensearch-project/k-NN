@@ -8,6 +8,8 @@ package org.opensearch.knn.index.query;
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.AllArgsConstructor;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.query.model.HNSWAlgoQueryParameters;
+import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -24,7 +26,7 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
     private String description;
     private KNNQueryBuilder expected;
     private Integer k;
-    private Integer efSearch;
+    private AlgoQueryParameters algoQueryParameters;
     private Float maxDistance;
     private Float minScore;
 
@@ -42,9 +44,14 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
                 ),
                 $(
                     "valid knn with k and efSearch",
-                    KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).k(10).efSearch(12).build(),
+                    KNNQueryBuilder.builder()
+                        .fieldName(FIELD_NAME)
+                        .vector(QUERY_VECTOR)
+                        .k(10)
+                        .algoQueryParameters(HNSWAlgoQueryParameters.builder().efSearch(12).build())
+                        .build(),
                     10,
-                    12,
+                    HNSWAlgoQueryParameters.builder().efSearch(12).build(),
                     null,
                     null
                 ),
@@ -75,7 +82,7 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
                 .fieldName(FIELD_NAME)
                 .vector(QUERY_VECTOR)
                 .k(k)
-                .efSearch(efSearch)
+                .algoQueryParameters(algoQueryParameters)
                 .maxDistance(maxDistance)
                 .minScore(minScore)
                 .build()

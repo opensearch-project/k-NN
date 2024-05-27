@@ -45,6 +45,7 @@ public class IndexUtil {
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_NODE_ASSIGNMENT = Version.V_2_12_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_METHOD_COMPONENT_CONTEXT = Version.V_2_13_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_RADIAL_SEARCH = Version.V_2_14_0;
+    public static final Version MINIMAL_EF_SEARCH_SUPPORT = Version.V_3_0_0;
     private static final Map<String, Version> minimalRequiredVersionMap = new HashMap<String, Version>() {
         {
             put("ignore_unmapped", MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED);
@@ -52,7 +53,7 @@ public class IndexUtil {
             put(MODEL_METHOD_COMPONENT_CONTEXT_KEY, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_METHOD_COMPONENT_CONTEXT);
             put(KNNConstants.RADIAL_SEARCH_KEY, MINIMAL_SUPPORTED_VERSION_FOR_RADIAL_SEARCH);
             // TODO: Make 2.15 when we merge into 2.x. Making it 3.0.0 to make sure BWC passes
-            put(KNNConstants.EF_SEARCH, Version.V_3_0_0);
+            put(KNNConstants.METHOD_PARAMETER_EF_SEARCH, MINIMAL_EF_SEARCH_SUPPORT);
         }
     };
 

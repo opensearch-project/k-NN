@@ -22,6 +22,7 @@
 #include "faiss/IndexIDMap.h"
 
 using ::testing::NiceMock;
+using test_util::HNSWAlgoQueryParam;
 
 using idx_t = faiss::idx_t;
 
@@ -67,18 +68,20 @@ struct MockIdMap : faiss::IndexIDMap {
     }
 };
 
-struct QueryIndexTestInput {
+struct QueryIndexHNSWTestInput {
     string description;
     int k;
-    int efSearch;
+    test_util::HNSWAlgoQueryParam* algoParams;
     int filterIdType;
     bool filterIdsPresent;
     bool parentIdsPresent;
 };
 
-class FaissWrappeterParametrizedTestFixture : public testing::TestWithParam<QueryIndexTestInput> {
+
+
+class FaissWrappeterParametrizedTestFixture : public testing::TestWithParam<QueryIndexHNSWTestInput> {
 public:
-    FaissWrappeterParametrizedTestFixture() : index_(10), id_map_(&index_) {
+    FaissWrappeterParametrizedTestFixture() : index_(3), id_map_(&index_) {
         index_.hnsw.efSearch = 100; // assigning 100 to make sure default of 16 is not used anywhere
     };
 
@@ -89,13 +92,13 @@ protected:
 
 namespace query_index_test {
 
-    TEST_P(FaissWrappeterParametrizedTestFixture, QueryIndexTests) {
+    TEST_P(FaissWrappeterParametrizedTestFixture, QueryIndexHNSWTests) {
         //Given
         JNIEnv *jniEnv = nullptr;
         NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
 
-        QueryIndexTestInput const &input = GetParam();
+        QueryIndexHNSWTestInput const &input = GetParam();
         float query[] = {1.2, 2.3, 3.4};
 
         std::vector<int> *parentIdPtr = nullptr;
@@ -117,19 +120,37 @@ namespace query_index_test {
                     .WillOnce(testing::Return(new int[2]{1, 2}));
         }
 
-        int expectedEfSearch = input.efSearch == -1 ? 100 : input.efSearch; //16 is the default created in mock index
+        int expectedEfSearch = 100; //default set in mock
+        if (input.algoParams != nullptr) {
+            expectedEfSearch = input.algoParams->efSearch;
+            EXPECT_CALL(mockJNIUtil,
+                        IsInstanceOf(
+                            jniEnv, reinterpret_cast<jobject>(input.algoParams), "org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters"))
+                    .WillOnce(testing::Return(true));
+            EXPECT_CALL(mockJNIUtil,
+                            CallObjectMethod(
+                                jniEnv, reinterpret_cast<jobject>(input.algoParams), "org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters", "getEfSearch"))
+                    .WillOnce(testing::Return(reinterpret_cast<jobject>(input.algoParams)));
+            EXPECT_CALL(mockJNIUtil,
+                            OptionalGetObject(
+                                jniEnv, reinterpret_cast<jobject>(input.algoParams)))
+                    .WillOnce(testing::Return(reinterpret_cast<jobject>(input.algoParams)));
+            EXPECT_CALL(mockJNIUtil,
+                            ConvertJavaObjectToCppInteger(
+                                jniEnv, reinterpret_cast<jobject>(input.algoParams))).WillOnce(testing::Return(input.algoParams->efSearch));
+        }
 
         // When
         knn_jni::faiss_wrapper::QueryIndex(
             &mockJNIUtil, jniEnv,
             reinterpret_cast<jlong>(&id_map_),
-            reinterpret_cast<jfloatArray>(&query), input.k, input.efSearch,
+            reinterpret_cast<jfloatArray>(&query), input.k, reinterpret_cast<jobject>(input.algoParams),
             reinterpret_cast<jintArray>(parentIdPtr));
 
         //Then
         int actualEfSearch = id_map_.paramsCalled->efSearch;
         // Asserting the captured argument
-        ASSERT_EQ(input.k, id_map_.kCalled);
+        EXPECT_EQ(input.k, id_map_.kCalled);
         EXPECT_EQ(expectedEfSearch, actualEfSearch);
         if (input.parentIdsPresent) {
             faiss::IDGrouper *grouper = id_map_.paramsCalled->grp;
@@ -137,29 +158,30 @@ namespace query_index_test {
         }
 
         id_map_.resetMock();
+        delete input.algoParams;
     }
 
     INSTANTIATE_TEST_CASE_P(
-        QueryIndexTests,
+        QueryIndexHNSWTests,
         FaissWrappeterParametrizedTestFixture,
         ::testing::Values(
-            QueryIndexTestInput{"efsearch present, parent absent", 10, 200, 0, false, false},
-            QueryIndexTestInput{"efsearch absent, parent absent", 10, -1, 0, false, false},
-            QueryIndexTestInput{"efsearch present, parent present", 10, 128, 0, false, true},
-            QueryIndexTestInput{"efsearch absent, parent present", 10, -1, 0, false, true}
+            QueryIndexHNSWTestInput{"algoParams present, parent absent", 10, new HNSWAlgoQueryParam{200}, 0, false, false},
+            QueryIndexHNSWTestInput{"algoParams absent, parent absent", 10, nullptr, 0, false, false},
+            QueryIndexHNSWTestInput{"algoParams present, parent present", 10, new HNSWAlgoQueryParam{200}, 0, false, true},
+            QueryIndexHNSWTestInput{"algoParams absent, parent present", 10, nullptr, 0, false, true}
         )
     );
 }
 
 namespace query_index_with_filter_test {
 
-    TEST_P(FaissWrappeterParametrizedTestFixture, QueryIndexWithFilterTests) {
+    TEST_P(FaissWrappeterParametrizedTestFixture, QueryIndexWithFilterHNSWTests) {
         //Given
         JNIEnv *jniEnv = nullptr;
         NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
 
-        QueryIndexTestInput const &input = GetParam();
+        QueryIndexHNSWTestInput const &input = GetParam();
         float query[] = {1.2, 2.3, 3.4};
 
         std::vector<int> *parentIdPtr = nullptr;
@@ -190,13 +212,31 @@ namespace query_index_with_filter_test {
             filterptr = &filter;
         }
 
-        int expectedEfSearch = input.efSearch == -1 ? 100 : input.efSearch; //16 is the default created in mock index
+        int expectedEfSearch = 100; //default set in mock
+        if (input.algoParams != nullptr) {
+            expectedEfSearch = input.algoParams->efSearch;
+            EXPECT_CALL(mockJNIUtil,
+                        IsInstanceOf(
+                            jniEnv, reinterpret_cast<jobject>(input.algoParams), "org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters"))
+                    .WillOnce(testing::Return(true));
+            EXPECT_CALL(mockJNIUtil,
+                            CallObjectMethod(
+                                jniEnv, reinterpret_cast<jobject>(input.algoParams), "org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters", "getEfSearch"))
+                    .WillOnce(testing::Return(reinterpret_cast<jobject>(input.algoParams)));
+            EXPECT_CALL(mockJNIUtil,
+                            OptionalGetObject(
+                                jniEnv, reinterpret_cast<jobject>(input.algoParams)))
+                    .WillOnce(testing::Return(reinterpret_cast<jobject>(input.algoParams)));
+            EXPECT_CALL(mockJNIUtil,
+                            ConvertJavaObjectToCppInteger(
+                                jniEnv, reinterpret_cast<jobject>(input.algoParams))).WillOnce(testing::Return(input.algoParams->efSearch));
+        }
 
         // When
         knn_jni::faiss_wrapper::QueryIndex_WithFilter(
             &mockJNIUtil, jniEnv,
             reinterpret_cast<jlong>(&id_map_),
-            reinterpret_cast<jfloatArray>(&query), input.k, input.efSearch,
+            reinterpret_cast<jfloatArray>(&query), input.k, reinterpret_cast<jobject>(input.algoParams),
             reinterpret_cast<jlongArray>(filterptr),
             input.filterIdType,
             reinterpret_cast<jintArray>(parentIdPtr));
@@ -215,20 +255,21 @@ namespace query_index_with_filter_test {
             EXPECT_TRUE(sel != nullptr);
         }
         id_map_.resetMock();
+        delete input.algoParams;
     }
 
     INSTANTIATE_TEST_CASE_P(
-        QueryIndexWithFilterTests,
+        QueryIndexWithFilterHNSWTests,
         FaissWrappeterParametrizedTestFixture,
         ::testing::Values(
-            QueryIndexTestInput{"efsearch present, parent absent, filter absent", 10, 200, 0, false, false},
-            QueryIndexTestInput{"efsearch present, parent absent, filter absent, filter type 1", 10, 200, 1, false, false},
-            QueryIndexTestInput{"efsearch absent, parent absent, filter present", 10, -1, 0, true, false},
-            QueryIndexTestInput{"efsearch absent, parent absent, filter present, filter type 1", 10, -1, 1, true, false},
-            QueryIndexTestInput{"efsearch present, parent present, filter absent", 10, 128, 0, false, true},
-            QueryIndexTestInput{"efsearch present, parent present, filter absent, filter type 1", 10, 128, 1, false, true},
-            QueryIndexTestInput{"efsearch absent, parent present, filter present", 10, -1, 0, true, true},
-            QueryIndexTestInput{"efsearch absent, parent present, filter present, filter type 1",10, -1, 1, true, true}
+            QueryIndexHNSWTestInput{"algoParams present, parent absent, filter absent", 10, new HNSWAlgoQueryParam{200}, 0, false, false},
+            QueryIndexHNSWTestInput{"algoParams present, parent absent, filter absent, filter type 1", 10,  new HNSWAlgoQueryParam{200}, 1, false, false},
+            QueryIndexHNSWTestInput{"algoParams absent, parent absent, filter present", 10, nullptr, 0, true, false},
+            QueryIndexHNSWTestInput{"algoParams absent, parent absent, filter present, filter type 1", 10, nullptr, 1, true, false},
+            QueryIndexHNSWTestInput{"algoParams present, parent present, filter absent", 10, new HNSWAlgoQueryParam{200}, 0, false, true},
+            QueryIndexHNSWTestInput{"algoParams present, parent present, filter absent, filter type 1", 10, new HNSWAlgoQueryParam{200}, 1, false, true},
+            QueryIndexHNSWTestInput{"algoParams absent, parent present, filter present", 10, nullptr, 0, true, true},
+            QueryIndexHNSWTestInput{"algoParams absent, parent present, filter present, filter type 1",10, nullptr, 1, true, true}
         )
     );
 }

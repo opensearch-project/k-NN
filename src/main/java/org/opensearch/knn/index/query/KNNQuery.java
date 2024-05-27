@@ -19,6 +19,7 @@ import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -36,7 +37,7 @@ public class KNNQuery extends Query {
     private final String field;
     private final float[] queryVector;
     private int k;
-    private Integer efSearch;
+    private AlgoQueryParameters algoQueryParameters;
     private final String indexName;
 
     @Setter
@@ -167,7 +168,17 @@ public class KNNQuery extends Query {
 
     @Override
     public int hashCode() {
-        return Objects.hash(field, Arrays.hashCode(queryVector), k, indexName, filterQuery, context, parentsFilter, radius, efSearch);
+        return Objects.hash(
+            field,
+            Arrays.hashCode(queryVector),
+            k,
+            indexName,
+            filterQuery,
+            context,
+            parentsFilter,
+            radius,
+            algoQueryParameters
+        );
     }
 
     @Override
@@ -180,7 +191,7 @@ public class KNNQuery extends Query {
         return Objects.equals(field, other.field)
             && Arrays.equals(queryVector, other.queryVector)
             && Objects.equals(k, other.k)
-            && Objects.equals(efSearch, other.efSearch)
+            && Objects.equals(algoQueryParameters, other.algoQueryParameters)
             && Objects.equals(radius, other.radius)
             && Objects.equals(context, other.context)
             && Objects.equals(indexName, other.indexName)

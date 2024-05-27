@@ -231,6 +231,7 @@ TEST(FaissLoadIndexTest, IVFPQDisablePrecomputeTable) {
 }
 
 TEST(FaissQueryIndexTest, BasicAssertions) {
+    std::cout << "Test start";
     // Define the index data
     faiss::idx_t numIds = 100;
     int dim = 16;
@@ -242,7 +243,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
 
     // Define query data
     int k = 10;
-    int efSearch = 100;
+    auto* algoParams = new test_util::HNSWAlgoQueryParam({20});
     int numQueries = 100;
     std::vector<std::vector<float>> queries;
 
@@ -264,6 +265,18 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
     // Setup jni
     JNIEnv *jniEnv = nullptr;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    auto algoParamsJ = reinterpret_cast<jobject>(algoParams);
+    EXPECT_CALL(mockJNIUtil,
+                IsInstanceOf(jniEnv, algoParamsJ, "org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters"))
+            .WillRepeatedly(Return(true));
+    EXPECT_CALL(mockJNIUtil,
+                    CallObjectMethod(
+                        jniEnv, algoParamsJ, "org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters", "getEfSearch"))
+            .WillRepeatedly(Return(algoParamsJ));
+    EXPECT_CALL(mockJNIUtil, OptionalGetObject(jniEnv, algoParamsJ))
+            .WillRepeatedly(Return(algoParamsJ));
+    EXPECT_CALL(mockJNIUtil, ConvertJavaObjectToCppInteger(jniEnv, algoParamsJ))
+            .WillRepeatedly(Return(algoParams->efSearch));
 
     for (auto query : queries) {
         std::unique_ptr<std::vector<std::pair<int, float> *>> results(
@@ -271,7 +284,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
                         knn_jni::faiss_wrapper::QueryIndex(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), k, efSearch, nullptr)));
+                                reinterpret_cast<jfloatArray>(&query), k, algoParamsJ, nullptr)));
 
         ASSERT_EQ(k, results->size());
 
@@ -280,6 +293,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
             delete it;
         }
     }
+    std::cout << "Test end";
 }
 
 //Test for a bug reported in https://github.com/opensearch-project/k-NN/issues/1435
@@ -337,7 +351,7 @@ TEST(FaissQueryIndexWithFilterTest1435, BasicAssertions) {
                         knn_jni::faiss_wrapper::QueryIndex_WithFilter(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), k, -1,
+                                reinterpret_cast<jfloatArray>(&query), k, nullptr,
                                 reinterpret_cast<jlongArray>(&bitmap), 0, nullptr)));
 
         ASSERT_TRUE(results->size() <= filterIds.size());
@@ -377,7 +391,7 @@ TEST(FaissQueryIndexWithParentFilterTest, BasicAssertions) {
 
     // Define query data
     int k = 20;
-    int efSearch = 100;
+    auto* algoParams = new test_util::HNSWAlgoQueryParam({20});
     int numQueries = 100;
     std::vector<std::vector<float>> queries;
 
@@ -399,17 +413,30 @@ TEST(FaissQueryIndexWithParentFilterTest, BasicAssertions) {
     // Setup jni
     JNIEnv *jniEnv = nullptr;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
-    EXPECT_CALL(mockJNIUtil,
-                GetJavaIntArrayLength(
-                        jniEnv, reinterpret_cast<jintArray>(&parentIds)))
+    auto algoParamsJ = reinterpret_cast<jobject>(algoParams);
+    EXPECT_CALL(mockJNIUtil, GetJavaIntArrayLength(jniEnv, reinterpret_cast<jintArray>(&parentIds)))
             .WillRepeatedly(Return(parentIds.size()));
+    EXPECT_CALL(mockJNIUtil, IsInstanceOf(jniEnv, algoParamsJ, "org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters"))
+            .WillRepeatedly(Return(true));
+    EXPECT_CALL(mockJNIUtil,
+                    CallObjectMethod(
+                        jniEnv, algoParamsJ, "org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters", "getEfSearch"))
+            .WillRepeatedly(Return(algoParamsJ));;
+    EXPECT_CALL(mockJNIUtil,
+                    OptionalGetObject(
+                        jniEnv, algoParamsJ))
+            .WillRepeatedly(Return(algoParamsJ));
+    EXPECT_CALL(mockJNIUtil,
+                    ConvertJavaObjectToCppInteger(
+                        jniEnv, algoParamsJ))
+            .WillRepeatedly(Return(algoParams->efSearch));
     for (auto query : queries) {
         std::unique_ptr<std::vector<std::pair<int, float> *>> results(
                 reinterpret_cast<std::vector<std::pair<int, float> *> *>(
                         knn_jni::faiss_wrapper::QueryIndex(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), k, efSearch,
+                                reinterpret_cast<jfloatArray>(&query), k, algoParamsJ,
                                 reinterpret_cast<jintArray>(&parentIds))));
 
         // Even with k 20, result should have only 10 which is total number of groups

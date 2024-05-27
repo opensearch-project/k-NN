@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
@@ -29,6 +30,8 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.query.model.HNSWAlgoQueryParameters;
+import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -38,11 +41,13 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
-import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
-import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
+import static org.opensearch.knn.common.KNNConstants.*;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
+import static org.opensearch.knn.index.query.parser.KNNXParserUtil.parseMethodParameters;
+import static org.opensearch.knn.index.query.parser.KNNXParserUtil.unParseMethodParameters;
 import static org.opensearch.knn.index.util.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 
 /**
@@ -60,7 +65,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     public static final ParseField IGNORE_UNMAPPED_FIELD = new ParseField("ignore_unmapped");
     public static final ParseField MAX_DISTANCE_FIELD = new ParseField(MAX_DISTANCE);
     public static final ParseField MIN_SCORE_FIELD = new ParseField(MIN_SCORE);
-    public static final ParseField EF_SEARCH_FIELD = new ParseField("ef_search");
+    public static final ParseField EF_SEARCH_FIELD = new ParseField(METHOD_PARAMETER_EF_SEARCH);
+    public static final ParseField METHOD_PARAMS_FIELD = new ParseField(METHOD_PARAMETER);
     public static final int K_MAX = 10000;
     /**
      * The name for the knn query
@@ -74,11 +80,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     @Getter
     private int k;
     @Getter
-    private Integer efSearch;
-    @Getter
     private Float maxDistance;
     @Getter
     private Float minScore;
+    @Getter
+    private AlgoQueryParameters algoQueryParameters;
     @Getter
     private QueryBuilder filter;
     @Getter
@@ -117,7 +123,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         private String fieldName;
         private float[] vector;
         private Integer k;
-        private Integer efSearch;
+        private AlgoQueryParameters algoQueryParameters;
         private Float maxDistance;
         private Float minScore;
         private QueryBuilder filter;
@@ -142,8 +148,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             return this;
         }
 
-        public Builder efSearch(Integer efSearch) {
-            this.efSearch = efSearch;
+        public Builder algoQueryParameters(AlgoQueryParameters algoQueryParameters) {
+            this.algoQueryParameters = algoQueryParameters;
             return this;
         }
 
@@ -180,8 +186,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         public KNNQueryBuilder build() {
             validate();
             int k = this.k == null ? 0 : this.k;
-            return new KNNQueryBuilder(fieldName, vector, k, efSearch, maxDistance, minScore, filter, ignoreUnmapped).boost(boost)
-                .queryName(queryName);
+            return new KNNQueryBuilder(fieldName, vector, k, maxDistance, minScore, algoQueryParameters, filter, ignoreUnmapped).boost(
+                boost
+            ).queryName(queryName);
         }
 
         private void validate() {
@@ -204,6 +211,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
 
             VectorQueryType vectorQueryType = VectorQueryType.MAX_DISTANCE;
+            final Integer efSearch = extractHnswAlgoParameters(algoQueryParameters).flatMap(HNSWAlgoQueryParameters::getEfSearch)
+                .orElse(null);
             if (k != null) {
                 vectorQueryType = VectorQueryType.K;
                 if (k <= 0 || k > K_MAX) {
@@ -314,12 +323,19 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
                 minScore = in.readOptionalFloat();
             }
-            if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.EF_SEARCH)) {
-                efSearch = in.readOptionalInt();
-            }
+            streamInHnswParameters(in);
         } catch (IOException ex) {
             throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder", ex);
         }
+    }
+
+    @SneakyThrows(IOException.class)
+    private void streamInHnswParameters(StreamInput in) {
+        Integer efSearch = null;
+        if (isClusterOnOrAfterMinRequiredVersion(METHOD_PARAMETER_EF_SEARCH)) {
+            efSearch = in.readOptionalInt();
+        }
+        algoQueryParameters = efSearch != null ? HNSWAlgoQueryParameters.builder().efSearch(efSearch).build() : null;
     }
 
     public static KNNQueryBuilder fromXContent(XContentParser parser) throws IOException {
@@ -333,7 +349,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         String queryName = null;
         String currentFieldName = null;
         boolean ignoreUnmapped = false;
-        Integer efSearch = null;
+        AlgoQueryParameters algoQueryParameters = null;
         XContentParser.Token token;
         while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
             if (token == XContentParser.Token.FIELD_NAME) {
@@ -361,8 +377,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                             maxDistance = (Float) NumberFieldMapper.NumberType.FLOAT.parse(parser.objectBytes(), false);
                         } else if (MIN_SCORE_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
                             minScore = (Float) NumberFieldMapper.NumberType.FLOAT.parse(parser.objectBytes(), false);
-                        } else if (EF_SEARCH_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
-                            efSearch = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
                         } else {
                             throw new ParsingException(
                                 parser.getTokenLocation(),
@@ -374,6 +388,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                         if (FILTER_FIELD.getPreferredName().equals(tokenName)) {
                             log.debug(String.format("Start parsing filter for field [%s]", fieldName));
                             filter = parseInnerQueryBuilder(parser);
+                        } else if (METHOD_PARAMS_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
+                            algoQueryParameters = parseMethodParameters(parser);
                         } else {
                             throw new ParsingException(parser.getTokenLocation(), "[" + NAME + "] unknown token [" + token + "]");
                         }
@@ -392,15 +408,15 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         return KNNQueryBuilder.builder()
+            .queryName(queryName)
+            .boost(boost)
             .fieldName(fieldName)
+            .vector(ObjectsToFloats(vector))
             .k(k)
-            .efSearch(efSearch)
             .maxDistance(maxDistance)
             .minScore(minScore)
-            .queryName(queryName)
+            .algoQueryParameters(algoQueryParameters)
             .ignoreUnmapped(ignoreUnmapped)
-            .boost(boost)
-            .vector(ObjectsToFloats(vector))
             .filter(filter)
             .build();
     }
@@ -420,9 +436,23 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
             out.writeOptionalFloat(minScore);
         }
-        if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.EF_SEARCH)) {
-            out.writeOptionalInt(efSearch);
+        streamOutHnswMethodParameters(out);
+    }
+
+    @SneakyThrows(IOException.class)
+    private void streamOutHnswMethodParameters(final StreamOutput out) {
+        final Optional<HNSWAlgoQueryParameters> hnswMethodParameters = extractHnswAlgoParameters(algoQueryParameters);
+
+        if (isClusterOnOrAfterMinRequiredVersion(METHOD_PARAMETER_EF_SEARCH)) {
+            // Write false even if it doesn't cast to hnsw, so we can deserialize w/o ambiguity as parameters get added
+            out.writeOptionalInt(hnswMethodParameters.flatMap(HNSWAlgoQueryParameters::getEfSearch).orElse(null));
         }
+    }
+
+    private static Optional<HNSWAlgoQueryParameters> extractHnswAlgoParameters(AlgoQueryParameters algoQueryParameters) {
+        return Optional.ofNullable(algoQueryParameters)
+            .filter(HNSWAlgoQueryParameters.class::isInstance)
+            .map(HNSWAlgoQueryParameters.class::cast);
     }
 
     /**
@@ -458,9 +488,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (minScore != null) {
             builder.field(MIN_SCORE_FIELD.getPreferredName(), minScore);
         }
-        if (efSearch != null) {
-            builder.field(EF_SEARCH_FIELD.getPreferredName(), efSearch);
-        }
+        unParseMethodParameters(builder, algoQueryParameters);
         printBoostAndQueryName(builder);
         builder.endObject();
         builder.endObject();
@@ -556,7 +584,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .byteVector(VectorDataType.BYTE == vectorDataType ? byteVector : null)
                 .vectorDataType(vectorDataType)
                 .k(this.k)
-                .efSearch(this.efSearch)
+                .algoQueryParameters(this.algoQueryParameters)
                 .filter(this.filter)
                 .context(context)
                 .build();
@@ -603,14 +631,14 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             && Objects.equals(k, other.k)
             && Objects.equals(minScore, other.minScore)
             && Objects.equals(maxDistance, other.maxDistance)
-            && Objects.equals(efSearch, other.efSearch)
+            && Objects.equals(algoQueryParameters, other.algoQueryParameters)
             && Objects.equals(filter, other.filter)
             && Objects.equals(ignoreUnmapped, other.ignoreUnmapped);
     }
 
     @Override
     protected int doHashCode() {
-        return Objects.hash(fieldName, Arrays.hashCode(vector), k, efSearch, filter, ignoreUnmapped, maxDistance, minScore);
+        return Objects.hash(fieldName, Arrays.hashCode(vector), k, algoQueryParameters, filter, ignoreUnmapped, maxDistance, minScore);
     }
 
     @Override

@@ -44,6 +44,14 @@ namespace knn_jni {
         // Find a java class given a particular name
         virtual jclass FindClass(JNIEnv * env, const std::string& className) = 0;
 
+        virtual jboolean IsInstanceOf(JNIEnv * env, jobject object, const std::string& className) = 0;
+
+        virtual jboolean OptionalIsPresent(JNIEnv * env, jobject optional_jobject) = 0;
+
+        virtual jobject OptionalGetObject(JNIEnv * env, jobject optional_jobject) = 0;
+
+        virtual jobject CallObjectMethod(JNIEnv * env, jobject _jobject, const std::string& className, const std::string& methodName) = 0;
+
         // Find a java method given a particular class, name and signature
         virtual jmethodID FindMethod(JNIEnv * env, const std::string& className, const std::string& methodName) = 0;
 
@@ -138,7 +146,11 @@ namespace knn_jni {
         void HasExceptionInStack(JNIEnv* env, const std::string& message);
         void CatchCppExceptionAndThrowJava(JNIEnv* env);
         jclass FindClass(JNIEnv * env, const std::string& className);
+        jboolean IsInstanceOf(JNIEnv * env, jobject object, const std::string& className);
         jmethodID FindMethod(JNIEnv * env, const std::string& className, const std::string& methodName);
+        jboolean OptionalIsPresent(JNIEnv * env, jobject optional_jobject);
+        jobject OptionalGetObject(JNIEnv * env, jobject optional_jobject);
+        jobject CallObjectMethod(JNIEnv * env, jobject _jobject, const std::string& className, const std::string& methodName);
         std::string ConvertJavaStringToCppString(JNIEnv * env, jstring javaString);
         std::unordered_map<std::string, jobject> ConvertJavaMapToCppMap(JNIEnv *env, jobject parametersJ);
         std::string ConvertJavaObjectToCppString(JNIEnv *env, jobject objectJ);

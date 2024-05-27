@@ -42,6 +42,8 @@ import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.util.KNNVectorAsArraySerializer;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
+import org.opensearch.knn.index.query.model.HNSWAlgoQueryParameters;
+import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -78,6 +80,7 @@ public class KNNWeightTests extends KNNTestCase {
     private static final Set<String> SEGMENT_FILES_FAISS = Set.of("_0.cfe", "_0_2011_target_field.faissc");
     private static final String CIRCUIT_BREAKER_LIMIT_100KB = "100Kb";
     private static final Integer EF_SEARCH = 10;
+    private static final AlgoQueryParameters HNSW_ALGO_PARAMETERS = HNSWAlgoQueryParameters.builder().efSearch(EF_SEARCH).build();
 
     private static final Map<Integer, Float> DOC_ID_TO_SCORES = Map.of(10, 0.4f, 101, 0.05f, 100, 0.8f, 50, 0.52f);
     private static final Map<Integer, Float> FILTERED_DOC_ID_TO_SCORES = Map.of(101, 0.05f, 100, 0.8f, 50, 0.52f);
@@ -353,7 +356,7 @@ public class KNNWeightTests extends KNNTestCase {
                 anyLong(),
                 eq(QUERY_VECTOR),
                 eq(k),
-                eq(EF_SEARCH),
+                eq(HNSW_ALGO_PARAMETERS),
                 any(),
                 eq(filterBitSet.getBits()),
                 anyInt(),
@@ -377,7 +380,7 @@ public class KNNWeightTests extends KNNTestCase {
             .k(k)
             .indexName(INDEX_NAME)
             .filterQuery(FILTER_QUERY)
-            .efSearch(EF_SEARCH)
+            .algoQueryParameters(HNSW_ALGO_PARAMETERS)
             .build();
 
         final Weight filterQueryWeight = mock(Weight.class);
@@ -433,7 +436,7 @@ public class KNNWeightTests extends KNNTestCase {
                 anyLong(),
                 eq(QUERY_VECTOR),
                 eq(k),
-                eq(EF_SEARCH),
+                eq(HNSW_ALGO_PARAMETERS),
                 any(),
                 eq(filterBitSet.getBits()),
                 anyInt(),
@@ -707,14 +710,23 @@ public class KNNWeightTests extends KNNTestCase {
             .queryVector(QUERY_VECTOR)
             .k(1)
             .indexName(INDEX_NAME)
-            .efSearch(EF_SEARCH)
+            .algoQueryParameters(HNSW_ALGO_PARAMETERS)
             .parentsFilter(bitSetProducer)
             .build();
 
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f, null);
 
         jniServiceMockedStatic.when(
-            () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(1), eq(EF_SEARCH), any(), any(), anyInt(), eq(parentsFilter))
+            () -> JNIService.queryIndex(
+                anyLong(),
+                eq(QUERY_VECTOR),
+                eq(1),
+                eq(HNSW_ALGO_PARAMETERS),
+                any(),
+                any(),
+                anyInt(),
+                eq(parentsFilter)
+            )
         ).thenReturn(getKNNQueryResults());
 
         // Execute
@@ -722,7 +734,16 @@ public class KNNWeightTests extends KNNTestCase {
 
         // Verify
         jniServiceMockedStatic.verify(
-            () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(1), eq(EF_SEARCH), any(), any(), anyInt(), eq(parentsFilter))
+            () -> JNIService.queryIndex(
+                anyLong(),
+                eq(QUERY_VECTOR),
+                eq(1),
+                eq(HNSW_ALGO_PARAMETERS),
+                any(),
+                any(),
+                anyInt(),
+                eq(parentsFilter)
+            )
         );
         assertNotNull(knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
@@ -848,7 +869,7 @@ public class KNNWeightTests extends KNNTestCase {
         final Map<String, String> fileAttributes
     ) throws IOException {
         jniServiceMockedStatic.when(
-            () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(K), eq(EF_SEARCH), any(), any(), anyInt(), any())
+            () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(K), eq(HNSW_ALGO_PARAMETERS), any(), any(), anyInt(), any())
         ).thenReturn(getKNNQueryResults());
 
         final KNNQuery query = KNNQuery.builder()
@@ -856,7 +877,7 @@ public class KNNWeightTests extends KNNTestCase {
             .queryVector(QUERY_VECTOR)
             .k(K)
             .indexName(INDEX_NAME)
-            .efSearch(EF_SEARCH)
+            .algoQueryParameters(HNSW_ALGO_PARAMETERS)
             .build();
         final float boost = (float) randomDoubleBetween(0, 10, true);
         final KNNWeight knnWeight = new KNNWeight(query, boost);

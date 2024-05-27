@@ -32,6 +32,8 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.KNN87Codec.KNN87Codec;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.query.model.HNSWAlgoQueryParameters;
+import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelCache;
@@ -71,6 +73,7 @@ import static org.opensearch.knn.index.codec.KNNCodecTestUtil.RandomVectorDocVal
 public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
     private static final int EF_SEARCH = 10;
+    private static final AlgoQueryParameters HNSW_ALGO_PARAMETERS = HNSWAlgoQueryParameters.builder().efSearch(EF_SEARCH).build();
 
     private static Directory directory;
     private static Codec codec;
@@ -318,7 +321,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertValidFooter(state.directory, expectedFile);
 
         // The document should be readable by faiss
-        assertLoadableByEngine(EF_SEARCH, state, expectedFile, knnEngine, spaceType, dimension);
+        assertLoadableByEngine(HNSW_ALGO_PARAMETERS, state, expectedFile, knnEngine, spaceType, dimension);
 
         // The graph creation statistics should be updated
         assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
@@ -413,7 +416,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertValidFooter(state.directory, expectedFile);
 
         // The document should be readable by faiss
-        assertLoadableByEngine(EF_SEARCH, state, expectedFile, knnEngine, spaceType, dimension);
+        assertLoadableByEngine(HNSW_ALGO_PARAMETERS, state, expectedFile, knnEngine, spaceType, dimension);
 
         // The graph creation statistics should be updated
         assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());

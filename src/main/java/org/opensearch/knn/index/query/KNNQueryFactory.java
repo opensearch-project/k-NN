@@ -14,6 +14,7 @@ import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
 import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Locale;
@@ -71,7 +72,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final byte[] byteVector = createQueryRequest.getByteVector();
         final VectorDataType vectorDataType = createQueryRequest.getVectorDataType();
         final Query filterQuery = getFilterQuery(createQueryRequest);
-        final Integer efSearch = createQueryRequest.getEfSearch();
+        final AlgoQueryParameters algoQueryParameters = createQueryRequest.getAlgoQueryParameters();
 
         BitSetProducer parentFilter = null;
         if (createQueryRequest.getContext().isPresent()) {
@@ -87,7 +88,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                 fieldName,
                 k,
                 validatedFilterQuery,
-                efSearch
+                algoQueryParameters
             );
             return KNNQuery.builder()
                 .field(fieldName)
@@ -95,7 +96,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                 .indexName(indexName)
                 .parentsFilter(parentFilter)
                 .k(k)
-                .efSearch(efSearch)
+                .algoQueryParameters(algoQueryParameters)
                 .filterQuery(validatedFilterQuery)
                 .build();
         }

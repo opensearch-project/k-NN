@@ -35,7 +35,7 @@
 #include "spacefactory.h"
 
 namespace test_util {
-    class MockJNIUtil : public knn_jni::JNIUtilInterface {
+    class  MockJNIUtil : public knn_jni::JNIUtilInterface {
     public:
         MockJNIUtil();
         MOCK_METHOD(void, CatchCppExceptionAndThrowJava, (JNIEnv * env));
@@ -100,6 +100,14 @@ namespace test_util {
                     (JNIEnv * env, jobjectArray array, jsize index, jobject val));
         MOCK_METHOD(void, ThrowJavaException,
                     (JNIEnv * env, const char* type, const char* message));
+        MOCK_METHOD(jboolean, IsInstanceOf, (JNIEnv * env, jobject object, const std::string& className));
+        MOCK_METHOD(jboolean, OptionalIsPresent, (JNIEnv * env, jobject optional_jobject));
+        MOCK_METHOD(jobject, OptionalGetObject, (JNIEnv * env, jobject optional_jobject));
+        MOCK_METHOD(jobject, CallObjectMethod, (JNIEnv * env, jobject _jobject, const std::string& className, const std::string& methodName));
+    };
+
+    struct HNSWAlgoQueryParam {
+        int efSearch;
     };
 
 // For our unit tests, we want to ensure that each test tests one function in

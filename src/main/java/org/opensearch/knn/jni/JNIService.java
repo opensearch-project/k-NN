@@ -14,10 +14,10 @@ package org.opensearch.knn.jni;
 import org.apache.commons.lang.ArrayUtils;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.query.KNNQueryResult;
+import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * Service to distribute requests to the proper engine jni service
@@ -175,13 +175,12 @@ public class JNIService {
         long indexPointer,
         float[] queryVector,
         int k,
-        @Nullable Integer efSearch,
+        @Nullable AlgoQueryParameters algoQueryParameters,
         KNNEngine knnEngine,
         long[] filteredIds,
         int filterIdsType,
         int[] parentIds
     ) {
-        int queryEfSearch = Optional.ofNullable(efSearch).orElse(-1);
         if (KNNEngine.NMSLIB == knnEngine) {
             return NmslibService.queryIndex(indexPointer, queryVector, k);
         }
@@ -196,13 +195,13 @@ public class JNIService {
                     indexPointer,
                     queryVector,
                     k,
-                    queryEfSearch,
+                    algoQueryParameters,
                     filteredIds,
                     filterIdsType,
                     parentIds
                 );
             }
-            return FaissService.queryIndex(indexPointer, queryVector, k, queryEfSearch, parentIds);
+            return FaissService.queryIndex(indexPointer, queryVector, k, algoQueryParameters, parentIds);
         }
         throw new IllegalArgumentException(String.format("QueryIndex not supported for provided engine : %s", knnEngine.getName()));
     }

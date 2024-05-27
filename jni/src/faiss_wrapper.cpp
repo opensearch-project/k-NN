@@ -72,6 +72,9 @@ void convertFilterIdsToFaissIdType(const int* filterIds, int filterIdsLength, fa
 // Concerts the FilterIds to BitMap
 void buildFilterIdsBitMap(const int* filterIds, int filterIdsLength, uint8_t* bitsetVector);
 
+// Gets efSearch from algo parameters
+int getQueryEfSearch(JNIEnv * env, knn_jni::JNIUtilInterface * jniUtil, jobject algoParams, int defaultEfSearch);
+
 std::unique_ptr<faiss::IDGrouperBitmap> buildIDGrouperBitmap(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env, jintArray parentIdsJ, std::vector<uint64_t>* bitmap);
 
 // Check if a loaded index is an IVFPQ index with l2 space type
@@ -296,12 +299,12 @@ void knn_jni::faiss_wrapper::SetSharedIndexState(jlong indexPointerJ, jlong shar
 }
 
 jobjectArray knn_jni::faiss_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                                jfloatArray queryVectorJ, jint kJ, jint queryEfSearchJ, jintArray parentIdsJ) {
-    return knn_jni::faiss_wrapper::QueryIndex_WithFilter(jniUtil, env, indexPointerJ, queryVectorJ, kJ, queryEfSearchJ, nullptr, 0, parentIdsJ);
+                                                jfloatArray queryVectorJ, jint kJ, jobject algoParams, jintArray parentIdsJ) {
+    return knn_jni::faiss_wrapper::QueryIndex_WithFilter(jniUtil, env, indexPointerJ, queryVectorJ, kJ, algoParams, nullptr, 0, parentIdsJ);
 }
 
 jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                                jfloatArray queryVectorJ, jint kJ, jint queryEfSearchJ, jlongArray filterIdsJ, jint filterIdsTypeJ, jintArray parentIdsJ) {
+                                                jfloatArray queryVectorJ, jint kJ, jobject algoParams, jlongArray filterIdsJ, jint filterIdsTypeJ, jintArray parentIdsJ) {
 
     if (queryVectorJ == nullptr) {
         throw std::runtime_error("Query Vector cannot be null");
@@ -340,8 +343,8 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         std::vector<uint64_t> idGrouperBitmap;
         auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
         if(hnswReader) {
-            // Query param efseatch supersedes ef_search provided during index setting.
-            hnswParams.efSearch = queryEfSearchJ == -1 ? hnswReader->hnsw.efSearch : queryEfSearchJ;
+            // Query param efsearch supersedes ef_search provided during index setting.
+            hnswParams.efSearch = getQueryEfSearch(env, jniUtil, algoParams, hnswReader->hnsw.efSearch);
             hnswParams.sel = idSelector.get();
             if (parentIdsJ != nullptr) {
                 idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
@@ -372,7 +375,7 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
         if(hnswReader!= nullptr) {
             // Query param efseatch supersedes ef_search provided during index setting.
-            hnswParams.efSearch = queryEfSearchJ == -1 ? hnswReader->hnsw.efSearch : queryEfSearchJ;
+            hnswParams.efSearch = getQueryEfSearch(env, jniUtil, algoParams, hnswReader->hnsw.efSearch);
             if (parentIdsJ != nullptr) {
                 idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
                 hnswParams.grp = idGrouper.get();
@@ -407,6 +410,22 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         jniUtil->SetObjectArrayElement(env, results, i, result);
     }
     return results;
+}
+
+int getQueryEfSearch(JNIEnv * env, knn_jni::JNIUtilInterface * jniUtil, jobject algoParams, int defaultEfSearch) {
+    if (algoParams == nullptr) {
+        return defaultEfSearch;
+    }
+    std::string hnswParameterJavaFilePath = "org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters";
+    if (jniUtil->IsInstanceOf(env, algoParams, hnswParameterJavaFilePath)) {
+        jobject optionalEfSearch = jniUtil->CallObjectMethod(env, algoParams, hnswParameterJavaFilePath, "getEfSearch");
+        jobject efSearch = jniUtil->OptionalGetObject(env, optionalEfSearch);
+        if (efSearch == nullptr) {
+            return defaultEfSearch;
+        }
+        return jniUtil->ConvertJavaObjectToCppInteger(env, efSearch);
+    }
+    throw std::runtime_error("The algorithm parameters is not of type HNSWAlgoQueryParameters");
 }
 
 void knn_jni::faiss_wrapper::Free(jlong indexPointer) {
