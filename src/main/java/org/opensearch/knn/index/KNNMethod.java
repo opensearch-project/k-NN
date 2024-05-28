@@ -42,7 +42,7 @@ public class KNNMethod {
      * @param space to be checked
      * @return true if the space is supported; false otherwise
      */
-    public boolean containsSpace(SpaceType space) {
+    public boolean isSpaceTypeSupported(SpaceType space) {
         return spaces.contains(space);
     }
 
@@ -54,7 +54,7 @@ public class KNNMethod {
      */
     public ValidationException validate(KNNMethodContext knnMethodContext) {
         List<String> errorMessages = new ArrayList<>();
-        if (!containsSpace(knnMethodContext.getSpaceType())) {
+        if (!isSpaceTypeSupported(knnMethodContext.getSpaceType())) {
             errorMessages.add(
                 String.format(
                     "\"%s\" configuration does not support space type: " + "\"%s\".",
@@ -80,7 +80,7 @@ public class KNNMethod {
 
     public ValidationException validateWithData(KNNMethodContext knnMethodContext, TrainingDataSpec trainingDataSpec) {
         List<String> errorMessages = new ArrayList<>();
-        if (!containsSpace(knnMethodContext.getSpaceType())) {
+        if (!isSpaceTypeSupported(knnMethodContext.getSpaceType())) {
             errorMessages.add(
                 String.format(
                     "\"%s\" configuration does not support space type: " + "\"%s\".",
