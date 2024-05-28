@@ -1667,12 +1667,29 @@ public class FaissIT extends KNNRestTestCase {
 
         Integer dimension = testData.indexData.vectors[0].length;
 
+        /*
+         * Builds the below json:
+         * {
+         *   "name": "hnsw",
+         *   "engine": "faiss",
+         *   "space_type": "l2",
+         *   "parameters": {
+         *     "encoder": {
+         *       "name": "pq",
+         *       "parameters": {
+         *         "m": 3
+         *       }
+         *     }
+         *   }
+         * }
+         */
+
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .field(NAME, METHOD_HNSW)
             .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .startObject(PARAMETERS)
-            .field(KNNConstants.METHOD_PARAMETER_M, mValues.get(random().nextInt(mValues.size())))
             .startObject(METHOD_ENCODER_PARAMETER)
             .field(NAME, ENCODER_PQ)
             .startObject(PARAMETERS)
@@ -1713,6 +1730,26 @@ public class FaissIT extends KNNRestTestCase {
         int ivfNlist = 4;
         int ivfNprobes = 4;
         int pqCodeSize = 8;
+
+        /*
+         * Builds the below json:
+         * {
+         *   "name": "ivf",
+         *   "engine": "faiss",
+         *   "space_type": "l2",
+         *   "parameters": {
+         *     "nprobes": 8,
+         *     "nlist": 4,
+         *     "encoder": {
+         *       "name": "pq",
+         *       "parameters": {
+         *         "m": 3,
+         *         "code_size": 8
+         *       }
+         *     }
+         *   }
+         * }
+         */
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()

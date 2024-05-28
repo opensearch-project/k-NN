@@ -13,13 +13,14 @@ package org.opensearch.knn.training;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.Setter;
 
+/**
+ * A data spec containing relevant training data for validation.
+ */
 @Getter
+@Setter
 @AllArgsConstructor
 public class TrainingDataSpec {
     private int dimension;
-
-    public void setDimension(int dimension) {
-        this.dimension = dimension;
-    }
 }

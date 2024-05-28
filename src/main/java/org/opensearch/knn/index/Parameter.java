@@ -108,7 +108,9 @@ public abstract class Parameter<T> {
             ValidationException validationException = null;
             if (!(value instanceof Boolean)) {
                 validationException = new ValidationException();
-                validationException.addValidationError(String.format("value not of type Boolean for Boolean parameter [%s].", getName()));
+                validationException.addValidationError(
+                    String.format("value is not an instance of Boolean for Boolean parameter [%s].", getName())
+                );
                 return validationException;
             }
 
@@ -129,7 +131,7 @@ public abstract class Parameter<T> {
             }
 
             if (validatorWithData == null) {
-                return validationException;
+                return null;
             }
 
             if (!validatorWithData.apply((Boolean) value, trainingDataSpec)) {
@@ -183,12 +185,14 @@ public abstract class Parameter<T> {
             ValidationException validationException = null;
             if (!(value instanceof Integer)) {
                 validationException = new ValidationException();
-                validationException.addValidationError(String.format("value not of type Integer for Integer parameter [%s].", getName()));
+                validationException.addValidationError(
+                    String.format("value is not an instance of Integer for Integer parameter [%s].", getName())
+                );
                 return validationException;
             }
 
             if (validatorWithData == null) {
-                return validationException;
+                return null;
             }
 
             if (!validatorWithData.apply((Integer) value, trainingDataSpec)) {
@@ -256,12 +260,14 @@ public abstract class Parameter<T> {
             ValidationException validationException = null;
             if (!(value instanceof String)) {
                 validationException = new ValidationException();
-                validationException.addValidationError(String.format("value not of type String for String parameter [%s].", getName()));
+                validationException.addValidationError(
+                    String.format("value is not an instance of String for String parameter [%s].", getName())
+                );
                 return validationException;
             }
 
             if (validatorWithData == null) {
-                return validationException;
+                return null;
             }
 
             if (!validatorWithData.apply((String) value, trainingDataSpec)) {
@@ -338,13 +344,13 @@ public abstract class Parameter<T> {
             if (!(value instanceof MethodComponentContext)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(
-                    String.format("value not of type MethodComponentContext for MethodComponentContext parameter [%s].", getName())
+                    String.format("value is not an instance of for MethodComponentContext parameter [%s].", getName())
                 );
                 return validationException;
             }
 
             if (validatorWithData == null) {
-                return validationException;
+                return null;
             }
 
             if (!validatorWithData.apply((MethodComponentContext) value, trainingDataSpec)) {
