@@ -103,6 +103,13 @@ public class MethodComponent {
         return validationException;
     }
 
+    /**
+     * Validate that the methodComponentContext is a valid configuration for this methodComponent, using additional data not present in the method component context
+     *
+     * @param methodComponentContext to be validated
+     * @param trainingDataSpec additional data not present in the method component context
+     * @return ValidationException produced by validation errors; null if no validations errors.
+     */
     public ValidationException validateWithData(MethodComponentContext methodComponentContext, TrainingDataSpec trainingDataSpec) {
         Map<String, Object> providedParameters = methodComponentContext.getParameters();
         List<String> errorMessages = new ArrayList<>();

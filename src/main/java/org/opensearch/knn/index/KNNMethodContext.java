@@ -87,6 +87,12 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         return knnEngine.validateMethod(this);
     }
 
+    /**
+     * This method uses the knnEngine to validate that the method is compatible with the engine, using additional data not present in the method context
+     *
+     * @param trainingDataSpec additional data not present in the method context
+     * @return ValidationException produced by validation errors; null if no validations errors.
+     */
     public ValidationException validateWithData(TrainingDataSpec trainingDataSpec) {
         return knnEngine.validateMethodWithData(this, trainingDataSpec);
     }

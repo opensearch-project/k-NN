@@ -77,6 +77,13 @@ public abstract class Parameter<T> {
      */
     public abstract ValidationException validate(Object value);
 
+    /**
+     * Check if the value passed in is valid, using additional data not present in the value
+     *
+     * @param value to be checked
+     * @param trainingDataSpec additional data not present in the value
+     * @return ValidationException produced by validation errors; null if no validations errors.
+     */
     public abstract ValidationException validateWithData(Object value, TrainingDataSpec trainingDataSpec);
 
     /**

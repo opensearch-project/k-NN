@@ -98,6 +98,14 @@ public interface KNNLibrary {
      */
     ValidationException validateMethod(KNNMethodContext knnMethodContext);
 
+    /**
+     * Validate the knnMethodContext for the given library, using additional data not present in the method context. A ValidationException should be thrown if the method is
+     * deemed invalid.
+     *
+     * @param knnMethodContext to be validated
+     * @param trainingDataSpec additional data not present in the method context
+     * @return ValidationException produced by validation errors; null if no validations errors.
+     */
     ValidationException validateMethodWithData(KNNMethodContext knnMethodContext, TrainingDataSpec trainingDataSpec);
 
     /**
