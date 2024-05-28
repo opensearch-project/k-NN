@@ -49,7 +49,7 @@ namespace knn_jni {
          *  Execute a query against the index located in memory at indexPointerJ
          *  
          * Parameters:
-         * queryEfSearch: -1 indicates to use efsearch value used during index setting 
+         * algoParams: introduces an object to have additional algo params. for instance hnsw will have efSearch
          * 
          * Return an array of KNNQueryResults
         */
@@ -60,7 +60,7 @@ namespace knn_jni {
          *  Execute a query against the index located in memory at indexPointerJ along with Filters
          *  
          * Parameters:
-         * queryEfSearch: -1 indicates to use efsearch value used during index setting 
+         * algoParams: introduces an object to have additional algo params. for instance hnsw will have efSearch
          * 
          * Return an array of KNNQueryResults
         */
