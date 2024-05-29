@@ -160,6 +160,7 @@ if ("${WIN32}" STREQUAL "")
                 faiss
                 NonMetricSpaceLib
                 OpenMP::OpenMP_CXX
+                gfortran
                 ${TARGET_LIB_FAISS}
                 ${TARGET_LIB_NMSLIB}
                 ${TARGET_LIB_COMMON}

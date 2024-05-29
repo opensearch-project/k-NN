@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Block commas in model description [#1692](https://github.com/opensearch-project/k-NN/pull/1692)
 * Update threshold value after new result is added [#1715](https://github.com/opensearch-project/k-NN/pull/1715)
 ### Infrastructure
+* Add gfortran to target_link_libraries in cmake tests part [#1720](https://github.com/opensearch-project/k-NN/pull/1720)
 ### Documentation
 ### Maintenance
 ### Refactoring
