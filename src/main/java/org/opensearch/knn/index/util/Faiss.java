@@ -120,7 +120,7 @@ class Faiss extends NativeLibrary {
                             ENCODER_PARAMETER_PQ_M,
                             ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT,
                             v -> v > 0 && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT,
-                            (v, trainingDataSpec) -> trainingDataSpec.getDimension() % v == 0
+                            (v, vectorSpaceInfo) -> vectorSpaceInfo.getDimension() % v == 0
                         )
                     )
                     .addParameter(
@@ -160,7 +160,7 @@ class Faiss extends NativeLibrary {
                             ENCODER_PARAMETER_PQ_M,
                             ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT,
                             v -> v > 0 && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT,
-                            (v, trainingDataSpec) -> trainingDataSpec.getDimension() % v == 0
+                            (v, vectorSpaceInfo) -> vectorSpaceInfo.getDimension() % v == 0
                         )
                     )
                     .addParameter(

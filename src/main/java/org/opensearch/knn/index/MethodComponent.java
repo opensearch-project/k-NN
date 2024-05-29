@@ -17,7 +17,7 @@ import org.opensearch.common.TriFunction;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
-import org.opensearch.knn.training.TrainingDataSpec;
+import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -107,10 +107,10 @@ public class MethodComponent {
      * Validate that the methodComponentContext is a valid configuration for this methodComponent, using additional data not present in the method component context
      *
      * @param methodComponentContext to be validated
-     * @param trainingDataSpec additional data not present in the method component context
+     * @param vectorSpaceInfo additional data not present in the method component context
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    public ValidationException validateWithData(MethodComponentContext methodComponentContext, TrainingDataSpec trainingDataSpec) {
+    public ValidationException validateWithData(MethodComponentContext methodComponentContext, VectorSpaceInfo vectorSpaceInfo) {
         Map<String, Object> providedParameters = methodComponentContext.getParameters();
         List<String> errorMessages = new ArrayList<>();
 
@@ -125,7 +125,7 @@ public class MethodComponent {
                 continue;
             }
 
-            parameterValidation = parameters.get(parameter.getKey()).validateWithData(parameter.getValue(), trainingDataSpec);
+            parameterValidation = parameters.get(parameter.getKey()).validateWithData(parameter.getValue(), vectorSpaceInfo);
             if (parameterValidation != null) {
                 errorMessages.addAll(parameterValidation.validationErrors());
             }

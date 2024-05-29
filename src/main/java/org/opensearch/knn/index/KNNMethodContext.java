@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
-import org.opensearch.knn.training.TrainingDataSpec;
+import org.opensearch.knn.training.VectorSpaceInfo;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -90,11 +90,11 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     /**
      * This method uses the knnEngine to validate that the method is compatible with the engine, using additional data not present in the method context
      *
-     * @param trainingDataSpec additional data not present in the method context
+     * @param vectorSpaceInfo additional data not present in the method context
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    public ValidationException validateWithData(TrainingDataSpec trainingDataSpec) {
-        return knnEngine.validateMethodWithData(this, trainingDataSpec);
+    public ValidationException validateWithData(VectorSpaceInfo vectorSpaceInfo) {
+        return knnEngine.validateMethodWithData(this, vectorSpaceInfo);
     }
 
     /**

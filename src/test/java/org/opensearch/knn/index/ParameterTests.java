@@ -17,7 +17,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.Parameter.IntegerParameter;
 import org.opensearch.knn.index.Parameter.StringParameter;
 import org.opensearch.knn.index.Parameter.MethodComponentContextParameter;
-import org.opensearch.knn.training.TrainingDataSpec;
+import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.util.Map;
 
@@ -34,7 +34,7 @@ public class ParameterTests extends KNNTestCase {
             }
 
             @Override
-            public ValidationException validateWithData(Object value, TrainingDataSpec trainingDataSpec) {
+            public ValidationException validateWithData(Object value, VectorSpaceInfo vectorSpaceInfo) {
                 return null;
             }
 
@@ -67,19 +67,19 @@ public class ParameterTests extends KNNTestCase {
             "test",
             1,
             v -> v > 0,
-            (v, trainingDataSpec) -> v > trainingDataSpec.getDimension()
+            (v, vectorSpaceInfo) -> v > vectorSpaceInfo.getDimension()
         );
 
-        TrainingDataSpec testTrainingDataSpec = new TrainingDataSpec(0);
+        VectorSpaceInfo testVectorSpaceInfo = new VectorSpaceInfo(0);
 
         // Invalid type
-        assertNotNull(parameter.validateWithData("String", testTrainingDataSpec));
+        assertNotNull(parameter.validateWithData("String", testVectorSpaceInfo));
 
         // Invalid value
-        assertNotNull(parameter.validateWithData(-1, testTrainingDataSpec));
+        assertNotNull(parameter.validateWithData(-1, testVectorSpaceInfo));
 
         // valid value
-        assertNull(parameter.validateWithData(12, testTrainingDataSpec));
+        assertNull(parameter.validateWithData(12, testVectorSpaceInfo));
     }
 
     public void testStringParameter_validate() {
@@ -100,29 +100,29 @@ public class ParameterTests extends KNNTestCase {
             "test_parameter",
             "default_value",
             v -> "test".equals(v),
-            (v, trainingDataSpec) -> {
-                if (trainingDataSpec.getDimension() > 0) {
+            (v, vectorSpaceInfo) -> {
+                if (vectorSpaceInfo.getDimension() > 0) {
                     return "test".equals(v);
                 }
                 return false;
             }
         );
 
-        TrainingDataSpec testTrainingDataSpec = new TrainingDataSpec(1);
+        VectorSpaceInfo testVectorSpaceInfo = new VectorSpaceInfo(1);
 
         // Invalid type
-        assertNotNull(parameter.validateWithData(5, testTrainingDataSpec));
+        assertNotNull(parameter.validateWithData(5, testVectorSpaceInfo));
 
         // null
-        assertNotNull(parameter.validateWithData(null, testTrainingDataSpec));
+        assertNotNull(parameter.validateWithData(null, testVectorSpaceInfo));
 
         // valid value
-        assertNull(parameter.validateWithData("test", testTrainingDataSpec));
+        assertNull(parameter.validateWithData("test", testVectorSpaceInfo));
 
-        testTrainingDataSpec.setDimension(0);
+        testVectorSpaceInfo.setDimension(0);
 
         // invalid value
-        assertNotNull(parameter.validateWithData("test", testTrainingDataSpec));
+        assertNotNull(parameter.validateWithData("test", testVectorSpaceInfo));
     }
 
     public void testMethodComponentContextParameter_validate() {
@@ -182,7 +182,7 @@ public class ParameterTests extends KNNTestCase {
             MethodComponent.Builder.builder(parameterKey1)
                 .addParameter(
                     parameterKey1,
-                    new IntegerParameter(parameterKey1, 1, v -> v > 0, (v, trainingDataSpec) -> v > trainingDataSpec.getDimension())
+                    new IntegerParameter(parameterKey1, 1, v -> v > 0, (v, vectorSpaceInfo) -> v > vectorSpaceInfo.getDimension())
                 )
                 .build()
         );
@@ -193,29 +193,29 @@ public class ParameterTests extends KNNTestCase {
             methodComponentMap
         );
 
-        TrainingDataSpec testTrainingDataSpec = new TrainingDataSpec(0);
+        VectorSpaceInfo testVectorSpaceInfo = new VectorSpaceInfo(0);
 
         // Invalid type
-        assertNotNull(parameter.validateWithData(17, testTrainingDataSpec));
-        assertNotNull(parameter.validateWithData("invalid-value", testTrainingDataSpec));
+        assertNotNull(parameter.validateWithData(17, testVectorSpaceInfo));
+        assertNotNull(parameter.validateWithData("invalid-value", testVectorSpaceInfo));
 
         // Invalid value
         String invalidMethodComponentName = "invalid-method";
         MethodComponentContext invalidMethodComponentContext1 = new MethodComponentContext(invalidMethodComponentName, defaultParameterMap);
-        assertNotNull(parameter.validateWithData(invalidMethodComponentContext1, testTrainingDataSpec));
+        assertNotNull(parameter.validateWithData(invalidMethodComponentContext1, testVectorSpaceInfo));
 
         String invalidParameterKey = "invalid-parameter";
         Map<String, Object> invalidParameterMap1 = ImmutableMap.of(invalidParameterKey, parameterValue1);
         MethodComponentContext invalidMethodComponentContext2 = new MethodComponentContext(methodComponentName1, invalidParameterMap1);
-        assertNotNull(parameter.validateWithData(invalidMethodComponentContext2, testTrainingDataSpec));
+        assertNotNull(parameter.validateWithData(invalidMethodComponentContext2, testVectorSpaceInfo));
 
         String invalidParameterValue = "invalid-value";
         Map<String, Object> invalidParameterMap2 = ImmutableMap.of(parameterKey1, invalidParameterValue);
         MethodComponentContext invalidMethodComponentContext3 = new MethodComponentContext(methodComponentName1, invalidParameterMap2);
-        assertNotNull(parameter.validateWithData(invalidMethodComponentContext3, testTrainingDataSpec));
+        assertNotNull(parameter.validateWithData(invalidMethodComponentContext3, testVectorSpaceInfo));
 
         // valid value
-        assertNull(parameter.validateWithData(methodComponentContext, testTrainingDataSpec));
+        assertNull(parameter.validateWithData(methodComponentContext, testVectorSpaceInfo));
     }
 
     public void testMethodComponentContextParameter_getMethodComponent() {

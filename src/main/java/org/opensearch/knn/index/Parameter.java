@@ -12,7 +12,7 @@
 package org.opensearch.knn.index;
 
 import org.opensearch.common.ValidationException;
-import org.opensearch.knn.training.TrainingDataSpec;
+import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -28,7 +28,7 @@ public abstract class Parameter<T> {
     private String name;
     private T defaultValue;
     protected Predicate<T> validator;
-    protected BiFunction<T, TrainingDataSpec, Boolean> validatorWithData;
+    protected BiFunction<T, VectorSpaceInfo, Boolean> validatorWithData;
 
     /**
      * Constructor
@@ -44,7 +44,7 @@ public abstract class Parameter<T> {
         this.validatorWithData = null;
     }
 
-    public Parameter(String name, T defaultValue, Predicate<T> validator, BiFunction<T, TrainingDataSpec, Boolean> validatorWithData) {
+    public Parameter(String name, T defaultValue, Predicate<T> validator, BiFunction<T, VectorSpaceInfo, Boolean> validatorWithData) {
         this.name = name;
         this.defaultValue = defaultValue;
         this.validator = validator;
@@ -81,10 +81,10 @@ public abstract class Parameter<T> {
      * Check if the value passed in is valid, using additional data not present in the value
      *
      * @param value to be checked
-     * @param trainingDataSpec additional data not present in the value
+     * @param vectorSpaceInfo additional data not present in the value
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    public abstract ValidationException validateWithData(Object value, TrainingDataSpec trainingDataSpec);
+    public abstract ValidationException validateWithData(Object value, VectorSpaceInfo vectorSpaceInfo);
 
     /**
      * Boolean method parameter
@@ -98,7 +98,7 @@ public abstract class Parameter<T> {
             String name,
             Boolean defaultValue,
             Predicate<Boolean> validator,
-            BiFunction<Boolean, TrainingDataSpec, Boolean> validatorWithData
+            BiFunction<Boolean, VectorSpaceInfo, Boolean> validatorWithData
         ) {
             super(name, defaultValue, validator, validatorWithData);
         }
@@ -122,7 +122,7 @@ public abstract class Parameter<T> {
         }
 
         @Override
-        public ValidationException validateWithData(Object value, TrainingDataSpec trainingDataSpec) {
+        public ValidationException validateWithData(Object value, VectorSpaceInfo vectorSpaceInfo) {
             ValidationException validationException = null;
             if (!(value instanceof Boolean)) {
                 validationException = new ValidationException();
@@ -134,7 +134,7 @@ public abstract class Parameter<T> {
                 return null;
             }
 
-            if (!validatorWithData.apply((Boolean) value, trainingDataSpec)) {
+            if (!validatorWithData.apply((Boolean) value, vectorSpaceInfo)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(String.format("parameter validation failed for Boolean parameter [%s].", getName()));
             }
@@ -155,7 +155,7 @@ public abstract class Parameter<T> {
             String name,
             Integer defaultValue,
             Predicate<Integer> validator,
-            BiFunction<Integer, TrainingDataSpec, Boolean> validatorWithData
+            BiFunction<Integer, VectorSpaceInfo, Boolean> validatorWithData
         ) {
             super(name, defaultValue, validator, validatorWithData);
         }
@@ -181,7 +181,7 @@ public abstract class Parameter<T> {
         }
 
         @Override
-        public ValidationException validateWithData(Object value, TrainingDataSpec trainingDataSpec) {
+        public ValidationException validateWithData(Object value, VectorSpaceInfo vectorSpaceInfo) {
             ValidationException validationException = null;
             if (!(value instanceof Integer)) {
                 validationException = new ValidationException();
@@ -195,7 +195,7 @@ public abstract class Parameter<T> {
                 return null;
             }
 
-            if (!validatorWithData.apply((Integer) value, trainingDataSpec)) {
+            if (!validatorWithData.apply((Integer) value, vectorSpaceInfo)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(String.format("parameter validation failed for Integer parameter [%s].", getName()));
             }
@@ -224,7 +224,7 @@ public abstract class Parameter<T> {
             String name,
             String defaultValue,
             Predicate<String> validator,
-            BiFunction<String, TrainingDataSpec, Boolean> validatorWithData
+            BiFunction<String, VectorSpaceInfo, Boolean> validatorWithData
         ) {
             super(name, defaultValue, validator, validatorWithData);
         }
@@ -256,7 +256,7 @@ public abstract class Parameter<T> {
         }
 
         @Override
-        public ValidationException validateWithData(Object value, TrainingDataSpec trainingDataSpec) {
+        public ValidationException validateWithData(Object value, VectorSpaceInfo vectorSpaceInfo) {
             ValidationException validationException = null;
             if (!(value instanceof String)) {
                 validationException = new ValidationException();
@@ -270,7 +270,7 @@ public abstract class Parameter<T> {
                 return null;
             }
 
-            if (!validatorWithData.apply((String) value, trainingDataSpec)) {
+            if (!validatorWithData.apply((String) value, vectorSpaceInfo)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(String.format("parameter validation failed for String parameter [%s].", getName()));
             }
@@ -306,12 +306,12 @@ public abstract class Parameter<T> {
                 }
 
                 return methodComponents.get(methodComponentContext.getName()).validate(methodComponentContext) == null;
-            }, (methodComponentContext, trainingDataSpec) -> {
+            }, (methodComponentContext, vectorSpaceInfo) -> {
                 if (!methodComponents.containsKey(methodComponentContext.getName())) {
                     return false;
                 }
                 return methodComponents.get(methodComponentContext.getName())
-                    .validateWithData(methodComponentContext, trainingDataSpec) == null;
+                    .validateWithData(methodComponentContext, vectorSpaceInfo) == null;
             });
             this.methodComponents = methodComponents;
         }
@@ -339,7 +339,7 @@ public abstract class Parameter<T> {
         }
 
         @Override
-        public ValidationException validateWithData(Object value, TrainingDataSpec trainingDataSpec) {
+        public ValidationException validateWithData(Object value, VectorSpaceInfo vectorSpaceInfo) {
             ValidationException validationException = null;
             if (!(value instanceof MethodComponentContext)) {
                 validationException = new ValidationException();
@@ -353,7 +353,7 @@ public abstract class Parameter<T> {
                 return null;
             }
 
-            if (!validatorWithData.apply((MethodComponentContext) value, trainingDataSpec)) {
+            if (!validatorWithData.apply((MethodComponentContext) value, vectorSpaceInfo)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(
                     String.format("parameter validation failed for MethodComponentContext parameter [%s].", getName())

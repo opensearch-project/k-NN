@@ -15,7 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.training.TrainingDataSpec;
+import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -82,10 +82,10 @@ public class KNNMethod {
      * Validate that the configured KNNMethodContext is valid for this method, using additional data not present in the method context
      *
      * @param knnMethodContext to be validated
-     * @param trainingDataSpec additional data not present in the method context
+     * @param vectorSpaceInfo additional data not present in the method context
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    public ValidationException validateWithData(KNNMethodContext knnMethodContext, TrainingDataSpec trainingDataSpec) {
+    public ValidationException validateWithData(KNNMethodContext knnMethodContext, VectorSpaceInfo vectorSpaceInfo) {
         List<String> errorMessages = new ArrayList<>();
         if (!isSpaceTypeSupported(knnMethodContext.getSpaceType())) {
             errorMessages.add(
@@ -99,7 +99,7 @@ public class KNNMethod {
 
         ValidationException methodValidation = methodComponent.validateWithData(
             knnMethodContext.getMethodComponentContext(),
-            trainingDataSpec
+            vectorSpaceInfo
         );
         if (methodValidation != null) {
             errorMessages.addAll(methodValidation.validationErrors());

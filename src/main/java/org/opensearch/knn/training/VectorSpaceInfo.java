@@ -16,11 +16,11 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * A data spec containing relevant training data for validation.
+ * A data spec containing relevant information for validation.
  */
 @Getter
 @Setter
 @AllArgsConstructor
-public class TrainingDataSpec {
+public class VectorSpaceInfo {
     private int dimension;
 }
