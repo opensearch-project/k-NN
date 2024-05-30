@@ -8,7 +8,6 @@ package org.opensearch.knn.index.query;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
@@ -30,8 +29,9 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
-import org.opensearch.knn.index.query.model.HNSWAlgoQueryParameters;
 import org.opensearch.knn.index.query.model.AlgoQueryParameters;
+import org.opensearch.knn.index.query.model.HNSWAlgoQueryParameters;
+import org.opensearch.knn.index.query.parser.MethodParametersParser;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -41,13 +41,12 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static org.opensearch.knn.common.KNNConstants.*;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
-import static org.opensearch.knn.index.query.parser.KNNXParserUtil.parseMethodParameters;
-import static org.opensearch.knn.index.query.parser.KNNXParserUtil.unParseMethodParameters;
+import static org.opensearch.knn.index.query.parser.MethodParametersParser.extractHnswAlgoParameters;
+import static org.opensearch.knn.index.query.parser.MethodParametersParser.streamInMethodParameters;
 import static org.opensearch.knn.index.util.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 
 /**
@@ -323,19 +322,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
                 minScore = in.readOptionalFloat();
             }
-            streamInHnswParameters(in);
+            algoQueryParameters = streamInMethodParameters(in);
         } catch (IOException ex) {
             throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder", ex);
         }
-    }
-
-    @SneakyThrows(IOException.class)
-    private void streamInHnswParameters(StreamInput in) {
-        Integer efSearch = null;
-        if (isClusterOnOrAfterMinRequiredVersion(METHOD_PARAMETER_EF_SEARCH)) {
-            efSearch = in.readOptionalInt();
-        }
-        algoQueryParameters = efSearch != null ? HNSWAlgoQueryParameters.builder().efSearch(efSearch).build() : null;
     }
 
     public static KNNQueryBuilder fromXContent(XContentParser parser) throws IOException {
@@ -389,7 +379,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                             log.debug(String.format("Start parsing filter for field [%s]", fieldName));
                             filter = parseInnerQueryBuilder(parser);
                         } else if (METHOD_PARAMS_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
-                            algoQueryParameters = parseMethodParameters(parser);
+                            algoQueryParameters = MethodParametersParser.fromXContent(parser);
                         } else {
                             throw new ParsingException(parser.getTokenLocation(), "[" + NAME + "] unknown token [" + token + "]");
                         }
@@ -436,23 +426,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
             out.writeOptionalFloat(minScore);
         }
-        streamOutHnswMethodParameters(out);
-    }
-
-    @SneakyThrows(IOException.class)
-    private void streamOutHnswMethodParameters(final StreamOutput out) {
-        final Optional<HNSWAlgoQueryParameters> hnswMethodParameters = extractHnswAlgoParameters(algoQueryParameters);
-
-        if (isClusterOnOrAfterMinRequiredVersion(METHOD_PARAMETER_EF_SEARCH)) {
-            // Write false even if it doesn't cast to hnsw, so we can deserialize w/o ambiguity as parameters get added
-            out.writeOptionalInt(hnswMethodParameters.flatMap(HNSWAlgoQueryParameters::getEfSearch).orElse(null));
-        }
-    }
-
-    private static Optional<HNSWAlgoQueryParameters> extractHnswAlgoParameters(AlgoQueryParameters algoQueryParameters) {
-        return Optional.ofNullable(algoQueryParameters)
-            .filter(HNSWAlgoQueryParameters.class::isInstance)
-            .map(HNSWAlgoQueryParameters.class::cast);
+        MethodParametersParser.streamOutMethodParameters(out, algoQueryParameters);
     }
 
     /**
@@ -488,7 +462,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (minScore != null) {
             builder.field(MIN_SCORE_FIELD.getPreferredName(), minScore);
         }
-        unParseMethodParameters(builder, algoQueryParameters);
+        MethodParametersParser.toXContent(builder, algoQueryParameters);
         printBoostAndQueryName(builder);
         builder.endObject();
         builder.endObject();
