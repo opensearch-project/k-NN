@@ -24,6 +24,8 @@ import org.opensearch.action.FailedNodeException;
 import org.opensearch.action.StepListener;
 import org.opensearch.action.admin.indices.create.CreateIndexRequest;
 import org.opensearch.action.admin.indices.create.CreateIndexResponse;
+import org.opensearch.action.admin.indices.mapping.get.GetMappingsRequest;
+import org.opensearch.action.admin.indices.mapping.get.GetMappingsResponse;
 import org.opensearch.action.delete.DeleteAction;
 import org.opensearch.action.delete.DeleteRequestBuilder;
 import org.opensearch.action.delete.DeleteResponse;
@@ -40,6 +42,7 @@ import org.opensearch.client.Client;
 import org.opensearch.cluster.health.ClusterHealthStatus;
 import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.concurrent.ThreadContext;
@@ -50,6 +53,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.common.exception.DeleteModelWhenInTrainStateException;
+import org.opensearch.knn.common.exception.DeleteModelWhenInUseException;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
@@ -61,6 +65,7 @@ import org.opensearch.knn.plugin.transport.UpdateModelGraveyardRequest;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
 
+import javax.swing.*;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Base64;
@@ -506,6 +511,7 @@ public interface ModelDao {
             }
 
             StepListener<GetModelResponse> getModelStep = new StepListener<>();
+            StepListener<GetMappingsResponse> getMappingsStep = new StepListener<>();
             StepListener<AcknowledgedResponse> blockModelIdStep = new StepListener<>();
             StepListener<AcknowledgedResponse> clearModelMetadataStep = new StepListener<>();
             StepListener<DeleteResponse> deleteModelFromIndexStep = new StepListener<>();
@@ -529,6 +535,31 @@ public interface ModelDao {
                     String errorMessage = String.format("Cannot delete model [%s]. Model is still in training", modelId);
                     listener.onFailure(new DeleteModelWhenInTrainStateException(errorMessage));
                     return;
+                }
+
+                // Get index mappings to check if model is being used by any indices
+                getMappings(modelId, getMappingsStep);
+            }, listener::onFailure);
+
+            getMappingsStep.whenComplete(getMappingsResponse -> {
+                String modelIdStringInMapping = String.format("model_id=%s", modelId);
+                Map<String, MappingMetadata> mappings = getMappingsResponse.getMappings();
+                for (Map.Entry<String, MappingMetadata> entry : mappings.entrySet()) {
+                    MappingMetadata mappingMetadata = entry.getValue();
+                    String mappingMetadataString = mappingMetadata.getSourceAsMap().toString();
+                    // If model is in use, fail delete model request
+                    if (mappingMetadataString.contains(modelIdStringInMapping)) {
+                        listener.onFailure(
+                            new DeleteModelWhenInUseException(
+                                String.format(
+                                    "Cannot delete model [%s].  Model is in use by index [%s], which must be deleted first.",
+                                    modelId,
+                                    entry.getKey()
+                                )
+                            )
+                        );
+                        return;
+                    }
                 }
 
                 // Add modelId to model graveyard until delete model request is processed
@@ -610,6 +641,12 @@ public interface ModelDao {
                     )
                 )
             );
+        }
+
+        private void getMappings(String modelId, StepListener<GetMappingsResponse> getMappingsStep) {
+            client.admin()
+                .indices()
+                .getMappings(new GetMappingsRequest(), ActionListener.wrap(getMappingsStep::onResponse, getMappingsStep::onFailure));
         }
 
         // Update model graveyard to add/remove modelId
