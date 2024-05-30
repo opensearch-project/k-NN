@@ -15,6 +15,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.util.Collections;
 import java.util.List;
@@ -96,6 +97,16 @@ public interface KNNLibrary {
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
     ValidationException validateMethod(KNNMethodContext knnMethodContext);
+
+    /**
+     * Validate the knnMethodContext for the given library, using additional data not present in the method context. A ValidationException should be thrown if the method is
+     * deemed invalid.
+     *
+     * @param knnMethodContext to be validated
+     * @param vectorSpaceInfo additional data not present in the method context
+     * @return ValidationException produced by validation errors; null if no validations errors.
+     */
+    ValidationException validateMethodWithData(KNNMethodContext knnMethodContext, VectorSpaceInfo vectorSpaceInfo);
 
     /**
      * Returns whether training is required or not from knnMethodContext for the given library.
