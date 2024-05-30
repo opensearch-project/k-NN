@@ -18,6 +18,7 @@ import org.mockito.MockedStatic;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.ResourceNotFoundException;
+import org.opensearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.DocWriteResponse;
@@ -36,6 +37,7 @@ import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.common.exception.DeleteModelWhenInTrainStateException;
+import org.opensearch.knn.common.exception.DeleteModelWhenInUseException;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -66,7 +68,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.opensearch.cluster.metadata.Metadata.builder;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
@@ -77,6 +78,9 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
+import static org.opensearch.knn.common.KNNConstants.PROPERTIES;
+import static org.opensearch.knn.common.KNNConstants.TYPE;
+import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 
 public class ModelDaoTests extends KNNSingleNodeTestCase {
 
@@ -634,6 +638,83 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         modelDao.put(model1, docCreationListener1);
 
         assertTrue(inProgressLatch3.await(100, TimeUnit.SECONDS));
+    }
+
+    // Test Delete Model when the model is in use by an index
+    public void testDeleteModelInUse() throws IOException, ExecutionException, InterruptedException {
+        String modelId = "test-model-id-training";
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
+        byte[] modelBlob = "deleteModel".getBytes();
+        int dimension = 2;
+        createIndex(MODEL_INDEX_NAME);
+
+        Model model = new Model(
+            new ModelMetadata(
+                KNNEngine.DEFAULT,
+                SpaceType.DEFAULT,
+                dimension,
+                ModelState.CREATED,
+                ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
+                "",
+                "",
+                MethodComponentContext.EMPTY
+            ),
+            modelBlob,
+            modelId
+        );
+
+        // created model and added it to index
+        addDoc(model);
+
+        String testIndex = "test-index";
+        String testField = "test-field";
+
+        /*
+            Constructs the following json:
+            {
+              "properties": {
+                "test-field": {
+                  "type": "knn_vector",
+                  "model_id": "test-model-id-training"
+                }
+              }
+            }
+         */
+        XContentBuilder mappings = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES)
+            .startObject(testField)
+            .field(TYPE, TYPE_KNN_VECTOR)
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        // Create index using model
+        CreateIndexRequestBuilder createIndexRequestBuilder = client().admin().indices().prepareCreate(testIndex).setMapping(mappings);
+        createIndex(testIndex, createIndexRequestBuilder);
+
+        modelDao.delete(modelId, new ActionListener<DeleteModelResponse>() {
+            @Override
+            public void onResponse(DeleteModelResponse deleteModelResponse) {
+                fail("Received delete model response when the request should have failed.");
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                assertTrue(e instanceof DeleteModelWhenInUseException);
+                assertEquals(
+                    String.format(
+                        "Cannot delete model [%s].  Model is in use by index [%s], which must be deleted first.",
+                        modelId,
+                        testIndex
+                    ),
+                    e.getMessage()
+                );
+            }
+        });
+
     }
 
     // Test Delete Model when modelId is in Model Graveyard (previous delete model request which failed to
