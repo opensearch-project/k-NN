@@ -1430,7 +1430,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             assertNotEquals(ModelState.CREATED, modelState);
         }
 
-        fail("Training did not succeed after " + attempts + " attempts with a delay of " + delayInMillis + " ms.");
+        fail("Training did not fail after " + attempts + " attempts with a delay of " + delayInMillis + " ms.");
     }
 
     protected boolean systemIndexExists(final String indexName) throws IOException {
