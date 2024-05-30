@@ -15,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,7 +42,7 @@ public class KNNMethod {
      * @param space to be checked
      * @return true if the space is supported; false otherwise
      */
-    public boolean containsSpace(SpaceType space) {
+    public boolean isSpaceTypeSupported(SpaceType space) {
         return spaces.contains(space);
     }
 
@@ -53,7 +54,7 @@ public class KNNMethod {
      */
     public ValidationException validate(KNNMethodContext knnMethodContext) {
         List<String> errorMessages = new ArrayList<>();
-        if (!containsSpace(knnMethodContext.getSpaceType())) {
+        if (!isSpaceTypeSupported(knnMethodContext.getSpaceType())) {
             errorMessages.add(
                 String.format(
                     "\"%s\" configuration does not support space type: " + "\"%s\".",
@@ -64,6 +65,42 @@ public class KNNMethod {
         }
 
         ValidationException methodValidation = methodComponent.validate(knnMethodContext.getMethodComponentContext());
+        if (methodValidation != null) {
+            errorMessages.addAll(methodValidation.validationErrors());
+        }
+
+        if (errorMessages.isEmpty()) {
+            return null;
+        }
+
+        ValidationException validationException = new ValidationException();
+        validationException.addValidationErrors(errorMessages);
+        return validationException;
+    }
+
+    /**
+     * Validate that the configured KNNMethodContext is valid for this method, using additional data not present in the method context
+     *
+     * @param knnMethodContext to be validated
+     * @param vectorSpaceInfo additional data not present in the method context
+     * @return ValidationException produced by validation errors; null if no validations errors.
+     */
+    public ValidationException validateWithData(KNNMethodContext knnMethodContext, VectorSpaceInfo vectorSpaceInfo) {
+        List<String> errorMessages = new ArrayList<>();
+        if (!isSpaceTypeSupported(knnMethodContext.getSpaceType())) {
+            errorMessages.add(
+                String.format(
+                    "\"%s\" configuration does not support space type: " + "\"%s\".",
+                    this.methodComponent.getName(),
+                    knnMethodContext.getSpaceType().getValue()
+                )
+            );
+        }
+
+        ValidationException methodValidation = methodComponent.validateWithData(
+            knnMethodContext.getMethodComponentContext(),
+            vectorSpaceInfo
+        );
         if (methodValidation != null) {
             errorMessages.addAll(methodValidation.validationErrors());
         }

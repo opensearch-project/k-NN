@@ -109,9 +109,6 @@ class Faiss extends NativeLibrary {
             .build()
     );
 
-    // TODO: To think about in future: for PQ, if dimension is not divisible by code count, PQ will fail. Right now,
-    // we do not have a way to base validation off of dimension. Failure will happen during training in JNI.
-    // Define methods supported by faiss. See issue here: https://github.com/opensearch-project/k-NN/issues/1075
     private final static Map<String, MethodComponent> HNSW_ENCODERS = ImmutableMap.<String, MethodComponent>builder()
         .putAll(
             ImmutableMap.of(
@@ -122,7 +119,8 @@ class Faiss extends NativeLibrary {
                         new Parameter.IntegerParameter(
                             ENCODER_PARAMETER_PQ_M,
                             ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT,
-                            v -> v > 0 && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT
+                            v -> v > 0 && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT,
+                            (v, vectorSpaceInfo) -> vectorSpaceInfo.getDimension() % v == 0
                         )
                     )
                     .addParameter(
@@ -161,7 +159,8 @@ class Faiss extends NativeLibrary {
                         new Parameter.IntegerParameter(
                             ENCODER_PARAMETER_PQ_M,
                             ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT,
-                            v -> v > 0 && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT
+                            v -> v > 0 && v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT,
+                            (v, vectorSpaceInfo) -> vectorSpaceInfo.getDimension() % v == 0
                         )
                     )
                     .addParameter(
