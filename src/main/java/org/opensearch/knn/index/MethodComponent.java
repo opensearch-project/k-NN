@@ -118,6 +118,43 @@ public class MethodComponent {
     }
 
     /**
+     * Validate that the methodComponentContext is a valid configuration for this methodComponent, using additional data not present in the method component context
+     *
+     * @param methodComponentContext to be validated
+     * @param vectorSpaceInfo additional data not present in the method component context
+     * @return ValidationException produced by validation errors; null if no validations errors.
+     */
+    public ValidationException validateWithData(MethodComponentContext methodComponentContext, VectorSpaceInfo vectorSpaceInfo) {
+        Map<String, Object> providedParameters = methodComponentContext.getParameters();
+        List<String> errorMessages = new ArrayList<>();
+
+        if (providedParameters == null) {
+            return null;
+        }
+
+        ValidationException parameterValidation;
+        for (Map.Entry<String, Object> parameter : providedParameters.entrySet()) {
+            if (!parameters.containsKey(parameter.getKey())) {
+                errorMessages.add(String.format("Invalid parameter for method \"%s\".", getName()));
+                continue;
+            }
+
+            parameterValidation = parameters.get(parameter.getKey()).validateWithData(parameter.getValue(), vectorSpaceInfo);
+            if (parameterValidation != null) {
+                errorMessages.addAll(parameterValidation.validationErrors());
+            }
+        }
+
+        if (errorMessages.isEmpty()) {
+            return null;
+        }
+
+        ValidationException validationException = new ValidationException();
+        validationException.addValidationErrors(errorMessages);
+        return validationException;
+    }
+
+    /**
      * gets requiresTraining value
      *
      * @return requiresTraining
