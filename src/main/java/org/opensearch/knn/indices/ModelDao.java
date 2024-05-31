@@ -552,7 +552,6 @@ public interface ModelDao {
                 for (Map.Entry<String, MappingMetadata> entry : mappings.entrySet()) {
                     MappingMetadata mappingMetadata = entry.getValue();
                     String mappingMetadataString = mappingMetadata.getSourceAsMap().toString();
-                    System.out.println(mappingMetadataString);
                     // If model is in use, fail delete model request
                     if (mappingMetadataString.contains(modelIdStringInMapping1)
                         || mappingMetadataString.contains(modelIdStringInMapping2)) {
