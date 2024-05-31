@@ -5,26 +5,23 @@
 
 package org.opensearch.knn.index.mapper;
 
-import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
+import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnVectorField;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.common.Explicit;
-import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.index.KNNMethodContext;
-import org.opensearch.knn.index.MethodComponentContext;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
 
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.buildDocValuesFieldType;
@@ -77,54 +74,33 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     }
 
     @Override
-    protected void parseCreateField(ParseContext context, int dimension, SpaceType spaceType, MethodComponentContext methodComponentContext)
-        throws IOException {
+    protected List<Field> getFieldsForFloatVector(final float[] array, final FieldType fieldType) {
+        final List<Field> fieldsToBeAdded = new ArrayList<>();
+        fieldsToBeAdded.add(new KnnVectorField(name(), array, fieldType));
 
-        validateIfKNNPluginEnabled();
-        validateIfCircuitBreakerIsNotTriggered();
-
-        if (VectorDataType.BYTE == vectorDataType) {
-            Optional<byte[]> bytesArrayOptional = getBytesFromContext(context, dimension);
-            if (bytesArrayOptional.isEmpty()) {
-                return;
-            }
-            final byte[] array = bytesArrayOptional.get();
-            spaceType.validateVector(array);
-            KnnByteVectorField point = new KnnByteVectorField(name(), array, fieldType);
-
-            context.doc().add(point);
-            if (this.stored) {
-                context.doc().add(createStoredFieldForByteVector(name(), array));
-            }
-
-            if (hasDocValues && vectorFieldType != null) {
-                context.doc().add(new VectorField(name(), array, vectorFieldType));
-            }
-        } else if (VectorDataType.FLOAT == vectorDataType) {
-            Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension, methodComponentContext);
-
-            if (floatsArrayOptional.isEmpty()) {
-                return;
-            }
-            final float[] array = floatsArrayOptional.get();
-            spaceType.validateVector(array);
-            KnnVectorField point = new KnnVectorField(name(), array, fieldType);
-
-            context.doc().add(point);
-            if (this.stored) {
-                context.doc().add(createStoredFieldForFloatVector(name(), array));
-            }
-
-            if (hasDocValues && vectorFieldType != null) {
-                context.doc().add(new VectorField(name(), array, vectorFieldType));
-            }
-        } else {
-            throw new IllegalArgumentException(
-                String.format(Locale.ROOT, "Cannot parse context for unsupported values provided for field [%s]", VECTOR_DATA_TYPE_FIELD)
-            );
+        if (hasDocValues && vectorFieldType != null) {
+            fieldsToBeAdded.add(new VectorField(name(), array, vectorFieldType));
         }
 
-        context.path().remove();
+        if (this.stored) {
+            fieldsToBeAdded.add(createStoredFieldForFloatVector(name(), array));
+        }
+        return fieldsToBeAdded;
+    }
+
+    @Override
+    protected List<Field> getFieldsForByteVector(final byte[] array, final FieldType fieldType) {
+        final List<Field> fieldsToBeAdded = new ArrayList<>();
+        fieldsToBeAdded.add(new KnnByteVectorField(name(), array, fieldType));
+
+        if (hasDocValues && vectorFieldType != null) {
+            fieldsToBeAdded.add(new VectorField(name(), array, vectorFieldType));
+        }
+
+        if (this.stored) {
+            fieldsToBeAdded.add(createStoredFieldForByteVector(name(), array));
+        }
+        return fieldsToBeAdded;
     }
 
     @Override
