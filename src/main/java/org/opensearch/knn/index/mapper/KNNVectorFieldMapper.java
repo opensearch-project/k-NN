@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.IndexOptions;
@@ -540,6 +541,38 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         return knnMethodContext.getMethodComponentContext();
     }
 
+    /**
+     * Function returns a list of fields to be indexed when the vector is float type.
+     *
+     * @param array array of floats
+     * @param fieldType {@link FieldType}
+     * @return {@link List} of {@link Field}
+     */
+    protected List<Field> getFieldsForFloatVector(final float[] array, final FieldType fieldType) {
+        final List<Field> fields = new ArrayList<>();
+        fields.add(new VectorField(name(), array, fieldType));
+        if (this.stored) {
+            fields.add(createStoredFieldForFloatVector(name(), array));
+        }
+        return fields;
+    }
+
+    /**
+     * Function returns a list of fields to be indexed when the vector is byte type.
+     *
+     * @param array array of bytes
+     * @param fieldType {@link FieldType}
+     * @return {@link List} of {@link Field}
+     */
+    protected List<Field> getFieldsForByteVector(final byte[] array, final FieldType fieldType) {
+        final List<Field> fields = new ArrayList<>();
+        fields.add(new VectorField(name(), array, fieldType));
+        if (this.stored) {
+            fields.add(createStoredFieldForByteVector(name(), array));
+        }
+        return fields;
+    }
+
     protected void parseCreateField(ParseContext context, int dimension, SpaceType spaceType, MethodComponentContext methodComponentContext)
         throws IOException {
 
@@ -554,12 +587,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             final byte[] array = bytesArrayOptional.get();
             spaceType.validateVector(array);
-            VectorField point = new VectorField(name(), array, fieldType);
-
-            context.doc().add(point);
-            if (this.stored) {
-                context.doc().add(createStoredFieldForByteVector(name(), array));
-            }
+            context.doc().addAll(getFieldsForByteVector(array, fieldType));
         } else if (VectorDataType.FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension, methodComponentContext);
 
@@ -568,11 +596,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             final float[] array = floatsArrayOptional.get();
             spaceType.validateVector(array);
-            VectorField point = new VectorField(name(), array, fieldType);
-            context.doc().add(point);
-            if (this.stored) {
-                context.doc().add(createStoredFieldForFloatVector(name(), array));
-            }
+            context.doc().addAll(getFieldsForFloatVector(array, fieldType));
         } else {
             throw new IllegalArgumentException(
                 String.format(Locale.ROOT, "Cannot parse context for unsupported values provided for field [%s]", VECTOR_DATA_TYPE_FIELD)
