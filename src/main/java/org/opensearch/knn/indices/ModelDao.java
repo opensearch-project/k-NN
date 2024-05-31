@@ -542,13 +542,20 @@ public interface ModelDao {
             }, listener::onFailure);
 
             getMappingsStep.whenComplete(getMappingsResponse -> {
-                String modelIdStringInMapping = String.format("model_id=%s", modelId);
+                // The mapping metadata string will always have the model id followed by `,` and another parameter, or the end of the object
+                // `}`
+                // This check is to prevent an incorrect thrown exception when one model starts with the another model's id
+                // Ex: test-model and test-model1
+                String modelIdStringInMapping1 = String.format("model_id=%s,", modelId);
+                String modelIdStringInMapping2 = String.format("model_id=%s}", modelId);
                 Map<String, MappingMetadata> mappings = getMappingsResponse.getMappings();
                 for (Map.Entry<String, MappingMetadata> entry : mappings.entrySet()) {
                     MappingMetadata mappingMetadata = entry.getValue();
                     String mappingMetadataString = mappingMetadata.getSourceAsMap().toString();
+                    System.out.println(mappingMetadataString);
                     // If model is in use, fail delete model request
-                    if (mappingMetadataString.contains(modelIdStringInMapping)) {
+                    if (mappingMetadataString.contains(modelIdStringInMapping1)
+                        || mappingMetadataString.contains(modelIdStringInMapping2)) {
                         listener.onFailure(
                             new DeleteModelWhenInUseException(
                                 String.format(
