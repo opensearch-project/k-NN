@@ -272,8 +272,8 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
             queryTestData(testIndex, TEST_FIELD, DIMENSION, NUM_DOCS);
             deleteKNNIndex(TRAIN_INDEX);
             deleteKNNIndex(testIndex);
-            deleteModel(TEST_MODEL);
             validateGraphEviction();
+            deleteModel(TEST_MODEL);
         }
     }
 
@@ -342,8 +342,8 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
 
             deleteKNNIndex(testIndex);
             deleteKNNIndex(TRAIN_INDEX);
-            deleteModel(TEST_MODEL);
             validateGraphEviction();
+            deleteModel(TEST_MODEL);
         }
     }
 
