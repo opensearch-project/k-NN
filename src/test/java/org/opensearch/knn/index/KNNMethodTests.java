@@ -17,6 +17,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -44,9 +45,9 @@ public class KNNMethodTests extends KNNTestCase {
         KNNMethod knnMethod = KNNMethod.Builder.builder(MethodComponent.Builder.builder(name).build())
             .addSpaces(SpaceType.L2, SpaceType.COSINESIMIL)
             .build();
-        assertTrue(knnMethod.containsSpace(SpaceType.L2));
-        assertTrue(knnMethod.containsSpace(SpaceType.COSINESIMIL));
-        assertFalse(knnMethod.containsSpace(SpaceType.INNER_PRODUCT));
+        assertTrue(knnMethod.isSpaceTypeSupported(SpaceType.L2));
+        assertTrue(knnMethod.isSpaceTypeSupported(SpaceType.COSINESIMIL));
+        assertFalse(knnMethod.isSpaceTypeSupported(SpaceType.INNER_PRODUCT));
     }
 
     /**
@@ -93,6 +94,52 @@ public class KNNMethodTests extends KNNTestCase {
         assertNull(knnMethod.validate(knnMethodContext3));
     }
 
+    /**
+     * Test KNNMethod validateWithData
+     */
+    public void testValidateWithData() throws IOException {
+        String methodName = "test-method";
+        KNNMethod knnMethod = KNNMethod.Builder.builder(MethodComponent.Builder.builder(methodName).build())
+            .addSpaces(SpaceType.L2)
+            .build();
+
+        VectorSpaceInfo testVectorSpaceInfo = new VectorSpaceInfo(4);
+
+        // Invalid space
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, methodName)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext1 = KNNMethodContext.parse(in);
+        assertNotNull(knnMethod.validateWithData(knnMethodContext1, testVectorSpaceInfo));
+
+        // Invalid methodComponent
+        xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, methodName)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .startObject(PARAMETERS)
+            .field("invalid", "invalid")
+            .endObject()
+            .endObject();
+        in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext2 = KNNMethodContext.parse(in);
+
+        assertNotNull(knnMethod.validateWithData(knnMethodContext2, testVectorSpaceInfo));
+
+        // Valid everything
+        xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, methodName)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .endObject();
+        in = xContentBuilderToMap(xContentBuilder);
+        KNNMethodContext knnMethodContext3 = KNNMethodContext.parse(in);
+        assertNull(knnMethod.validateWithData(knnMethodContext3, testVectorSpaceInfo));
+    }
+
     public void testGetAsMap() {
         SpaceType spaceType = SpaceType.DEFAULT;
         String methodName = "test-method";
@@ -122,6 +169,6 @@ public class KNNMethodTests extends KNNTestCase {
         builder.addSpaces(SpaceType.L2);
         knnMethod = builder.build();
 
-        assertTrue(knnMethod.containsSpace(SpaceType.L2));
+        assertTrue(knnMethod.isSpaceTypeSupported(SpaceType.L2));
     }
 }

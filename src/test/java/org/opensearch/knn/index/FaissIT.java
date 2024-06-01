@@ -1311,8 +1311,8 @@ public class FaissIT extends KNNRestTestCase {
             .startObject(METHOD_ENCODER_PARAMETER)
             .field(NAME, ENCODER_PQ)
             .startObject(PARAMETERS)
-            .field(ENCODER_PARAMETER_PQ_M, pqCodeSize)
-            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, pqM)
+            .field(ENCODER_PARAMETER_PQ_M, pqM)
+            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, pqCodeSize)
             .endObject()
             .endObject()
             .endObject()
@@ -1646,6 +1646,138 @@ public class FaissIT extends KNNRestTestCase {
         for (int i = 0; i < expectedScores.size(); i++) {
             assertEquals(expectedScores.get(i), knnResults.get(i), 0.0000001);
         }
+    }
+
+    @SneakyThrows
+    public void testHNSW_InvalidPQM_thenFail() {
+        String trainingIndexName = "training-index";
+        String trainingFieldName = "training-field";
+
+        String modelId = "test-model";
+        String modelDescription = "test model";
+
+        List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
+        int invalidPQM = 3;
+
+        // training data needs to be at least equal to the number of centroids for PQ
+        // which is 2^8 = 256. 8 because thats the only valid code_size for HNSWPQ
+        int trainingDataCount = 256;
+
+        SpaceType spaceType = SpaceType.L2;
+
+        Integer dimension = testData.indexData.vectors[0].length;
+
+        /*
+         * Builds the below json:
+         * {
+         *   "name": "hnsw",
+         *   "engine": "faiss",
+         *   "space_type": "l2",
+         *   "parameters": {
+         *     "encoder": {
+         *       "name": "pq",
+         *       "parameters": {
+         *         "m": 3
+         *       }
+         *     }
+         *   }
+         * }
+         */
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_PQ)
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_M, invalidPQM)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        ResponseException re = expectThrows(
+            ResponseException.class,
+            () -> ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, in, trainingDataCount)
+        );
+        assertTrue(
+            re.getMessage().contains("Validation Failed: 1: parameter validation failed for MethodComponentContext parameter [encoder].;")
+        );
+    }
+
+    @SneakyThrows
+    public void testIVF_InvalidPQM_thenFail() {
+        String trainingIndexName = "training-index";
+        String trainingFieldName = "training-field";
+
+        String modelId = "test-model";
+        String modelDescription = "test model";
+
+        List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
+        int invalidPQM = 3;
+
+        // training data needs to be at least equal to the number of centroids for PQ
+        // which is 2^8 = 256.
+        int trainingDataCount = 256;
+
+        int dimension = testData.indexData.vectors[0].length;
+        SpaceType spaceType = SpaceType.L2;
+        int ivfNlist = 4;
+        int ivfNprobes = 4;
+        int pqCodeSize = 8;
+
+        /*
+         * Builds the below json:
+         * {
+         *   "name": "ivf",
+         *   "engine": "faiss",
+         *   "space_type": "l2",
+         *   "parameters": {
+         *     "nprobes": 8,
+         *     "nlist": 4,
+         *     "encoder": {
+         *       "name": "pq",
+         *       "parameters": {
+         *         "m": 3,
+         *         "code_size": 8
+         *       }
+         *     }
+         *   }
+         * }
+         */
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(NAME, METHOD_IVF)
+            .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_NPROBES, ivfNprobes)
+            .field(METHOD_PARAMETER_NLIST, ivfNlist)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_PQ)
+            .startObject(PARAMETERS)
+            .field(ENCODER_PARAMETER_PQ_M, invalidPQM)
+            .field(ENCODER_PARAMETER_PQ_CODE_SIZE, pqCodeSize)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
+
+        createBasicKnnIndex(trainingIndexName, trainingFieldName, dimension);
+        ResponseException re = expectThrows(
+            ResponseException.class,
+            () -> ingestDataAndTrainModel(modelId, trainingIndexName, trainingFieldName, dimension, modelDescription, in, trainingDataCount)
+        );
+        assertTrue(
+            re.getMessage().contains("Validation Failed: 1: parameter validation failed for MethodComponentContext parameter [encoder].;")
+        );
     }
 
     protected void setupKNNIndexForFilterQuery() throws Exception {

@@ -39,6 +39,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.script.Script;
+import org.opensearch.search.SearchService;
 import org.opensearch.search.aggregations.metrics.ScriptedMetricAggregationBuilder;
 
 import javax.management.MBeanServerInvocationHandler;
@@ -954,9 +955,16 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     protected Request constructKNNScriptQueryRequest(String indexName, QueryBuilder qb, Map<String, Object> params) throws Exception {
+        return constructKNNScriptQueryRequest(indexName, qb, params, SearchService.DEFAULT_SIZE);
+    }
+
+    protected Request constructKNNScriptQueryRequest(String indexName, QueryBuilder qb, Map<String, Object> params, int size)
+        throws Exception {
         Script script = new Script(Script.DEFAULT_SCRIPT_TYPE, KNNScoringScriptEngine.NAME, KNNScoringScriptEngine.SCRIPT_SOURCE, params);
         ScriptScoreQueryBuilder sc = new ScriptScoreQueryBuilder(qb, script);
-        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("query");
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+        builder.field("size", size);
+        builder.startObject("query");
         builder.startObject("script_score");
         builder.field("query");
         sc.query().toXContent(builder, ToXContent.EMPTY_PARAMS);
@@ -1422,7 +1430,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
             assertNotEquals(ModelState.CREATED, modelState);
         }
 
-        fail("Training did not succeed after " + attempts + " attempts with a delay of " + delayInMillis + " ms.");
+        fail("Training did not fail after " + attempts + " attempts with a delay of " + delayInMillis + " ms.");
     }
 
     protected boolean systemIndexExists(final String indexName) throws IOException {

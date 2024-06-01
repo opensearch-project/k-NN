@@ -75,11 +75,13 @@ public class NestedSearchIT extends KNNRestTestCase {
         refreshIndex(INDEX_NAME);
         forceMergeKnnIndex(INDEX_NAME);
 
-        Float[] queryVector = { 1f, 1f };
+        Float[] queryVector = { 14f, 14f };
         Response response = queryNestedField(INDEX_NAME, 2, queryVector);
         String entity = EntityUtils.toString(response.getEntity());
         assertEquals(2, parseHits(entity));
         assertEquals(2, parseTotalSearchHits(entity));
+        assertEquals("14", parseIds(entity).get(0));
+        assertEquals("13", parseIds(entity).get(1));
     }
 
     @SneakyThrows
@@ -97,11 +99,13 @@ public class NestedSearchIT extends KNNRestTestCase {
         refreshIndex(INDEX_NAME);
         forceMergeKnnIndex(INDEX_NAME);
 
-        Float[] queryVector = { 1f, 1f };
+        Float[] queryVector = { 14f, 14f };
         Response response = queryNestedField(INDEX_NAME, 2, queryVector);
         String entity = EntityUtils.toString(response.getEntity());
         assertEquals(2, parseHits(entity));
         assertEquals(2, parseTotalSearchHits(entity));
+        assertEquals("14", parseIds(entity).get(0));
+        assertEquals("13", parseIds(entity).get(1));
     }
 
     /**
