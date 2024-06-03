@@ -65,7 +65,6 @@ import org.opensearch.knn.plugin.transport.UpdateModelGraveyardRequest;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
 
-import javax.swing.*;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Base64;
@@ -77,9 +76,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 import static java.util.Objects.isNull;
-import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
-import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
-import static org.opensearch.knn.common.KNNConstants.MODEL_METADATA_FIELD;
+import static org.opensearch.knn.common.KNNConstants.*;
 import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING;
 import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_SHARDS_SETTING;
 
@@ -542,29 +539,44 @@ public interface ModelDao {
             }, listener::onFailure);
 
             getMappingsStep.whenComplete(getMappingsResponse -> {
-                // The mapping metadata string will always have the model id followed by `,` and another parameter, or the end of the object
-                // `}`
-                // This check is to prevent an incorrect thrown exception when one model starts with the another model's id
-                // Ex: test-model and test-model1
-                String modelIdStringInMapping1 = String.format("model_id=%s,", modelId);
-                String modelIdStringInMapping2 = String.format("model_id=%s}", modelId);
+                String modelIdStringInMapping = String.join("model_id=", modelId);
                 Map<String, MappingMetadata> mappings = getMappingsResponse.getMappings();
                 for (Map.Entry<String, MappingMetadata> entry : mappings.entrySet()) {
                     MappingMetadata mappingMetadata = entry.getValue();
-                    String mappingMetadataString = mappingMetadata.getSourceAsMap().toString();
-                    // If model is in use, fail delete model request
-                    if (mappingMetadataString.contains(modelIdStringInMapping1)
-                        || mappingMetadataString.contains(modelIdStringInMapping2)) {
-                        listener.onFailure(
-                            new DeleteModelWhenInUseException(
-                                String.format(
-                                    "Cannot delete model [%s].  Model is in use by index [%s], which must be deleted first.",
-                                    modelId,
-                                    entry.getKey()
-                                )
-                            )
-                        );
-                        return;
+                    if (mappingMetadata != null) {
+                        Map<String, Object> mappingMetadataSourceMap = mappingMetadata.getSourceAsMap();
+                        // If modelId is present, parse map to field.
+                        if (mappingMetadataSourceMap.toString().contains(modelIdStringInMapping)) {
+                            for (Map.Entry<String, Object> sourceEntry : mappingMetadataSourceMap.entrySet()) {
+                                if (sourceEntry.getKey() != null
+                                    && sourceEntry.getKey().equals(PROPERTIES)
+                                    && sourceEntry.getValue() instanceof Map) {
+                                    Map<String, Object> fieldsMap = (Map<String, Object>) sourceEntry.getValue();
+                                    for (Map.Entry<String, Object> fieldsEntry : fieldsMap.entrySet()) {
+                                        if (fieldsEntry.getKey() != null && fieldsEntry.getValue() instanceof Map) {
+                                            Map<String, Object> innerMap = (Map<String, Object>) fieldsEntry.getValue();
+                                            for (Map.Entry<String, Object> innerEntry : innerMap.entrySet()) {
+                                                // If model is in use, fail delete model request
+                                                if (innerEntry.getKey().equals(MODEL_ID)
+                                                    && innerEntry.getValue() instanceof String
+                                                    && innerEntry.getValue().equals(modelId)) {
+                                                    listener.onFailure(
+                                                        new DeleteModelWhenInUseException(
+                                                            String.format(
+                                                                "Cannot delete model [%s].  Model is in use by index [%s], which must be deleted first.",
+                                                                modelId,
+                                                                entry.getKey()
+                                                            )
+                                                        )
+                                                    );
+                                                    return;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
