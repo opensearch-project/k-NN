@@ -76,7 +76,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
 import static java.util.Objects.isNull;
-import static org.opensearch.knn.common.KNNConstants.*;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_MAPPING_PATH;
+import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
+import static org.opensearch.knn.common.KNNConstants.MODEL_METADATA_FIELD;
+import static org.opensearch.knn.common.KNNConstants.PROPERTIES;
 import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_REPLICAS_SETTING;
 import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_SHARDS_SETTING;
 
@@ -86,7 +90,7 @@ import static org.opensearch.knn.index.KNNSettings.MODEL_INDEX_NUMBER_OF_SHARDS_
 public interface ModelDao {
 
     /**
-     * Creates model index. It is possible that the 2 threads call this function simulateously. In this case, one
+     * Creates model index. It is possible that the 2 threads call this function simultaneously. In this case, one
      * thread will throw a ResourceAlreadyExistsException. This should be caught and handled.
      *
      * @param actionListener CreateIndexResponse listener
