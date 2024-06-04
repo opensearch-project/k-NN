@@ -45,9 +45,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         this.fieldType.setTokenized(false);
         this.fieldType.setIndexOptions(IndexOptions.NONE);
         fieldType.putAttribute(KNN_FIELD, "true"); // This attribute helps to determine knn field type
-        if (indexCreatedVersion.before(Version.V_2_15_0)) {
-            // fieldType.setVectorAttributes(dimension, VectorEncoding.FLOAT32, SpaceType.DEFAULT.getVectorSimilarityFunction());
-            // } else {
+        if (indexCreatedVersion.before(Version.V_3_0_0)) {
             fieldType.setDocValuesType(DocValuesType.BINARY);
         }
         this.fieldType.putAttribute(MODEL_ID, modelId);

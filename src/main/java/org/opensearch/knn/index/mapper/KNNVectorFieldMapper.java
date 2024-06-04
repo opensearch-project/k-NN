@@ -548,12 +548,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      * Function returns a list of fields to be indexed when the vector is float type.
      *
      * @param array array of floats
-     * @param fieldType {@link FieldType}
+     * @param dimension int
      * @return {@link List} of {@link Field}
      */
-    protected List<Field> getFieldsForFloatVector(final float[] array, final FieldType fieldType) {
+    protected List<Field> getFieldsForFloatVector(final float[] array, int dimension, final SpaceType spaceType) {
         final List<Field> fields = new ArrayList<>();
-        fields.add(new VectorField(name(), array, fieldType));
+        fields.add(createVectorField(array, dimension, spaceType, fieldType));
         if (this.stored) {
             fields.add(createStoredFieldForFloatVector(name(), array));
         }
@@ -564,23 +564,23 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      * Function returns a list of fields to be indexed when the vector is byte type.
      *
      * @param array array of bytes
-     * @param fieldType {@link FieldType}
+     * @param dimension int
      * @return {@link List} of {@link Field}
      */
-    protected List<Field> getFieldsForByteVector(final byte[] array, final FieldType fieldType) {
+    protected List<Field> getFieldsForByteVector(final byte[] array, int dimension, final SpaceType spaceType) {
         final List<Field> fields = new ArrayList<>();
-        fields.add(new VectorField(name(), array, fieldType));
+        fields.add(createVectorField(array, dimension, spaceType, fieldType));
         if (this.stored) {
             fields.add(createStoredFieldForByteVector(name(), array));
         }
         return fields;
     }
 
-    protected Field createVectorField(float[] vectorValue, int dimension, SpaceType spaceType) {
+    protected Field createVectorField(float[] vectorValue, int dimension, final SpaceType spaceType, final FieldType fieldType) {
         // Because we will come to this function only in case when Native engines are getting used. So I am avoiding the
         // check of use Native engines here.
         // Also dimension field is only accessible here hence we have to use this function to create fieldType too
-        if (this.indexCreatedVersion.onOrAfter(Version.V_2_15_0) && SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(spaceType)) {
+        if (this.indexCreatedVersion.onOrAfter(Version.V_3_0_0) && SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(spaceType)) {
             FieldType tempFieldType = new FieldType(fieldType);
             tempFieldType.setVectorAttributes(dimension, VectorEncoding.FLOAT32, spaceType.getVectorSimilarityFunction());
             tempFieldType.freeze();
@@ -589,11 +589,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         return new VectorField(name(), vectorValue, fieldType);
     }
 
-    protected Field createVectorField(byte[] vectorValue, int dimension, SpaceType spaceType) {
+    protected Field createVectorField(byte[] vectorValue, int dimension, final SpaceType spaceType, final FieldType fieldType) {
         // Because we will come to this function only in case when Native engines are getting used. So I am avoiding the
         // check of use Native engines here.
         // Also dimension field is only accessible here hence we have to use this function to create fieldType too
-        if (this.indexCreatedVersion.onOrAfter(Version.V_2_15_0) && SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(spaceType)) {
+        if (this.indexCreatedVersion.onOrAfter(Version.V_3_0_0) && SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(spaceType)) {
             FieldType tempFieldType = new FieldType(fieldType);
             tempFieldType.setVectorAttributes(dimension, VectorEncoding.BYTE, spaceType.getVectorSimilarityFunction());
             tempFieldType.freeze();
@@ -616,7 +616,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             final byte[] array = bytesArrayOptional.get();
             spaceType.validateVector(array);
-            context.doc().addAll(getFieldsForByteVector(array, fieldType));
+            context.doc().addAll(getFieldsForByteVector(array, dimension, spaceType));
         } else if (VectorDataType.FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension, methodComponentContext);
 
@@ -625,7 +625,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             final float[] array = floatsArrayOptional.get();
             spaceType.validateVector(array);
-            context.doc().addAll(getFieldsForFloatVector(array, fieldType));
+            context.doc().addAll(getFieldsForFloatVector(array, dimension, spaceType));
         } else {
             throw new IllegalArgumentException(
                 String.format(Locale.ROOT, "Cannot parse context for unsupported values provided for field [%s]", VECTOR_DATA_TYPE_FIELD)

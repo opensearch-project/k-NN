@@ -18,6 +18,7 @@ import org.apache.lucene.document.KnnVectorField;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.common.Explicit;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -74,7 +75,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     }
 
     @Override
-    protected List<Field> getFieldsForFloatVector(final float[] array, final FieldType fieldType) {
+    protected List<Field> getFieldsForFloatVector(final float[] array, int dimension, final SpaceType spaceType) {
         final List<Field> fieldsToBeAdded = new ArrayList<>();
         fieldsToBeAdded.add(new KnnVectorField(name(), array, fieldType));
 
@@ -89,7 +90,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     }
 
     @Override
-    protected List<Field> getFieldsForByteVector(final byte[] array, final FieldType fieldType) {
+    protected List<Field> getFieldsForByteVector(final byte[] array, int dimension, final SpaceType spaceType) {
         final List<Field> fieldsToBeAdded = new ArrayList<>();
         fieldsToBeAdded.add(new KnnByteVectorField(name(), array, fieldType));
 
