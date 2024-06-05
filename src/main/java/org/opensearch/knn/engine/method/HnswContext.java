@@ -17,24 +17,11 @@ import org.opensearch.knn.index.query.request.MethodParameter;
 
 import java.util.Map;
 
-import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
-import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
-
-public class FaissHnsw implements EngineSpecificMethodContext {
+public class HnswContext implements EngineSpecificMethodContext {
 
     private final Map<String, Parameter<?>> supportedMethodParameters = ImmutableMap.<String, Parameter<?>>builder()
         .put(MethodParameter.EF_SEARCH.getName(), new Parameter.IntegerParameter(MethodParameter.EF_SEARCH.getName(), null, value -> true))
         .build();
-
-    @Override
-    public String engine() {
-        return FAISS_NAME;
-    }
-
-    @Override
-    public String method() {
-        return METHOD_HNSW;
-    }
 
     @Override
     public Map<String, Parameter<?>> supportedMethodParameters() {

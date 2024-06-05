@@ -25,27 +25,7 @@ import java.util.Map;
  */
 public interface EngineSpecificMethodContext {
 
-    String engine();
-
-    String method();
-
     Map<String, Parameter<?>> supportedMethodParameters();
 
-    EngineSpecificMethodContext EMPTY = new EngineSpecificMethodContext() {
-        @Override
-        public String engine() {
-            return "";
-        }
-
-        @Override
-        public String method() {
-            return "";
-        }
-
-        @Override
-        public Map<String, Parameter<?>> supportedMethodParameters() {
-            return Collections.emptyMap();
-        }
-    };
-
+    EngineSpecificMethodContext EMPTY = Collections::emptyMap;
 }

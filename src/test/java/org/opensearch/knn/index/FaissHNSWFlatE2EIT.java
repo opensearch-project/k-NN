@@ -55,11 +55,11 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
 
     @BeforeClass
     public static void setUpClass() throws IOException {
-        if (FaissIT.class.getClassLoader() == null) {
+        if (FaissHNSWFlatE2EIT.class.getClassLoader() == null) {
             throw new IllegalStateException("ClassLoader of FaissIT Class is null");
         }
-        URL testIndexVectors = FaissIT.class.getClassLoader().getResource("data/test_vectors_1000x128.json");
-        URL testQueries = FaissIT.class.getClassLoader().getResource("data/test_queries_100x128.csv");
+        URL testIndexVectors = FaissHNSWFlatE2EIT.class.getClassLoader().getResource("data/test_vectors_1000x128.json");
+        URL testQueries = FaissHNSWFlatE2EIT.class.getClassLoader().getResource("data/test_queries_100x128.csv");
         assert testIndexVectors != null;
         assert testQueries != null;
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());

@@ -76,22 +76,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
 
     public void testEngineSpecificMethods() throws IOException {
         String methodName1 = "test-method-1";
-        EngineSpecificMethodContext context = new EngineSpecificMethodContext() {
-            @Override
-            public String engine() {
-                return "";
-            }
-
-            @Override
-            public String method() {
-                return "";
-            }
-
-            @Override
-            public Map<String, Parameter<?>> supportedMethodParameters() {
-                return Map.of("myparameter", new Parameter.BooleanParameter("myparameter", false, o -> o));
-            }
-        };
+        EngineSpecificMethodContext context = () -> Map.of("myparameter", new Parameter.BooleanParameter("myparameter", false, o -> o));
 
         TestAbstractKNNLibrary testAbstractKNNLibrary1 = new TestAbstractKNNLibrary(
             Collections.emptyMap(),
