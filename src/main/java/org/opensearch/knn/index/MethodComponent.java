@@ -18,11 +18,11 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
+
+import static org.opensearch.knn.validation.ParameterValidator.validateParameters;
 
 /**
  * MethodComponent defines the structure of an individual component that can make up an index
@@ -74,32 +74,7 @@ public class MethodComponent {
      */
     public ValidationException validate(MethodComponentContext methodComponentContext) {
         Map<String, Object> providedParameters = methodComponentContext.getParameters();
-        List<String> errorMessages = new ArrayList<>();
-
-        if (providedParameters == null) {
-            return null;
-        }
-
-        ValidationException parameterValidation;
-        for (Map.Entry<String, Object> parameter : providedParameters.entrySet()) {
-            if (!parameters.containsKey(parameter.getKey())) {
-                errorMessages.add(String.format("Invalid parameter for method \"%s\".", getName()));
-                continue;
-            }
-
-            parameterValidation = parameters.get(parameter.getKey()).validate(parameter.getValue());
-            if (parameterValidation != null) {
-                errorMessages.addAll(parameterValidation.validationErrors());
-            }
-        }
-
-        if (errorMessages.isEmpty()) {
-            return null;
-        }
-
-        ValidationException validationException = new ValidationException();
-        validationException.addValidationErrors(errorMessages);
-        return validationException;
+        return validateParameters(parameters, providedParameters);
     }
 
     /**

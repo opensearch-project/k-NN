@@ -17,10 +17,10 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.search.NestedHelper;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -43,7 +43,7 @@ public abstract class BaseQueryFactory {
         private float[] vector;
         private byte[] byteVector;
         private VectorDataType vectorDataType;
-        private AlgoQueryParameters algoQueryParameters;
+        private Map<String, ?> methodParameters;
         private Integer k;
         private Float radius;
         private QueryBuilder filter;

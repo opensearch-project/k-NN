@@ -8,6 +8,8 @@ package org.opensearch.knn.index.util;
 import com.google.common.collect.ImmutableMap;
 import lombok.AllArgsConstructor;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.engine.method.EngineSpecificMethodContext;
+import org.opensearch.knn.engine.method.FaissHnsw;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.MethodComponent;
@@ -331,7 +333,13 @@ class Faiss extends NativeLibrary {
         String extension,
         Map<SpaceType, Function<Float, Float>> scoreTransform
     ) {
-        super(methods, scoreTranslation, currentVersion, extension);
+        super(
+            methods,
+            Map.of(METHOD_HNSW, new FaissHnsw(), METHOD_IVF, EngineSpecificMethodContext.EMPTY),
+            scoreTranslation,
+            currentVersion,
+            extension
+        );
         this.scoreTransform = scoreTransform;
     }
 

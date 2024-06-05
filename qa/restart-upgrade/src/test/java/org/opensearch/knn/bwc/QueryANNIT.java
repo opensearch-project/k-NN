@@ -11,9 +11,10 @@
 
 package org.opensearch.knn.bwc;
 
-import org.opensearch.knn.index.query.model.HNSWAlgoQueryParameters;
+import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 
 public class QueryANNIT extends AbstractRestartUpgradeTestCase {
 
@@ -31,14 +32,7 @@ public class QueryANNIT extends AbstractRestartUpgradeTestCase {
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
         } else {
             validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K);
-            validateKNNSearch(
-                testIndex,
-                TEST_FIELD,
-                DIMENSIONS,
-                NUM_DOCS,
-                K,
-                HNSWAlgoQueryParameters.builder().efSearch(EF_SEARCH).build()
-            );
+            validateKNNSearch(testIndex, TEST_FIELD, DIMENSIONS, NUM_DOCS, K, Map.of(METHOD_PARAMETER_EF_SEARCH, EF_SEARCH));
             deleteKNNIndex(testIndex);
         }
     }

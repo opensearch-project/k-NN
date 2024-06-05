@@ -13,7 +13,6 @@ package org.opensearch.knn.jni;
 
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryResult;
-import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.security.AccessController;
@@ -134,7 +133,7 @@ class FaissService {
         long indexPointer,
         float[] queryVector,
         int k,
-        AlgoQueryParameters algoQueryParameters,
+        Map<String, ?> methodParameters,
         int[] parentIds
     );
 
@@ -152,7 +151,7 @@ class FaissService {
         long indexPointer,
         float[] queryVector,
         int k,
-        AlgoQueryParameters algoQueryParameters,
+        Map<String, ?> methodParameters,
         long[] filterIds,
         int filterIdsType,
         int[] parentIds

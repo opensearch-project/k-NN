@@ -26,8 +26,6 @@ import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.knn.index.query.model.HNSWAlgoQueryParameters;
-import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
@@ -50,7 +48,7 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
 
     private String description;
     private int k;
-    private AlgoQueryParameters algoQueryParameters;
+    private Map<String, ?> methodParameters;
     private boolean deleteRandomDocs;
 
     static TestUtils.TestData testData;
@@ -71,9 +69,10 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
     public static Collection<Object[]> parameters() {
         return Arrays.asList(
             $$(
-                $("Valid k, valid efSearch efSearch value", 10, HNSWAlgoQueryParameters.builder().efSearch(300).build(), false),
+                $("Valid k, valid efSearch efSearch value", 10, Map.of(METHOD_PARAMETER_EF_SEARCH, 300), false),
                 $("Valid k, efsearch absent", 10, null, false),
-                $("Has delete docs", 10, HNSWAlgoQueryParameters.builder().efSearch(300).build(), true)
+                $("Has delete docs, ef_search", 10, Map.of(METHOD_PARAMETER_EF_SEARCH, 300), true),
+                $("Has delete docs", 10, null, true)
             )
         );
     }
@@ -155,7 +154,7 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
                 .fieldName(fieldName)
                 .vector(testData.queries[i])
                 .k(k)
-                .algoQueryParameters(algoQueryParameters)
+                .methodParameters(methodParameters)
                 .build();
             Response response = searchKNNIndex(indexName, queryBuilder, k);
             String responseBody = EntityUtils.toString(response.getEntity());

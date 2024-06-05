@@ -12,6 +12,7 @@
 package org.opensearch.knn.index.util;
 
 import org.opensearch.common.ValidationException;
+import org.opensearch.knn.engine.method.EngineSpecificMethodContext;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
@@ -56,6 +57,13 @@ public interface KNNLibrary {
      * @return KNNMethod in the library corresponding to the method name
      */
     KNNMethod getMethod(String methodName);
+
+    /**
+     * Gets metadata related to methods supported by the library
+     * @param methodName
+     * @return
+     */
+    EngineSpecificMethodContext getMethodContext(String methodName);
 
     /**
      * Generate the Lucene score from the rawScore returned by the library. With k-NN, often times the library

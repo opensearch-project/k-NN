@@ -49,23 +49,23 @@ namespace knn_jni {
          *  Execute a query against the index located in memory at indexPointerJ
          *  
          * Parameters:
-         * algoParams: introduces an object to have additional algo params. for instance hnsw will have efSearch
+         * methodParamsJ: introduces a map to have additional method parameters
          * 
          * Return an array of KNNQueryResults
         */
         jobjectArray QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                jfloatArray queryVectorJ, jint kJ, jobject algoParams, jintArray parentIdsJ);
+                                jfloatArray queryVectorJ, jint kJ, jobject methodParamsJ, jintArray parentIdsJ);
 
         /**
          *  Execute a query against the index located in memory at indexPointerJ along with Filters
          *  
          * Parameters:
-         * algoParams: introduces an object to have additional algo params. for instance hnsw will have efSearch
+         * methodParamsJ: introduces a map to have additional method parameters
          * 
          * Return an array of KNNQueryResults
         */
         jobjectArray QueryIndex_WithFilter(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                                                jfloatArray queryVectorJ, jint kJ, jobject algoParams, jlongArray filterIdsJ,
+                                                                jfloatArray queryVectorJ, jint kJ, jobject methodParamsJ, jlongArray filterIdsJ,
                                                                 jint filterIdsTypeJ, jintArray parentIdsJ);
 
         // Free the index located in memory at indexPointerJ

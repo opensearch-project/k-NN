@@ -19,10 +19,10 @@ import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -37,7 +37,7 @@ public class KNNQuery extends Query {
     private final String field;
     private final float[] queryVector;
     private int k;
-    private AlgoQueryParameters algoQueryParameters;
+    private Map<String, ?> methodParameters;
     private final String indexName;
 
     @Setter
@@ -177,7 +177,7 @@ public class KNNQuery extends Query {
             context,
             parentsFilter,
             radius,
-            algoQueryParameters
+            methodParameters
         );
     }
 
@@ -191,7 +191,7 @@ public class KNNQuery extends Query {
         return Objects.equals(field, other.field)
             && Arrays.equals(queryVector, other.queryVector)
             && Objects.equals(k, other.k)
-            && Objects.equals(algoQueryParameters, other.algoQueryParameters)
+            && Objects.equals(methodParameters, other.methodParameters)
             && Objects.equals(radius, other.radius)
             && Objects.equals(context, other.context)
             && Objects.equals(indexName, other.indexName)

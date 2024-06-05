@@ -23,18 +23,18 @@ import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.search.NestedHelper;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.query.model.HNSWAlgoQueryParameters;
-import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 
 public class KNNQueryFactoryTests extends KNNTestCase {
     private static final String FILTER_FILED_NAME = "foo";
@@ -47,7 +47,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     private final String testIndexName = "test-index";
     private final String testFieldName = "test-field";
     private final int testK = 10;
-    private final AlgoQueryParameters algoQueryParameters = HNSWAlgoQueryParameters.builder().efSearch(100).build();
+    private final Map<String, ?> methodParameters = Map.of(METHOD_PARAMETER_EF_SEARCH, 100);
 
     public void testCreateCustomKNNQuery() {
         for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
@@ -122,7 +122,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .field(testFieldName)
             .queryVector(testQueryVector)
             .k(testK)
-            .algoQueryParameters(algoQueryParameters)
+            .methodParameters(methodParameters)
             .build();
 
         // When
@@ -132,7 +132,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .fieldName(testFieldName)
             .vector(testQueryVector)
             .k(testK)
-            .algoQueryParameters(algoQueryParameters)
+            .methodParameters(methodParameters)
             .context(mockQueryShardContext)
             .filter(FILTER_QUERY_BUILDER)
             .build();

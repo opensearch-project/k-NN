@@ -7,6 +7,7 @@ package org.opensearch.knn.index.util;
 
 import com.google.common.collect.ImmutableSet;
 import org.opensearch.common.ValidationException;
+import org.opensearch.knn.engine.method.EngineSpecificMethodContext;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
@@ -146,6 +147,11 @@ public enum KNNEngine implements KNNLibrary {
     @Override
     public KNNMethod getMethod(String methodName) {
         return knnLibrary.getMethod(methodName);
+    }
+
+    @Override
+    public EngineSpecificMethodContext getMethodContext(String methodName) {
+        return knnLibrary.getMethodContext(methodName);
     }
 
     @Override

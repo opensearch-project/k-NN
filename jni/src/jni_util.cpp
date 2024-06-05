@@ -61,17 +61,6 @@ void knn_jni::JNIUtil::Initialize(JNIEnv *env) {
     this->cachedMethods["java/lang/Integer:intValue"] = env->GetMethodID(tempLocalClassRef, "intValue", "()I");
     env->DeleteLocalRef(tempLocalClassRef);
 
-    tempLocalClassRef = env->FindClass("java/util/Optional");
-    this->cachedClasses["java/util/Optional"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
-    this->cachedMethods["java/util/Optional:isPresent"] = env->GetMethodID(tempLocalClassRef, "isPresent", "()Z");
-    this->cachedMethods["java/util/Optional:get"] = env->GetMethodID(tempLocalClassRef, "get", "()Ljava/lang/Object;");
-    env->DeleteLocalRef(tempLocalClassRef);
-
-    tempLocalClassRef = env->FindClass("org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters");
-    this->cachedClasses["org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
-    this->cachedMethods["org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters:getEfSearch"] = env->GetMethodID(tempLocalClassRef, "getEfSearch", "()Ljava/util/Optional;");
-    env->DeleteLocalRef(tempLocalClassRef);
-
     tempLocalClassRef = env->FindClass("org/opensearch/knn/index/query/KNNQueryResult");
     this->cachedClasses["org/opensearch/knn/index/query/KNNQueryResult"] = (jclass) env->NewGlobalRef(tempLocalClassRef);
     this->cachedMethods["org/opensearch/knn/index/query/KNNQueryResult:<init>"] = env->GetMethodID(tempLocalClassRef, "<init>", "(IF)V");
@@ -139,35 +128,6 @@ jmethodID knn_jni::JNIUtil::FindMethod(JNIEnv * env, const std::string& classNam
     }
 
     return this->cachedMethods[key];
-}
-
-jboolean knn_jni::JNIUtil::IsInstanceOf(JNIEnv * env, jobject object, const std::string& className) {
-    jclass clazz = FindClass(env, className);
-    return env->IsInstanceOf(object, clazz);
-}
-
-jboolean knn_jni::JNIUtil::OptionalIsPresent(JNIEnv * env, jobject optional_jobject) {
-    std::string key = "java/util/Optional:isPresent";
-    if (this->cachedMethods.find(key) == this->cachedMethods.end()) {
-        throw std::runtime_error("Unable to find java/util/Optional:isPresent method");
-    }
-
-    jmethodID is_present_jmethod_id = this->cachedMethods[key];
-    return env->CallBooleanMethod(optional_jobject, is_present_jmethod_id);
-}
-
-jobject knn_jni::JNIUtil::OptionalGetObject(JNIEnv * env, jobject optional_jobject) {
-    if (this->OptionalIsPresent(env, optional_jobject)) {
-        return this->CallObjectMethod(env, optional_jobject, "java/util/Optional", "get");
-    }
-    return nullptr;
-}
-
-jobject knn_jni::JNIUtil::CallObjectMethod(JNIEnv * env, jobject _jobject, const std::string& className, const std::string& methodName) {
-    jmethodID methodId = this->FindMethod(env, className, methodName);
-    jobject returnValue = env->CallObjectMethod(_jobject, methodId);
-    this->HasExceptionInStack(env, "Could not call method " + className + ":" + methodName);
-    return returnValue;
 }
 
 std::unordered_map<std::string, jobject> knn_jni::JNIUtil::ConvertJavaMapToCppMap(JNIEnv *env, jobject parametersJ) {

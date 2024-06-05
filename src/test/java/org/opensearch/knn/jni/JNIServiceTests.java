@@ -25,8 +25,6 @@ import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.query.model.HNSWAlgoQueryParameters;
-import org.opensearch.knn.index.query.model.AlgoQueryParameters;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
@@ -529,7 +527,7 @@ public class JNIServiceTests extends KNNTestCase {
 
         String sqfp16IndexDescription = "HNSW16,SQfp16";
         int k = 10;
-        AlgoQueryParameters algoQueryParameters = HNSWAlgoQueryParameters.builder().efSearch(100).build();
+        Map<String, ?> methodParameters = Map.of("ef_search", 12);
         float[][] truncatedVectors = truncateToFp16Range(testData.indexData.vectors);
         long memoryAddress = JNICommons.storeVectorData(0, truncatedVectors, (long) truncatedVectors.length * truncatedVectors[0].length);
         Path tmpFile = createTempFile();
@@ -547,7 +545,7 @@ public class JNIServiceTests extends KNNTestCase {
         assertNotEquals(0, pointer);
 
         for (float[] query : testData.queries) {
-            KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, algoQueryParameters, KNNEngine.FAISS, null, 0, null);
+            KNNQueryResult[] results = JNIService.queryIndex(pointer, query, k, methodParameters, KNNEngine.FAISS, null, 0, null);
             assertEquals(k, results.length);
         }
 
@@ -557,7 +555,7 @@ public class JNIServiceTests extends KNNTestCase {
                 pointer,
                 query,
                 k,
-                algoQueryParameters,
+                methodParameters,
                 KNNEngine.FAISS,
                 new long[] { 0 },
                 0,
@@ -870,7 +868,7 @@ public class JNIServiceTests extends KNNTestCase {
                         pointer,
                         query,
                         k,
-                        HNSWAlgoQueryParameters.builder().efSearch(efSearch).build(),
+                        Map.of("ef_search", efSearch),
                         KNNEngine.FAISS,
                         null,
                         0,
@@ -885,7 +883,7 @@ public class JNIServiceTests extends KNNTestCase {
                         pointer,
                         query,
                         k,
-                        HNSWAlgoQueryParameters.builder().efSearch(efSearch).build(),
+                        Map.of("ef_search", efSearch),
                         KNNEngine.FAISS,
                         new long[] { 0 },
                         0,
@@ -931,7 +929,7 @@ public class JNIServiceTests extends KNNTestCase {
                         pointer,
                         query,
                         k,
-                        HNSWAlgoQueryParameters.builder().efSearch(efSearch).build(),
+                        Map.of("ef_search", efSearch),
                         KNNEngine.FAISS,
                         null,
                         0,

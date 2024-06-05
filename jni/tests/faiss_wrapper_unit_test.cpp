@@ -22,7 +22,6 @@
 #include "faiss/IndexIDMap.h"
 
 using ::testing::NiceMock;
-using test_util::HNSWAlgoQueryParam;
 
 using idx_t = faiss::idx_t;
 
@@ -71,7 +70,7 @@ struct MockIdMap : faiss::IndexIDMap {
 struct QueryIndexHNSWTestInput {
     string description;
     int k;
-    test_util::HNSWAlgoQueryParam* algoParams;
+    int efSearch;
     int filterIdType;
     bool filterIdsPresent;
     bool parentIdsPresent;
@@ -92,6 +91,9 @@ protected:
 
 namespace query_index_test {
 
+    std::unordered_map<std::string, jobject> methodParams;
+
+
     TEST_P(FaissWrappeterParametrizedTestFixture, QueryIndexHNSWTests) {
         //Given
         JNIEnv *jniEnv = nullptr;
@@ -100,6 +102,14 @@ namespace query_index_test {
 
         QueryIndexHNSWTestInput const &input = GetParam();
         float query[] = {1.2, 2.3, 3.4};
+
+        int efSearch = input.efSearch;
+        int expectedEfSearch = 100; //default set in mock
+        std::unordered_map<std::string, jobject> methodParams;
+        if (efSearch != -1) {
+            expectedEfSearch = input.efSearch;
+            methodParams[knn_jni::EF_SEARCH] = reinterpret_cast<jobject>(&efSearch);
+        }
 
         std::vector<int> *parentIdPtr = nullptr;
         if (input.parentIdsPresent) {
@@ -120,31 +130,11 @@ namespace query_index_test {
                     .WillOnce(testing::Return(new int[2]{1, 2}));
         }
 
-        int expectedEfSearch = 100; //default set in mock
-        if (input.algoParams != nullptr) {
-            expectedEfSearch = input.algoParams->efSearch;
-            EXPECT_CALL(mockJNIUtil,
-                        IsInstanceOf(
-                            jniEnv, reinterpret_cast<jobject>(input.algoParams), "org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters"))
-                    .WillOnce(testing::Return(true));
-            EXPECT_CALL(mockJNIUtil,
-                            CallObjectMethod(
-                                jniEnv, reinterpret_cast<jobject>(input.algoParams), "org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters", "getEfSearch"))
-                    .WillOnce(testing::Return(reinterpret_cast<jobject>(input.algoParams)));
-            EXPECT_CALL(mockJNIUtil,
-                            OptionalGetObject(
-                                jniEnv, reinterpret_cast<jobject>(input.algoParams)))
-                    .WillOnce(testing::Return(reinterpret_cast<jobject>(input.algoParams)));
-            EXPECT_CALL(mockJNIUtil,
-                            ConvertJavaObjectToCppInteger(
-                                jniEnv, reinterpret_cast<jobject>(input.algoParams))).WillOnce(testing::Return(input.algoParams->efSearch));
-        }
-
         // When
         knn_jni::faiss_wrapper::QueryIndex(
             &mockJNIUtil, jniEnv,
             reinterpret_cast<jlong>(&id_map_),
-            reinterpret_cast<jfloatArray>(&query), input.k, reinterpret_cast<jobject>(input.algoParams),
+            reinterpret_cast<jfloatArray>(&query), input.k, reinterpret_cast<jobject>(&methodParams),
             reinterpret_cast<jintArray>(parentIdPtr));
 
         //Then
@@ -158,17 +148,16 @@ namespace query_index_test {
         }
 
         id_map_.resetMock();
-        delete input.algoParams;
     }
 
     INSTANTIATE_TEST_CASE_P(
         QueryIndexHNSWTests,
         FaissWrappeterParametrizedTestFixture,
         ::testing::Values(
-            QueryIndexHNSWTestInput{"algoParams present, parent absent", 10, new HNSWAlgoQueryParam{200}, 0, false, false},
-            QueryIndexHNSWTestInput{"algoParams absent, parent absent", 10, nullptr, 0, false, false},
-            QueryIndexHNSWTestInput{"algoParams present, parent present", 10, new HNSWAlgoQueryParam{200}, 0, false, true},
-            QueryIndexHNSWTestInput{"algoParams absent, parent present", 10, nullptr, 0, false, true}
+            QueryIndexHNSWTestInput{"algoParams present, parent absent", 10, 200, 0, false, false},
+            QueryIndexHNSWTestInput{"algoParams absent, parent absent", 10, -1, 0, false, false},
+            QueryIndexHNSWTestInput{"algoParams present, parent present", 10, 200, 0, false, true},
+            QueryIndexHNSWTestInput{"algoParams absent, parent present", 10, -1, 0, false, true}
         )
     );
 }
@@ -212,31 +201,19 @@ namespace query_index_with_filter_test {
             filterptr = &filter;
         }
 
+        int efSearch = input.efSearch;
         int expectedEfSearch = 100; //default set in mock
-        if (input.algoParams != nullptr) {
-            expectedEfSearch = input.algoParams->efSearch;
-            EXPECT_CALL(mockJNIUtil,
-                        IsInstanceOf(
-                            jniEnv, reinterpret_cast<jobject>(input.algoParams), "org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters"))
-                    .WillOnce(testing::Return(true));
-            EXPECT_CALL(mockJNIUtil,
-                            CallObjectMethod(
-                                jniEnv, reinterpret_cast<jobject>(input.algoParams), "org/opensearch/knn/index/query/model/HNSWAlgoQueryParameters", "getEfSearch"))
-                    .WillOnce(testing::Return(reinterpret_cast<jobject>(input.algoParams)));
-            EXPECT_CALL(mockJNIUtil,
-                            OptionalGetObject(
-                                jniEnv, reinterpret_cast<jobject>(input.algoParams)))
-                    .WillOnce(testing::Return(reinterpret_cast<jobject>(input.algoParams)));
-            EXPECT_CALL(mockJNIUtil,
-                            ConvertJavaObjectToCppInteger(
-                                jniEnv, reinterpret_cast<jobject>(input.algoParams))).WillOnce(testing::Return(input.algoParams->efSearch));
+        std::unordered_map<std::string, jobject> methodParams;
+        if (efSearch != -1) {
+            expectedEfSearch = input.efSearch;
+            methodParams[knn_jni::EF_SEARCH] = reinterpret_cast<jobject>(&efSearch);
         }
 
         // When
         knn_jni::faiss_wrapper::QueryIndex_WithFilter(
             &mockJNIUtil, jniEnv,
             reinterpret_cast<jlong>(&id_map_),
-            reinterpret_cast<jfloatArray>(&query), input.k, reinterpret_cast<jobject>(input.algoParams),
+            reinterpret_cast<jfloatArray>(&query), input.k, reinterpret_cast<jobject>(&methodParams),
             reinterpret_cast<jlongArray>(filterptr),
             input.filterIdType,
             reinterpret_cast<jintArray>(parentIdPtr));
@@ -255,21 +232,20 @@ namespace query_index_with_filter_test {
             EXPECT_TRUE(sel != nullptr);
         }
         id_map_.resetMock();
-        delete input.algoParams;
     }
 
     INSTANTIATE_TEST_CASE_P(
         QueryIndexWithFilterHNSWTests,
         FaissWrappeterParametrizedTestFixture,
         ::testing::Values(
-            QueryIndexHNSWTestInput{"algoParams present, parent absent, filter absent", 10, new HNSWAlgoQueryParam{200}, 0, false, false},
-            QueryIndexHNSWTestInput{"algoParams present, parent absent, filter absent, filter type 1", 10,  new HNSWAlgoQueryParam{200}, 1, false, false},
-            QueryIndexHNSWTestInput{"algoParams absent, parent absent, filter present", 10, nullptr, 0, true, false},
-            QueryIndexHNSWTestInput{"algoParams absent, parent absent, filter present, filter type 1", 10, nullptr, 1, true, false},
-            QueryIndexHNSWTestInput{"algoParams present, parent present, filter absent", 10, new HNSWAlgoQueryParam{200}, 0, false, true},
-            QueryIndexHNSWTestInput{"algoParams present, parent present, filter absent, filter type 1", 10, new HNSWAlgoQueryParam{200}, 1, false, true},
-            QueryIndexHNSWTestInput{"algoParams absent, parent present, filter present", 10, nullptr, 0, true, true},
-            QueryIndexHNSWTestInput{"algoParams absent, parent present, filter present, filter type 1",10, nullptr, 1, true, true}
+            QueryIndexHNSWTestInput{"algoParams present, parent absent, filter absent", 10, 200, 0, false, false},
+            QueryIndexHNSWTestInput{"algoParams present, parent absent, filter absent, filter type 1", 10,  200, 1, false, false},
+            QueryIndexHNSWTestInput{"algoParams absent, parent absent, filter present", 10, -1, 0, true, false},
+            QueryIndexHNSWTestInput{"algoParams absent, parent absent, filter present, filter type 1", 10, -1, 1, true, false},
+            QueryIndexHNSWTestInput{"algoParams present, parent present, filter absent", 10, 200, 0, false, true},
+            QueryIndexHNSWTestInput{"algoParams present, parent present, filter absent, filter type 1", 10, 150, 1, false, true},
+            QueryIndexHNSWTestInput{"algoParams absent, parent present, filter present", 10, -1, 0, true, true},
+            QueryIndexHNSWTestInput{"algoParams absent, parent present, filter present, filter type 1",10, -1, 1, true, true}
         )
     );
 }

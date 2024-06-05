@@ -8,10 +8,10 @@ package org.opensearch.knn.index.query;
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.AllArgsConstructor;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.query.model.HNSWAlgoQueryParameters;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Map;
 
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$$;
@@ -74,41 +74,14 @@ public class KNNQueryBuilderInvalidParamsTests extends KNNTestCase {
                 ),
                 $(
                     "efSearch 0",
-                    "[knn] requires ef_Search greater than 0",
-                    KNNQueryBuilder.builder()
-                        .fieldName(FIELD_NAME)
-                        .vector(QUERY_VECTOR)
-                        .algoQueryParameters(HNSWAlgoQueryParameters.builder().efSearch(0).build())
-                        .k(10)
+                    "[knn] errors in method parameter [Validation Failed: 1: Validation Failed: 1: ef_search should be greater than 0;;]",
+                    KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).methodParameters(Map.of("ef_search", 0)).k(10)
                 ),
                 $(
                     "efSearch -ve",
-                    "[knn] requires ef_Search greater than 0",
-                    KNNQueryBuilder.builder()
-                        .fieldName(FIELD_NAME)
-                        .vector(QUERY_VECTOR)
-                        .algoQueryParameters(HNSWAlgoQueryParameters.builder().efSearch(-1).build())
-                        .k(10)
+                    "[knn] errors in method parameter [Validation Failed: 1: Validation Failed: 1: ef_search should be greater than 0;;]",
+                    KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).methodParameters(Map.of("ef_search", -10)).k(10)
                 ),
-                $(
-                    "efSearch for radial search min score",
-                    "[knn] ef_Search is currently not supported for radial search",
-                    KNNQueryBuilder.builder()
-                        .fieldName(FIELD_NAME)
-                        .vector(QUERY_VECTOR)
-                        .algoQueryParameters(HNSWAlgoQueryParameters.builder().efSearch(2).build())
-                        .minScore(1.0f)
-                ),
-                $(
-                    "efSearch for radial search max dist",
-                    "[knn] ef_Search is currently not supported for radial search",
-                    KNNQueryBuilder.builder()
-                        .fieldName(FIELD_NAME)
-                        .vector(QUERY_VECTOR)
-                        .algoQueryParameters(HNSWAlgoQueryParameters.builder().efSearch(2).build())
-                        .maxDistance(1.0f)
-                ),
-
                 $(
                     "min score less than 0",
                     "[knn] requires minScore to be greater than 0",

@@ -11,90 +11,123 @@
 
 package org.opensearch.knn.index.query.parser;
 
-import com.google.common.collect.ImmutableSet;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.SneakyThrows;
+import org.opensearch.common.ValidationException;
+import org.opensearch.core.common.ParsingException;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
-import org.opensearch.knn.index.query.model.AlgoQueryParameters;
-import org.opensearch.knn.index.query.model.HNSWAlgoQueryParameters;
+import org.opensearch.knn.index.query.request.MethodParameter;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
-import static org.opensearch.knn.index.query.KNNQueryBuilder.EF_SEARCH_FIELD;
+import static org.opensearch.knn.index.query.KNNQueryBuilder.METHOD_PARAMS_FIELD;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.NAME;
 import static org.opensearch.knn.index.query.parser.KNNXParserUtil.parseJsonObject;
 
+@EqualsAndHashCode
 @Getter
+@AllArgsConstructor
 public class MethodParametersParser {
 
-    private static final Set<String> VALID_METHOD_PARAMETERS = ImmutableSet.of(METHOD_PARAMETER_EF_SEARCH);
-
-    @SneakyThrows(IOException.class)
-    public static AlgoQueryParameters streamInMethodParameters(StreamInput in) {
-        Integer efSearch = null;
-        if (isClusterOnOrAfterMinRequiredVersion(METHOD_PARAMETER_EF_SEARCH)) {
-            efSearch = in.readOptionalInt();
-        }
-        return efSearch != null ? HNSWAlgoQueryParameters.builder().efSearch(efSearch).build() : null;
-    }
-
-    @SneakyThrows(IOException.class)
-    public static void streamOutMethodParameters(final StreamOutput out, final AlgoQueryParameters algoQueryParameters) {
-        final Optional<HNSWAlgoQueryParameters> hnswMethodParameters = extractHnswAlgoParameters(algoQueryParameters);
-
-        if (isClusterOnOrAfterMinRequiredVersion(METHOD_PARAMETER_EF_SEARCH)) {
-            // Write false even if it doesn't cast to hnsw, so we can deserialize w/o ambiguity as parameters get added
-            out.writeOptionalInt(hnswMethodParameters.flatMap(HNSWAlgoQueryParameters::getEfSearch).orElse(null));
-        }
-    }
-
-    public static Optional<HNSWAlgoQueryParameters> extractHnswAlgoParameters(final AlgoQueryParameters algoQueryParameters) {
-        return Optional.ofNullable(algoQueryParameters)
-            .filter(HNSWAlgoQueryParameters.class::isInstance)
-            .map(HNSWAlgoQueryParameters.class::cast);
-    }
-
-    @SneakyThrows(IOException.class)
-    public static AlgoQueryParameters fromXContent(final XContentParser parser) {
-        final Map<String, Object> parameters = parseJsonObject(parser);
-        if (parameters.isEmpty()) {
-            throw new IllegalArgumentException("[" + NAME + "] method_parameter cannot be empty");
-        }
-
-        for (String jsonkey : parameters.keySet()) {
-            if (!VALID_METHOD_PARAMETERS.contains(jsonkey)) {
-                throw new IllegalArgumentException("[" + NAME + "] unknown parameter " + jsonkey + " found.");
+    // Validation on rest layer
+    public static ValidationException validateMethodParameters(final Map<String, ?> methodParameters) {
+        final List<String> errors = new ArrayList<>();
+        for (final Map.Entry<String, ?> methodParameter : methodParameters.entrySet()) {
+            final MethodParameter parameter = MethodParameter.enumOf(methodParameter.getKey());
+            if (parameter != null) {
+                final ValidationException validationException = parameter.validate(methodParameter.getValue());
+                if (validationException != null) {
+                    errors.add(validationException.getMessage());
+                }
+            } else { // Should never happen if used in the right sequence
+                errors.add(methodParameter.getKey() + " is not a valid method parameter");
             }
         }
 
-        return Optional.ofNullable((Integer) parameters.get(METHOD_PARAMETER_EF_SEARCH))
-            .filter(ef -> EF_SEARCH_FIELD.match(METHOD_PARAMETER_EF_SEARCH, parser.getDeprecationHandler()))
-            .map(ef -> HNSWAlgoQueryParameters.builder().efSearch(ef).build())
-            .orElse(null);
+        if (!errors.isEmpty()) {
+            ValidationException validationException = new ValidationException();
+            validationException.addValidationErrors(errors);
+            return validationException;
+        }
+        return null;
     }
 
-    @SneakyThrows(IOException.class)
-    public static XContentBuilder toXContent(final XContentBuilder xContentBuilder, final AlgoQueryParameters algoQueryParameters) {
-
-        final HNSWAlgoQueryParameters hnswAlgoParameters = Optional.ofNullable(algoQueryParameters)
-            .filter(HNSWAlgoQueryParameters.class::isInstance)
-            .map(HNSWAlgoQueryParameters.class::cast)
-            .orElse(null);
-
-        if (hnswAlgoParameters != null && hnswAlgoParameters.getEfSearch().isPresent()) {
-            xContentBuilder.startObject(METHOD_PARAMETER);
-            xContentBuilder.field(EF_SEARCH_FIELD.getPreferredName(), hnswAlgoParameters.getEfSearch().get());
-            xContentBuilder.endObject();
+    // deserialize for node to node communication
+    public static Map<String, ?> streamInput(StreamInput in) throws IOException {
+        if (!in.readBoolean()) {
+            return null;
         }
-        return xContentBuilder;
+
+        final Map<String, Object> methodParameters = new HashMap<>();
+        for (final MethodParameter methodParameter : MethodParameter.values()) {
+            if (isClusterOnOrAfterMinRequiredVersion(methodParameter.getName())) {
+                String name = in.readString();
+                Object value = in.readGenericValue();
+                if (value != null) {
+                    methodParameters.put(name, methodParameter.parse(value));
+                }
+            }
+        }
+
+        return !methodParameters.isEmpty() ? methodParameters : null;
+    }
+
+    // serialize for node to node communication
+    public static void streamOutput(StreamOutput out, Map<String, ?> methodParameters) throws IOException {
+        if (methodParameters == null || methodParameters.isEmpty()) {
+            out.writeBoolean(false);
+        } else {
+            out.writeBoolean(true);
+            // All values are written to deserialize without ambiguity
+            for (final MethodParameter methodParameter : MethodParameter.values()) {
+                if (isClusterOnOrAfterMinRequiredVersion(methodParameter.getName())) {
+                    out.writeString(methodParameter.getName());
+                    out.writeGenericValue(methodParameters.get(methodParameter.getName()));
+                }
+            }
+        }
+    }
+
+    public static void doXContent(final XContentBuilder builder, final Map<String, ?> methodParameters) throws IOException {
+        if (methodParameters == null || methodParameters.isEmpty()) {
+            return;
+        }
+        builder.startObject(METHOD_PARAMS_FIELD.getPreferredName());
+        for (final Map.Entry<String, ?> entry : methodParameters.entrySet()) {
+            if (entry.getKey() != null && entry.getValue() != null) {
+                builder.field(entry.getKey(), entry.getValue());
+            }
+        }
+        builder.endObject();
+    }
+
+    public static Map<String, ?> fromXContent(final XContentParser parser) throws IOException {
+        final Map<String, Object> methodParametersJson = parseJsonObject(parser);
+        final Map<String, ?> methodParameters = new HashMap<>();
+        for (Map.Entry<String, Object> requestParameter : methodParametersJson.entrySet()) {
+            final String name = requestParameter.getKey();
+            final Object value = requestParameter.getValue();
+            final MethodParameter parameter = MethodParameter.enumOf(name);
+            if (parameter == null) {
+                throw new ParsingException(parser.getTokenLocation(), "[" + NAME + "] unknown method parameter found [" + name + "]");
+            }
+
+            try {
+                // This makes sure that we throw parsing exception on rest layer.
+                methodParameters.put(name, parameter.parse(value));
+            } catch (final Exception exception) {
+                throw new ParsingException(parser.getTokenLocation(), exception.getMessage());
+            }
+        }
+        return methodParameters.isEmpty() ? null : methodParameters;
     }
 }
