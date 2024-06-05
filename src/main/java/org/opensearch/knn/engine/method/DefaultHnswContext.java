@@ -17,7 +17,10 @@ import org.opensearch.knn.index.query.request.MethodParameter;
 
 import java.util.Map;
 
-public class HnswContext implements EngineSpecificMethodContext {
+/**
+ * Default HNSW context for all engines. Have a different implementation if engine context differs.
+ */
+public final class DefaultHnswContext implements EngineSpecificMethodContext {
 
     private final Map<String, Parameter<?>> supportedMethodParameters = ImmutableMap.<String, Parameter<?>>builder()
         .put(MethodParameter.EF_SEARCH.getName(), new Parameter.IntegerParameter(MethodParameter.EF_SEARCH.getName(), null, value -> true))

@@ -9,7 +9,7 @@ import com.google.common.collect.ImmutableMap;
 import lombok.AllArgsConstructor;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.engine.method.EngineSpecificMethodContext;
-import org.opensearch.knn.engine.method.HnswContext;
+import org.opensearch.knn.engine.method.DefaultHnswContext;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.MethodComponent;
@@ -335,7 +335,7 @@ class Faiss extends NativeLibrary {
     ) {
         super(
             methods,
-            Map.of(METHOD_HNSW, new HnswContext(), METHOD_IVF, EngineSpecificMethodContext.EMPTY),
+            Map.of(METHOD_HNSW, new DefaultHnswContext(), METHOD_IVF, EngineSpecificMethodContext.EMPTY),
             scoreTranslation,
             currentVersion,
             extension

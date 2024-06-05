@@ -9,6 +9,7 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
 import org.opensearch.common.ValidationException;
@@ -27,6 +28,7 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.engine.method.EngineSpecificMethodContext;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
@@ -43,7 +45,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static org.opensearch.knn.common.KNNConstants.*;
+import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
+import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
 import static org.opensearch.knn.index.query.parser.MethodParametersParser.validateMethodParameters;
@@ -484,11 +489,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType;
         int fieldDimension = knnVectorFieldType.getDimension();
         KNNMethodContext knnMethodContext = knnVectorFieldType.getKnnMethodContext();
+        MethodComponentContext methodComponentContext = null;
         KNNEngine knnEngine = KNNEngine.DEFAULT;
         VectorDataType vectorDataType = knnVectorFieldType.getVectorDataType();
         SpaceType spaceType = knnVectorFieldType.getSpaceType();
 
-        String method = null;
         if (fieldDimension == -1) {
             if (spaceType != null) {
                 throw new IllegalStateException("Space type should be null when the field uses a model");
@@ -498,17 +503,17 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             fieldDimension = modelMetadata.getDimension();
             knnEngine = modelMetadata.getKnnEngine();
             spaceType = modelMetadata.getSpaceType();
-            if (modelMetadata.getMethodComponentContext() != null) {
-                method = modelMetadata.getMethodComponentContext().getName();
-            }
+            methodComponentContext = modelMetadata.getMethodComponentContext();
+
         } else if (knnMethodContext != null) {
             // If the dimension is set but the knnMethodContext is not then the field is using the legacy mapping
             knnEngine = knnMethodContext.getKnnEngine();
             spaceType = knnMethodContext.getSpaceType();
-            method = knnMethodContext.getMethodComponentContext().getName();
+            methodComponentContext = knnMethodContext.getMethodComponentContext();
         }
 
-        if (!Strings.isNullOrEmpty(method)) {
+        final String method = methodComponentContext != null ? methodComponentContext.getName() : null;
+        if (StringUtils.isNotBlank(method)) {
             final EngineSpecificMethodContext engineSpecificMethodContext = knnEngine.getMethodContext(method);
             ValidationException validationException = validateParameters(
                 engineSpecificMethodContext.supportedMethodParameters(),
@@ -524,8 +529,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                     )
                 );
             }
-        } else {
-            throw new IllegalStateException("method not found");
         }
 
         // Currently, k-NN supports distance and score types radial search
