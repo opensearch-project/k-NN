@@ -17,6 +17,7 @@ import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNLibrary;
+import org.opensearch.knn.training.VectorSpaceInfo;
 import org.opensearch.test.OpenSearchTestCase;
 
 import java.util.Map;
@@ -81,6 +82,11 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
 
         @Override
         public ValidationException validateMethod(KNNMethodContext knnMethodContext) {
+            return null;
+        }
+
+        @Override
+        public ValidationException validateMethodWithData(KNNMethodContext knnMethodContext, VectorSpaceInfo vectorSpaceInfo) {
             return null;
         }
 

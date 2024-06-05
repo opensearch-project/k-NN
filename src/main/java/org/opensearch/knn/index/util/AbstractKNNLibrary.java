@@ -12,6 +12,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.engine.method.EngineSpecificMethodContext;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.util.Map;
 
@@ -48,6 +49,12 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
     public ValidationException validateMethod(KNNMethodContext knnMethodContext) {
         String methodName = knnMethodContext.getMethodComponentContext().getName();
         return getMethod(methodName).validate(knnMethodContext);
+    }
+
+    @Override
+    public ValidationException validateMethodWithData(KNNMethodContext knnMethodContext, VectorSpaceInfo vectorSpaceInfo) {
+        String methodName = knnMethodContext.getMethodComponentContext().getName();
+        return getMethod(methodName).validateWithData(knnMethodContext, vectorSpaceInfo);
     }
 
     @Override
