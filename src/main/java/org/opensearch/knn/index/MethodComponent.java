@@ -22,6 +22,8 @@ import org.opensearch.knn.training.VectorSpaceInfo;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiFunction;
+import java.util.List;
+import java.util.ArrayList;
 
 import static org.opensearch.knn.validation.ParameterValidator.validateParameters;
 

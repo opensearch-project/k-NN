@@ -64,19 +64,21 @@ public class MethodParametersParserTests extends KNNTestCase {
         // efsearch string
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field("ef_search", "string").endObject();
         XContentParser parser1 = createParser(builder);
-        parser1.nextToken();
         expectThrows(ParsingException.class, () -> MethodParametersParser.fromXContent(parser1));
 
         // unknown method parameter
         builder = XContentFactory.jsonBuilder().startObject().field("unknown", "10").endObject();
         XContentParser parser2 = createParser(builder);
-        parser2.nextToken();
         expectThrows(ParsingException.class, () -> MethodParametersParser.fromXContent(parser2));
 
         // Valid
         builder = XContentFactory.jsonBuilder().startObject().field("ef_search", 10).endObject();
         XContentParser parser3 = createParser(builder);
-        parser3.nextToken();
         assertEquals(Map.of("ef_search", 10), MethodParametersParser.fromXContent(parser3));
+
+        //empty map
+        builder = XContentFactory.jsonBuilder().startObject().endObject();
+        XContentParser parser4 = createParser(builder);
+        expectThrows(ParsingException.class, () -> MethodParametersParser.fromXContent(parser4));
     }
 }

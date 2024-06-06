@@ -26,7 +26,7 @@ import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.engine.method.EngineSpecificMethodContext;
+import org.opensearch.knn.index.util.EngineSpecificMethodContext;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;

@@ -9,7 +9,7 @@
  * GitHub history for details.
  */
 
-package org.opensearch.knn.engine.method;
+package org.opensearch.knn.index.util;
 
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.index.Parameter;
