@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Enhancements
 * Add KnnCircuitBreakerException and modify exception message [#1688](https://github.com/opensearch-project/k-NN/pull/1688)
 * Add stats for radial search [#1684](https://github.com/opensearch-project/k-NN/pull/1684)
+* Add efSearch as a query parameter [#1707](https://github.com/opensearch-project/k-NN/pull/1707)
 * Support script score when doc value is disabled and fix misusing DISI [#1696](https://github.com/opensearch-project/k-NN/pull/1696)
 * Add validation for pq m parameter before training starts [#1713](https://github.com/opensearch-project/k-NN/pull/1713)
 ### Bug Fixes

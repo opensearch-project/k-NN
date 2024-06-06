@@ -27,12 +27,14 @@ import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 
 public class KNNQueryFactoryTests extends KNNTestCase {
     private static final String FILTER_FILED_NAME = "foo";
@@ -45,6 +47,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     private final String testIndexName = "test-index";
     private final String testFieldName = "test-field";
     private final int testK = 10;
+    private final Map<String, ?> methodParameters = Map.of(METHOD_PARAMETER_EF_SEARCH, 100);
 
     public void testCreateCustomKNNQuery() {
         for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
@@ -106,11 +109,57 @@ public class KNNQueryFactoryTests extends KNNTestCase {
     }
 
     public void testCreateFaissQueryWithFilter_withValidValues_thenSuccess() {
+        // Given
         final KNNEngine knnEngine = KNNEngine.FAISS;
         final QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         MappedFieldType testMapper = mock(MappedFieldType.class);
         when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
         when(testMapper.termQuery(Mockito.any(), Mockito.eq(mockQueryShardContext))).thenReturn(FILTER_QUERY);
+
+        final KNNQuery expectedQuery = KNNQuery.builder()
+            .indexName(testIndexName)
+            .filterQuery(FILTER_QUERY)
+            .field(testFieldName)
+            .queryVector(testQueryVector)
+            .k(testK)
+            .methodParameters(methodParameters)
+            .build();
+
+        // When
+        final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(knnEngine)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .k(testK)
+            .methodParameters(methodParameters)
+            .context(mockQueryShardContext)
+            .filter(FILTER_QUERY_BUILDER)
+            .build();
+
+        final Query actual = KNNQueryFactory.create(createQueryRequest);
+
+        // Then
+        assertEquals(expectedQuery, actual);
+    }
+
+    public void testCreateFaissQueryWithFilter_withValidValues_nullEfSearch_thenSuccess() {
+        // Given
+        final KNNEngine knnEngine = KNNEngine.FAISS;
+        final QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        MappedFieldType testMapper = mock(MappedFieldType.class);
+        when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
+        when(testMapper.termQuery(Mockito.any(), Mockito.eq(mockQueryShardContext))).thenReturn(FILTER_QUERY);
+
+        final KNNQuery expectedQuery = KNNQuery.builder()
+            .indexName(testIndexName)
+            .filterQuery(FILTER_QUERY)
+            .field(testFieldName)
+            .queryVector(testQueryVector)
+            .k(testK)
+            .build();
+
+        // When
         final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
             .knnEngine(knnEngine)
             .indexName(testIndexName)
@@ -120,14 +169,11 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .context(mockQueryShardContext)
             .filter(FILTER_QUERY_BUILDER)
             .build();
-        final Query query = KNNQueryFactory.create(createQueryRequest);
-        assertTrue(query instanceof KNNQuery);
 
-        assertEquals(testIndexName, ((KNNQuery) query).getIndexName());
-        assertEquals(testFieldName, ((KNNQuery) query).getField());
-        assertEquals(testQueryVector, ((KNNQuery) query).getQueryVector());
-        assertEquals(testK, ((KNNQuery) query).getK());
-        assertEquals(FILTER_QUERY, ((KNNQuery) query).getFilterQuery());
+        final Query actual = KNNQueryFactory.create(createQueryRequest);
+
+        // Then
+        assertEquals(expectedQuery, actual);
     }
 
     public void testCreate_whenLuceneWithParentFilter_thenReturnDiversifyingQuery() {

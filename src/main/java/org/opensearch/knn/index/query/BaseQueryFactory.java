@@ -20,6 +20,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -42,6 +43,7 @@ public abstract class BaseQueryFactory {
         private float[] vector;
         private byte[] byteVector;
         private VectorDataType vectorDataType;
+        private Map<String, ?> methodParameters;
         private Integer k;
         private Float radius;
         private QueryBuilder filter;
