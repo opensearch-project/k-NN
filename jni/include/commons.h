@@ -33,5 +33,10 @@ namespace knn_jni {
          * @param memoryAddress address to be freed.
          */
         void freeVectorData(jlong);
+
+        /**
+         * Extracts query time efSearch from method parameters
+         **/
+        int getQueryEfSearch(JNIEnv *, knn_jni::JNIUtilInterface *, std::unordered_map<std::string, jobject>, int);
     }
 }
