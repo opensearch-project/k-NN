@@ -11,10 +11,12 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.engine.method.EngineSpecificMethodContext;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.MethodComponent;
 import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.Parameter;
 import org.opensearch.knn.index.SpaceType;
 
 import java.io.IOException;
@@ -77,6 +79,20 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         assertNotNull(testAbstractKNNLibrary2.validateMethod(knnMethodContext2));
     }
 
+    public void testEngineSpecificMethods() throws IOException {
+        String methodName1 = "test-method-1";
+        EngineSpecificMethodContext context = () -> Map.of("myparameter", new Parameter.BooleanParameter("myparameter", false, o -> o));
+
+        TestAbstractKNNLibrary testAbstractKNNLibrary1 = new TestAbstractKNNLibrary(
+            Collections.emptyMap(),
+            Map.of(methodName1, context),
+            ""
+        );
+
+        assertNotNull(testAbstractKNNLibrary1.getMethodContext(methodName1));
+        assertTrue(testAbstractKNNLibrary1.getMethodContext(methodName1).supportedMethodParameters().containsKey("myparameter"));
+    }
+
     public void testGetMethodAsMap() {
         String methodName = "test-method-1";
         SpaceType spaceType = SpaceType.DEFAULT;
@@ -109,7 +125,15 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
 
     private static class TestAbstractKNNLibrary extends AbstractKNNLibrary {
         public TestAbstractKNNLibrary(Map<String, KNNMethod> methods, String currentVersion) {
-            super(methods, currentVersion);
+            super(methods, Collections.emptyMap(), currentVersion);
+        }
+
+        public TestAbstractKNNLibrary(
+            Map<String, KNNMethod> methods,
+            Map<String, EngineSpecificMethodContext> engineSpecificMethodContextMap,
+            String currentVersion
+        ) {
+            super(methods, engineSpecificMethodContextMap, currentVersion);
         }
 
         @Override

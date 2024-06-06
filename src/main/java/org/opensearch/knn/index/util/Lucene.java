@@ -7,6 +7,7 @@ package org.opensearch.knn.index.util;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.util.Version;
+import org.opensearch.knn.engine.method.EngineSpecificMethodContext;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.MethodComponent;
@@ -67,7 +68,7 @@ public class Lucene extends JVMLibrary {
      * @param distanceTransform Map of space type to distance transformation function
      */
     Lucene(Map<String, KNNMethod> methods, String version, Map<SpaceType, Function<Float, Float>> distanceTransform) {
-        super(methods, version);
+        super(methods, Map.of(METHOD_HNSW, EngineSpecificMethodContext.EMPTY), version);
         this.distanceTransform = distanceTransform;
     }
 

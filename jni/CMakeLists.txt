@@ -147,6 +147,7 @@ if ("${WIN32}" STREQUAL "")
         add_executable(
                 jni_test
                 tests/faiss_wrapper_test.cpp
+                tests/faiss_wrapper_unit_test.cpp
                 tests/faiss_util_test.cpp
                 tests/nmslib_wrapper_test.cpp
                 tests/test_util.cpp

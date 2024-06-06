@@ -19,11 +19,11 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.training.VectorSpaceInfo;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
+
+import static org.opensearch.knn.validation.ParameterValidator.validateParameters;
 
 /**
  * MethodComponent defines the structure of an individual component that can make up an index
@@ -75,6 +75,18 @@ public class MethodComponent {
      */
     public ValidationException validate(MethodComponentContext methodComponentContext) {
         Map<String, Object> providedParameters = methodComponentContext.getParameters();
+        return validateParameters(parameters, providedParameters);
+    }
+
+    /**
+     * Validate that the methodComponentContext is a valid configuration for this methodComponent, using additional data not present in the method component context
+     *
+     * @param methodComponentContext to be validated
+     * @param vectorSpaceInfo additional data not present in the method component context
+     * @return ValidationException produced by validation errors; null if no validations errors.
+     */
+    public ValidationException validateWithData(MethodComponentContext methodComponentContext, VectorSpaceInfo vectorSpaceInfo) {
+        Map<String, Object> providedParameters = methodComponentContext.getParameters();
         List<String> errorMessages = new ArrayList<>();
 
         if (providedParameters == null) {
@@ -88,7 +100,7 @@ public class MethodComponent {
                 continue;
             }
 
-            parameterValidation = parameters.get(parameter.getKey()).validate(parameter.getValue());
+            parameterValidation = parameters.get(parameter.getKey()).validateWithData(parameter.getValue(), vectorSpaceInfo);
             if (parameterValidation != null) {
                 errorMessages.addAll(parameterValidation.validationErrors());
             }

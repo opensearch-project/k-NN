@@ -1122,12 +1122,22 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
     }
 
-    // Validate KNN search on a KNN index by generating the query vector from the number of documents in the index
     public void validateKNNSearch(String testIndex, String testField, int dimension, int numDocs, int k) throws Exception {
+        validateKNNSearch(testIndex, testField, dimension, numDocs, k, null);
+    }
+
+    // Validate KNN search on a KNN index by generating the query vector from the number of documents in the index
+    public void validateKNNSearch(String testIndex, String testField, int dimension, int numDocs, int k, Map<String, ?> methodParameters)
+        throws Exception {
         float[] queryVector = new float[dimension];
         Arrays.fill(queryVector, (float) numDocs);
 
-        Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(testField, queryVector, k), k);
+        Response searchResponse = searchKNNIndex(
+            testIndex,
+            KNNQueryBuilder.builder().k(k).methodParameters(methodParameters).fieldName(testField).vector(queryVector).build(),
+            k
+        );
+
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), testField);
 
         assertEquals(k, results.size());

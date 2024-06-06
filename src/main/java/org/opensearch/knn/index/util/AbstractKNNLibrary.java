@@ -9,6 +9,7 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.opensearch.common.ValidationException;
+import org.opensearch.knn.engine.method.EngineSpecificMethodContext;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.training.VectorSpaceInfo;
@@ -22,12 +23,22 @@ import java.util.Map;
 public abstract class AbstractKNNLibrary implements KNNLibrary {
 
     protected final Map<String, KNNMethod> methods;
+    protected final Map<String, EngineSpecificMethodContext> engineMethods;
     @Getter
     protected final String version;
 
     @Override
     public KNNMethod getMethod(String methodName) {
         KNNMethod method = methods.get(methodName);
+        if (method == null) {
+            throw new IllegalArgumentException(String.format("Invalid method name: %s", methodName));
+        }
+        return method;
+    }
+
+    @Override
+    public EngineSpecificMethodContext getMethodContext(String methodName) {
+        EngineSpecificMethodContext method = engineMethods.get(methodName);
         if (method == null) {
             throw new IllegalArgumentException(String.format("Invalid method name: %s", methodName));
         }
