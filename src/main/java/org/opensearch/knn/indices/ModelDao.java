@@ -52,8 +52,7 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.common.exception.DeleteModelWhenInTrainStateException;
-import org.opensearch.knn.common.exception.DeleteModelWhenInUseException;
+import org.opensearch.knn.common.exception.DeleteModelException;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
@@ -534,7 +533,7 @@ public interface ModelDao {
                 // If model is in Training state, fail delete model request
                 if (ModelState.TRAINING == getModelResponse.getModel().getModelMetadata().getState()) {
                     String errorMessage = String.format("Cannot delete model [%s]. Model is still in training", modelId);
-                    listener.onFailure(new DeleteModelWhenInTrainStateException(errorMessage));
+                    listener.onFailure(new DeleteModelException(errorMessage));
                     return;
                 }
 
@@ -565,7 +564,7 @@ public interface ModelDao {
                                                     && innerEntry.getValue() instanceof String
                                                     && innerEntry.getValue().equals(modelId)) {
                                                     listener.onFailure(
-                                                        new DeleteModelWhenInUseException(
+                                                        new DeleteModelException(
                                                             String.format(
                                                                 "Cannot delete model [%s].  Model is in use by index [%s], which must be deleted first.",
                                                                 modelId,

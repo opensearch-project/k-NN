@@ -36,8 +36,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.knn.KNNSingleNodeTestCase;
-import org.opensearch.knn.common.exception.DeleteModelWhenInTrainStateException;
-import org.opensearch.knn.common.exception.DeleteModelWhenInUseException;
+import org.opensearch.knn.common.exception.DeleteModelException;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -572,7 +571,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         ActionListener<DeleteModelResponse> deleteModelTrainingListener = ActionListener.wrap(
             response -> fail("Deleting model when model does not exist should throw ResourceNotFoundException"),
             exception -> {
-                assertTrue(exception instanceof DeleteModelWhenInTrainStateException);
+                assertTrue(exception instanceof DeleteModelException);
                 assertFalse(modelDao.isModelInGraveyard(modelId));
                 inProgressLatch2.countDown();
             }
@@ -703,7 +702,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
             @Override
             public void onFailure(Exception e) {
-                assertTrue(e instanceof DeleteModelWhenInUseException);
+                assertTrue(e instanceof DeleteModelException);
                 assertEquals(
                     String.format(
                         "Cannot delete model [%s].  Model is in use by index [%s], which must be deleted first.",
