@@ -13,6 +13,7 @@ package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Floats;
+import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
@@ -50,6 +51,76 @@ public class NmslibIT extends KNNRestTestCase {
         assert testIndexVectors != null;
         assert testQueries != null;
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());
+    }
+
+    public void testInvalidMethodParameters() throws Exception {
+        String indexName = "test-index-1";
+        String fieldName = "test-field-1";
+        Integer dimension = testData.indexData.vectors[0].length;
+        KNNMethod hnswMethod = KNNEngine.NMSLIB.getMethod(KNNConstants.METHOD_HNSW);
+        SpaceType spaceType = SpaceType.L1;
+
+        // Create an index
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimension)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.NMSLIB.getName())
+            .startObject(KNNConstants.PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, 32)
+            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, 100)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        final Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        String mapping = builder.toString();
+
+        createKnnIndex(indexName, mapping);
+        assertEquals(new TreeMap<>(mappingMap), new TreeMap<>(getIndexMappingAsMap(indexName)));
+
+        // Index the test data
+        // Adding only doc to cut on integ test time
+        addKnnDoc(
+            indexName,
+            Integer.toString(testData.indexData.docs[0]),
+            fieldName,
+            Floats.asList(testData.indexData.vectors[0]).toArray()
+        );
+
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> searchKNNIndex(
+                indexName,
+                KNNQueryBuilder.builder()
+                    .k(10)
+                    .methodParameters(Map.of("foo", "bar"))
+                    .vector(testData.queries[0])
+                    .fieldName(fieldName)
+                    .build(),
+                10
+            )
+        );
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> searchKNNIndex(
+                indexName,
+                KNNQueryBuilder.builder()
+                    .k(10)
+                    .methodParameters(Map.of("ef_search", "bar"))
+                    .vector(testData.queries[0])
+                    .fieldName(fieldName)
+                    .build(),
+                10
+            )
+        );
     }
 
     public void testEndToEnd() throws Exception {
@@ -104,23 +175,11 @@ public class NmslibIT extends KNNRestTestCase {
         refreshAllIndices();
         assertEquals(testData.indexData.docs.length, getDocCount(indexName));
 
-        int k = 10;
-        for (int i = 0; i < testData.queries.length; i++) {
-            Response response = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, testData.queries[i], k), k);
-            String responseBody = EntityUtils.toString(response.getEntity());
-            List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
-            assertEquals(k, knnResults.size());
-
-            List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName);
-            for (int j = 0; j < k; j++) {
-                float[] primitiveArray = knnResults.get(j).getVector();
-                assertEquals(
-                    KNNEngine.NMSLIB.score(KNNScoringUtil.l1Norm(testData.queries[i], primitiveArray), spaceType),
-                    actualScores.get(j),
-                    0.0001
-                );
-            }
-        }
+        // search index
+        // without method parameters
+        validateSearch(indexName, fieldName, spaceType, null);
+        // With valid method params
+        validateSearch(indexName, fieldName, spaceType, Map.of("ef_search", 50));
 
         // Delete index
         deleteKNNIndex(indexName);
@@ -136,6 +195,36 @@ public class NmslibIT extends KNNRestTestCase {
         }
 
         fail("Graphs are not getting evicted");
+    }
+
+    @SneakyThrows
+    private void validateSearch(
+        final String indexName,
+        final String fieldName,
+        SpaceType spaceType,
+        final Map<String, Object> methodParams
+    ) {
+        int k = 10;
+        for (int i = 0; i < testData.queries.length; i++) {
+            Response response = searchKNNIndex(
+                indexName,
+                KNNQueryBuilder.builder().fieldName(fieldName).vector(testData.queries[i]).k(k).methodParameters(methodParams).build(),
+                k
+            );
+            String responseBody = EntityUtils.toString(response.getEntity());
+            List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
+            assertEquals(k, knnResults.size());
+
+            List<Float> actualScores = parseSearchResponseScore(responseBody, fieldName);
+            for (int j = 0; j < k; j++) {
+                float[] primitiveArray = knnResults.get(j).getVector();
+                assertEquals(
+                    KNNEngine.NMSLIB.score(KNNScoringUtil.l1Norm(testData.queries[i], primitiveArray), spaceType),
+                    actualScores.get(j),
+                    0.0001
+                );
+            }
+        }
     }
 
     public void testAddDoc() throws Exception {

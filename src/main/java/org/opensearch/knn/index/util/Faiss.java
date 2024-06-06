@@ -330,7 +330,13 @@ class Faiss extends NativeLibrary {
         String extension,
         Map<SpaceType, Function<Float, Float>> scoreTransform
     ) {
-        super(methods, scoreTranslation, currentVersion, extension);
+        super(
+            methods,
+            Map.of(METHOD_HNSW, new DefaultHnswContext(), METHOD_IVF, EngineSpecificMethodContext.EMPTY),
+            scoreTranslation,
+            currentVersion,
+            extension
+        );
         this.scoreTransform = scoreTransform;
     }
 
