@@ -59,6 +59,13 @@ public interface KNNLibrary {
     KNNMethod getMethod(String methodName);
 
     /**
+     * Gets metadata related to methods supported by the library
+     * @param methodName
+     * @return
+     */
+    EngineSpecificMethodContext getMethodContext(String methodName);
+
+    /**
      * Generate the Lucene score from the rawScore returned by the library. With k-NN, often times the library
      * will return a score where the lower the score, the better the result. This is the opposite of how Lucene scores
      * documents.
