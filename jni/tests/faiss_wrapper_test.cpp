@@ -287,6 +287,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
             delete it;
         }
     }
+    std::cout << "Test end";
 }
 
 //Test for a bug reported in https://github.com/opensearch-project/k-NN/issues/1435

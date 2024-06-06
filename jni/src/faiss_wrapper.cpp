@@ -356,7 +356,6 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         } else {
             auto ivfReader = dynamic_cast<const faiss::IndexIVF*>(indexReader->index);
             auto ivfFlatReader = dynamic_cast<const faiss::IndexIVFFlat*>(indexReader->index);
-            
             if(ivfReader || ivfFlatReader) {
                 int indexNprobe = ivfReader == nullptr ? ivfReader->nprobe : ivfFlatReader->nprobe;
                 ivfParams.nprobe = commons::getIntegerMethodParameter(env, jniUtil, methodParams, NPROBES, indexNprobe);

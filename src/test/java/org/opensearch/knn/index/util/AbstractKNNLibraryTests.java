@@ -11,7 +11,13 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.*;
+import org.opensearch.knn.index.KNNMethod;
+import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.MethodComponent;
+import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.Parameter;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorQueryType;
 
 import java.io.IOException;
 import java.util.Collections;
