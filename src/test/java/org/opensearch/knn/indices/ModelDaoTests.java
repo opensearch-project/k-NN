@@ -36,6 +36,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.knn.KNNSingleNodeTestCase;
+import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.exception.DeleteModelException;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
@@ -690,10 +691,17 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             .endObject()
             .endObject();
 
+        XContentBuilder settings = XContentFactory.jsonBuilder().startObject().field(TestUtils.INDEX_KNN, "true").endObject();
+
         // Create index using model
-        CreateIndexRequestBuilder createIndexRequestBuilder = client().admin().indices().prepareCreate(testIndex).setMapping(mappings);
+        CreateIndexRequestBuilder createIndexRequestBuilder = client().admin()
+            .indices()
+            .prepareCreate(testIndex)
+            .setMapping(mappings)
+            .setSettings(settings);
         createIndex(testIndex, createIndexRequestBuilder);
 
+        CountDownLatch latch = new CountDownLatch(1);
         modelDao.delete(modelId, new ActionListener<DeleteModelResponse>() {
             @Override
             public void onResponse(DeleteModelResponse deleteModelResponse) {
@@ -705,15 +713,16 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 assertTrue(e instanceof DeleteModelException);
                 assertEquals(
                     String.format(
-                        "Cannot delete model [%s].  Model is in use by index [%s], which must be deleted first.",
+                        "Cannot delete model [%s].  Model is in use by the following indices [%s], which must be deleted first.",
                         modelId,
                         testIndex
                     ),
                     e.getMessage()
                 );
+                latch.countDown();
             }
         });
-
+        assertTrue(latch.await(60, TimeUnit.SECONDS));
     }
 
     // Test Delete Model when modelId is in Model Graveyard (previous delete model request which failed to

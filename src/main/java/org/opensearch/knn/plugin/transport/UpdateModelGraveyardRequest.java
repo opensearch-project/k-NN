@@ -7,7 +7,7 @@ package org.opensearch.knn.plugin.transport;
 
 import lombok.Getter;
 import org.opensearch.action.ActionRequestValidationException;
-import org.opensearch.action.support.master.AcknowledgedRequest;
+import org.opensearch.action.support.clustermanager.info.ClusterInfoRequest;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 
@@ -18,7 +18,7 @@ import static org.opensearch.action.ValidateActions.addValidationError;
 /**
  * Request for updating model graveyard while processing delete model request
  */
-public class UpdateModelGraveyardRequest extends AcknowledgedRequest<UpdateModelGraveyardRequest> {
+public class UpdateModelGraveyardRequest extends ClusterInfoRequest<UpdateModelGraveyardRequest> {
 
     @Getter
     private final String modelId;

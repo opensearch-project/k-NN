@@ -7,6 +7,9 @@ package org.opensearch.knn.plugin.transport;
 
 import lombok.Value;
 import lombok.extern.log4j.Log4j2;
+import org.opensearch.cluster.metadata.IndexMetadata;
+import org.opensearch.cluster.metadata.MappingMetadata;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.master.AcknowledgedResponse;
@@ -22,17 +25,16 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Priority;
 import org.opensearch.common.inject.Inject;
 import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.indices.IndicesService;
+import org.opensearch.knn.common.exception.DeleteModelException;
 import org.opensearch.knn.indices.ModelGraveyard;
 import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
-import static org.opensearch.knn.common.KNNConstants.PLUGIN_NAME;
+import static org.opensearch.knn.common.KNNConstants.*;
 
 /**
  * Transport action used to update model graveyard on the cluster manager node.
@@ -42,6 +44,7 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
     UpdateModelGraveyardRequest,
     AcknowledgedResponse> {
     private UpdateModelGraveyardExecutor updateModelGraveyardExecutor;
+    private final IndicesService indicesService;
 
     @Inject
     public UpdateModelGraveyardTransportAction(
@@ -49,7 +52,8 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
         ClusterService clusterService,
         ThreadPool threadPool,
         ActionFilters actionFilters,
-        IndexNameExpressionResolver indexNameExpressionResolver
+        IndexNameExpressionResolver indexNameExpressionResolver,
+        IndicesService indicesService
     ) {
         super(
             UpdateModelGraveyardAction.NAME,
@@ -61,6 +65,7 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
             indexNameExpressionResolver
         );
         this.updateModelGraveyardExecutor = new UpdateModelGraveyardExecutor();
+        this.indicesService = indicesService;
     }
 
     @Override
@@ -82,7 +87,7 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
         // ClusterManager updates model graveyard based on request parameters
         clusterService.submitStateUpdateTask(
             PLUGIN_NAME,
-            new UpdateModelGraveyardTask(request.getModelId(), request.isRemoveRequest()),
+            new UpdateModelGraveyardTask(request.getModelId(), request.isRemoveRequest(), indicesService),
             ClusterStateTaskConfig.build(Priority.NORMAL),
             updateModelGraveyardExecutor,
             new ClusterStateTaskListener() {
@@ -111,6 +116,7 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
     private static class UpdateModelGraveyardTask {
         String modelId;
         boolean isRemoveRequest;
+        IndicesService indicesService;
     }
 
     /**
@@ -123,7 +129,8 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
          * @return Represents the result of a batched execution of cluster state update tasks (UpdateModelGraveyardTasks)
          */
         @Override
-        public ClusterTasksResult<UpdateModelGraveyardTask> execute(ClusterState clusterState, List<UpdateModelGraveyardTask> taskList) {
+        public ClusterTasksResult<UpdateModelGraveyardTask> execute(ClusterState clusterState, List<UpdateModelGraveyardTask> taskList)
+            throws IOException {
 
             // Check if the objects are not null and throw a customized NullPointerException
             Objects.requireNonNull(clusterState, "Cluster state must not be null");
@@ -131,6 +138,10 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
             ModelGraveyard immutableModelGraveyard = clusterState.metadata().custom(ModelGraveyard.TYPE);
             ModelGraveyard modelGraveyard;
             Set<String> copySet;
+
+            Set<String> indicesSet = clusterState.metadata().indices().keySet();
+
+            String[] indicesArray = Arrays.copyOf(indicesSet.toArray(), indicesSet.size(), String[].class);
 
             if (immutableModelGraveyard == null) {
                 modelGraveyard = new ModelGraveyard();
@@ -146,6 +157,7 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
                     modelGraveyard.remove(task.getModelId());
                     continue;
                 }
+                checkIfIndicesAreUsingModel(clusterState, task, indicesArray);
                 modelGraveyard.add(task.getModelId());
             }
 
@@ -155,5 +167,73 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
             ClusterState updatedClusterState = ClusterState.builder(clusterState).metadata(metaDataBuilder).build();
             return new ClusterTasksResult.Builder<UpdateModelGraveyardTask>().successes(taskList).build(updatedClusterState);
         }
+    }
+
+    private static void checkIfIndicesAreUsingModel(ClusterState clusterState, UpdateModelGraveyardTask task, String[] indicesArray)
+        throws IOException {
+        Map<String, MappingMetadata> mappings = clusterState.metadata()
+            .findMappings(indicesArray, task.getIndicesService().getFieldFilter());
+        Map<String, IndexMetadata> indices = clusterState.metadata().indices();
+        List<String> indicesUsingModel = new ArrayList<>();
+        // Parse indices and add to list if using the model
+        for (Map.Entry<String, MappingMetadata> entry : mappings.entrySet()) {
+            MappingMetadata mappingMetadata = entry.getValue();
+            Settings indexSettings = indices.get(entry.getKey()).getSettings();
+            if (mappingMetadata != null && Boolean.parseBoolean(indexSettings.get("index.knn", "false"))) {
+                indicesUsingModel = parseMappingMetadata(mappingMetadata, task, indicesUsingModel, entry.getKey());
+            }
+        }
+        // Throw exception if any indices are using the model
+        if (!indicesUsingModel.isEmpty()) {
+            throw new DeleteModelException(
+                String.format(
+                    "Cannot delete model [%s].  Model is in use by the following indices %s, which must be deleted first.",
+                    task.getModelId(),
+                    indicesUsingModel
+                )
+            );
+        }
+    }
+
+    private static List<String> parseMappingMetadata(
+        MappingMetadata mappingMetadata,
+        UpdateModelGraveyardTask task,
+        List<String> indicesUsingModel,
+        String index
+    ) {
+        Map<String, Object> mappingMetadataSourceMap = mappingMetadata.getSourceAsMap();
+        String modelIdMappingString = String.join("model_id=", task.getModelId());
+        // If modelId is present, parse map to field.
+        if (mappingMetadataSourceMap.toString().contains(modelIdMappingString)) {
+            for (Map.Entry<String, Object> sourceEntry : mappingMetadataSourceMap.entrySet()) {
+                if (sourceEntry.getKey() != null && sourceEntry.getKey().equals(PROPERTIES) && sourceEntry.getValue() instanceof Map) {
+                    Map<String, Object> fieldsMap = (Map<String, Object>) sourceEntry.getValue();
+                    indicesUsingModel = parseFieldsMap(fieldsMap, task, indicesUsingModel, index);
+                }
+            }
+        }
+        return indicesUsingModel;
+    }
+
+    private static List<String> parseFieldsMap(
+        Map<String, Object> fieldsMap,
+        UpdateModelGraveyardTask task,
+        List<String> indicesUsingModel,
+        String index
+    ) {
+        for (Map.Entry<String, Object> fieldsEntry : fieldsMap.entrySet()) {
+            if (fieldsEntry.getKey() != null && fieldsEntry.getValue() instanceof Map) {
+                Map<String, Object> innerMap = (Map<String, Object>) fieldsEntry.getValue();
+                for (Map.Entry<String, Object> innerEntry : innerMap.entrySet()) {
+                    // If model is in use, fail delete model request
+                    if (innerEntry.getKey().equals(MODEL_ID)
+                        && innerEntry.getValue() instanceof String
+                        && innerEntry.getValue().equals(task.getModelId())) {
+                        indicesUsingModel.add(index);
+                    }
+                }
+            }
+        }
+        return indicesUsingModel;
     }
 }
