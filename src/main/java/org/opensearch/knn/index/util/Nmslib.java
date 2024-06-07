@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.util;
 
 import com.google.common.collect.ImmutableMap;
-import org.opensearch.knn.engine.method.EngineSpecificMethodContext;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.MethodComponent;

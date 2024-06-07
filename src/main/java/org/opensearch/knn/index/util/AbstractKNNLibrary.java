@@ -9,7 +9,6 @@ import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.opensearch.common.ValidationException;
-import org.opensearch.knn.engine.method.EngineSpecificMethodContext;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.training.VectorSpaceInfo;

@@ -8,8 +8,6 @@ package org.opensearch.knn.index.util;
 import com.google.common.collect.ImmutableMap;
 import lombok.AllArgsConstructor;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.engine.method.EngineSpecificMethodContext;
-import org.opensearch.knn.engine.method.DefaultHnswContext;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.MethodComponent;

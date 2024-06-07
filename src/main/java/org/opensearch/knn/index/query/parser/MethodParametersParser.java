@@ -31,7 +31,6 @@ import java.util.Map;
 import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.METHOD_PARAMS_FIELD;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.NAME;
-import static org.opensearch.knn.index.query.parser.KNNXParserUtil.parseJsonObject;
 
 @EqualsAndHashCode
 @Getter
@@ -111,7 +110,11 @@ public class MethodParametersParser {
     }
 
     public static Map<String, ?> fromXContent(final XContentParser parser) throws IOException {
-        final Map<String, Object> methodParametersJson = parseJsonObject(parser);
+        final Map<String, Object> methodParametersJson = parser.map();
+        if (methodParametersJson.isEmpty()) {
+            throw new ParsingException(parser.getTokenLocation(), METHOD_PARAMS_FIELD.getPreferredName() + " cannot be empty");
+        }
+
         final Map<String, ?> methodParameters = new HashMap<>();
         for (Map.Entry<String, Object> requestParameter : methodParametersJson.entrySet()) {
             final String name = requestParameter.getKey();

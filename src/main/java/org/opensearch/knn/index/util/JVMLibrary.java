@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.util;
 
-import org.opensearch.knn.engine.method.EngineSpecificMethodContext;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 
