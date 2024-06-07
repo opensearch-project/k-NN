@@ -1,6 +1,13 @@
-//
-// Created by Shah, Tejas on 5/30/24.
-//
+/*
+* SPDX-License-Identifier: Apache-2.0
+ *
+ * The OpenSearch Contributors require contributions made to
+ * this file be licensed under the Apache-2.0 license or a
+ * compatible open source license.
+ *
+ * Modifications Copyright OpenSearch Contributors. See
+ * GitHub history for details.
+ */
 #include "hnswquery.h"
 #include "knnquery.h"
 #include "nmslib_wrapper.h"

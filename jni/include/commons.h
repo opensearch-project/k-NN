@@ -37,6 +37,6 @@ namespace knn_jni {
         /**
          * Extracts query time efSearch from method parameters
          **/
-        int getQueryEfSearch(JNIEnv *, knn_jni::JNIUtilInterface *, std::unordered_map<std::string, jobject>, int);
+        int getIntegerMethodParameter(JNIEnv *, knn_jni::JNIUtilInterface *, std::unordered_map<std::string, jobject>, std::string, int);
     }
 }

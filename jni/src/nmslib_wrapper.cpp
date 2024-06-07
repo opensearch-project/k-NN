@@ -254,7 +254,7 @@ jobjectArray knn_jni::nmslib_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jni
         methodParams = jniUtil->ConvertJavaMapToCppMap(env, methodParamsJ);
     }
 
-    int queryEfSearch = knn_jni::commons::getQueryEfSearch(env, jniUtil, methodParams, -1);
+    int queryEfSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, EF_SEARCH, -1);
     similarity::KNNQuery<float>* query;
     if (queryEfSearch == -1) {
         query = new similarity::KNNQuery<float>(*(indexWrapper->space), queryObject.get(), kJ);

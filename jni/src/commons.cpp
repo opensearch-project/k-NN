@@ -39,15 +39,15 @@ void knn_jni::commons::freeVectorData(jlong memoryAddressJ) {
     }
 }
 
-int knn_jni::commons::getQueryEfSearch(JNIEnv * env, knn_jni::JNIUtilInterface * jniUtil, std::unordered_map<std::string, jobject> methodParams, int defaultEfSearch) {
+int knn_jni::commons::getIntegerMethodParameter(JNIEnv * env, knn_jni::JNIUtilInterface * jniUtil, std::unordered_map<std::string, jobject> methodParams, std::string methodParam, int defaultValue) {
     if (methodParams.empty()) {
-        return defaultEfSearch;
+        return defaultValue;
     }
-    auto efSearchIt = methodParams.find(knn_jni::EF_SEARCH);
+    auto efSearchIt = methodParams.find(methodParam);
     if (efSearchIt != methodParams.end()) {
-        return jniUtil->ConvertJavaObjectToCppInteger(env, methodParams[knn_jni::EF_SEARCH]);
+        return jniUtil->ConvertJavaObjectToCppInteger(env, methodParams[methodParam]);
     }
 
-    return defaultEfSearch;
+    return defaultValue;
 }
 #endif //OPENSEARCH_KNN_COMMONS_H
