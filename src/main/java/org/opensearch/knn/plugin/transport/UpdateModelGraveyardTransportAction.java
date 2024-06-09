@@ -32,9 +32,17 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
-import static org.opensearch.knn.common.KNNConstants.*;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.PLUGIN_NAME;
+import static org.opensearch.knn.common.KNNConstants.PROPERTIES;
 
 /**
  * Transport action used to update model graveyard on the cluster manager node.
@@ -139,10 +147,6 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
             ModelGraveyard modelGraveyard;
             Set<String> copySet;
 
-            Set<String> indicesSet = clusterState.metadata().indices().keySet();
-
-            String[] indicesArray = Arrays.copyOf(indicesSet.toArray(), indicesSet.size(), String[].class);
-
             if (immutableModelGraveyard == null) {
                 modelGraveyard = new ModelGraveyard();
             } else {
@@ -157,7 +161,7 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
                     modelGraveyard.remove(task.getModelId());
                     continue;
                 }
-                checkIfIndicesAreUsingModel(clusterState, task, indicesArray);
+                checkIfIndicesAreUsingModel(clusterState, task);
                 modelGraveyard.add(task.getModelId());
             }
 
@@ -169,18 +173,27 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
         }
     }
 
-    private static void checkIfIndicesAreUsingModel(ClusterState clusterState, UpdateModelGraveyardTask task, String[] indicesArray)
-        throws IOException {
+    private static void checkIfIndicesAreUsingModel(ClusterState clusterState, UpdateModelGraveyardTask task) throws IOException {
+        Map<String, IndexMetadata> indices = clusterState.metadata().indices();
+        List<String> knnIndicesList = new ArrayList<String>();
+        // Get list of knn indices
+        for (Map.Entry<String, IndexMetadata> entry : indices.entrySet()) {
+            Settings indexSettings = indices.get(entry.getKey()).getSettings();
+            if (Boolean.parseBoolean(indexSettings.get("index.knn", "false"))) {
+                knnIndicesList.add(entry.getKey());
+            }
+        }
+        String[] indicesArray = Arrays.copyOf(knnIndicesList.toArray(), knnIndicesList.size(), String[].class);
         Map<String, MappingMetadata> mappings = clusterState.metadata()
             .findMappings(indicesArray, task.getIndicesService().getFieldFilter());
-        Map<String, IndexMetadata> indices = clusterState.metadata().indices();
         List<String> indicesUsingModel = new ArrayList<>();
-        // Parse indices and add to list if using the model
+        // Parse knn indices and add to list if using the model
         for (Map.Entry<String, MappingMetadata> entry : mappings.entrySet()) {
             MappingMetadata mappingMetadata = entry.getValue();
-            Settings indexSettings = indices.get(entry.getKey()).getSettings();
-            if (mappingMetadata != null && Boolean.parseBoolean(indexSettings.get("index.knn", "false"))) {
-                indicesUsingModel = parseMappingMetadata(mappingMetadata, task, indicesUsingModel, entry.getKey());
+            if (mappingMetadata != null) {
+                if (parseMappingMetadata(mappingMetadata, task)) {
+                    indicesUsingModel.add(entry.getKey());
+                }
             }
         }
         // Throw exception if any indices are using the model
@@ -195,12 +208,7 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
         }
     }
 
-    private static List<String> parseMappingMetadata(
-        MappingMetadata mappingMetadata,
-        UpdateModelGraveyardTask task,
-        List<String> indicesUsingModel,
-        String index
-    ) {
+    private static boolean parseMappingMetadata(MappingMetadata mappingMetadata, UpdateModelGraveyardTask task) {
         Map<String, Object> mappingMetadataSourceMap = mappingMetadata.getSourceAsMap();
         String modelIdMappingString = String.join("model_id=", task.getModelId());
         // If modelId is present, parse map to field.
@@ -208,19 +216,14 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
             for (Map.Entry<String, Object> sourceEntry : mappingMetadataSourceMap.entrySet()) {
                 if (sourceEntry.getKey() != null && sourceEntry.getKey().equals(PROPERTIES) && sourceEntry.getValue() instanceof Map) {
                     Map<String, Object> fieldsMap = (Map<String, Object>) sourceEntry.getValue();
-                    indicesUsingModel = parseFieldsMap(fieldsMap, task, indicesUsingModel, index);
+                    return parseFieldsMap(fieldsMap, task.getModelId());
                 }
             }
         }
-        return indicesUsingModel;
+        return false;
     }
 
-    private static List<String> parseFieldsMap(
-        Map<String, Object> fieldsMap,
-        UpdateModelGraveyardTask task,
-        List<String> indicesUsingModel,
-        String index
-    ) {
+    private static boolean parseFieldsMap(Map<String, Object> fieldsMap, String modelId) {
         for (Map.Entry<String, Object> fieldsEntry : fieldsMap.entrySet()) {
             if (fieldsEntry.getKey() != null && fieldsEntry.getValue() instanceof Map) {
                 Map<String, Object> innerMap = (Map<String, Object>) fieldsEntry.getValue();
@@ -228,12 +231,12 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
                     // If model is in use, fail delete model request
                     if (innerEntry.getKey().equals(MODEL_ID)
                         && innerEntry.getValue() instanceof String
-                        && innerEntry.getValue().equals(task.getModelId())) {
-                        indicesUsingModel.add(index);
+                        && innerEntry.getValue().equals(modelId)) {
+                        return true;
                     }
                 }
             }
         }
-        return indicesUsingModel;
+        return false;
     }
 }
