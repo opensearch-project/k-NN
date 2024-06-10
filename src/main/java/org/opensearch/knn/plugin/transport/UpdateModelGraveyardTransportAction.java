@@ -161,7 +161,17 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
                     modelGraveyard.remove(task.getModelId());
                     continue;
                 }
-                checkIfIndicesAreUsingModel(clusterState, task);
+                List<String> indicesUsingModel = getIndicesUsingModel(clusterState, task);
+                // Throw exception if any indices are using the model
+                if (!indicesUsingModel.isEmpty()) {
+                    throw new DeleteModelException(
+                        String.format(
+                            "Cannot delete model [%s].  Model is in use by the following indices %s, which must be deleted first.",
+                            task.getModelId(),
+                            indicesUsingModel
+                        )
+                    );
+                }
                 modelGraveyard.add(task.getModelId());
             }
 
@@ -173,7 +183,7 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
         }
     }
 
-    private static void checkIfIndicesAreUsingModel(ClusterState clusterState, UpdateModelGraveyardTask task) throws IOException {
+    private static List<String> getIndicesUsingModel(ClusterState clusterState, UpdateModelGraveyardTask task) throws IOException {
         Map<String, IndexMetadata> indices = clusterState.metadata().indices();
         List<String> knnIndicesList = new ArrayList<String>();
         // Get list of knn indices
@@ -183,6 +193,9 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
                 knnIndicesList.add(entry.getKey());
             }
         }
+        if (knnIndicesList.isEmpty()) {
+            return knnIndicesList;
+        }
         String[] indicesArray = Arrays.copyOf(knnIndicesList.toArray(), knnIndicesList.size(), String[].class);
         Map<String, MappingMetadata> mappings = clusterState.metadata()
             .findMappings(indicesArray, task.getIndicesService().getFieldFilter());
@@ -191,24 +204,15 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
         for (Map.Entry<String, MappingMetadata> entry : mappings.entrySet()) {
             MappingMetadata mappingMetadata = entry.getValue();
             if (mappingMetadata != null) {
-                if (parseMappingMetadata(mappingMetadata, task)) {
+                if (mappingMetadataContainsModel(mappingMetadata, task)) {
                     indicesUsingModel.add(entry.getKey());
                 }
             }
         }
-        // Throw exception if any indices are using the model
-        if (!indicesUsingModel.isEmpty()) {
-            throw new DeleteModelException(
-                String.format(
-                    "Cannot delete model [%s].  Model is in use by the following indices %s, which must be deleted first.",
-                    task.getModelId(),
-                    indicesUsingModel
-                )
-            );
-        }
+        return indicesUsingModel;
     }
 
-    private static boolean parseMappingMetadata(MappingMetadata mappingMetadata, UpdateModelGraveyardTask task) {
+    private static boolean mappingMetadataContainsModel(MappingMetadata mappingMetadata, UpdateModelGraveyardTask task) {
         Map<String, Object> mappingMetadataSourceMap = mappingMetadata.getSourceAsMap();
         String modelIdMappingString = String.join("model_id=", task.getModelId());
         // If modelId is present, parse map to field.
@@ -216,14 +220,14 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
             for (Map.Entry<String, Object> sourceEntry : mappingMetadataSourceMap.entrySet()) {
                 if (sourceEntry.getKey() != null && sourceEntry.getKey().equals(PROPERTIES) && sourceEntry.getValue() instanceof Map) {
                     Map<String, Object> fieldsMap = (Map<String, Object>) sourceEntry.getValue();
-                    return parseFieldsMap(fieldsMap, task.getModelId());
+                    return fieldsMapContainsModel(fieldsMap, task.getModelId());
                 }
             }
         }
         return false;
     }
 
-    private static boolean parseFieldsMap(Map<String, Object> fieldsMap, String modelId) {
+    private static boolean fieldsMapContainsModel(Map<String, Object> fieldsMap, String modelId) {
         for (Map.Entry<String, Object> fieldsEntry : fieldsMap.entrySet()) {
             if (fieldsEntry.getKey() != null && fieldsEntry.getValue() instanceof Map) {
                 Map<String, Object> innerMap = (Map<String, Object>) fieldsEntry.getValue();
