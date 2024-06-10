@@ -27,7 +27,6 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.delete.DeleteAction;
 import org.opensearch.action.delete.DeleteRequestBuilder;
 import org.opensearch.action.delete.DeleteResponse;
-import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
@@ -50,13 +49,11 @@ import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardRequest;
-import org.opensearch.core.rest.RestStatus;
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 
 import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -68,16 +65,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.opensearch.knn.common.KNNConstants.DIMENSION;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
-import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
-import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 import static org.opensearch.knn.common.KNNConstants.PROPERTIES;
 import static org.opensearch.knn.common.KNNConstants.TYPE;
 import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
@@ -1000,34 +989,4 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
     }
-
-    public void addDoc(Model model) throws IOException, ExecutionException, InterruptedException {
-        ModelMetadata modelMetadata = model.getModelMetadata();
-
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(MODEL_ID, model.getModelID())
-            .field(KNN_ENGINE, modelMetadata.getKnnEngine().getName())
-            .field(METHOD_PARAMETER_SPACE_TYPE, modelMetadata.getSpaceType().getValue())
-            .field(DIMENSION, modelMetadata.getDimension())
-            .field(MODEL_STATE, modelMetadata.getState().getName())
-            .field(MODEL_TIMESTAMP, modelMetadata.getTimestamp().toString())
-            .field(MODEL_DESCRIPTION, modelMetadata.getDescription())
-            .field(MODEL_ERROR, modelMetadata.getError());
-
-        if (model.getModelBlob() != null) {
-            builder.field(MODEL_BLOB_PARAMETER, Base64.getEncoder().encodeToString(model.getModelBlob()));
-        }
-
-        builder.endObject();
-
-        IndexRequest indexRequest = new IndexRequest().index(MODEL_INDEX_NAME)
-            .id(model.getModelID())
-            .source(builder)
-            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
-
-        IndexResponse response = client().index(indexRequest).get();
-        assertTrue(response.status() == RestStatus.CREATED || response.status() == RestStatus.OK);
-    }
-
 }

@@ -16,6 +16,7 @@ import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -36,13 +37,12 @@ import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.test.hamcrest.OpenSearchAssertions;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.*;
+import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 
 public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
     @Override
@@ -179,6 +179,38 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
 
         IndexResponse response = client().index(indexRequest).get();
         assertEquals(response.status(), RestStatus.CREATED);
+    }
+
+    /**
+     * Index a new model
+     */
+    protected void addDoc(Model model) throws IOException, ExecutionException, InterruptedException {
+        ModelMetadata modelMetadata = model.getModelMetadata();
+
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(MODEL_ID, model.getModelID())
+            .field(KNN_ENGINE, modelMetadata.getKnnEngine().getName())
+            .field(METHOD_PARAMETER_SPACE_TYPE, modelMetadata.getSpaceType().getValue())
+            .field(DIMENSION, modelMetadata.getDimension())
+            .field(MODEL_STATE, modelMetadata.getState().getName())
+            .field(MODEL_TIMESTAMP, modelMetadata.getTimestamp().toString())
+            .field(MODEL_DESCRIPTION, modelMetadata.getDescription())
+            .field(MODEL_ERROR, modelMetadata.getError());
+
+        if (model.getModelBlob() != null) {
+            builder.field(MODEL_BLOB_PARAMETER, Base64.getEncoder().encodeToString(model.getModelBlob()));
+        }
+
+        builder.endObject();
+
+        IndexRequest indexRequest = new IndexRequest().index(MODEL_INDEX_NAME)
+            .id(model.getModelID())
+            .source(builder)
+            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
+
+        IndexResponse response = client().index(indexRequest).get();
+        assertTrue(response.status() == RestStatus.CREATED || response.status() == RestStatus.OK);
     }
 
     /**
