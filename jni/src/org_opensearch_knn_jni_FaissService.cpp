@@ -44,7 +44,32 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createIndex(JNIE
                                                                             jstring indexPathJ, jobject parametersJ)
 {
     try {
-        knn_jni::faiss_wrapper::CreateIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexPathJ, parametersJ);
+        std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
+        knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
+        knn_jni::faiss_wrapper::CreateIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexPathJ, parametersJ, &indexService);
+
+        // Releasing the vectorsAddressJ memory as that is not required once we have created the index.
+        // This is not the ideal approach, please refer this gh issue for long term solution:
+        // https://github.com/opensearch-project/k-NN/issues/1600
+        delete reinterpret_cast<std::vector<float>*>(vectorsAddressJ);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+}
+
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createBinaryIndex(JNIEnv * env, jclass cls, jintArray idsJ,
+                                                                            jlong vectorsAddressJ, jint dimJ,
+                                                                            jstring indexPathJ, jobject parametersJ)
+{
+    try {
+        std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
+        knn_jni::faiss_wrapper::BinaryIndexService binaryIndexService(std::move(faissMethods));
+        knn_jni::faiss_wrapper::CreateIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexPathJ, parametersJ, &binaryIndexService);
+
+        // Releasing the vectorsAddressJ memory as that is not required once we have created the index.
+        // This is not the ideal approach, please refer this gh issue for long term solution:
+        // https://github.com/opensearch-project/k-NN/issues/1600
+        delete reinterpret_cast<std::vector<uint8_t>*>(vectorsAddressJ);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
@@ -69,6 +94,16 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex(JNIEn
 {
     try {
         return knn_jni::faiss_wrapper::LoadIndex(&jniUtil, env, indexPathJ);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+    return NULL;
+}
+
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadBinaryIndex(JNIEnv * env, jclass cls, jstring indexPathJ)
+{
+    try {
+        return knn_jni::faiss_wrapper::LoadBinaryIndex(&jniUtil, env, indexPathJ);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
@@ -125,6 +160,18 @@ JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryInd
 
       try {
           return knn_jni::faiss_wrapper::QueryIndex_WithFilter(&jniUtil, env, indexPointerJ, queryVectorJ, kJ, filteredIdsJ, filterIdsTypeJ, parentIdsJ);
+      } catch (...) {
+          jniUtil.CatchCppExceptionAndThrowJava(env);
+      }
+      return nullptr;
+
+}
+
+JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryBinaryIndexWithFilter
+  (JNIEnv * env, jclass cls, jlong indexPointerJ, jbyteArray queryVectorJ, jint kJ, jlongArray filteredIdsJ, jint filterIdsTypeJ,  jintArray parentIdsJ) {
+
+      try {
+          return knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(&jniUtil, env, indexPointerJ, queryVectorJ, kJ, filteredIdsJ, filterIdsTypeJ, parentIdsJ);
       } catch (...) {
           jniUtil.CatchCppExceptionAndThrowJava(env);
       }

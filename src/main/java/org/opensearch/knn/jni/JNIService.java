@@ -12,6 +12,7 @@
 package org.opensearch.knn.jni;
 
 import org.apache.commons.lang.ArrayUtils;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -21,6 +22,7 @@ import java.util.Map;
  * Service to distribute requests to the proper engine jni service
  */
 public class JNIService {
+    private static final String FAISS_BINARY_INDEX_PREFIX = "B";
 
     /**
      * Create an index for the native library. The memory occupied by the vectorsAddress will be freed up during the
@@ -50,7 +52,12 @@ public class JNIService {
         }
 
         if (KNNEngine.FAISS == knnEngine) {
-            FaissService.createIndex(ids, vectorsAddress, dim, indexPath, parameters);
+            if (parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER) != null
+                && parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString().startsWith(FAISS_BINARY_INDEX_PREFIX)) {
+                FaissService.createBinaryIndex(ids, vectorsAddress, dim, indexPath, parameters);
+            } else {
+                FaissService.createIndex(ids, vectorsAddress, dim, indexPath, parameters);
+            }
             return;
         }
 
@@ -101,7 +108,12 @@ public class JNIService {
         }
 
         if (KNNEngine.FAISS == knnEngine) {
-            return FaissService.loadIndex(indexPath);
+            if (parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER) != null
+                && parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString().startsWith(FAISS_BINARY_INDEX_PREFIX)) {
+                return FaissService.loadBinaryIndex(indexPath);
+            } else {
+                return FaissService.loadIndex(indexPath);
+            }
         }
 
         throw new IllegalArgumentException(String.format("LoadIndex not supported for provided engine : %s", knnEngine.getName()));
@@ -193,6 +205,39 @@ public class JNIService {
             return FaissService.queryIndex(indexPointer, queryVector, k, parentIds);
         }
         throw new IllegalArgumentException(String.format("QueryIndex not supported for provided engine : %s", knnEngine.getName()));
+    }
+
+    /**
+     * Query a binary index
+     *
+     * @param indexPointer  pointer to index in memory
+     * @param queryVector   vector to be used for query
+     * @param k             neighbors to be returned
+     * @param knnEngine     engine to query index
+     * @param filteredIds   array of ints on which should be used for search.
+     * @param filterIdsType how to filter ids: Batch or BitMap
+     * @return KNNQueryResult array of k neighbors
+     */
+    public static KNNQueryResult[] queryBinaryIndex(
+        long indexPointer,
+        byte[] queryVector,
+        int k,
+        KNNEngine knnEngine,
+        long[] filteredIds,
+        int filterIdsType,
+        int[] parentIds
+    ) {
+        if (KNNEngine.FAISS == knnEngine) {
+            return FaissService.queryBinaryIndexWithFilter(
+                indexPointer,
+                queryVector,
+                k,
+                ArrayUtils.isEmpty(filteredIds) ? null : filteredIds,
+                filterIdsType,
+                parentIds
+            );
+        }
+        throw new IllegalArgumentException(String.format("QueryBinaryIndex not supported for provided engine : %s", knnEngine.getName()));
     }
 
     /**
