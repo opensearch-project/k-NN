@@ -40,7 +40,6 @@ import static org.opensearch.knn.common.KNNConstants.PROPERTIES;
 import static org.opensearch.knn.common.KNNConstants.TYPE;
 import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 
-
 public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestCase {
 
     public void testExecutor() {
