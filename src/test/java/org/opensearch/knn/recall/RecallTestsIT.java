@@ -312,6 +312,8 @@ public class RecallTestsIT extends KNNRestTestCase {
             createIndexAndIngestDocs(indexName, TEST_FIELD_NAME, getSettings(), getModelMapping());
             assertRecall(indexName, spaceType, 0.25f);
 
+            deleteIndex(indexName);
+
             // Delete the model
             deleteModel(TEST_MODEL_ID);
         }
@@ -386,6 +388,8 @@ public class RecallTestsIT extends KNNRestTestCase {
             // Build the index
             createIndexAndIngestDocs(indexName, TEST_FIELD_NAME, getSettings(), getModelMapping());
             assertRecall(indexName, spaceType, 0.5f);
+
+            deleteIndex(indexName);
 
             // Delete the model
             deleteModel(TEST_MODEL_ID);
@@ -462,6 +466,8 @@ public class RecallTestsIT extends KNNRestTestCase {
             // Build the index
             createIndexAndIngestDocs(indexName, TEST_FIELD_NAME, getSettings(), getModelMapping());
             assertRecall(indexName, spaceType, 0.5f);
+
+            deleteIndex(indexName);
 
             // Delete the model
             deleteModel(TEST_MODEL_ID);

@@ -1147,6 +1147,7 @@ public class FaissIT extends KNNRestTestCase {
         // will give 15 second buffer from that
         Thread.sleep(1000 * 45);
         validateSearchWorkflow(secondIndexName, testData.queries, 10);
+        deleteKNNIndex(secondIndexName);
         deleteModel(modelId);
     }
 
