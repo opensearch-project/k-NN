@@ -18,6 +18,7 @@ import org.mockito.MockedStatic;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.ResourceAlreadyExistsException;
 import org.opensearch.ResourceNotFoundException;
+import org.opensearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.opensearch.cluster.ClusterChangedEvent;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.DocWriteResponse;
@@ -26,7 +27,6 @@ import org.opensearch.action.admin.indices.create.CreateIndexResponse;
 import org.opensearch.action.delete.DeleteAction;
 import org.opensearch.action.delete.DeleteRequestBuilder;
 import org.opensearch.action.delete.DeleteResponse;
-import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
@@ -35,7 +35,8 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.IndexNotFoundException;
 import org.opensearch.index.engine.VersionConflictEngineException;
 import org.opensearch.knn.KNNSingleNodeTestCase;
-import org.opensearch.knn.common.exception.DeleteModelWhenInTrainStateException;
+import org.opensearch.knn.TestUtils;
+import org.opensearch.knn.common.exception.DeleteModelException;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -48,13 +49,11 @@ import org.opensearch.knn.plugin.transport.UpdateModelMetadataAction;
 import org.opensearch.knn.plugin.transport.UpdateModelMetadataRequest;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardAction;
 import org.opensearch.knn.plugin.transport.UpdateModelGraveyardRequest;
-import org.opensearch.core.rest.RestStatus;
 import org.opensearch.knn.training.TrainingJobClusterStateListener;
 
 import java.io.IOException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -66,17 +65,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.opensearch.cluster.metadata.Metadata.builder;
-import static org.opensearch.knn.common.KNNConstants.DIMENSION;
-import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
-import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
-import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
-import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
+import static org.opensearch.knn.common.KNNConstants.PROPERTIES;
+import static org.opensearch.knn.common.KNNConstants.TYPE;
+import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 
 public class ModelDaoTests extends KNNSingleNodeTestCase {
 
@@ -568,7 +561,7 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         ActionListener<DeleteModelResponse> deleteModelTrainingListener = ActionListener.wrap(
             response -> fail("Deleting model when model does not exist should throw ResourceNotFoundException"),
             exception -> {
-                assertTrue(exception instanceof DeleteModelWhenInTrainStateException);
+                assertTrue(exception instanceof DeleteModelException);
                 assertFalse(modelDao.isModelInGraveyard(modelId));
                 inProgressLatch2.countDown();
             }
@@ -634,6 +627,91 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
         modelDao.put(model1, docCreationListener1);
 
         assertTrue(inProgressLatch3.await(100, TimeUnit.SECONDS));
+    }
+
+    // Test Delete Model when the model is in use by an index
+    public void testDeleteModelInUse() throws IOException, ExecutionException, InterruptedException {
+        String modelId = "test-model-id-training";
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
+        byte[] modelBlob = "deleteModel".getBytes();
+        int dimension = 2;
+        createIndex(MODEL_INDEX_NAME);
+
+        Model model = new Model(
+            new ModelMetadata(
+                KNNEngine.DEFAULT,
+                SpaceType.DEFAULT,
+                dimension,
+                ModelState.CREATED,
+                ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
+                "",
+                "",
+                MethodComponentContext.EMPTY
+            ),
+            modelBlob,
+            modelId
+        );
+
+        // created model and added it to index
+        addDoc(model);
+
+        String testIndex = "test-index";
+        String testField = "test-field";
+
+        /*
+            Constructs the following json:
+            {
+              "properties": {
+                "test-field": {
+                  "type": "knn_vector",
+                  "model_id": "test-model-id-training"
+                }
+              }
+            }
+         */
+        XContentBuilder mappings = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES)
+            .startObject(testField)
+            .field(TYPE, TYPE_KNN_VECTOR)
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        XContentBuilder settings = XContentFactory.jsonBuilder().startObject().field(TestUtils.INDEX_KNN, "true").endObject();
+
+        // Create index using model
+        CreateIndexRequestBuilder createIndexRequestBuilder = client().admin()
+            .indices()
+            .prepareCreate(testIndex)
+            .setMapping(mappings)
+            .setSettings(settings);
+        createIndex(testIndex, createIndexRequestBuilder);
+
+        CountDownLatch latch = new CountDownLatch(1);
+        modelDao.delete(modelId, new ActionListener<DeleteModelResponse>() {
+            @Override
+            public void onResponse(DeleteModelResponse deleteModelResponse) {
+                fail("Received delete model response when the request should have failed.");
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                assertTrue(e instanceof DeleteModelException);
+                assertEquals(
+                    String.format(
+                        "Cannot delete model [%s].  Model is in use by the following indices [%s], which must be deleted first.",
+                        modelId,
+                        testIndex
+                    ),
+                    e.getMessage()
+                );
+                latch.countDown();
+            }
+        });
+        assertTrue(latch.await(60, TimeUnit.SECONDS));
     }
 
     // Test Delete Model when modelId is in Model Graveyard (previous delete model request which failed to
@@ -911,34 +989,4 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
 
         assertTrue(inProgressLatch1.await(100, TimeUnit.SECONDS));
     }
-
-    public void addDoc(Model model) throws IOException, ExecutionException, InterruptedException {
-        ModelMetadata modelMetadata = model.getModelMetadata();
-
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .field(MODEL_ID, model.getModelID())
-            .field(KNN_ENGINE, modelMetadata.getKnnEngine().getName())
-            .field(METHOD_PARAMETER_SPACE_TYPE, modelMetadata.getSpaceType().getValue())
-            .field(DIMENSION, modelMetadata.getDimension())
-            .field(MODEL_STATE, modelMetadata.getState().getName())
-            .field(MODEL_TIMESTAMP, modelMetadata.getTimestamp().toString())
-            .field(MODEL_DESCRIPTION, modelMetadata.getDescription())
-            .field(MODEL_ERROR, modelMetadata.getError());
-
-        if (model.getModelBlob() != null) {
-            builder.field(MODEL_BLOB_PARAMETER, Base64.getEncoder().encodeToString(model.getModelBlob()));
-        }
-
-        builder.endObject();
-
-        IndexRequest indexRequest = new IndexRequest().index(MODEL_INDEX_NAME)
-            .id(model.getModelID())
-            .source(builder)
-            .setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
-
-        IndexResponse response = client().index(indexRequest).get();
-        assertTrue(response.status() == RestStatus.CREATED || response.status() == RestStatus.OK);
-    }
-
 }
