@@ -19,6 +19,7 @@ import org.opensearch.knn.index.util.KNNEngine;
 import java.util.Locale;
 import java.util.Map;
 
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 
@@ -101,12 +102,17 @@ public class KNNQueryFactory extends BaseQueryFactory {
                 .build();
         }
 
+        Integer requestEfSearch = null;
+        if (methodParameters != null && methodParameters.containsKey(METHOD_PARAMETER_EF_SEARCH)) {
+            requestEfSearch = (Integer) methodParameters.get(METHOD_PARAMETER_EF_SEARCH);
+        }
+        int luceneK = requestEfSearch == null ? k : Math.max(k, requestEfSearch);
         log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
         switch (vectorDataType) {
             case BYTE:
-                return getKnnByteVectorQuery(fieldName, byteVector, k, filterQuery, parentFilter);
+                return getKnnByteVectorQuery(fieldName, byteVector, luceneK, filterQuery, parentFilter);
             case FLOAT:
-                return getKnnFloatVectorQuery(fieldName, vector, k, filterQuery, parentFilter);
+                return getKnnFloatVectorQuery(fieldName, vector, luceneK, filterQuery, parentFilter);
             default:
                 throw new IllegalArgumentException(
                     String.format(

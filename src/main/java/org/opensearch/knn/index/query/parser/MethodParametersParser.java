@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.METHOD_PARAMS_FIELD;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.NAME;
 
