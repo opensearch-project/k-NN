@@ -102,9 +102,10 @@ cd jni
 sed -i -e 's/\/usr\/local\/opt\/libomp\//\/opt\/homebrew\/opt\/llvm\//g' cmake/init-faiss.cmake
 sed -i -e 's/__aarch64__/__undefine_aarch64__/g' external/faiss/faiss/utils/distances_simd.cpp
 sed -i -e 's/pragma message WARN/pragma message /g' external/nmslib/similarity_search/src/distcomp_scalar.cc
-// Change -mcpu value to use chip version according to your M series, for example, -mcpu=apple-m1
+// Change -mcpu value to use chip version according to your M series, for example, -mcpu=apple-m1. You can see the supported mcpu values via gcc --print-supported-cpus
 sed -i -e 's/-march=native/-mcpu=apple-m1/g' external/nmslib/similarity_search/CMakeLists.txt
 sed -i -e 's/-mcpu=apple-a14/-mcpu=apple-m1/g' external/nmslib/python_bindings/setup.py
+sed -i '' '/set(CMAKE_CXX_STANDARD_REQUIRED True)/a\'$'\n''set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -fopenmp -L/opt/homebrew/opt/libomp/lib -I/opt/homebrew/opt/libomp/include -lomp -arch arm64 -fexceptions")' CMakeLists.txt
 
 // Install llvm
 brew install llvm
@@ -112,8 +113,8 @@ echo 'export PATH="/opt/homebrew/opt/llvm/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 
 // Set compiler path for CMAKE
-export CC=/opt/homebrew/opt/llvm/bin/clang
-export CXX=/opt/homebrew/opt/llvm/bin/clang++
+export CC=gcc
+export CXX=g++
 
 // Build
 cmake . --fresh
