@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.METHOD_PARAMS_FIELD;
@@ -61,14 +62,14 @@ public class MethodParametersParser {
     }
 
     // deserialize for node to node communication
-    public static Map<String, ?> streamInput(StreamInput in) throws IOException {
+    public static Map<String, ?> streamInput(StreamInput in, Function<String, Boolean> minClusterVersionCheck) throws IOException {
         if (!in.readBoolean()) {
             return null;
         }
 
         final Map<String, Object> methodParameters = new HashMap<>();
         for (final MethodParameter methodParameter : MethodParameter.values()) {
-            if (isClusterOnOrAfterMinRequiredVersion(methodParameter.getName())) {
+            if (minClusterVersionCheck.apply(methodParameter.getName())) {
                 String name = in.readString();
                 Object value = in.readGenericValue();
                 if (value != null) {
@@ -81,14 +82,15 @@ public class MethodParametersParser {
     }
 
     // serialize for node to node communication
-    public static void streamOutput(StreamOutput out, Map<String, ?> methodParameters) throws IOException {
+    public static void streamOutput(StreamOutput out, Map<String, ?> methodParameters, Function<String, Boolean> minClusterVersionCheck)
+        throws IOException {
         if (methodParameters == null || methodParameters.isEmpty()) {
             out.writeBoolean(false);
         } else {
             out.writeBoolean(true);
             // All values are written to deserialize without ambiguity
             for (final MethodParameter methodParameter : MethodParameter.values()) {
-                if (isClusterOnOrAfterMinRequiredVersion(methodParameter.getName())) {
+                if (minClusterVersionCheck.apply(methodParameter.getName())) {
                     out.writeString(methodParameter.getName());
                     out.writeGenericValue(methodParameters.get(methodParameter.getName()));
                 }
