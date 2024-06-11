@@ -13,7 +13,6 @@ import org.apache.lucene.search.Query;
 import org.opensearch.Version;
 import org.opensearch.cluster.ClusterModule;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.Nullable;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.common.io.stream.NamedWriteableAwareStreamInput;
@@ -1044,32 +1043,29 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testSerialization() throws Exception {
         // For k-NN search
-        assertSerialization(Version.CURRENT, Optional.empty(), K, null, null, null, null);
-        assertSerialization(Version.CURRENT, Optional.empty(), K, EF_SEARCH, EF_SEARCH, null, null);
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), K, EF_SEARCH, EF_SEARCH, null, null);
-        assertSerialization(Version.V_2_3_0, Optional.empty(), K, EF_SEARCH, null, null, null);
-        assertSerialization(Version.V_2_3_0, Optional.empty(), K, null, null, null, null);
+        assertSerialization(Version.CURRENT, Optional.empty(), K, null, null, null);
+        assertSerialization(Version.CURRENT, Optional.empty(), K, Map.of("ef_search", EF_SEARCH), null, null);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), K, Map.of("ef_search", EF_SEARCH), null, null);
+        assertSerialization(Version.V_2_3_0, Optional.empty(), K, Map.of("ef_search", EF_SEARCH), null, null);
+        assertSerialization(Version.V_2_3_0, Optional.empty(), K, null, null, null);
 
         // For distance threshold search
-        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, MAX_DISTANCE, null);
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, MAX_DISTANCE, null);
+        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, MAX_DISTANCE);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, MAX_DISTANCE);
 
         // For score threshold search
-        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, null, MIN_SCORE);
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, null, MIN_SCORE);
+        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, MIN_SCORE);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, MIN_SCORE);
     }
 
     private void assertSerialization(
         final Version version,
         final Optional<QueryBuilder> queryBuilderOptional,
         Integer k,
-        @Nullable Integer requestEfSearch,
-        Integer expectedEfSearch,
+        Map<String, ?> methodParameters,
         Float distance,
         Float score
     ) throws Exception {
-        Map<String, ?> methodParameters = requestEfSearch == null ? null : Map.of("ef_search", requestEfSearch);
-
         final KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(QUERY_VECTOR)
@@ -1099,13 +1095,6 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 assertArrayEquals(QUERY_VECTOR, (float[]) deserializedKnnQueryBuilder.vector(), 0.0f);
                 if (k != null) {
                     assertEquals(k.intValue(), deserializedKnnQueryBuilder.getK());
-                    Integer actualEfSearch = methodParameters == null ? null : (Integer) methodParameters.get("ef_search");
-                    // Verifies efSearch
-                    if (version.onOrAfter(Version.V_3_0_0)) {
-                        assertEquals(expectedEfSearch, actualEfSearch);
-                    } else {
-                        assertNull(deserializedKnnQueryBuilder.getMethodParameters());
-                    }
                 } else if (distance != null) {
                     assertEquals(distance.floatValue(), deserializedKnnQueryBuilder.getMaxDistance(), 0.0f);
                 } else {
@@ -1117,6 +1106,17 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                 } else {
                     assertNull(deserializedKnnQueryBuilder.getFilter());
                 }
+                assertMethodParameters(version, methodParameters, deserializedKnnQueryBuilder.getMethodParameters());
+            }
+        }
+    }
+
+    private void assertMethodParameters(Version version, Map<String, ?> expectedMethodParameters, Map<String, ?> actualMethodParameters) {
+        if (!version.onOrAfter(Version.V_3_0_0)) {
+            assertNull(actualMethodParameters);
+        } else if (expectedMethodParameters != null) {
+            if (version.onOrAfter(Version.V_3_0_0)) {
+                assertEquals(expectedMethodParameters.get("ef_search"), actualMethodParameters.get("ef_search"));
             }
         }
     }

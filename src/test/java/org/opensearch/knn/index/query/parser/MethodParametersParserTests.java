@@ -76,7 +76,7 @@ public class MethodParametersParserTests extends KNNTestCase {
         XContentParser parser3 = createParser(builder);
         assertEquals(Map.of("ef_search", 10), MethodParametersParser.fromXContent(parser3));
 
-        //empty map
+        // empty map
         builder = XContentFactory.jsonBuilder().startObject().endObject();
         XContentParser parser4 = createParser(builder);
         expectThrows(ParsingException.class, () -> MethodParametersParser.fromXContent(parser4));

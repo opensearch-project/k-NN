@@ -326,7 +326,10 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
                 minScore = in.readOptionalFloat();
             }
-            methodParameters = MethodParametersParser.streamInput(in);
+            if (isClusterOnOrAfterMinRequiredVersion(METHOD_PARAMETER)) {
+                methodParameters = MethodParametersParser.streamInput(in);
+            }
+
         } catch (IOException ex) {
             throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder", ex);
         }
@@ -430,7 +433,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
             out.writeOptionalFloat(minScore);
         }
-        MethodParametersParser.streamOutput(out, methodParameters);
+        if (isClusterOnOrAfterMinRequiredVersion(METHOD_PARAMETER)) {
+            MethodParametersParser.streamOutput(out, methodParameters);
+        }
     }
 
     /**
