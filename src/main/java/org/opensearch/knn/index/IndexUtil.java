@@ -47,7 +47,8 @@ public class IndexUtil {
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_METHOD_COMPONENT_CONTEXT = Version.V_2_13_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_RADIAL_SEARCH = Version.V_2_14_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_METHOD_PARAMETERS = Version.V_3_0_0;
-    private static final Map<String, Version> minimalRequiredVersionMap = initializeMinimalRequiredVersionMap();
+    // public so neural search can access it
+    public static final Map<String, Version> minimalRequiredVersionMap = initializeMinimalRequiredVersionMap();
 
     private static Map<String, Version> initializeMinimalRequiredVersionMap() {
         final Map<String, Version> versionMap = new HashMap<>() {

@@ -26,6 +26,7 @@ import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.knn.index.util.EngineSpecificMethodContext;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.MethodComponentContext;
@@ -327,7 +328,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 minScore = in.readOptionalFloat();
             }
             if (isClusterOnOrAfterMinRequiredVersion(METHOD_PARAMETER)) {
-                methodParameters = MethodParametersParser.streamInput(in);
+                methodParameters = MethodParametersParser.streamInput(in, IndexUtil::isClusterOnOrAfterMinRequiredVersion);
             }
 
         } catch (IOException ex) {
@@ -434,7 +435,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             out.writeOptionalFloat(minScore);
         }
         if (isClusterOnOrAfterMinRequiredVersion(METHOD_PARAMETER)) {
-            MethodParametersParser.streamOutput(out, methodParameters);
+            MethodParametersParser.streamOutput(out, methodParameters, IndexUtil::isClusterOnOrAfterMinRequiredVersion);
         }
     }
 
