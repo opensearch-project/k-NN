@@ -5,17 +5,40 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import org.opensearch.action.admin.indices.create.CreateIndexRequestBuilder;
+import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.cluster.ClusterState;
 import org.opensearch.common.io.stream.BytesStreamOutput;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNSingleNodeTestCase;
+import org.opensearch.knn.TestUtils;
+import org.opensearch.knn.common.exception.DeleteModelException;
+import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelGraveyard;
+import org.opensearch.knn.indices.ModelMetadata;
+import org.opensearch.knn.indices.ModelState;
 import org.opensearch.threadpool.ThreadPool;
 
 import java.io.IOException;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
+import static org.opensearch.knn.common.KNNConstants.PROPERTIES;
+import static org.opensearch.knn.common.KNNConstants.TYPE;
+import static org.opensearch.knn.common.KNNConstants.TYPE_KNN_VECTOR;
 
 public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestCase {
 
@@ -164,5 +187,202 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
         UpdateModelGraveyardTransportAction updateModelGraveyardTransportAction = node().injector()
             .getInstance(UpdateModelGraveyardTransportAction.class);
         assertNull(updateModelGraveyardTransportAction.checkBlock(null, null));
+    }
+
+    public void testGetIndicesUsingModel() throws IOException, ExecutionException, InterruptedException {
+        // Get update transport action
+        UpdateModelGraveyardTransportAction updateModelGraveyardTransportAction = node().injector()
+            .getInstance(UpdateModelGraveyardTransportAction.class);
+
+        String modelId = "test-model-id";
+        byte[] modelBlob = "testModel".getBytes();
+        int dimension = 2;
+
+        createIndex(MODEL_INDEX_NAME);
+
+        Model model = new Model(
+            new ModelMetadata(
+                KNNEngine.DEFAULT,
+                SpaceType.DEFAULT,
+                dimension,
+                ModelState.CREATED,
+                ZonedDateTime.now(ZoneOffset.UTC).toString(),
+                "",
+                "",
+                "",
+                MethodComponentContext.EMPTY
+            ),
+            modelBlob,
+            modelId
+        );
+
+        // created model and added it to index
+        addDoc(model);
+
+        // Create basic index (not using k-NN)
+        String testIndex1 = "test-index1";
+        createIndex(testIndex1);
+
+        // Attempt to add model id to graveyard with one non-knn index present, should succeed
+        UpdateModelGraveyardRequest addModelGraveyardRequest = new UpdateModelGraveyardRequest(modelId, false);
+        updateModelGraveyardAndAssertNoError(updateModelGraveyardTransportAction, addModelGraveyardRequest);
+
+        // Remove model from graveyard to prepare for next check
+        UpdateModelGraveyardRequest removeModelGraveyardRequest = new UpdateModelGraveyardRequest(modelId, true);
+        updateModelGraveyardAndAssertNoError(updateModelGraveyardTransportAction, removeModelGraveyardRequest);
+
+        // Create k-NN index not using the model
+        String testIndex2 = "test-index2";
+        createKNNIndex(testIndex2);
+
+        // Attempt to add model id to graveyard with one non-knn index and one k-nn index not using model present, should succeed
+        updateModelGraveyardAndAssertNoError(updateModelGraveyardTransportAction, addModelGraveyardRequest);
+
+        // Remove model from graveyard to prepare for next check
+        updateModelGraveyardAndAssertNoError(updateModelGraveyardTransportAction, removeModelGraveyardRequest);
+
+        // Create k-NN index using model
+        String testIndex3 = "test-index3";
+        String testField3 = "test-field3";
+
+        /*
+            Constructs the following json:
+            {
+              "properties": {
+                "test-field3": {
+                  "type": "knn_vector",
+                  "model_id": "test-model-id"
+                }
+              }
+            }
+         */
+        XContentBuilder mappings3 = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES)
+            .startObject(testField3)
+            .field(TYPE, TYPE_KNN_VECTOR)
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        XContentBuilder settings = XContentFactory.jsonBuilder().startObject().field(TestUtils.INDEX_KNN, "true").endObject();
+
+        CreateIndexRequestBuilder createIndexRequestBuilder3 = client().admin()
+            .indices()
+            .prepareCreate(testIndex3)
+            .setMapping(mappings3)
+            .setSettings(settings);
+        createIndex(testIndex3, createIndexRequestBuilder3);
+
+        // Attempt to add model id to graveyard when one index is using model, should fail
+        List<String> indicesUsingModel = new ArrayList<>();
+        indicesUsingModel.add(testIndex3);
+        updateModelGraveyardAndAssertDeleteModelException(
+            updateModelGraveyardTransportAction,
+            addModelGraveyardRequest,
+            indicesUsingModel.toString()
+        );
+
+        // Create second k-NN index using model
+        String testIndex4 = "test-index4";
+        String testField4 = "test-field4";
+        String standardField = "standard-field";
+
+        /*
+            Constructs the following json:
+            {
+              "properties": {
+                "standard-field": {
+                  "type": "knn_vector",
+                  "dimension": "2"
+                }
+                "test-field4": {
+                  "type": "knn_vector",
+                  "model_id": "test-model-id"
+                }
+              }
+            }
+         */
+        XContentBuilder mappings4 = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES)
+            .startObject(standardField)
+            .field(TYPE, TYPE_KNN_VECTOR)
+            .field(DIMENSION, dimension)
+            .endObject()
+            .startObject(testField4)
+            .field(TYPE, TYPE_KNN_VECTOR)
+            .field(MODEL_ID, modelId)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        CreateIndexRequestBuilder createIndexRequestBuilder4 = client().admin()
+            .indices()
+            .prepareCreate(testIndex4)
+            .setMapping(mappings4)
+            .setSettings(settings);
+        createIndex(testIndex4, createIndexRequestBuilder4);
+
+        // Add index at beginning to match order of list returned by getIndicesUsingModel()
+        indicesUsingModel.add(0, testIndex4);
+
+        // Attempt to add model id to graveyard when one index is using model, should fail
+        updateModelGraveyardAndAssertDeleteModelException(
+            updateModelGraveyardTransportAction,
+            addModelGraveyardRequest,
+            indicesUsingModel.toString()
+        );
+    }
+
+    public void updateModelGraveyardAndAssertNoError(
+        UpdateModelGraveyardTransportAction updateModelGraveyardTransportAction,
+        UpdateModelGraveyardRequest updateModelGraveyardRequest
+    ) throws InterruptedException {
+        final CountDownLatch countDownLatch = new CountDownLatch(1);
+        client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
+            ClusterState clusterState1 = stateResponse1.getState();
+            updateModelGraveyardTransportAction.clusterManagerOperation(
+                updateModelGraveyardRequest,
+                clusterState1,
+                ActionListener.wrap(acknowledgedResponse -> {
+                    assertTrue(acknowledgedResponse.isAcknowledged());
+                    countDownLatch.countDown();
+                }, e -> { fail("Update failed: " + e); })
+            );
+        }, e -> fail("Update failed: " + e)));
+        assertTrue(countDownLatch.await(60, TimeUnit.SECONDS));
+    }
+
+    public void updateModelGraveyardAndAssertDeleteModelException(
+        UpdateModelGraveyardTransportAction updateModelGraveyardTransportAction,
+        UpdateModelGraveyardRequest updateModelGraveyardRequest,
+        String indicesPresentInException
+    ) throws InterruptedException {
+        final CountDownLatch countDownLatch = new CountDownLatch(1);
+        client().admin().cluster().prepareState().execute(ActionListener.wrap(stateResponse1 -> {
+            ClusterState clusterState1 = stateResponse1.getState();
+            updateModelGraveyardTransportAction.clusterManagerOperation(
+                updateModelGraveyardRequest,
+                clusterState1,
+                ActionListener.wrap(acknowledgedResponse -> {
+                    fail();
+                }, e -> {
+                    assertTrue(e instanceof DeleteModelException);
+                    assertEquals(
+                        String.format(
+                            "Cannot delete model [%s].  Model is in use by the following indices %s, which must be deleted first.",
+                            updateModelGraveyardRequest.getModelId(),
+                            indicesPresentInException
+                        ),
+                        e.getMessage()
+                    );
+                    countDownLatch.countDown();
+                })
+            );
+        }, e -> fail("Update failed: " + e)));
+
+        assertTrue(countDownLatch.await(60, TimeUnit.SECONDS));
     }
 }
