@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.util.*;
 
 import static org.opensearch.knn.TestUtils.*;
+import static org.opensearch.knn.TestUtils.PROPERTIES;
 import static org.opensearch.knn.common.KNNConstants.*;
 
 /**
