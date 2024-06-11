@@ -8,8 +8,6 @@ package org.opensearch.knn.plugin.transport;
 import lombok.Value;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.cluster.metadata.IndexMetadata;
-import org.opensearch.cluster.metadata.MappingMetadata;
-import org.opensearch.common.settings.Settings;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.master.AcknowledgedResponse;
@@ -32,17 +30,16 @@ import org.opensearch.threadpool.ThreadPool;
 import org.opensearch.transport.TransportService;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import static java.util.stream.Collectors.toList;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PLUGIN_NAME;
-import static org.opensearch.knn.common.KNNConstants.PROPERTIES;
 
 /**
  * Transport action used to update model graveyard on the cluster manager node.
@@ -181,66 +178,50 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
             ClusterState updatedClusterState = ClusterState.builder(clusterState).metadata(metaDataBuilder).build();
             return new ClusterTasksResult.Builder<UpdateModelGraveyardTask>().successes(taskList).build(updatedClusterState);
         }
-    }
 
-    private static List<String> getIndicesUsingModel(ClusterState clusterState, UpdateModelGraveyardTask task) throws IOException {
-        Map<String, IndexMetadata> indices = clusterState.metadata().indices();
-        List<String> knnIndicesList = new ArrayList<String>();
-        // Get list of knn indices
-        for (Map.Entry<String, IndexMetadata> entry : indices.entrySet()) {
-            Settings indexSettings = indices.get(entry.getKey()).getSettings();
-            if (Boolean.parseBoolean(indexSettings.get("index.knn", "false"))) {
-                knnIndicesList.add(entry.getKey());
+        private List<String> getIndicesUsingModel(ClusterState clusterState, UpdateModelGraveyardTask task) throws IOException {
+            Map<String, IndexMetadata> indices = clusterState.metadata().indices();
+            String[] knnIndicesList = indices.values()
+                .stream()
+                .filter(metadata -> "true".equals(metadata.getSettings().get("index.knn", "false")))
+                .map(metadata -> metadata.getIndex().getName())
+                .toArray(String[]::new);
+            if (knnIndicesList.length == 0) {
+                return Collections.emptyList();
             }
-        }
-        if (knnIndicesList.isEmpty()) {
-            return knnIndicesList;
-        }
-        String[] indicesArray = Arrays.copyOf(knnIndicesList.toArray(), knnIndicesList.size(), String[].class);
-        Map<String, MappingMetadata> mappings = clusterState.metadata()
-            .findMappings(indicesArray, task.getIndicesService().getFieldFilter());
-        List<String> indicesUsingModel = new ArrayList<>();
-        // Parse knn indices and add to list if using the model
-        for (Map.Entry<String, MappingMetadata> entry : mappings.entrySet()) {
-            MappingMetadata mappingMetadata = entry.getValue();
-            if (mappingMetadata != null) {
-                if (mappingMetadataContainsModel(mappingMetadata, task)) {
-                    indicesUsingModel.add(entry.getKey());
-                }
-            }
-        }
-        return indicesUsingModel;
-    }
 
-    private static boolean mappingMetadataContainsModel(MappingMetadata mappingMetadata, UpdateModelGraveyardTask task) {
-        Map<String, Object> mappingMetadataSourceMap = mappingMetadata.getSourceAsMap();
-        String modelIdMappingString = String.join("model_id=", task.getModelId());
-        // If modelId is present, parse map to field.
-        if (mappingMetadataSourceMap.toString().contains(modelIdMappingString)) {
-            for (Map.Entry<String, Object> sourceEntry : mappingMetadataSourceMap.entrySet()) {
-                if (sourceEntry.getKey() != null && sourceEntry.getKey().equals(PROPERTIES) && sourceEntry.getValue() instanceof Map) {
-                    Map<String, Object> fieldsMap = (Map<String, Object>) sourceEntry.getValue();
-                    return fieldsMapContainsModel(fieldsMap, task.getModelId());
-                }
-            }
+            return clusterState.metadata()
+                .findMappings(knnIndicesList, task.getIndicesService().getFieldFilter())
+                .entrySet()
+                .stream()
+                .filter(entry -> entry.getValue() != null)
+                .filter(entry -> {
+                    Object properties = entry.getValue().getSourceAsMap().get("properties");
+                    if (properties == null || properties instanceof Map == false) {
+                        return false;
+                    }
+                    Map propertiesMap = (Map<String, Object>) properties;
+                    return propertiesMapContainsModel(propertiesMap, task.getModelId());
+                })
+                .map(Map.Entry::getKey)
+                .collect(toList());
         }
-        return false;
-    }
 
-    private static boolean fieldsMapContainsModel(Map<String, Object> fieldsMap, String modelId) {
-        for (Map.Entry<String, Object> fieldsEntry : fieldsMap.entrySet()) {
-            if (fieldsEntry.getKey() != null && fieldsEntry.getValue() instanceof Map) {
-                Map<String, Object> innerMap = (Map<String, Object>) fieldsEntry.getValue();
-                for (Map.Entry<String, Object> innerEntry : innerMap.entrySet()) {
-                    // If model is in use, fail delete model request
-                    if (innerEntry.getKey().equals(MODEL_ID)
-                        && innerEntry.getValue() instanceof String
-                        && innerEntry.getValue().equals(modelId)) {
-                        return true;
+        private boolean propertiesMapContainsModel(Map<String, Object> propertiesMap, String modelId) {
+            for (Map.Entry<String, Object> fieldsEntry : propertiesMap.entrySet()) {
+                if (fieldsEntry.getKey() != null && fieldsEntry.getValue() instanceof Map) {
+                    Map<String, Object> innerMap = (Map<String, Object>) fieldsEntry.getValue();
+                    for (Map.Entry<String, Object> innerEntry : innerMap.entrySet()) {
+                        // If model is in use, fail delete model request
+                        if (innerEntry.getKey().equals(MODEL_ID)
+                            && innerEntry.getValue() instanceof String
+                            && innerEntry.getValue().equals(modelId)) {
+                            return true;
+                        }
                     }
                 }
             }
+            return false;
         }
-        return false;
     }
 }
