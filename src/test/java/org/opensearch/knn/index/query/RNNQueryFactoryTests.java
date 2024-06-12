@@ -9,9 +9,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.lucene.search.ByteVectorSimilarityQuery;
@@ -38,6 +40,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
     private final String testFieldName = "test-field";
     private final Float testRadius = 0.5f;
     private final int maxResultWindow = 20000;
+    private final Map<String, ?> methodParameters = Map.of(METHOD_PARAMETER_EF_SEARCH, 100);
 
     public void testCreate_whenLucene_withRadiusQuery_withFloatVector() {
         List<KNNEngine> luceneDefaultQueryEngineList = Arrays.stream(KNNEngine.values())
@@ -120,6 +123,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
             .radius(testRadius)
             .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
             .context(mockQueryShardContext)
+            .methodParameters(methodParameters)
             .build();
 
         Query query = RNNQueryFactory.create(createQueryRequest);
@@ -130,5 +134,6 @@ public class RNNQueryFactoryTests extends KNNTestCase {
         assertEquals(testQueryVector, ((KNNQuery) query).getQueryVector());
         assertEquals(testRadius, ((KNNQuery) query).getRadius(), 0);
         assertEquals(maxResultWindow, ((KNNQuery) query).getContext().getMaxResultWindow());
+        assertEquals(methodParameters, ((KNNQuery) query).getMethodParameters());
     }
 }

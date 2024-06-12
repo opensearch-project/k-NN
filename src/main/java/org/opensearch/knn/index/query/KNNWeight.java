@@ -294,6 +294,7 @@ public class KNNWeight extends Weight {
                     indexAllocation.getMemoryAddress(),
                     knnQuery.getQueryVector(),
                     knnQuery.getRadius(),
+                    knnQuery.getMethodParameters(),
                     knnEngine,
                     knnQuery.getContext().getMaxResultWindow(),
                     filterIds,
