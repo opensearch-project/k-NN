@@ -105,7 +105,6 @@ sed -i -e 's/pragma message WARN/pragma message /g' external/nmslib/similarity_s
 // Change -mcpu value to use chip version according to your M series, for example, -mcpu=apple-m1. You can see the supported mcpu values via gcc --print-supported-cpus
 sed -i -e 's/-march=native/-mcpu=apple-m1/g' external/nmslib/similarity_search/CMakeLists.txt
 sed -i -e 's/-mcpu=apple-a14/-mcpu=apple-m1/g' external/nmslib/python_bindings/setup.py
-sed -i '' '/set(CMAKE_CXX_STANDARD_REQUIRED True)/a\'$'\n''set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -fopenmp -L/opt/homebrew/opt/libomp/lib -I/opt/homebrew/opt/libomp/include -lomp -arch arm64 -fexceptions")' CMakeLists.txt
 
 // Install llvm
 brew install llvm
@@ -113,8 +112,13 @@ echo 'export PATH="/opt/homebrew/opt/llvm/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 
 // Set compiler path for CMAKE
+export CC=/opt/homebrew/opt/llvm/bin/clang
+export CXX=/opt/homebrew/opt/llvm/bin/clang++
+
+// In case of linking issues with the external libraries and clang, you can try setting the CMAKE compiler to gcc/g++ instead through the following commands:
 export CC=gcc
 export CXX=g++
+sed -i '' '/set(CMAKE_CXX_STANDARD_REQUIRED True)/a\'$'\n''set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Xclang -fopenmp -L/opt/homebrew/opt/libomp/lib -I/opt/homebrew/opt/libomp/include -lomp -arch arm64 -fexceptions")' CMakeLists.txt
 
 // Build
 cmake . --fresh
