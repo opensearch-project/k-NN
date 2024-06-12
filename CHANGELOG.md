@@ -18,5 +18,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Bug Fixes
 ### Infrastructure
 ### Documentation
+* Update dev guide to fix clang linking issue on arm [#1746](https://github.com/opensearch-project/k-NN/pull/1746)
 ### Maintenance
 ### Refactoring
