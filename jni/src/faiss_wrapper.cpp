@@ -618,8 +618,6 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearchWithFilter(knn_jni::JNIUtilInter
         methodParams = jniUtil->ConvertJavaMapToCppMap(env, methodParamsJ);
     }
 
-    int ef_search = getQueryEfSearch(env, jniUtil, methodParams, 16);
-
     // The res will be freed by ~RangeSearchResult() in FAISS
     // The second parameter is always true, as lims is allocated by FAISS
     faiss::RangeSearchResult res(1, true);
