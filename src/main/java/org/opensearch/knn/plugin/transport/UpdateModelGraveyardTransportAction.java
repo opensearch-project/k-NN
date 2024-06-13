@@ -197,7 +197,7 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
                 .filter(entry -> entry.getValue() != null)
                 .filter(entry -> {
                     Object properties = entry.getValue().getSourceAsMap().get("properties");
-                    if (!(properties instanceof Map)) {
+                    if ((properties instanceof Map) == false) {
                         return false;
                     }
                     Map<String, Object> propertiesMap = (Map<String, Object>) properties;
