@@ -12,6 +12,8 @@
 #include "jni_util.h"
 #include "nmslib_wrapper.h"
 
+#include <commons.h>
+
 #include "init.h"
 #include "index.h"
 #include "params.h"
@@ -23,6 +25,8 @@
 
 #include <jni.h>
 #include <string>
+
+#include "hnswquery.h"
 
 
 std::string TranslateSpaceType(const std::string& spaceType);
@@ -220,7 +224,7 @@ jlong knn_jni::nmslib_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JN
 }
 
 jobjectArray knn_jni::nmslib_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
-                                                 jfloatArray queryVectorJ, jint kJ) {
+                                                 jfloatArray queryVectorJ, jint kJ, jobject methodParamsJ) {
 
     if (queryVectorJ == nullptr) {
         throw std::runtime_error("Query Vector cannot be null");
@@ -243,14 +247,24 @@ jobjectArray knn_jni::nmslib_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jni
         jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
         throw;
     }
+
     jniUtil->ReleaseFloatArrayElements(env, queryVectorJ, rawQueryvector, JNI_ABORT);
+    std::unordered_map<std::string, jobject> methodParams;
+    if (methodParamsJ != nullptr) {
+        methodParams = jniUtil->ConvertJavaMapToCppMap(env, methodParamsJ);
+    }
 
-    similarity::KNNQuery<float> knnQuery(*(indexWrapper->space), queryObject.get(), kJ);
-    indexWrapper->index->Search(&knnQuery);
+    int queryEfSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, EF_SEARCH, -1);
+    similarity::KNNQuery<float>* query;
+    if (queryEfSearch == -1) {
+        query = new similarity::KNNQuery<float>(*(indexWrapper->space), queryObject.get(), kJ);
+    } else {
+        query = new similarity::HNSWQuery<float>(*(indexWrapper->space), queryObject.get(), kJ, queryEfSearch);
+    }
 
-    std::unique_ptr<similarity::KNNQueue<float>> neighbors(knnQuery.Result()->Clone());
+    indexWrapper->index->Search(query);
+    std::unique_ptr<similarity::KNNQueue<float>> neighbors(query->Result()->Clone());
     int resultSize = neighbors->Size();
-
     jclass resultClass = jniUtil->FindClass(env,"org/opensearch/knn/index/query/KNNQueryResult");
     jmethodID allArgs = jniUtil->FindMethod(env, "org/opensearch/knn/index/query/KNNQueryResult", "<init>");
 
@@ -265,6 +279,8 @@ jobjectArray knn_jni::nmslib_wrapper::QueryIndex(knn_jni::JNIUtilInterface * jni
         result = jniUtil->NewObject(env, resultClass, allArgs, id, distance);
         jniUtil->SetObjectArrayElement(env, results, i, result);
     }
+
+    delete query;
     return results;
 }
 

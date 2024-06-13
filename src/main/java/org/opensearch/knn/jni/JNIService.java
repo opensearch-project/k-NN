@@ -181,7 +181,7 @@ public class JNIService {
         int[] parentIds
     ) {
         if (KNNEngine.NMSLIB == knnEngine) {
-            return NmslibService.queryIndex(indexPointer, queryVector, k);
+            return NmslibService.queryIndex(indexPointer, queryVector, k, methodParameters);
         }
 
         if (KNNEngine.FAISS == knnEngine) {
