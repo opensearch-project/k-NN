@@ -332,7 +332,7 @@ class Faiss extends NativeLibrary {
     ) {
         super(
             methods,
-            Map.of(METHOD_HNSW, new DefaultHnswContext(), METHOD_IVF, EngineSpecificMethodContext.EMPTY),
+            Map.of(METHOD_HNSW, new DefaultHnswContext(), METHOD_IVF, new DefaultIVFContext()),
             scoreTranslation,
             currentVersion,
             extension
