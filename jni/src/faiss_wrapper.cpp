@@ -640,7 +640,7 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearchWithFilter(knn_jni::JNIUtilInter
         auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
         if(hnswReader) {
             // Query param ef_search supersedes ef_search provided during index setting.
-            hnswParams.efSearch = getQueryEfSearch(env, jniUtil, methodParams, hnswReader->hnsw.efSearch);
+            hnswParams.efSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, EF_SEARCH, hnswReader->hnsw.efSearch);
             hnswParams.sel = idSelector.get();
             if (parentIdsJ != nullptr) {
                 idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
@@ -670,7 +670,7 @@ jobjectArray knn_jni::faiss_wrapper::RangeSearchWithFilter(knn_jni::JNIUtilInter
         auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
         if(hnswReader!= nullptr) {
             // Query param ef_search supersedes ef_search provided during index setting.
-            hnswParams.efSearch = getQueryEfSearch(env, jniUtil, methodParams, hnswReader->hnsw.efSearch);
+            hnswParams.efSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, EF_SEARCH, hnswReader->hnsw.efSearch);
             if (parentIdsJ != nullptr) {
                 idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
                 hnswParams.grp = idGrouper.get();

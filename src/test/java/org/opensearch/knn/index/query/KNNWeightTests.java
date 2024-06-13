@@ -62,7 +62,6 @@ import java.util.stream.Collectors;
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -763,12 +762,29 @@ public class KNNWeightTests extends KNNTestCase {
         final float radius = 0.5f;
         final int maxResults = 1000;
         jniServiceMockedStatic.when(
-            () -> JNIService.radiusQueryIndex(anyLong(), any(), anyFloat(), any(), any(), anyInt(), any(), anyInt(), any())
+            () -> JNIService.radiusQueryIndex(
+                anyLong(),
+                eq(queryVector),
+                eq(radius),
+                eq(HNSW_METHOD_PARAMETERS),
+                any(),
+                eq(maxResults),
+                any(),
+                anyInt(),
+                any()
+            )
         ).thenReturn(getKNNQueryResults());
         KNNQuery.Context context = mock(KNNQuery.Context.class);
         when(context.getMaxResultWindow()).thenReturn(maxResults);
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, queryVector, INDEX_NAME, null).radius(radius).kNNQueryContext(context);
+        final KNNQuery query = KNNQuery.builder()
+            .field(FIELD_NAME)
+            .queryVector(queryVector)
+            .radius(radius)
+            .indexName(INDEX_NAME)
+            .context(context)
+            .methodParameters(HNSW_METHOD_PARAMETERS)
+            .build();
         final float boost = (float) randomDoubleBetween(0, 10, true);
         final KNNWeight knnWeight = new KNNWeight(query, boost);
 
@@ -807,7 +823,17 @@ public class KNNWeightTests extends KNNTestCase {
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
         jniServiceMockedStatic.verify(
-            () -> JNIService.radiusQueryIndex(anyLong(), any(), anyFloat(), any(), any(), anyInt(), any(), anyInt(), any())
+            () -> JNIService.radiusQueryIndex(
+                anyLong(),
+                eq(queryVector),
+                eq(radius),
+                eq(HNSW_METHOD_PARAMETERS),
+                any(),
+                eq(maxResults),
+                any(),
+                anyInt(),
+                any()
+            )
         );
 
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
