@@ -611,6 +611,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .byteVector(VectorDataType.BYTE == vectorDataType ? byteVector : null)
                 .vectorDataType(vectorDataType)
                 .radius(radius)
+                .methodParameters(this.methodParameters)
                 .filter(this.filter)
                 .context(context)
                 .build();
