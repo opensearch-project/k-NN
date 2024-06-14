@@ -199,18 +199,22 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertEquals(knnQueryBuilder, actualBuilder);
     }
 
-    public void testFromXContent_whenDoRadiusSearch_whenDistanceThreshold_thenSucceed() throws Exception {
+    public void testFromXContent_whenDoRadiusSearch_whenDistanceThreshold_whenMethodParameter_thenSucceed() throws Exception {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(queryVector)
             .maxDistance(MAX_DISTANCE)
+            .methodParameters(HNSW_METHOD_PARAMS)
             .build();
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());
         builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
         builder.field(KNNQueryBuilder.MAX_DISTANCE_FIELD.getPreferredName(), knnQueryBuilder.getMaxDistance());
+        builder.startObject(org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER);
+        builder.field(EF_SEARCH_FIELD.getPreferredName(), EF_SEARCH);
+        builder.endObject();
         builder.endObject();
         builder.endObject();
         XContentParser contentParser = createParser(builder);
@@ -219,18 +223,22 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertEquals(knnQueryBuilder, actualBuilder);
     }
 
-    public void testFromXContent_whenDoRadiusSearch_whenScoreThreshold_thenSucceed() throws Exception {
+    public void testFromXContent_whenDoRadiusSearch_whenScoreThreshold_whenMethodParameter_thenSucceed() throws Exception {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
             .vector(queryVector)
             .minScore(MAX_DISTANCE)
+            .methodParameters(HNSW_METHOD_PARAMS)
             .build();
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());
         builder.field(KNNQueryBuilder.VECTOR_FIELD.getPreferredName(), knnQueryBuilder.vector());
         builder.field(KNNQueryBuilder.MIN_SCORE_FIELD.getPreferredName(), knnQueryBuilder.getMinScore());
+        builder.startObject(org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER);
+        builder.field(EF_SEARCH_FIELD.getPreferredName(), EF_SEARCH);
+        builder.endObject();
         builder.endObject();
         builder.endObject();
         XContentParser contentParser = createParser(builder);
