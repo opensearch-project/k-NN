@@ -197,31 +197,17 @@ public class UpdateModelGraveyardTransportAction extends TransportClusterManager
                 .filter(entry -> entry.getValue() != null)
                 .filter(entry -> {
                     Object properties = entry.getValue().getSourceAsMap().get("properties");
-                    if (properties == null || properties instanceof Map == false) {
+                    if ((properties instanceof Map) == false) {
                         return false;
                     }
-                    Map propertiesMap = (Map<String, Object>) properties;
-                    return propertiesMapContainsModel(propertiesMap, task.getModelId());
+                    Map<String, Object> propertiesMap = (Map<String, Object>) properties;
+                    return propertiesMap.values()
+                        .stream()
+                        .filter(obj -> obj instanceof Map)
+                        .anyMatch(obj -> task.getModelId().equals(((Map<String, Object>) obj).get(MODEL_ID)));
                 })
                 .map(Map.Entry::getKey)
                 .collect(toList());
-        }
-
-        private boolean propertiesMapContainsModel(Map<String, Object> propertiesMap, String modelId) {
-            for (Map.Entry<String, Object> fieldsEntry : propertiesMap.entrySet()) {
-                if (fieldsEntry.getKey() != null && fieldsEntry.getValue() instanceof Map) {
-                    Map<String, Object> innerMap = (Map<String, Object>) fieldsEntry.getValue();
-                    for (Map.Entry<String, Object> innerEntry : innerMap.entrySet()) {
-                        // If model is in use, fail delete model request
-                        if (innerEntry.getKey().equals(MODEL_ID)
-                            && innerEntry.getValue() instanceof String
-                            && innerEntry.getValue().equals(modelId)) {
-                            return true;
-                        }
-                    }
-                }
-            }
-            return false;
         }
     }
 }
