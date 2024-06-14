@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.query;
 
 import org.apache.lucene.index.Term;
+import org.apache.lucene.search.KnnByteVectorQuery;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
@@ -83,6 +84,98 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             );
             assertEquals(KnnFloatVectorQuery.class, query.getClass());
         }
+    }
+
+    public void testLuceneFloatVectorQuery() {
+        Query actualQuery1 = KNNQueryFactory.create(
+            BaseQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(KNNEngine.LUCENE)
+                .vector(testQueryVector)
+                .k(testK)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .methodParameters(methodParameters)
+                .vectorDataType(VectorDataType.FLOAT)
+                .build()
+        );
+
+        // efsearch > k
+        Query expectedQuery1 = new KnnFloatVectorQuery(testFieldName, testQueryVector, 100, null);
+        assertEquals(expectedQuery1, actualQuery1);
+
+        // efsearch < k
+        actualQuery1 = KNNQueryFactory.create(
+            BaseQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(KNNEngine.LUCENE)
+                .vector(testQueryVector)
+                .k(testK)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .methodParameters(Map.of("ef_search", 1))
+                .vectorDataType(VectorDataType.FLOAT)
+                .build()
+        );
+        expectedQuery1 = new KnnFloatVectorQuery(testFieldName, testQueryVector, testK, null);
+        assertEquals(expectedQuery1, actualQuery1);
+
+        actualQuery1 = KNNQueryFactory.create(
+            BaseQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(KNNEngine.LUCENE)
+                .vector(testQueryVector)
+                .k(testK)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .vectorDataType(VectorDataType.FLOAT)
+                .build()
+        );
+        expectedQuery1 = new KnnFloatVectorQuery(testFieldName, testQueryVector, testK, null);
+        assertEquals(expectedQuery1, actualQuery1);
+    }
+
+    public void testLuceneByteVectorQuery() {
+        Query actualQuery1 = KNNQueryFactory.create(
+            BaseQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(KNNEngine.LUCENE)
+                .byteVector(testByteQueryVector)
+                .k(testK)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .methodParameters(methodParameters)
+                .vectorDataType(VectorDataType.BYTE)
+                .build()
+        );
+
+        // efsearch > k
+        Query expectedQuery1 = new KnnByteVectorQuery(testFieldName, testByteQueryVector, 100, null);
+        assertEquals(expectedQuery1, actualQuery1);
+
+        // efsearch < k
+        actualQuery1 = KNNQueryFactory.create(
+            BaseQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(KNNEngine.LUCENE)
+                .byteVector(testByteQueryVector)
+                .k(testK)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .methodParameters(Map.of("ef_search", 1))
+                .vectorDataType(VectorDataType.BYTE)
+                .build()
+        );
+        expectedQuery1 = new KnnByteVectorQuery(testFieldName, testByteQueryVector, testK, null);
+        assertEquals(expectedQuery1, actualQuery1);
+
+        actualQuery1 = KNNQueryFactory.create(
+            BaseQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(KNNEngine.LUCENE)
+                .byteVector(testByteQueryVector)
+                .k(testK)
+                .indexName(testIndexName)
+                .fieldName(testFieldName)
+                .vectorDataType(VectorDataType.BYTE)
+                .build()
+        );
+        expectedQuery1 = new KnnByteVectorQuery(testFieldName, testByteQueryVector, testK, null);
+        assertEquals(expectedQuery1, actualQuery1);
     }
 
     public void testCreateLuceneQueryWithFilter() {

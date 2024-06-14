@@ -193,18 +193,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("query");
         knnQueryBuilder.doXContent(builder, ToXContent.EMPTY_PARAMS);
         builder.endObject().endObject();
-
-        Request request = new Request("POST", "/" + index + "/_search");
-
-        request.addParameter("size", Integer.toString(resultSize));
-        request.addParameter("explain", Boolean.toString(true));
-        request.addParameter("search_type", "query_then_fetch");
-        request.setJsonEntity(builder.toString());
-
-        Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-        return response;
+        return searchKNNIndex(index, builder, resultSize);
     }
 
     /**
