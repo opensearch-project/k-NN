@@ -5,6 +5,7 @@
 
 package org.opensearch.knn;
 
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.bytes.BytesReference;
 import org.opensearch.cluster.ClusterName;
 import org.opensearch.cluster.ClusterState;
@@ -37,7 +38,11 @@ import org.opensearch.test.OpenSearchSingleNodeTestCase;
 import org.opensearch.test.hamcrest.OpenSearchAssertions;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.when;
@@ -184,7 +189,7 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
     /**
      * Index a new model
      */
-    protected void addDoc(Model model) throws IOException, ExecutionException, InterruptedException {
+    protected void writeModelToModelSystemIndex(Model model) throws IOException, ExecutionException, InterruptedException {
         ModelMetadata modelMetadata = model.getModelMetadata();
 
         XContentBuilder builder = XContentFactory.jsonBuilder()
@@ -211,6 +216,22 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
 
         IndexResponse response = client().index(indexRequest).get();
         assertTrue(response.status() == RestStatus.CREATED || response.status() == RestStatus.OK);
+    }
+
+    // Add a new model to ModelDao
+    protected void addModel(Model model) throws IOException {
+        ModelDao modelDao = ModelDao.OpenSearchKNNModelDao.getInstance();
+        modelDao.put(model, new ActionListener<IndexResponse>() {
+            @Override
+            public void onResponse(IndexResponse indexResponse) {
+                assertTrue(indexResponse.status() == RestStatus.CREATED || indexResponse.status() == RestStatus.OK);
+            }
+
+            @Override
+            public void onFailure(Exception e) {
+                fail("Failed to add model: " + e);
+            }
+        });
     }
 
     /**

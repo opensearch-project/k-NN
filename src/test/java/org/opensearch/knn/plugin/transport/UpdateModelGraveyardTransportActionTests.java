@@ -189,7 +189,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
         assertNull(updateModelGraveyardTransportAction.checkBlock(null, null));
     }
 
-    public void testGetIndicesUsingModel() throws IOException, ExecutionException, InterruptedException {
+    public void testClusterManagerOperation_GetIndicesUsingModel() throws IOException, ExecutionException, InterruptedException {
         // Get update transport action
         UpdateModelGraveyardTransportAction updateModelGraveyardTransportAction = node().injector()
             .getInstance(UpdateModelGraveyardTransportAction.class);
@@ -217,7 +217,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
         );
 
         // created model and added it to index
-        addDoc(model);
+        addModel(model);
 
         // Create basic index (not using k-NN)
         String testIndex1 = "test-index1";
@@ -336,7 +336,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
         );
     }
 
-    public void updateModelGraveyardAndAssertNoError(
+    private void updateModelGraveyardAndAssertNoError(
         UpdateModelGraveyardTransportAction updateModelGraveyardTransportAction,
         UpdateModelGraveyardRequest updateModelGraveyardRequest
     ) throws InterruptedException {
@@ -355,7 +355,7 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
         assertTrue(countDownLatch.await(60, TimeUnit.SECONDS));
     }
 
-    public void updateModelGraveyardAndAssertDeleteModelException(
+    private void updateModelGraveyardAndAssertDeleteModelException(
         UpdateModelGraveyardTransportAction updateModelGraveyardTransportAction,
         UpdateModelGraveyardRequest updateModelGraveyardRequest,
         String indicesPresentInException
