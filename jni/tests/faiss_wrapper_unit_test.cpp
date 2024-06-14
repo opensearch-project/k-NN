@@ -20,8 +20,6 @@
 #include "test_util.h"
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIDMap.h"
-#include "faiss/index_factory.h"
-#include "faiss/IndexIVFPQ.h"
 
 using ::testing::NiceMock;
 
@@ -135,7 +133,6 @@ namespace query_index_test {
         NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
         QueryIndexHNSWTestInput const &input = GetParam();
-        std::cout << "Running test: " << input.description << std::endl;
         float query[] = {1.2, 2.3, 3.4};
 
         int efSearch = input.efSearch;

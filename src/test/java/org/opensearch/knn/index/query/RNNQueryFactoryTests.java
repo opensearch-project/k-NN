@@ -109,12 +109,24 @@ public class RNNQueryFactoryTests extends KNNTestCase {
     }
 
     public void testCreate_whenFaiss_thenSucceed() {
+        // Given
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
         MappedFieldType testMapper = mock(MappedFieldType.class);
         IndexSettings indexSettings = mock(IndexSettings.class);
         when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
         when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
         when(mockQueryShardContext.getIndexSettings().getMaxResultWindow()).thenReturn(maxResultWindow);
+
+        final KNNQuery expectedQuery = KNNQuery.builder()
+            .field(testFieldName)
+            .queryVector(testQueryVector)
+            .indexName(testIndexName)
+            .radius(testRadius)
+            .methodParameters(methodParameters)
+            .context(new KNNQuery.Context(maxResultWindow))
+            .build();
+
+        // When
         final RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
             .knnEngine(KNNEngine.FAISS)
             .indexName(testIndexName)
@@ -128,12 +140,7 @@ public class RNNQueryFactoryTests extends KNNTestCase {
 
         Query query = RNNQueryFactory.create(createQueryRequest);
 
-        assertTrue(query instanceof KNNQuery);
-        assertEquals(testIndexName, ((KNNQuery) query).getIndexName());
-        assertEquals(testFieldName, ((KNNQuery) query).getField());
-        assertEquals(testQueryVector, ((KNNQuery) query).getQueryVector());
-        assertEquals(testRadius, ((KNNQuery) query).getRadius(), 0);
-        assertEquals(maxResultWindow, ((KNNQuery) query).getContext().getMaxResultWindow());
-        assertEquals(methodParameters, ((KNNQuery) query).getMethodParameters());
+        // Then
+        assertEquals(expectedQuery, query);
     }
 }
