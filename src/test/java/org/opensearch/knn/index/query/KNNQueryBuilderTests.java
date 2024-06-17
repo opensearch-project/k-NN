@@ -1173,4 +1173,58 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
         }
     }
+
+    public void testRadialSearch_whenEfSearchIsSet_whenLuceneEngine_thenThrowException() {
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.LUCENE,
+            SpaceType.L2,
+            new MethodComponentContext(org.opensearch.knn.common.KNNConstants.METHOD_HNSW, ImmutableMap.of())
+        );
+
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .maxDistance(MAX_DISTANCE)
+            .methodParameters(Map.of("ef_search", EF_SEARCH))
+            .build();
+
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        Index dummyIndex = new Index("dummy", "dummy");
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+
+        expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
+    }
+
+    public void testRadialSearch_whenEfSearchIsSet_whenFaissEngine_thenSuccess() {
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            new MethodComponentContext(org.opensearch.knn.common.KNNConstants.METHOD_HNSW, ImmutableMap.of())
+        );
+
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .minScore(MIN_SCORE)
+            .methodParameters(Map.of("ef_search", EF_SEARCH))
+            .build();
+
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        Index dummyIndex = new Index("dummy", "dummy");
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(4);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        IndexSettings indexSettings = mock(IndexSettings.class);
+        when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);
+        when(indexSettings.getMaxResultWindow()).thenReturn(1000);
+
+        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+        assertEquals(1 / MIN_SCORE - 1, query.getRadius(), 0);
+    }
 }

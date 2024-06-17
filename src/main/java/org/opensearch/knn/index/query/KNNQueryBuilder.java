@@ -558,6 +558,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             radius = knnEngine.scoreToRadialThreshold(this.minScore, spaceType);
         }
 
+        if (radius != null
+            && methodParameters != null
+            && methodParameters.containsKey(METHOD_PARAMETER_EF_SEARCH)
+            && knnEngine.equals(KNNEngine.LUCENE)) {
+            throw new IllegalArgumentException(String.format("[" + NAME + "] Lucene engine does not support ef_search with radial search"));
+        }
+
         if (fieldDimension != vector.length) {
             throw new IllegalArgumentException(
                 String.format("Query vector has invalid dimension: %d. Dimension should be: %d", vector.length, fieldDimension)
