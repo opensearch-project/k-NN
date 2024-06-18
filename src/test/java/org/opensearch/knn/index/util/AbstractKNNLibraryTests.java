@@ -11,12 +11,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNMethod;
-import org.opensearch.knn.index.KNNMethodContext;
-import org.opensearch.knn.index.MethodComponent;
-import org.opensearch.knn.index.MethodComponentContext;
-import org.opensearch.knn.index.Parameter;
-import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.*;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -78,9 +73,13 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         assertNotNull(testAbstractKNNLibrary2.validateMethod(knnMethodContext2));
     }
 
-    public void testEngineSpecificMethods() throws IOException {
+    public void testEngineSpecificMethods() {
         String methodName1 = "test-method-1";
-        EngineSpecificMethodContext context = () -> Map.of("myparameter", new Parameter.BooleanParameter("myparameter", false, o -> o));
+        EngineSpecificMethodContext.Context engineSpecificMethodContext = () -> false;
+        EngineSpecificMethodContext context = ctx -> ImmutableMap.of(
+            "myparameter",
+            new Parameter.BooleanParameter("myparameter", null, value -> true)
+        );
 
         TestAbstractKNNLibrary testAbstractKNNLibrary1 = new TestAbstractKNNLibrary(
             Collections.emptyMap(),
@@ -89,7 +88,11 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         );
 
         assertNotNull(testAbstractKNNLibrary1.getMethodContext(methodName1));
-        assertTrue(testAbstractKNNLibrary1.getMethodContext(methodName1).supportedMethodParameters().containsKey("myparameter"));
+        assertTrue(
+            testAbstractKNNLibrary1.getMethodContext(methodName1)
+                .supportedMethodParameters(engineSpecificMethodContext)
+                .containsKey("myparameter")
+        );
     }
 
     public void testGetMethodAsMap() {

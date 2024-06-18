@@ -15,12 +15,10 @@ import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.index.Parameter;
 import org.opensearch.knn.index.query.request.MethodParameter;
 
+import java.util.Collections;
 import java.util.Map;
 
-/**
- * Default HNSW context for all engines. Have a different implementation if engine context differs.
- */
-public final class DefaultHnswContext implements EngineSpecificMethodContext {
+public class LuceneHNSWContext implements EngineSpecificMethodContext {
 
     private final Map<String, Parameter<?>> supportedMethodParameters = ImmutableMap.<String, Parameter<?>>builder()
         .put(MethodParameter.EF_SEARCH.getName(), new Parameter.IntegerParameter(MethodParameter.EF_SEARCH.getName(), null, value -> true))
@@ -28,6 +26,11 @@ public final class DefaultHnswContext implements EngineSpecificMethodContext {
 
     @Override
     public Map<String, Parameter<?>> supportedMethodParameters(Context ctx) {
+        if (ctx.isRadialSearch()) {
+            // return empty map if radial search is true
+            return Collections.emptyMap();
+        }
+        // Return the supported method parameters for non-radial cases
         return supportedMethodParameters;
     }
 }

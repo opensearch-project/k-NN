@@ -25,7 +25,11 @@ import java.util.Map;
  */
 public interface EngineSpecificMethodContext {
 
-    Map<String, Parameter<?>> supportedMethodParameters();
+    Map<String, Parameter<?>> supportedMethodParameters(Context ctx);
 
-    EngineSpecificMethodContext EMPTY = Collections::emptyMap;
+    EngineSpecificMethodContext EMPTY = ctx -> Collections.emptyMap();
+
+    interface Context {
+        boolean isRadialSearch();
+    }
 }
