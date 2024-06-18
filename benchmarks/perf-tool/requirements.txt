@@ -28,7 +28,7 @@ pyyaml==5.4.1
     # via -r requirements.in
 requests==2.32.0
     # via -r requirements.in
-urllib3==1.26.18
+urllib3==1.26.19
     # via
     #   opensearch-py
     #   requests
