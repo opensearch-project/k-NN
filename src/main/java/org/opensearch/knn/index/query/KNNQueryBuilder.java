@@ -36,6 +36,7 @@ import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.query.parser.MethodParametersParser;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.util.QueryContext;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
@@ -95,6 +96,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private QueryBuilder filter;
     @Getter
     private boolean ignoreUnmapped;
+    @Getter
+    private VectorQueryType vectorQueryType;
 
     /**
      * Constructs a new query with the given field name and vector
@@ -189,13 +192,22 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         public KNNQueryBuilder build() {
-            validate();
+            VectorQueryType vectorQueryType = validate();
             int k = this.k == null ? 0 : this.k;
-            return new KNNQueryBuilder(fieldName, vector, k, maxDistance, minScore, methodParameters, filter, ignoreUnmapped).boost(boost)
-                .queryName(queryName);
+            return new KNNQueryBuilder(
+                fieldName,
+                vector,
+                k,
+                maxDistance,
+                minScore,
+                methodParameters,
+                filter,
+                ignoreUnmapped,
+                vectorQueryType
+            ).boost(boost).queryName(queryName);
         }
 
-        private void validate() {
+        private VectorQueryType validate() throws IllegalArgumentException {
             if (Strings.isNullOrEmpty(fieldName)) {
                 throw new IllegalArgumentException(String.format("[%s] requires fieldName", NAME));
             }
@@ -243,6 +255,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             if (filter != null) {
                 vectorQueryType.getQueryWithFilterStatCounter().increment();
             }
+            return vectorQueryType;
         }
     }
 
@@ -518,6 +531,28 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             methodComponentContext = knnMethodContext.getMethodComponentContext();
         }
 
+        final String method = methodComponentContext != null ? methodComponentContext.getName() : null;
+        if (StringUtils.isNotBlank(method)) {
+            final EngineSpecificMethodContext engineSpecificMethodContext = knnEngine.getMethodContext(method);
+            KNNEngine finalKnnEngine = knnEngine;
+            QueryContext methodContext = () -> (vectorQueryType.isRadialSearch() && KNNEngine.LUCENE.equals(finalKnnEngine)) == false;
+            ValidationException validationException = validateParameters(
+                engineSpecificMethodContext.supportedMethodParameters(methodContext),
+                (Map<String, Object>) methodParameters
+            );
+            if (validationException != null) {
+                throw new IllegalArgumentException(
+                    String.format(
+                        "Parameters not valid for [%s]:[%s]:[%s] combination: [%s]",
+                        knnEngine,
+                        method,
+                        vectorQueryType.getQueryTypeName(),
+                        validationException.getMessage()
+                    )
+                );
+            }
+        }
+
         // Currently, k-NN supports distance and score types radial search
         // We need transform distance/score to right type of engine required radius.
         Float radius = null;
@@ -537,29 +572,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 );
             }
             radius = knnEngine.scoreToRadialThreshold(this.minScore, spaceType);
-        }
-
-        final String method = methodComponentContext != null ? methodComponentContext.getName() : null;
-        if (StringUtils.isNotBlank(method)) {
-            final EngineSpecificMethodContext engineSpecificMethodContext = knnEngine.getMethodContext(method);
-            Float finalRadius = radius;
-            EngineSpecificMethodContext.Context methodContext = () -> finalRadius != null;
-            ValidationException validationException = validateParameters(
-                engineSpecificMethodContext.supportedMethodParameters(methodContext),
-                (Map<String, Object>) methodParameters,
-                knnEngine,
-                methodContext
-            );
-            if (validationException != null) {
-                throw new IllegalArgumentException(
-                    String.format(
-                        "Parameters not valid for [%s]:[%s] combination: [%s]",
-                        knnEngine,
-                        method,
-                        validationException.getMessage()
-                    )
-                );
-            }
         }
 
         if (fieldDimension != vector.length) {

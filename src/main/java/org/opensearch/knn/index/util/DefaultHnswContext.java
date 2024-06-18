@@ -27,7 +27,7 @@ public final class DefaultHnswContext implements EngineSpecificMethodContext {
         .build();
 
     @Override
-    public Map<String, Parameter<?>> supportedMethodParameters(Context ctx) {
+    public Map<String, Parameter<?>> supportedMethodParameters(QueryContext ctx) {
         return supportedMethodParameters;
     }
 }

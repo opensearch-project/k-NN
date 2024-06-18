@@ -75,7 +75,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
 
     public void testEngineSpecificMethods() {
         String methodName1 = "test-method-1";
-        EngineSpecificMethodContext.Context engineSpecificMethodContext = () -> false;
+        QueryContext engineSpecificMethodContext = () -> false;
         EngineSpecificMethodContext context = ctx -> ImmutableMap.of(
             "myparameter",
             new Parameter.BooleanParameter("myparameter", null, value -> true)
