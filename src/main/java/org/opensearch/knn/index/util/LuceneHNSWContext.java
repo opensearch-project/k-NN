@@ -26,11 +26,11 @@ public class LuceneHNSWContext implements EngineSpecificMethodContext {
 
     @Override
     public Map<String, Parameter<?>> supportedMethodParameters(QueryContext ctx) {
-        if (ctx.is_ef_search_parameter_supported()) {
-            // Return the supported method parameters for non-radial cases
-            return supportedMethodParameters;
+        if (ctx.queryType.isRadialSearch()) {
+            // return empty map if radial search is true
+            return Collections.emptyMap();
         }
-        // return empty map if radial search is true
-        return Collections.emptyMap();
+        // Return the supported method parameters for non-radial cases
+        return supportedMethodParameters;
     }
 }

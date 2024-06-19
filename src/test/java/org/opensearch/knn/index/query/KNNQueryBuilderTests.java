@@ -161,7 +161,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testFromXContent() throws Exception {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K);
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector).k(K).build();
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());
@@ -254,7 +254,12 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         knnClusterUtil.initialize(clusterService);
 
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K, TERM_QUERY);
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .k(K)
+            .filter(TERM_QUERY)
+            .build();
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
         builder.startObject(knnQueryBuilder.fieldName());

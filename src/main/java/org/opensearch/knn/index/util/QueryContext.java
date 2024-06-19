@@ -11,9 +11,13 @@
 
 package org.opensearch.knn.index.util;
 
+import lombok.AllArgsConstructor;
+import org.opensearch.knn.index.VectorQueryType;
+
 /**
- * Context interface for query-specific information.
+ * Context class for query-specific information.
  */
-public interface QueryContext {
-    boolean is_ef_search_parameter_supported();
+@AllArgsConstructor
+public class QueryContext {
+    VectorQueryType queryType;
 }

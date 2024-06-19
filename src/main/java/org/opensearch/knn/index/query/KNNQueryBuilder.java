@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.search.MatchNoDocsQuery;
@@ -207,7 +208,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             ).boost(boost).queryName(queryName);
         }
 
-        private VectorQueryType validate() throws IllegalArgumentException {
+        @SneakyThrows
+        private VectorQueryType validate() {
             if (Strings.isNullOrEmpty(fieldName)) {
                 throw new IllegalArgumentException(String.format("[%s] requires fieldName", NAME));
             }
@@ -534,10 +536,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         final String method = methodComponentContext != null ? methodComponentContext.getName() : null;
         if (StringUtils.isNotBlank(method)) {
             final EngineSpecificMethodContext engineSpecificMethodContext = knnEngine.getMethodContext(method);
-            KNNEngine finalKnnEngine = knnEngine;
-            QueryContext methodContext = () -> (vectorQueryType.isRadialSearch() && KNNEngine.LUCENE.equals(finalKnnEngine)) == false;
+            QueryContext queryContext = new QueryContext(vectorQueryType);
             ValidationException validationException = validateParameters(
-                engineSpecificMethodContext.supportedMethodParameters(methodContext),
+                engineSpecificMethodContext.supportedMethodParameters(queryContext),
                 (Map<String, Object>) methodParameters
             );
             if (validationException != null) {
@@ -659,12 +660,23 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             && Objects.equals(maxDistance, other.maxDistance)
             && Objects.equals(methodParameters, other.methodParameters)
             && Objects.equals(filter, other.filter)
-            && Objects.equals(ignoreUnmapped, other.ignoreUnmapped);
+            && Objects.equals(ignoreUnmapped, other.ignoreUnmapped)
+            && Objects.equals(vectorQueryType, other.vectorQueryType);
     }
 
     @Override
     protected int doHashCode() {
-        return Objects.hash(fieldName, Arrays.hashCode(vector), k, methodParameters, filter, ignoreUnmapped, maxDistance, minScore);
+        return Objects.hash(
+            fieldName,
+            Arrays.hashCode(vector),
+            k,
+            methodParameters,
+            filter,
+            ignoreUnmapped,
+            maxDistance,
+            minScore,
+            vectorQueryType
+        );
     }
 
     @Override
