@@ -35,6 +35,9 @@ public class MethodParametersParserTests extends KNNTestCase {
 
         ValidationException validationException3 = validateMethodParameters(Map.of("ef_search", 10));
         assertNull(validationException3);
+
+        ValidationException validationException4 = validateMethodParameters(Map.of("nprobes", 0));
+        assertTrue(validationException4.getMessage().contains("Validation Failed: 1: nprobes should be greater than 0"));
     }
 
     @SneakyThrows
@@ -80,5 +83,15 @@ public class MethodParametersParserTests extends KNNTestCase {
         builder = XContentFactory.jsonBuilder().startObject().endObject();
         XContentParser parser4 = createParser(builder);
         expectThrows(ParsingException.class, () -> MethodParametersParser.fromXContent(parser4));
+
+        // nprobes string
+        builder = XContentFactory.jsonBuilder().startObject().field("nprobes", "string").endObject();
+        XContentParser parser5 = createParser(builder);
+        expectThrows(ParsingException.class, () -> MethodParametersParser.fromXContent(parser5));
+
+        // nprobes Valid
+        builder = XContentFactory.jsonBuilder().startObject().field("nprobes", 10).endObject();
+        XContentParser parser6 = createParser(builder);
+        assertEquals(Map.of("nprobes", 10), MethodParametersParser.fromXContent(parser6));
     }
 }

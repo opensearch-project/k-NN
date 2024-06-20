@@ -93,6 +93,6 @@ public class KNNQueryBuilderInvalidParamsTests extends KNNTestCase {
 
     public void testInvalidBuilder() {
         Throwable exception = expectThrows(IllegalArgumentException.class, () -> knnQueryBuilderBuilder.build());
-        assertEquals(expectedMessage, exception.getMessage(), expectedMessage);
+        assertEquals(expectedMessage, expectedMessage, exception.getMessage());
     }
 }
