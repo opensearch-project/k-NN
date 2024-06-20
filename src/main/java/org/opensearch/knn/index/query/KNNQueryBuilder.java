@@ -8,7 +8,6 @@ package org.opensearch.knn.index.query;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.search.MatchNoDocsQuery;
@@ -97,8 +96,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private QueryBuilder filter;
     @Getter
     private boolean ignoreUnmapped;
-    @Getter
-    private VectorQueryType vectorQueryType;
 
     /**
      * Constructs a new query with the given field name and vector
@@ -193,23 +190,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         public KNNQueryBuilder build() {
-            VectorQueryType vectorQueryType = validate();
+            validate();
             int k = this.k == null ? 0 : this.k;
-            return new KNNQueryBuilder(
-                fieldName,
-                vector,
-                k,
-                maxDistance,
-                minScore,
-                methodParameters,
-                filter,
-                ignoreUnmapped,
-                vectorQueryType
-            ).boost(boost).queryName(queryName);
+            return new KNNQueryBuilder(fieldName, vector, k, maxDistance, minScore, methodParameters, filter, ignoreUnmapped).boost(boost)
+                .queryName(queryName);
         }
 
-        @SneakyThrows
-        private VectorQueryType validate() {
+        private void validate() {
             if (Strings.isNullOrEmpty(fieldName)) {
                 throw new IllegalArgumentException(String.format("[%s] requires fieldName", NAME));
             }
@@ -228,16 +215,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 throw new IllegalArgumentException(String.format("[%s] requires exactly one of k, distance or score to be set", NAME));
             }
 
-            VectorQueryType vectorQueryType = VectorQueryType.MAX_DISTANCE;
             if (k != null) {
-                vectorQueryType = VectorQueryType.K;
                 if (k <= 0 || k > K_MAX) {
                     throw new IllegalArgumentException(String.format("[%s] requires k to be in the range (0, %d]", NAME, K_MAX));
                 }
             }
 
             if (minScore != null) {
-                vectorQueryType = VectorQueryType.MIN_SCORE;
                 if (minScore <= 0) {
                     throw new IllegalArgumentException(String.format("[%s] requires minScore to be greater than 0", NAME));
                 }
@@ -251,13 +235,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                     );
                 }
             }
-
-            // Update stats
-            vectorQueryType.getQueryStatCounter().increment();
-            if (filter != null) {
-                vectorQueryType.getQueryWithFilterStatCounter().increment();
-            }
-            return vectorQueryType;
         }
     }
 
@@ -514,6 +491,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         KNNEngine knnEngine = KNNEngine.DEFAULT;
         VectorDataType vectorDataType = knnVectorFieldType.getVectorDataType();
         SpaceType spaceType = knnVectorFieldType.getSpaceType();
+        VectorQueryType vectorQueryType = getVectorQueryType(k, maxDistance, minScore);
+        updateQueryStats(vectorQueryType);
 
         if (fieldDimension == -1) {
             if (spaceType != null) {
@@ -651,6 +630,38 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return modelMetadata;
     }
 
+    /**
+     * Function to get the vector query type based on the valid query parameter.
+     *
+     * @param k K nearest neighbours for the given vector, if k is set, then the query type is K
+     * @param maxDistance Maximum distance for the given vector, if maxDistance is set, then the query type is MAX_DISTANCE
+     * @param minScore Minimum score for the given vector, if minScore is set, then the query type is MIN_SCORE
+     */
+    private VectorQueryType getVectorQueryType(int k, Float maxDistance, Float minScore) {
+        if (maxDistance != null) {
+            return VectorQueryType.MAX_DISTANCE;
+        }
+        if (minScore != null) {
+            return VectorQueryType.MIN_SCORE;
+        }
+        if (k != 0) {
+            return VectorQueryType.K;
+        }
+        throw new IllegalArgumentException(String.format("[%s] requires exactly one of k, distance or score to be set", NAME));
+    }
+
+    /**
+     * Function to update query stats.
+     *
+     * @param vectorQueryType The type of query to be executed
+     */
+    private void updateQueryStats(VectorQueryType vectorQueryType) {
+        vectorQueryType.getQueryStatCounter().increment();
+        if (filter != null) {
+            vectorQueryType.getQueryWithFilterStatCounter().increment();
+        }
+    }
+
     @Override
     protected boolean doEquals(KNNQueryBuilder other) {
         return Objects.equals(fieldName, other.fieldName)
@@ -660,23 +671,12 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             && Objects.equals(maxDistance, other.maxDistance)
             && Objects.equals(methodParameters, other.methodParameters)
             && Objects.equals(filter, other.filter)
-            && Objects.equals(ignoreUnmapped, other.ignoreUnmapped)
-            && Objects.equals(vectorQueryType, other.vectorQueryType);
+            && Objects.equals(ignoreUnmapped, other.ignoreUnmapped);
     }
 
     @Override
     protected int doHashCode() {
-        return Objects.hash(
-            fieldName,
-            Arrays.hashCode(vector),
-            k,
-            methodParameters,
-            filter,
-            ignoreUnmapped,
-            maxDistance,
-            minScore,
-            vectorQueryType
-        );
+        return Objects.hash(fieldName, Arrays.hashCode(vector), k, methodParameters, filter, ignoreUnmapped, maxDistance, minScore);
     }
 
     @Override
