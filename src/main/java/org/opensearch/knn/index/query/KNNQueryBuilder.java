@@ -36,6 +36,7 @@ import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.query.parser.MethodParametersParser;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.util.QueryContext;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
@@ -214,16 +215,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 throw new IllegalArgumentException(String.format("[%s] requires exactly one of k, distance or score to be set", NAME));
             }
 
-            VectorQueryType vectorQueryType = VectorQueryType.MAX_DISTANCE;
             if (k != null) {
-                vectorQueryType = VectorQueryType.K;
                 if (k <= 0 || k > K_MAX) {
                     throw new IllegalArgumentException(String.format("[%s] requires k to be in the range (0, %d]", NAME, K_MAX));
                 }
             }
 
             if (minScore != null) {
-                vectorQueryType = VectorQueryType.MIN_SCORE;
                 if (minScore <= 0) {
                     throw new IllegalArgumentException(String.format("[%s] requires minScore to be greater than 0", NAME));
                 }
@@ -236,12 +234,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                         String.format("[%s] errors in method parameter [%s]", NAME, validationException.getMessage())
                     );
                 }
-            }
-
-            // Update stats
-            vectorQueryType.getQueryStatCounter().increment();
-            if (filter != null) {
-                vectorQueryType.getQueryWithFilterStatCounter().increment();
             }
         }
     }
@@ -499,6 +491,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         KNNEngine knnEngine = KNNEngine.DEFAULT;
         VectorDataType vectorDataType = knnVectorFieldType.getVectorDataType();
         SpaceType spaceType = knnVectorFieldType.getSpaceType();
+        VectorQueryType vectorQueryType = getVectorQueryType(k, maxDistance, minScore);
+        updateQueryStats(vectorQueryType);
 
         if (fieldDimension == -1) {
             if (spaceType != null) {
@@ -521,16 +515,18 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         final String method = methodComponentContext != null ? methodComponentContext.getName() : null;
         if (StringUtils.isNotBlank(method)) {
             final EngineSpecificMethodContext engineSpecificMethodContext = knnEngine.getMethodContext(method);
+            QueryContext queryContext = new QueryContext(vectorQueryType);
             ValidationException validationException = validateParameters(
-                engineSpecificMethodContext.supportedMethodParameters(),
+                engineSpecificMethodContext.supportedMethodParameters(queryContext),
                 (Map<String, Object>) methodParameters
             );
             if (validationException != null) {
                 throw new IllegalArgumentException(
                     String.format(
-                        "Parameters not valid for [%s]:[%s] combination: [%s]",
+                        "Parameters not valid for [%s]:[%s]:[%s] combination: [%s]",
                         knnEngine,
                         method,
+                        vectorQueryType.getQueryTypeName(),
                         validationException.getMessage()
                     )
                 );
@@ -632,6 +628,38 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             throw new IllegalArgumentException(String.format("Model ID '%s' is not created.", modelId));
         }
         return modelMetadata;
+    }
+
+    /**
+     * Function to get the vector query type based on the valid query parameter.
+     *
+     * @param k K nearest neighbours for the given vector, if k is set, then the query type is K
+     * @param maxDistance Maximum distance for the given vector, if maxDistance is set, then the query type is MAX_DISTANCE
+     * @param minScore Minimum score for the given vector, if minScore is set, then the query type is MIN_SCORE
+     */
+    private VectorQueryType getVectorQueryType(int k, Float maxDistance, Float minScore) {
+        if (maxDistance != null) {
+            return VectorQueryType.MAX_DISTANCE;
+        }
+        if (minScore != null) {
+            return VectorQueryType.MIN_SCORE;
+        }
+        if (k != 0) {
+            return VectorQueryType.K;
+        }
+        throw new IllegalArgumentException(String.format("[%s] requires exactly one of k, distance or score to be set", NAME));
+    }
+
+    /**
+     * Function to update query stats.
+     *
+     * @param vectorQueryType The type of query to be executed
+     */
+    private void updateQueryStats(VectorQueryType vectorQueryType) {
+        vectorQueryType.getQueryStatCounter().increment();
+        if (filter != null) {
+            vectorQueryType.getQueryWithFilterStatCounter().increment();
+        }
     }
 
     @Override
