@@ -32,6 +32,9 @@ import java.util.function.Function;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.METHOD_PARAMS_FIELD;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.NAME;
 
+/**
+ * Note: This parser is used by neural plugin as well, breaking changes will require changes in neural as well
+ */
 @EqualsAndHashCode
 @Getter
 @AllArgsConstructor
