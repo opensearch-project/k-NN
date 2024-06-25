@@ -261,6 +261,39 @@ void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToFloatVector(JNIEnv *env
     env->DeleteLocalRef(array2dJ);
 }
 
+void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToByteVector(JNIEnv *env, jobjectArray array2dJ,
+                                                                     int dim, std::vector<uint8_t> *vect) {
+
+    if (array2dJ == nullptr) {
+        throw std::runtime_error("Array cannot be null");
+    }
+
+    int numVectors = env->GetArrayLength(array2dJ);
+    this->HasExceptionInStack(env);
+
+    for (int i = 0; i < numVectors; ++i) {
+        auto vectorArray = (jbyteArray)env->GetObjectArrayElement(array2dJ, i);
+        this->HasExceptionInStack(env, "Unable to get object array element");
+
+        if (dim != env->GetArrayLength(vectorArray)) {
+            throw std::runtime_error("Dimension of vectors is inconsistent");
+        }
+
+        uint8_t* vector = reinterpret_cast<uint8_t*>(env->GetByteArrayElements(vectorArray, nullptr));
+        if (vector == nullptr) {
+            this->HasExceptionInStack(env);
+            throw std::runtime_error("Unable to get byte array elements");
+        }
+
+        for(int j = 0; j < dim; ++j) {
+            vect->push_back(vector[j]);
+        }
+        env->ReleaseByteArrayElements(vectorArray, reinterpret_cast<int8_t*>(vector), JNI_ABORT);
+    }
+    this->HasExceptionInStack(env);
+    env->DeleteLocalRef(array2dJ);
+}
+
 std::vector<int64_t> knn_jni::JNIUtil::ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ) {
 
     if (arrayJ == nullptr) {
@@ -296,6 +329,23 @@ int knn_jni::JNIUtil::GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectAr
     }
 
     auto vectorArray = (jfloatArray)env->GetObjectArrayElement(array2dJ, 0);
+    this->HasExceptionInStack(env);
+    int dim = env->GetArrayLength(vectorArray);
+    this->HasExceptionInStack(env);
+    return dim;
+}
+
+int knn_jni::JNIUtil::GetInnerDimensionOf2dJavaByteArray(JNIEnv *env, jobjectArray array2dJ) {
+
+    if (array2dJ == nullptr) {
+        throw std::runtime_error("Array cannot be null");
+    }
+
+    if (env->GetArrayLength(array2dJ) <= 0) {
+        return 0;
+    }
+
+    auto vectorArray = (jbyteArray)env->GetObjectArrayElement(array2dJ, 0);
     this->HasExceptionInStack(env);
     int dim = env->GetArrayLength(vectorArray);
     this->HasExceptionInStack(env);
@@ -490,6 +540,7 @@ const std::string knn_jni::LINF = "linf";
 const std::string knn_jni::COSINESIMIL = "cosinesimil";
 const std::string knn_jni::INNER_PRODUCT = "innerproduct";
 const std::string knn_jni::NEG_DOT_PRODUCT = "negdotprod";
+const std::string knn_jni::HAMMING_BIT = "hammingbit";
 
 const std::string knn_jni::NPROBES = "nprobes";
 const std::string knn_jni::COARSE_QUANTIZER = "coarse_quantizer";

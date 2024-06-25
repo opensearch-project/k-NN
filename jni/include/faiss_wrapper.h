@@ -13,6 +13,7 @@
 #define OPENSEARCH_KNN_FAISS_WRAPPER_H
 
 #include "jni_util.h"
+#include "faiss_index_service.h"
 #include <jni.h>
 
 namespace knn_jni {
@@ -20,7 +21,7 @@ namespace knn_jni {
         // Create an index with ids and vectors. The configuration is defined by values in the Java map, parametersJ.
         // The index is serialized to indexPathJ.
         void CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ, jlong vectorsAddressJ, jint dimJ,
-                         jstring indexPathJ, jobject parametersJ);
+                         jstring indexPathJ, jobject parametersJ, IndexService* indexService);
 
         // Create an index with ids and vectors. Instead of creating a new index, this function creates the index
         // based off of the template index passed in. The index is serialized to indexPathJ.
@@ -32,6 +33,11 @@ namespace knn_jni {
         //
         // Return a pointer to the loaded index
         jlong LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ);
+
+        // Load a binary index from indexPathJ into memory.
+        //
+        // Return a pointer to the loaded index
+        jlong LoadBinaryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ);
 
         // Check if a loaded index requires shared state
         bool IsSharedIndexStateRequired(jlong indexPointerJ);
@@ -57,6 +63,12 @@ namespace knn_jni {
         jobjectArray QueryIndex_WithFilter(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
                                                                 jfloatArray queryVectorJ, jint kJ, jlongArray filterIdsJ,
                                                                 jint filterIdsTypeJ, jintArray parentIdsJ);
+
+        // Execute a query against the binary index located in memory at indexPointerJ along with Filters
+        //
+        // Return an array of KNNQueryResults
+        jobjectArray QueryBinaryIndex_WithFilter(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jlong indexPointerJ,
+                                                 jbyteArray queryVectorJ, jint kJ, jlongArray filterIdsJ, jint filterIdsTypeJ, jintArray parentIdsJ);
 
         // Free the index located in memory at indexPointerJ
         void Free(jlong indexPointer);
