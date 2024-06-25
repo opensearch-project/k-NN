@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Objects;
 
 import lombok.extern.log4j.Log4j2;
+
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.opensearch.core.common.Strings;
 import org.opensearch.index.mapper.NumberFieldMapper;
@@ -40,6 +41,7 @@ import org.opensearch.index.query.QueryShardContext;
 import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
+import static org.opensearch.knn.index.IndexUtil.getMinVersionForFeature;
 import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
 import static org.opensearch.knn.index.util.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 
@@ -216,7 +218,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             vector = in.readFloatArray();
             k = in.readInt();
             filter = in.readOptionalNamedWriteable(QueryBuilder.class);
-            if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
+            if (in.getVersion().onOrAfter(getMinVersionForFeature("ignore_unmapped")))  {
                 ignoreUnmapped = in.readOptionalBoolean();
             }
             if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
@@ -324,7 +326,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         out.writeFloatArray(vector);
         out.writeInt(k);
         out.writeOptionalNamedWriteable(filter);
-        if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
+        if (out.getVersion().onOrAfter(getMinVersionForFeature("ignore_unmapped"))) {
             out.writeOptionalBoolean(ignoreUnmapped);
         }
         if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
