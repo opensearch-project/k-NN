@@ -57,9 +57,10 @@ public class IndexUtilTests extends KNNTestCase {
         SpaceType spaceType1 = SpaceType.COSINESIMIL;
         KNNEngine knnEngine1 = KNNEngine.FAISS;
         String indexName = "my-test-index";
+        String indexDescription = "HNSW32Flat";
 
-        Map<String, Object> loadParameters = getParametersAtLoading(spaceType1, knnEngine1, indexName);
-        assertEquals(1, loadParameters.size());
+        Map<String, Object> loadParameters = getParametersAtLoading(spaceType1, knnEngine1, indexName, indexDescription);
+        assertEquals(2, loadParameters.size());
         assertEquals(spaceType1.getValue(), loadParameters.get(SPACE_TYPE));
 
         // Test nmslib to ensure both space type and ef search are properly set
@@ -84,7 +85,7 @@ public class IndexUtilTests extends KNNTestCase {
         when(clusterService.state()).thenReturn(clusterState);
         KNNSettings.state().setClusterService(clusterService);
 
-        loadParameters = getParametersAtLoading(spaceType2, knnEngine2, indexName);
+        loadParameters = getParametersAtLoading(spaceType2, knnEngine2, indexName, null);
         assertEquals(2, loadParameters.size());
         assertEquals(spaceType2.getValue(), loadParameters.get(SPACE_TYPE));
         assertEquals(efSearchValue, loadParameters.get(HNSW_ALGO_EF_SEARCH));
