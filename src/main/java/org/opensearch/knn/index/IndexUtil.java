@@ -272,6 +272,16 @@ public class IndexUtil {
     }
 
     /**
+     * Returns the min version required for feature support
+     *
+     * @param feature The name of the feature
+     * @return Min OpenSearch version required for the feature support
+     */
+    public static Version getMinVersionForFeature(String feature) {
+        return minimalRequiredVersionMap.get(feature);
+    }
+
+    /**
      * Checks if index requires shared state
      *
      * @param knnEngine The knnEngine associated with the index
