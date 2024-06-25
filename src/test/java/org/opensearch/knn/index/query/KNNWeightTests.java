@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -72,9 +73,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.KNNRestTestCase.INDEX_NAME;
+import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 public class KNNWeightTests extends KNNTestCase {
@@ -148,13 +151,27 @@ public class KNNWeightTests extends KNNTestCase {
         testQueryScore(
             SpaceType.L2::scoreTranslation,
             SEGMENT_FILES_FAISS,
-            Map.of(SPACE_TYPE, SpaceType.L2.getValue(), KNN_ENGINE, KNNEngine.FAISS.getName())
+            Map.of(
+                SPACE_TYPE,
+                SpaceType.L2.getValue(),
+                KNN_ENGINE,
+                KNNEngine.FAISS.getName(),
+                PARAMETERS,
+                String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
+            )
         );
         // score translation for Faiss and inner product is different from default defined in Space enum
         testQueryScore(
             rawScore -> SpaceType.INNER_PRODUCT.scoreTranslation(-1 * rawScore),
             SEGMENT_FILES_FAISS,
-            Map.of(SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue(), KNN_ENGINE, KNNEngine.FAISS.getName())
+            Map.of(
+                SPACE_TYPE,
+                SpaceType.INNER_PRODUCT.getValue(),
+                KNN_ENGINE,
+                KNNEngine.FAISS.getName(),
+                PARAMETERS,
+                String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
+            )
         );
     }
 
@@ -422,7 +439,12 @@ public class KNNWeightTests extends KNNTestCase {
         when(directory.getDirectory()).thenReturn(path);
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);
-        final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName());
+        final Map<String, String> attributesMap = ImmutableMap.of(
+            KNN_ENGINE,
+            KNNEngine.FAISS.getName(),
+            PARAMETERS,
+            String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
+        );
 
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
@@ -481,7 +503,14 @@ public class KNNWeightTests extends KNNTestCase {
 
         final float boost = (float) randomDoubleBetween(0, 10, true);
         final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
-        final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.L2.name());
+        final Map<String, String> attributesMap = ImmutableMap.of(
+            KNN_ENGINE,
+            KNNEngine.FAISS.getName(),
+            SPACE_TYPE,
+            SpaceType.L2.name(),
+            PARAMETERS,
+            String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
+        );
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);
         final BinaryDocValues binaryDocValues = mock(BinaryDocValues.class);
@@ -532,7 +561,14 @@ public class KNNWeightTests extends KNNTestCase {
 
         final float boost = (float) randomDoubleBetween(0, 10, true);
         final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
-        final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.L2.name());
+        final Map<String, String> attributesMap = ImmutableMap.of(
+            KNN_ENGINE,
+            KNNEngine.FAISS.getName(),
+            SPACE_TYPE,
+            SpaceType.L2.name(),
+            PARAMETERS,
+            String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
+        );
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);
         final BinaryDocValues binaryDocValues = mock(BinaryDocValues.class);
@@ -593,7 +629,14 @@ public class KNNWeightTests extends KNNTestCase {
 
         final float boost = (float) randomDoubleBetween(0, 10, true);
         final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
-        final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.L2.name());
+        final Map<String, String> attributesMap = ImmutableMap.of(
+            KNN_ENGINE,
+            KNNEngine.FAISS.getName(),
+            SPACE_TYPE,
+            SpaceType.L2.name(),
+            PARAMETERS,
+            String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
+        );
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);
         final BinaryDocValues binaryDocValues = mock(BinaryDocValues.class);
@@ -802,7 +845,16 @@ public class KNNWeightTests extends KNNTestCase {
         final FieldInfo fieldInfo = mock(FieldInfo.class);
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
-        when(fieldInfo.attributes()).thenReturn(Map.of(SPACE_TYPE, SpaceType.L2.getValue(), KNN_ENGINE, KNNEngine.FAISS.getName()));
+        when(fieldInfo.attributes()).thenReturn(
+            Map.of(
+                SPACE_TYPE,
+                SpaceType.L2.getValue(),
+                KNN_ENGINE,
+                KNNEngine.FAISS.getName(),
+                PARAMETERS,
+                String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
+            )
+        );
 
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
@@ -855,7 +907,14 @@ public class KNNWeightTests extends KNNTestCase {
         when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
 
         // Prepare fieldInfo
-        final Map<String, String> attributesMap = ImmutableMap.of(KNN_ENGINE, KNNEngine.FAISS.getName(), SPACE_TYPE, SpaceType.L2.name());
+        final Map<String, String> attributesMap = ImmutableMap.of(
+            KNN_ENGINE,
+            KNNEngine.FAISS.getName(),
+            SPACE_TYPE,
+            SpaceType.L2.name(),
+            PARAMETERS,
+            String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
+        );
         final FieldInfo fieldInfo = mock(FieldInfo.class);
         when(fieldInfo.attributes()).thenReturn(attributesMap);
         when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.name());

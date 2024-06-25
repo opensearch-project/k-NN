@@ -18,12 +18,21 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 /*
  * Class:     org_opensearch_knn_jni_FaissService
  * Method:    createIndex
  * Signature: ([IJILjava/lang/String;Ljava/util/Map;)V
  */
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createIndex
+        (JNIEnv *, jclass, jintArray, jlong, jint, jstring, jobject);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    createBinaryIndex
+ * Signature: ([IJILjava/lang/String;Ljava/util/Map;)V
+ */
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createBinaryIndex
         (JNIEnv *, jclass, jintArray, jlong, jint, jstring, jobject);
 
 /*
@@ -40,6 +49,14 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createIndexFromT
  * Signature: (Ljava/lang/String;)J
  */
 JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex
+  (JNIEnv *, jclass, jstring);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    loadBinaryIndex
+ * Signature: (Ljava/lang/String;)J
+ */
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadBinaryIndex
   (JNIEnv *, jclass, jstring);
 
 /*
@@ -69,7 +86,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_setSharedIndexSt
 /*
  * Class:     org_opensearch_knn_jni_FaissService
  * Method:    queryIndex
- * Signature: (J[FI[Ljava/util/MapI)[Lorg/opensearch/knn/index/query/KNNQueryResult;
+ * Signature: (J[FILjava/util/Map[I)[Lorg/opensearch/knn/index/query/KNNQueryResult;
  */
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryIndex
   (JNIEnv *, jclass, jlong, jfloatArray, jint, jobject, jintArray);
@@ -77,10 +94,18 @@ JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryInd
 /*
  * Class:     org_opensearch_knn_jni_FaissService
  * Method:    queryIndexWithFilter
- * Signature: (J[FI[JLjava/util/MapI[I)[Lorg/opensearch/knn/index/query/KNNQueryResult;
+ * Signature: (J[FILjava/util/Map[JI[I)[Lorg/opensearch/knn/index/query/KNNQueryResult;
  */
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryIndexWithFilter
   (JNIEnv *, jclass, jlong, jfloatArray, jint, jobject, jlongArray, jint, jintArray);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    queryBIndexWithFilter
+ * Signature: (J[BILjava/util/Map[JI[I)[Lorg/opensearch/knn/index/query/KNNQueryResult;
+ */
+JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryBinaryIndexWithFilter
+  (JNIEnv *, jclass, jlong, jbyteArray, jint, jobject, jlongArray, jint, jintArray);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService

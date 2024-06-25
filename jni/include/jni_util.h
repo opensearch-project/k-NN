@@ -71,6 +71,8 @@ namespace knn_jni {
 
         virtual void Convert2dJavaObjectArrayAndStoreToFloatVector(JNIEnv *env, jobjectArray array2dJ,
                                                                    int dim, std::vector<float> *vect ) = 0;
+        virtual void Convert2dJavaObjectArrayAndStoreToByteVector(JNIEnv *env, jobjectArray array2dJ,
+                                                                   int dim, std::vector<uint8_t> *vect ) = 0;
 
         virtual std::vector<int64_t> ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ) = 0;
 
@@ -78,6 +80,8 @@ namespace knn_jni {
 
         // ------------------------------ MISC HELPERS ------------------------------
         virtual int GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectArray array2dJ) = 0;
+
+        virtual int GetInnerDimensionOf2dJavaByteArray(JNIEnv *env, jobjectArray array2dJ) = 0;
 
         virtual int GetJavaObjectArrayLength(JNIEnv *env, jobjectArray arrayJ) = 0;
 
@@ -146,6 +150,7 @@ namespace knn_jni {
         std::vector<float> Convert2dJavaObjectArrayToCppFloatVector(JNIEnv *env, jobjectArray array2dJ, int dim);
         std::vector<int64_t> ConvertJavaIntArrayToCppIntVector(JNIEnv *env, jintArray arrayJ);
         int GetInnerDimensionOf2dJavaFloatArray(JNIEnv *env, jobjectArray array2dJ);
+        int GetInnerDimensionOf2dJavaByteArray(JNIEnv *env, jobjectArray array2dJ);
         int GetJavaObjectArrayLength(JNIEnv *env, jobjectArray arrayJ);
         int GetJavaIntArrayLength(JNIEnv *env, jintArray arrayJ);
         int GetJavaLongArrayLength(JNIEnv *env, jlongArray arrayJ);
@@ -168,6 +173,7 @@ namespace knn_jni {
         void SetObjectArrayElement(JNIEnv *env, jobjectArray array, jsize index, jobject val);
         void SetByteArrayRegion(JNIEnv *env, jbyteArray array, jsize start, jsize len, const jbyte * buf);
         void Convert2dJavaObjectArrayAndStoreToFloatVector(JNIEnv *env, jobjectArray array2dJ, int dim, std::vector<float> *vect);
+        void Convert2dJavaObjectArrayAndStoreToByteVector(JNIEnv *env, jobjectArray array2dJ, int dim, std::vector<uint8_t> *vect);
 
     private:
         std::unordered_map<std::string, jclass> cachedClasses;
@@ -193,6 +199,7 @@ namespace knn_jni {
     extern const std::string COSINESIMIL;
     extern const std::string INNER_PRODUCT;
     extern const std::string NEG_DOT_PRODUCT;
+    extern const std::string HAMMING_BIT;
 
     extern const std::string NPROBES;
     extern const std::string COARSE_QUANTIZER;

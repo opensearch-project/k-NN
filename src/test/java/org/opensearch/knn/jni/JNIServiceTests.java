@@ -62,6 +62,7 @@ public class JNIServiceTests extends KNNTestCase {
     static TestUtils.TestData testData;
     static TestUtils.TestData testDataNested;
     private String faissMethod = "HNSW32,Flat";
+    private String faissBinaryMethod = "BHNSW32";
 
     @BeforeClass
     public static void setUpClass() throws IOException {
@@ -657,6 +658,21 @@ public class JNIServiceTests extends KNNTestCase {
         }
     }
 
+    @SneakyThrows
+    public void testCreateIndex_binary_faiss_valid() {
+        Path tmpFile1 = createTempFile();
+        long memoryAddr = testData.loadBinaryDataToMemoryAddress();
+        JNIService.createIndex(
+            testData.indexData.docs,
+            memoryAddr,
+            testData.indexData.getDimension(),
+            tmpFile1.toAbsolutePath().toString(),
+            ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, faissBinaryMethod, KNNConstants.SPACE_TYPE, SpaceType.HAMMING_BIT.getValue()),
+            KNNEngine.FAISS
+        );
+        assertTrue(tmpFile1.toFile().length() > 0);
+    }
+
     public void testLoadIndex_invalidEngine() {
         expectThrows(IllegalArgumentException.class, () -> JNIService.loadIndex("test", Collections.emptyMap(), KNNEngine.LUCENE));
     }
@@ -939,6 +955,37 @@ public class JNIServiceTests extends KNNTestCase {
                     Set<Integer> parentIdSet = toParentIdSet(results, idToParentIdMap);
                     assertEquals(results.length, parentIdSet.size());
                 }
+            }
+        }
+    }
+
+    @SneakyThrows
+    public void testQueryBinaryIndex_faiss_valid() {
+        int k = 10;
+        List<String> methods = ImmutableList.of(faissBinaryMethod);
+        for (String method : methods) {
+            Path tmpFile = createTempFile();
+            long memoryAddr = testData.loadBinaryDataToMemoryAddress();
+            JNIService.createIndex(
+                testData.indexData.docs,
+                memoryAddr,
+                testData.indexData.getDimension(),
+                tmpFile.toAbsolutePath().toString(),
+                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method, KNNConstants.SPACE_TYPE, SpaceType.HAMMING_BIT.getValue()),
+                KNNEngine.FAISS
+            );
+            assertTrue(tmpFile.toFile().length() > 0);
+
+            long pointer = JNIService.loadIndex(
+                tmpFile.toAbsolutePath().toString(),
+                ImmutableMap.of(INDEX_DESCRIPTION_PARAMETER, method),
+                KNNEngine.FAISS
+            );
+            assertNotEquals(0, pointer);
+
+            for (byte[] query : testData.binaryQueries) {
+                KNNQueryResult[] results = JNIService.queryBinaryIndex(pointer, query, k, Collections.emptyMap(), KNNEngine.FAISS, null, 0, null);
+                assertEquals(k, results.length);
             }
         }
     }
