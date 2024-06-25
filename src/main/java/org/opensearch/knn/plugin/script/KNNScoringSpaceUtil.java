@@ -116,7 +116,7 @@ public class KNNScoringSpaceUtil {
             for (int i = 0; i < primitiveVector.length; i++) {
                 float value = tmp.get(i).floatValue();
                 if (VectorDataType.BYTE == vectorDataType) {
-                    validateByteVectorValue(value);
+                    validateByteVectorValue(value, vectorDataType);
                 }
                 primitiveVector[i] = value;
             }

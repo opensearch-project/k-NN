@@ -37,6 +37,8 @@ import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.util.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
 public class IndexUtil {
 
@@ -257,14 +259,14 @@ public class IndexUtil {
      * @param spaceType Space for this particular segment
      * @param knnEngine Engine used for the native library indices being loaded in
      * @param indexName Name of OpenSearch index that the segment files belong to
-     * @param indexDescription Index description of OpenSearch index with faiss that the segment files belong to
+     * @param vectorDataType Vector data type for this particular segment
      * @return load parameters that will be passed to the JNI.
      */
     public static Map<String, Object> getParametersAtLoading(
         SpaceType spaceType,
         KNNEngine knnEngine,
         String indexName,
-        String indexDescription
+        VectorDataType vectorDataType
     ) {
         Map<String, Object> loadParameters = Maps.newHashMap(ImmutableMap.of(SPACE_TYPE, spaceType.getValue()));
 
@@ -273,9 +275,7 @@ public class IndexUtil {
         if (KNNEngine.NMSLIB.equals(knnEngine)) {
             loadParameters.put(HNSW_ALGO_EF_SEARCH, KNNSettings.getEfSearchParam(indexName));
         }
-        if (KNNEngine.FAISS.equals(knnEngine)) {
-            loadParameters.put(INDEX_DESCRIPTION_PARAMETER, indexDescription);
-        }
+        loadParameters.put(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
 
         return Collections.unmodifiableMap(loadParameters);
     }
@@ -309,5 +309,18 @@ public class IndexUtil {
             return false;
         }
         return JNIService.isSharedIndexStateRequired(indexAddr, knnEngine);
+    }
+
+    /**
+     * Tell if it is binary index or not
+     *
+     * @param knnEngine knn engine associated with an index
+     * @param parameters parameters associated with an index
+     * @return true if it is binary index
+     */
+    public static boolean isBinaryIndex(KNNEngine knnEngine, Map<String, Object> parameters) {
+        return KNNEngine.FAISS == knnEngine
+            && parameters.get(VECTOR_DATA_TYPE_FIELD) != null
+            && parameters.get(VECTOR_DATA_TYPE_FIELD).toString().equals(VectorDataType.BINARY.getValue());
     }
 }

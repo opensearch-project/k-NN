@@ -23,11 +23,13 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.jni.JNIService;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -39,6 +41,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.KNNSettings.KNN_ALGO_PARAM_EF_SEARCH;
 
@@ -57,15 +60,17 @@ public class IndexUtilTests extends KNNTestCase {
         SpaceType spaceType1 = SpaceType.COSINESIMIL;
         KNNEngine knnEngine1 = KNNEngine.FAISS;
         String indexName = "my-test-index";
-        String indexDescription = "HNSW32Flat";
+        VectorDataType vectorDataType1 = VectorDataType.FLOAT;
 
-        Map<String, Object> loadParameters = getParametersAtLoading(spaceType1, knnEngine1, indexName, indexDescription);
+        Map<String, Object> loadParameters = getParametersAtLoading(spaceType1, knnEngine1, indexName, vectorDataType1);
         assertEquals(2, loadParameters.size());
         assertEquals(spaceType1.getValue(), loadParameters.get(SPACE_TYPE));
+        assertEquals(vectorDataType1.getValue(), loadParameters.get(VECTOR_DATA_TYPE_FIELD));
 
         // Test nmslib to ensure both space type and ef search are properly set
         SpaceType spaceType2 = SpaceType.L1;
         KNNEngine knnEngine2 = KNNEngine.NMSLIB;
+        VectorDataType vectorDataType2 = VectorDataType.BINARY;
         int efSearchValue = 413;
 
         // We use the constant for the setting here as opposed to the identifier of efSearch in nmslib jni
@@ -85,10 +90,11 @@ public class IndexUtilTests extends KNNTestCase {
         when(clusterService.state()).thenReturn(clusterState);
         KNNSettings.state().setClusterService(clusterService);
 
-        loadParameters = getParametersAtLoading(spaceType2, knnEngine2, indexName, null);
-        assertEquals(2, loadParameters.size());
+        loadParameters = getParametersAtLoading(spaceType2, knnEngine2, indexName, vectorDataType2);
+        assertEquals(3, loadParameters.size());
         assertEquals(spaceType2.getValue(), loadParameters.get(SPACE_TYPE));
         assertEquals(efSearchValue, loadParameters.get(HNSW_ALGO_EF_SEARCH));
+        assertEquals(vectorDataType2.getValue(), loadParameters.get(VECTOR_DATA_TYPE_FIELD));
     }
 
     public void testValidateKnnField_NestedField() {
@@ -241,5 +247,17 @@ public class IndexUtilTests extends KNNTestCase {
         String modelId = "test-model";
         KNNEngine knnEngine = KNNEngine.FAISS;
         assertTrue(IndexUtil.isSharedIndexStateRequired(knnEngine, modelId, TEST_INDEX_ADDRESS));
+    }
+
+    public void testIsBinaryIndex_whenBinary_thenTrue() {
+        Map<String, Object> binaryIndexParams = new HashMap<>();
+        binaryIndexParams.put(VECTOR_DATA_TYPE_FIELD, "binary");
+        assertTrue(IndexUtil.isBinaryIndex(KNNEngine.FAISS, binaryIndexParams));
+    }
+
+    public void testIsBinaryIndex_whenNonBinary_thenFalse() {
+        Map<String, Object> nonBinaryIndexParams = new HashMap<>();
+        nonBinaryIndexParams.put(VECTOR_DATA_TYPE_FIELD, "byte");
+        assertFalse(IndexUtil.isBinaryIndex(KNNEngine.FAISS, nonBinaryIndexParams));
     }
 }

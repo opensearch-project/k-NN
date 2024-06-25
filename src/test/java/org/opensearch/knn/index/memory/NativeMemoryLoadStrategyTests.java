@@ -80,6 +80,63 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         assertTrue(results.length > 0);
     }
 
+    public void testLoad_whenFaissBinary_thenSuccess() throws IOException {
+        Path dir = createTempDir();
+        KNNEngine knnEngine = KNNEngine.FAISS;
+        String indexName = "test1" + knnEngine.getExtension();
+        String path = dir.resolve(indexName).toAbsolutePath().toString();
+        int numVectors = 10;
+        int dimension = 8;
+        int dataLength = dimension / 8;
+        int[] ids = new int[numVectors];
+        byte[][] vectors = new byte[numVectors][dataLength];
+        for (int i = 0; i < numVectors; i++) {
+            ids[i] = i;
+            vectors[i][0] = 1;
+        }
+        Map<String, Object> parameters = ImmutableMap.of(
+            KNNConstants.SPACE_TYPE,
+            SpaceType.HAMMING_BIT.getValue(),
+            KNNConstants.INDEX_DESCRIPTION_PARAMETER,
+            "BHNSW32"
+        );
+        long memoryAddress = JNICommons.storeByteVectorData(0, vectors, numVectors);
+        JNIService.createIndex(ids, memoryAddress, dimension, path, parameters, knnEngine);
+
+        // Setup mock resource manager
+        ResourceWatcherService resourceWatcherService = mock(ResourceWatcherService.class);
+        doReturn(null).when(resourceWatcherService).add(any());
+        NativeMemoryLoadStrategy.IndexLoadStrategy.initialize(resourceWatcherService);
+
+        NativeMemoryEntryContext.IndexEntryContext indexEntryContext = new NativeMemoryEntryContext.IndexEntryContext(
+            path,
+            NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
+            parameters,
+            "test"
+        );
+
+        // Load
+        NativeMemoryAllocation.IndexAllocation indexAllocation = NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance()
+            .load(indexEntryContext);
+
+        // Verify
+        assertTrue(indexAllocation.isBinaryIndex());
+
+        // Confirm that the file was loaded by querying
+        byte[] query = { 1 };
+        KNNQueryResult[] results = JNIService.queryBinaryIndex(
+            indexAllocation.getMemoryAddress(),
+            query,
+            2,
+            null,
+            knnEngine,
+            null,
+            0,
+            null
+        );
+        assertTrue(results.length > 0);
+    }
+
     @SuppressWarnings("unchecked")
     public void testTrainingLoadStrategy_load() {
         // Mock the vector reader so that on read, it waits 2 seconds, transfers vectors to the consumer, and then calls
