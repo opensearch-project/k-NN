@@ -70,6 +70,9 @@ void SetExtraParameters(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env,
 // Train an index with data provided
 void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x);
 
+// Train a binary index with data provided
+void InternalTrainBinaryIndex(faiss::IndexBinary * index, faiss::idx_t n, const float* x);
+
 // Converts the int FilterIds to Faiss ids type array.
 void convertFilterIdsToFaissIdType(const int* filterIds, int filterIdsLength, faiss::idx_t* convertedFilterIds);
 
@@ -221,6 +224,76 @@ void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface *
     // Write the index to disk
     std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
     faiss::write_index(&idMap, indexPathCpp.c_str());
+}
+
+void knn_jni::faiss_wrapper::CreateBinaryIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
+                                                     jlong vectorsAddressJ, jint dimJ, jstring indexPathJ,
+                                                     jbyteArray templateIndexJ, jobject parametersJ) {
+    if (idsJ == nullptr) {
+        throw std::runtime_error("IDs cannot be null");
+    }
+
+    if (vectorsAddressJ <= 0) {
+        throw std::runtime_error("VectorsAddress cannot be less than 0");
+    }
+
+    if(dimJ <= 0) {
+        throw std::runtime_error("Vectors dimensions cannot be less than or equal to 0");
+    }
+
+    if (indexPathJ == nullptr) {
+        throw std::runtime_error("Index path cannot be null");
+    }
+
+    if (templateIndexJ == nullptr) {
+        throw std::runtime_error("Template index cannot be null");
+    }
+
+    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
+    auto parametersCpp = jniUtil->ConvertJavaMapToCppMap(env, parametersJ);
+    if(parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY) != parametersCpp.end()) {
+        auto threadCount = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::INDEX_THREAD_QUANTITY]);
+        omp_set_num_threads(threadCount);
+    }
+    jniUtil->DeleteLocalRef(env, parametersJ);
+
+    // Read data set
+    // Read vectors from memory address
+    auto *inputVectors = reinterpret_cast<std::vector<uint8_t>*>(vectorsAddressJ);
+    int dim = (int)dimJ;
+    if (dim % 8 != 0) {
+        throw std::runtime_error("Dimensions should be multiply of 8");
+    }
+    int numVectors = (int) (inputVectors->size() / (uint64_t) (dim / 8));
+    int numIds = jniUtil->GetJavaIntArrayLength(env, idsJ);
+    if (numIds != numVectors) {
+        throw std::runtime_error("Number of IDs does not match number of vectors");
+    }
+
+    // Get vector of bytes from jbytearray
+    int indexBytesCount = jniUtil->GetJavaBytesArrayLength(env, templateIndexJ);
+    jbyte * indexBytesJ = jniUtil->GetByteArrayElements(env, templateIndexJ, nullptr);
+
+    faiss::VectorIOReader vectorIoReader;
+    for (int i = 0; i < indexBytesCount; i++) {
+        vectorIoReader.data.push_back((uint8_t) indexBytesJ[i]);
+    }
+    jniUtil->ReleaseByteArrayElements(env, templateIndexJ, indexBytesJ, JNI_ABORT);
+
+    // Create faiss index
+    std::unique_ptr<faiss::IndexBinary> indexWriter;
+    indexWriter.reset(faiss::read_index_binary(&vectorIoReader, 0));
+
+    auto idVector = jniUtil->ConvertJavaIntArrayToCppIntVector(env, idsJ);
+    faiss::IndexBinaryIDMap idMap =  faiss::IndexBinaryIDMap(indexWriter.get());
+    idMap.add_with_ids(numVectors, reinterpret_cast<const uint8_t*>(inputVectors->data()), idVector.data());
+    // Releasing the vectorsAddressJ memory as that is not required once we have created the index.
+    // This is not the ideal approach, please refer this gh issue for long term solution:
+    // https://github.com/opensearch-project/k-NN/issues/1600
+    delete inputVectors;
+    // Write the index to disk
+    std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
+    faiss::write_index_binary(&idMap, indexPathCpp.c_str());
 }
 
 jlong knn_jni::faiss_wrapper::LoadIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jstring indexPathJ) {
@@ -624,6 +697,57 @@ jbyteArray knn_jni::faiss_wrapper::TrainIndex(knn_jni::JNIUtilInterface * jniUti
     return ret;
 }
 
+jbyteArray knn_jni::faiss_wrapper::TrainBinaryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject parametersJ,
+                                              jint dimensionJ, jlong trainVectorsPointerJ) {
+    // First, we need to build the index
+    if (parametersJ == nullptr) {
+        throw std::runtime_error("Parameters cannot be null");
+    }
+
+    auto parametersCpp = jniUtil->ConvertJavaMapToCppMap(env, parametersJ);
+
+    jobject spaceTypeJ = knn_jni::GetJObjectFromMapOrThrow(parametersCpp, knn_jni::SPACE_TYPE);
+    std::string spaceTypeCpp(jniUtil->ConvertJavaObjectToCppString(env, spaceTypeJ));
+    faiss::MetricType metric = TranslateSpaceToMetric(spaceTypeCpp);
+
+    // Create faiss index
+    jobject indexDescriptionJ = knn_jni::GetJObjectFromMapOrThrow(parametersCpp, knn_jni::INDEX_DESCRIPTION);
+    std::string indexDescriptionCpp(jniUtil->ConvertJavaObjectToCppString(env, indexDescriptionJ));
+
+    std::unique_ptr<faiss::IndexBinary> indexWriter;
+    indexWriter.reset(faiss::index_binary_factory((int) dimensionJ, indexDescriptionCpp.c_str()));
+
+    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
+    if(parametersCpp.find(knn_jni::INDEX_THREAD_QUANTITY) != parametersCpp.end()) {
+        auto threadCount = jniUtil->ConvertJavaObjectToCppInteger(env, parametersCpp[knn_jni::INDEX_THREAD_QUANTITY]);
+        omp_set_num_threads(threadCount);
+    }
+
+    // Train index if needed
+    auto *trainingVectorsPointerCpp = reinterpret_cast<std::vector<float>*>(trainVectorsPointerJ);
+    int numVectors = trainingVectorsPointerCpp->size()/(int) dimensionJ;
+    if(!indexWriter->is_trained) {
+        InternalTrainBinaryIndex(indexWriter.get(), numVectors, trainingVectorsPointerCpp->data());
+    }
+    jniUtil->DeleteLocalRef(env, parametersJ);
+
+    // Now that indexWriter is trained, we just load the bytes into an array and return
+    faiss::VectorIOWriter vectorIoWriter;
+    faiss::write_index_binary(indexWriter.get(), &vectorIoWriter);
+
+    // Wrap in smart pointer
+    std::unique_ptr<jbyte[]> jbytesBuffer;
+    jbytesBuffer.reset(new jbyte[vectorIoWriter.data.size()]);
+    int c = 0;
+    for (auto b : vectorIoWriter.data) {
+        jbytesBuffer[c++] = (jbyte) b;
+    }
+
+    jbyteArray ret = jniUtil->NewByteArray(env, vectorIoWriter.data.size());
+    jniUtil->SetByteArrayRegion(env, ret, 0, vectorIoWriter.data.size(), jbytesBuffer.get());
+    return ret;
+}
+
 faiss::MetricType TranslateSpaceToMetric(const std::string& spaceType) {
     if (spaceType == knn_jni::L2) {
         return faiss::METRIC_L2;
@@ -679,6 +803,15 @@ void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x) {
 
     if (!index->is_trained) {
         index->train(n, x);
+    }
+}
+
+void InternalTrainBinaryIndex(faiss::IndexBinary * index, faiss::idx_t n, const float* x) {
+    if (auto * indexIvf = dynamic_cast<faiss::IndexBinaryIVF*>(index)) {
+        indexIvf->make_direct_map();
+    }
+    if (!index->is_trained) {
+        index->train(n, reinterpret_cast<const uint8_t*>(x));
     }
 }
 

@@ -38,6 +38,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
@@ -62,6 +63,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static java.util.Collections.emptyMap;
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -199,6 +201,8 @@ public class KNNWeightTests extends KNNTestCase {
         when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         when(modelMetadata.getSpaceType()).thenReturn(spaceType);
         when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
+        when(modelMetadata.getVectorDataType()).thenReturn(VectorDataType.DEFAULT);
+        when(modelMetadata.getMethodComponentContext()).thenReturn(new MethodComponentContext("ivf", emptyMap()));
         when(modelDao.getMetadata(eq("modelId"))).thenReturn(modelMetadata);
 
         KNNWeight.initialize(modelDao);

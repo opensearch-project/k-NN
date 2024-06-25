@@ -6,6 +6,7 @@
 package org.opensearch.knn;
 
 import com.google.common.primitives.Floats;
+import com.google.common.primitives.Ints;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
@@ -1001,6 +1002,28 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
+     * Bulk ingest random binary vectors
+     * @param indexName index name
+     * @param fieldName field name
+     * @param numVectors number of vectors
+     * @param dimension vector dimension
+     */
+    public void bulkIngestRandomBinaryVectors(String indexName, String fieldName, int numVectors, int dimension) throws IOException {
+        if (dimension % 8 != 0) {
+            throw new IllegalArgumentException("Dimension must be a multiple of 8");
+        }
+        for (int i = 0; i < numVectors; i++) {
+            int binaryDimension = dimension / 8;
+            int[] vector = new int[binaryDimension];
+            for (int j = 0; j < binaryDimension; j++) {
+                vector[j] = randomIntBetween(-128, 127);
+            }
+
+            addKnnDoc(indexName, String.valueOf(i + 1), fieldName, Ints.asList(vector).toArray());
+        }
+    }
+
+    /**
      * Bulk ingest random vectors with nested field
      *
      * @param indexName       index name
@@ -1326,6 +1349,18 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .field(MODEL_DESCRIPTION, description)
             .endObject();
 
+        if (modelId == null) {
+            modelId = "";
+        } else {
+            modelId = "/" + modelId;
+        }
+
+        Request request = new Request("POST", "/_plugins/_knn/models" + modelId + "/_train");
+        request.setJsonEntity(builder.toString());
+        return client().performRequest(request);
+    }
+
+    public Response trainModel(String modelId, XContentBuilder builder) throws IOException {
         if (modelId == null) {
             modelId = "";
         } else {

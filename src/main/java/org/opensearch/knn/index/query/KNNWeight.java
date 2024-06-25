@@ -213,6 +213,7 @@ public class KNNWeight extends Weight {
 
         KNNEngine knnEngine;
         SpaceType spaceType;
+        VectorDataType vectorDataType;
 
         // Check if a modelId exists. If so, the space type and engine will need to be picked up from the model's
         // metadata.
@@ -225,11 +226,15 @@ public class KNNWeight extends Weight {
 
             knnEngine = modelMetadata.getKnnEngine();
             spaceType = modelMetadata.getSpaceType();
+            vectorDataType = modelMetadata.getVectorDataType();
         } else {
             String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, KNNEngine.NMSLIB.getName());
             knnEngine = KNNEngine.getEngine(engineName);
             String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
             spaceType = SpaceType.getSpace(spaceTypeName);
+            vectorDataType = VectorDataType.get(
+                fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
+            );
         }
 
         /*
@@ -261,12 +266,7 @@ public class KNNWeight extends Weight {
                 new NativeMemoryEntryContext.IndexEntryContext(
                     indexPath.toString(),
                     NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                    getParametersAtLoading(
-                        spaceType,
-                        knnEngine,
-                        knnQuery.getIndexName(),
-                        VectorDataType.get(fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue()))
-                    ),
+                    getParametersAtLoading(spaceType, knnEngine, knnQuery.getIndexName(), vectorDataType),
                     knnQuery.getIndexName(),
                     modelId
                 ),

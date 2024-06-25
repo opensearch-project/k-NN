@@ -515,6 +515,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             knnEngine = modelMetadata.getKnnEngine();
             spaceType = modelMetadata.getSpaceType();
             methodComponentContext = modelMetadata.getMethodComponentContext();
+            vectorDataType = modelMetadata.getVectorDataType();
 
         } else if (knnMethodContext != null) {
             // If the dimension is set but the knnMethodContext is not then the field is using the legacy mapping

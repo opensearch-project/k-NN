@@ -83,8 +83,13 @@ public class JNIService {
         KNNEngine knnEngine
     ) {
         if (KNNEngine.FAISS == knnEngine) {
-            FaissService.createIndexFromTemplate(ids, vectorsAddress, dim, indexPath, templateIndex, parameters);
-            return;
+            if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
+                FaissService.createBinaryIndexFromTemplate(ids, vectorsAddress, dim, indexPath, templateIndex, parameters);
+                return;
+            } else {
+                FaissService.createIndexFromTemplate(ids, vectorsAddress, dim, indexPath, templateIndex, parameters);
+                return;
+            }
         }
 
         throw new IllegalArgumentException(
@@ -308,6 +313,9 @@ public class JNIService {
      */
     public static byte[] trainIndex(Map<String, Object> indexParameters, int dimension, long trainVectorsPointer, KNNEngine knnEngine) {
         if (KNNEngine.FAISS == knnEngine) {
+            if (IndexUtil.isBinaryIndex(knnEngine, indexParameters)) {
+                return FaissService.trainBinaryIndex(indexParameters, dimension, trainVectorsPointer);
+            }
             return FaissService.trainIndex(indexParameters, dimension, trainVectorsPointer);
         }
 

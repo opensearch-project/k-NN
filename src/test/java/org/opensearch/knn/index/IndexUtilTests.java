@@ -117,7 +117,7 @@ public class IndexUtilTests extends KNNTestCase {
         when(trainingFieldModelMetadata.getDimension()).thenReturn(dimension);
         when(modelDao.getMetadata(anyString())).thenReturn(trainingFieldModelMetadata);
 
-        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao);
+        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao, null);
 
         assertNull(e);
     }
@@ -138,7 +138,7 @@ public class IndexUtilTests extends KNNTestCase {
         when(trainingFieldModelMetadata.getDimension()).thenReturn(dimension);
         when(modelDao.getMetadata(anyString())).thenReturn(trainingFieldModelMetadata);
 
-        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao);
+        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao, null);
 
         assertNull(e);
     }
@@ -158,7 +158,7 @@ public class IndexUtilTests extends KNNTestCase {
         when(trainingFieldModelMetadata.getDimension()).thenReturn(dimension);
         when(modelDao.getMetadata(anyString())).thenReturn(trainingFieldModelMetadata);
 
-        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao);
+        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao, null);
 
         assert Objects.requireNonNull(e).getMessage().matches("Validation Failed: 1: Field \"" + field + "\" is not of type knn_vector.;");
     }
@@ -182,7 +182,7 @@ public class IndexUtilTests extends KNNTestCase {
         when(trainingFieldModelMetadata.getDimension()).thenReturn(dimension);
         when(modelDao.getMetadata(anyString())).thenReturn(trainingFieldModelMetadata);
 
-        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao);
+        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao, null);
 
         assert (Objects.requireNonNull(e).getMessage().matches("Validation Failed: 1: Field \"" + field + "\" does not exist.;"));
     }
@@ -206,7 +206,7 @@ public class IndexUtilTests extends KNNTestCase {
         when(trainingFieldModelMetadata.getDimension()).thenReturn(dimension);
         when(modelDao.getMetadata(anyString())).thenReturn(trainingFieldModelMetadata);
 
-        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao);
+        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao, null);
 
         System.out.println(Objects.requireNonNull(e).getMessage());
 
@@ -223,7 +223,7 @@ public class IndexUtilTests extends KNNTestCase {
         when(trainingFieldModelMetadata.getDimension()).thenReturn(dimension);
         when(modelDao.getMetadata(anyString())).thenReturn(trainingFieldModelMetadata);
 
-        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao);
+        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao, null);
 
         assert (Objects.requireNonNull(e).getMessage().matches("Validation Failed: 1: Invalid index. Index does not contain a mapping;"));
     }
@@ -258,5 +258,57 @@ public class IndexUtilTests extends KNNTestCase {
         Map<String, Object> nonBinaryIndexParams = new HashMap<>();
         nonBinaryIndexParams.put(VECTOR_DATA_TYPE_FIELD, "byte");
         assertFalse(IndexUtil.isBinaryIndex(KNNEngine.FAISS, nonBinaryIndexParams));
+    }
+
+    public void testValidateKnnField_whenTrainModelUseDifferentVectorDataTypeFromTrainIndex_thenThrowException() {
+        Map<String, Object> fieldValues = Map.of("type", "knn_vector", "dimension", 8, "data_type", "float");
+        Map<String, Object> top_level_field = Map.of("top_level_field", fieldValues);
+        Map<String, Object> properties = Map.of("properties", top_level_field);
+        String field = "top_level_field";
+        int dimension = 8;
+
+        MappingMetadata mappingMetadata = mock(MappingMetadata.class);
+        when(mappingMetadata.getSourceAsMap()).thenReturn(properties);
+        IndexMetadata indexMetadata = mock(IndexMetadata.class);
+        when(indexMetadata.mapping()).thenReturn(mappingMetadata);
+        ModelDao modelDao = mock(ModelDao.class);
+
+        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao, VectorDataType.BINARY);
+        System.out.println(Objects.requireNonNull(e).getMessage());
+
+        assert Objects.requireNonNull(e)
+            .getMessage()
+            .matches(
+                "Validation Failed: 1: Field \""
+                    + field
+                    + "\" has data type float, which is different from data type used in the training request: binary;"
+            );
+    }
+
+    public void testValidateKnnField_whenPassByteVectorDataType_thenThrowException() {
+        Map<String, Object> fieldValues = Map.of("type", "knn_vector", "dimension", 8, "data_type", "byte");
+        Map<String, Object> top_level_field = Map.of("top_level_field", fieldValues);
+        Map<String, Object> properties = Map.of("properties", top_level_field);
+        String field = "top_level_field";
+        int dimension = 8;
+
+        MappingMetadata mappingMetadata = mock(MappingMetadata.class);
+        when(mappingMetadata.getSourceAsMap()).thenReturn(properties);
+        IndexMetadata indexMetadata = mock(IndexMetadata.class);
+        when(indexMetadata.mapping()).thenReturn(mappingMetadata);
+        ModelDao modelDao = mock(ModelDao.class);
+
+        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao, VectorDataType.BYTE);
+        System.out.println(Objects.requireNonNull(e).getMessage());
+
+        assert Objects.requireNonNull(e)
+            .getMessage()
+            .matches("Validation Failed: 1: vector data type \"" + VectorDataType.BYTE.getValue() + "\" is not supported for training.;");
+    }
+
+    public void testUpdateVectorDataTypeToParameters_whenVectorDataTypeIsBinary() {
+        Map<String, Object> indexParams = new HashMap<>();
+        IndexUtil.updateVectorDataTypeToParameters(indexParams, VectorDataType.BINARY);
+        assertEquals(VectorDataType.BINARY.getValue(), indexParams.get(VECTOR_DATA_TYPE_FIELD));
     }
 }

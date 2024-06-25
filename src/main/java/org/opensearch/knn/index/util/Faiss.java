@@ -305,7 +305,7 @@ public class Faiss extends NativeLibrary {
                     return ((4L * centroids * dimension) / BYTES_PER_KILOBYTES) + 1;
                 })
                 .build()
-        ).addSpaces(SpaceType.UNDEFINED, SpaceType.L2, SpaceType.INNER_PRODUCT).build()
+        ).addSpaces(SpaceType.UNDEFINED, SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.HAMMING_BIT).build()
     );
 
     final static Faiss INSTANCE = new Faiss(

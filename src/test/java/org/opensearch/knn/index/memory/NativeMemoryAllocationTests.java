@@ -315,7 +315,8 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
             executorService,
             memoryAddress,
-            0
+            0,
+            VectorDataType.FLOAT
         );
 
         trainingDataAllocation.close();
@@ -341,7 +342,8 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
             null,
             memoryAddress,
-            0
+            0,
+            VectorDataType.FLOAT
         );
 
         assertEquals(memoryAddress, trainingDataAllocation.getMemoryAddress());
@@ -354,7 +356,8 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
             null,
             0,
-            0
+            0,
+            VectorDataType.FLOAT
         );
 
         int initialValue = 10;
@@ -387,7 +390,8 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
             null,
             0,
-            0
+            0,
+            VectorDataType.FLOAT
         );
 
         int initialValue = 10;
@@ -422,7 +426,8 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
             null,
             0,
-            size
+            size,
+            VectorDataType.FLOAT
         );
 
         assertEquals(size, trainingDataAllocation.getSizeInKB());
@@ -434,7 +439,8 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
             null,
             pointer,
-            0
+            0,
+            VectorDataType.FLOAT
         );
 
         assertEquals(pointer, trainingDataAllocation.getMemoryAddress());

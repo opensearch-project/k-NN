@@ -46,8 +46,17 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static org.mockito.Mockito.when;
-import static org.opensearch.knn.common.KNNConstants.*;
+import static org.opensearch.knn.common.KNNConstants.DIMENSION;
+import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_BLOB_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.MODEL_DESCRIPTION;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ERROR;
+import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
+import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
+import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
     @Override
@@ -201,7 +210,8 @@ public class KNNSingleNodeTestCase extends OpenSearchSingleNodeTestCase {
             .field(MODEL_STATE, modelMetadata.getState().getName())
             .field(MODEL_TIMESTAMP, modelMetadata.getTimestamp().toString())
             .field(MODEL_DESCRIPTION, modelMetadata.getDescription())
-            .field(MODEL_ERROR, modelMetadata.getError());
+            .field(MODEL_ERROR, modelMetadata.getError())
+            .field(VECTOR_DATA_TYPE_FIELD, modelMetadata.getVectorDataType().getValue());
 
         if (model.getModelBlob() != null) {
             builder.field(MODEL_BLOB_PARAMETER, Base64.getEncoder().encodeToString(model.getModelBlob()));

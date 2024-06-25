@@ -23,7 +23,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-public class TrainingDataConsumerTests extends KNNTestCase {
+public class FloatTrainingDataConsumerTests extends KNNTestCase {
 
     public void testAccept() {
 
@@ -38,7 +38,7 @@ public class TrainingDataConsumerTests extends KNNTestCase {
         // Capture argument passed to set pointer
         ArgumentCaptor<Long> valueCapture = ArgumentCaptor.forClass(Long.class);
 
-        TrainingDataConsumer trainingDataConsumer = new TrainingDataConsumer(trainingDataAllocation);
+        FloatTrainingDataConsumer floatTrainingDataConsumer = new FloatTrainingDataConsumer(trainingDataAllocation);
 
         List<Float[]> vectorSet1 = new ArrayList<>(3);
         for (int i = 0; i < 3; i++) {
@@ -47,10 +47,8 @@ public class TrainingDataConsumerTests extends KNNTestCase {
             vectorSet1.add(vector);
         }
 
-        when(trainingDataAllocation.getMemoryAddress()).thenReturn(0L);
-
         // Transfer vectors
-        trainingDataConsumer.accept(vectorSet1);
+        floatTrainingDataConsumer.accept(vectorSet1);
 
         // Ensure that the pointer captured has been updated
         verify(trainingDataAllocation).setMemoryAddress(valueCapture.capture());
