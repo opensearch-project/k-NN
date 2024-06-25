@@ -218,7 +218,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             vector = in.readFloatArray();
             k = in.readInt();
             filter = in.readOptionalNamedWriteable(QueryBuilder.class);
-            if (in.getVersion().onOrAfter(getMinVersionForFeature("ignore_unmapped")))  {
+            if (in.getVersion().onOrAfter(getMinVersionForFeature("ignore_unmapped"))) {
                 ignoreUnmapped = in.readOptionalBoolean();
             }
             if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
