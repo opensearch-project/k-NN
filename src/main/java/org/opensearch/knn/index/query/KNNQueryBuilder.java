@@ -27,7 +27,6 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.IndexUtil;
-import org.opensearch.knn.index.util.EngineSpecificMethodContext;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
@@ -35,6 +34,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.query.parser.MethodParametersParser;
+import org.opensearch.knn.index.util.EngineSpecificMethodContext;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.index.util.QueryContext;
 import org.opensearch.knn.indices.ModelDao;
@@ -554,17 +554,25 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             radius = knnEngine.scoreToRadialThreshold(this.minScore, spaceType);
         }
 
-        if (fieldDimension != vector.length) {
+        int vectorLength = VectorDataType.BINARY == vectorDataType ? vector.length * Byte.SIZE : vector.length;
+        if (fieldDimension != vectorLength) {
             throw new IllegalArgumentException(
-                String.format("Query vector has invalid dimension: %d. Dimension should be: %d", vector.length, fieldDimension)
+                String.format("Query vector has invalid dimension: %d. Dimension should be: %d", vectorLength, fieldDimension)
             );
         }
 
         byte[] byteVector = new byte[0];
-        if (VectorDataType.BYTE == vectorDataType) {
+        if (VectorDataType.BINARY == vectorDataType) {
             byteVector = new byte[vector.length];
             for (int i = 0; i < vector.length; i++) {
-                validateByteVectorValue(vector[i]);
+                validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
+                byteVector[i] = (byte) vector[i];
+            }
+            spaceType.validateVector(byteVector);
+        } else if (VectorDataType.BYTE == vectorDataType) {
+            byteVector = new byte[vector.length];
+            for (int i = 0; i < vector.length; i++) {
+                validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
                 byteVector[i] = (byte) vector[i];
             }
             spaceType.validateVector(byteVector);
@@ -586,7 +594,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .indexName(indexName)
                 .fieldName(this.fieldName)
                 .vector(VectorDataType.FLOAT == vectorDataType ? this.vector : null)
-                .byteVector(VectorDataType.BYTE == vectorDataType ? byteVector : null)
+                .byteVector(VectorDataType.BYTE == vectorDataType || VectorDataType.BINARY == vectorDataType ? byteVector : null)
                 .vectorDataType(vectorDataType)
                 .k(this.k)
                 .methodParameters(this.methodParameters)

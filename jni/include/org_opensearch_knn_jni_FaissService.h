@@ -110,10 +110,10 @@ JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryBin
 /*
  * Class:     org_opensearch_knn_jni_FaissService
  * Method:    free
- * Signature: (J)V
+ * Signature: (JZ)V
  */
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_free
-  (JNIEnv *, jclass, jlong);
+  (JNIEnv *, jclass, jlong, jboolean);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService

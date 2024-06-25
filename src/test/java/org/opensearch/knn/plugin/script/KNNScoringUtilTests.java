@@ -267,6 +267,12 @@ public class KNNScoringUtilTests extends KNNTestCase {
         dataset.close();
     }
 
+    public void testCalculateHammingBit_whenByte_thenSuccess() {
+        byte[] v1 = { 1, 16, -128 };  // 0000 0001, 0001 0000, 1000 0000
+        byte[] v2 = { 2, 17, -1 };    // 0000 0010, 0001 0001, 1111 1111
+        assertEquals(10, KNNScoringUtil.calculateHammingBit(v1, v2), 0.001f);
+    }
+
     class TestKNNScriptDocValues {
         private KNNVectorScriptDocValues scriptDocValues;
         private Directory directory;
