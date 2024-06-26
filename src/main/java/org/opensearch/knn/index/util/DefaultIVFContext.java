@@ -24,7 +24,7 @@ public final class DefaultIVFContext implements EngineSpecificMethodContext {
         .build();
 
     @Override
-    public Map<String, Parameter<?>> supportedMethodParameters() {
+    public Map<String, Parameter<?>> supportedMethodParameters(QueryContext queryContext) {
         return supportedMethodParameters;
     }
 }

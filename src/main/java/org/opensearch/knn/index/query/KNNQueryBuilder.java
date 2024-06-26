@@ -217,16 +217,13 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 throw new IllegalArgumentException(String.format("[%s] requires exactly one of k, distance or score to be set", NAME));
             }
 
-            VectorQueryType vectorQueryType = VectorQueryType.MAX_DISTANCE;
             if (k != null) {
-                vectorQueryType = VectorQueryType.K;
                 if (k <= 0 || k > K_MAX) {
                     throw new IllegalArgumentException(String.format("[%s] requires k to be in the range (0, %d]", NAME, K_MAX));
                 }
             }
 
             if (minScore != null) {
-                vectorQueryType = VectorQueryType.MIN_SCORE;
                 if (minScore <= 0) {
                     throw new IllegalArgumentException(String.format("[%s] requires minScore to be greater than 0", NAME));
                 }
@@ -239,12 +236,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                         String.format("[%s] errors in method parameter [%s]", NAME, validationException.getMessage())
                     );
                 }
-            }
-
-            // Update stats
-            vectorQueryType.getQueryStatCounter().increment();
-            if (filter != null) {
-                vectorQueryType.getQueryWithFilterStatCounter().increment();
             }
         }
     }

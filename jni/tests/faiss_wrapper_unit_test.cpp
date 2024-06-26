@@ -144,9 +144,9 @@ struct RangeSearchTestInput {
     bool parentIdsPresent;
 };
 
-class FaissWrapperParametrizedTestFixture : public testing::TestWithParam<QueryIndexInput> {
+class FaissWrapperParameterizedTestFixture : public testing::TestWithParam<QueryIndexInput> {
 public:
-    FaissWrapperParametrizedTestFixture() : index_(3), id_map_(&index_) {
+    FaissWrapperParameterizedTestFixture() : index_(3), id_map_(&index_) {
         index_.hnsw.efSearch = 100; // assigning 100 to make sure default of 16 is not used anywhere
     }
 
@@ -155,9 +155,9 @@ protected:
     MockIdMap id_map_;
 };
 
-class FaissWrapperParametrizedRangeSearchTestFixture : public testing::TestWithParam<RangeSearchTestInput> {
+class FaissWrapperParameterizedRangeSearchTestFixture : public testing::TestWithParam<RangeSearchTestInput> {
 public:
-    FaissWrapperParametrizedRangeSearchTestFixture() : index_(3), id_map_(&index_) {
+    FaissWrapperParameterizedRangeSearchTestFixture() : index_(3), id_map_(&index_) {
         index_.hnsw.efSearch = 100; // assigning 100 to make sure default of 16 is not used anywhere
     }
 
@@ -236,7 +236,7 @@ namespace query_index_test {
 
     INSTANTIATE_TEST_CASE_P(
         QueryIndexHNSWTests,
-        FaissWrapperParametrizedTestFixture,
+        FaissWrapperParameterizedTestFixture,
         ::testing::Values(
             QueryIndexInput {"algoParams present, parent absent", 10, 0, false, false, 200, -1 },
             QueryIndexInput {"algoParams present, parent absent", 10, 0, false, false, -1, -1 },
@@ -318,7 +318,7 @@ namespace query_index_with_filter_test {
 
     INSTANTIATE_TEST_CASE_P(
         QueryIndexWithFilterHNSWTests,
-        FaissWrapperParametrizedTestFixture,
+        FaissWrapperParameterizedTestFixture,
         ::testing::Values(
             QueryIndexInput { "algoParams present, parent absent, filter absent", 10, 0, false, false, 200, -1 },
             QueryIndexInput { "algoParams present, parent absent, filter absent, filter type 1", 10, 1, false, false, 200, -1},

@@ -669,10 +669,10 @@ TEST(FaissRangeSearchQueryIndexTest, BasicAssertions) {
         std::unique_ptr<std::vector<std::pair<int, float> *>> results(
                 reinterpret_cast<std::vector<std::pair<int, float> *> *>(
 
-                        knn_jni::faiss_wrapper::RangeSearch(
-                                &mockJNIUtil, jniEnv,
-                                reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), radius, maxResultWindow, nullptr)));
+                knn_jni::faiss_wrapper::RangeSearch(
+                        &mockJNIUtil, jniEnv,
+                        reinterpret_cast<jlong>(&createdIndexWithData),
+                        reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, methodParamsJ, maxResultWindow, nullptr)));
 
         // assert result size is not 0
         ASSERT_NE(0, results->size());
@@ -723,12 +723,13 @@ TEST(FaissRangeSearchQueryIndexTest_WhenHitMaxWindowResult, BasicAssertions){
 
     for (auto query : queries) {
         std::unique_ptr<std::vector<std::pair<int, float> *>> results(
-                reinterpret_cast<std::vector<std::pair<int, float> *> *>(
+                reinterpret_cast<std::vector<std
+                ::pair<int, float> *> *>(
 
                         knn_jni::faiss_wrapper::RangeSearch(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, maxResultWindow, nullptr)));
+                                reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, nullptr, maxResultWindow, nullptr)));
 
         // assert result size is not 0
         ASSERT_NE(0, results->size());
