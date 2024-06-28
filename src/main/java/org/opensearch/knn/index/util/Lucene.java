@@ -45,7 +45,7 @@ public class Lucene extends JVMLibrary {
                     )
                 )
                 .build()
-        ).addSpaces(SpaceType.L2, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT).build()
+        ).addSpaces(SpaceType.UNDEFINED, SpaceType.L2, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT).build()
     );
 
     // Map that overrides the default distance translations for Lucene, check more details in knn documentation:

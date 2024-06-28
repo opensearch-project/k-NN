@@ -70,7 +70,9 @@ public class KNNQueryFactory extends BaseQueryFactory {
         final float[] vector = createQueryRequest.getVector();
         final byte[] byteVector = createQueryRequest.getByteVector();
         final VectorDataType vectorDataType = createQueryRequest.getVectorDataType();
-        final Query filterQuery = getFilterQuery(createQueryRequest);
+        final Query filterQuery = KNNEngine.getEnginesThatSupportsFilters().contains(createQueryRequest.getKnnEngine())
+            ? getFilterQuery(createQueryRequest)
+            : null;
 
         BitSetProducer parentFilter = null;
         if (createQueryRequest.getContext().isPresent()) {
@@ -79,12 +81,12 @@ public class KNNQueryFactory extends BaseQueryFactory {
         }
 
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
-            if (filterQuery != null && KNNEngine.getEnginesThatSupportsFilters().contains(createQueryRequest.getKnnEngine())) {
-                log.debug("Creating custom k-NN query with filters for index: {}, field: {} , k: {}", indexName, fieldName, k);
-                return new KNNQuery(fieldName, vector, k, indexName, filterQuery, parentFilter);
+            switch (vectorDataType) {
+                case BINARY:
+                    return new KNNQuery(fieldName, byteVector, k, indexName, filterQuery, parentFilter, vectorDataType);
+                default:
+                    return new KNNQuery(fieldName, vector, k, indexName, filterQuery, parentFilter);
             }
-            log.debug(String.format("Creating custom k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));
-            return new KNNQuery(fieldName, vector, k, indexName, parentFilter);
         }
 
         log.debug(String.format("Creating Lucene k-NN query for index: %s \"\", field: %s \"\", k: %d", indexName, fieldName, k));

@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 import lombok.extern.log4j.Log4j2;
@@ -458,17 +459,36 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             radius = knnEngine.scoreToRadialThreshold(this.minScore, spaceType);
         }
 
-        if (fieldDimension != vector.length) {
+        int vectorLength = VectorDataType.BINARY == vectorDataType ? vector.length * Byte.SIZE : vector.length;
+        if (fieldDimension != vectorLength) {
             throw new IllegalArgumentException(
                 String.format("Query vector has invalid dimension: %d. Dimension should be: %d", vector.length, fieldDimension)
             );
         }
 
+        if (spaceType.isSupported(vectorDataType) == false) {
+            throw new IllegalArgumentException(
+                String.format(
+                    Locale.ROOT,
+                    "Space type [%s] is not supported with [%s] data type",
+                    spaceType.getValue(),
+                    vectorDataType.getValue()
+                )
+            );
+        }
+
         byte[] byteVector = new byte[0];
-        if (VectorDataType.BYTE == vectorDataType) {
+        if (VectorDataType.BINARY == vectorDataType) {
             byteVector = new byte[vector.length];
             for (int i = 0; i < vector.length; i++) {
-                validateByteVectorValue(vector[i]);
+                validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
+                byteVector[i] = (byte) vector[i];
+            }
+            spaceType.validateVector(byteVector);
+        } else if (VectorDataType.BYTE == vectorDataType) {
+            byteVector = new byte[vector.length];
+            for (int i = 0; i < vector.length; i++) {
+                validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
                 byteVector[i] = (byte) vector[i];
             }
             spaceType.validateVector(byteVector);
@@ -490,7 +510,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .indexName(indexName)
                 .fieldName(this.fieldName)
                 .vector(VectorDataType.FLOAT == vectorDataType ? this.vector : null)
-                .byteVector(VectorDataType.BYTE == vectorDataType ? byteVector : null)
+                .byteVector(VectorDataType.BYTE == vectorDataType || VectorDataType.BINARY == vectorDataType ? byteVector : null)
                 .vectorDataType(vectorDataType)
                 .k(this.k)
                 .filter(this.filter)

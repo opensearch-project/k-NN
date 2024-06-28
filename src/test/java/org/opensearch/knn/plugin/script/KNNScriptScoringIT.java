@@ -597,11 +597,12 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
             .toString();
 
         for (SpaceType spaceType : SpaceType.values()) {
-            if (spaceType != SpaceType.HAMMING_BIT) {
-                final float[] queryVector = randomVector(dimensions);
-                final BiFunction<float[], float[], Float> scoreFunction = getScoreFunction(spaceType, queryVector);
-                createIndexAndAssertScriptScore(testMapping, spaceType, scoreFunction, dimensions, queryVector, true);
+            if (SpaceType.UNDEFINED == spaceType || SpaceType.HAMMING_BIT == spaceType) {
+                continue;
             }
+            final float[] queryVector = randomVector(dimensions);
+            final BiFunction<float[], float[], Float> scoreFunction = getScoreFunction(spaceType, queryVector);
+            createIndexAndAssertScriptScore(testMapping, spaceType, scoreFunction, dimensions, queryVector, true);
         }
     }
 
