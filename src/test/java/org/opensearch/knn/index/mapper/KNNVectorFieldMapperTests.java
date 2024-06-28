@@ -72,6 +72,7 @@ import static org.opensearch.Version.CURRENT;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.clipVectorValueToFP16Range;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFP16VectorValue;
 
@@ -364,10 +365,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         String fieldName = "test-field-name-vec";
         String indexName = "test-index-name-vec";
         String vectorDataType = "invalid";
-        String supportedTypes = String.join(
-            ",",
-            Arrays.stream((VectorDataType.values())).map(VectorDataType::getValue).collect(Collectors.toCollection(HashSet::new))
-        );
 
         Settings settings = Settings.builder().put(settings(CURRENT).build()).build();
 
@@ -402,7 +399,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 Locale.ROOT,
                 "Invalid value provided for [%s] field. Supported values are [%s]",
                 VECTOR_DATA_TYPE_FIELD,
-                supportedTypes
+                SUPPORTED_VECTOR_DATA_TYPES
             ),
             ex.getMessage()
         );
@@ -817,7 +814,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         when(parseContext.path()).thenReturn(contentPath);
 
         LuceneFieldMapper luceneFieldMapper = Mockito.spy(new LuceneFieldMapper(inputBuilder.build()));
-        doReturn(Optional.of(TEST_BYTE_VECTOR)).when(luceneFieldMapper).getBytesFromContext(parseContext, TEST_DIMENSION);
+        doReturn(Optional.of(TEST_BYTE_VECTOR)).when(luceneFieldMapper)
+            .getBytesFromContext(parseContext, TEST_DIMENSION, VectorDataType.BYTE);
         doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
         doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
 
@@ -859,7 +857,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         inputBuilder.hasDocValues(false);
         luceneFieldMapper = Mockito.spy(new LuceneFieldMapper(inputBuilder.build()));
-        doReturn(Optional.of(TEST_BYTE_VECTOR)).when(luceneFieldMapper).getBytesFromContext(parseContext, TEST_DIMENSION);
+        doReturn(Optional.of(TEST_BYTE_VECTOR)).when(luceneFieldMapper)
+            .getBytesFromContext(parseContext, TEST_DIMENSION, VectorDataType.BYTE);
         doNothing().when(luceneFieldMapper).validateIfCircuitBreakerIsNotTriggered();
         doNothing().when(luceneFieldMapper).validateIfKNNPluginEnabled();
 

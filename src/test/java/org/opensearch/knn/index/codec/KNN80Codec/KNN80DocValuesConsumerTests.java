@@ -142,7 +142,8 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         Long initialMergeSize = KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue();
         Long initialMergeDocs = KNNGraphValue.MERGE_TOTAL_DOCS.getValue();
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, null);
-        knn80DocValuesConsumer.addKNNBinaryField(null, randomVectorDocValuesProducer, true, true);
+        FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test-field").build();
+        knn80DocValuesConsumer.addKNNBinaryField(fieldInfo, randomVectorDocValuesProducer, true, true);
         assertEquals(initialGraphIndexRequests, KNNCounter.GRAPH_INDEX_REQUESTS.getCount());
         assertEquals(initialRefreshOperations, KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
         assertEquals(initialMergeOperations, KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());

@@ -12,7 +12,7 @@
 package org.opensearch.knn.jni;
 
 import org.apache.commons.lang.ArrayUtils;
-import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.common.KNNFaissUtil;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -22,7 +22,7 @@ import java.util.Map;
  * Service to distribute requests to the proper engine jni service
  */
 public class JNIService {
-    private static final String FAISS_BINARY_INDEX_PREFIX = "B";
+    private static final KNNFaissUtil faissUtil = new KNNFaissUtil();
 
     /**
      * Create an index for the native library. The memory occupied by the vectorsAddress will be freed up during the
@@ -52,8 +52,7 @@ public class JNIService {
         }
 
         if (KNNEngine.FAISS == knnEngine) {
-            if (parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER) != null
-                && parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString().startsWith(FAISS_BINARY_INDEX_PREFIX)) {
+            if (faissUtil.isBinaryIndex(parameters)) {
                 FaissService.createBinaryIndex(ids, vectorsAddress, dim, indexPath, parameters);
             } else {
                 FaissService.createIndex(ids, vectorsAddress, dim, indexPath, parameters);
@@ -108,8 +107,7 @@ public class JNIService {
         }
 
         if (KNNEngine.FAISS == knnEngine) {
-            if (parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER) != null
-                && parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString().startsWith(FAISS_BINARY_INDEX_PREFIX)) {
+            if (faissUtil.isBinaryIndex(parameters)) {
                 return FaissService.loadBinaryIndex(indexPath);
             } else {
                 return FaissService.loadIndex(indexPath);

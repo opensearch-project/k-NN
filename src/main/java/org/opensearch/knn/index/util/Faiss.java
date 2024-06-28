@@ -55,7 +55,8 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 /**
  * Implements NativeLibrary for the faiss native library
  */
-class Faiss extends NativeLibrary {
+public class Faiss extends NativeLibrary {
+    public static final String FAISS_BINARY_INDEX_DESCRIPTION_PREFIX = "B";
     Map<SpaceType, Function<Float, Float>> scoreTransform;
 
     // TODO: Current version is not really current version. Instead, it encodes information in the file name
@@ -246,7 +247,7 @@ class Faiss extends NativeLibrary {
                     ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build())
                 )
                 .build()
-        ).addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build(),
+        ).addSpaces(SpaceType.UNDEFINED, SpaceType.HAMMING_BIT, SpaceType.L2, SpaceType.INNER_PRODUCT).build(),
         METHOD_IVF,
         KNNMethod.Builder.builder(
             MethodComponent.Builder.builder(METHOD_IVF)
@@ -304,7 +305,7 @@ class Faiss extends NativeLibrary {
                     return ((4L * centroids * dimension) / BYTES_PER_KILOBYTES) + 1;
                 })
                 .build()
-        ).addSpaces(SpaceType.L2, SpaceType.INNER_PRODUCT).build()
+        ).addSpaces(SpaceType.UNDEFINED, SpaceType.L2, SpaceType.INNER_PRODUCT).build()
     );
 
     final static Faiss INSTANCE = new Faiss(

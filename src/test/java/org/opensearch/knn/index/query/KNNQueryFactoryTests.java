@@ -117,6 +117,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .fieldName(testFieldName)
             .vector(testQueryVector)
             .k(testK)
+            .vectorDataType(VectorDataType.FLOAT)
             .context(mockQueryShardContext)
             .filter(FILTER_QUERY_BUILDER)
             .build();
@@ -155,6 +156,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .fieldName(testFieldName)
             .vector(testQueryVector)
             .k(testK)
+            .vectorDataType(VectorDataType.FLOAT)
             .context(mockQueryShardContext)
             .filter(FILTER_QUERY_BUILDER)
             .build();
@@ -183,6 +185,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .fieldName(testFieldName)
             .vector(testQueryVector)
             .k(testK)
+            .vectorDataType(VectorDataType.FLOAT)
             .context(mockQueryShardContext)
             .filter(FILTER_QUERY_BUILDER)
             .build();
@@ -204,6 +207,7 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .fieldName(testFieldName)
             .vector(testQueryVector)
             .k(testK)
+            .vectorDataType(VectorDataType.FLOAT)
             .context(mockQueryShardContext)
             .build();
         final Query query = KNNQueryFactory.create(createQueryRequest);
