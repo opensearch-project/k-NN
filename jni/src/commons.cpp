@@ -71,4 +71,5 @@ int knn_jni::commons::getIntegerMethodParameter(JNIEnv * env, knn_jni::JNIUtilIn
     }
 
     return defaultValue;
+}
 #endif //OPENSEARCH_KNN_COMMONS_H

@@ -425,7 +425,7 @@ TEST(FaissQueryBinaryIndexTest, BasicAssertions) {
                         knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jbyteArray>(&query), k, nullptr, 0, nullptr)));
+                                reinterpret_cast<jbyteArray>(&query), k, nullptr, nullptr, 0, nullptr)));
 
         ASSERT_EQ(k, results->size());
 
@@ -556,6 +556,10 @@ TEST(FaissQueryIndexWithParentFilterTest, BasicAssertions) {
     // Setup jni
     JNIEnv *jniEnv = nullptr;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    EXPECT_CALL(mockJNIUtil,
+                    GetJavaIntArrayLength(
+                            jniEnv, reinterpret_cast<jintArray>(&parentIds)))
+                .WillRepeatedly(Return(parentIds.size()));
     for (auto query : queries) {
         std::unique_ptr<std::vector<std::pair<int, float> *>> results(
                 reinterpret_cast<std::vector<std::pair<int, float> *> *>(
@@ -635,13 +639,13 @@ TEST(FaissCreateHnswSQfp16IndexTest, BasicAssertions) {
     // Define the data
     faiss::idx_t numIds = 200;
     std::vector<faiss::idx_t> ids;
-    auto *vectors = new std::vector<float>();
+    std::vector<float> vectors;
     int dim = 2;
-    vectors->reserve(dim * numIds);
+    vectors.reserve(dim * numIds);
     for (int64_t i = 0; i < numIds; ++i) {
         ids.push_back(i);
         for (int j = 0; j < dim; ++j) {
-            vectors->push_back(test_util::RandomFloat(-500.0, 500.0));
+            vectors.push_back(test_util::RandomFloat(-500.0, 500.0));
         }
     }
 
@@ -660,14 +664,14 @@ TEST(FaissCreateHnswSQfp16IndexTest, BasicAssertions) {
     EXPECT_CALL(mockJNIUtil,
                 GetJavaObjectArrayLength(
                         jniEnv, reinterpret_cast<jobjectArray>(&vectors)))
-            .WillRepeatedly(Return(vectors->size()));
+            .WillRepeatedly(Return(vectors.size()));
 
     // Create the index
     std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
     knn_jni::faiss_wrapper::IndexService IndexService(std::move(faissMethods));
     knn_jni::faiss_wrapper::CreateIndex(
             &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
-            (jlong)vectors, dim, (jstring)&indexPath,
+            (jlong)&vectors, dim, (jstring)&indexPath,
             (jobject)&parametersMap, &IndexService);
 
     // Make sure index can be loaded

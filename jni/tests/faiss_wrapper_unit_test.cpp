@@ -22,16 +22,15 @@
 #include "faiss/IndexIDMap.h"
 
 using ::testing::NiceMock;
-
 using idx_t = faiss::idx_t;
 
-struct MockIndex : faiss::IndexHNSW {
-    explicit MockIndex(idx_t d) : faiss::IndexHNSW(d, 32) {
+struct FaissMockIndex : faiss::IndexHNSW {
+    explicit FaissMockIndex(idx_t d) : faiss::IndexHNSW(d, 32) {
     }
 };
 
 
-struct MockIdMap : faiss::IndexIDMap {
+struct FaissMockIdMap : faiss::IndexIDMap {
     mutable idx_t nCalled;
     mutable const float *xCalled;
     mutable idx_t kCalled;
@@ -39,7 +38,7 @@ struct MockIdMap : faiss::IndexIDMap {
     mutable idx_t *labelsCalled;
     mutable const faiss::SearchParametersHNSW *paramsCalled;
 
-    explicit MockIdMap(MockIndex *index) : faiss::IndexIDMapTemplate<faiss::Index>(index) {
+    explicit FaissMockIdMap(FaissMockIndex *index) : faiss::IndexIDMapTemplate<faiss::Index>(index) {
     }
 
     void search(
@@ -85,8 +84,8 @@ public:
     };
 
 protected:
-    MockIndex index_;
-    MockIdMap id_map_;
+    FaissMockIndex index_;
+    FaissMockIdMap id_map_;
 };
 
 namespace query_index_test {

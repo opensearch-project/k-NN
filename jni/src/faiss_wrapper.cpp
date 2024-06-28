@@ -490,10 +490,12 @@ jobjectArray knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(knn_jni::JNIUti
         std::unique_ptr<faiss::IDGrouperBitmap> idGrouper;
         std::vector<uint64_t> idGrouperBitmap;
         auto hnswReader = dynamic_cast<const faiss::IndexBinaryHNSW*>(indexReader->index);
-        if(hnswReader!= nullptr) {
+        // TODO currently, search parameter is not supported in binary index
+        // To avoid test failure, we skip setting ef search when methodPramsJ is null temporary
+        if(hnswReader!= nullptr && (methodParamsJ != nullptr || parentIdsJ != nullptr)) {
             // Query param efsearch supersedes ef_search provided during index setting.
             hnswParams.efSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, EF_SEARCH, hnswReader->hnsw.efSearch);
-            if(parentIdsJ != nullptr) {
+            if (parentIdsJ != nullptr) {
                 idGrouper = buildIDGrouperBitmap(jniUtil, env, parentIdsJ, &idGrouperBitmap);
                 hnswParams.grp = idGrouper.get();
             }

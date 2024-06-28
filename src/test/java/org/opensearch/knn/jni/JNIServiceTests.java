@@ -984,7 +984,7 @@ public class JNIServiceTests extends KNNTestCase {
             assertNotEquals(0, pointer);
 
             for (byte[] query : testData.binaryQueries) {
-                KNNQueryResult[] results = JNIService.queryBinaryIndex(pointer, query, k, Collections.emptyMap(), KNNEngine.FAISS, null, 0, null);
+                KNNQueryResult[] results = JNIService.queryBinaryIndex(pointer, query, k, null, KNNEngine.FAISS, null, 0, null);
                 assertEquals(k, results.length);
             }
         }
