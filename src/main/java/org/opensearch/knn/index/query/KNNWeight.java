@@ -37,6 +37,7 @@ import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
 import org.opensearch.knn.index.query.filtered.FilteredIdsKNNIterator;
 import org.opensearch.knn.index.query.filtered.NestedFilteredIdsKNNIterator;
+import org.opensearch.knn.index.util.FieldInfoExtractor;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -256,7 +257,12 @@ public class KNNWeight extends Weight {
                 new NativeMemoryEntryContext.IndexEntryContext(
                     indexPath.toString(),
                     NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                    getParametersAtLoading(spaceType, knnEngine, knnQuery.getIndexName()),
+                    getParametersAtLoading(
+                        spaceType,
+                        knnEngine,
+                        knnQuery.getIndexName(),
+                        FieldInfoExtractor.getIndexDescription(fieldInfo)
+                    ),
                     knnQuery.getIndexName(),
                     modelId
                 ),

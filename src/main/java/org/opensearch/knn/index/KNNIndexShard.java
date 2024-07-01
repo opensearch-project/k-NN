@@ -23,6 +23,7 @@ import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.index.util.FieldInfoExtractor;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
@@ -96,7 +97,8 @@ public class KNNIndexShard {
                             getParametersAtLoading(
                                 engineFileContext.getSpaceType(),
                                 KNNEngine.getEngineNameFromPath(engineFileContext.getIndexPath()),
-                                getIndexName()
+                                getIndexName(),
+                                engineFileContext.indexDescription
                             ),
                             getIndexName(),
                             engineFileContext.getModelId()
@@ -171,7 +173,6 @@ public class KNNIndexShard {
                     String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
                     SpaceType spaceType = SpaceType.getSpace(spaceTypeName);
                     String modelId = fieldInfo.attributes().getOrDefault(MODEL_ID, null);
-
                     engineFiles.addAll(
                         getEngineFileContexts(
                             reader.getSegmentInfo().files(),
@@ -180,7 +181,8 @@ public class KNNIndexShard {
                             fileExtension,
                             shardPath,
                             spaceType,
-                            modelId
+                            modelId,
+                            FieldInfoExtractor.getIndexDescription(fieldInfo)
                         )
                     );
                 }
@@ -197,7 +199,8 @@ public class KNNIndexShard {
         String fileExtension,
         Path shardPath,
         SpaceType spaceType,
-        String modelId
+        String modelId,
+        String indexDescription
     ) {
         String prefix = buildEngineFilePrefix(segmentName);
         String suffix = buildEngineFileSuffix(fieldName, fileExtension);
@@ -205,7 +208,7 @@ public class KNNIndexShard {
             .filter(fileName -> fileName.startsWith(prefix))
             .filter(fileName -> fileName.endsWith(suffix))
             .map(fileName -> shardPath.resolve(fileName).toString())
-            .map(fileName -> new EngineFileContext(spaceType, modelId, fileName))
+            .map(fileName -> new EngineFileContext(spaceType, modelId, fileName, indexDescription))
             .collect(Collectors.toList());
     }
 
@@ -216,5 +219,6 @@ public class KNNIndexShard {
         private final SpaceType spaceType;
         private final String modelId;
         private final String indexPath;
+        private final String indexDescription;
     }
 }
