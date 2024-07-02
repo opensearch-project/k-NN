@@ -148,11 +148,15 @@ TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
     std::unordered_map<std::string, jobject> parametersMap;
     parametersMap[knn_jni::SPACE_TYPE] = (jobject) &spaceType;
 
+    std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
+    knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
+
     knn_jni::faiss_wrapper::CreateIndexFromTemplate(
             &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
             (jlong)vectors, dim, (jstring)&indexPath,
             reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)),
-            (jobject) &parametersMap
+            (jobject) &parametersMap,
+            &indexService
             );
 
     // Make sure index can be loaded

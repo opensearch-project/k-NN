@@ -41,7 +41,7 @@ public class KNNValidationUtil {
      *
      * @param value  float value in byte range
      */
-    public static void validateByteVectorValue(float value) {
+    public static void validateByteVectorValue(float value, final VectorDataType dataType) {
         validateFloatVectorValue(value);
         if (value % 1 != 0) {
             throw new IllegalArgumentException(
@@ -49,7 +49,7 @@ public class KNNValidationUtil {
                     Locale.ROOT,
                     "[%s] field was set as [%s] in index mapping. But, KNN vector values are floats instead of byte integers",
                     VECTOR_DATA_TYPE_FIELD,
-                    VectorDataType.BYTE.getValue()
+                    dataType.getValue()
                 )
 
             );
@@ -60,7 +60,7 @@ public class KNNValidationUtil {
                     Locale.ROOT,
                     "[%s] field was set as [%s] in index mapping. But, KNN vector values are not within in the byte range [%d, %d]",
                     VECTOR_DATA_TYPE_FIELD,
-                    VectorDataType.BYTE.getValue(),
+                    dataType.getValue(),
                     Byte.MIN_VALUE,
                     Byte.MAX_VALUE
                 )
@@ -73,10 +73,17 @@ public class KNNValidationUtil {
      *
      * @param dimension dimension of vector
      * @param vectorSize size of the vector
+     * @param dataType vector data type
      */
-    public static void validateVectorDimension(int dimension, int vectorSize) {
-        if (dimension != vectorSize) {
-            String errorMessage = String.format(Locale.ROOT, "Vector dimension mismatch. Expected: %d, Given: %d", dimension, vectorSize);
+    public static void validateVectorDimension(final int dimension, final int vectorSize, final VectorDataType dataType) {
+        int actualDimension = VectorDataType.BINARY == dataType ? vectorSize * Byte.SIZE : vectorSize;
+        if (dimension != actualDimension) {
+            String errorMessage = String.format(
+                Locale.ROOT,
+                "Vector dimension mismatch. Expected: %d, Given: %d",
+                dimension,
+                actualDimension
+            );
             throw new IllegalArgumentException(errorMessage);
         }
     }

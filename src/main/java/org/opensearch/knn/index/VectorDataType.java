@@ -24,11 +24,25 @@ import java.util.stream.Collectors;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 /**
- * Enum contains data_type of vectors and right now only supported for lucene engine in k-NN plugin.
- * We have two vector data_types, one is float (default) and the other one is byte.
+ * Enum contains data_type of vectors
+ * Lucene supports byte and float data type
+ * NMSLib supports only float data type
+ * Faiss supports binary and float data type
  */
 @AllArgsConstructor
 public enum VectorDataType {
+    BINARY("binary") {
+
+        @Override
+        public FieldType createKnnVectorFieldType(int dimension, VectorSimilarityFunction vectorSimilarityFunction) {
+            throw new IllegalArgumentException("This is not supported");
+        }
+
+        @Override
+        public float[] getVectorFromBytesRef(BytesRef binaryValue) {
+            throw new IllegalArgumentException("This is not supported");
+        }
+    },
     BYTE("byte") {
 
         @Override

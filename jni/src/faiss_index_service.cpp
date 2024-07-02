@@ -106,6 +106,37 @@ void IndexService::createIndex(
     faissMethods->writeIndex(idMap.get(), indexPath.c_str());
 }
 
+void IndexService::createIndexFromTemplate(
+        knn_jni::JNIUtilInterface * jniUtil,
+        JNIEnv * env,
+        std::string templateIndexPath,
+        int numIds,
+        int threadCount,
+        int64_t vectorsAddress,
+        std::vector<int64_t> ids,
+        std::string indexPath) {
+    // Read vectors from memory address
+    auto *inputVectors = reinterpret_cast<std::vector<float>*>(vectorsAddress);
+
+    // Load the template index
+    faiss::Index* templateIndex = faissMethods->readIndex(templateIndexPath.c_str());
+
+    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
+    if(threadCount != 0) {
+        omp_set_num_threads(threadCount);
+    }
+
+    // Create the new index from the template
+    std::unique_ptr<faiss::IndexIDMap> idMap(faissMethods->indexIdMap(templateIndex));
+    idMap->add_with_ids(numIds, inputVectors->data(), ids.data());
+
+    // Write the index to disk
+    faissMethods->writeIndex(idMap.get(), indexPath.c_str());
+
+    // Release the memory allocated for the template index
+    delete templateIndex;
+}
+
 BinaryIndexService::BinaryIndexService(std::unique_ptr<FaissMethods> faissMethods) : IndexService(std::move(faissMethods)) {}
 
 void BinaryIndexService::createIndex(
@@ -158,6 +189,37 @@ void BinaryIndexService::createIndex(
 
     // Write the index to disk
     faissMethods->writeIndexBinary(idMap.get(), indexPath.c_str());
+}
+
+void BinaryIndexService::createIndexFromTemplate(
+        knn_jni::JNIUtilInterface * jniUtil,
+        JNIEnv * env,
+        std::string templateIndexPath,
+        int numIds,
+        int threadCount,
+        int64_t vectorsAddress,
+        std::vector<int64_t> ids,
+        std::string indexPath) {
+    // Read vectors from memory address
+    auto *inputVectors = reinterpret_cast<std::vector<uint8_t>*>(vectorsAddress);
+
+    // Load the template index
+    faiss::IndexBinary* templateIndex = faissMethods->readIndexBinary(templateIndexPath.c_str());
+
+    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
+    if(threadCount != 0) {
+        omp_set_num_threads(threadCount);
+    }
+
+    // Create the new index from the template
+    std::unique_ptr<faiss::IndexBinaryIDMap> idMap(faissMethods->indexBinaryIdMap(templateIndex));
+    idMap->add_with_ids(numIds, inputVectors->data(), ids.data());
+
+    // Write the index to disk
+    faissMethods->writeIndexBinary(idMap.get(), indexPath.c_str());
+
+    // Release the memory allocated for the template index
+    delete templateIndex;
 }
 
 } // namespace faiss_wrapper

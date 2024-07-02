@@ -61,6 +61,29 @@ public:
         std::vector<int64_t> ids,
         std::string indexPath,
         std::unordered_map<std::string, jobject> parameters);
+
+    /**
+     * Create index from a template
+     *
+     * @param jniUtil jni util
+     * @param env jni environment
+     * @param templateIndexPath path to the template index
+     * @param numIds number of vectors
+     * @param threadCount number of thread count to be used while adding data
+     * @param vectorsAddress memory address which is holding vector data
+     * @param ids a list of document ids for corresponding vectors
+     * @param indexPath path to write index
+     */
+        virtual void createIndexFromTemplate(
+            knn_jni::JNIUtilInterface * jniUtil,
+            JNIEnv * env,
+            std::string templateIndexPath,
+            int numIds,
+            int threadCount,
+            int64_t vectorsAddress,
+            std::vector<int64_t> ids,
+            std::string indexPath);
+
     virtual ~IndexService() = default;
 protected:
     std::unique_ptr<FaissMethods> faissMethods;
@@ -103,6 +126,29 @@ public:
         std::string indexPath,
         std::unordered_map<std::string, jobject> parameters
     ) override;
+
+    /**
+     * Create binary index from a template
+     *
+     * @param jniUtil jni util
+     * @param env jni environment
+     * @param templateIndexPath path to the template index
+     * @param numIds number of vectors
+     * @param threadCount number of thread count to be used while adding data
+     * @param vectorsAddress memory address which is holding vector data
+     * @param ids a list of document ids for corresponding vectors
+     * @param indexPath path to write index
+     */
+        virtual void createIndexFromTemplate(
+            knn_jni::JNIUtilInterface * jniUtil,
+            JNIEnv * env,
+            std::string templateIndexPath,
+            int numIds,
+            int threadCount,
+            int64_t vectorsAddress,
+            std::vector<int64_t> ids,
+            std::string indexPath) override;
+
     virtual ~BinaryIndexService() = default;
 };
 

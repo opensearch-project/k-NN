@@ -32,8 +32,17 @@ faiss::IndexIDMapTemplate<faiss::IndexBinary>* FaissMethods::indexBinaryIdMap(fa
 void FaissMethods::writeIndex(const faiss::Index* idx, const char* fname) {
     faiss::write_index(idx, fname);
 }
+
 void FaissMethods::writeIndexBinary(const faiss::IndexBinary* idx, const char* fname) {
     faiss::write_index_binary(idx, fname);
+}
+
+faiss::Index* FaissMethods::readIndex(const char* indexPath) {
+    return faiss::read_index(indexPath);
+}
+
+faiss::IndexBinary* FaissMethods::readIndexBinary(const char* indexPath) {
+    return reinterpret_cast<faiss::IndexBinary*>(faiss::read_index_binary(indexPath));
 }
 
 } // namespace faiss_wrapper

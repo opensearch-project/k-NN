@@ -17,6 +17,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -31,6 +32,8 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Objects;
+
+import static org.opensearch.knn.index.util.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
 /**
  * Encapsulates all information required to generate and train a model.
@@ -181,6 +184,13 @@ public class TrainingJob implements Runnable {
                 KNNConstants.INDEX_THREAD_QTY,
                 KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY)
             );
+
+            if (modelMetadata.getSpaceType().equals(SpaceType.HAMMING_BIT)) {
+                trainParameters.put(
+                    KNNConstants.INDEX_DESCRIPTION_PARAMETER,
+                    FAISS_BINARY_INDEX_DESCRIPTION_PREFIX + trainParameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString()
+                );
+            }
 
             byte[] modelBlob = JNIService.trainIndex(
                 trainParameters,

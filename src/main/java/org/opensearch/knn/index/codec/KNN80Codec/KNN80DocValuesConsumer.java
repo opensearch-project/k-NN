@@ -16,6 +16,10 @@ import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.util.VectorTransfer;
+import org.opensearch.knn.index.codec.util.VectorTransferByte;
+import org.opensearch.knn.index.codec.util.VectorTransferFloat;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
@@ -56,6 +60,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.calculateArraySize;
+import static org.opensearch.knn.index.util.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
 /**
  * This class writes the KNN docvalues to the segments
@@ -106,11 +111,18 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         return KNNEngine.getEngine(engineName);
     }
 
+    private VectorTransfer getVectorTransfer(FieldInfo field) {
+        if (VectorDataType.BINARY.getValue().equalsIgnoreCase(field.attributes().get(KNNConstants.VECTOR_DATA_TYPE_FIELD))) {
+            return new VectorTransferByte();
+        }
+        return new VectorTransferFloat();
+    }
+
     public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge, boolean isRefresh)
         throws IOException {
         // Get values to be indexed
         BinaryDocValues values = valuesProducer.getBinary(field);
-        KNNCodecUtil.Pair pair = KNNCodecUtil.getFloats(values);
+        KNNCodecUtil.Pair pair = KNNCodecUtil.getPair(values, getVectorTransfer(field));
         if (pair.getVectorAddress() == 0 || pair.docs.length == 0) {
             logger.info("Skipping engine index creation as there are no vectors or docs in the segment");
             return;
@@ -224,6 +236,17 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                     new BytesArray(parametersString),
                     MediaTypeRegistry.getDefaultMediaType()
                 ).map()
+            );
+        }
+
+        // Update index description of Faiss for binary data type
+        if (KNNEngine.FAISS == knnEngine
+            && VectorDataType.BINARY.getValue()
+                .equals(fieldAttributes.getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue()))
+            && parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER) != null) {
+            parameters.put(
+                KNNConstants.INDEX_DESCRIPTION_PARAMETER,
+                FAISS_BINARY_INDEX_DESCRIPTION_PREFIX + parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString()
             );
         }
 
