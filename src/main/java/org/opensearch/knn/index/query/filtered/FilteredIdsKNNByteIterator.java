@@ -11,8 +11,6 @@ import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -23,19 +21,19 @@ import java.io.IOException;
  *
  * The class is used in KNNWeight to score filtered KNN field by iterating filterIdsArray.
  */
-public class FilteredIdsKNNIterator implements KNNIterator {
+public class FilteredIdsKNNByteIterator implements KNNIterator {
     // Array of doc ids to iterate
     protected final BitSet filterIdsBitSet;
     protected final BitSetIterator bitSetIterator;
-    protected final float[] queryVector;
+    protected final byte[] queryVector;
     protected final BinaryDocValues binaryDocValues;
     protected final SpaceType spaceType;
     protected float currentScore = Float.NEGATIVE_INFINITY;
     protected int docId;
 
-    public FilteredIdsKNNIterator(
+    public FilteredIdsKNNByteIterator(
         final BitSet filterIdsBitSet,
-        final float[] queryVector,
+        final byte[] queryVector,
         final BinaryDocValues binaryDocValues,
         final SpaceType spaceType
     ) {
@@ -73,8 +71,7 @@ public class FilteredIdsKNNIterator implements KNNIterator {
     protected float computeScore() throws IOException {
         final BytesRef value = binaryDocValues.binaryValue();
         final ByteArrayInputStream byteStream = new ByteArrayInputStream(value.bytes, value.offset, value.length);
-        final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
-        final float[] vector = vectorSerializer.byteToFloatArray(byteStream);
+        final byte[] vector = byteStream.readAllBytes();
         // Calculates a similarity score between the two vectors with a specified function. Higher similarity
         // scores correspond to closer vectors.
         return spaceType.getVectorSimilarityFunction().compare(queryVector, vector);

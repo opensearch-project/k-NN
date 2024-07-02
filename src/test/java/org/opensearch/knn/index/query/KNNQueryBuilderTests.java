@@ -623,6 +623,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.L2);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of());
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
         when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
@@ -641,6 +642,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField.getDimension()).thenReturn(4);
         when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.L2);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of());
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, methodComponentContext);
         when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
@@ -920,6 +922,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
             when(mockQueryShardContext.index()).thenReturn(dummyIndex);
             when(mockKNNVectorField.getDimension()).thenReturn(4);
+            when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
             when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
 
             expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));

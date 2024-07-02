@@ -11,9 +11,7 @@ import lombok.Setter;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80BinaryDocValues;
-import org.opensearch.knn.jni.JNICommons;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -40,55 +38,27 @@ public class KNNCodecUtil {
         @Setter
         private int dimension;
         public SerializationMode serializationMode;
-
     }
 
-    public static KNNCodecUtil.Pair getFloats(BinaryDocValues values) throws IOException {
-        List<float[]> vectorList = new ArrayList<>();
+    public static KNNCodecUtil.Pair getPair(final BinaryDocValues values, final VectorTransfer vectorTransfer) throws IOException {
         List<Integer> docIdList = new ArrayList<>();
-        long vectorAddress = 0;
-        int dimension = 0;
         SerializationMode serializationMode = SerializationMode.COLLECTION_OF_FLOATS;
-
-        long totalLiveDocs = getTotalLiveDocsCount(values);
-        long vectorsStreamingMemoryLimit = KNNSettings.getVectorStreamingMemoryLimit().getBytes();
-        long vectorsPerTransfer = Integer.MIN_VALUE;
-
+        vectorTransfer.init(getTotalLiveDocsCount(values));
         for (int doc = values.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = values.nextDoc()) {
             BytesRef bytesref = values.binaryValue();
             try (ByteArrayInputStream byteStream = new ByteArrayInputStream(bytesref.bytes, bytesref.offset, bytesref.length)) {
-                serializationMode = KNNVectorSerializerFactory.serializerModeFromStream(byteStream);
-                final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
-                final float[] vector = vectorSerializer.byteToFloatArray(byteStream);
-                dimension = vector.length;
-
-                if (vectorsPerTransfer == Integer.MIN_VALUE) {
-                    vectorsPerTransfer = (dimension * Float.BYTES * totalLiveDocs) / vectorsStreamingMemoryLimit;
-                    // This condition comes if vectorsStreamingMemoryLimit is higher than total number floats to transfer
-                    // Doing this will reduce 1 extra trip to JNI layer.
-                    if (vectorsPerTransfer == 0) {
-                        vectorsPerTransfer = totalLiveDocs;
-                    }
-                }
-                if (vectorList.size() == vectorsPerTransfer) {
-                    vectorAddress = JNICommons.storeVectorData(
-                        vectorAddress,
-                        vectorList.toArray(new float[][] {}),
-                        totalLiveDocs * dimension
-                    );
-                    // We should probably come up with a better way to reuse the vectorList memory which we have
-                    // created. Problem here is doing like this can lead to a lot of list memory which is of no use and
-                    // will be garbage collected later on, but it creates pressure on JVM. We should revisit this.
-                    vectorList = new ArrayList<>();
-                }
-                vectorList.add(vector);
+                serializationMode = vectorTransfer.getSerializationMode(byteStream);
+                vectorTransfer.addVector(byteStream);
             }
             docIdList.add(doc);
         }
-        if (vectorList.isEmpty() == false) {
-            vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
-        }
-        return new KNNCodecUtil.Pair(docIdList.stream().mapToInt(Integer::intValue).toArray(), vectorAddress, dimension, serializationMode);
+        vectorTransfer.flush();
+        return new KNNCodecUtil.Pair(
+            docIdList.stream().mapToInt(Integer::intValue).toArray(),
+            vectorTransfer.getVectorAddress(),
+            vectorTransfer.getDimension(),
+            serializationMode
+        );
     }
 
     public static long calculateArraySize(int numVectors, int vectorLength, SerializationMode serializationMode) {
@@ -102,7 +72,7 @@ public class KNNCodecUtil {
                 vectorsSize += vectorsSize % JAVA_ROUNDING_NUMBER;
             }
             return vectorsSize;
-        } else {
+        } else if (serializationMode == SerializationMode.COLLECTION_OF_FLOATS) {
             int vectorSize = vectorLength * FLOAT_BYTE_SIZE;
             if (vectorSize % JAVA_ROUNDING_NUMBER != 0) {
                 vectorSize += vectorSize % JAVA_ROUNDING_NUMBER;
@@ -112,6 +82,18 @@ public class KNNCodecUtil {
                 vectorsSize += vectorsSize % JAVA_ROUNDING_NUMBER;
             }
             return vectorsSize;
+        } else if (serializationMode == SerializationMode.COLLECTIONS_OF_BYTES) {
+            int vectorSize = vectorLength;
+            if (vectorSize % JAVA_ROUNDING_NUMBER != 0) {
+                vectorSize += vectorSize % JAVA_ROUNDING_NUMBER;
+            }
+            int vectorsSize = numVectors * (vectorSize + JAVA_REFERENCE_SIZE);
+            if (vectorsSize % JAVA_ROUNDING_NUMBER != 0) {
+                vectorsSize += vectorsSize % JAVA_ROUNDING_NUMBER;
+            }
+            return vectorsSize;
+        } else {
+            throw new IllegalStateException("Unreachable code");
         }
     }
 

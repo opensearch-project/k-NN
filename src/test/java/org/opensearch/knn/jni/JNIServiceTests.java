@@ -53,6 +53,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
@@ -264,6 +265,10 @@ public class JNIServiceTests extends KNNTestCase {
     public void testCreateIndex_nmslib_valid() throws IOException {
 
         for (SpaceType spaceType : KNNEngine.NMSLIB.getMethod(KNNConstants.METHOD_HNSW).getSpaces()) {
+            if (SpaceType.UNDEFINED == spaceType) {
+                continue;
+            }
+
             Path tmpFile = createTempFile();
 
             JNIService.createIndex(
@@ -581,6 +586,7 @@ public class JNIServiceTests extends KNNTestCase {
             .startObject()
             .field(NAME, METHOD_IVF)
             .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT)
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_NLIST, ivfNlistParam)
             .startObject(METHOD_ENCODER_PARAMETER)
@@ -788,6 +794,10 @@ public class JNIServiceTests extends KNNTestCase {
 
         int k = 50;
         for (SpaceType spaceType : KNNEngine.NMSLIB.getMethod(KNNConstants.METHOD_HNSW).getSpaces()) {
+            if (SpaceType.UNDEFINED == spaceType) {
+                continue;
+            }
+
             Path tmpFile = createTempFile();
 
             JNIService.createIndex(
@@ -1056,6 +1066,7 @@ public class JNIServiceTests extends KNNTestCase {
             .startObject()
             .field(NAME, METHOD_IVF)
             .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT)
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_NLIST, ivfNlistParam)
             .endObject()
@@ -1079,6 +1090,7 @@ public class JNIServiceTests extends KNNTestCase {
             .startObject()
             .field(NAME, METHOD_IVF)
             .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT.getValue())
             .startObject(PARAMETERS)
             .field(METHOD_PARAMETER_NLIST, ivfNlistParam)
             .startObject(METHOD_ENCODER_PARAMETER)
@@ -1107,6 +1119,7 @@ public class JNIServiceTests extends KNNTestCase {
             .startObject()
             .field(NAME, METHOD_HNSW)
             .field(KNN_ENGINE, FAISS_NAME)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.DEFAULT.getValue())
             .startObject(PARAMETERS)
             .startObject(METHOD_ENCODER_PARAMETER)
             .field(NAME, ENCODER_PQ)

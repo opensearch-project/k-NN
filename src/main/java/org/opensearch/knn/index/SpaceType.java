@@ -26,6 +26,19 @@ import static org.opensearch.knn.common.KNNVectorUtil.isZeroVector;
  * nmslib calls the inner_product space "negdotprod". This translation should take place in the nmslib's jni layer.
  */
 public enum SpaceType {
+    // This undefined space type is used to indicate that space type is not provided by user
+    // Later, we need to assign a default value based on data type
+    UNDEFINED("undefined") {
+        @Override
+        public float scoreTranslation(final float rawScore) {
+            throw new IllegalStateException("This method should not be called with UNDEFINED space type");
+        }
+
+        @Override
+        public boolean isSupported(VectorDataType vectorDataType) {
+            throw new IllegalStateException("This method should not be called with UNDEFINED space type");
+        }
+    },
     L2("l2") {
         @Override
         public float scoreTranslation(float rawScore) {
@@ -113,9 +126,15 @@ public enum SpaceType {
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
         }
+
+        @Override
+        public boolean isSupported(VectorDataType vectorDataType) {
+            return true;
+        }
     };
 
     public static SpaceType DEFAULT = L2;
+    public static SpaceType DEFAULT_BINARY = HAMMING_BIT;
 
     private final String value;
 
@@ -152,6 +171,10 @@ public enum SpaceType {
         // do nothing
     }
 
+    public boolean isSupported(VectorDataType vectorDataType) {
+        return VectorDataType.FLOAT == vectorDataType || VectorDataType.BYTE == vectorDataType;
+    }
+
     /**
      * Get space type name in engine
      *
@@ -172,6 +195,12 @@ public enum SpaceType {
 
     public static SpaceType getSpace(String spaceTypeName) {
         for (SpaceType currentSpaceType : SpaceType.values()) {
+            // UNDEFINED space type is a temporary value to be used only until we set proper default value when
+            // space type is not provided by user
+            // Therefore, we do not allow converting space type name to UNDEFINED space type
+            if (SpaceType.UNDEFINED == currentSpaceType) {
+                continue;
+            }
             if (currentSpaceType.getValue().equalsIgnoreCase(spaceTypeName)) {
                 return currentSpaceType;
             }

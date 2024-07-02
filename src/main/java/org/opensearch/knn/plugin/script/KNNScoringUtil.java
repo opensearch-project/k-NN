@@ -59,7 +59,7 @@ public class KNNScoringUtil {
         for (final Number val : inputVector) {
             float floatValue = val.floatValue();
             if (VectorDataType.BYTE == vectorDataType) {
-                validateByteVectorValue(floatValue);
+                validateByteVectorValue(floatValue, vectorDataType);
             }
             value[index++] = floatValue;
         }
@@ -193,6 +193,21 @@ public class KNNScoringUtil {
      */
     public static float calculateHammingBit(Long queryLong, Long inputLong) {
         return Long.bitCount(queryLong ^ inputLong);
+    }
+
+    /**
+     * This method calculates hamming distance between query vector
+     *
+     * @param queryVector query vector
+     * @param inputVector input vector
+     * @return hamming distance
+     */
+    public static float calculateHammingBit(byte[] queryVector, byte[] inputVector) {
+        float distance = 0;
+        for (int i = 0; i < inputVector.length; i++) {
+            distance += Integer.bitCount(queryVector[i] ^ inputVector[i]);
+        }
+        return distance;
     }
 
     /**
