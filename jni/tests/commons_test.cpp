@@ -71,3 +71,22 @@ TEST(CommonsTests, BasicAssertions) {
         }
     }
 }
+
+TEST(CommonTests, GetIntegerMethodParam) {
+    JNIEnv *jniEnv = nullptr;
+    testing::NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    std::unordered_map<std::string, jobject> methodParams1;
+    int efSearch = 10;
+    methodParams1[knn_jni::EF_SEARCH] = reinterpret_cast<jobject>(&efSearch);
+
+    int actualValue1 = knn_jni::commons::getIntegerMethodParameter(jniEnv, &mockJNIUtil, methodParams1, knn_jni::EF_SEARCH, 1);
+    EXPECT_EQ(efSearch, actualValue1);
+
+    int actualValue2 = knn_jni::commons::getIntegerMethodParameter(jniEnv, &mockJNIUtil, methodParams1, "param", 1);
+    EXPECT_EQ(1, actualValue2);
+
+    std::unordered_map<std::string, jobject> methodParams2;
+    int actualValue3 = knn_jni::commons::getIntegerMethodParameter(jniEnv, &mockJNIUtil, methodParams2, knn_jni::EF_SEARCH, 1);
+    EXPECT_EQ(1, actualValue3);
+}
