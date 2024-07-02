@@ -150,6 +150,11 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
+    public EngineSpecificMethodContext getMethodContext(String methodName) {
+        return knnLibrary.getMethodContext(methodName);
+    }
+
+    @Override
     public float score(float rawScore, SpaceType spaceType) {
         return knnLibrary.score(rawScore, spaceType);
     }
