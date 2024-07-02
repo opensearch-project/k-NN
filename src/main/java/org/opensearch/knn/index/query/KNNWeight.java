@@ -43,6 +43,11 @@ import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNCounter;
+import org.opensearch.knn.quantization.QuantizationManager;
+import org.opensearch.knn.quantization.enums.SQTypes;
+import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationParams.SQParams;
+import org.opensearch.knn.quantization.quantizer.Quantizer;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -154,6 +159,11 @@ public class KNNWeight extends Weight {
         return convertSearchResponseToScorer(docIdsToScoreMap);
     }
 
+    private QuantizationParams getQuantizationParams() {
+        // Implement this method to return appropriate quantization parameters based on your use case
+        return new SQParams(SQTypes.ONE_BIT); // Example, modify as needed
+    }
+
     private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
         if (this.filterWeight == null) {
             return new FixedBitSet(0);
@@ -210,6 +220,9 @@ public class KNNWeight extends Weight {
         throws IOException {
         SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(context.reader());
         String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
+
+        QuantizationParams params = getQuantizationParams(); // Implement this method to get appropriate params
+        Quantizer<float[], byte[]> quantizer = (Quantizer<float[], byte[]>) QuantizationManager.getInstance().getQuantizer(params);
 
         FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
 
@@ -272,7 +285,7 @@ public class KNNWeight extends Weight {
                         spaceType,
                         knnEngine,
                         knnQuery.getIndexName(),
-                        FieldInfoExtractor.getIndexDescription(fieldInfo)
+                        "B" + FieldInfoExtractor.getIndexDescription(fieldInfo)
                     ),
                     knnQuery.getIndexName(),
                     modelId
@@ -295,10 +308,11 @@ public class KNNWeight extends Weight {
                 throw new RuntimeException("Index has already been closed");
             }
             int[] parentIds = getParentIdsArray(context);
+            byte[] quantizedVector = quantizer.quantize(knnQuery.getQueryVector()).getQuantizedVector();
             if (knnQuery.getK() > 0) {
-                results = JNIService.queryIndex(
+                results = JNIService.queryBinaryIndex(
                     indexAllocation.getMemoryAddress(),
-                    knnQuery.getQueryVector(),
+                        quantizedVector,
                     knnQuery.getK(),
                     knnEngine,
                     filterIds,
