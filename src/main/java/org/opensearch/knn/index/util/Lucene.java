@@ -67,7 +67,7 @@ public class Lucene extends JVMLibrary {
      * @param distanceTransform Map of space type to distance transformation function
      */
     Lucene(Map<String, KNNMethod> methods, String version, Map<SpaceType, Function<Float, Float>> distanceTransform) {
-        super(methods, version);
+        super(methods, Map.of(METHOD_HNSW, new DefaultHnswContext()), version);
         this.distanceTransform = distanceTransform;
     }
 

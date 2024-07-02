@@ -69,7 +69,7 @@ class NmslibService {
      * @param k neighbors to be returned
      * @return KNNQueryResult array of k neighbors
      */
-    public static native KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k);
+    public static native KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k, Map<String, ?> methodParameters);
 
     /**
      * Free native memory pointer

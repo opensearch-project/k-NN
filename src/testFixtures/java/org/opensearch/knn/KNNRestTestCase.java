@@ -193,18 +193,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("query");
         knnQueryBuilder.doXContent(builder, ToXContent.EMPTY_PARAMS);
         builder.endObject().endObject();
-
-        Request request = new Request("POST", "/" + index + "/_search");
-
-        request.addParameter("size", Integer.toString(resultSize));
-        request.addParameter("explain", Boolean.toString(true));
-        request.addParameter("search_type", "query_then_fetch");
-        request.setJsonEntity(builder.toString());
-
-        Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
-
-        return response;
+        return searchKNNIndex(index, builder, resultSize);
     }
 
     /**
@@ -1122,12 +1111,22 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
     }
 
-    // Validate KNN search on a KNN index by generating the query vector from the number of documents in the index
     public void validateKNNSearch(String testIndex, String testField, int dimension, int numDocs, int k) throws Exception {
+        validateKNNSearch(testIndex, testField, dimension, numDocs, k, null);
+    }
+
+    // Validate KNN search on a KNN index by generating the query vector from the number of documents in the index
+    public void validateKNNSearch(String testIndex, String testField, int dimension, int numDocs, int k, Map<String, ?> methodParameters)
+        throws Exception {
         float[] queryVector = new float[dimension];
         Arrays.fill(queryVector, (float) numDocs);
 
-        Response searchResponse = searchKNNIndex(testIndex, new KNNQueryBuilder(testField, queryVector, k), k);
+        Response searchResponse = searchKNNIndex(
+            testIndex,
+            KNNQueryBuilder.builder().k(k).methodParameters(methodParameters).fieldName(testField).vector(queryVector).build(),
+            k
+        );
+
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), testField);
 
         assertEquals(k, results.size());

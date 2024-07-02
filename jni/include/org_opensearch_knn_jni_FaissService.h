@@ -69,18 +69,18 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_setSharedIndexSt
 /*
  * Class:     org_opensearch_knn_jni_FaissService
  * Method:    queryIndex
- * Signature: (J[FI[I)[Lorg/opensearch/knn/index/query/KNNQueryResult;
+ * Signature: (J[FI[Ljava/util/MapI)[Lorg/opensearch/knn/index/query/KNNQueryResult;
  */
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryIndex
-  (JNIEnv *, jclass, jlong, jfloatArray, jint, jintArray);
+  (JNIEnv *, jclass, jlong, jfloatArray, jint, jobject, jintArray);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
  * Method:    queryIndexWithFilter
- * Signature: (J[FI[JI[I)[Lorg/opensearch/knn/index/query/KNNQueryResult;
+ * Signature: (J[FI[JLjava/util/MapI[I)[Lorg/opensearch/knn/index/query/KNNQueryResult;
  */
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryIndexWithFilter
-  (JNIEnv *, jclass, jlong, jfloatArray, jint, jlongArray, jint, jintArray);
+  (JNIEnv *, jclass, jlong, jfloatArray, jint, jobject, jlongArray, jint, jintArray);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService

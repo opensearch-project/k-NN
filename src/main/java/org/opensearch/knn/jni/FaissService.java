@@ -129,7 +129,13 @@ class FaissService {
      * @param parentIds list of parent doc ids when the knn field is a nested field
      * @return KNNQueryResult array of k neighbors
      */
-    public static native KNNQueryResult[] queryIndex(long indexPointer, float[] queryVector, int k, int[] parentIds);
+    public static native KNNQueryResult[] queryIndex(
+        long indexPointer,
+        float[] queryVector,
+        int k,
+        Map<String, ?> methodParameters,
+        int[] parentIds
+    );
 
     /**
      * Query an index with filter
@@ -145,6 +151,7 @@ class FaissService {
         long indexPointer,
         float[] queryVector,
         int k,
+        Map<String, ?> methodParameters,
         long[] filterIds,
         int filterIdsType,
         int[] parentIds

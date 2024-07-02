@@ -76,7 +76,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         // Confirm that the file was loaded by querying
         float[] query = new float[dimension];
         Arrays.fill(query, numVectors + 1);
-        KNNQueryResult[] results = JNIService.queryIndex(indexAllocation.getMemoryAddress(), query, 2, knnEngine, null, 0, null);
+        KNNQueryResult[] results = JNIService.queryIndex(indexAllocation.getMemoryAddress(), query, 2, null, knnEngine, null, 0, null);
         assertTrue(results.length > 0);
     }
 
