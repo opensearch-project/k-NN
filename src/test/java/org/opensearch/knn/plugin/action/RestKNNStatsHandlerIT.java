@@ -523,7 +523,7 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
     }
 
-    public void validateModelCreated(String modelId) throws IOException, InterruptedException {
+    public void validateModelCreated(String modelId) throws Exception {
         Response getResponse = getModel(modelId, null);
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);

@@ -177,7 +177,7 @@ public class ModelIT extends AbstractRestartUpgradeTestCase {
     }
 
     // Confirm that the model gets created using Get Model API
-    public void validateModelCreated(String modelId) throws IOException, InterruptedException {
+    public void validateModelCreated(String modelId) throws Exception {
         Response getResponse = getModel(modelId, null);
         String responseBody = EntityUtils.toString(getResponse.getEntity());
         assertNotNull(responseBody);

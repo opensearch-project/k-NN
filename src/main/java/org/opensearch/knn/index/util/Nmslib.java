@@ -66,7 +66,7 @@ class Nmslib extends NativeLibrary {
         String currentVersion,
         String extension
     ) {
-        super(methods, scoreTranslation, currentVersion, extension);
+        super(methods, Map.of(METHOD_HNSW, new DefaultHnswContext()), scoreTranslation, currentVersion, extension);
     }
 
     @Override

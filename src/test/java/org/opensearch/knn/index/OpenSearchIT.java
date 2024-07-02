@@ -58,7 +58,7 @@ public class OpenSearchIT extends KNNRestTestCase {
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());
     }
 
-    public void testEndToEnd() throws IOException, InterruptedException {
+    public void testEndToEnd() throws Exception {
         String indexName = "test-index-1";
         KNNEngine knnEngine1 = KNNEngine.NMSLIB;
         KNNEngine knnEngine2 = KNNEngine.FAISS;

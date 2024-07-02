@@ -122,7 +122,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         validateQueries(spaceType, FIELD_NAME);
     }
 
-    public void testQuery_multipleEngines() throws IOException {
+    public void testQuery_multipleEngines() throws Exception {
         String luceneField = "lucene-field";
         SpaceType luceneSpaceType = SpaceType.COSINESIMIL;
         String nmslibField = "nmslib-field";
@@ -175,7 +175,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         validateQueries(nmslibSpaceType, nmslibField);
     }
 
-    public void testAddDoc() throws IOException {
+    public void testAddDoc() throws Exception {
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
         List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
 
@@ -499,13 +499,18 @@ public class LuceneEngineIT extends KNNRestTestCase {
         }
 
         validateQueries(spaceType, FIELD_NAME);
+        validateQueries(spaceType, FIELD_NAME, Map.of("ef_search", 100));
     }
 
-    private void validateQueries(SpaceType spaceType, String fieldName) throws IOException {
+    private void validateQueries(SpaceType spaceType, String fieldName) throws Exception {
+        validateQueries(spaceType, fieldName, null);
+    }
+
+    private void validateQueries(SpaceType spaceType, String fieldName, Map<String, ?> methodParameters) throws Exception {
 
         int k = LuceneEngineIT.TEST_INDEX_VECTORS.length;
         for (float[] queryVector : TEST_QUERY_VECTORS) {
-            Response response = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(fieldName, queryVector, k), k);
+            Response response = searchKNNIndex(INDEX_NAME, buildLuceneKSearchQuery(fieldName, k, queryVector, methodParameters), k);
             String responseBody = EntityUtils.toString(response.getEntity());
             List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
             assertEquals(k, knnResults.size());
@@ -518,6 +523,27 @@ public class LuceneEngineIT extends KNNRestTestCase {
                 assertEquals(KNNEngine.LUCENE.score(rawScore, spaceType), actualScores.get(j), 0.0001);
             }
         }
+    }
+
+    @SneakyThrows
+    private XContentBuilder buildLuceneKSearchQuery(String fieldName, int k, float[] vector, Map<String, ?> methodParams) {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(fieldName)
+            .field("vector", vector)
+            .field("k", k);
+        if (methodParams != null) {
+            builder.startObject("method_parameters");
+            for (Map.Entry<String, ?> entry : methodParams.entrySet()) {
+                builder.field(entry.getKey(), entry.getValue());
+            }
+            builder.endObject();
+        }
+
+        builder.endObject().endObject().endObject().endObject();
+        return builder;
     }
 
     private List<float[]> queryResults(final float[] searchVector, final int k) throws Exception {

@@ -12,6 +12,7 @@
 package org.opensearch.knn.plugin.stats.suppliers;
 
 import org.opensearch.common.ValidationException;
+import org.opensearch.knn.index.util.EngineSpecificMethodContext;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
@@ -56,6 +57,11 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
 
         @Override
         public KNNMethod getMethod(String methodName) {
+            return null;
+        }
+
+        @Override
+        public EngineSpecificMethodContext getMethodContext(String methodName) {
             return null;
         }
 
