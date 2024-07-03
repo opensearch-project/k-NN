@@ -25,7 +25,7 @@ import java.util.Map;
  */
 public interface EngineSpecificMethodContext {
 
-    Map<String, Parameter<?>> supportedMethodParameters();
+    Map<String, Parameter<?>> supportedMethodParameters(QueryContext ctx);
 
-    EngineSpecificMethodContext EMPTY = Collections::emptyMap;
+    EngineSpecificMethodContext EMPTY = ctx -> Collections.emptyMap();
 }

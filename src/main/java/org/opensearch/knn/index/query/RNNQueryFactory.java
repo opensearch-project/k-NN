@@ -10,6 +10,7 @@ import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 
 import java.util.Locale;
+import java.util.Map;
 
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.search.ByteVectorSimilarityQuery;
@@ -69,6 +70,7 @@ public class RNNQueryFactory extends BaseQueryFactory {
         final byte[] byteVector = createQueryRequest.getByteVector();
         final VectorDataType vectorDataType = createQueryRequest.getVectorDataType();
         final Query filterQuery = getFilterQuery(createQueryRequest);
+        final Map<String, ?> methodParameters = createQueryRequest.getMethodParameters();
 
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(createQueryRequest.getKnnEngine())) {
             BitSetProducer parentFilter = null;
@@ -79,15 +81,17 @@ public class RNNQueryFactory extends BaseQueryFactory {
             }
             IndexSettings indexSettings = context.getIndexSettings();
             KNNQuery.Context knnQueryContext = new KNNQuery.Context(indexSettings.getMaxResultWindow());
-            KNNQuery rnnQuery = new KNNQuery(fieldName, vector, indexName, parentFilter).radius(radius).kNNQueryContext(knnQueryContext);
-            if (filterQuery != null && KNNEngine.getEnginesThatSupportsFilters().contains(createQueryRequest.getKnnEngine())) {
-                log.debug("Creating custom radius search with filters for index: {}, field: {} , r: {}", indexName, fieldName, radius);
-                rnnQuery.filterQuery(filterQuery);
-            }
-            log.debug(
-                String.format("Creating custom radius search for index: %s \"\", field: %s \"\", r: %f", indexName, fieldName, radius)
-            );
-            return rnnQuery;
+
+            return KNNQuery.builder()
+                .field(fieldName)
+                .queryVector(vector)
+                .indexName(indexName)
+                .parentsFilter(parentFilter)
+                .radius(radius)
+                .methodParameters(methodParameters)
+                .context(knnQueryContext)
+                .filterQuery(filterQuery)
+                .build();
         }
 
         log.debug(String.format("Creating Lucene r-NN query for index: %s \"\", field: %s \"\", k: %f", indexName, fieldName, radius));

@@ -36,6 +36,7 @@ import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
@@ -339,7 +340,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final float distance = 3.5f;
         final int[] expectedResults = { 2, 3, 2 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.L2, expectedResults, null, null);
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.L2, expectedResults, null, null, null);
     }
 
     public void testRadiusSearch_usingScoreThreshold_usingL2Metrics_usingFloatType() throws Exception {
@@ -351,7 +352,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final float score = 0.23f;
         final int[] expectedResults = { 2, 3, 2 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.L2, expectedResults, null, null);
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.L2, expectedResults, null, null, null);
     }
 
     public void testRadiusSearch_usingDistanceThreshold_usingCosineMetrics_usingFloatType() throws Exception {
@@ -363,7 +364,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final float distance = 0.03f;
         final int[] expectedResults = { 1, 1, 1 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.COSINESIMIL, expectedResults, null, null);
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.COSINESIMIL, expectedResults, null, null, null);
     }
 
     public void testRadiusSearch_usingScoreThreshold_usingCosineMetrics_usingFloatType() throws Exception {
@@ -375,7 +376,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final float score = 0.97f;
         final int[] expectedResults = { 1, 1, 1 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.COSINESIMIL, expectedResults, null, null);
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.COSINESIMIL, expectedResults, null, null, null);
     }
 
     public void testRadiusSearch_usingScoreThreshold_usingInnerProductMetrics_usingFloatType() throws Exception {
@@ -387,7 +388,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final float score = 2f;
         final int[] expectedResults = { 1, 1, 1 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.INNER_PRODUCT, expectedResults, null, null);
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.INNER_PRODUCT, expectedResults, null, null, null);
     }
 
     public void testRadiusSearch_usingDistanceThreshold_usingL2Metrics_usingByteType() throws Exception {
@@ -399,7 +400,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final float distance = 3.5f;
         final int[] expectedResults = { 2, 2, 2 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.L2, expectedResults, null, null);
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.L2, expectedResults, null, null, null);
     }
 
     public void testRadiusSearch_usingScoreThreshold_usingL2Metrics_usingByteType() throws Exception {
@@ -411,7 +412,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final float score = 0.23f;
         final int[] expectedResults = { 2, 2, 2 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.L2, expectedResults, null, null);
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.L2, expectedResults, null, null, null);
     }
 
     public void testRadiusSearch_usingDistanceThreshold_usingCosineMetrics_usingByteType() throws Exception {
@@ -423,7 +424,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final float distance = 0.05f;
         final int[] expectedResults = { 2, 2, 2 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.COSINESIMIL, expectedResults, null, null);
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.COSINESIMIL, expectedResults, null, null, null);
     }
 
     public void testRadiusSearch_usingScoreThreshold_usingCosineMetrics_usingByteType() throws Exception {
@@ -435,7 +436,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final float score = 0.97f;
         final int[] expectedResults = { 2, 2, 2 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.COSINESIMIL, expectedResults, null, null);
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.COSINESIMIL, expectedResults, null, null, null);
     }
 
     public void testRadiusSearch_usingDistanceThreshold_withFilter_usingL2Metrics_usingFloatType() throws Exception {
@@ -449,7 +450,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final float distance = 45.0f;
         final int[] expectedResults = { 1, 1, 1 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.L2, expectedResults, COLOR_FIELD_NAME, "red");
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.L2, expectedResults, COLOR_FIELD_NAME, "red", null);
     }
 
     public void testRadiusSearch_usingScoreThreshold_withFilter_usingCosineMetrics_usingFloatType() throws Exception {
@@ -463,7 +464,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final float score = 0.02f;
         final int[] expectedResults = { 1, 1, 1 };
 
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.COSINESIMIL, expectedResults, COLOR_FIELD_NAME, "red");
+        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.COSINESIMIL, expectedResults, COLOR_FIELD_NAME, "red", null);
     }
 
     private void createKnnIndexMappingWithLuceneEngine(int dimension, SpaceType spaceType, VectorDataType vectorDataType) throws Exception {
@@ -642,6 +643,25 @@ public class LuceneEngineIT extends KNNRestTestCase {
         }
     }
 
+    @SneakyThrows
+    public void testRadialSearch_whenEfSearchIsSet_thenThrowException() {
+        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
+        for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
+            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
+        }
+
+        final float score = 0.23f;
+        final int[] expectedResults = { 2, 3, 2 };
+
+        Map<String, Object> methodParameters = new ImmutableMap.Builder<String, Object>().put(KNNConstants.METHOD_PARAMETER_EF_SEARCH, 150)
+            .build();
+
+        expectThrows(
+            ResponseException.class,
+            () -> validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.L2, expectedResults, null, null, methodParameters)
+        );
+    }
+
     private void validateRadiusSearchResults(
         final float[][] searchVectors,
         final Float distanceThreshold,
@@ -649,7 +669,8 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final SpaceType spaceType,
         final int[] expectedResults,
         @Nullable final String filterField,
-        @Nullable final String filterValue
+        @Nullable final String filterValue,
+        @Nullable final Map<String, ?> methodParameters
     ) throws Exception {
         for (int i = 0; i < searchVectors.length; i++) {
             XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("query");
@@ -668,6 +689,13 @@ public class LuceneEngineIT extends KNNRestTestCase {
                 builder.startObject("term");
                 builder.field(filterField, filterValue);
                 builder.endObject();
+                builder.endObject();
+            }
+            if (methodParameters != null) {
+                builder.startObject(METHOD_PARAMETER);
+                for (Map.Entry<String, ?> entry : methodParameters.entrySet()) {
+                    builder.field(entry.getKey(), entry.getValue());
+                }
                 builder.endObject();
             }
             builder.endObject();

@@ -125,18 +125,18 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_transferVectors
 /*
 * Class:     org_opensearch_knn_jni_FaissService
 * Method:    rangeSearchIndexWithFilter
-* Signature: (J[FJ[I)[Lorg/opensearch/knn/index/query/RangeQueryResult;
+* Signature: (J[FJLjava/util/MapI[JII)[Lorg/opensearch/knn/index/query/RangeQueryResult;
 */
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_rangeSearchIndexWithFilter
-  (JNIEnv *, jclass, jlong, jfloatArray, jfloat, jint, jlongArray, jint, jintArray);
+  (JNIEnv *, jclass, jlong, jfloatArray, jfloat, jobject, jint, jlongArray, jint, jintArray);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
  * Method:    rangeSearchIndex
- * Signature: (J[FJ[I)[Lorg/opensearch/knn/index/query/RangeQueryResult;
+ * Signature: (J[FJLjava/util/MapII)[Lorg/opensearch/knn/index/query/RangeQueryResult;
  */
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_rangeSearchIndex
-  (JNIEnv *, jclass, jlong, jfloatArray, jfloat, jint, jintArray);
+  (JNIEnv *, jclass, jlong, jfloatArray, jfloat, jobject, jint, jintArray);
 
 #ifdef __cplusplus
 }
