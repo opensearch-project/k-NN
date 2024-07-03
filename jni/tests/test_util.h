@@ -46,6 +46,8 @@ namespace test_util {
                     (JNIEnv * env, jobjectArray array2dJ, int dim));
         MOCK_METHOD(void, Convert2dJavaObjectArrayAndStoreToFloatVector,
                     (JNIEnv * env, jobjectArray array2dJ, int dim, std::vector<float>*vect));
+        MOCK_METHOD(void, Convert2dJavaObjectArrayAndStoreToByteVector,
+                    (JNIEnv * env, jobjectArray array2dJ, int dim, std::vector<uint8_t>*vect));
         MOCK_METHOD(std::vector<int64_t>, ConvertJavaIntArrayToCppIntVector,
                     (JNIEnv * env, jintArray arrayJ));
         MOCK_METHOD2(ConvertJavaMapToCppMap,
@@ -63,6 +65,8 @@ namespace test_util {
         MOCK_METHOD(jfloat*, GetFloatArrayElements,
                     (JNIEnv * env, jfloatArray array, jboolean* isCopy));
         MOCK_METHOD(int, GetInnerDimensionOf2dJavaFloatArray,
+                    (JNIEnv * env, jobjectArray array2dJ));
+        MOCK_METHOD(int, GetInnerDimensionOf2dJavaByteArray,
                     (JNIEnv * env, jobjectArray array2dJ));
         MOCK_METHOD(jint*, GetIntArrayElements,
                     (JNIEnv * env, jintArray array, jboolean* isCopy));
@@ -109,18 +113,25 @@ namespace test_util {
 
     faiss::Index* FaissCreateIndex(int dim, const std::string& method,
                                    faiss::MetricType metric);
+    faiss::IndexBinary* FaissCreateBinaryIndex(int dim, const std::string& method);
 
     faiss::VectorIOWriter FaissGetSerializedIndex(faiss::Index* index);
+    faiss::VectorIOWriter FaissGetSerializedBinaryIndex(faiss::IndexBinary* index);
 
     faiss::Index* FaissLoadFromSerializedIndex(std::vector<uint8_t>* indexSerial);
+    faiss::IndexBinary* FaissLoadFromSerializedBinaryIndex(std::vector<uint8_t>* indexSerial);
 
     faiss::IndexIDMap FaissAddData(faiss::Index* index,
                                    std::vector<faiss::idx_t> ids,
                                    std::vector<float> dataset);
-
+    faiss::IndexBinaryIDMap FaissAddBinaryData(faiss::IndexBinary* index,
+                                   std::vector<faiss::idx_t> ids,
+                                   std::vector<uint8_t> dataset);
     void FaissWriteIndex(faiss::Index* index, const std::string& indexPath);
+    void FaissWriteBinaryIndex(faiss::IndexBinary* index, const std::string& indexPath);
 
     faiss::Index* FaissLoadIndex(const std::string& indexPath);
+    faiss::IndexBinary* FaissLoadBinaryIndex(const std::string &indexPath);
 
     void FaissQueryIndex(faiss::Index* index, float* query, int k, float* distances,
                          faiss::idx_t* ids);
@@ -156,6 +167,7 @@ namespace test_util {
     std::string RandomString(size_t length, const std::string& prefix, const std::string& suffix);
 
     float RandomFloat(float min, float max);
+    int RandomInt(int min, int max);
 
     std::vector<float> RandomVectors(int dim, int64_t numVectors, float min, float max);
 
