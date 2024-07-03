@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.experimental.Accessors;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.search.MatchNoDocsQuery;
@@ -60,6 +61,7 @@ import static org.opensearch.knn.validation.ParameterValidator.validateParameter
  * Helper class to build the KNN query
  */
 // The builder validates the member variables so access to the constructor is prohibited to not accidentally bypass validations
+@Getter
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Log4j2
 public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
@@ -81,19 +83,15 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     /**
      * The default mode terms are combined in a match query
      */
+    @Accessors(fluent = true)
     private final String fieldName;
+    @Accessors(fluent = true)
     private final float[] vector;
-    @Getter
     private int k;
-    @Getter
     private Float maxDistance;
-    @Getter
     private Float minScore;
-    @Getter
     private Map<String, ?> methodParameters;
-    @Getter
     private QueryBuilder filter;
-    @Getter
     private boolean ignoreUnmapped;
 
     /**
@@ -437,20 +435,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (isClusterOnOrAfterMinRequiredVersion(METHOD_PARAMETER)) {
             MethodParametersParser.streamOutput(out, methodParameters, IndexUtil::isClusterOnOrAfterMinRequiredVersion);
         }
-    }
-
-    /**
-     * @return The field name used in this query
-     */
-    public String fieldName() {
-        return this.fieldName;
-    }
-
-    /**
-     * @return Returns the vector used in this query.
-     */
-    public Object vector() {
-        return this.vector;
     }
 
     @Override
