@@ -191,7 +191,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             .queryName(queryName)
             .boost(boost)
             .fieldName(fieldName)
-            .vector(ObjectsToFloats(vector))
+            .vector(objectsToFloats(vector))
             .k(k)
             .maxDistance(maxDistance)
             .minScore(minScore)
@@ -228,28 +228,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         } catch (IOException ex) {
             throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder", ex);
         }
-    }
-
-    /**
-     * Constructs a new query with the given field name and vector
-     *
-     * @param fieldName Name of the field
-     * @param vector    Array of floating points
-     * @deprecated Use {@code {@link KNNQueryBuilder.Builder}} instead
-     */
-    @Deprecated
-    public KNNQueryBuilder(String fieldName, float[] vector) {
-        if (Strings.isNullOrEmpty(fieldName)) {
-            throw new IllegalArgumentException(String.format("[%s] requires fieldName", NAME));
-        }
-        if (vector == null) {
-            throw new IllegalArgumentException(String.format("[%s] requires query vector", NAME));
-        }
-        if (vector.length == 0) {
-            throw new IllegalArgumentException(String.format("[%s] query vector is empty", NAME));
-        }
-        this.fieldName = fieldName;
-        this.vector = vector;
     }
 
     /**
@@ -627,7 +605,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return NAME;
     }
 
-    private static float[] ObjectsToFloats(List<Object> objs) {
+    private static float[] objectsToFloats(List<Object> objs) {
         if (Objects.isNull(objs) || objs.isEmpty()) {
             throw new IllegalArgumentException(String.format("[%s] field 'vector' requires to be non-null and non-empty", NAME));
         }
