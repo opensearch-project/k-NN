@@ -51,6 +51,12 @@ test_util::MockJNIUtil::MockJNIUtil() {
                         (*reinterpret_cast<std::vector<std::vector<float>> *>(array2dJ)))
                     for (auto item : v) data->push_back(item);
             });
+    ON_CALL(*this, Convert2dJavaObjectArrayAndStoreToByteVector)
+            .WillByDefault([this](JNIEnv *env, jobjectArray array2dJ, int dim, std::vector<uint8_t>* data) {
+                for (const auto &v :
+                        (*reinterpret_cast<std::vector<std::vector<uint8_t>> *>(array2dJ)))
+                    for (auto item : v) data->push_back(item);
+            });
 
 
     // arrayJ is re-interpreted as std::vector<int64_t> *
@@ -146,6 +152,15 @@ test_util::MockJNIUtil::MockJNIUtil() {
     ON_CALL(*this, GetInnerDimensionOf2dJavaFloatArray)
             .WillByDefault([this](JNIEnv *env, jobjectArray array2dJ) {
                 return (*reinterpret_cast<std::vector<std::vector<float>> *>(
+                        array2dJ))[0]
+                        .size();
+            });
+
+    // array2dJ is re-interpreted as a std::vector<std::vector<uint8_t>> * and then
+    // the size of the first element is returned
+    ON_CALL(*this, GetInnerDimensionOf2dJavaByteArray)
+            .WillByDefault([this](JNIEnv *env, jobjectArray array2dJ) {
+                return (*reinterpret_cast<std::vector<std::vector<uint8_t>> *>(
                         array2dJ))[0]
                         .size();
             });
@@ -249,9 +264,19 @@ faiss::Index *test_util::FaissCreateIndex(int dim, const std::string &method,
     return faiss::index_factory(dim, method.c_str(), metric);
 }
 
+faiss::IndexBinary *test_util::FaissCreateBinaryIndex(int dim, const std::string &method) {
+    return faiss::index_binary_factory(dim, method.c_str());
+}
+
 faiss::VectorIOWriter test_util::FaissGetSerializedIndex(faiss::Index *index) {
     faiss::VectorIOWriter vectorIoWriter;
     faiss::write_index(index, &vectorIoWriter);
+    return vectorIoWriter;
+}
+
+faiss::VectorIOWriter test_util::FaissGetSerializedBinaryIndex(faiss::IndexBinary *index) {
+    faiss::VectorIOWriter vectorIoWriter;
+    faiss::write_index_binary(index, &vectorIoWriter);
     return vectorIoWriter;
 }
 
@@ -262,10 +287,25 @@ faiss::Index *test_util::FaissLoadFromSerializedIndex(
     return faiss::read_index(&vectorIoReader, 0);
 }
 
+faiss::IndexBinary *test_util::FaissLoadFromSerializedBinaryIndex(
+        std::vector<uint8_t> *indexSerial) {
+    faiss::VectorIOReader vectorIoReader;
+    vectorIoReader.data = *indexSerial;
+    return faiss::read_index_binary(&vectorIoReader, 0);
+}
+
 faiss::IndexIDMap test_util::FaissAddData(faiss::Index *index,
                                           std::vector<faiss::idx_t> ids,
                                           std::vector<float> dataset) {
     faiss::IndexIDMap idMap = faiss::IndexIDMap(index);
+    idMap.add_with_ids(ids.size(), dataset.data(), ids.data());
+    return idMap;
+}
+
+faiss::IndexBinaryIDMap test_util::FaissAddBinaryData(faiss::IndexBinary *index,
+                                          std::vector<faiss::idx_t> ids,
+                                          std::vector<uint8_t> dataset) {
+    faiss::IndexBinaryIDMap idMap = faiss::IndexBinaryIDMap(index);
     idMap.add_with_ids(ids.size(), dataset.data(), ids.data());
     return idMap;
 }
@@ -275,8 +315,17 @@ void test_util::FaissWriteIndex(faiss::Index *index,
     faiss::write_index(index, indexPath.c_str());
 }
 
+void test_util::FaissWriteBinaryIndex(faiss::IndexBinary *index,
+                                const std::string &indexPath) {
+    faiss::write_index_binary(index, indexPath.c_str());
+}
+
 faiss::Index *test_util::FaissLoadIndex(const std::string &indexPath) {
     return faiss::read_index(indexPath.c_str(), faiss::IO_FLAG_READ_ONLY);
+}
+
+faiss::IndexBinary *test_util::FaissLoadBinaryIndex(const std::string &indexPath) {
+    return faiss::read_index_binary(indexPath.c_str(), faiss::IO_FLAG_READ_ONLY);
 }
 
 void test_util::FaissQueryIndex(faiss::Index *index, float *query, int k,
@@ -374,6 +423,13 @@ float test_util::RandomFloat(float min, float max) {
     std::random_device r;
     std::default_random_engine e1(r());
     std::uniform_real_distribution<float> distribution(min, max);
+    return distribution(e1);
+}
+
+int test_util::RandomInt(int min, int max) {
+    std::random_device r;
+    std::default_random_engine e1(r());
+    std::uniform_int_distribution<int> distribution(min, max);
     return distribution(e1);
 }
 

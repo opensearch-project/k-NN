@@ -35,6 +35,7 @@ import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_SEARCH;
+import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 
 public class IndexUtil {
@@ -258,15 +259,24 @@ public class IndexUtil {
      * @param spaceType Space for this particular segment
      * @param knnEngine Engine used for the native library indices being loaded in
      * @param indexName Name of OpenSearch index that the segment files belong to
+     * @param indexDescription Index description of OpenSearch index with faiss that the segment files belong to
      * @return load parameters that will be passed to the JNI.
      */
-    public static Map<String, Object> getParametersAtLoading(SpaceType spaceType, KNNEngine knnEngine, String indexName) {
+    public static Map<String, Object> getParametersAtLoading(
+        SpaceType spaceType,
+        KNNEngine knnEngine,
+        String indexName,
+        String indexDescription
+    ) {
         Map<String, Object> loadParameters = Maps.newHashMap(ImmutableMap.of(SPACE_TYPE, spaceType.getValue()));
 
         // For nmslib, we need to add the dynamic ef_search parameter that needs to be passed in when the
         // hnsw graphs are loaded into memory
         if (KNNEngine.NMSLIB.equals(knnEngine)) {
             loadParameters.put(HNSW_ALGO_EF_SEARCH, KNNSettings.getEfSearchParam(indexName));
+        }
+        if (KNNEngine.FAISS.equals(knnEngine)) {
+            loadParameters.put(INDEX_DESCRIPTION_PARAMETER, indexDescription);
         }
 
         return Collections.unmodifiableMap(loadParameters);
@@ -302,5 +312,4 @@ public class IndexUtil {
         }
         return JNIService.isSharedIndexStateRequired(indexAddr, knnEngine);
     }
-
 }
