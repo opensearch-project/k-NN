@@ -249,6 +249,7 @@ class FaissService {
      * @param indexPointer pointer to index in memory
      * @param queryVector vector to be used for query
      * @param radius search within radius threshold
+     * @param methodParameters parameters to be used for the query
      * @param indexMaxResultWindow maximum number of results to return
      * @param filteredIds list of doc ids to include in the query result
      * @param filterIdsType type of filter ids
@@ -259,6 +260,7 @@ class FaissService {
         long indexPointer,
         float[] queryVector,
         float radius,
+        Map<String, ?> methodParameters,
         int indexMaxResultWindow,
         long[] filteredIds,
         int filterIdsType,
@@ -271,6 +273,7 @@ class FaissService {
      * @param indexPointer pointer to index in memory
      * @param queryVector vector to be used for query
      * @param radius search within radius threshold
+     * @param methodParameters parameters to be used for the query
      * @param indexMaxResultWindow maximum number of results to return
      * @param parentIds list of parent doc ids when the knn field is a nested field
      * @return KNNQueryResult array of neighbors within radius
@@ -279,6 +282,7 @@ class FaissService {
         long indexPointer,
         float[] queryVector,
         float radius,
+        Map<String, ?> methodParameters,
         int indexMaxResultWindow,
         int[] parentIds
     );

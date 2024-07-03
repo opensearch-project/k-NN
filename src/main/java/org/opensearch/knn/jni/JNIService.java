@@ -328,6 +328,7 @@ public class JNIService {
      * @param indexPointer pointer to index in memory
      * @param queryVector vector to be used for query
      * @param radius search within radius threshold
+     * @param methodParameters parameters to be used when loading index
      * @param knnEngine engine to query index
      * @param indexMaxResultWindow maximum number of results to return
      * @param filteredIds list of doc ids to include in the query result
@@ -339,6 +340,7 @@ public class JNIService {
         long indexPointer,
         float[] queryVector,
         float radius,
+        @Nullable Map<String, ?> methodParameters,
         KNNEngine knnEngine,
         int indexMaxResultWindow,
         long[] filteredIds,
@@ -351,13 +353,14 @@ public class JNIService {
                     indexPointer,
                     queryVector,
                     radius,
+                    methodParameters,
                     indexMaxResultWindow,
                     filteredIds,
                     filterIdsType,
                     parentIds
                 );
             }
-            return FaissService.rangeSearchIndex(indexPointer, queryVector, radius, indexMaxResultWindow, parentIds);
+            return FaissService.rangeSearchIndex(indexPointer, queryVector, radius, methodParameters, indexMaxResultWindow, parentIds);
         }
         throw new IllegalArgumentException("RadiusQueryIndex not supported for provided engine");
     }
