@@ -95,6 +95,113 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private boolean ignoreUnmapped;
 
     /**
+     *
+     * @return Empty builder for KNNQuery
+     */
+    public static KNNQueryBuilder.Builder builder() {
+        return new KNNQueryBuilder.Builder();
+    }
+
+    /**
+     * Initialize the KNNQueryBuilder with static members. In the future, this should be refactored to avoid this
+     *
+     * @param modelDao data access object for models
+     */
+    public static void initialize(ModelDao modelDao) {
+        KNNQueryBuilder.modelDao = modelDao;
+    }
+
+    /**
+     * Parse to KNNQueryBuilder from XContent
+     *
+     * @param parser XContentParser to build KNNQueryBuilder
+     * @return KNNQueryBuilder
+     * @throws IOException thrown on invalid parsing
+     */
+    public static KNNQueryBuilder fromXContent(XContentParser parser) throws IOException {
+        String fieldName = null;
+        List<Object> vector = null;
+        float boost = AbstractQueryBuilder.DEFAULT_BOOST;
+        Integer k = null;
+        Float maxDistance = null;
+        Float minScore = null;
+        QueryBuilder filter = null;
+        String queryName = null;
+        String currentFieldName = null;
+        boolean ignoreUnmapped = false;
+        Map<String, ?> methodParameters = null;
+        XContentParser.Token token;
+        while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
+            if (token == XContentParser.Token.FIELD_NAME) {
+                currentFieldName = parser.currentName();
+            } else if (token == XContentParser.Token.START_OBJECT) {
+                throwParsingExceptionOnMultipleFields(NAME, parser.getTokenLocation(), fieldName, currentFieldName);
+                fieldName = currentFieldName;
+                while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
+                    if (token == XContentParser.Token.FIELD_NAME) {
+                        currentFieldName = parser.currentName();
+                    } else if (token.isValue() || token == XContentParser.Token.START_ARRAY) {
+                        if (VECTOR_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
+                            vector = parser.list();
+                        } else if (AbstractQueryBuilder.BOOST_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
+                            boost = parser.floatValue();
+                        } else if (K_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
+                            k = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
+                        } else if (IGNORE_UNMAPPED_FIELD.getPreferredName().equals(currentFieldName)) {
+                            if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
+                                ignoreUnmapped = parser.booleanValue();
+                            }
+                        } else if (AbstractQueryBuilder.NAME_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
+                            queryName = parser.text();
+                        } else if (MAX_DISTANCE_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
+                            maxDistance = (Float) NumberFieldMapper.NumberType.FLOAT.parse(parser.objectBytes(), false);
+                        } else if (MIN_SCORE_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
+                            minScore = (Float) NumberFieldMapper.NumberType.FLOAT.parse(parser.objectBytes(), false);
+                        } else {
+                            throw new ParsingException(
+                                parser.getTokenLocation(),
+                                "[" + NAME + "] query does not support [" + currentFieldName + "]"
+                            );
+                        }
+                    } else if (token == XContentParser.Token.START_OBJECT) {
+                        String tokenName = parser.currentName();
+                        if (FILTER_FIELD.getPreferredName().equals(tokenName)) {
+                            log.debug(String.format("Start parsing filter for field [%s]", fieldName));
+                            filter = parseInnerQueryBuilder(parser);
+                        } else if (METHOD_PARAMS_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
+                            methodParameters = MethodParametersParser.fromXContent(parser);
+                        } else {
+                            throw new ParsingException(parser.getTokenLocation(), "[" + NAME + "] unknown token [" + token + "]");
+                        }
+                    } else {
+                        throw new ParsingException(
+                            parser.getTokenLocation(),
+                            "[" + NAME + "] unknown token [" + token + "] after [" + currentFieldName + "]"
+                        );
+                    }
+                }
+            } else {
+                throwParsingExceptionOnMultipleFields(NAME, parser.getTokenLocation(), fieldName, parser.currentName());
+                fieldName = parser.currentName();
+                vector = parser.list();
+            }
+        }
+
+        return KNNQueryBuilder.builder()
+            .queryName(queryName)
+            .boost(boost)
+            .fieldName(fieldName)
+            .vector(ObjectsToFloats(vector))
+            .k(k)
+            .maxDistance(maxDistance)
+            .minScore(minScore)
+            .methodParameters(methodParameters)
+            .ignoreUnmapped(ignoreUnmapped)
+            .filter(filter)
+            .build();
+    }
+
+    /**
      * @param in Reads from stream
      * @throws IOException Throws IO Exception
      */
@@ -312,111 +419,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
     }
 
-    public static KNNQueryBuilder.Builder builder() {
-        return new KNNQueryBuilder.Builder();
-    }
-
-    public static void initialize(ModelDao modelDao) {
-        KNNQueryBuilder.modelDao = modelDao;
-    }
-
-    private static float[] ObjectsToFloats(List<Object> objs) {
-        if (Objects.isNull(objs) || objs.isEmpty()) {
-            throw new IllegalArgumentException(String.format("[%s] field 'vector' requires to be non-null and non-empty", NAME));
-        }
-        float[] vec = new float[objs.size()];
-        for (int i = 0; i < objs.size(); i++) {
-            if ((objs.get(i) instanceof Number) == false) {
-                throw new IllegalArgumentException(String.format("[%s] field 'vector' requires to be an array of numbers", NAME));
-            }
-            vec[i] = ((Number) objs.get(i)).floatValue();
-        }
-        return vec;
-    }
-
-    public static KNNQueryBuilder fromXContent(XContentParser parser) throws IOException {
-        String fieldName = null;
-        List<Object> vector = null;
-        float boost = AbstractQueryBuilder.DEFAULT_BOOST;
-        Integer k = null;
-        Float maxDistance = null;
-        Float minScore = null;
-        QueryBuilder filter = null;
-        String queryName = null;
-        String currentFieldName = null;
-        boolean ignoreUnmapped = false;
-        Map<String, ?> methodParameters = null;
-        XContentParser.Token token;
-        while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
-            if (token == XContentParser.Token.FIELD_NAME) {
-                currentFieldName = parser.currentName();
-            } else if (token == XContentParser.Token.START_OBJECT) {
-                throwParsingExceptionOnMultipleFields(NAME, parser.getTokenLocation(), fieldName, currentFieldName);
-                fieldName = currentFieldName;
-                while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
-                    if (token == XContentParser.Token.FIELD_NAME) {
-                        currentFieldName = parser.currentName();
-                    } else if (token.isValue() || token == XContentParser.Token.START_ARRAY) {
-                        if (VECTOR_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
-                            vector = parser.list();
-                        } else if (AbstractQueryBuilder.BOOST_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
-                            boost = parser.floatValue();
-                        } else if (K_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
-                            k = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
-                        } else if (IGNORE_UNMAPPED_FIELD.getPreferredName().equals(currentFieldName)) {
-                            if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
-                                ignoreUnmapped = parser.booleanValue();
-                            }
-                        } else if (AbstractQueryBuilder.NAME_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
-                            queryName = parser.text();
-                        } else if (MAX_DISTANCE_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
-                            maxDistance = (Float) NumberFieldMapper.NumberType.FLOAT.parse(parser.objectBytes(), false);
-                        } else if (MIN_SCORE_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
-                            minScore = (Float) NumberFieldMapper.NumberType.FLOAT.parse(parser.objectBytes(), false);
-                        } else {
-                            throw new ParsingException(
-                                parser.getTokenLocation(),
-                                "[" + NAME + "] query does not support [" + currentFieldName + "]"
-                            );
-                        }
-                    } else if (token == XContentParser.Token.START_OBJECT) {
-                        String tokenName = parser.currentName();
-                        if (FILTER_FIELD.getPreferredName().equals(tokenName)) {
-                            log.debug(String.format("Start parsing filter for field [%s]", fieldName));
-                            filter = parseInnerQueryBuilder(parser);
-                        } else if (METHOD_PARAMS_FIELD.match(currentFieldName, parser.getDeprecationHandler())) {
-                            methodParameters = MethodParametersParser.fromXContent(parser);
-                        } else {
-                            throw new ParsingException(parser.getTokenLocation(), "[" + NAME + "] unknown token [" + token + "]");
-                        }
-                    } else {
-                        throw new ParsingException(
-                            parser.getTokenLocation(),
-                            "[" + NAME + "] unknown token [" + token + "] after [" + currentFieldName + "]"
-                        );
-                    }
-                }
-            } else {
-                throwParsingExceptionOnMultipleFields(NAME, parser.getTokenLocation(), fieldName, parser.currentName());
-                fieldName = parser.currentName();
-                vector = parser.list();
-            }
-        }
-
-        return KNNQueryBuilder.builder()
-            .queryName(queryName)
-            .boost(boost)
-            .fieldName(fieldName)
-            .vector(ObjectsToFloats(vector))
-            .k(k)
-            .maxDistance(maxDistance)
-            .minScore(minScore)
-            .methodParameters(methodParameters)
-            .ignoreUnmapped(ignoreUnmapped)
-            .filter(filter)
-            .build();
-    }
-
     @Override
     protected void doWriteTo(StreamOutput out) throws IOException {
         out.writeString(fieldName);
@@ -603,20 +605,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         throw new IllegalArgumentException(String.format("[%s] requires k or distance or score to be set", NAME));
     }
 
-    private ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
-        String modelId = knnVectorField.getModelId();
-
-        if (modelId == null) {
-            throw new IllegalArgumentException(String.format("Field '%s' does not have model.", this.fieldName));
-        }
-
-        ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
-        if (!ModelUtil.isModelCreated(modelMetadata)) {
-            throw new IllegalArgumentException(String.format("Model ID '%s' is not created.", modelId));
-        }
-        return modelMetadata;
-    }
-
     @Override
     protected boolean doEquals(KNNQueryBuilder other) {
         return Objects.equals(fieldName, other.fieldName)
@@ -637,5 +625,33 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     @Override
     public String getWriteableName() {
         return NAME;
+    }
+
+    private static float[] ObjectsToFloats(List<Object> objs) {
+        if (Objects.isNull(objs) || objs.isEmpty()) {
+            throw new IllegalArgumentException(String.format("[%s] field 'vector' requires to be non-null and non-empty", NAME));
+        }
+        float[] vec = new float[objs.size()];
+        for (int i = 0; i < objs.size(); i++) {
+            if ((objs.get(i) instanceof Number) == false) {
+                throw new IllegalArgumentException(String.format("[%s] field 'vector' requires to be an array of numbers", NAME));
+            }
+            vec[i] = ((Number) objs.get(i)).floatValue();
+        }
+        return vec;
+    }
+
+    private ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
+        String modelId = knnVectorField.getModelId();
+
+        if (modelId == null) {
+            throw new IllegalArgumentException(String.format("Field '%s' does not have model.", this.fieldName));
+        }
+
+        ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+        if (!ModelUtil.isModelCreated(modelMetadata)) {
+            throw new IllegalArgumentException(String.format("Model ID '%s' is not created.", modelId));
+        }
+        return modelMetadata;
     }
 }
