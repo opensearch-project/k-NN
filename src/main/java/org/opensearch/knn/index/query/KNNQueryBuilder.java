@@ -97,6 +97,35 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private boolean ignoreUnmapped;
 
     /**
+     * @param in Reads from stream
+     * @throws IOException Throws IO Exception
+     */
+    public KNNQueryBuilder(StreamInput in) throws IOException {
+        super(in);
+        try {
+            fieldName = in.readString();
+            vector = in.readFloatArray();
+            k = in.readInt();
+            filter = in.readOptionalNamedWriteable(QueryBuilder.class);
+            if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
+                ignoreUnmapped = in.readOptionalBoolean();
+            }
+            if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
+                maxDistance = in.readOptionalFloat();
+            }
+            if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
+                minScore = in.readOptionalFloat();
+            }
+            if (isClusterOnOrAfterMinRequiredVersion(METHOD_PARAMETER)) {
+                methodParameters = MethodParametersParser.streamInput(in, IndexUtil::isClusterOnOrAfterMinRequiredVersion);
+            }
+
+        } catch (IOException ex) {
+            throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder", ex);
+        }
+    }
+
+    /**
      * Constructs a new query with the given field name and vector
      *
      * @param fieldName Name of the field
@@ -116,6 +145,45 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
         this.fieldName = fieldName;
         this.vector = vector;
+    }
+
+    /**
+     * Constructs a new query for top k search
+     *
+     * @param fieldName Name of the filed
+     * @param vector    Array of floating points
+     * @param k         K nearest neighbours for the given vector
+     */
+    @Deprecated
+    public KNNQueryBuilder(String fieldName, float[] vector, int k) {
+        this(fieldName, vector, k, null);
+    }
+
+    @Deprecated
+    public KNNQueryBuilder(String fieldName, float[] vector, int k, QueryBuilder filter) {
+        if (Strings.isNullOrEmpty(fieldName)) {
+            throw new IllegalArgumentException(String.format("[%s] requires fieldName", NAME));
+        }
+        if (vector == null) {
+            throw new IllegalArgumentException(String.format("[%s] requires query vector", NAME));
+        }
+        if (vector.length == 0) {
+            throw new IllegalArgumentException(String.format("[%s] query vector is empty", NAME));
+        }
+        if (k <= 0) {
+            throw new IllegalArgumentException(String.format("[%s] requires k > 0", NAME));
+        }
+        if (k > K_MAX) {
+            throw new IllegalArgumentException(String.format("[%s] requires k <= %d", NAME, K_MAX));
+        }
+
+        this.fieldName = fieldName;
+        this.vector = vector;
+        this.k = k;
+        this.filter = filter;
+        this.ignoreUnmapped = false;
+        this.maxDistance = null;
+        this.minScore = null;
     }
 
     /**
@@ -250,45 +318,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         return new KNNQueryBuilder.Builder();
     }
 
-    /**
-     * Constructs a new query for top k search
-     *
-     * @param fieldName Name of the filed
-     * @param vector    Array of floating points
-     * @param k         K nearest neighbours for the given vector
-     */
-    @Deprecated
-    public KNNQueryBuilder(String fieldName, float[] vector, int k) {
-        this(fieldName, vector, k, null);
-    }
-
-    @Deprecated
-    public KNNQueryBuilder(String fieldName, float[] vector, int k, QueryBuilder filter) {
-        if (Strings.isNullOrEmpty(fieldName)) {
-            throw new IllegalArgumentException(String.format("[%s] requires fieldName", NAME));
-        }
-        if (vector == null) {
-            throw new IllegalArgumentException(String.format("[%s] requires query vector", NAME));
-        }
-        if (vector.length == 0) {
-            throw new IllegalArgumentException(String.format("[%s] query vector is empty", NAME));
-        }
-        if (k <= 0) {
-            throw new IllegalArgumentException(String.format("[%s] requires k > 0", NAME));
-        }
-        if (k > K_MAX) {
-            throw new IllegalArgumentException(String.format("[%s] requires k <= %d", NAME, K_MAX));
-        }
-
-        this.fieldName = fieldName;
-        this.vector = vector;
-        this.k = k;
-        this.filter = filter;
-        this.ignoreUnmapped = false;
-        this.maxDistance = null;
-        this.minScore = null;
-    }
-
     public static void initialize(ModelDao modelDao) {
         KNNQueryBuilder.modelDao = modelDao;
     }
@@ -305,35 +334,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             vec[i] = ((Number) objs.get(i)).floatValue();
         }
         return vec;
-    }
-
-    /**
-     * @param in Reads from stream
-     * @throws IOException Throws IO Exception
-     */
-    public KNNQueryBuilder(StreamInput in) throws IOException {
-        super(in);
-        try {
-            fieldName = in.readString();
-            vector = in.readFloatArray();
-            k = in.readInt();
-            filter = in.readOptionalNamedWriteable(QueryBuilder.class);
-            if (isClusterOnOrAfterMinRequiredVersion("ignore_unmapped")) {
-                ignoreUnmapped = in.readOptionalBoolean();
-            }
-            if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
-                maxDistance = in.readOptionalFloat();
-            }
-            if (isClusterOnOrAfterMinRequiredVersion(KNNConstants.RADIAL_SEARCH_KEY)) {
-                minScore = in.readOptionalFloat();
-            }
-            if (isClusterOnOrAfterMinRequiredVersion(METHOD_PARAMETER)) {
-                methodParameters = MethodParametersParser.streamInput(in, IndexUtil::isClusterOnOrAfterMinRequiredVersion);
-            }
-
-        } catch (IOException ex) {
-            throw new RuntimeException("[KNN] Unable to create KNNQueryBuilder", ex);
-        }
     }
 
     public static KNNQueryBuilder fromXContent(XContentParser parser) throws IOException {
