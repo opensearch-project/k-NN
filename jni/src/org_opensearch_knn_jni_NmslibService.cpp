@@ -61,10 +61,10 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_NmslibService_loadIndex(JNIE
 
 JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_NmslibService_queryIndex(JNIEnv * env, jclass cls,
                                                                                     jlong indexPointerJ,
-                                                                                    jfloatArray queryVectorJ, jint kJ)
+                                                                                    jfloatArray queryVectorJ, jint kJ, jobject methodParamsJ)
 {
     try {
-        return knn_jni::nmslib_wrapper::QueryIndex(&jniUtil, env, indexPointerJ, queryVectorJ, kJ);
+        return knn_jni::nmslib_wrapper::QueryIndex(&jniUtil, env, indexPointerJ, queryVectorJ, kJ, methodParamsJ);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }

@@ -245,6 +245,10 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
 
     // Define query data
     int k = 10;
+    int efSearch = 20;
+    std::unordered_map<std::string, jobject> methodParams;
+    methodParams[knn_jni::EF_SEARCH] = reinterpret_cast<jobject>(&efSearch);
+
     int numQueries = 100;
     std::vector<std::vector<float>> queries;
 
@@ -266,6 +270,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
     // Setup jni
     JNIEnv *jniEnv = nullptr;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+    auto methodParamsJ = reinterpret_cast<jobject>(&methodParams);
 
     for (auto query : queries) {
         std::unique_ptr<std::vector<std::pair<int, float> *>> results(
@@ -273,7 +278,7 @@ TEST(FaissQueryIndexTest, BasicAssertions) {
                         knn_jni::faiss_wrapper::QueryIndex(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), k, nullptr)));
+                                reinterpret_cast<jfloatArray>(&query), k, methodParamsJ, nullptr)));
 
         ASSERT_EQ(k, results->size());
 
@@ -339,7 +344,7 @@ TEST(FaissQueryIndexWithFilterTest1435, BasicAssertions) {
                         knn_jni::faiss_wrapper::QueryIndex_WithFilter(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), k,
+                                reinterpret_cast<jfloatArray>(&query), k, nullptr,
                                 reinterpret_cast<jlongArray>(&bitmap), 0, nullptr)));
 
         ASSERT_TRUE(results->size() <= filterIds.size());
@@ -397,20 +402,20 @@ TEST(FaissQueryIndexWithParentFilterTest, BasicAssertions) {
     auto createdIndexWithData =
             test_util::FaissAddData(createdIndex.get(), ids, vectors);
 
+    int efSearch = 100;
+    std::unordered_map<std::string, jobject> methodParams;
+    methodParams[knn_jni::EF_SEARCH] = reinterpret_cast<jobject>(&efSearch);
+
     // Setup jni
     JNIEnv *jniEnv = nullptr;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
-    EXPECT_CALL(mockJNIUtil,
-                GetJavaIntArrayLength(
-                        jniEnv, reinterpret_cast<jintArray>(&parentIds)))
-            .WillRepeatedly(Return(parentIds.size()));
     for (auto query : queries) {
         std::unique_ptr<std::vector<std::pair<int, float> *>> results(
                 reinterpret_cast<std::vector<std::pair<int, float> *> *>(
                         knn_jni::faiss_wrapper::QueryIndex(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), k,
+                                reinterpret_cast<jfloatArray>(&query), k, reinterpret_cast<jobject>(&methodParams),
                                 reinterpret_cast<jintArray>(&parentIds))));
 
         // Even with k 20, result should have only 10 which is total number of groups

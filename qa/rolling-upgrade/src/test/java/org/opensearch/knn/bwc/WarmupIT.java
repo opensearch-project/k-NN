@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.bwc;
 
-import java.io.IOException;
 import java.util.Collections;
 
 import static org.opensearch.knn.TestUtils.NODES_BWC_CLUSTER;
@@ -47,7 +46,7 @@ public class WarmupIT extends AbstractRollingUpgradeTestCase {
     }
 
     // validation steps for KNN Warmup after upgrading each node from old version to new version
-    public void validateKNNWarmupOnUpgrade(int totalDocsCount, int docId) throws IOException {
+    public void validateKNNWarmupOnUpgrade(int totalDocsCount, int docId) throws Exception {
         int graphCount = getTotalGraphsInCache();
         knnWarmup(Collections.singletonList(testIndex));
         assertTrue(getTotalGraphsInCache() > graphCount);

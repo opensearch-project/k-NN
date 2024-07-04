@@ -43,7 +43,7 @@ public class RestLegacyKNNWarmupHandlerIT extends KNNRestTestCase {
         executeWarmupRequest(Collections.singletonList("not-knn-index"), KNNPlugin.LEGACY_KNN_BASE_URI);
     }
 
-    public void testEmptyIndex() throws IOException {
+    public void testEmptyIndex() throws Exception {
         int graphCountBefore = getTotalGraphsInCache();
         createKnnIndex(testIndexName, getKNNDefaultIndexSettings(), createKnnIndexMapping(testFieldName, dimensions));
 
@@ -52,7 +52,7 @@ public class RestLegacyKNNWarmupHandlerIT extends KNNRestTestCase {
         assertEquals(graphCountBefore, getTotalGraphsInCache());
     }
 
-    public void testSingleIndex() throws IOException {
+    public void testSingleIndex() throws Exception {
         int graphCountBefore = getTotalGraphsInCache();
         createKnnIndex(testIndexName, getKNNDefaultIndexSettings(), createKnnIndexMapping(testFieldName, dimensions));
         addKnnDoc(testIndexName, "1", testFieldName, new Float[] { 6.0f, 6.0f });
@@ -62,7 +62,7 @@ public class RestLegacyKNNWarmupHandlerIT extends KNNRestTestCase {
         assertEquals(graphCountBefore + 1, getTotalGraphsInCache());
     }
 
-    public void testMultipleIndices() throws IOException {
+    public void testMultipleIndices() throws Exception {
         int graphCountBefore = getTotalGraphsInCache();
 
         createKnnIndex(testIndexName + "1", getKNNDefaultIndexSettings(), createKnnIndexMapping(testFieldName, dimensions));

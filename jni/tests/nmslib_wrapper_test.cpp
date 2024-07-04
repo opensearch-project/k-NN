@@ -182,8 +182,11 @@ TEST(NmslibQueryIndexTest, BasicAssertions) {
 
     // Define query data
     int k = 10;
+    int efSearch = 20;
     int numQueries = 100;
     std::vector<std::vector<float>> queries;
+    std::unordered_map<std::string, jobject> methodParams;
+    methodParams[knn_jni::EF_SEARCH] = reinterpret_cast<jobject>(&efSearch);
 
     for (int i = 0; i < numQueries; i++) {
         std::vector<float> query;
@@ -205,7 +208,7 @@ TEST(NmslibQueryIndexTest, BasicAssertions) {
                         knn_jni::nmslib_wrapper::QueryIndex(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(indexWrapper.get()),
-                                reinterpret_cast<jfloatArray>(&query), k)));
+                                reinterpret_cast<jfloatArray>(&query), k, nullptr)));
 
         ASSERT_EQ(k, results->size());
 
