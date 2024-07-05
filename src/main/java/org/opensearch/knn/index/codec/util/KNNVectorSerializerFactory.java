@@ -56,7 +56,7 @@ public class KNNVectorSerializerFactory {
         return getSerializerBySerializationMode(serializationMode);
     }
 
-    static SerializationMode serializerModeFromStream(ByteArrayInputStream byteStream) {
+    public static SerializationMode serializerModeFromStream(ByteArrayInputStream byteStream) {
         int numberOfAvailableBytesInStream = byteStream.available();
         if (numberOfAvailableBytesInStream < ARRAY_HEADER_OFFSET) {
             return getSerializerOrThrowError(numberOfAvailableBytesInStream, COLLECTION_OF_FLOATS);

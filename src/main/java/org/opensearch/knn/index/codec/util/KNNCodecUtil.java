@@ -145,7 +145,7 @@ public class KNNCodecUtil {
         return String.format("_%s%s", fieldName, extension);
     }
 
-    private static long getTotalLiveDocsCount(final BinaryDocValues binaryDocValues) {
+    public static long getTotalLiveDocsCount(final BinaryDocValues binaryDocValues) {
         long totalLiveDocs;
         if (binaryDocValues instanceof KNN80BinaryDocValues) {
             totalLiveDocs = ((KNN80BinaryDocValues) binaryDocValues).getTotalLiveDocs();

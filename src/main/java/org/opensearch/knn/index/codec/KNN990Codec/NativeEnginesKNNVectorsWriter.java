@@ -22,18 +22,13 @@ import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.Sorter;
-import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.InfoStream;
-import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.codec.KNN80Codec.KNN80DocValuesConsumer;
-import org.opensearch.knn.index.codec.util.KNNCodecUtil;
-import org.opensearch.knn.index.codec.util.SerializationMode;
-import org.opensearch.knn.jni.JNICommons;
+import org.opensearch.knn.index.NativeIndexCreationManager;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -69,6 +64,7 @@ public class NativeEnginesKNNVectorsWriter extends KnnVectorsWriter {
      * @param sortMap {@link Sorter.DocMap}
      */
     @Override
+    @SuppressWarnings("unchecked")
     public void flush(int maxDoc, Sorter.DocMap sortMap) throws IOException {
         // simply write data in the flat file
         flatVectorsWriter.flush(maxDoc, sortMap);
@@ -79,12 +75,11 @@ public class NativeEnginesKNNVectorsWriter extends KnnVectorsWriter {
         // on the disk.
         // getFloatsFromFloatVectorValues(fields);
         for (NativeEnginesKNNVectorsWriter.FieldWriter<?> fieldWriter : fields) {
-            KNNCodecUtil.Pair pair = getFloatsFromFieldWriter(fieldWriter);
-            if (pair.getVectorAddress() == 0 || pair.docs.length == 0) {
-                log.info("Skipping engine index creation as there are no vectors or docs in the segment");
-                continue;
-            }
-            KNN80DocValuesConsumer.createNativeIndex(segmentWriteState, fieldWriter.fieldInfo, pair);
+            NativeIndexCreationManager.startIndexCreation(
+                segmentWriteState,
+                KNNVectorValuesFactory.getFloatVectorValues(fieldWriter.docsWithField.iterator(), (List<float[]>) fieldWriter.vectors),
+                fieldWriter.fieldInfo
+            );
         }
     }
 
@@ -94,12 +89,11 @@ public class NativeEnginesKNNVectorsWriter extends KnnVectorsWriter {
         flatVectorsWriter.mergeOneField(fieldInfo, mergeState);
         final FloatVectorValues floatVectorValues = KnnVectorsWriter.MergedVectorValues.mergeFloatVectorValues(fieldInfo, mergeState);
         // merging the graphs here
-        final KNNCodecUtil.Pair pair = getFloatsFromFloatVectorValues(floatVectorValues);
-        if (pair.getVectorAddress() == 0 || pair.docs.length == 0) {
-            log.info("Skipping engine index creation as there are no vectors or docs to be merged");
-            return;
-        }
-        KNN80DocValuesConsumer.createNativeIndex(segmentWriteState, fieldInfo, pair);
+        NativeIndexCreationManager.startIndexCreation(
+            segmentWriteState,
+            KNNVectorValuesFactory.getFloatVectorValues(floatVectorValues),
+            fieldInfo
+        );
     }
 
     /**
@@ -138,105 +132,6 @@ public class NativeEnginesKNNVectorsWriter extends KnnVectorsWriter {
     @Override
     public long ramBytesUsed() {
         return 0;
-    }
-
-    private KNNCodecUtil.Pair getFloatsFromFloatVectorValues(FloatVectorValues floatVectorValues) throws IOException {
-        List<float[]> vectorList = new ArrayList<>();
-        List<Integer> docIdList = new ArrayList<>();
-        long vectorAddress = 0;
-        int dimension = 0;
-
-        long totalLiveDocs = floatVectorValues.size();
-        long vectorsStreamingMemoryLimit = KNNSettings.getVectorStreamingMemoryLimit().getBytes();
-        long vectorsPerTransfer = Integer.MIN_VALUE;
-
-        for (int doc = floatVectorValues.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = floatVectorValues.nextDoc()) {
-            float[] temp = floatVectorValues.vectorValue();
-            // This temp object and copy of temp object is required because when we map floats we read to a memory
-            // location in heap always for floatVectorValues. Ref: OffHeapFloatVectorValues.vectorValue.
-            float[] vector = Arrays.copyOf(floatVectorValues.vectorValue(), temp.length);
-            dimension = vector.length;
-            if (vectorsPerTransfer == Integer.MIN_VALUE) {
-                vectorsPerTransfer = (dimension * Float.BYTES * totalLiveDocs) / vectorsStreamingMemoryLimit;
-                // This condition comes if vectorsStreamingMemoryLimit is higher than total number floats to transfer
-                // Doing this will reduce 1 extra trip to JNI layer.
-                if (vectorsPerTransfer == 0) {
-                    vectorsPerTransfer = totalLiveDocs;
-                }
-            }
-
-            if (vectorList.size() == vectorsPerTransfer) {
-                vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
-                // We should probably come up with a better way to reuse the vectorList memory which we have
-                // created. Problem here is doing like this can lead to a lot of list memory which is of no use and
-                // will be garbage collected later on, but it creates pressure on JVM. We should revisit this.
-                vectorList = new ArrayList<>();
-            }
-            vectorList.add(vector);
-            docIdList.add(doc);
-        }
-
-        if (vectorList.isEmpty() == false) {
-            vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
-        }
-        // SerializationMode.COLLECTION_OF_FLOATS is not getting used. I just added it to ensure code successfully
-        // works.
-        return new KNNCodecUtil.Pair(
-            docIdList.stream().mapToInt(Integer::intValue).toArray(),
-            vectorAddress,
-            dimension,
-            SerializationMode.COLLECTION_OF_FLOATS
-        );
-    }
-
-    private KNNCodecUtil.Pair getFloatsFromFieldWriter(NativeEnginesKNNVectorsWriter.FieldWriter<?> fieldWriter) throws IOException {
-        List<float[]> vectorList = new ArrayList<>();
-        List<Integer> docIdList = new ArrayList<>();
-        long vectorAddress = 0;
-        int dimension = 0;
-
-        long totalLiveDocs = fieldWriter.vectors.size();
-        long vectorsStreamingMemoryLimit = KNNSettings.getVectorStreamingMemoryLimit().getBytes();
-        long vectorsPerTransfer = Integer.MIN_VALUE;
-
-        DocIdSetIterator disi = fieldWriter.docsWithField.iterator();
-
-        for (int i = 0; i < fieldWriter.vectors.size(); i++) {
-            float[] vector = (float[]) fieldWriter.vectors.get(i);
-            dimension = vector.length;
-            if (vectorsPerTransfer == Integer.MIN_VALUE) {
-                vectorsPerTransfer = (dimension * Float.BYTES * totalLiveDocs) / vectorsStreamingMemoryLimit;
-                // This condition comes if vectorsStreamingMemoryLimit is higher than total number floats to transfer
-                // Doing this will reduce 1 extra trip to JNI layer.
-                if (vectorsPerTransfer == 0) {
-                    vectorsPerTransfer = totalLiveDocs;
-                }
-            }
-
-            if (vectorList.size() == vectorsPerTransfer) {
-                vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
-                // We should probably come up with a better way to reuse the vectorList memory which we have
-                // created. Problem here is doing like this can lead to a lot of list memory which is of no use and
-                // will be garbage collected later on, but it creates pressure on JVM. We should revisit this.
-                vectorList = new ArrayList<>();
-            }
-
-            vectorList.add(vector);
-            docIdList.add(disi.nextDoc());
-
-        }
-
-        if (vectorList.isEmpty() == false) {
-            vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
-        }
-        // SerializationMode.COLLECTION_OF_FLOATS is not getting used. I just added it to ensure code successfully
-        // works.
-        return new KNNCodecUtil.Pair(
-            docIdList.stream().mapToInt(Integer::intValue).toArray(),
-            vectorAddress,
-            dimension,
-            SerializationMode.COLLECTION_OF_FLOATS
-        );
     }
 
     private static class FieldWriter<T> extends KnnFieldVectorsWriter<T> {
