@@ -54,4 +54,8 @@ public enum VectorQueryType {
     public abstract KNNCounter getQueryStatCounter();
 
     public abstract KNNCounter getQueryWithFilterStatCounter();
+
+    public boolean isRadialSearch() {
+        return this == MAX_DISTANCE || this == MIN_SCORE;
+    }
 }

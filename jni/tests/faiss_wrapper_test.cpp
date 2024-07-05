@@ -634,6 +634,11 @@ TEST(FaissRangeSearchQueryIndexTest, BasicAssertions) {
     faiss::MetricType metricType = faiss::METRIC_L2;
     std::string method = "HNSW32,Flat";
 
+    int efSearch = 20;
+    std::unordered_map<std::string, jobject> methodParams;
+    methodParams[knn_jni::EF_SEARCH] = reinterpret_cast<jobject>(&efSearch);
+    auto methodParamsJ = reinterpret_cast<jobject>(&methodParams);
+
     // Define query data
     int numQueries = 100;
     std::vector<std::vector<float>> queries;
@@ -666,7 +671,7 @@ TEST(FaissRangeSearchQueryIndexTest, BasicAssertions) {
                         knn_jni::faiss_wrapper::RangeSearch(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, maxResultWindow, nullptr)));
+                                reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, methodParamsJ, maxResultWindow, nullptr)));
 
         // assert result size is not 0
         ASSERT_NE(0, results->size());
@@ -721,7 +726,7 @@ TEST(FaissRangeSearchQueryIndexTest_WhenHitMaxWindowResult, BasicAssertions){
                         knn_jni::faiss_wrapper::RangeSearch(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, maxResultWindow, nullptr)));
+                                reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, nullptr, maxResultWindow, nullptr)));
 
         // assert result size is not 0
         ASSERT_NE(0, results->size());
@@ -787,7 +792,7 @@ TEST(FaissRangeSearchQueryIndexTestWithFilterTest, BasicAssertions) {
                         knn_jni::faiss_wrapper::RangeSearchWithFilter(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, maxResultWindow,
+                                reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, nullptr, maxResultWindow,
                                 reinterpret_cast<jlongArray>(&bitmap), 0, nullptr)));
 
         // assert result size is not 0
@@ -862,7 +867,7 @@ TEST(FaissRangeSearchQueryIndexTestWithParentFilterTest, BasicAssertions) {
                         knn_jni::faiss_wrapper::RangeSearchWithFilter(
                                 &mockJNIUtil, jniEnv,
                                 reinterpret_cast<jlong>(&createdIndexWithData),
-                                reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, maxResultWindow, nullptr, 0,
+                                reinterpret_cast<jfloatArray>(&query), rangeSearchRadius, nullptr, maxResultWindow, nullptr, 0,
                                 reinterpret_cast<jintArray>(&parentIds))));
 
         // assert result size is not 0

@@ -59,6 +59,7 @@ import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
@@ -141,7 +142,7 @@ public class FaissIT extends KNNRestTestCase {
         assertEquals(testData.indexData.docs.length, getDocCount(INDEX_NAME));
 
         float distance = 300000000000f;
-        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, distance, null, spaceType, null);
+        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, distance, null, spaceType, null, null);
 
         // Delete index
         deleteKNNIndex(INDEX_NAME);
@@ -201,7 +202,7 @@ public class FaissIT extends KNNRestTestCase {
 
         float score = 0.00001f;
 
-        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, null, score, spaceType, null);
+        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, null, score, spaceType, null, null);
 
         // Delete index
         deleteKNNIndex(INDEX_NAME);
@@ -261,7 +262,7 @@ public class FaissIT extends KNNRestTestCase {
 
         float score = 5f;
 
-        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, null, score, spaceType, null);
+        validateRadiusSearchResults(INDEX_NAME, FIELD_NAME, testData.queries, null, score, spaceType, null, null);
 
         // Delete index
         deleteKNNIndex(INDEX_NAME);
@@ -345,8 +346,11 @@ public class FaissIT extends KNNRestTestCase {
         assertEquals(testData.indexData.docs.length, getDocCount(indexName));
 
         float distance = 300000000000f;
+        // create method parameter wih ef_search
+        Map<String, Object> methodParameters = new ImmutableMap.Builder<String, Object>().put(KNNConstants.METHOD_PARAMETER_EF_SEARCH, 150)
+            .build();
 
-        validateRadiusSearchResults(indexName, fieldName, testData.queries, distance, null, spaceType, null);
+        validateRadiusSearchResults(indexName, fieldName, testData.queries, distance, null, spaceType, null, methodParameters);
 
         // Delete index
         deleteKNNIndex(indexName);
@@ -381,7 +385,8 @@ public class FaissIT extends KNNRestTestCase {
             distance,
             null,
             SpaceType.L2,
-            termQueryBuilder
+            termQueryBuilder,
+            null
         );
 
         assertEquals(1, queryResult.get(0).size());
@@ -1663,7 +1668,8 @@ public class FaissIT extends KNNRestTestCase {
         Float distanceThreshold,
         Float scoreThreshold,
         final SpaceType spaceType,
-        TermQueryBuilder filterQuery
+        TermQueryBuilder filterQuery,
+        Map<String, ?> methodParameters
     ) throws IOException, ParseException {
         List<List<KNNResult>> queryResults = new ArrayList<>();
         for (float[] queryVector : queryVectors) {
@@ -1680,6 +1686,13 @@ public class FaissIT extends KNNRestTestCase {
             }
             if (filterQuery != null) {
                 queryBuilder.field("filter", filterQuery);
+            }
+            if (methodParameters != null) {
+                queryBuilder.startObject(METHOD_PARAMETER);
+                for (Map.Entry<String, ?> entry : methodParameters.entrySet()) {
+                    queryBuilder.field(entry.getKey(), entry.getValue());
+                }
+                queryBuilder.endObject();
             }
             queryBuilder.endObject();
             queryBuilder.endObject();
