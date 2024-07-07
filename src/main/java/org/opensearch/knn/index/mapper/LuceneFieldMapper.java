@@ -45,7 +45,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             input.getIgnoreMalformed(),
             input.isStored(),
             input.isHasDocValues(),
-            input.getKnnMethodContext().getMethodComponentContext().getIndexVersion()
+            input.getKnnMethodContext().getMethodComponentContext().getIndexVersion(), input.isIndexKNN
         );
 
         vectorDataType = input.getVectorDataType();
@@ -128,5 +128,6 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         VectorDataType vectorDataType;
         @NonNull
         KNNMethodContext knnMethodContext;
+        boolean isIndexKNN;
     }
 }

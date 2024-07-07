@@ -35,7 +35,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        KNNMethodContext knnMethodContext
+        KNNMethodContext knnMethodContext,
+        boolean isIndexKNN
     ) {
 
         super(
@@ -46,7 +47,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             ignoreMalformed,
             stored,
             hasDocValues,
-            knnMethodContext.getMethodComponentContext().getIndexVersion()
+            knnMethodContext.getMethodComponentContext().getIndexVersion(),
+            isIndexKNN
         );
 
         this.knnMethod = knnMethodContext;

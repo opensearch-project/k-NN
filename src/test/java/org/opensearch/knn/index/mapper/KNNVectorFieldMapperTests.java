@@ -99,7 +99,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testBuilder_getParameters() {
         String fieldName = "test-field-name";
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(fieldName, modelDao, CURRENT);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder(fieldName, modelDao, CURRENT, true);
 
         assertEquals(7, builder.getParameters().size());
         List<String> actualParams = builder.getParameters().stream().map(a -> a.name).collect(Collectors.toList());
@@ -110,7 +110,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testBuilder_build_fromKnnMethodContext() {
         // Check that knnMethodContext takes precedent over both model and legacy
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT, true);
 
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int m = 17;
@@ -147,7 +147,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testBuilder_build_fromModel() {
         // Check that modelContext takes precedent over legacy
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT, true);
 
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int m = 17;
@@ -186,7 +186,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testBuilder_build_fromLegacy() {
         // Check legacy is picked up if model context and method context are not set
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT, true);
 
         SpaceType spaceType = SpaceType.COSINESIMIL;
         int m = 17;

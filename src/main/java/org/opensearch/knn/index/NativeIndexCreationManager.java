@@ -24,6 +24,7 @@ import org.opensearch.knn.jni.JNICommons;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -66,7 +67,10 @@ public class NativeIndexCreationManager {
         KNNVectorValuesIterator iterator = kNNVectorValues.getVectorValuesIterator();
 
         for (int doc = iterator.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = iterator.nextDoc()) {
-            float[] vector = kNNVectorValues.getVector();
+            float[] temp = kNNVectorValues.getVector();
+            // This temp object and copy of temp object is required because when we map floats we read to a memory
+            // location in heap always for floatVectorValues. Ref: OffHeapFloatVectorValues.vectorValue.
+            float[] vector = Arrays.copyOf(temp, temp.length);
             dimension = vector.length;
             if (vectorsPerTransfer == Integer.MIN_VALUE) {
                 vectorsPerTransfer = (dimension * Float.BYTES * totalLiveDocs) / vectorsStreamingMemoryLimit;

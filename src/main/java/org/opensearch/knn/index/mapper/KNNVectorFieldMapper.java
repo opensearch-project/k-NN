@@ -96,6 +96,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     // We store the version of the index with the mapper as different version of Opensearch has different default
     // values of KNN engine Algorithms hyperparameters.
     protected Version indexCreatedVersion;
+    protected boolean isIndexKNN;
 
     /**
      * Builder for KNNVectorFieldMapper. This class defines the set of parameters that can be applied to the knn_vector
@@ -186,11 +187,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         protected ModelDao modelDao;
 
         protected Version indexCreatedVersion;
+        protected boolean isIndexKNN;
 
-        public Builder(String name, ModelDao modelDao, Version indexCreatedVersion) {
+        public Builder(String name, ModelDao modelDao, Version indexCreatedVersion, boolean isIndexKNN) {
             super(name);
             this.modelDao = modelDao;
             this.indexCreatedVersion = indexCreatedVersion;
+            this.isIndexKNN = isIndexKNN;
         }
 
         /**
@@ -202,12 +205,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
          * @param m m value of field
          * @param efConstruction efConstruction value of field
          */
-        public Builder(String name, String spaceType, String m, String efConstruction, Version indexCreatedVersion) {
+        public Builder(String name, String spaceType, String m, String efConstruction, Version indexCreatedVersion, boolean isIndexKNN) {
             super(name);
             this.spaceType = spaceType;
             this.m = m;
             this.efConstruction = efConstruction;
             this.indexCreatedVersion = indexCreatedVersion;
+            this.isIndexKNN = isIndexKNN;
         }
 
         @Override
@@ -264,6 +268,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                             .hasDocValues(hasDocValues.get())
                             .vectorDataType(vectorDataType.getValue())
                             .knnMethodContext(knnMethodContext)
+                            .isIndexKNN(isIndexKNN)
                             .build();
                     return new LuceneFieldMapper(createLuceneFieldMapperInput);
                 }
@@ -281,7 +286,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     ignoreMalformed,
                     stored.get(),
                     hasDocValues.get(),
-                    knnMethodContext
+                    knnMethodContext,
+                    isIndexKNN
                 );
             }
 
@@ -302,7 +308,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     hasDocValues.get(),
                     modelDao,
                     modelIdAsString,
-                    indexCreatedVersion
+                    indexCreatedVersion, isIndexKNN
                 );
             }
 
@@ -341,7 +347,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 spaceType,
                 m,
                 efConstruction,
-                indexCreatedVersion
+                indexCreatedVersion,
+                    isIndexKNN
             );
         }
 
@@ -377,7 +384,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         @Override
         public Mapper.Builder<?> parse(String name, Map<String, Object> node, ParserContext parserContext) throws MapperParsingException {
-            Builder builder = new KNNVectorFieldMapper.Builder(name, modelDaoSupplier.get(), parserContext.indexVersionCreated());
+            Builder builder = new KNNVectorFieldMapper.Builder(name, modelDaoSupplier.get(), parserContext.indexVersionCreated(), parserContext.getSettings().getAsBoolean(KNN_INDEX, false));
             builder.parse(name, parserContext, node);
 
             // All <a
@@ -506,7 +513,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        Version indexCreatedVersion
+        Version indexCreatedVersion,
+        boolean isIndexKNN
     ) {
         super(simpleName, mappedFieldType, multiFields, copyTo);
         this.ignoreMalformed = ignoreMalformed;
@@ -516,6 +524,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         this.vectorDataType = mappedFieldType.getVectorDataType();
         updateEngineStats();
         this.indexCreatedVersion = indexCreatedVersion;
+        this.isIndexKNN = isIndexKNN;
     }
 
     public KNNVectorFieldMapper clone() {
@@ -580,26 +589,38 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         // Because we will come to this function only in case when Native engines are getting used. So I am avoiding the
         // check of use Native engines here.
         // Also dimension field is only accessible here hence we have to use this function to create fieldType too
-        if (this.indexCreatedVersion.onOrAfter(Version.V_3_0_0) && SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(spaceType)) {
+        if (this.indexCreatedVersion.onOrAfter(Version.V_3_0_0) && SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(spaceType) && isIndexKNN) {
             FieldType tempFieldType = new FieldType(fieldType);
             tempFieldType.setVectorAttributes(dimension, VectorEncoding.FLOAT32, spaceType.getVectorSimilarityFunction());
             tempFieldType.freeze();
             return new KnnFloatVectorField(name(), vectorValue, tempFieldType);
         }
-        return new VectorField(name(), vectorValue, fieldType);
+        FieldType tempFieldType = new FieldType(fieldType);
+        tempFieldType.setDocValuesType(DocValuesType.BINARY);
+        tempFieldType.setTokenized(false);
+        tempFieldType.setIndexOptions(IndexOptions.NONE);
+        tempFieldType.putAttribute(KNN_FIELD, "true"); // This attribute helps to determine knn field type
+        tempFieldType.freeze();
+        return new VectorField(name(), vectorValue, tempFieldType);
     }
 
     protected Field createVectorField(byte[] vectorValue, int dimension, final SpaceType spaceType, final FieldType fieldType) {
         // Because we will come to this function only in case when Native engines are getting used. So I am avoiding the
         // check of use Native engines here.
         // Also dimension field is only accessible here hence we have to use this function to create fieldType too
-        if (this.indexCreatedVersion.onOrAfter(Version.V_3_0_0) && SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(spaceType)) {
+        if (this.indexCreatedVersion.onOrAfter(Version.V_3_0_0) && SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(spaceType) && isIndexKNN) {
             FieldType tempFieldType = new FieldType(fieldType);
             tempFieldType.setVectorAttributes(dimension, VectorEncoding.BYTE, spaceType.getVectorSimilarityFunction());
             tempFieldType.freeze();
             return new KnnByteVectorField(name(), vectorValue, tempFieldType);
         }
-        return new VectorField(name(), vectorValue, fieldType);
+        FieldType tempFieldType = new FieldType(fieldType);
+        tempFieldType.setDocValuesType(DocValuesType.BINARY);
+        tempFieldType.setTokenized(false);
+        tempFieldType.setIndexOptions(IndexOptions.NONE);
+        tempFieldType.putAttribute(KNN_FIELD, "true"); // This attribute helps to determine knn field type
+        tempFieldType.freeze();
+        return new VectorField(name(), vectorValue, tempFieldType);
     }
 
     protected void parseCreateField(ParseContext context, int dimension, SpaceType spaceType, MethodComponentContext methodComponentContext)
@@ -790,7 +811,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     @Override
     public ParametrizedFieldMapper.Builder getMergeBuilder() {
-        return new KNNVectorFieldMapper.Builder(simpleName(), modelDao, indexCreatedVersion).init(this);
+        return new KNNVectorFieldMapper.Builder(simpleName(), modelDao, indexCreatedVersion, isIndexKNN).init(this);
     }
 
     @Override

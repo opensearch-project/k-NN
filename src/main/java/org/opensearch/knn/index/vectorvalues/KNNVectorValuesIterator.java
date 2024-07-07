@@ -15,6 +15,7 @@ import lombok.AllArgsConstructor;
 import org.apache.lucene.search.DocIdSetIterator;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -76,8 +77,8 @@ public interface KNNVectorValuesIterator {
             return docIdSetIterator.nextDoc();
         }
 
-        public List<T> getVectorValue() {
-            return vectors;
+        public Iterator<T> getVectorValues() {
+            return vectors.iterator();
         }
 
         @Override

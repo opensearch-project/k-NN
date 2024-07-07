@@ -56,7 +56,7 @@ public abstract class KNNVectorValues<T> {
         } else if (vectorValuesIterator instanceof KNNVectorValuesIterator.FieldWriterIteratorValues) {
             KNNVectorValuesIterator.FieldWriterIteratorValues<?> fieldWriterIteratorValues =
                 (KNNVectorValuesIterator.FieldWriterIteratorValues<?>) vectorValuesIterator;
-            return fieldWriterIteratorValues.getVectorValue().size();
+            return fieldWriterIteratorValues.docIdSetIterator.cost();
         }
         // TODO: Rename this exception
         throw new RuntimeException("Not valid KNNVectorValuesIterator for KNNFloatVectorValues, hence not able to " + "find live docs");
@@ -102,7 +102,7 @@ public abstract class KNNVectorValues<T> {
             } else if (vectorValuesIterator instanceof KNNVectorValuesIterator.FieldWriterIteratorValues) {
                 KNNVectorValuesIterator.FieldWriterIteratorValues<float[]> fieldWriterIteratorValues =
                     (KNNVectorValuesIterator.FieldWriterIteratorValues<float[]>) vectorValuesIterator;
-                vector = fieldWriterIteratorValues.getVectorValue().get(docId());
+                vector = fieldWriterIteratorValues.getVectorValues().next();
                 dimension = vector.length;
                 return vector;
             }
@@ -147,7 +147,7 @@ public abstract class KNNVectorValues<T> {
             } else if (vectorValuesIterator instanceof KNNVectorValuesIterator.FieldWriterIteratorValues) {
                 KNNVectorValuesIterator.FieldWriterIteratorValues<byte[]> fieldWriterIteratorValues =
                     (KNNVectorValuesIterator.FieldWriterIteratorValues<byte[]>) vectorValuesIterator;
-                vector = fieldWriterIteratorValues.getVectorValue().get(docId());
+                vector = fieldWriterIteratorValues.getVectorValues().next();
                 dimension = vector.length;
                 return vector;
             }

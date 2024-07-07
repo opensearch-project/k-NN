@@ -53,9 +53,10 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
         String spaceType,
         String m,
         String efConstruction,
-        Version indexCreatedVersion
+        Version indexCreatedVersion,
+        boolean isIndexKNN
     ) {
-        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues, indexCreatedVersion);
+        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues, indexCreatedVersion, isIndexKNN);
 
         this.spaceType = spaceType;
         this.m = m;
@@ -84,7 +85,7 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
 
     @Override
     public ParametrizedFieldMapper.Builder getMergeBuilder() {
-        return new KNNVectorFieldMapper.Builder(simpleName(), this.spaceType, this.m, this.efConstruction, this.indexCreatedVersion).init(
+        return new KNNVectorFieldMapper.Builder(simpleName(), this.spaceType, this.m, this.efConstruction, this.indexCreatedVersion, this.isIndexKNN).init(
             this
         );
     }

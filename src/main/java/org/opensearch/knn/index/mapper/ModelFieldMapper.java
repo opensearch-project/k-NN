@@ -34,9 +34,10 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         boolean hasDocValues,
         ModelDao modelDao,
         String modelId,
-        Version indexCreatedVersion
+        Version indexCreatedVersion,
+        boolean isIndexKNN
     ) {
-        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues, indexCreatedVersion);
+        super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues, indexCreatedVersion, isIndexKNN);
 
         this.modelId = modelId;
         this.modelDao = modelDao;
