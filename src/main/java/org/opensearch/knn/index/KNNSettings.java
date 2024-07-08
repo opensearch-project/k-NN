@@ -80,6 +80,7 @@ public class KNNSettings {
     public static final String MODEL_CACHE_SIZE_LIMIT = "knn.model.cache.size.limit";
     public static final String ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD = "index.knn.advanced.filtered_exact_search_threshold";
     public static final String KNN_FAISS_AVX2_DISABLED = "knn.faiss.avx2.disabled";
+    public static final String KNN_RESCORE_ENABLED = "knn.rescore.enabled";
 
     /**
      * Default setting values
@@ -97,6 +98,7 @@ public class KNNSettings {
     public static final String KNN_DEFAULT_VECTOR_STREAMING_MEMORY_LIMIT_PCT = "1%";
 
     public static final Integer ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE = -1;
+    public static final boolean KNN_RESCORE_ENABLED_DEFAULT_VALUE = true;
 
     /**
      * Settings Definition
@@ -252,6 +254,13 @@ public class KNNSettings {
         NodeScope
     );
 
+    public static final Setting<Boolean> KNN_RESCORE_ENABLED_SETTING = Setting.boolSetting(
+        KNN_RESCORE_ENABLED,
+        KNN_RESCORE_ENABLED_DEFAULT_VALUE,
+        NodeScope,
+        Dynamic
+    );
+
     /**
      * Dynamic settings
      */
@@ -369,6 +378,10 @@ public class KNNSettings {
             return KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING;
         }
 
+        if (KNN_RESCORE_ENABLED.equals(key)) {
+            return KNN_RESCORE_ENABLED_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -387,7 +400,8 @@ public class KNNSettings {
             MODEL_CACHE_SIZE_LIMIT_SETTING,
             ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
             KNN_FAISS_AVX2_DISABLED_SETTING,
-            KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING
+            KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING,
+            KNN_RESCORE_ENABLED_SETTING
         );
         return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream()).collect(Collectors.toList());
     }
