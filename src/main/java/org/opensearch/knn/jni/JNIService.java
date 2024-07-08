@@ -52,6 +52,11 @@ public class JNIService {
         }
 
         if (KNNEngine.FAISS == knnEngine) {
+            if (parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER) != null) {
+                String indexDesc = (String) parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER);
+                parameters.put(KNNConstants.INDEX_DESCRIPTION_PARAMETER ,"B" + indexDesc);
+
+            }
             if (parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER) != null
                 && parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString().startsWith(FAISS_BINARY_INDEX_PREFIX)) {
                 FaissService.createBinaryIndex(ids, vectorsAddress, dim, indexPath, parameters);

@@ -13,7 +13,7 @@ package org.opensearch.knn.jni;
 
 import org.opensearch.knn.KNNTestCase;
 
-public class JNICommonsTest extends KNNTestCase {
+public class JNICommonsTests extends KNNTestCase {
 
     public void testStoreVectorData_whenVaildInputThenSuccess() {
         float[][] data = new float[2][2];

@@ -21,6 +21,11 @@ import org.opensearch.knn.index.codec.util.SerializationMode;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValuesIterator;
 import org.opensearch.knn.jni.JNICommons;
+import org.opensearch.knn.quantization.QuantizationManager;
+import org.opensearch.knn.quantization.enums.SQTypes;
+import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
+import org.opensearch.knn.quantization.models.quantizationParams.SQParams;
+import org.opensearch.knn.quantization.quantizer.Quantizer;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -56,7 +61,7 @@ public class NativeIndexCreationManager {
     }
 
     private static KNNCodecUtil.Pair streamFloatVectors(final KNNVectorValues<float[]> kNNVectorValues) throws IOException {
-        List<float[]> vectorList = new ArrayList<>();
+        List<byte[]> vectorList = new ArrayList<>();
         List<Integer> docIdList = new ArrayList<>();
         long vectorAddress = 0;
         int dimension = 0;
@@ -64,16 +69,16 @@ public class NativeIndexCreationManager {
         long vectorsStreamingMemoryLimit = KNNSettings.getVectorStreamingMemoryLimit().getBytes();
         long vectorsPerTransfer = Integer.MIN_VALUE;
 
+        QuantizationParams params = getQuantizationParams(); // Implement this method to get appropriate params
+        Quantizer<float[], byte[]> quantizer = (Quantizer<float[], byte[]>) QuantizationManager.getInstance().getQuantizer(params);
+
         KNNVectorValuesIterator iterator = kNNVectorValues.getVectorValuesIterator();
 
         for (int doc = iterator.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = iterator.nextDoc()) {
-            float[] temp = kNNVectorValues.getVector();
-            // This temp object and copy of temp object is required because when we map floats we read to a memory
-            // location in heap always for floatVectorValues. Ref: OffHeapFloatVectorValues.vectorValue.
-            float[] vector = Arrays.copyOf(temp, temp.length);
-            dimension = vector.length;
+            byte[] quantizedVector = quantizer.quantize(kNNVectorValues.getVector()).getQuantizedVector();
+            dimension = kNNVectorValues.getVector().length;
             if (vectorsPerTransfer == Integer.MIN_VALUE) {
-                vectorsPerTransfer = (dimension * Float.BYTES * totalLiveDocs) / vectorsStreamingMemoryLimit;
+                vectorsPerTransfer = (dimension * Byte.BYTES * totalLiveDocs) / vectorsStreamingMemoryLimit;
                 // This condition comes if vectorsStreamingMemoryLimit is higher than total number floats to transfer
                 // Doing this will reduce 1 extra trip to JNI layer.
                 if (vectorsPerTransfer == 0) {
@@ -82,19 +87,19 @@ public class NativeIndexCreationManager {
             }
 
             if (vectorList.size() == vectorsPerTransfer) {
-                vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
+                vectorAddress = JNICommons.storeByteVectorData(vectorAddress, vectorList.toArray(new byte[][] {}), totalLiveDocs * dimension);
                 // We should probably come up with a better way to reuse the vectorList memory which we have
                 // created. Problem here is doing like this can lead to a lot of list memory which is of no use and
                 // will be garbage collected later on, but it creates pressure on JVM. We should revisit this.
                 vectorList = new ArrayList<>();
             }
 
-            vectorList.add(vector);
+            vectorList.add(quantizedVector);
             docIdList.add(doc);
         }
 
         if (vectorList.isEmpty() == false) {
-            vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
+            vectorAddress = JNICommons.storeByteVectorData(vectorAddress, vectorList.toArray(new byte[][] {}), totalLiveDocs * dimension);
         }
         // SerializationMode.COLLECTION_OF_FLOATS is not getting used. I just added it to ensure code successfully
         // works.
@@ -104,5 +109,10 @@ public class NativeIndexCreationManager {
             dimension,
             SerializationMode.COLLECTION_OF_FLOATS
         );
+    }
+
+    private static QuantizationParams getQuantizationParams() {
+        // Implement this method to return appropriate quantization parameters based on your use case
+        return new SQParams(SQTypes.ONE_BIT); // Example, modify as needed
     }
 }
