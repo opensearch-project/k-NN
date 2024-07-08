@@ -60,7 +60,7 @@ public interface KNNVectorValuesIterator {
     @AllArgsConstructor
     class FieldWriterIteratorValues<T> implements KNNVectorValuesIterator {
         protected DocIdSetIterator docIdSetIterator;
-        protected List<T> vectors;
+        protected Iterator<T> vectorsIterator;
 
         @Override
         public int docId() {
@@ -78,7 +78,7 @@ public interface KNNVectorValuesIterator {
         }
 
         public Iterator<T> getVectorValues() {
-            return vectors.iterator();
+            return vectorsIterator;
         }
 
         @Override

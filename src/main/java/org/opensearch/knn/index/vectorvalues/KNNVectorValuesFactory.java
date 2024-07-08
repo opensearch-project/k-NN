@@ -12,6 +12,7 @@
 package org.opensearch.knn.index.vectorvalues;
 
 import org.apache.lucene.search.DocIdSetIterator;
+import org.opensearch.knn.index.codec.KNN990Codec.NativeEnginesKNNVectorsWriter;
 
 import java.util.List;
 
@@ -30,13 +31,17 @@ public class KNNVectorValuesFactory {
         return new KNNVectorValues.KNNByteVectorValues(vectorValuesIterator);
     }
 
-    public static KNNVectorValues<float[]> getFloatVectorValues(final DocIdSetIterator docIdSetIterator, List<float[]> vectors) {
-        KNNVectorValuesIterator vectorValuesIterator = new KNNVectorValuesIterator.FieldWriterIteratorValues<>(docIdSetIterator, vectors);
+    public static KNNVectorValues<float[]> getFloatVectorValues(final NativeEnginesKNNVectorsWriter.FieldWriter<?> fieldWriter) {
+        KNNVectorValuesIterator vectorValuesIterator =
+                new KNNVectorValuesIterator.FieldWriterIteratorValues<>(fieldWriter.getDocsWithField().iterator(),
+                fieldWriter.getVectors().iterator());
         return new KNNVectorValues.KNNFloatVectorValues(vectorValuesIterator);
     }
 
-    public static KNNVectorValues<byte[]> getByteVectorValues(final DocIdSetIterator docIdSetIterator, List<byte[]> vectors) {
-        KNNVectorValuesIterator vectorValuesIterator = new KNNVectorValuesIterator.FieldWriterIteratorValues<>(docIdSetIterator, vectors);
+    public static KNNVectorValues<byte[]> getByteVectorValues(final NativeEnginesKNNVectorsWriter.FieldWriter<?> fieldWriter) {
+        KNNVectorValuesIterator vectorValuesIterator =
+                new KNNVectorValuesIterator.FieldWriterIteratorValues<>(fieldWriter.getDocsWithField().iterator(),
+                        fieldWriter.getVectors().iterator());
         return new KNNVectorValues.KNNByteVectorValues(vectorValuesIterator);
     }
 }

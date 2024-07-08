@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.index.codec.KNN990Codec;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnFieldVectorsWriter;
@@ -77,7 +78,7 @@ public class NativeEnginesKNNVectorsWriter extends KnnVectorsWriter {
         for (NativeEnginesKNNVectorsWriter.FieldWriter<?> fieldWriter : fields) {
             NativeIndexCreationManager.startIndexCreation(
                 segmentWriteState,
-                KNNVectorValuesFactory.getFloatVectorValues(fieldWriter.docsWithField.iterator(), (List<float[]>) fieldWriter.vectors),
+                KNNVectorValuesFactory.getFloatVectorValues(fieldWriter),
                 fieldWriter.fieldInfo
             );
         }
@@ -134,10 +135,12 @@ public class NativeEnginesKNNVectorsWriter extends KnnVectorsWriter {
         return 0;
     }
 
-    private static class FieldWriter<T> extends KnnFieldVectorsWriter<T> {
+    public static class FieldWriter<T> extends KnnFieldVectorsWriter<T> {
         private final FieldInfo fieldInfo;
+        @Getter
         private final List<T> vectors;
         private int lastDocID = -1;
+        @Getter
         private final DocsWithFieldSet docsWithField;
 
         private final InfoStream infoStream;
