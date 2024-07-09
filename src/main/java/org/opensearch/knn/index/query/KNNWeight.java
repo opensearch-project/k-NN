@@ -235,10 +235,11 @@ public class KNNWeight extends Weight {
             ? knnEngine.getExtension() + KNNConstants.COMPOUND_EXTENSION
             : knnEngine.getExtension();
         String engineSuffix = knnQuery.getField() + engineExtension;
+        String underLineEngineSuffix = "_" + engineSuffix;
         List<String> engineFiles = reader.getSegmentInfo()
             .files()
             .stream()
-            .filter(fileName -> fileName.endsWith(engineSuffix))
+            .filter(fileName -> fileName.endsWith(underLineEngineSuffix))
             .collect(Collectors.toList());
 
         if (engineFiles.isEmpty()) {
