@@ -1,4 +1,4 @@
-From c5ca07299b427dedafc738b98bd20f8f286f6783 Mon Sep 17 00:00:00 2001
+From a33e6ef35385009f24200586294f96235cb95d61 Mon Sep 17 00:00:00 2001
 From: John Mazanec <jmazane@amazon.com>
 Date: Wed, 21 Feb 2024 15:34:15 -0800
 Subject: [PATCH] Enable precomp table to be shared ivfpq
@@ -167,7 +167,7 @@ index d5d21da4..850bbe44 100644
  };
  
 diff --git a/faiss/IndexIVFPQFastScan.cpp b/faiss/IndexIVFPQFastScan.cpp
-index d069db13..09a335ff 100644
+index 2844ae49..895df342 100644
 --- a/faiss/IndexIVFPQFastScan.cpp
 +++ b/faiss/IndexIVFPQFastScan.cpp
 @@ -46,6 +46,8 @@ IndexIVFPQFastScan::IndexIVFPQFastScan(
@@ -302,13 +302,13 @@ index 00dd2f11..91f35a6e 100644
      /// same as the regular IVFPQ encoder. The codes are not reorganized by
      /// blocks a that point
 diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
-index 9017edc5..0889bf72 100644
+index c888a5a6..83ecedfd 100644
 --- a/tests/CMakeLists.txt
 +++ b/tests/CMakeLists.txt
-@@ -33,6 +33,7 @@ set(FAISS_TEST_SRC
-   test_partitioning.cpp
-   test_fastscan_perf.cpp
+@@ -37,6 +37,7 @@ set(FAISS_TEST_SRC
    test_disable_pq_sdc_tables.cpp
+   test_common_ivf_empty_index.cpp
+   test_callback.cpp
 +  test_ivfpq_share_table.cpp
  )
  
@@ -508,5 +508,5 @@ index 00000000..f827315d
 +            "IVF16,PQ8x4fsr", "/tmp/ivfpqfsip", faiss::METRIC_INNER_PRODUCT);
 +}
 -- 
-2.39.3 (Apple Git-145)
+2.37.0
 
