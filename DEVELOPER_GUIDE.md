@@ -57,11 +57,11 @@ In addition to this, the plugin has been tested with JDK 17, and this JDK versio
 
 #### CMake
 
-The plugin requires that cmake >= 3.23.3 is installed in order to build the JNI libraries.
+The plugin requires that cmake >= 3.24.0 is installed in order to build the JNI libraries.
 
 One easy way to install on mac or linux is to use pip:
 ```bash
-pip install cmake==3.23.3
+pip install cmake==3.24.0
 ```
 
 On Mac M series machines, install cmake using:
