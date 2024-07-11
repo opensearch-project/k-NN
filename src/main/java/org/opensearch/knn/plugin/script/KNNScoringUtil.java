@@ -197,6 +197,7 @@ public class KNNScoringUtil {
 
     /**
      * This method calculates hamming distance between query vector
+     * and input vector
      *
      * @param queryVector query vector
      * @param inputVector input vector

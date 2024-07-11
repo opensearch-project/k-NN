@@ -75,4 +75,39 @@ public class KNNScoringSpaceUtilTests extends KNNTestCase {
         String invalidObject = "invalidObject";
         expectThrows(ClassCastException.class, () -> KNNScoringSpaceUtil.parseToFloatArray(invalidObject, 3, VectorDataType.FLOAT));
     }
+
+    public void testIsBinaryVectorDataType_whenBinary_thenReturnTrue() {
+        KNNVectorFieldMapper.KNNVectorFieldType fieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(fieldType.getVectorDataType()).thenReturn(VectorDataType.BINARY);
+        assertTrue(KNNScoringSpaceUtil.isBinaryVectorDataType(fieldType));
+    }
+
+    public void testIsBinaryVectorDataType_whenNonBinary_thenReturnFalse() {
+        KNNVectorFieldMapper.KNNVectorFieldType fieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(fieldType.getVectorDataType()).thenReturn(randomInt() % 2 == 0 ? VectorDataType.FLOAT : VectorDataType.BYTE);
+        assertFalse(KNNScoringSpaceUtil.isBinaryVectorDataType(fieldType));
+    }
+
+    public void testConvertVectorToPrimitive_whenBinaryWithValidInput_thenReturnPrimitive() {
+        Number number1 = mock(Number.class);
+        when(number1.floatValue()).thenReturn(1f);
+        Number number2 = mock(Number.class);
+        when(number2.floatValue()).thenReturn(2f);
+        List<Number> vector = List.of(number1, number2);
+        float[] expected = new float[] { 1, 2 };
+        assertArrayEquals(expected, KNNScoringSpaceUtil.convertVectorToPrimitive(vector, VectorDataType.BINARY), 0.01f);
+    }
+
+    public void testConvertVectorToPrimitive_whenBinaryWithOutOfRange_thenException() {
+        Number number1 = mock(Number.class);
+        when(number1.floatValue()).thenReturn(128f);
+        Number number2 = mock(Number.class);
+        when(number2.floatValue()).thenReturn(-129f);
+        List<Number> vector = List.of(number1, number2);
+        Exception e = expectThrows(
+            IllegalArgumentException.class,
+            () -> KNNScoringSpaceUtil.convertVectorToPrimitive(vector, VectorDataType.BINARY)
+        );
+        assertTrue(e.getMessage().contains("KNN vector values are not within in the byte range"));
+    }
 }
