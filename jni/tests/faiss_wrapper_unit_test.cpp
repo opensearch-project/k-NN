@@ -25,12 +25,12 @@ using ::testing::NiceMock;
 
 using idx_t = faiss::idx_t;
 
-struct MockIndex : faiss::IndexHNSW {
-    explicit MockIndex(idx_t d) : faiss::IndexHNSW(d, 32) {
+struct FaissMockIndex : faiss::IndexHNSW {
+    explicit FaissMockIndex(idx_t d) : faiss::IndexHNSW(d, 32) {
     }
 };
 
-struct MockIdMap : faiss::IndexIDMap {
+struct FaissMockIdMap : faiss::IndexIDMap {
     mutable idx_t nCalled{};
     mutable const float *xCalled{};
     mutable int kCalled{};
@@ -40,7 +40,7 @@ struct MockIdMap : faiss::IndexIDMap {
     mutable const faiss::SearchParametersHNSW *paramsCalled{};
     mutable faiss::RangeSearchResult *resCalled{};
 
-    explicit MockIdMap(MockIndex *index) : faiss::IndexIDMapTemplate<faiss::Index>(index) {
+    explicit FaissMockIdMap(FaissMockIndex *index) : faiss::IndexIDMapTemplate<faiss::Index>(index) {
     }
 
     void search(
@@ -108,8 +108,8 @@ public:
     }
 
 protected:
-    MockIndex index_;
-    MockIdMap id_map_;
+    FaissMockIndex index_;
+    FaissMockIdMap id_map_;
 };
 
 class FaissWrapperParametrizedRangeSearchTestFixture : public testing::TestWithParam<RangeSearchTestInput> {
@@ -119,8 +119,8 @@ public:
     }
 
 protected:
-    MockIndex index_;
-    MockIdMap id_map_;
+    FaissMockIndex index_;
+    FaissMockIdMap id_map_;
 };
 
 namespace query_index_test {
@@ -369,4 +369,3 @@ namespace range_search_test {
         )
     );
 }
-
