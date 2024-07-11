@@ -94,24 +94,25 @@ public class KNNCodecUtil {
     }
 
     public static long calculateArraySize(int numVectors, int vectorLength, SerializationMode serializationMode) {
+        // For more details on array memory usage in Java, visit https://www.javamex.com/tutorials/memory/array_memory_usage.shtml
         if (serializationMode == SerializationMode.ARRAY) {
             int vectorSize = vectorLength * FLOAT_BYTE_SIZE + JAVA_ARRAY_HEADER_SIZE;
             if (vectorSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorSize += vectorSize % JAVA_ROUNDING_NUMBER;
+                vectorSize += (JAVA_ROUNDING_NUMBER - vectorSize % JAVA_ROUNDING_NUMBER);
             }
             int vectorsSize = numVectors * (vectorSize + JAVA_REFERENCE_SIZE) + JAVA_ARRAY_HEADER_SIZE;
             if (vectorsSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorsSize += vectorsSize % JAVA_ROUNDING_NUMBER;
+                vectorsSize += (JAVA_ROUNDING_NUMBER - vectorsSize % JAVA_ROUNDING_NUMBER);
             }
             return vectorsSize;
         } else {
             int vectorSize = vectorLength * FLOAT_BYTE_SIZE;
             if (vectorSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorSize += vectorSize % JAVA_ROUNDING_NUMBER;
+                vectorSize += (JAVA_ROUNDING_NUMBER - vectorSize % JAVA_ROUNDING_NUMBER);
             }
             int vectorsSize = numVectors * (vectorSize + JAVA_REFERENCE_SIZE);
             if (vectorsSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorsSize += vectorsSize % JAVA_ROUNDING_NUMBER;
+                vectorsSize += (JAVA_ROUNDING_NUMBER - vectorsSize % JAVA_ROUNDING_NUMBER);
             }
             return vectorsSize;
         }
