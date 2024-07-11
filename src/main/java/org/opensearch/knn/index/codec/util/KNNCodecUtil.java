@@ -80,16 +80,13 @@ public class KNNCodecUtil {
             vectorSize = roundVectorSize(vectorSize);
             int vectorsSize = numVectors * (vectorSize + JAVA_REFERENCE_SIZE);
             vectorsSize = roundVectorSize(vectorsSize);
+
             return vectorsSize;
-        } else if (serializationMode == SerializationMode.COLLECTIONS_OF_BYTES) {
+        }  else if (serializationMode == SerializationMode.COLLECTIONS_OF_BYTES) {
             int vectorSize = vectorLength;
-            if (vectorSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorSize += vectorSize % JAVA_ROUNDING_NUMBER;
-            }
+            vectorSize = roundVectorSize(vectorSize);
             int vectorsSize = numVectors * (vectorSize + JAVA_REFERENCE_SIZE);
-            if (vectorsSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorsSize += vectorsSize % JAVA_ROUNDING_NUMBER;
-            }
+            vectorsSize = roundVectorSize(vectorsSize);
             return vectorsSize;
         } else {
             throw new IllegalStateException("Unreachable code");
