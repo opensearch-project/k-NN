@@ -102,7 +102,7 @@ public abstract class KNNVectorValues<T> {
             } else if (vectorValuesIterator instanceof KNNVectorValuesIterator.FieldWriterIteratorValues) {
                 KNNVectorValuesIterator.FieldWriterIteratorValues<float[]> fieldWriterIteratorValues =
                     (KNNVectorValuesIterator.FieldWriterIteratorValues<float[]>) vectorValuesIterator;
-                vector = fieldWriterIteratorValues.getVectorValues().next();
+                vector = fieldWriterIteratorValues.vectorsMap.get(docId());
                 dimension = vector.length;
                 return vector;
             }
@@ -147,7 +147,7 @@ public abstract class KNNVectorValues<T> {
             } else if (vectorValuesIterator instanceof KNNVectorValuesIterator.FieldWriterIteratorValues) {
                 KNNVectorValuesIterator.FieldWriterIteratorValues<byte[]> fieldWriterIteratorValues =
                     (KNNVectorValuesIterator.FieldWriterIteratorValues<byte[]>) vectorValuesIterator;
-                vector = fieldWriterIteratorValues.getVectorValues().next();
+                vector = fieldWriterIteratorValues.vectorsMap.get(docId());
                 dimension = vector.length;
                 return vector;
             }

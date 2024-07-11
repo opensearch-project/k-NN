@@ -15,7 +15,7 @@ import lombok.AllArgsConstructor;
 import org.apache.lucene.search.DocIdSetIterator;
 
 import java.io.IOException;
-import java.util.Iterator;
+import java.util.Map;
 
 /**
  * An abstract class that prvides an iterator to iterate over KNNVectors, as KNNVectors are stored as different
@@ -59,7 +59,7 @@ public interface KNNVectorValuesIterator {
     @AllArgsConstructor
     class FieldWriterIteratorValues<T> implements KNNVectorValuesIterator {
         protected DocIdSetIterator docIdSetIterator;
-        protected Iterator<T> vectorsIterator;
+        protected Map<Integer, T> vectorsMap;
 
         @Override
         public int docId() {
@@ -76,8 +76,8 @@ public interface KNNVectorValuesIterator {
             return docIdSetIterator.nextDoc();
         }
 
-        public Iterator<T> getVectorValues() {
-            return vectorsIterator;
+        public Map<Integer, T> getVectorValuesMap() {
+            return vectorsMap;
         }
 
         @Override

@@ -39,7 +39,7 @@ public class KNNVectorValuesFactory {
     public static KNNVectorValues<float[]> getFloatVectorValues(final NativeEnginesKNNVectorsWriter.FieldWriter<?> fieldWriter) {
         KNNVectorValuesIterator vectorValuesIterator = new KNNVectorValuesIterator.FieldWriterIteratorValues<>(
             fieldWriter.getDocsWithField().iterator(),
-            fieldWriter.getVectors().iterator()
+            fieldWriter.getVectorsMap()
         );
         return new KNNVectorValues.KNNFloatVectorValues(vectorValuesIterator);
     }
@@ -47,7 +47,7 @@ public class KNNVectorValuesFactory {
     public static KNNVectorValues<byte[]> getByteVectorValues(final NativeEnginesKNNVectorsWriter.FieldWriter<?> fieldWriter) {
         KNNVectorValuesIterator vectorValuesIterator = new KNNVectorValuesIterator.FieldWriterIteratorValues<>(
             fieldWriter.getDocsWithField().iterator(),
-            fieldWriter.getVectors().iterator()
+            fieldWriter.getVectorsMap()
         );
         return new KNNVectorValues.KNNByteVectorValues(vectorValuesIterator);
     }

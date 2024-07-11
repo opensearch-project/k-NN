@@ -30,7 +30,9 @@ import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RequiredArgsConstructor
 @Log4j2
@@ -138,7 +140,7 @@ public class NativeEnginesKNNVectorsWriter extends KnnVectorsWriter {
     public static class FieldWriter<T> extends KnnFieldVectorsWriter<T> {
         private final FieldInfo fieldInfo;
         @Getter
-        private final List<T> vectors;
+        private final Map<Integer, T> vectorsMap;
         private int lastDocID = -1;
         @Getter
         private final DocsWithFieldSet docsWithField;
@@ -152,7 +154,7 @@ public class NativeEnginesKNNVectorsWriter extends KnnVectorsWriter {
         FieldWriter(final FieldInfo fieldInfo, final InfoStream infoStream) {
             this.fieldInfo = fieldInfo;
             this.infoStream = infoStream;
-            vectors = new ArrayList<>();
+            vectorsMap = new HashMap<>();
             this.docsWithField = new DocsWithFieldSet();
         }
 
@@ -173,7 +175,7 @@ public class NativeEnginesKNNVectorsWriter extends KnnVectorsWriter {
                 );
             }
             assert docID > lastDocID;
-            vectors.add(vectorValue);
+            vectorsMap.put(docID, vectorValue);
             docsWithField.add(docID);
             lastDocID = docID;
 
