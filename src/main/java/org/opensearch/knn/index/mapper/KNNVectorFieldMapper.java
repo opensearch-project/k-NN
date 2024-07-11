@@ -308,7 +308,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     hasDocValues.get(),
                     modelDao,
                     modelIdAsString,
-                    indexCreatedVersion, isIndexKNN
+                    indexCreatedVersion,
+                    isIndexKNN
                 );
             }
 
@@ -348,7 +349,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 m,
                 efConstruction,
                 indexCreatedVersion,
-                    isIndexKNN
+                isIndexKNN
             );
         }
 
@@ -384,7 +385,12 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         @Override
         public Mapper.Builder<?> parse(String name, Map<String, Object> node, ParserContext parserContext) throws MapperParsingException {
-            Builder builder = new KNNVectorFieldMapper.Builder(name, modelDaoSupplier.get(), parserContext.indexVersionCreated(), parserContext.getSettings().getAsBoolean(KNN_INDEX, false));
+            Builder builder = new KNNVectorFieldMapper.Builder(
+                name,
+                modelDaoSupplier.get(),
+                parserContext.indexVersionCreated(),
+                parserContext.getSettings().getAsBoolean(KNN_INDEX, false)
+            );
             builder.parse(name, parserContext, node);
 
             // All <a
@@ -589,7 +595,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         // Because we will come to this function only in case when Native engines are getting used. So I am avoiding the
         // check of use Native engines here.
         // Also dimension field is only accessible here hence we have to use this function to create fieldType too
-        if (this.indexCreatedVersion.onOrAfter(Version.V_3_0_0) && SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(spaceType) && isIndexKNN) {
+        if (this.indexCreatedVersion.onOrAfter(Version.V_3_0_0)
+            && SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(spaceType)
+            && isIndexKNN) {
             FieldType tempFieldType = new FieldType(fieldType);
             tempFieldType.setVectorAttributes(dimension, VectorEncoding.FLOAT32, spaceType.getVectorSimilarityFunction());
             tempFieldType.freeze();
@@ -608,7 +616,9 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         // Because we will come to this function only in case when Native engines are getting used. So I am avoiding the
         // check of use Native engines here.
         // Also dimension field is only accessible here hence we have to use this function to create fieldType too
-        if (this.indexCreatedVersion.onOrAfter(Version.V_3_0_0) && SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(spaceType) && isIndexKNN) {
+        if (this.indexCreatedVersion.onOrAfter(Version.V_3_0_0)
+            && SpaceType.VECTOR_FIELD_SUPPORTED_SPACE_TYPES.contains(spaceType)
+            && isIndexKNN) {
             FieldType tempFieldType = new FieldType(fieldType);
             tempFieldType.setVectorAttributes(dimension, VectorEncoding.BYTE, spaceType.getVectorSimilarityFunction());
             tempFieldType.freeze();

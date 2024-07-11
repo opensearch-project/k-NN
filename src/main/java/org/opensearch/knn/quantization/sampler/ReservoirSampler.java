@@ -12,9 +12,7 @@
 package org.opensearch.knn.quantization.sampler;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Random;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class ReservoirSampler implements Sampler {
@@ -27,6 +25,7 @@ public class ReservoirSampler implements Sampler {
         }
         return reservoirSampleIndices(totalNumberOfVectors, sampleSize);
     }
+
     private int[] reservoirSampleIndices(int numVectors, int sampleSize) {
         int[] indices = IntStream.range(0, sampleSize).toArray();
         for (int i = sampleSize; i < numVectors; i++) {

@@ -31,6 +31,7 @@ public class QuantizationManager {
         }
         return instance;
     }
+
     public <T, R> QuantizationState train(TrainingRequest<T> trainingRequest) {
         Quantizer<T, R> quantizer = (Quantizer<T, R>) getQuantizer(trainingRequest.getParams());
         int sampleSize = quantizer.getSamplingSize();
@@ -38,8 +39,8 @@ public class QuantizationManager {
         TrainingRequest<T> sampledRequest = new SamplingTrainingRequest<>(trainingRequest, sampler, sampleSize);
         return quantizer.train(sampledRequest);
     }
+
     public Quantizer<?, ?> getQuantizer(QuantizationParams params) {
         return QuantizerFactory.getQuantizer(params);
     }
 }
-

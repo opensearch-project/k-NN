@@ -15,14 +15,7 @@ import org.opensearch.knn.KNNTestCase;
 
 public class SQTypesTests extends KNNTestCase {
     public void testSQTypesValues() {
-        SQTypes[] expectedValues = {
-                SQTypes.FP16,
-                SQTypes.INT8,
-                SQTypes.INT6,
-                SQTypes.INT4,
-                SQTypes.ONE_BIT,
-                SQTypes.TWO_BIT
-        };
+        SQTypes[] expectedValues = { SQTypes.FP16, SQTypes.INT8, SQTypes.INT6, SQTypes.INT4, SQTypes.ONE_BIT, SQTypes.TWO_BIT };
         assertArrayEquals(expectedValues, SQTypes.values());
     }
 

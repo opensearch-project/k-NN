@@ -19,7 +19,6 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import org.opensearch.knn.quantization.models.requests.TrainingRequest;
 import org.opensearch.knn.quantization.quantizer.Quantizer;
 
-
 public class QuantizationManagerTests extends KNNTestCase {
     public void testSingletonInstance() {
         QuantizationManager instance1 = QuantizationManager.getInstance();
@@ -29,11 +28,7 @@ public class QuantizationManagerTests extends KNNTestCase {
 
     public void testTrain() {
         QuantizationManager quantizationManager = QuantizationManager.getInstance();
-        float[][] vectors = {
-                {1.0f, 2.0f, 3.0f},
-                {4.0f, 5.0f, 6.0f},
-                {7.0f, 8.0f, 9.0f}
-        };
+        float[][] vectors = { { 1.0f, 2.0f, 3.0f }, { 4.0f, 5.0f, 6.0f }, { 7.0f, 8.0f, 9.0f } };
 
         SQParams params = new SQParams(SQTypes.ONE_BIT);
         TrainingRequest<float[]> originalRequest = new TrainingRequest<float[]>(params, vectors.length) {
@@ -41,6 +36,7 @@ public class QuantizationManagerTests extends KNNTestCase {
             public float[] getVector() {
                 return null; // Not used in this test
             }
+
             @Override
             public float[] getVectorByDocId(int docId) {
                 return vectors[docId];
@@ -50,15 +46,12 @@ public class QuantizationManagerTests extends KNNTestCase {
 
         assertTrue(state instanceof OneBitScalarQuantizationState);
         float[] mean = ((OneBitScalarQuantizationState) state).getMean();
-        assertArrayEquals(new float[]{4.0f, 5.0f, 6.0f}, mean, 0.001f);
+        assertArrayEquals(new float[] { 4.0f, 5.0f, 6.0f }, mean, 0.001f);
     }
 
     public void testTrainWithFewVectors() {
         QuantizationManager quantizationManager = QuantizationManager.getInstance();
-        float[][] vectors = {
-                {1.0f, 2.0f, 3.0f},
-                {4.0f, 5.0f, 6.0f}
-        };
+        float[][] vectors = { { 1.0f, 2.0f, 3.0f }, { 4.0f, 5.0f, 6.0f } };
 
         SQParams params = new SQParams(SQTypes.ONE_BIT);
         TrainingRequest<float[]> originalRequest = new TrainingRequest<float[]>(params, vectors.length) {
@@ -77,9 +70,8 @@ public class QuantizationManagerTests extends KNNTestCase {
 
         assertTrue(state instanceof OneBitScalarQuantizationState);
         float[] mean = ((OneBitScalarQuantizationState) state).getMean();
-        assertArrayEquals(new float[]{2.5f, 3.5f, 4.5f}, mean, 0.001f);
+        assertArrayEquals(new float[] { 2.5f, 3.5f, 4.5f }, mean, 0.001f);
     }
-
 
     public void testGetQuantizer() {
         QuantizationManager quantizationManager = QuantizationManager.getInstance();

@@ -312,7 +312,7 @@ public class KNNWeight extends Weight {
             if (knnQuery.getK() > 0) {
                 results = JNIService.queryBinaryIndex(
                     indexAllocation.getMemoryAddress(),
-                        quantizedVector,
+                    quantizedVector,
                     knnQuery.getK(),
                     knnEngine,
                     filterIds,

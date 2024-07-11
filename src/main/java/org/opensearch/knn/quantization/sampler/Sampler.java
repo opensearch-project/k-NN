@@ -11,8 +11,6 @@
 
 package org.opensearch.knn.quantization.sampler;
 
-import java.util.List;
-
 public interface Sampler {
     int[] sample(int totalNumberOfVectors, int sampleSize);
 }

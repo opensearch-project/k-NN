@@ -20,6 +20,6 @@ public class SamplingFactoryTests extends KNNTestCase {
     }
 
     public void testGetSampler_withUnsupportedType() {
-        expectThrows( NullPointerException.class, ()-> SamplingFactory.getSampler(null)); // This should throw an exception
+        expectThrows(NullPointerException.class, () -> SamplingFactory.getSampler(null)); // This should throw an exception
     }
 }

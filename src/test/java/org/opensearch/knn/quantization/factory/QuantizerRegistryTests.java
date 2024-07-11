@@ -33,6 +33,6 @@ public class QuantizerRegistryTests extends KNNTestCase {
 
     public void testGetQuantizer_withUnsupportedTypeIdentifier() {
         SQParams params = new SQParams(SQTypes.ONE_BIT);
-        expectThrows( IllegalArgumentException.class, ()-> QuantizerRegistry.getQuantizer(params, "UNSUPPORTED_TYPE"));
+        expectThrows(IllegalArgumentException.class, () -> QuantizerRegistry.getQuantizer(params, "UNSUPPORTED_TYPE"));
     }
 }

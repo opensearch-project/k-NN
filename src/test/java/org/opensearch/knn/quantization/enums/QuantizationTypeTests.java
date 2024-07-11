@@ -16,10 +16,7 @@ import org.opensearch.knn.KNNTestCase;
 public class QuantizationTypeTests extends KNNTestCase {
 
     public void testQuantizationTypeValues() {
-        QuantizationType[] expectedValues = {
-                QuantizationType.SPACE_QUANTIZATION,
-                QuantizationType.VALUE_QUANTIZATION
-        };
+        QuantizationType[] expectedValues = { QuantizationType.SPACE_QUANTIZATION, QuantizationType.VALUE_QUANTIZATION };
         assertArrayEquals(expectedValues, QuantizationType.values());
     }
 

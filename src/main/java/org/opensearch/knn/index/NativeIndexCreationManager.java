@@ -29,7 +29,6 @@ import org.opensearch.knn.quantization.quantizer.Quantizer;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -87,7 +86,11 @@ public class NativeIndexCreationManager {
             }
 
             if (vectorList.size() == vectorsPerTransfer) {
-                vectorAddress = JNICommons.storeByteVectorData(vectorAddress, vectorList.toArray(new byte[][] {}), totalLiveDocs * dimension);
+                vectorAddress = JNICommons.storeByteVectorData(
+                    vectorAddress,
+                    vectorList.toArray(new byte[][] {}),
+                    totalLiveDocs * dimension
+                );
                 // We should probably come up with a better way to reuse the vectorList memory which we have
                 // created. Problem here is doing like this can lead to a lot of list memory which is of no use and
                 // will be garbage collected later on, but it creates pressure on JVM. We should revisit this.

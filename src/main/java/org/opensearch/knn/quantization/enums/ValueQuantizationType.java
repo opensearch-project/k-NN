@@ -14,4 +14,3 @@ package org.opensearch.knn.quantization.enums;
 public enum ValueQuantizationType {
     SQ
 }
-

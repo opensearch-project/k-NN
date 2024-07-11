@@ -19,9 +19,14 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 public class QuantizerRegistry {
-    private static final Map<Class<? extends QuantizationParams>, Map<String, Supplier<? extends Quantizer<?, ?>>>> registry = new HashMap<>();
+    private static final Map<Class<? extends QuantizationParams>, Map<String, Supplier<? extends Quantizer<?, ?>>>> registry =
+        new HashMap<>();
 
-    public static <T extends QuantizationParams> void register(Class<T> paramClass, String typeIdentifier, Supplier<? extends Quantizer<?, ?>> quantizerSupplier) {
+    public static <T extends QuantizationParams> void register(
+        Class<T> paramClass,
+        String typeIdentifier,
+        Supplier<? extends Quantizer<?, ?>> quantizerSupplier
+    ) {
         registry.computeIfAbsent(paramClass, k -> new HashMap<>()).put(typeIdentifier, quantizerSupplier);
     }
 

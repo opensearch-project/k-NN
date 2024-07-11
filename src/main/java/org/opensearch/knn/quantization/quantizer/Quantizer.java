@@ -14,6 +14,7 @@ package org.opensearch.knn.quantization.quantizer;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.requests.TrainingRequest;
+
 public interface Quantizer<T, R> {
     int getSamplingSize();
 

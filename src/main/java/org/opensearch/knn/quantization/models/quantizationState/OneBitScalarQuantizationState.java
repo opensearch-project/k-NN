@@ -11,7 +11,6 @@
 
 package org.opensearch.knn.quantization.models.quantizationState;
 
-
 import org.opensearch.knn.quantization.models.quantizationParams.SQParams;
 
 import java.io.ByteArrayOutputStream;
@@ -51,4 +50,3 @@ public class OneBitScalarQuantizationState extends QuantizationState {
         return new OneBitScalarQuantizationState((SQParams) parentState.getQuantizationParams(), floatArray);
     }
 }
-

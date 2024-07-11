@@ -16,7 +16,6 @@ import org.apache.lucene.search.DocIdSetIterator;
 
 import java.io.IOException;
 import java.util.Iterator;
-import java.util.List;
 
 /**
  * An abstract class that prvides an iterator to iterate over KNNVectors, as KNNVectors are stored as different

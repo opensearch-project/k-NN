@@ -13,8 +13,6 @@ package org.opensearch.knn.quantization.models.requests;
 
 import org.opensearch.knn.quantization.sampler.Sampler;
 
-import java.util.List;
-
 public class SamplingTrainingRequest<T> extends TrainingRequest<T> {
     private TrainingRequest<T> originalRequest;
     private int[] sampledIndices;

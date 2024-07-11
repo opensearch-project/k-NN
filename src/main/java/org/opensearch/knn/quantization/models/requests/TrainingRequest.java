@@ -34,4 +34,3 @@ public abstract class TrainingRequest<T> {
 
     public abstract T getVectorByDocId(int docId);
 }
-
