@@ -403,7 +403,7 @@ public class TestUtils {
         }
 
         public long loadBinaryDataToMemoryAddress() {
-            return JNICommons.storeByteVectorData(0, indexBinaryData, (long) indexBinaryData.length * indexBinaryData[0].length, true);
+            return JNICommons.storeBinaryVectorData(0, indexBinaryData, (long) indexBinaryData.length * indexBinaryData[0].length, true);
         }
 
         @AllArgsConstructor

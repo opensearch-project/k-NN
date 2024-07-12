@@ -961,6 +961,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         Index dummyIndex = new Index("dummy", "dummy");
         when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(knnMethodContext, 4));
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         IndexSettings indexSettings = mock(IndexSettings.class);
         when(mockQueryShardContext.getIndexSettings()).thenReturn(indexSettings);

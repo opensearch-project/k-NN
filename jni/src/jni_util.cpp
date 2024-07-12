@@ -261,7 +261,7 @@ void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToFloatVector(JNIEnv *env
     env->DeleteLocalRef(array2dJ);
 }
 
-void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToByteVector(JNIEnv *env, jobjectArray array2dJ,
+void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToBinaryVector(JNIEnv *env, jobjectArray array2dJ,
                                                                      int dim, std::vector<uint8_t> *vect) {
 
     if (array2dJ == nullptr) {
@@ -288,6 +288,38 @@ void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToByteVector(JNIEnv *env,
         for(int j = 0; j < dim; ++j) {
             vect->push_back(vector[j]);
         }
+        env->ReleaseByteArrayElements(vectorArray, reinterpret_cast<int8_t*>(vector), JNI_ABORT);
+    }
+    this->HasExceptionInStack(env);
+    env->DeleteLocalRef(array2dJ);
+}
+
+void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToByteVector(JNIEnv *env, jobjectArray array2dJ,
+                                                                     int dim, std::vector<int8_t> *vect) {
+
+    if (array2dJ == nullptr) {
+        throw std::runtime_error("Array cannot be null");
+    }
+
+    int numVectors = env->GetArrayLength(array2dJ);
+    this->HasExceptionInStack(env, "Unable to get array length");
+
+    for (int i = 0; i < numVectors; ++i) {
+        auto vectorArray = static_cast<jbyteArray>(env->GetObjectArrayElement(array2dJ, i));
+        this->HasExceptionInStack(env, "Unable to get object array element");
+
+        if (dim != env->GetArrayLength(vectorArray)) {
+            env->DeleteLocalRef(array2dJ);
+            throw std::runtime_error("Dimension of vectors is inconsistent");
+        }
+
+        int8_t* vector = reinterpret_cast<int8_t*>(env->GetByteArrayElements(vectorArray, nullptr));
+        if (vector == nullptr) {
+            this->HasExceptionInStack(env);
+            throw std::runtime_error("Unable to get byte array elements");
+        }
+
+        vect->insert(vect->end(), vector, vector + dim);
         env->ReleaseByteArrayElements(vectorArray, reinterpret_cast<int8_t*>(vector), JNI_ABORT);
     }
     this->HasExceptionInStack(env);

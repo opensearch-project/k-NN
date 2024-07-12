@@ -47,10 +47,24 @@ namespace knn_jni {
          * CAUTION: The behavior is undefined if the memory address is deallocated and the method is called
          *
          * @param memoryAddress The address of the memory location where data will be stored.
-         * @param data 2D byte array containing data to be stored in native memory.
+         * @param data 2D byte array containing binary data to be stored in native memory.
          * @param initialCapacity The initial capacity of the memory location.
          * @return memory address of std::vector<uint8_t> where the data is stored.
          */
+        jlong storeBinaryVectorData(knn_jni::JNIUtilInterface *, JNIEnv *, jlong , jobjectArray, jlong, jboolean);
+
+        /**
+        * This is utility function that can be used to store signed int8 data in native memory. This function will allocate memory for
+        * the data(rows*columns) with initialCapacity and return the memory address where the data is stored.
+        * If you are using this function for first time use memoryAddress = 0 to ensure that a new memory location is created.
+        * For subsequent calls you can pass the same memoryAddress. If the data cannot be stored in the memory location
+        * will throw Exception.
+        *
+        * @param memoryAddress The address of the memory location where data will be stored.
+        * @param data 2D byte array containing int8 data to be stored in native memory.
+        * @param initialCapacity The initial capacity of the memory location.
+        * @return memory address of std::vector<int8_t> where the data is stored.
+        */
         jlong storeByteVectorData(knn_jni::JNIUtilInterface *, JNIEnv *, jlong , jobjectArray, jlong, jboolean);
 
         /**
@@ -68,6 +82,14 @@ namespace knn_jni {
          * @param memoryAddress address to be freed.
          */
         void freeByteVectorData(jlong);
+
+        /**
+         * Free up the memory allocated for the data stored in memory address. This function should be used with the memory
+         * address returned by {@link JNICommons#storeBinaryVectorData(long, byte[][], long, long)}
+         *
+         * @param memoryAddress address to be freed.
+         */
+        void freeBinaryVectorData(jlong);
 
         /**
          * Extracts query time efSearch from method parameters
