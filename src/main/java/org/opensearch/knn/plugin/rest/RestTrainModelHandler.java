@@ -16,6 +16,7 @@ import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.indices.ModelUtil;
 import org.opensearch.knn.plugin.KNNPlugin;
 import org.opensearch.knn.plugin.transport.TrainingJobRouterAction;
@@ -97,6 +98,9 @@ public class RestTrainModelHandler extends BaseRestHandler {
                 trainingField = parser.textOrNull();
             } else if (KNN_METHOD.equals(fieldName) && ensureNotSet(fieldName, knnMethodContext)) {
                 knnMethodContext = KNNMethodContext.parse(parser.map());
+                if (SpaceType.UNDEFINED == knnMethodContext.getSpaceType()) {
+                    knnMethodContext.setSpaceType(SpaceType.L2);
+                }
             } else if (DIMENSION.equals(fieldName) && ensureNotSet(fieldName, dimension)) {
                 dimension = (Integer) NumberFieldMapper.NumberType.INTEGER.parse(parser.objectBytes(), false);
             } else if (MAX_VECTOR_COUNT_PARAMETER.equals(fieldName) && ensureNotSet(fieldName, maximumVectorCount)) {

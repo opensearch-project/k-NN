@@ -12,7 +12,6 @@
 package org.opensearch.knn.index;
 
 import java.util.Locale;
-import org.apache.lucene.index.VectorSimilarityFunction;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -26,6 +25,19 @@ import static org.opensearch.knn.common.KNNVectorUtil.isZeroVector;
  * nmslib calls the inner_product space "negdotprod". This translation should take place in the nmslib's jni layer.
  */
 public enum SpaceType {
+    // This undefined space type is used to indicate that space type is not provided by user
+    // Later, we need to assign a default value based on data type
+    UNDEFINED("undefined") {
+        @Override
+        public float scoreTranslation(final float rawScore) {
+            throw new IllegalStateException("Unsupported method");
+        }
+
+        @Override
+        public void validateVectorDataType(VectorDataType vectorDataType) {
+            throw new IllegalStateException("Unsupported method");
+        }
+    },
     L2("l2") {
         @Override
         public float scoreTranslation(float rawScore) {
@@ -33,8 +45,8 @@ public enum SpaceType {
         }
 
         @Override
-        public VectorSimilarityFunction getVectorSimilarityFunction() {
-            return VectorSimilarityFunction.EUCLIDEAN;
+        public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
+            return KNNVectorSimilarityFunction.EUCLIDEAN;
         }
 
         @Override
@@ -52,8 +64,8 @@ public enum SpaceType {
         }
 
         @Override
-        public VectorSimilarityFunction getVectorSimilarityFunction() {
-            return VectorSimilarityFunction.COSINE;
+        public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
+            return KNNVectorSimilarityFunction.COSINE;
         }
 
         @Override
@@ -104,8 +116,8 @@ public enum SpaceType {
         }
 
         @Override
-        public VectorSimilarityFunction getVectorSimilarityFunction() {
-            return VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT;
+        public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
+            return KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT;
         }
     },
     HAMMING_BIT("hammingbit") {
@@ -113,9 +125,29 @@ public enum SpaceType {
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
         }
+
+        @Override
+        public void validateVectorDataType(VectorDataType vectorDataType) {
+            if (VectorDataType.BINARY != vectorDataType) {
+                throw new IllegalArgumentException(
+                    String.format(
+                        Locale.ROOT,
+                        "Space type [%s] is not supported with [%s] data type",
+                        getValue(),
+                        vectorDataType.getValue()
+                    )
+                );
+            }
+        }
+
+        @Override
+        public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
+            return KNNVectorSimilarityFunction.HAMMING;
+        }
     };
 
     public static SpaceType DEFAULT = L2;
+    public static SpaceType DEFAULT_BINARY = HAMMING_BIT;
 
     private final String value;
 
@@ -126,12 +158,12 @@ public enum SpaceType {
     public abstract float scoreTranslation(float rawScore);
 
     /**
-     * Get VectorSimilarityFunction that maps to this SpaceType
+     * Get KNNVectorSimilarityFunction that maps to this SpaceType
      *
-     * @return VectorSimilarityFunction
+     * @return KNNVectorSimilarityFunction
      */
-    public VectorSimilarityFunction getVectorSimilarityFunction() {
-        throw new UnsupportedOperationException(String.format("Space [%s] does not have a vector similarity function", getValue()));
+    public KNNVectorSimilarityFunction getKnnVectorSimilarityFunction() {
+        throw new UnsupportedOperationException(String.format("Space [%s] does not have a knn vector similarity function", getValue()));
     }
 
     /**
@@ -150,6 +182,19 @@ public enum SpaceType {
      */
     public void validateVector(float[] vector) {
         // do nothing
+    }
+
+    /**
+     * Validate if given vector data type is supported by this space type
+     *
+     * @param vectorDataType the given vector data type
+     */
+    public void validateVectorDataType(VectorDataType vectorDataType) {
+        if (VectorDataType.FLOAT != vectorDataType && VectorDataType.BYTE != vectorDataType) {
+            throw new IllegalArgumentException(
+                String.format(Locale.ROOT, "Space type [%s] is not supported with [%s] data type", getValue(), vectorDataType.getValue())
+            );
+        }
     }
 
     /**

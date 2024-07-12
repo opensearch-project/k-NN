@@ -817,6 +817,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, methodComponentContext);
         when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
@@ -873,6 +874,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
             ImmutableMap.of()
         );
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, methodComponentContext);
         when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
@@ -1173,6 +1175,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
             when(mockQueryShardContext.index()).thenReturn(dummyIndex);
             when(mockKNNVectorField.getDimension()).thenReturn(4);
+            when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
             when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
 
             expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
@@ -1231,5 +1234,37 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
         assertEquals(1 / MIN_SCORE - 1, query.getRadius(), 0);
+    }
+
+    public void testDoToQuery_whenBinary_thenValid() throws Exception {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        byte[] expectedQueryVector = { 1, 2, 3, 4 };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(32);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BINARY);
+        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.HAMMING_BIT);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        KNNQuery query = (KNNQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
+        assertArrayEquals(expectedQueryVector, query.getByteQueryVector());
+        assertNull(query.getQueryVector());
+    }
+
+    public void testDoToQuery_whenBinaryWithInvalidDimension_thenException() throws Exception {
+        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, queryVector, K);
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(8);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BINARY);
+        when(mockKNNVectorField.getSpaceType()).thenReturn(SpaceType.HAMMING_BIT);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        Exception ex = expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
+        assertTrue(ex.getMessage(), ex.getMessage().contains("invalid dimension"));
     }
 }

@@ -52,11 +52,11 @@ public class KNNVectorSerializerFactory {
     }
 
     public static KNNVectorSerializer getSerializerByStreamContent(final ByteArrayInputStream byteStream) {
-        final SerializationMode serializationMode = serializerModeFromStream(byteStream);
+        final SerializationMode serializationMode = getSerializerModeFromStream(byteStream);
         return getSerializerBySerializationMode(serializationMode);
     }
 
-    static SerializationMode serializerModeFromStream(ByteArrayInputStream byteStream) {
+    public static SerializationMode getSerializerModeFromStream(ByteArrayInputStream byteStream) {
         int numberOfAvailableBytesInStream = byteStream.available();
         if (numberOfAvailableBytesInStream < ARRAY_HEADER_OFFSET) {
             return getSerializerOrThrowError(numberOfAvailableBytesInStream, COLLECTION_OF_FLOATS);
