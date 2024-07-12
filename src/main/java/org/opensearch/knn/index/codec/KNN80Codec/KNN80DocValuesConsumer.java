@@ -19,6 +19,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.transfer.VectorTransfer;
 import org.opensearch.knn.index.codec.transfer.VectorTransferByte;
+import org.opensearch.knn.index.codec.transfer.VectorTransferByteToFloat;
 import org.opensearch.knn.index.codec.transfer.VectorTransferFloat;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.SpaceType;
@@ -139,14 +140,14 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                 throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
             }
             VectorDataType vectorDataType = model.getModelMetadata().getVectorDataType();
-            pair = KNNCodecUtil.getPair(values, getVectorTransfer(vectorDataType));
+            pair = KNNCodecUtil.getPair(values, getVectorTransfer(vectorDataType, knnEngine));
             indexCreator = () -> createKNNIndexFromTemplate(model, pair, knnEngine, indexPath);
         } else {
             // get vector data type from field attributes or provide default value
             VectorDataType vectorDataType = VectorDataType.get(
                 fieldAttributes.getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
             );
-            pair = KNNCodecUtil.getPair(values, getVectorTransfer(vectorDataType));
+            pair = KNNCodecUtil.getPair(values, getVectorTransfer(vectorDataType, knnEngine));
             indexCreator = () -> createKNNIndexFromScratch(field, pair, knnEngine, indexPath);
         }
 
@@ -359,9 +360,12 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         return (value & CRC32_CHECKSUM_SANITY) != 0;
     }
 
-    private VectorTransfer getVectorTransfer(VectorDataType vectorDataType) {
+    private VectorTransfer getVectorTransfer(VectorDataType vectorDataType, KNNEngine knnEngine) {
         if (VectorDataType.BINARY == vectorDataType) {
             return new VectorTransferByte(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
+        }
+        if (VectorDataType.BYTE == vectorDataType && KNNEngine.FAISS == knnEngine) {
+            return new VectorTransferByteToFloat(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
         }
         return new VectorTransferFloat(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
     }

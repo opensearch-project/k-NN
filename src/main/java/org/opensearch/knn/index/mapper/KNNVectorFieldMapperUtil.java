@@ -105,16 +105,17 @@ public class KNNVectorFieldMapperUtil {
         }
 
         if (VectorDataType.BYTE == vectorDataType) {
-            if (KNNEngine.LUCENE == methodContext.getKnnEngine()) {
+            if (KNNEngine.LUCENE == methodContext.getKnnEngine() || KNNEngine.FAISS == methodContext.getKnnEngine()) {
                 return;
             } else {
                 throw new IllegalArgumentException(
                     String.format(
                         Locale.ROOT,
-                        "[%s] field with value [%s] is only supported for [%s] engine",
+                        "[%s] field with value [%s] is only supported for [%s] and [%s] engines",
                         VECTOR_DATA_TYPE_FIELD,
                         vectorDataType.getValue(),
-                        LUCENE_NAME
+                        LUCENE_NAME,
+                        FAISS_NAME
                     )
                 );
             }
