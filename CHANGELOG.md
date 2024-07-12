@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Bug Fixes
 * Fixing the arithmetic to find the number of vectors to stream from java to jni layer.[#1804](https://github.com/opensearch-project/k-NN/pull/1804)
 * Fix graph merge stats size calculation [#1818](https://github.com/opensearch-project/k-NN/pull/1818)
+* Release memory properly for an array type [#1820](https://github.com/opensearch-project/k-NN/pull/1820)
 ### Infrastructure
 ### Documentation
 * Update dev guide to fix clang linking issue on arm [#1746](https://github.com/opensearch-project/k-NN/pull/1746)
