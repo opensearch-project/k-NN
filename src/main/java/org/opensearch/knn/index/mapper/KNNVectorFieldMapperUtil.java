@@ -40,6 +40,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVectorValue;
+import static org.opensearch.knn.index.util.KNNEngine.ENGINES_SUPPORTING_BYTE_VECTOR;
 
 /**
  * Utility class for KNNVectorFieldMapper
@@ -105,7 +106,7 @@ public class KNNVectorFieldMapperUtil {
         }
 
         if (VectorDataType.BYTE == vectorDataType) {
-            if (KNNEngine.LUCENE == methodContext.getKnnEngine() || KNNEngine.FAISS == methodContext.getKnnEngine()) {
+            if (ENGINES_SUPPORTING_BYTE_VECTOR.contains(methodContext.getKnnEngine())) {
                 return;
             } else {
                 throw new IllegalArgumentException(

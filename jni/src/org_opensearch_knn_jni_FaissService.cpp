@@ -75,6 +75,24 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createBinaryInde
     }
 }
 
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createByteIndex(JNIEnv * env, jclass cls, jintArray idsJ,
+                                                                            jlong vectorsAddressJ, jint dimJ,
+                                                                            jstring indexPathJ, jobject parametersJ)
+{
+    try {
+        std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
+        knn_jni::faiss_wrapper::ByteIndexService byteIndexService(std::move(faissMethods));
+        knn_jni::faiss_wrapper::CreateIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexPathJ, parametersJ, &byteIndexService);
+
+        // Releasing the vectorsAddressJ memory as that is not required once we have created the index.
+        // This is not the ideal approach, please refer this gh issue for long term solution:
+        // https://github.com/opensearch-project/k-NN/issues/1600
+        delete reinterpret_cast<std::vector<int8_t>*>(vectorsAddressJ);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+}
+
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createIndexFromTemplate(JNIEnv * env, jclass cls,
                                                                                         jintArray idsJ,
                                                                                         jlong vectorsAddressJ,

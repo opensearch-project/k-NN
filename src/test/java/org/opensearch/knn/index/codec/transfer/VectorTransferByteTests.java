@@ -10,17 +10,16 @@ import lombok.SneakyThrows;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.codec.util.SerializationMode;
 import org.opensearch.knn.jni.JNICommons;
-
-import java.io.IOException;
-import java.util.Random;
-
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
 import static org.junit.Assert.assertNotEquals;
 
 public class VectorTransferByteTests extends TestCase {
+    private static final int VECTOR_LENGTH = 20;
     @SneakyThrows
     public void testTransfer_whenCalled_thenAdded() {
-        final BytesRef bytesRef1 = getByteArrayOfVectors(20);
-        final BytesRef bytesRef2 = getByteArrayOfVectors(20);
+        final BytesRef bytesRef1 = getByteArrayOfVectors();
+        final BytesRef bytesRef2 = getByteArrayOfVectors();
         VectorTransferByte vectorTransfer = new VectorTransferByte(40);
         try {
             vectorTransfer.init(2);
@@ -41,16 +40,16 @@ public class VectorTransferByteTests extends TestCase {
 
     @SneakyThrows
     public void testSerializationMode_whenCalled_thenReturn() {
-        final BytesRef bytesRef = getByteArrayOfVectors(20);
+        final BytesRef bytesRef = getByteArrayOfVectors();
         VectorTransferByte vectorTransfer = new VectorTransferByte(1000);
 
         // Verify
         assertEquals(SerializationMode.COLLECTIONS_OF_BYTES, vectorTransfer.getSerializationMode(bytesRef));
     }
 
-    private BytesRef getByteArrayOfVectors(int vectorLength) throws IOException {
-        byte[] vector = new byte[vectorLength];
-        new Random().nextBytes(vector);
+    private BytesRef getByteArrayOfVectors() {
+        byte[] vector = new byte[VECTOR_LENGTH];
+        IntStream.range(0, VECTOR_LENGTH).forEach(index -> vector[index] = (byte) ThreadLocalRandom.current().nextInt(-128, 127));
         return new BytesRef(vector);
     }
 }

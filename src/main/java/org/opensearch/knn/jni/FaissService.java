@@ -78,6 +78,20 @@ class FaissService {
     public static native void createBinaryIndex(int[] ids, long vectorsAddress, int dim, String indexPath, Map<String, Object> parameters);
 
     /**
+     * Create a byte index for the native library The memory occupied by the vectorsAddress will be freed up during the
+     * function call. So Java layer doesn't need to free up the memory. This is not an ideal behavior because Java layer
+     * created the memory address and that should only free up the memory. We are tracking the proper fix for this on this
+     * <a href="https://github.com/opensearch-project/k-NN/issues/1600">issue</a>
+     *
+     * @param ids array of ids mapping to the data passed in
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim dimension of the vector to be indexed
+     * @param indexPath path to save index file to
+     * @param parameters parameters to build index
+     */
+    public static native void createByteIndex(int[] ids, long vectorsAddress, int dim, String indexPath, Map<String, Object> parameters);
+
+    /**
      * Create an index for the native library with a provided template index
      *
      * @param ids array of ids mapping to the data passed in

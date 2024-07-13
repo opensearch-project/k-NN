@@ -441,12 +441,12 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
             spaceType.validateVector(byteVector);
         } else if (VectorDataType.BYTE == vectorDataType) {
-            if (KNNEngine.LUCENE.equals(knnEngine)) {
+            if (KNNEngine.LUCENE == knnEngine) {
                 byteVector = new byte[vector.length];
             }
             for (int i = 0; i < vector.length; i++) {
                 validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
-                if (KNNEngine.LUCENE.equals(knnEngine)) {
+                if (KNNEngine.LUCENE == knnEngine) {
                     byteVector[i] = (byte) vector[i];
                 }
             }
@@ -468,16 +468,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .knnEngine(knnEngine)
                 .indexName(indexName)
                 .fieldName(this.fieldName)
-                .vector(
-                    (VectorDataType.FLOAT == vectorDataType) || (VectorDataType.BYTE == vectorDataType && KNNEngine.FAISS == knnEngine)
-                        ? this.vector
-                        : null
-                )
-                .byteVector(
-                    (VectorDataType.BYTE == vectorDataType && KNNEngine.LUCENE == knnEngine) || VectorDataType.BINARY == vectorDataType
-                        ? byteVector
-                        : null
-                )
+                .vector(getFloatVectorForCreatingQueryRequest(vectorDataType, knnEngine))
+                .byteVector(getByteVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector))
                 .vectorDataType(vectorDataType)
                 .k(this.k)
                 .methodParameters(this.methodParameters)
@@ -548,6 +540,20 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (filter != null) {
             vectorQueryType.getQueryWithFilterStatCounter().increment();
         }
+    }
+
+    private float[] getFloatVectorForCreatingQueryRequest(VectorDataType vectorDataType, KNNEngine knnEngine) {
+        if ((VectorDataType.FLOAT == vectorDataType) || (VectorDataType.BYTE == vectorDataType && KNNEngine.FAISS == knnEngine)) {
+            return this.vector;
+        }
+        return null;
+    }
+
+    private byte[] getByteVectorForCreatingQueryRequest(VectorDataType vectorDataType, KNNEngine knnEngine, byte[] byteVector) {
+        if (VectorDataType.BINARY == vectorDataType || (VectorDataType.BYTE == vectorDataType && KNNEngine.LUCENE == knnEngine)) {
+            return byteVector;
+        }
+        return null;
     }
 
     @Override

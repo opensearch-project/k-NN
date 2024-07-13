@@ -8,6 +8,7 @@ package org.opensearch.knn.index.mapper;
 import org.apache.lucene.document.FieldType;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -66,10 +67,13 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
 
             // If VectorDataType is Byte using Faiss engine then manipulate Index Description to use "SQ8_direct_signed" scalar quantizer
             // For example, Index Description "HNSW16,Flat" will be updated as "HNSW16,SQ8_direct_signed"
-            if (VectorDataType.BYTE.equals(vectorDataType) && libParams.containsKey(INDEX_DESCRIPTION_PARAMETER)) {
+            if (VectorDataType.BYTE == vectorDataType && libParams.containsKey(INDEX_DESCRIPTION_PARAMETER)) {
                 String indexDescriptionValue = (String) libParams.get(INDEX_DESCRIPTION_PARAMETER);
-                String updatedIndexDescription = indexDescriptionValue.split(",")[0] + "," + FAISS_SIGNED_BYTE_SQ;
-                libParams.replace(INDEX_DESCRIPTION_PARAMETER, updatedIndexDescription);
+                if (indexDescriptionValue != null && indexDescriptionValue.isEmpty() == false) {
+                    String updatedIndexDescription = indexDescriptionValue.split(",")[0] + "," + FAISS_SIGNED_BYTE_SQ;
+                    libParams.replace(INDEX_DESCRIPTION_PARAMETER, updatedIndexDescription);
+                    libParams.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.BYTE.getValue());
+                }
             }
             this.fieldType.putAttribute(PARAMETERS, XContentFactory.jsonBuilder().map(libParams).toString());
         } catch (IOException ioe) {

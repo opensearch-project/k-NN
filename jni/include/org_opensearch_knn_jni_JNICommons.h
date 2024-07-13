@@ -36,6 +36,14 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_JNICommons_storeByteVectorDa
 
 /*
  * Class:     org_opensearch_knn_jni_JNICommons
+ * Method:    storeSignedByteVectorData
+ * Signature: (J[[FJJ)
+ */
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_JNICommons_storeSignedByteVectorData
+  (JNIEnv *, jclass, jlong, jobjectArray, jlong);
+
+/*
+ * Class:     org_opensearch_knn_jni_JNICommons
  * Method:    freeVectorData
  * Signature: (J)V
  */
@@ -48,6 +56,14 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_JNICommons_freeVectorData
 * Signature: (J)V
 */
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_JNICommons_freeByteVectorData
+(JNIEnv *, jclass, jlong);
+
+/*
+* Class:     org_opensearch_knn_jni_JNICommons
+* Method:    freeSignedByteVectorData
+* Signature: (J)V
+*/
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_JNICommons_freeSignedByteVectorData
 (JNIEnv *, jclass, jlong);
 
 #ifdef __cplusplus

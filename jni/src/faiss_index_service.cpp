@@ -160,5 +160,89 @@ void BinaryIndexService::createIndex(
     faissMethods->writeIndexBinary(idMap.get(), indexPath.c_str());
 }
 
+ByteIndexService::ByteIndexService(std::unique_ptr<FaissMethods> faissMethods) : IndexService(std::move(faissMethods)) {}
+
+void ByteIndexService::createIndex(
+        knn_jni::JNIUtilInterface * jniUtil,
+        JNIEnv * env,
+        faiss::MetricType metric,
+        std::string indexDescription,
+        int dim,
+        int numIds,
+        int threadCount,
+        int64_t vectorsAddress,
+        std::vector<int64_t> ids,
+        std::string indexPath,
+        std::unordered_map<std::string, jobject> parameters
+    ) {
+    // Read vectors from memory address
+    auto *inputVectors = reinterpret_cast<std::vector<int8_t>*>(vectorsAddress);
+
+    if (inputVectors->size() == 0) {
+        throw std::runtime_error("Number of vectors cannot be 0");
+    }
+
+    // The number of vectors can be int here because a lucene segment number of total docs never crosses INT_MAX value
+    int numVectors = (int) (inputVectors->size() / (uint64_t) dim);
+    if(numVectors == 0) {
+        throw std::runtime_error("Number of vectors cannot be 0");
+    }
+
+    if (numIds != numVectors) {
+        throw std::runtime_error("Number of IDs does not match number of vectors");
+    }
+
+    std::unique_ptr<faiss::Index> indexWriter(faissMethods->indexFactory(dim, indexDescription.c_str(), metric));
+
+    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
+    if(threadCount != 0) {
+        omp_set_num_threads(threadCount);
+    }
+
+    // Add extra parameters that cant be configured with the index factory
+    SetExtraParameters<faiss::Index, faiss::IndexIVF, faiss::IndexHNSW>(jniUtil, env, parameters, indexWriter.get());
+
+    // Check that the index does not need to be trained
+    if(!indexWriter->is_trained) {
+        throw std::runtime_error("Index is not trained");
+    }
+
+    // Add vectors
+    std::unique_ptr<faiss::IndexIDMap> idMap(faissMethods->indexIdMap(indexWriter.get()));
+
+    int batchSize = 1;
+    int totalNumVecs = numVectors;
+    auto *inputFloatVectors = new std::vector<float>();
+    std::vector<int64_t> floatVectorsIds;
+    int id = 0;
+    std::vector<int8_t>::iterator iter = inputVectors->begin();
+
+    while (id < numVectors) {
+        if(totalNumVecs < batchSize) {
+            batchSize = totalNumVecs;
+        }
+
+        inputFloatVectors->reserve(batchSize * dim);
+        floatVectorsIds.reserve(batchSize);
+        for(int i = 0; i < batchSize; i++) {
+            floatVectorsIds.push_back(ids[id++]);
+            for(int j = 0; j < dim; j++) {
+                inputFloatVectors->push_back((float) *iter);
+                iter++;
+            }
+        }
+        idMap->add_with_ids(batchSize, inputFloatVectors->data(), floatVectorsIds.data());
+
+        totalNumVecs = totalNumVecs - batchSize;
+        inputFloatVectors->clear();
+        floatVectorsIds.clear();
+    }
+
+    delete inputFloatVectors;
+
+    // Write the index to disk
+    faissMethods->writeIndex(idMap.get(), indexPath.c_str());
+}
+
 } // namespace faiss_wrapper
 } // namesapce knn_jni

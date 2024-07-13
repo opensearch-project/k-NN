@@ -106,6 +106,46 @@ public:
     virtual ~BinaryIndexService() = default;
 };
 
+/**
+ * A class to provide operations on index
+ * This class should evolve to have only cpp object but not jni object
+ */
+class ByteIndexService : public IndexService {
+public:
+    //TODO Remove dependency on JNIUtilInterface and JNIEnv
+    //TODO Reduce the number of parameters
+    ByteIndexService(std::unique_ptr<FaissMethods> faissMethods);
+    /**
+     * Create byte index
+     *
+     * @param jniUtil jni util
+     * @param env jni environment
+     * @param metric space type for distance calculation
+     * @param indexDescription index description to be used by faiss index factory
+     * @param dim dimension of vectors
+     * @param numIds number of vectors
+     * @param threadCount number of thread count to be used while adding data
+     * @param vectorsAddress memory address which is holding vector data
+     * @param ids a list of document ids for corresponding vectors
+     * @param indexPath path to write index
+     * @param parameters parameters to be applied to faiss index
+     */
+    virtual void createIndex(
+        knn_jni::JNIUtilInterface * jniUtil,
+        JNIEnv * env,
+        faiss::MetricType metric,
+        std::string indexDescription,
+        int dim,
+        int numIds,
+        int threadCount,
+        int64_t vectorsAddress,
+        std::vector<int64_t> ids,
+        std::string indexPath,
+        std::unordered_map<std::string, jobject> parameters
+    ) override;
+    virtual ~ByteIndexService() = default;
+};
+
 }
 }
 

@@ -37,6 +37,14 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createBinaryInde
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    createByteIndex
+ * Signature: ([IJILjava/lang/String;Ljava/util/Map;)V
+ */
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createByteIndex
+        (JNIEnv *, jclass, jintArray, jlong, jint, jstring, jobject);
+
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
  * Method:    createIndexFromTemplate
  * Signature: ([IJILjava/lang/String;[BLjava/util/Map;)V
  */

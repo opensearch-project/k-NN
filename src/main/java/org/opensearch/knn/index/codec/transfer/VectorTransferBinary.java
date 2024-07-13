@@ -14,12 +14,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Vector transfer for byte
+ * Vector transfer for binary
  */
-public class VectorTransferByte extends VectorTransfer {
+public class VectorTransferBinary extends VectorTransfer {
     private List<byte[]> vectorList;
 
-    public VectorTransferByte(final long vectorsStreamingMemoryLimit) {
+    public VectorTransferBinary(final long vectorsStreamingMemoryLimit) {
         super(vectorsStreamingMemoryLimit);
         vectorList = new ArrayList<>();
     }
@@ -32,7 +32,7 @@ public class VectorTransferByte extends VectorTransfer {
 
     @Override
     public void transfer(final BytesRef bytesRef) {
-        dimension = bytesRef.length;
+        dimension = bytesRef.length * 8;
         if (vectorsPerTransfer == Integer.MIN_VALUE) {
             // if vectorsStreamingMemoryLimit is 100 bytes and we have 50 vectors with length of 5, then per
             // transfer we have to send 100/5 => 20 vectors.
@@ -61,11 +61,8 @@ public class VectorTransferByte extends VectorTransfer {
     }
 
     private void transfer() {
-        vectorAddress = JNICommons.storeSignedByteVectorData(
-            vectorAddress,
-            vectorList.toArray(new byte[][] {}),
-            totalLiveDocs * dimension
-        );
+        int lengthOfVector = dimension / 8;
+        vectorAddress = JNICommons.storeByteVectorData(vectorAddress, vectorList.toArray(new byte[][] {}), totalLiveDocs * lengthOfVector);
         vectorList.clear();
     }
 }
