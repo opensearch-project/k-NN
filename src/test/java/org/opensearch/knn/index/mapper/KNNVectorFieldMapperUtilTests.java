@@ -12,6 +12,7 @@
 package org.opensearch.knn.index.mapper;
 
 import org.apache.lucene.document.StoredField;
+import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethodContext;
@@ -24,7 +25,6 @@ import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
 
-import java.io.ByteArrayInputStream;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -51,13 +51,8 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
     public void testStoredFields_whenVectorIsFloatType_thenSucceed() {
         StoredField storedField = KNNVectorFieldMapperUtil.createStoredFieldForFloatVector(TEST_FIELD_NAME, TEST_FLOAT_VECTOR);
         assertEquals(TEST_FIELD_NAME, storedField.name());
-        byte[] bytes = storedField.binaryValue().bytes;
-        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(bytes, 0, bytes.length);
-        assertArrayEquals(
-            TEST_FLOAT_VECTOR,
-            KNNVectorSerializerFactory.getDefaultSerializer().byteToFloatArray(byteArrayInputStream),
-            0.001f
-        );
+        BytesRef bytes = new BytesRef(storedField.binaryValue().bytes);
+        assertArrayEquals(TEST_FLOAT_VECTOR, KNNVectorSerializerFactory.getDefaultSerializer().byteToFloatArray(bytes), 0.001f);
 
         Object vector = KNNVectorFieldMapperUtil.deserializeStoredVector(storedField.binaryValue(), VectorDataType.FLOAT);
         assertTrue(vector instanceof float[]);
