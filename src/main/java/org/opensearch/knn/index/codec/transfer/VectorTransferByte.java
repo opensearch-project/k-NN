@@ -5,10 +5,11 @@
 
 package org.opensearch.knn.index.codec.transfer;
 
+import org.apache.lucene.util.ArrayUtil;
+import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.codec.util.SerializationMode;
 import org.opensearch.knn.jni.JNICommons;
 
-import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,11 +31,10 @@ public class VectorTransferByte extends VectorTransfer {
     }
 
     @Override
-    public void transfer(final ByteArrayInputStream byteStream) {
-        final byte[] vector = byteStream.readAllBytes();
-        dimension = vector.length * 8;
+    public void transfer(final BytesRef bytesRef) {
+        dimension = bytesRef.length * 8;
         if (vectorsPerTransfer == Integer.MIN_VALUE) {
-            vectorsPerTransfer = (vector.length * totalLiveDocs) / vectorsStreamingMemoryLimit;
+            vectorsPerTransfer = (bytesRef.length * totalLiveDocs) / vectorsStreamingMemoryLimit;
             // This condition comes if vectorsStreamingMemoryLimit is higher than total number floats to transfer
             // Doing this will reduce 1 extra trip to JNI layer.
             if (vectorsPerTransfer == 0) {
@@ -42,7 +42,7 @@ public class VectorTransferByte extends VectorTransfer {
             }
         }
 
-        vectorList.add(vector);
+        vectorList.add(ArrayUtil.copyOfSubArray(bytesRef.bytes, bytesRef.offset, bytesRef.offset + bytesRef.length));
         if (vectorList.size() == vectorsPerTransfer) {
             transfer();
         }
@@ -54,7 +54,7 @@ public class VectorTransferByte extends VectorTransfer {
     }
 
     @Override
-    public SerializationMode getSerializationMode(final ByteArrayInputStream byteStream) {
+    public SerializationMode getSerializationMode(final BytesRef bytesRef) {
         return SerializationMode.COLLECTIONS_OF_BYTES;
     }
 

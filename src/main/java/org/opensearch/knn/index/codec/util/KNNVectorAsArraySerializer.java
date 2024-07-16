@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.codec.util;
 
+import org.apache.lucene.util.BytesRef;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -31,8 +33,8 @@ public class KNNVectorAsArraySerializer implements KNNVectorSerializer {
     }
 
     @Override
-    public float[] byteToFloatArray(ByteArrayInputStream byteStream) {
-        try {
+    public float[] byteToFloatArray(BytesRef bytesRef) {
+        try (ByteArrayInputStream byteStream = new ByteArrayInputStream(bytesRef.bytes, bytesRef.offset, bytesRef.length)) {
             final ObjectInputStream objectStream = new ObjectInputStream(byteStream);
             final float[] vector = (float[]) objectStream.readObject();
             return vector;
