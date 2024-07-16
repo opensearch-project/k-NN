@@ -18,6 +18,7 @@ import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
+import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -29,11 +30,14 @@ import java.util.Arrays;
 import java.util.Locale;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
 import static org.opensearch.knn.common.KNNConstants.FP16_MAX_VALUE;
 import static org.opensearch.knn.common.KNNConstants.FP16_MIN_VALUE;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVectorValue;
 
@@ -90,25 +94,60 @@ public class KNNVectorFieldMapperUtil {
     }
 
     /**
-     * Validates and throws exception if data_type field is set in the index mapping
-     * using any VectorDataType (other than float, which is default) because other
-     * VectorDataTypes are only supported for lucene engine.
+     * Validates if the vector data type is supported with given method context
      *
-     * @param vectorDataType VectorDataType Parameter
+     * @param methodContext methodContext
+     * @param vectorDataType vector data type
      */
-    public static void validateVectorDataTypeWithEngine(ParametrizedFieldMapper.Parameter<VectorDataType> vectorDataType) {
-        if (VectorDataType.FLOAT == vectorDataType.getValue()) {
+    public static void validateVectorDataType(KNNMethodContext methodContext, VectorDataType vectorDataType) {
+        if (VectorDataType.FLOAT == vectorDataType) {
             return;
         }
-        throw new IllegalArgumentException(
-            String.format(
-                Locale.ROOT,
-                "[%s] field with value [%s] is only supported for [%s] engine",
-                VECTOR_DATA_TYPE_FIELD,
-                vectorDataType.getValue().getValue(),
-                LUCENE_NAME
-            )
-        );
+
+        if (VectorDataType.BYTE == vectorDataType) {
+            if (KNNEngine.LUCENE == methodContext.getKnnEngine()) {
+                return;
+            } else {
+                throw new IllegalArgumentException(
+                    String.format(
+                        Locale.ROOT,
+                        "[%s] field with value [%s] is only supported for [%s] engine",
+                        VECTOR_DATA_TYPE_FIELD,
+                        vectorDataType.getValue(),
+                        LUCENE_NAME
+                    )
+                );
+            }
+        }
+
+        if (VectorDataType.BINARY == vectorDataType) {
+            if (KNNEngine.FAISS == methodContext.getKnnEngine()) {
+                if (METHOD_HNSW.equals(methodContext.getMethodComponentContext().getName())) {
+                    return;
+                } else {
+                    throw new IllegalArgumentException(
+                        String.format(
+                            Locale.ROOT,
+                            "[%s] field with value [%s] is only supported for [%s] method",
+                            VECTOR_DATA_TYPE_FIELD,
+                            vectorDataType.getValue(),
+                            METHOD_HNSW
+                        )
+                    );
+                }
+            } else {
+                throw new IllegalArgumentException(
+                    String.format(
+                        Locale.ROOT,
+                        "[%s] field with value [%s] is only supported for [%s] engine",
+                        VECTOR_DATA_TYPE_FIELD,
+                        vectorDataType.getValue(),
+                        FAISS_NAME
+                    )
+                );
+            }
+        }
+        throw new IllegalArgumentException("This line should not be reached");
     }
 
     /**
@@ -131,10 +170,10 @@ public class KNNVectorFieldMapperUtil {
             throw new IllegalArgumentException(
                 String.format(
                     Locale.ROOT,
-                    "[%s] field with value [%s] is only supported for [%s] engine",
+                    "[%s] field with value [%s] is not supported for [%s] engine",
                     VECTOR_DATA_TYPE_FIELD,
                     vectorDataType.getValue().getValue(),
-                    LUCENE_NAME
+                    NMSLIB_NAME
                 )
             );
         }
@@ -189,19 +228,21 @@ public class KNNVectorFieldMapperUtil {
     }
 
     /**
-     * Get the expected dimensions from a specified knn vector field type.
+     * Get the expected vector length from a specified knn vector field type.
      *
      * If the field is model-based, get dimensions from model metadata.
+     * For binary vector, the expected vector length is dimension divided by 8
+     *
      * @param knnVectorFieldType knn vector field type
-     * @return expected dimensions
+     * @return expected vector length
      */
-    public static int getExpectedDimensions(final KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType) {
+    public static int getExpectedVectorLength(final KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType) {
         int expectedDimensions = knnVectorFieldType.getDimension();
         if (isModelBasedIndex(expectedDimensions)) {
             ModelMetadata modelMetadata = getModelMetadataForField(knnVectorFieldType);
             expectedDimensions = modelMetadata.getDimension();
         }
-        return expectedDimensions;
+        return VectorDataType.BINARY == knnVectorFieldType.getVectorDataType() ? expectedDimensions / 8 : expectedDimensions;
     }
 
     private static boolean isModelBasedIndex(int expectedDimensions) {

@@ -20,6 +20,7 @@ import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -37,9 +38,13 @@ public class KNNQuery extends Query {
 
     private final String field;
     private final float[] queryVector;
+    @Getter
+    private final byte[] byteQueryVector;
     private int k;
     private Map<String, ?> methodParameters;
     private final String indexName;
+    @Getter
+    private final VectorDataType vectorDataType;
 
     @Setter
     private Query filterQuery;
@@ -54,11 +59,7 @@ public class KNNQuery extends Query {
         final String indexName,
         final BitSetProducer parentsFilter
     ) {
-        this.field = field;
-        this.queryVector = queryVector;
-        this.k = k;
-        this.indexName = indexName;
-        this.parentsFilter = parentsFilter;
+        this(field, queryVector, null, k, indexName, null, parentsFilter, VectorDataType.FLOAT);
     }
 
     public KNNQuery(
@@ -69,12 +70,39 @@ public class KNNQuery extends Query {
         final Query filterQuery,
         final BitSetProducer parentsFilter
     ) {
+        this(field, queryVector, null, k, indexName, filterQuery, parentsFilter, VectorDataType.FLOAT);
+    }
+
+    public KNNQuery(
+        final String field,
+        final byte[] byteQueryVector,
+        final int k,
+        final String indexName,
+        final Query filterQuery,
+        final BitSetProducer parentsFilter,
+        final VectorDataType vectorDataType
+    ) {
+        this(field, null, byteQueryVector, k, indexName, filterQuery, parentsFilter, vectorDataType);
+    }
+
+    private KNNQuery(
+        final String field,
+        final float[] queryVector,
+        final byte[] byteQueryVector,
+        final int k,
+        final String indexName,
+        final Query filterQuery,
+        final BitSetProducer parentsFilter,
+        final VectorDataType vectorDataType
+    ) {
         this.field = field;
         this.queryVector = queryVector;
+        this.byteQueryVector = byteQueryVector;
         this.k = k;
         this.indexName = indexName;
         this.filterQuery = filterQuery;
         this.parentsFilter = parentsFilter;
+        this.vectorDataType = vectorDataType;
     }
 
     /**
@@ -86,10 +114,7 @@ public class KNNQuery extends Query {
      * @param parentsFilter parent filter
      */
     public KNNQuery(String field, float[] queryVector, String indexName, BitSetProducer parentsFilter) {
-        this.field = field;
-        this.queryVector = queryVector;
-        this.indexName = indexName;
-        this.parentsFilter = parentsFilter;
+        this(field, queryVector, null, 0, indexName, null, parentsFilter, VectorDataType.FLOAT);
     }
 
     /**
@@ -191,6 +216,7 @@ public class KNNQuery extends Query {
         if (other == this) return true;
         return Objects.equals(field, other.field)
             && Arrays.equals(queryVector, other.queryVector)
+            && Arrays.equals(byteQueryVector, other.byteQueryVector)
             && Objects.equals(k, other.k)
             && Objects.equals(methodParameters, other.methodParameters)
             && Objects.equals(radius, other.radius)

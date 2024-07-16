@@ -5,12 +5,12 @@
 
 package org.opensearch.knn.index.query;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FilterLeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -28,16 +28,20 @@ import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.DocIdSetBuilder;
 import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.common.io.PathUtils;
+import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
+import org.opensearch.knn.index.query.filtered.FilteredIdsKNNByteIterator;
 import org.opensearch.knn.index.query.filtered.FilteredIdsKNNIterator;
+import org.opensearch.knn.index.query.filtered.KNNIterator;
+import org.opensearch.knn.index.query.filtered.NestedFilteredIdsKNNByteIterator;
 import org.opensearch.knn.index.query.filtered.NestedFilteredIdsKNNIterator;
-import org.opensearch.knn.index.util.FieldInfoExtractor;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -49,6 +53,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -59,6 +64,7 @@ import java.util.stream.Collectors;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
@@ -197,7 +203,7 @@ public class KNNWeight extends Weight {
 
     private Map<Integer, Float> doANNSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality)
         throws IOException {
-        SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(context.reader());
+        final SegmentReader reader = Lucene.segmentReader(context.reader());
         String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
 
         FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
@@ -228,19 +234,7 @@ public class KNNWeight extends Weight {
             spaceType = SpaceType.getSpace(spaceTypeName);
         }
 
-        /*
-         * In case of compound file, extension would be <engine-extension> + c otherwise <engine-extension>
-         */
-        String engineExtension = reader.getSegmentInfo().info.getUseCompoundFile()
-            ? knnEngine.getExtension() + KNNConstants.COMPOUND_EXTENSION
-            : knnEngine.getExtension();
-        String engineSuffix = knnQuery.getField() + engineExtension;
-        List<String> engineFiles = reader.getSegmentInfo()
-            .files()
-            .stream()
-            .filter(fileName -> fileName.endsWith(engineSuffix))
-            .collect(Collectors.toList());
-
+        List<String> engineFiles = getEngineFiles(reader, knnEngine.getExtension());
         if (engineFiles.isEmpty()) {
             log.debug("[KNN] No engine index found for field {} for segment {}", knnQuery.getField(), reader.getSegmentName());
             return null;
@@ -261,7 +255,7 @@ public class KNNWeight extends Weight {
                         spaceType,
                         knnEngine,
                         knnQuery.getIndexName(),
-                        FieldInfoExtractor.getIndexDescription(fieldInfo)
+                        VectorDataType.get(fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue()))
                     ),
                     knnQuery.getIndexName(),
                     modelId
@@ -285,16 +279,29 @@ public class KNNWeight extends Weight {
             }
             int[] parentIds = getParentIdsArray(context);
             if (knnQuery.getK() > 0) {
-                results = JNIService.queryIndex(
-                    indexAllocation.getMemoryAddress(),
-                    knnQuery.getQueryVector(),
-                    knnQuery.getK(),
-                    knnQuery.getMethodParameters(),
-                    knnEngine,
-                    filterIds,
-                    filterType.getValue(),
-                    parentIds
-                );
+                if (knnQuery.getVectorDataType() == VectorDataType.BINARY) {
+                    results = JNIService.queryBinaryIndex(
+                        indexAllocation.getMemoryAddress(),
+                        knnQuery.getByteQueryVector(),
+                        knnQuery.getK(),
+                        knnQuery.getMethodParameters(),
+                        knnEngine,
+                        filterIds,
+                        filterType.getValue(),
+                        parentIds
+                    );
+                } else {
+                    results = JNIService.queryIndex(
+                        indexAllocation.getMemoryAddress(),
+                        knnQuery.getQueryVector(),
+                        knnQuery.getK(),
+                        knnQuery.getMethodParameters(),
+                        knnEngine,
+                        filterIds,
+                        filterType.getValue(),
+                        parentIds
+                    );
+                }
             } else {
                 results = JNIService.radiusQueryIndex(
                     indexAllocation.getMemoryAddress(),
@@ -330,13 +337,32 @@ public class KNNWeight extends Weight {
             .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
     }
 
+    @VisibleForTesting
+    List<String> getEngineFiles(SegmentReader reader, String extension) throws IOException {
+        /*
+         * In case of compound file, extension would be <engine-extension> + c otherwise <engine-extension>
+         */
+        String engineExtension = reader.getSegmentInfo().info.getUseCompoundFile()
+            ? extension + KNNConstants.COMPOUND_EXTENSION
+            : extension;
+        String engineSuffix = knnQuery.getField() + engineExtension;
+        String underLineEngineSuffix = "_" + engineSuffix;
+        List<String> engineFiles = reader.getSegmentInfo()
+            .files()
+            .stream()
+            .filter(fileName -> fileName.endsWith(underLineEngineSuffix))
+            .sorted(Comparator.comparingInt(String::length))
+            .collect(Collectors.toList());
+        return engineFiles;
+    }
+
     private Map<Integer, Float> doExactSearch(final LeafReaderContext leafReaderContext, final BitSet filterIdsBitSet, int cardinality) {
         try {
             // Creating min heap and init with MAX DocID and Score as -INF.
             final HitQueue queue = new HitQueue(Math.min(this.knnQuery.getK(), cardinality), true);
             ScoreDoc topDoc = queue.top();
             final Map<Integer, Float> docToScore = new HashMap<>();
-            FilteredIdsKNNIterator iterator = getFilteredKNNIterator(leafReaderContext, filterIdsBitSet);
+            KNNIterator iterator = getFilteredKNNIterator(leafReaderContext, filterIdsBitSet);
             int docId;
             while ((docId = iterator.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
                 if (iterator.score() > topDoc.score) {
@@ -367,21 +393,32 @@ public class KNNWeight extends Weight {
         return Collections.emptyMap();
     }
 
-    private FilteredIdsKNNIterator getFilteredKNNIterator(final LeafReaderContext leafReaderContext, final BitSet filterIdsBitSet)
-        throws IOException {
-        final SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(leafReaderContext.reader());
+    private KNNIterator getFilteredKNNIterator(final LeafReaderContext leafReaderContext, final BitSet filterIdsBitSet) throws IOException {
+        final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
         final BinaryDocValues values = DocValues.getBinary(leafReaderContext.reader(), fieldInfo.getName());
         final SpaceType spaceType = getSpaceType(fieldInfo);
-        return knnQuery.getParentsFilter() == null
-            ? new FilteredIdsKNNIterator(filterIdsBitSet, knnQuery.getQueryVector(), values, spaceType)
-            : new NestedFilteredIdsKNNIterator(
-                filterIdsBitSet,
-                knnQuery.getQueryVector(),
-                values,
-                spaceType,
-                knnQuery.getParentsFilter().getBitSet(leafReaderContext)
-            );
+        if (VectorDataType.BINARY == knnQuery.getVectorDataType()) {
+            return knnQuery.getParentsFilter() == null
+                ? new FilteredIdsKNNByteIterator(filterIdsBitSet, knnQuery.getByteQueryVector(), values, spaceType)
+                : new NestedFilteredIdsKNNByteIterator(
+                    filterIdsBitSet,
+                    knnQuery.getByteQueryVector(),
+                    values,
+                    spaceType,
+                    knnQuery.getParentsFilter().getBitSet(leafReaderContext)
+                );
+        } else {
+            return knnQuery.getParentsFilter() == null
+                ? new FilteredIdsKNNIterator(filterIdsBitSet, knnQuery.getQueryVector(), values, spaceType)
+                : new NestedFilteredIdsKNNIterator(
+                    filterIdsBitSet,
+                    knnQuery.getQueryVector(),
+                    values,
+                    spaceType,
+                    knnQuery.getParentsFilter().getBitSet(leafReaderContext)
+                );
+        }
     }
 
     private Scorer convertSearchResponseToScorer(final Map<Integer, Float> docsToScore) throws IOException {

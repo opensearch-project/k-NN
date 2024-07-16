@@ -81,7 +81,7 @@ namespace knn_jni {
                                                  jbyteArray queryVectorJ, jint kJ, jobject methodParamsJ, jlongArray filterIdsJ, jint filterIdsTypeJ, jintArray parentIdsJ);
 
         // Free the index located in memory at indexPointerJ
-        void Free(jlong indexPointer);
+        void Free(jlong indexPointer, jboolean isBinaryIndexJ);
 
         // Free shared index state in memory at shareIndexStatePointerJ
         void FreeSharedIndexState(jlong shareIndexStatePointerJ);

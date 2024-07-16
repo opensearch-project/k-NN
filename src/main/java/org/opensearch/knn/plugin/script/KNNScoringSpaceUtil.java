@@ -56,6 +56,16 @@ public class KNNScoringSpaceUtil {
     }
 
     /**
+     * Check if the KNN field type is a binary vector data type
+     *
+     * @param fieldType KNN vector field type
+     * @return true if the KNN field type is a binary vector data type
+     */
+    public static boolean isBinaryVectorDataType(final KNNVectorFieldMapper.KNNVectorFieldType fieldType) {
+        return VectorDataType.BINARY == fieldType.getVectorDataType();
+    }
+
+    /**
      * Convert an Object to a Long.
      *
      * @param object Object to be parsed to a Long
@@ -87,15 +97,15 @@ public class KNNScoringSpaceUtil {
      * Convert an Object to a float array.
      *
      * @param object Object to be converted to a float array
-     * @param expectedDimensions int representing the expected dimension of this array.
+     * @param expectedVectorLength int representing the expected vector length of this array.
      * @return float[] of the object
      */
-    public static float[] parseToFloatArray(Object object, int expectedDimensions, VectorDataType vectorDataType) {
+    public static float[] parseToFloatArray(Object object, int expectedVectorLength, VectorDataType vectorDataType) {
         float[] floatArray = convertVectorToPrimitive(object, vectorDataType);
-        if (expectedDimensions != floatArray.length) {
+        if (expectedVectorLength != floatArray.length) {
             KNNCounter.SCRIPT_QUERY_ERRORS.increment();
             throw new IllegalStateException(
-                "Object's dimension=" + floatArray.length + " does not match the " + "expected dimension=" + expectedDimensions + "."
+                "Object's length=" + floatArray.length + " does not match the " + "expected length=" + expectedVectorLength + "."
             );
         }
         return floatArray;
@@ -115,8 +125,8 @@ public class KNNScoringSpaceUtil {
             primitiveVector = new float[tmp.size()];
             for (int i = 0; i < primitiveVector.length; i++) {
                 float value = tmp.get(i).floatValue();
-                if (VectorDataType.BYTE == vectorDataType) {
-                    validateByteVectorValue(value);
+                if (VectorDataType.BYTE == vectorDataType || VectorDataType.BINARY == vectorDataType) {
+                    validateByteVectorValue(value, vectorDataType);
                 }
                 primitiveVector[i] = value;
             }

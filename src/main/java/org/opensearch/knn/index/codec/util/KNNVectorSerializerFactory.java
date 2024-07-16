@@ -6,10 +6,9 @@
 package org.opensearch.knn.index.codec.util;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.lucene.util.BytesRef;
 
-import java.io.ByteArrayInputStream;
 import java.io.ObjectStreamConstants;
-import java.util.Arrays;
 import java.util.Map;
 
 import static org.opensearch.knn.index.codec.util.SerializationMode.ARRAY;
@@ -51,25 +50,24 @@ public class KNNVectorSerializerFactory {
         return getSerializerBySerializationMode(COLLECTION_OF_FLOATS);
     }
 
-    public static KNNVectorSerializer getSerializerByStreamContent(final ByteArrayInputStream byteStream) {
-        final SerializationMode serializationMode = serializerModeFromStream(byteStream);
+    public static KNNVectorSerializer getSerializerByBytesRef(final BytesRef bytesRef) {
+        final SerializationMode serializationMode = getSerializerModeFromBytesRef(bytesRef);
         return getSerializerBySerializationMode(serializationMode);
     }
 
-    static SerializationMode serializerModeFromStream(ByteArrayInputStream byteStream) {
-        int numberOfAvailableBytesInStream = byteStream.available();
-        if (numberOfAvailableBytesInStream < ARRAY_HEADER_OFFSET) {
-            return getSerializerOrThrowError(numberOfAvailableBytesInStream, COLLECTION_OF_FLOATS);
+    public static SerializationMode getSerializerModeFromBytesRef(BytesRef bytesRef) {
+        int numberOfAvailableBytes = bytesRef.length;
+        if (numberOfAvailableBytes < ARRAY_HEADER_OFFSET) {
+            return getSerializerOrThrowError(numberOfAvailableBytes, COLLECTION_OF_FLOATS);
         }
-        final byte[] byteArray = new byte[SERIALIZATION_PROTOCOL_HEADER_PREFIX.length];
-        byteStream.read(byteArray, 0, SERIALIZATION_PROTOCOL_HEADER_PREFIX.length);
-        byteStream.reset();
-        // checking if stream protocol grammar in header is valid for serialized array
-        if (Arrays.equals(SERIALIZATION_PROTOCOL_HEADER_PREFIX, byteArray)) {
-            int numberOfAvailableBytesAfterHeader = numberOfAvailableBytesInStream - ARRAY_HEADER_OFFSET;
-            return getSerializerOrThrowError(numberOfAvailableBytesAfterHeader, ARRAY);
+
+        for (int i = 0; i < SERIALIZATION_PROTOCOL_HEADER_PREFIX.length; i++) {
+            if (bytesRef.bytes[i + bytesRef.offset] != SERIALIZATION_PROTOCOL_HEADER_PREFIX[i]) {
+                return getSerializerOrThrowError(numberOfAvailableBytes, COLLECTION_OF_FLOATS);
+            }
         }
-        return getSerializerOrThrowError(numberOfAvailableBytesInStream, COLLECTION_OF_FLOATS);
+        int numberOfAvailableBytesAfterHeader = numberOfAvailableBytes - ARRAY_HEADER_OFFSET;
+        return getSerializerOrThrowError(numberOfAvailableBytesAfterHeader, ARRAY);
     }
 
     private static SerializationMode getSerializerOrThrowError(int numberOfRemainingBytes, final SerializationMode serializationMode) {

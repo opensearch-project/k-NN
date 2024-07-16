@@ -7,17 +7,16 @@ package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.apache.http.util.EntityUtils;
 import lombok.SneakyThrows;
 import org.apache.commons.lang.math.RandomUtils;
-import org.apache.lucene.index.VectorSimilarityFunction;
+import org.apache.http.util.EntityUtils;
 import org.apache.lucene.util.VectorUtil;
 import org.junit.After;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
 import org.opensearch.common.Nullable;
-import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
@@ -64,14 +63,14 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
     private static final float[][] TEST_QUERY_VECTORS = { { 1.0f, 1.0f, 1.0f }, { 2.0f, 2.0f, 2.0f }, { 3.0f, 3.0f, 3.0f } };
 
-    private static final Map<VectorSimilarityFunction, Function<Float, Float>> VECTOR_SIMILARITY_TO_SCORE = ImmutableMap.of(
-        VectorSimilarityFunction.EUCLIDEAN,
+    private static final Map<KNNVectorSimilarityFunction, Function<Float, Float>> VECTOR_SIMILARITY_TO_SCORE = ImmutableMap.of(
+        KNNVectorSimilarityFunction.EUCLIDEAN,
         (similarity) -> 1 / (1 + similarity),
-        VectorSimilarityFunction.DOT_PRODUCT,
+        KNNVectorSimilarityFunction.DOT_PRODUCT,
         (similarity) -> (1 + similarity) / 2,
-        VectorSimilarityFunction.COSINE,
+        KNNVectorSimilarityFunction.COSINE,
         (similarity) -> (1 + similarity) / 2,
-        VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
+        KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT,
         (similarity) -> similarity <= 0 ? 1 / (1 - similarity) : similarity + 1
     );
     private static final String DIMENSION_FIELD_NAME = "dimension";
@@ -520,7 +519,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             for (int j = 0; j < k; j++) {
                 float[] primitiveArray = knnResults.get(j).getVector();
                 float distance = TestUtils.computeDistFromSpaceType(spaceType, primitiveArray, queryVector);
-                float rawScore = VECTOR_SIMILARITY_TO_SCORE.get(spaceType.getVectorSimilarityFunction()).apply(distance);
+                float rawScore = VECTOR_SIMILARITY_TO_SCORE.get(spaceType.getKnnVectorSimilarityFunction()).apply(distance);
                 assertEquals(KNNEngine.LUCENE.score(rawScore, spaceType), actualScores.get(j), 0.0001);
             }
         }
@@ -690,7 +689,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             for (KNNResult result : radiusResults) {
                 float[] vector = result.getVector();
                 float distance = TestUtils.computeDistFromSpaceType(spaceType, vector, searchVectors[i]);
-                float rawScore = VECTOR_SIMILARITY_TO_SCORE.get(spaceType.getVectorSimilarityFunction()).apply(distance);
+                float rawScore = VECTOR_SIMILARITY_TO_SCORE.get(spaceType.getKnnVectorSimilarityFunction()).apply(distance);
                 if (spaceType == SpaceType.COSINESIMIL) {
                     distance = 1 - distance;
                 }

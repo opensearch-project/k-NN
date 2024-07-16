@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.index.memory;
 
+import lombok.Getter;
 import org.apache.lucene.index.LeafReaderContext;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.jni.JNICommons;
@@ -87,12 +88,17 @@ public interface NativeMemoryAllocation {
         private final long memoryAddress;
         private final int size;
         private volatile boolean closed;
+        @Getter
         private final KNNEngine knnEngine;
+        @Getter
         private final String indexPath;
+        @Getter
         private final String openSearchIndexName;
         private final ReadWriteLock readWriteLock;
         private final WatcherHandle<FileWatcher> watcherHandle;
         private final SharedIndexState sharedIndexState;
+        @Getter
+        private final boolean isBinaryIndex;
 
         /**
          * Constructor
@@ -114,7 +120,7 @@ public interface NativeMemoryAllocation {
             String openSearchIndexName,
             WatcherHandle<FileWatcher> watcherHandle
         ) {
-            this(executorService, memoryAddress, size, knnEngine, indexPath, openSearchIndexName, watcherHandle, null);
+            this(executorService, memoryAddress, size, knnEngine, indexPath, openSearchIndexName, watcherHandle, null, false);
         }
 
         /**
@@ -137,7 +143,8 @@ public interface NativeMemoryAllocation {
             String indexPath,
             String openSearchIndexName,
             WatcherHandle<FileWatcher> watcherHandle,
-            SharedIndexState sharedIndexState
+            SharedIndexState sharedIndexState,
+            boolean isBinaryIndex
         ) {
             this.executor = executorService;
             this.closed = false;
@@ -149,6 +156,7 @@ public interface NativeMemoryAllocation {
             this.size = size;
             this.watcherHandle = watcherHandle;
             this.sharedIndexState = sharedIndexState;
+            this.isBinaryIndex = isBinaryIndex;
         }
 
         @Override
@@ -171,7 +179,7 @@ public interface NativeMemoryAllocation {
 
             // memoryAddress is sometimes initialized to 0. If this is ever the case, freeing will surely fail.
             if (memoryAddress != 0) {
-                JNIService.free(memoryAddress, knnEngine);
+                JNIService.free(memoryAddress, knnEngine, isBinaryIndex);
             }
 
             if (sharedIndexState != null) {
@@ -222,33 +230,6 @@ public interface NativeMemoryAllocation {
         @Override
         public int getSizeInKB() {
             return size;
-        }
-
-        /**
-         * Getter for k-NN Engine associated with this index allocation.
-         *
-         * @return KNNEngine associated with index allocation
-         */
-        public KNNEngine getKnnEngine() {
-            return knnEngine;
-        }
-
-        /**
-         * Getter for the path to the file from which the index was loaded.
-         *
-         * @return indexPath to index
-         */
-        public String getIndexPath() {
-            return indexPath;
-        }
-
-        /**
-         * Getter for the OpenSearch index associated with the native index.
-         *
-         * @return OpenSearch index name
-         */
-        public String getOpenSearchIndexName() {
-            return openSearchIndexName;
         }
     }
 

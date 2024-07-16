@@ -10,12 +10,12 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FilterLeafReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
+import org.opensearch.common.lucene.Lucene;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -23,7 +23,6 @@ import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
-import org.opensearch.knn.index.util.FieldInfoExtractor;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
@@ -37,6 +36,7 @@ import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFilePrefix;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileSuffix;
@@ -98,7 +98,7 @@ public class KNNIndexShard {
                                 engineFileContext.getSpaceType(),
                                 KNNEngine.getEngineNameFromPath(engineFileContext.getIndexPath()),
                                 getIndexName(),
-                                engineFileContext.indexDescription
+                                engineFileContext.getVectorDataType()
                             ),
                             getIndexName(),
                             engineFileContext.getModelId()
@@ -160,7 +160,7 @@ public class KNNIndexShard {
         List<EngineFileContext> engineFiles = new ArrayList<>();
 
         for (LeafReaderContext leafReaderContext : indexReader.leaves()) {
-            SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(leafReaderContext.reader());
+            SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
             Path shardPath = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory();
             String fileExtension = reader.getSegmentInfo().info.getUseCompoundFile()
                 ? knnEngine.getCompoundExtension()
@@ -182,7 +182,7 @@ public class KNNIndexShard {
                             shardPath,
                             spaceType,
                             modelId,
-                            FieldInfoExtractor.getIndexDescription(fieldInfo)
+                            VectorDataType.get(fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue()))
                         )
                     );
                 }
@@ -200,7 +200,7 @@ public class KNNIndexShard {
         Path shardPath,
         SpaceType spaceType,
         String modelId,
-        String indexDescription
+        VectorDataType vectorDataType
     ) {
         String prefix = buildEngineFilePrefix(segmentName);
         String suffix = buildEngineFileSuffix(fieldName, fileExtension);
@@ -208,7 +208,7 @@ public class KNNIndexShard {
             .filter(fileName -> fileName.startsWith(prefix))
             .filter(fileName -> fileName.endsWith(suffix))
             .map(fileName -> shardPath.resolve(fileName).toString())
-            .map(fileName -> new EngineFileContext(spaceType, modelId, fileName, indexDescription))
+            .map(fileName -> new EngineFileContext(spaceType, modelId, fileName, vectorDataType))
             .collect(Collectors.toList());
     }
 
@@ -219,6 +219,6 @@ public class KNNIndexShard {
         private final SpaceType spaceType;
         private final String modelId;
         private final String indexPath;
-        private final String indexDescription;
+        private final VectorDataType vectorDataType;
     }
 }
