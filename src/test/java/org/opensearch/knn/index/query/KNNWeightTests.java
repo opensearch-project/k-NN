@@ -90,6 +90,11 @@ public class KNNWeightTests extends KNNTestCase {
     private static final int K = 5;
     private static final Set<String> SEGMENT_FILES_NMSLIB = Set.of("_0.cfe", "_0_2011_target_field.hnswc");
     private static final Set<String> SEGMENT_FILES_FAISS = Set.of("_0.cfe", "_0_2011_target_field.faissc");
+    private static final Set<String> SEGMENT_MULTI_FIELD_FILES_FAISS = Set.of(
+        "_0.cfe",
+        "_0_2011_target_field.faissc",
+        "_0_2011_long_target_field.faissc"
+    );
     private static final String CIRCUIT_BREAKER_LIMIT_100KB = "100Kb";
     private static final Integer EF_SEARCH = 10;
     private static final Map<String, ?> HNSW_METHOD_PARAMETERS = Map.of(METHOD_PARAMETER_EF_SEARCH, EF_SEARCH);
@@ -173,6 +178,20 @@ public class KNNWeightTests extends KNNTestCase {
         testQueryScore(
             rawScore -> SpaceType.INNER_PRODUCT.scoreTranslation(-1 * rawScore),
             SEGMENT_FILES_FAISS,
+            Map.of(
+                SPACE_TYPE,
+                SpaceType.INNER_PRODUCT.getValue(),
+                KNN_ENGINE,
+                KNNEngine.FAISS.getName(),
+                PARAMETERS,
+                String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
+            )
+        );
+
+        // multi field
+        testQueryScore(
+            rawScore -> SpaceType.INNER_PRODUCT.scoreTranslation(-1 * rawScore),
+            SEGMENT_MULTI_FIELD_FILES_FAISS,
             Map.of(
                 SPACE_TYPE,
                 SpaceType.INNER_PRODUCT.getValue(),
@@ -1184,6 +1203,12 @@ public class KNNWeightTests extends KNNTestCase {
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
         when(fieldInfo.attributes()).thenReturn(fileAttributes);
+
+        String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, KNNEngine.NMSLIB.getName());
+        KNNEngine knnEngine = KNNEngine.getEngine(engineName);
+        List<String> engineFiles = knnWeight.getEngineFiles(reader, knnEngine.getExtension());
+        String expectIndexPath = String.format("%s_%s_%s%s%s", SEGMENT_NAME, 2011, FIELD_NAME, knnEngine.getExtension(), "c");
+        assertEquals(engineFiles.get(0), expectIndexPath);
 
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
