@@ -7,10 +7,10 @@ package org.opensearch.knn.index.codec.transfer;
 
 import junit.framework.TestCase;
 import lombok.SneakyThrows;
+import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.codec.util.SerializationMode;
 import org.opensearch.knn.jni.JNICommons;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Random;
 
@@ -19,17 +19,17 @@ import static org.junit.Assert.assertNotEquals;
 public class VectorTransferByteTests extends TestCase {
     @SneakyThrows
     public void testTransfer_whenCalled_thenAdded() {
-        final ByteArrayInputStream bais1 = getByteArrayOfVectors(20);
-        final ByteArrayInputStream bais2 = getByteArrayOfVectors(20);
+        final BytesRef bytesRef1 = getByteArrayOfVectors(20);
+        final BytesRef bytesRef2 = getByteArrayOfVectors(20);
         VectorTransferByte vectorTransfer = new VectorTransferByte(1000);
         try {
             vectorTransfer.init(2);
 
-            vectorTransfer.transfer(bais1);
+            vectorTransfer.transfer(bytesRef1);
             // flush is not called
             assertEquals(0, vectorTransfer.getVectorAddress());
 
-            vectorTransfer.transfer(bais2);
+            vectorTransfer.transfer(bytesRef2);
             // flush should be called
             assertNotEquals(0, vectorTransfer.getVectorAddress());
         } finally {
@@ -41,16 +41,16 @@ public class VectorTransferByteTests extends TestCase {
 
     @SneakyThrows
     public void testSerializationMode_whenCalled_thenReturn() {
-        final ByteArrayInputStream bais = getByteArrayOfVectors(20);
+        final BytesRef bytesRef = getByteArrayOfVectors(20);
         VectorTransferByte vectorTransfer = new VectorTransferByte(1000);
 
         // Verify
-        assertEquals(SerializationMode.COLLECTIONS_OF_BYTES, vectorTransfer.getSerializationMode(bais));
+        assertEquals(SerializationMode.COLLECTIONS_OF_BYTES, vectorTransfer.getSerializationMode(bytesRef));
     }
 
-    private ByteArrayInputStream getByteArrayOfVectors(int vectorLength) throws IOException {
+    private BytesRef getByteArrayOfVectors(int vectorLength) throws IOException {
         byte[] vector = new byte[vectorLength];
         new Random().nextBytes(vector);
-        return new ByteArrayInputStream(vector);
+        return new BytesRef(vector);
     }
 }
