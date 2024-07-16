@@ -10,12 +10,12 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FilterLeafReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
+import org.opensearch.common.lucene.Lucene;
 import org.opensearch.index.engine.Engine;
 import org.opensearch.index.shard.IndexShard;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -160,7 +160,7 @@ public class KNNIndexShard {
         List<EngineFileContext> engineFiles = new ArrayList<>();
 
         for (LeafReaderContext leafReaderContext : indexReader.leaves()) {
-            SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(leafReaderContext.reader());
+            SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
             Path shardPath = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory();
             String fileExtension = reader.getSegmentInfo().info.getUseCompoundFile()
                 ? knnEngine.getCompoundExtension()

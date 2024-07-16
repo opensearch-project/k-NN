@@ -235,7 +235,11 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     protected Response performSearch(final String indexName, final String query) throws IOException {
-        Request request = new Request("POST", "/" + indexName + "/_search");
+        return performSearch(indexName, query, "");
+    }
+
+    protected Response performSearch(final String indexName, final String query, final String urlParameters) throws IOException {
+        Request request = new Request("POST", "/" + indexName + "/_search?" + urlParameters);
         request.setJsonEntity(query);
 
         Response response = client().performRequest(request);
@@ -665,6 +669,35 @@ public class KNNRestTestCase extends ODFERestTestCase {
      */
     protected Settings getKNNDefaultIndexSettings() {
         return Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", true).build();
+    }
+
+    protected Settings getKNNSegmentReplicatedIndexSettings() {
+        return Settings.builder()
+            .put("number_of_shards", 1)
+            .put("number_of_replicas", 1)
+            .put("index.knn", true)
+            .put("index.replication.type", "SEGMENT")
+            .build();
+    }
+
+    @SneakyThrows
+    protected int getDataNodeCount() {
+        Request request = new Request("GET", "_nodes/stats?filter_path=nodes.*.roles");
+
+        Response response = client().performRequest(request);
+        assertEquals(RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+        String responseBody = EntityUtils.toString(response.getEntity());
+
+        Map<String, Object> responseMap = createParser(MediaTypeRegistry.getDefaultMediaType().xContent(), responseBody).map();
+        Map<String, Object> nodesInfo = (Map<String, Object>) responseMap.get("nodes");
+        int dataNodeCount = 0;
+        for (String key : nodesInfo.keySet()) {
+            Map<String, List<String>> nodeRoles = (Map<String, List<String>>) nodesInfo.get(key);
+            if (nodeRoles.get("roles").contains("data")) {
+                dataNodeCount++;
+            }
+        }
+        return dataNodeCount;
     }
 
     /**
