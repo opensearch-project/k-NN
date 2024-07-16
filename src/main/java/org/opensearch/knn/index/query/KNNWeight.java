@@ -11,7 +11,6 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.FilterLeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.search.DocIdSetIterator;
@@ -29,6 +28,7 @@ import org.apache.lucene.util.Bits;
 import org.apache.lucene.util.DocIdSetBuilder;
 import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.common.io.PathUtils;
+import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
@@ -203,7 +203,7 @@ public class KNNWeight extends Weight {
 
     private Map<Integer, Float> doANNSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality)
         throws IOException {
-        SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(context.reader());
+        final SegmentReader reader = Lucene.segmentReader(context.reader());
         String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
 
         FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
@@ -394,7 +394,7 @@ public class KNNWeight extends Weight {
     }
 
     private KNNIterator getFilteredKNNIterator(final LeafReaderContext leafReaderContext, final BitSet filterIdsBitSet) throws IOException {
-        final SegmentReader reader = (SegmentReader) FilterLeafReader.unwrap(leafReaderContext.reader());
+        final SegmentReader reader = Lucene.segmentReader(leafReaderContext.reader());
         final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
         final BinaryDocValues values = DocValues.getBinary(leafReaderContext.reader(), fieldInfo.getName());
         final SpaceType spaceType = getSpaceType(fieldInfo);
