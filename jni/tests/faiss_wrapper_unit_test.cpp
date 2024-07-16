@@ -20,6 +20,8 @@
 #include "test_util.h"
 #include "faiss/IndexHNSW.h"
 #include "faiss/IndexIDMap.h"
+#include "faiss/IndexIVFFlat.h"
+#include "faiss/IndexIVFPQ.h"
 
 using ::testing::NiceMock;
 
@@ -27,6 +29,46 @@ using idx_t = faiss::idx_t;
 
 struct FaissMockIndex : faiss::IndexHNSW {
     explicit FaissMockIndex(idx_t d) : faiss::IndexHNSW(d, 32) {
+    }
+};
+
+struct MockIVFIndex : faiss::IndexIVFFlat {
+    explicit MockIVFIndex() = default;
+};
+
+struct MockIVFIdMap : faiss::IndexIDMap {
+    mutable idx_t nCalled{};
+    mutable const float *xCalled{};
+    mutable idx_t kCalled{};
+    mutable float *distancesCalled{};
+    mutable idx_t *labelsCalled{};
+    mutable const faiss::SearchParametersIVF *paramsCalled{};
+
+    explicit MockIVFIdMap(MockIVFIndex *index) : faiss::IndexIDMapTemplate<faiss::Index>(index) {
+    }
+
+    void search(
+        idx_t n,
+        const float *x,
+        idx_t k,
+        float *distances,
+        idx_t *labels,
+        const faiss::SearchParameters *params) const override {
+        nCalled = n;
+        xCalled = x;
+        kCalled = k;
+        distancesCalled = distances;
+        labelsCalled = labels;
+        paramsCalled = dynamic_cast<const faiss::SearchParametersIVF *>(params);
+    }
+
+    void resetMock() const {
+        nCalled = 0;
+        xCalled = nullptr;
+        kCalled = 0;
+        distancesCalled = nullptr;
+        labelsCalled = nullptr;
+        paramsCalled = nullptr;
     }
 };
 
@@ -83,13 +125,14 @@ struct FaissMockIdMap : faiss::IndexIDMap {
     }
 };
 
-struct QueryIndexHNSWTestInput {
-    std::string description;
+struct QueryIndexInput {
+    string description;
     int k;
-    int efSearch;
     int filterIdType;
     bool filterIdsPresent;
     bool parentIdsPresent;
+    int efSearch;
+    int nprobe;
 };
 
 struct RangeSearchTestInput {
@@ -101,9 +144,9 @@ struct RangeSearchTestInput {
     bool parentIdsPresent;
 };
 
-class FaissWrappeterParametrizedTestFixture : public testing::TestWithParam<QueryIndexHNSWTestInput> {
+class FaissWrapperParameterizedTestFixture : public testing::TestWithParam<QueryIndexInput> {
 public:
-    FaissWrappeterParametrizedTestFixture() : index_(3), id_map_(&index_) {
+    FaissWrapperParameterizedTestFixture() : index_(3), id_map_(&index_) {
         index_.hnsw.efSearch = 100; // assigning 100 to make sure default of 16 is not used anywhere
     }
 
@@ -112,27 +155,35 @@ protected:
     FaissMockIdMap id_map_;
 };
 
-class FaissWrapperParametrizedRangeSearchTestFixture : public testing::TestWithParam<RangeSearchTestInput> {
+class FaissWrapperParameterizedRangeSearchTestFixture : public testing::TestWithParam<RangeSearchTestInput> {
 public:
-    FaissWrapperParametrizedRangeSearchTestFixture() : index_(3), id_map_(&index_) {
+    FaissWrapperParameterizedRangeSearchTestFixture() : index_(3), id_map_(&index_) {
         index_.hnsw.efSearch = 100; // assigning 100 to make sure default of 16 is not used anywhere
     }
 
 protected:
     FaissMockIndex index_;
     FaissMockIdMap id_map_;
+};
+
+class FaissWrapperIVFQueryTestFixture : public testing::TestWithParam<QueryIndexInput> {
+public:
+    FaissWrapperIVFQueryTestFixture() : ivf_id_map_(&ivf_index_) {
+        ivf_index_.nprobe = 100;
+    };
+
+protected:
+    MockIVFIndex ivf_index_;
+    MockIVFIdMap ivf_id_map_;
 };
 
 namespace query_index_test {
-
-    std::unordered_map<std::string, jobject> methodParams;
-
-    TEST_P(FaissWrappeterParametrizedTestFixture, QueryIndexHNSWTests) {
-        // Given
+    TEST_P(FaissWrapperParameterizedTestFixture, QueryIndexHNSWTests) {
+        //Given
         JNIEnv *jniEnv = nullptr;
         NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
-        QueryIndexHNSWTestInput const &input = GetParam();
+        QueryIndexInput const &input = GetParam();
         float query[] = {1.2, 2.3, 3.4};
 
         int efSearch = input.efSearch;
@@ -184,24 +235,23 @@ namespace query_index_test {
 
     INSTANTIATE_TEST_CASE_P(
         QueryIndexHNSWTests,
-        FaissWrappeterParametrizedTestFixture,
+        FaissWrapperParameterizedTestFixture,
         ::testing::Values(
-            QueryIndexHNSWTestInput{"algoParams present, parent absent", 10, 200, 0, false, false},
-            QueryIndexHNSWTestInput{"algoParams absent, parent absent", 10, -1, 0, false, false},
-            QueryIndexHNSWTestInput{"algoParams present, parent present", 10, 200, 0, false, true},
-            QueryIndexHNSWTestInput{"algoParams absent, parent present", 10, -1, 0, false, true}
+            QueryIndexInput {"algoParams present, parent absent", 10, 0, false, false, 200, -1 },
+            QueryIndexInput {"algoParams present, parent absent", 10, 0, false, false, -1, -1 },
+            QueryIndexInput {"algoParams present, parent present", 10, 0, false, true, 200, -1 },
+            QueryIndexInput {"algoParams absent, parent present", 10, 0, false, true, -1, -1 }
         )
     );
 }
 
 namespace query_index_with_filter_test {
-
-    TEST_P(FaissWrappeterParametrizedTestFixture, QueryIndexWithFilterHNSWTests) {
-        // Given
+    TEST_P(FaissWrapperParameterizedTestFixture, QueryIndexWithFilterHNSWTests) {
+        //Given
         JNIEnv *jniEnv = nullptr;
         NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
-        QueryIndexHNSWTestInput const &input = GetParam();
+        QueryIndexInput const &input = GetParam();
         float query[] = {1.2, 2.3, 3.4};
 
         std::vector<int> *parentIdPtr = nullptr;
@@ -267,23 +317,26 @@ namespace query_index_with_filter_test {
 
     INSTANTIATE_TEST_CASE_P(
         QueryIndexWithFilterHNSWTests,
-        FaissWrappeterParametrizedTestFixture,
+        FaissWrapperParameterizedTestFixture,
         ::testing::Values(
-            QueryIndexHNSWTestInput{"algoParams present, parent absent, filter absent", 10, 200, 0, false, false},
-            QueryIndexHNSWTestInput{"algoParams present, parent absent, filter absent, filter type 1", 10,  200, 1, false, false},
-            QueryIndexHNSWTestInput{"algoParams absent, parent absent, filter present", 10, -1, 0, true, false},
-            QueryIndexHNSWTestInput{"algoParams absent, parent absent, filter present, filter type 1", 10, -1, 1, true, false},
-            QueryIndexHNSWTestInput{"algoParams present, parent present, filter absent", 10, 200, 0, false, true},
-            QueryIndexHNSWTestInput{"algoParams present, parent present, filter absent, filter type 1", 10, 150, 1, false, true},
-            QueryIndexHNSWTestInput{"algoParams absent, parent present, filter present", 10, -1, 0, true, true},
-            QueryIndexHNSWTestInput{"algoParams absent, parent present, filter present, filter type 1",10, -1, 1, true, true}
+            QueryIndexInput { "algoParams present, parent absent, filter absent", 10, 0, false, false, 200, -1 },
+            QueryIndexInput { "algoParams present, parent absent, filter absent, filter type 1", 10, 1, false, false,
+            200, -1},
+            QueryIndexInput { "algoParams absent, parent absent, filter present", 10, 0, true, false, -1, -1},
+            QueryIndexInput { "algoParams absent, parent absent, filter present, filter type 1", 10, 1, true, false, -1,
+            -1},
+            QueryIndexInput { "algoParams present, parent present, filter absent", 10, 0, false, true, 200, -1 },
+            QueryIndexInput { "algoParams present, parent present, filter absent, filter type 1", 10, 1, false, true,
+            150, -1},
+            QueryIndexInput { "algoParams absent, parent present, filter present", 10, 0, true, true, -1, -1},
+            QueryIndexInput { "algoParams absent, parent present, filter present, filter type 1",10, 1, true, true, -1,
+            -1 }
         )
     );
 }
 
 namespace range_search_test {
-
-    TEST_P(FaissWrapperParametrizedRangeSearchTestFixture, RangeSearchHNSWTests) {
+    TEST_P(FaissWrapperParameterizedRangeSearchTestFixture, RangeSearchHNSWTests) {
         // Given
         JNIEnv *jniEnv = nullptr;
         NiceMock<test_util::MockJNIUtil> mockJNIUtil;
@@ -323,6 +376,7 @@ namespace range_search_test {
         std::vector<long> filter;
         std::vector<long> *filterptr = nullptr;
         if (input.filterIdsPresent) {
+            std::vector<long> filter;
             filter.reserve(2);
             filter.push_back(1);
             filter.push_back(2);
@@ -356,16 +410,79 @@ namespace range_search_test {
 
     INSTANTIATE_TEST_CASE_P(
         RangeSearchHNSWTests,
-        FaissWrapperParametrizedRangeSearchTestFixture,
+        FaissWrapperParameterizedRangeSearchTestFixture,
         ::testing::Values(
             RangeSearchTestInput{"algoParams present, parent absent, filter absent", 10.0f, 200, 0, false, false},
-            RangeSearchTestInput{"algoParams present, parent absent, filter absent, filter type 1", 10.0f, 200, 1, false, false},
+            RangeSearchTestInput{"algoParams present, parent absent, filter absent, filter type 1", 10.0f, 200, 1, false
+            , false},
             RangeSearchTestInput{"algoParams absent, parent absent, filter present", 10.0f, -1, 0, true, false},
-            RangeSearchTestInput{"algoParams absent, parent absent, filter present, filter type 1", 10.0f, -1, 1, true, false},
+            RangeSearchTestInput{"algoParams absent, parent absent, filter present, filter type 1", 10.0f, -1, 1, true,
+            false},
             RangeSearchTestInput{"algoParams present, parent present, filter absent", 10.0f, 200, 0, false, true},
-            RangeSearchTestInput{"algoParams present, parent present, filter absent, filter type 1", 10.0f, 150, 1, false, true},
+            RangeSearchTestInput{"algoParams present, parent present, filter absent, filter type 1", 10.0f, 150, 1,
+            false, true},
             RangeSearchTestInput{"algoParams absent, parent present, filter present", 10.0f, -1, 0, true, true},
-            RangeSearchTestInput{"algoParams absent, parent present, filter present, filter type 1", 10.0f, -1, 1, true, true}
+            RangeSearchTestInput{"algoParams absent, parent present, filter present, filter type 1", 10.0f, -1, 1, true,
+            true}
+        )
+    );
+}
+
+namespace query_index_with_filter_test_ivf {
+    TEST_P(FaissWrapperIVFQueryTestFixture, QueryIndexIVFTest) {
+        //Given
+        JNIEnv *jniEnv = nullptr;
+        NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+        QueryIndexInput const &input = GetParam();
+        float query[] = {1.2, 2.3, 3.4};
+
+        int nprobe = input.nprobe;
+        int expectedNprobe = 100; //default set in mock
+        std::unordered_map<std::string, jobject> methodParams;
+        if (nprobe != -1) {
+            expectedNprobe = input.nprobe;
+            methodParams[knn_jni::NPROBES] = reinterpret_cast<jobject>(&nprobe);
+        }
+
+        std::vector<long> *filterptr = nullptr;
+        if (input.filterIdsPresent) {
+            std::vector<long> filter;
+            filter.reserve(2);
+            filter.push_back(1);
+            filter.push_back(2);
+            filterptr = &filter;
+        }
+
+        // When
+        knn_jni::faiss_wrapper::QueryIndex_WithFilter(
+            &mockJNIUtil, jniEnv,
+            reinterpret_cast<jlong>(&ivf_id_map_),
+            reinterpret_cast<jfloatArray>(&query), input.k, reinterpret_cast<jobject>(&methodParams),
+            reinterpret_cast<jlongArray>(filterptr),
+            input.filterIdType,
+            nullptr);
+
+        //Then
+        int actualEfSearch = ivf_id_map_.paramsCalled->nprobe;
+        // Asserting the captured argument
+        EXPECT_EQ(input.k, ivf_id_map_.kCalled);
+        EXPECT_EQ(expectedNprobe, actualEfSearch);
+        if (input.parentIdsPresent) {
+            faiss::IDGrouper *grouper = ivf_id_map_.paramsCalled->grp;
+            EXPECT_TRUE(grouper != nullptr);
+        }
+        ivf_id_map_.resetMock();
+    }
+
+    INSTANTIATE_TEST_CASE_P(
+        QueryIndexIVFTest,
+        FaissWrapperIVFQueryTestFixture,
+        ::testing::Values(
+            QueryIndexInput{"algoParams present, parent absent", 10, 0, false, false, -1, 200 },
+            QueryIndexInput{"algoParams present, parent absent", 10,0, false, false, -1, -1 },
+            QueryIndexInput{"algoParams present, parent present", 10, 0, true, true, -1, 200 },
+            QueryIndexInput{"algoParams absent, parent present", 10, 0, true, true, -1, -1 }
         )
     );
 }

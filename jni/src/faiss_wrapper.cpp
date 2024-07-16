@@ -319,7 +319,6 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
     if (methodParamsJ != nullptr) {
         methodParams = jniUtil->ConvertJavaMapToCppMap(env, methodParamsJ);
     }
-
     // The ids vector will hold the top k ids from the search and the dis vector will hold the top k distances from
     // the query point
     std::vector<float> dis(kJ);
@@ -358,7 +357,10 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
         } else {
             auto ivfReader = dynamic_cast<const faiss::IndexIVF*>(indexReader->index);
             auto ivfFlatReader = dynamic_cast<const faiss::IndexIVFFlat*>(indexReader->index);
+            
             if(ivfReader || ivfFlatReader) {
+                int indexNprobe = ivfReader == nullptr ? ivfFlatReader->nprobe : ivfReader->nprobe;
+                ivfParams.nprobe = commons::getIntegerMethodParameter(env, jniUtil, methodParams, NPROBES, indexNprobe);
                 ivfParams.sel = idSelector.get();
                 searchParameters = &ivfParams;
             }
@@ -374,10 +376,11 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
     } else {
         faiss::SearchParameters *searchParameters = nullptr;
         faiss::SearchParametersHNSW hnswParams;
+        faiss::SearchParametersIVF ivfParams;
         std::unique_ptr<faiss::IDGrouperBitmap> idGrouper;
         std::vector<uint64_t> idGrouperBitmap;
         auto hnswReader = dynamic_cast<const faiss::IndexHNSW*>(indexReader->index);
-        if(hnswReader!= nullptr) {
+        if(hnswReader != nullptr) {
             // Query param efsearch supersedes ef_search provided during index setting.
             hnswParams.efSearch = knn_jni::commons::getIntegerMethodParameter(env, jniUtil, methodParams, EF_SEARCH, hnswReader->hnsw.efSearch);
             if (parentIdsJ != nullptr) {
@@ -385,6 +388,13 @@ jobjectArray knn_jni::faiss_wrapper::QueryIndex_WithFilter(knn_jni::JNIUtilInter
                 hnswParams.grp = idGrouper.get();
             }
             searchParameters = &hnswParams;
+        } else {
+            auto ivfReader = dynamic_cast<const faiss::IndexIVF*>(indexReader->index);
+            if (ivfReader) {
+                int indexNprobe = ivfReader->nprobe;
+                ivfParams.nprobe = commons::getIntegerMethodParameter(env, jniUtil, methodParams, NPROBES, indexNprobe);
+                searchParameters = &ivfParams;
+            }
         }
         try {
             indexReader->search(1, rawQueryvector, kJ, dis.data(), ids.data(), searchParameters);
