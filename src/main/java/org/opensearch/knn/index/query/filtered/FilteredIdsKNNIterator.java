@@ -14,7 +14,6 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 /**
@@ -23,7 +22,7 @@ import java.io.IOException;
  *
  * The class is used in KNNWeight to score filtered KNN field by iterating filterIdsArray.
  */
-public class FilteredIdsKNNIterator {
+public class FilteredIdsKNNIterator implements KNNIterator {
     // Array of doc ids to iterate
     protected final BitSet filterIdsBitSet;
     protected final BitSetIterator bitSetIterator;
@@ -53,6 +52,7 @@ public class FilteredIdsKNNIterator {
      *
      * @return next doc id
      */
+    @Override
     public int nextDoc() throws IOException {
 
         if (docId == DocIdSetIterator.NO_MORE_DOCS) {
@@ -64,17 +64,17 @@ public class FilteredIdsKNNIterator {
         return doc;
     }
 
+    @Override
     public float score() {
         return currentScore;
     }
 
     protected float computeScore() throws IOException {
         final BytesRef value = binaryDocValues.binaryValue();
-        final ByteArrayInputStream byteStream = new ByteArrayInputStream(value.bytes, value.offset, value.length);
-        final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
-        final float[] vector = vectorSerializer.byteToFloatArray(byteStream);
+        final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByBytesRef(value);
+        final float[] vector = vectorSerializer.byteToFloatArray(value);
         // Calculates a similarity score between the two vectors with a specified function. Higher similarity
         // scores correspond to closer vectors.
-        return spaceType.getVectorSimilarityFunction().compare(queryVector, vector);
+        return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
     }
 }

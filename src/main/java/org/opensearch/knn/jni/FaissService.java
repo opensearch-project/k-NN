@@ -203,9 +203,28 @@ class FaissService {
     );
 
     /**
+     * Query a binary index with filter
+     *
+     * @param indexPointer pointer to index in memory
+     * @param queryVector vector to be used for query
+     * @param k neighbors to be returned
+     * @param filterIds list of doc ids to include in the query result
+     * @param parentIds list of parent doc ids when the knn field is a nested field
+     * @return KNNQueryResult array of k neighbors
+     */
+    public static native KNNQueryResult[] queryBinaryIndexWithFilter(
+        long indexPointer,
+        byte[] queryVector,
+        int k,
+        long[] filterIds,
+        int filterIdsType,
+        int[] parentIds
+    );
+
+    /**
      * Free native memory pointer
      */
-    public static native void free(long indexPointer);
+    public static native void free(long indexPointer, boolean isBinary);
 
     /**
      * Deallocate memory of the shared index state

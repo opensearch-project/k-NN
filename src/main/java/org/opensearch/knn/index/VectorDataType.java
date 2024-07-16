@@ -15,7 +15,6 @@ import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 
-import java.io.ByteArrayInputStream;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
@@ -24,11 +23,25 @@ import java.util.stream.Collectors;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 /**
- * Enum contains data_type of vectors and right now only supported for lucene engine in k-NN plugin.
- * We have two vector data_types, one is float (default) and the other one is byte.
+ * Enum contains data_type of vectors
+ * Lucene supports byte and float data type
+ * NMSLib supports only float data type
+ * Faiss supports binary and float data type
  */
 @AllArgsConstructor
 public enum VectorDataType {
+    BINARY("binary") {
+
+        @Override
+        public FieldType createKnnVectorFieldType(int dimension, VectorSimilarityFunction vectorSimilarityFunction) {
+            throw new IllegalStateException("Unsupported method");
+        }
+
+        @Override
+        public float[] getVectorFromBytesRef(BytesRef binaryValue) {
+            throw new IllegalStateException("Unsupported method");
+        }
+    },
     BYTE("byte") {
 
         @Override
@@ -57,9 +70,8 @@ public enum VectorDataType {
 
         @Override
         public float[] getVectorFromBytesRef(BytesRef binaryValue) {
-            ByteArrayInputStream byteStream = new ByteArrayInputStream(binaryValue.bytes, binaryValue.offset, binaryValue.length);
-            final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
-            return vectorSerializer.byteToFloatArray(byteStream);
+            final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByBytesRef(binaryValue);
+            return vectorSerializer.byteToFloatArray(binaryValue);
         }
 
     };

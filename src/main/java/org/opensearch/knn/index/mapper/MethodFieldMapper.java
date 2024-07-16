@@ -17,6 +17,7 @@ import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 /**
  * Field mapper for method definition in mapping
@@ -51,6 +52,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
 
         this.fieldType.putAttribute(DIMENSION, String.valueOf(dimension));
         this.fieldType.putAttribute(SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
+        this.fieldType.putAttribute(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
 
         KNNEngine knnEngine = knnMethodContext.getKnnEngine();
         this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());

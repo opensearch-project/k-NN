@@ -29,15 +29,17 @@ import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.FixedBitSet;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.mockito.MockedStatic;
 import org.opensearch.common.io.PathUtils;
-import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.util.KNNVectorAsArraySerializer;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -70,6 +72,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 import static org.opensearch.knn.KNNRestTestCase.INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
@@ -82,10 +85,16 @@ import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 public class KNNWeightTests extends KNNTestCase {
     private static final String FIELD_NAME = "target_field";
     private static final float[] QUERY_VECTOR = new float[] { 1.8f, 2.4f };
+    private static final byte[] BYTE_QUERY_VECTOR = new byte[] { 1, 2 };
     private static final String SEGMENT_NAME = "0";
     private static final int K = 5;
     private static final Set<String> SEGMENT_FILES_NMSLIB = Set.of("_0.cfe", "_0_2011_target_field.hnswc");
     private static final Set<String> SEGMENT_FILES_FAISS = Set.of("_0.cfe", "_0_2011_target_field.faissc");
+    private static final Set<String> SEGMENT_MULTI_FIELD_FILES_FAISS = Set.of(
+        "_0.cfe",
+        "_0_2011_target_field.faissc",
+        "_0_2011_long_target_field.faissc"
+    );
     private static final String CIRCUIT_BREAKER_LIMIT_100KB = "100Kb";
     private static final Integer EF_SEARCH = 10;
     private static final Map<String, ?> HNSW_METHOD_PARAMETERS = Map.of(METHOD_PARAMETER_EF_SEARCH, EF_SEARCH);
@@ -93,6 +102,7 @@ public class KNNWeightTests extends KNNTestCase {
     private static final Map<Integer, Float> DOC_ID_TO_SCORES = Map.of(10, 0.4f, 101, 0.05f, 100, 0.8f, 50, 0.52f);
     private static final Map<Integer, Float> FILTERED_DOC_ID_TO_SCORES = Map.of(101, 0.05f, 100, 0.8f, 50, 0.52f);
     private static final Map<Integer, Float> EXACT_SEARCH_DOC_ID_TO_SCORES = Map.of(0, 0.12048191f);
+    private static final Map<Integer, Float> BINARY_EXACT_SEARCH_DOC_ID_TO_SCORES = Map.of(0, 0.5f);
 
     private static final Query FILTER_QUERY = new TermQuery(new Term("foo", "fooValue"));
 
@@ -118,7 +128,6 @@ public class KNNWeightTests extends KNNTestCase {
         knnSettingsMockedStatic.when(KNNSettings::state).thenReturn(knnSettings);
         knnSettingsMockedStatic.when(KNNSettings::isKNNPluginEnabled).thenReturn(true);
 
-        jniServiceMockedStatic = mockStatic(JNIService.class);
         nativeMemoryCacheManagerMockedStatic = mockStatic(NativeMemoryCacheManager.class);
 
         final NativeMemoryCacheManager nativeMemoryCacheManager = mock(NativeMemoryCacheManager.class);
@@ -136,6 +145,12 @@ public class KNNWeightTests extends KNNTestCase {
     @Before
     public void setupBeforeTest() {
         knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(0);
+        jniServiceMockedStatic = mockStatic(JNIService.class);
+    }
+
+    @After
+    public void tearDownAfterTest() {
+        jniServiceMockedStatic.close();
     }
 
     @SneakyThrows
@@ -163,6 +178,20 @@ public class KNNWeightTests extends KNNTestCase {
         testQueryScore(
             rawScore -> SpaceType.INNER_PRODUCT.scoreTranslation(-1 * rawScore),
             SEGMENT_FILES_FAISS,
+            Map.of(
+                SPACE_TYPE,
+                SpaceType.INNER_PRODUCT.getValue(),
+                KNN_ENGINE,
+                KNNEngine.FAISS.getName(),
+                PARAMETERS,
+                String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
+            )
+        );
+
+        // multi field
+        testQueryScore(
+            rawScore -> SpaceType.INNER_PRODUCT.scoreTranslation(-1 * rawScore),
+            SEGMENT_MULTI_FIELD_FILES_FAISS,
             Map.of(
                 SPACE_TYPE,
                 SpaceType.INNER_PRODUCT.getValue(),
@@ -365,77 +394,60 @@ public class KNNWeightTests extends KNNTestCase {
     }
 
     @SneakyThrows
-    public void testANNWithFilterQuery_whenDoingANN_thenSuccess() {
+    public void testScorer_whenNoFilterBinary_thenSuccess() {
+        validateScorer_whenNoFilter_thenSuccess(true);
+    }
+
+    @SneakyThrows
+    public void testScorer_whenNoFilter_thenSuccess() {
+        validateScorer_whenNoFilter_thenSuccess(false);
+    }
+
+    private void validateScorer_whenNoFilter_thenSuccess(final boolean isBinary) throws IOException {
         // Given
         int k = 3;
-        final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
-        FixedBitSet filterBitSet = new FixedBitSet(filterDocIds.length);
-        for (int docId : filterDocIds) {
-            filterBitSet.set(docId);
-        }
         jniServiceMockedStatic.when(
-            () -> JNIService.queryIndex(
+            () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(k), eq(HNSW_METHOD_PARAMETERS), any(), any(), anyInt(), any())
+        ).thenReturn(getFilteredKNNQueryResults());
+
+        jniServiceMockedStatic.when(
+            () -> JNIService.queryBinaryIndex(
                 anyLong(),
-                eq(QUERY_VECTOR),
+                eq(BYTE_QUERY_VECTOR),
                 eq(k),
                 eq(HNSW_METHOD_PARAMETERS),
                 any(),
-                eq(filterBitSet.getBits()),
+                any(),
                 anyInt(),
                 any()
             )
         ).thenReturn(getFilteredKNNQueryResults());
+        final SegmentReader reader = mockSegmentReader();
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
-        final SegmentReader reader = mock(SegmentReader.class);
-        final Bits liveDocsBits = mock(Bits.class);
-        when(reader.maxDoc()).thenReturn(filterDocIds.length);
-        when(reader.getLiveDocs()).thenReturn(liveDocsBits);
-        for (int filterDocId : filterDocIds) {
-            when(liveDocsBits.get(filterDocId)).thenReturn(true);
-        }
-        when(liveDocsBits.length()).thenReturn(1000);
         when(leafReaderContext.reader()).thenReturn(reader);
 
-        final KNNQuery query = KNNQuery.builder()
-            .field(FIELD_NAME)
-            .queryVector(QUERY_VECTOR)
-            .k(k)
-            .indexName(INDEX_NAME)
-            .filterQuery(FILTER_QUERY)
-            .methodParameters(HNSW_METHOD_PARAMETERS)
-            .build();
-
-        final Weight filterQueryWeight = mock(Weight.class);
-        final Scorer filterScorer = mock(Scorer.class);
-        when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
-        // Just to make sure that we are not hitting the exact search condition
-        when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(filterDocIds.length + 1));
+        final KNNQuery query = isBinary
+            ? KNNQuery.builder()
+                .field(FIELD_NAME)
+                .byteQueryVector(BYTE_QUERY_VECTOR)
+                .k(k)
+                .indexName(INDEX_NAME)
+                .filterQuery(FILTER_QUERY)
+                .methodParameters(HNSW_METHOD_PARAMETERS)
+                .vectorDataType(VectorDataType.BINARY)
+                .build()
+            : KNNQuery.builder()
+                .field(FIELD_NAME)
+                .queryVector(QUERY_VECTOR)
+                .k(k)
+                .indexName(INDEX_NAME)
+                .filterQuery(FILTER_QUERY)
+                .methodParameters(HNSW_METHOD_PARAMETERS)
+                .vectorDataType(VectorDataType.FLOAT)
+                .build();
 
         final float boost = (float) randomDoubleBetween(0, 10, true);
-        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
-
-        final FSDirectory directory = mock(FSDirectory.class);
-        when(reader.directory()).thenReturn(directory);
-        final SegmentInfo segmentInfo = new SegmentInfo(
-            directory,
-            Version.LATEST,
-            Version.LATEST,
-            SEGMENT_NAME,
-            100,
-            true,
-            false,
-            KNNCodecVersion.current().getDefaultCodecDelegate(),
-            Map.of(),
-            new byte[StringHelper.ID_LENGTH],
-            Map.of(),
-            Sort.RELEVANCE
-        );
-        segmentInfo.setFiles(SEGMENT_FILES_FAISS);
-        final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
-        when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
-
-        final Path path = mock(Path.class);
-        when(directory.getDirectory()).thenReturn(path);
+        final KNNWeight knnWeight = new KNNWeight(query, boost);
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);
         final Map<String, String> attributesMap = ImmutableMap.of(
@@ -454,22 +466,157 @@ public class KNNWeightTests extends KNNTestCase {
 
         // Then
         assertNotNull(knnScorer);
+        if (isBinary) {
+            jniServiceMockedStatic.verify(
+                () -> JNIService.queryBinaryIndex(
+                    anyLong(),
+                    eq(BYTE_QUERY_VECTOR),
+                    eq(k),
+                    eq(HNSW_METHOD_PARAMETERS),
+                    any(),
+                    any(),
+                    anyInt(),
+                    any()
+                ),
+                times(1)
+            );
+        } else {
+            jniServiceMockedStatic.verify(
+                () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(k), eq(HNSW_METHOD_PARAMETERS), any(), any(), anyInt(), any()),
+                times(1)
+            );
+        }
+    }
+
+    @SneakyThrows
+    public void testANNWithFilterQuery_whenDoingANN_thenSuccess() {
+        validateANNWithFilterQuery_whenDoingANN_thenSuccess(false);
+    }
+
+    @SneakyThrows
+    public void testANNWithFilterQuery_whenDoingANNBinary_thenSuccess() {
+        validateANNWithFilterQuery_whenDoingANN_thenSuccess(true);
+    }
+
+    public void validateANNWithFilterQuery_whenDoingANN_thenSuccess(final boolean isBinary) throws IOException {
+        // Given
+        int k = 3;
+        final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
+        FixedBitSet filterBitSet = new FixedBitSet(filterDocIds.length);
+        for (int docId : filterDocIds) {
+            filterBitSet.set(docId);
+        }
+        if (isBinary) {
+            jniServiceMockedStatic.when(
+                () -> JNIService.queryBinaryIndex(
+                    anyLong(),
+                    eq(BYTE_QUERY_VECTOR),
+                    eq(k),
+                    eq(HNSW_METHOD_PARAMETERS),
+                    any(),
+                    eq(filterBitSet.getBits()),
+                    anyInt(),
+                    any()
+                )
+            ).thenReturn(getFilteredKNNQueryResults());
+        } else {
+            jniServiceMockedStatic.when(
+                () -> JNIService.queryIndex(
+                    anyLong(),
+                    eq(QUERY_VECTOR),
+                    eq(k),
+                    eq(HNSW_METHOD_PARAMETERS),
+                    any(),
+                    eq(filterBitSet.getBits()),
+                    anyInt(),
+                    any()
+                )
+            ).thenReturn(getFilteredKNNQueryResults());
+        }
+
+        final Bits liveDocsBits = mock(Bits.class);
+        for (int filterDocId : filterDocIds) {
+            when(liveDocsBits.get(filterDocId)).thenReturn(true);
+        }
+        when(liveDocsBits.length()).thenReturn(1000);
+
+        final SegmentReader reader = mockSegmentReader();
+        when(reader.maxDoc()).thenReturn(filterDocIds.length);
+        when(reader.getLiveDocs()).thenReturn(liveDocsBits);
+
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        when(leafReaderContext.reader()).thenReturn(reader);
+
+        final KNNQuery query = isBinary
+            ? KNNQuery.builder()
+                .field(FIELD_NAME)
+                .byteQueryVector(BYTE_QUERY_VECTOR)
+                .vectorDataType(VectorDataType.BINARY)
+                .k(k)
+                .indexName(INDEX_NAME)
+                .filterQuery(FILTER_QUERY)
+                .methodParameters(HNSW_METHOD_PARAMETERS)
+                .build()
+            : KNNQuery.builder()
+                .field(FIELD_NAME)
+                .queryVector(QUERY_VECTOR)
+                .k(k)
+                .indexName(INDEX_NAME)
+                .filterQuery(FILTER_QUERY)
+                .methodParameters(HNSW_METHOD_PARAMETERS)
+                .build();
+
+        final Weight filterQueryWeight = mock(Weight.class);
+        final Scorer filterScorer = mock(Scorer.class);
+        when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
+        // Just to make sure that we are not hitting the exact search condition
+        when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(filterDocIds.length + 1));
+
+        final float boost = (float) randomDoubleBetween(0, 10, true);
+        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
+
+        final FieldInfos fieldInfos = mock(FieldInfos.class);
+        final FieldInfo fieldInfo = mock(FieldInfo.class);
+        final Map<String, String> attributesMap = ImmutableMap.of(
+            KNN_ENGINE,
+            KNNEngine.FAISS.getName(),
+            SPACE_TYPE,
+            isBinary ? SpaceType.HAMMING_BIT.getValue() : SpaceType.L2.getValue()
+        );
+
+        when(reader.getFieldInfos()).thenReturn(fieldInfos);
+        when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
+        when(fieldInfo.attributes()).thenReturn(attributesMap);
+
+        // When
+        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+
+        // Then
+        assertNotNull(knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         assertNotNull(docIdSetIterator);
         assertEquals(FILTERED_DOC_ID_TO_SCORES.size(), docIdSetIterator.cost());
 
-        jniServiceMockedStatic.verify(
-            () -> JNIService.queryIndex(
-                anyLong(),
-                eq(QUERY_VECTOR),
-                eq(k),
-                eq(HNSW_METHOD_PARAMETERS),
-                any(),
-                eq(filterBitSet.getBits()),
-                anyInt(),
-                any()
-            )
-        );
+        if (isBinary) {
+            jniServiceMockedStatic.verify(
+                () -> JNIService.queryBinaryIndex(
+                    anyLong(),
+                    eq(BYTE_QUERY_VECTOR),
+                    eq(k),
+                    eq(HNSW_METHOD_PARAMETERS),
+                    any(),
+                    any(),
+                    anyInt(),
+                    any()
+                ),
+                times(1)
+            );
+        } else {
+            jniServiceMockedStatic.verify(
+                () -> JNIService.queryIndex(anyLong(), eq(QUERY_VECTOR), eq(k), eq(HNSW_METHOD_PARAMETERS), any(), any(), anyInt(), any()),
+                times(1)
+            );
+        }
 
         final List<Integer> actualDocIds = new ArrayList<>();
         final Map<Integer, Float> translatedScores = getTranslatedScores(SpaceType.L2::scoreTranslation);
@@ -481,15 +628,56 @@ public class KNNWeightTests extends KNNTestCase {
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
     }
 
+    private SegmentReader mockSegmentReader() {
+        Path path = mock(Path.class);
+
+        FSDirectory directory = mock(FSDirectory.class);
+        when(directory.getDirectory()).thenReturn(path);
+
+        SegmentInfo segmentInfo = new SegmentInfo(
+            directory,
+            Version.LATEST,
+            Version.LATEST,
+            SEGMENT_NAME,
+            100,
+            true,
+            false,
+            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            Map.of(),
+            new byte[StringHelper.ID_LENGTH],
+            Map.of(),
+            Sort.RELEVANCE
+        );
+        segmentInfo.setFiles(SEGMENT_FILES_FAISS);
+        SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
+
+        SegmentReader reader = mock(SegmentReader.class);
+        when(reader.directory()).thenReturn(directory);
+        when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
+        return reader;
+    }
+
     @SneakyThrows
     public void testANNWithFilterQuery_whenExactSearch_thenSuccess() {
+        validateANNWithFilterQuery_whenExactSearch_thenSuccess(false);
+    }
+
+    @SneakyThrows
+    public void testANNWithFilterQuery_whenExactSearchBinary_thenSuccess() {
+        validateANNWithFilterQuery_whenExactSearch_thenSuccess(true);
+    }
+
+    public void validateANNWithFilterQuery_whenExactSearch_thenSuccess(final boolean isBinary) throws IOException {
         float[] vector = new float[] { 0.1f, 0.3f };
+        byte[] byteVector = new byte[] { 1, 3 };
         int filterDocId = 0;
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
         final SegmentReader reader = mock(SegmentReader.class);
         when(leafReaderContext.reader()).thenReturn(reader);
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null);
+        final KNNQuery query = isBinary
+            ? new KNNQuery(FIELD_NAME, BYTE_QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null, VectorDataType.BINARY)
+            : new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null);
         final Weight filterQueryWeight = mock(Weight.class);
         final Scorer filterScorer = mock(Scorer.class);
         when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
@@ -506,9 +694,7 @@ public class KNNWeightTests extends KNNTestCase {
             KNN_ENGINE,
             KNNEngine.FAISS.getName(),
             SPACE_TYPE,
-            SpaceType.L2.name(),
-            PARAMETERS,
-            String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "HNSW32")
+            isBinary ? SpaceType.HAMMING_BIT.getValue() : SpaceType.L2.getValue()
         );
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);
@@ -516,23 +702,36 @@ public class KNNWeightTests extends KNNTestCase {
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
         when(fieldInfo.attributes()).thenReturn(attributesMap);
-        when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.name());
+        if (isBinary) {
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING_BIT.getValue());
+        } else {
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
+        }
         when(fieldInfo.getName()).thenReturn(FIELD_NAME);
         when(reader.getBinaryDocValues(FIELD_NAME)).thenReturn(binaryDocValues);
         when(binaryDocValues.advance(filterDocId)).thenReturn(filterDocId);
         BytesRef vectorByteRef = new BytesRef(new KNNVectorAsArraySerializer().floatToByteArray(vector));
-        when(binaryDocValues.binaryValue()).thenReturn(vectorByteRef);
+
+        if (isBinary) {
+            when(binaryDocValues.binaryValue()).thenReturn(new BytesRef(byteVector));
+        } else {
+            when(binaryDocValues.binaryValue()).thenReturn(vectorByteRef);
+        }
 
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         assertNotNull(docIdSetIterator);
-        assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.size(), docIdSetIterator.cost());
+        assertEquals(1, docIdSetIterator.cost());
 
         final List<Integer> actualDocIds = new ArrayList<>();
         for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
             actualDocIds.add(docId);
-            assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId) * boost, knnScorer.score(), 0.01f);
+            if (isBinary) {
+                assertEquals(BINARY_EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId) * boost, knnScorer.score(), 0.01f);
+            } else {
+                assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId) * boost, knnScorer.score(), 0.01f);
+            }
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
@@ -730,7 +929,7 @@ public class KNNWeightTests extends KNNTestCase {
 
         // Verify
         final List<Float> expectedScores = vectors.stream()
-            .map(vector -> SpaceType.L2.getVectorSimilarityFunction().compare(QUERY_VECTOR, vector))
+            .map(vector -> SpaceType.L2.getKnnVectorSimilarityFunction().compare(QUERY_VECTOR, vector))
             .collect(Collectors.toList());
         final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
         assertEquals(1, docIdSetIterator.nextDoc());
@@ -1004,6 +1203,12 @@ public class KNNWeightTests extends KNNTestCase {
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
         when(fieldInfo.attributes()).thenReturn(fileAttributes);
+
+        String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, KNNEngine.NMSLIB.getName());
+        KNNEngine knnEngine = KNNEngine.getEngine(engineName);
+        List<String> engineFiles = knnWeight.getEngineFiles(reader, knnEngine.getExtension());
+        String expectIndexPath = String.format("%s_%s_%s%s%s", SEGMENT_NAME, 2011, FIELD_NAME, knnEngine.getExtension(), "c");
+        assertEquals(engineFiles.get(0), expectIndexPath);
 
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);

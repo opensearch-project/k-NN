@@ -179,10 +179,10 @@ JNIEXPORT jobjectArray JNICALL Java_org_opensearch_knn_jni_FaissService_queryBin
 
 }
 
-JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_free(JNIEnv * env, jclass cls, jlong indexPointerJ)
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_free(JNIEnv * env, jclass cls, jlong indexPointerJ, jboolean isBinaryIndexJ)
 {
     try {
-        return knn_jni::faiss_wrapper::Free(indexPointerJ);
+        return knn_jni::faiss_wrapper::Free(indexPointerJ, isBinaryIndexJ);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
