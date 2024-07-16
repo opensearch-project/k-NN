@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.query;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.index.BinaryDocValues;
@@ -52,6 +53,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -232,19 +234,7 @@ public class KNNWeight extends Weight {
             spaceType = SpaceType.getSpace(spaceTypeName);
         }
 
-        /*
-         * In case of compound file, extension would be <engine-extension> + c otherwise <engine-extension>
-         */
-        String engineExtension = reader.getSegmentInfo().info.getUseCompoundFile()
-            ? knnEngine.getExtension() + KNNConstants.COMPOUND_EXTENSION
-            : knnEngine.getExtension();
-        String engineSuffix = knnQuery.getField() + engineExtension;
-        List<String> engineFiles = reader.getSegmentInfo()
-            .files()
-            .stream()
-            .filter(fileName -> fileName.endsWith(engineSuffix))
-            .collect(Collectors.toList());
-
+        List<String> engineFiles = getEngineFiles(reader, knnEngine.getExtension());
         if (engineFiles.isEmpty()) {
             log.debug("[KNN] No engine index found for field {} for segment {}", knnQuery.getField(), reader.getSegmentName());
             return null;
@@ -345,6 +335,25 @@ public class KNNWeight extends Weight {
 
         return Arrays.stream(results)
             .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
+    }
+
+    @VisibleForTesting
+    List<String> getEngineFiles(SegmentReader reader, String extension) throws IOException {
+        /*
+         * In case of compound file, extension would be <engine-extension> + c otherwise <engine-extension>
+         */
+        String engineExtension = reader.getSegmentInfo().info.getUseCompoundFile()
+            ? extension + KNNConstants.COMPOUND_EXTENSION
+            : extension;
+        String engineSuffix = knnQuery.getField() + engineExtension;
+        String underLineEngineSuffix = "_" + engineSuffix;
+        List<String> engineFiles = reader.getSegmentInfo()
+            .files()
+            .stream()
+            .filter(fileName -> fileName.endsWith(underLineEngineSuffix))
+            .sorted(Comparator.comparingInt(String::length))
+            .collect(Collectors.toList());
+        return engineFiles;
     }
 
     private Map<Integer, Float> doExactSearch(final LeafReaderContext leafReaderContext, final BitSet filterIdsBitSet, int cardinality) {
