@@ -510,7 +510,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
 
         int k = LuceneEngineIT.TEST_INDEX_VECTORS.length;
         for (float[] queryVector : TEST_QUERY_VECTORS) {
-            Response response = searchKNNIndex(INDEX_NAME, buildLuceneKSearchQuery(fieldName, k, queryVector, methodParameters), k);
+            Response response = searchKNNIndex(INDEX_NAME, buildSearchQuery(fieldName, k, queryVector, methodParameters), k);
             String responseBody = EntityUtils.toString(response.getEntity());
             List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
             assertEquals(k, knnResults.size());
@@ -523,27 +523,6 @@ public class LuceneEngineIT extends KNNRestTestCase {
                 assertEquals(KNNEngine.LUCENE.score(rawScore, spaceType), actualScores.get(j), 0.0001);
             }
         }
-    }
-
-    @SneakyThrows
-    private XContentBuilder buildLuceneKSearchQuery(String fieldName, int k, float[] vector, Map<String, ?> methodParams) {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("query")
-            .startObject("knn")
-            .startObject(fieldName)
-            .field("vector", vector)
-            .field("k", k);
-        if (methodParams != null) {
-            builder.startObject("method_parameters");
-            for (Map.Entry<String, ?> entry : methodParams.entrySet()) {
-                builder.field(entry.getKey(), entry.getValue());
-            }
-            builder.endObject();
-        }
-
-        builder.endObject().endObject().endObject().endObject();
-        return builder;
     }
 
     private List<float[]> queryResults(final float[] searchVector, final int k) throws Exception {
