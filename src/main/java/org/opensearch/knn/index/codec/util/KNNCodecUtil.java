@@ -14,7 +14,6 @@ import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80BinaryDocValues;
 import org.opensearch.knn.index.codec.transfer.VectorTransfer;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,16 +40,22 @@ public class KNNCodecUtil {
         public SerializationMode serializationMode;
     }
 
+    /**
+     * Extract docIds and vectors from binary doc values.
+     *
+     * @param values Binary doc values
+     * @param vectorTransfer Utility to make transfer
+     * @return KNNCodecUtil.Pair representing doc ids and corresponding vectors
+     * @throws IOException thrown when unable to get binary of vectors
+     */
     public static KNNCodecUtil.Pair getPair(final BinaryDocValues values, final VectorTransfer vectorTransfer) throws IOException {
         List<Integer> docIdList = new ArrayList<>();
         SerializationMode serializationMode = SerializationMode.COLLECTION_OF_FLOATS;
         vectorTransfer.init(getTotalLiveDocsCount(values));
         for (int doc = values.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = values.nextDoc()) {
             BytesRef bytesref = values.binaryValue();
-            try (ByteArrayInputStream byteStream = new ByteArrayInputStream(bytesref.bytes, bytesref.offset, bytesref.length)) {
-                serializationMode = vectorTransfer.getSerializationMode(byteStream);
-                vectorTransfer.transfer(byteStream);
-            }
+            serializationMode = vectorTransfer.getSerializationMode(bytesref);
+            vectorTransfer.transfer(bytesref);
             docIdList.add(doc);
         }
         vectorTransfer.close();

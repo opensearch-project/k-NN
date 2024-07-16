@@ -11,7 +11,6 @@ import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.codec.transfer.VectorTransfer;
 
-import java.io.ByteArrayInputStream;
 import java.util.Arrays;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
@@ -35,7 +34,7 @@ public class KNNCodecUtilTests extends TestCase {
         when(binaryDocValues.binaryValue()).thenReturn(bytesRef);
 
         VectorTransfer vectorTransfer = mock(VectorTransfer.class);
-        when(vectorTransfer.getSerializationMode(any(ByteArrayInputStream.class))).thenReturn(SerializationMode.COLLECTIONS_OF_BYTES);
+        when(vectorTransfer.getSerializationMode(any(BytesRef.class))).thenReturn(SerializationMode.COLLECTIONS_OF_BYTES);
         when(vectorTransfer.getVectorAddress()).thenReturn(vectorAddress);
         when(vectorTransfer.getDimension()).thenReturn(dimension);
 
@@ -44,8 +43,8 @@ public class KNNCodecUtilTests extends TestCase {
 
         // Verify
         verify(vectorTransfer).init(liveDocCount);
-        verify(vectorTransfer).getSerializationMode(any(ByteArrayInputStream.class));
-        verify(vectorTransfer).transfer(any(ByteArrayInputStream.class));
+        verify(vectorTransfer).getSerializationMode(any(BytesRef.class));
+        verify(vectorTransfer).transfer(any(BytesRef.class));
         verify(vectorTransfer).close();
 
         assertTrue(Arrays.equals(docId, pair.docs));
