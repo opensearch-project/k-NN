@@ -49,7 +49,9 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
 
         vectorDataType = input.getVectorDataType();
         this.knnMethod = input.getKnnMethodContext();
-        final VectorSimilarityFunction vectorSimilarityFunction = this.knnMethod.getSpaceType().getVectorSimilarityFunction();
+        final VectorSimilarityFunction vectorSimilarityFunction = this.knnMethod.getSpaceType()
+            .getKnnVectorSimilarityFunction()
+            .getVectorSimilarityFunction();
 
         final int dimension = input.getMappedFieldType().getDimension();
         if (dimension > KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE)) {

@@ -596,7 +596,21 @@ TEST(FaissFreeTest, BasicAssertions) {
             test_util::FaissCreateIndex(dim, method, metricType));
 
     // Free created index --> memory check should catch failure
-    knn_jni::faiss_wrapper::Free(reinterpret_cast<jlong>(createdIndex));
+    knn_jni::faiss_wrapper::Free(reinterpret_cast<jlong>(createdIndex), JNI_FALSE);
+}
+
+
+TEST(FaissBinaryFreeTest, BasicAssertions) {
+    // Define the data
+    int dim = 8;
+    std::string method = "BHNSW32";
+
+    // Create the index
+    faiss::IndexBinary *createdIndex(
+            test_util::FaissCreateBinaryIndex(dim, method));
+
+    // Free created index --> memory check should catch failure
+    knn_jni::faiss_wrapper::Free(reinterpret_cast<jlong>(createdIndex), JNI_TRUE);
 }
 
 TEST(FaissInitLibraryTest, BasicAssertions) {
