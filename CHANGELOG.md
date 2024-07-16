@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Release memory properly for an array type [#1820](https://github.com/opensearch-project/k-NN/pull/1820)
 * FIX Same Suffix Cause Recall Drop to zero [#1802](https://github.com/opensearch-project/k-NN/pull/1802)
 ### Infrastructure
+* Apply custom patch only once by comparing the last patch id  [#1833](https://github.com/opensearch-project/k-NN/pull/1833)
 ### Documentation
 * Update dev guide to fix clang linking issue on arm [#1746](https://github.com/opensearch-project/k-NN/pull/1746)
 ### Maintenance

@@ -37,8 +37,6 @@ jobs:
     steps:
       - name: Checkout k-NN
         uses: actions/checkout@v1
-        with:
-          submodules: true
       # Setup git user so that patches for native libraries can be applied and committed
       - name: Setup git user
         run: |
