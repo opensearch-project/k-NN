@@ -118,7 +118,9 @@ public class VectorDataTypeTests extends KNNTestCase {
     }
 
     public void testGetVectorFromBytesRef_whenBinary_thenException() {
-        Exception ex = expectThrows(IllegalStateException.class, () -> VectorDataType.BINARY.getVectorFromBytesRef(new BytesRef()));
-        assertTrue(ex.getMessage().contains("Unsupported method"));
+        byte[] vector = { 1, 2, 3 };
+        float[] expected = { 1, 2, 3 };
+        BytesRef bytesRef = new BytesRef(vector);
+        assertArrayEquals(expected, VectorDataType.BINARY.getVectorFromBytesRef(bytesRef), 0.01f);
     }
 }

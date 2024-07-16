@@ -39,7 +39,14 @@ public enum VectorDataType {
 
         @Override
         public float[] getVectorFromBytesRef(BytesRef binaryValue) {
-            throw new IllegalStateException("Unsupported method");
+            float[] vector = new float[binaryValue.length];
+            int i = 0;
+            int j = binaryValue.offset;
+
+            while (i < binaryValue.length) {
+                vector[i++] = binaryValue.bytes[j++];
+            }
+            return vector;
         }
     },
     BYTE("byte") {

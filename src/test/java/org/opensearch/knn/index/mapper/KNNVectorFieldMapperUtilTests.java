@@ -59,9 +59,13 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
         assertArrayEquals(TEST_FLOAT_VECTOR, (float[]) vector, 0.001f);
     }
 
-    public void testGetExpectedDimensionsSuccess() {
+    public void testGetExpectedVectorLengthSuccess() {
         KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
         when(knnVectorFieldType.getDimension()).thenReturn(3);
+
+        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldTypeBinary = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(knnVectorFieldTypeBinary.getDimension()).thenReturn(8);
+        when(knnVectorFieldTypeBinary.getVectorDataType()).thenReturn(VectorDataType.BINARY);
 
         KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldTypeModelBased = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
         when(knnVectorFieldTypeModelBased.getDimension()).thenReturn(-1);
@@ -76,11 +80,12 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
 
         KNNVectorFieldMapperUtil.initialize(modelDao);
 
-        assertEquals(3, KNNVectorFieldMapperUtil.getExpectedDimensions(knnVectorFieldType));
-        assertEquals(4, KNNVectorFieldMapperUtil.getExpectedDimensions(knnVectorFieldTypeModelBased));
+        assertEquals(3, KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldType));
+        assertEquals(1, KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeBinary));
+        assertEquals(4, KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeModelBased));
     }
 
-    public void testGetExpectedDimensionsFailure() {
+    public void testGetExpectedVectorLengthFailure() {
         KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldTypeModelBased = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
         when(knnVectorFieldTypeModelBased.getDimension()).thenReturn(-1);
         String modelId = "test-model";
@@ -95,7 +100,7 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
 
         IllegalArgumentException e = expectThrows(
             IllegalArgumentException.class,
-            () -> KNNVectorFieldMapperUtil.getExpectedDimensions(knnVectorFieldTypeModelBased)
+            () -> KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeModelBased)
         );
         assertEquals(String.format("Model ID '%s' is not created.", modelId), e.getMessage());
 
@@ -109,7 +114,7 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
 
         e = expectThrows(
             IllegalArgumentException.class,
-            () -> KNNVectorFieldMapperUtil.getExpectedDimensions(knnVectorFieldTypeModelBased)
+            () -> KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeModelBased)
         );
         assertEquals(String.format("Field '%s' does not have model.", fieldName), e.getMessage());
     }
