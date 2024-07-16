@@ -33,7 +33,7 @@ public class FilteredIdsKNNIteratorTests extends KNNTestCase {
             new float[] { 17.0f, 18.0f, 19.0f }
         );
         final List<Float> expectedScores = dataVectors.stream()
-            .map(vector -> spaceType.getVectorSimilarityFunction().compare(queryVector, vector))
+            .map(vector -> spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector))
             .collect(Collectors.toList());
 
         BinaryDocValues values = mock(BinaryDocValues.class);
