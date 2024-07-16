@@ -192,6 +192,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         long initialRefreshOperations = KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue();
         long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
+        long initialMergeTotalSize = KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue();
 
         // Add documents to the field
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
@@ -212,7 +213,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
         assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
         assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_DOCS.getValue());
-        assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
+        assertEquals(initialMergeTotalSize + 6800, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
     }
 
     public void testAddKNNBinaryField_fromScratch_nmslibLegacy() throws IOException {
@@ -245,6 +246,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         long initialRefreshOperations = KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue();
         long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
+        long initialMergeTotalSize = KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue();
 
         // Add documents to the field
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
@@ -265,7 +267,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
         assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
         assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_DOCS.getValue());
-        assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
+        assertEquals(initialMergeTotalSize + 6800, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
     }
 
     public void testAddKNNBinaryField_fromScratch_faissCurrent() throws IOException {
@@ -306,6 +308,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         long initialRefreshOperations = KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue();
         long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
+        long initialMergeTotalSize = KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue();
 
         // Add documents to the field
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
@@ -326,7 +329,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
         assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
         assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_DOCS.getValue());
-        assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
+        assertEquals(initialMergeTotalSize + 6800, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
     }
 
     public void testAddKNNBinaryField_fromModel_faiss() throws IOException, ExecutionException, InterruptedException {
@@ -401,6 +404,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         long initialRefreshOperations = KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue();
         long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
+        long initialMergeTotalSize = KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue();
 
         // Add documents to the field
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
@@ -421,7 +425,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
         assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
         assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_DOCS.getValue());
-        assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
+        assertEquals(initialMergeTotalSize + 6800, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
 
     }
 
