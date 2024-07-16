@@ -80,7 +80,6 @@ public class KNNCodecUtil {
             vectorSize = roundVectorSize(vectorSize);
             int vectorsSize = numVectors * (vectorSize + JAVA_REFERENCE_SIZE);
             vectorsSize = roundVectorSize(vectorsSize);
-
             return vectorsSize;
         }  else if (serializationMode == SerializationMode.COLLECTIONS_OF_BYTES) {
             int vectorSize = vectorLength;
