@@ -228,19 +228,21 @@ public class KNNVectorFieldMapperUtil {
     }
 
     /**
-     * Get the expected dimensions from a specified knn vector field type.
+     * Get the expected vector length from a specified knn vector field type.
      *
      * If the field is model-based, get dimensions from model metadata.
+     * For binary vector, the expected vector length is dimension divided by 8
+     *
      * @param knnVectorFieldType knn vector field type
-     * @return expected dimensions
+     * @return expected vector length
      */
-    public static int getExpectedDimensions(final KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType) {
+    public static int getExpectedVectorLength(final KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType) {
         int expectedDimensions = knnVectorFieldType.getDimension();
         if (isModelBasedIndex(expectedDimensions)) {
             ModelMetadata modelMetadata = getModelMetadataForField(knnVectorFieldType);
             expectedDimensions = modelMetadata.getDimension();
         }
-        return expectedDimensions;
+        return VectorDataType.BINARY == knnVectorFieldType.getVectorDataType() ? expectedDimensions / 8 : expectedDimensions;
     }
 
     private static boolean isModelBasedIndex(int expectedDimensions) {
