@@ -16,12 +16,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Features
 * Adds dynamic query parameter ef_search [#1783](https://github.com/opensearch-project/k-NN/pull/1783)
 * Adds dynamic query parameter ef_search in radial search faiss engine [#1790](https://github.com/opensearch-project/k-NN/pull/1790)
+* Add binary format support with HNSW method in Faiss Engine [#1781](https://github.com/opensearch-project/k-NN/pull/1781)
 ### Enhancements
 ### Bug Fixes
 * Fixing the arithmetic to find the number of vectors to stream from java to jni layer.[#1804](https://github.com/opensearch-project/k-NN/pull/1804)
+* Release memory properly for an array type [#1820](https://github.com/opensearch-project/k-NN/pull/1820)
 * FIX Same Suffix Cause Recall Drop to zero [#1802](https://github.com/opensearch-project/k-NN/pull/1802)
 ### Infrastructure
 ### Documentation
 * Update dev guide to fix clang linking issue on arm [#1746](https://github.com/opensearch-project/k-NN/pull/1746)
 ### Maintenance
+* Bump faiss commit to 33c0ba5 [#1796](https://github.com/opensearch-project/k-NN/pull/1796)
 ### Refactoring

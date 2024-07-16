@@ -13,7 +13,7 @@ package org.opensearch.knn.jni;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.opensearch.common.Nullable;
-import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -23,8 +23,6 @@ import java.util.Map;
  * Service to distribute requests to the proper engine jni service
  */
 public class JNIService {
-    private static final String FAISS_BINARY_INDEX_PREFIX = "B";
-
     /**
      * Create an index for the native library. The memory occupied by the vectorsAddress will be freed up during the
      * function call. So Java layer doesn't need to free up the memory. This is not an ideal behavior because Java layer
@@ -53,8 +51,7 @@ public class JNIService {
         }
 
         if (KNNEngine.FAISS == knnEngine) {
-            if (parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER) != null
-                && parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString().startsWith(FAISS_BINARY_INDEX_PREFIX)) {
+            if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
                 FaissService.createBinaryIndex(ids, vectorsAddress, dim, indexPath, parameters);
             } else {
                 FaissService.createIndex(ids, vectorsAddress, dim, indexPath, parameters);
@@ -109,8 +106,7 @@ public class JNIService {
         }
 
         if (KNNEngine.FAISS == knnEngine) {
-            if (parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER) != null
-                && parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString().startsWith(FAISS_BINARY_INDEX_PREFIX)) {
+            if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
                 return FaissService.loadBinaryIndex(indexPath);
             } else {
                 return FaissService.loadIndex(indexPath);
@@ -260,14 +256,25 @@ public class JNIService {
      * @param indexPointer location to be freed
      * @param knnEngine    engine to perform free
      */
-    public static void free(long indexPointer, KNNEngine knnEngine) {
+    public static void free(final long indexPointer, final KNNEngine knnEngine) {
+        free(indexPointer, knnEngine, false);
+    }
+
+    /**
+     * Free native memory pointer
+     *
+     * @param indexPointer  location to be freed
+     * @param knnEngine     engine to perform free
+     * @param isBinaryIndex indicate if it is binary index or not
+     */
+    public static void free(final long indexPointer, final KNNEngine knnEngine, final boolean isBinaryIndex) {
         if (KNNEngine.NMSLIB == knnEngine) {
             NmslibService.free(indexPointer);
             return;
         }
 
         if (KNNEngine.FAISS == knnEngine) {
-            FaissService.free(indexPointer);
+            FaissService.free(indexPointer, isBinaryIndex);
             return;
         }
 

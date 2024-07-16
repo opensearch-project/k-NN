@@ -531,9 +531,16 @@ jobjectArray knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(knn_jni::JNIUti
     return results;
 }
 
-void knn_jni::faiss_wrapper::Free(jlong indexPointer) {
-    auto *indexWrapper = reinterpret_cast<faiss::Index*>(indexPointer);
-    delete indexWrapper;
+void knn_jni::faiss_wrapper::Free(jlong indexPointer, jboolean isBinaryIndexJ) {
+    bool isBinaryIndex = static_cast<bool>(isBinaryIndexJ);
+    if (isBinaryIndex) {
+        auto *indexWrapper = reinterpret_cast<faiss::IndexBinary*>(indexPointer);
+        delete indexWrapper;
+    }
+    else {
+        auto *indexWrapper = reinterpret_cast<faiss::Index*>(indexPointer);
+        delete indexWrapper;
+    }
 }
 
 void knn_jni::faiss_wrapper::FreeSharedIndexState(jlong shareIndexStatePointerJ) {

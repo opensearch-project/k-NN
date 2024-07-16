@@ -1,4 +1,4 @@
-From 35ef01f59b8903dfbd4d08ff874b085e851e4228 Mon Sep 17 00:00:00 2001
+From 9e5affabe2caacf38f5585a0b906620dd35deef5 Mon Sep 17 00:00:00 2001
 From: Heemin Kim <heemin@amazon.com>
 Date: Tue, 30 Jan 2024 14:43:56 -0800
 Subject: [PATCH] Add IDGrouper for HNSW
@@ -13,12 +13,12 @@ Signed-off-by: Heemin Kim <heemin@amazon.com>
  faiss/impl/HNSW.cpp        |   6 +
  faiss/impl/IDGrouper.cpp   |  51 ++++++++
  faiss/impl/IDGrouper.h     |  51 ++++++++
- faiss/impl/ResultHandler.h | 190 +++++++++++++++++++++++++++++
+ faiss/impl/ResultHandler.h | 189 +++++++++++++++++++++++++++++
  faiss/utils/GroupHeap.h    | 182 ++++++++++++++++++++++++++++
  tests/CMakeLists.txt       |   2 +
  tests/test_group_heap.cpp  |  98 +++++++++++++++
  tests/test_id_grouper.cpp  | 241 +++++++++++++++++++++++++++++++++++++
- 13 files changed, 891 insertions(+), 5 deletions(-)
+ 13 files changed, 890 insertions(+), 5 deletions(-)
  create mode 100644 faiss/impl/IDGrouper.cpp
  create mode 100644 faiss/impl/IDGrouper.h
  create mode 100644 faiss/utils/GroupHeap.h
@@ -26,7 +26,7 @@ Signed-off-by: Heemin Kim <heemin@amazon.com>
  create mode 100644 tests/test_id_grouper.cpp
 
 diff --git a/faiss/CMakeLists.txt b/faiss/CMakeLists.txt
-index a890a46f..137e68d4 100644
+index 1b0860f3..f3d72df3 100644
 --- a/faiss/CMakeLists.txt
 +++ b/faiss/CMakeLists.txt
 @@ -54,6 +54,7 @@ set(FAISS_SRC
@@ -45,10 +45,10 @@ index a890a46f..137e68d4 100644
    impl/DistanceComputer.h
    impl/FaissAssert.h
    impl/FaissException.h
-@@ -183,6 +185,7 @@ set(FAISS_HEADERS
-   invlists/InvertedLists.h
+@@ -184,6 +186,7 @@ set(FAISS_HEADERS
    invlists/InvertedListsIOHook.h
    utils/AlignedTable.h
+   utils/bf16.h
 +  utils/GroupHeap.h
    utils/Heap.h
    utils/WorkerThread.h
@@ -81,10 +81,10 @@ index 3d1bdb99..a8622858 100644
      virtual ~SearchParameters() {}
  };
 diff --git a/faiss/IndexHNSW.cpp b/faiss/IndexHNSW.cpp
-index 9a67332d..a5e0fea0 100644
+index 8e5c654f..d473b6ad 100644
 --- a/faiss/IndexHNSW.cpp
 +++ b/faiss/IndexHNSW.cpp
-@@ -354,10 +354,17 @@ void IndexHNSW::search(
+@@ -320,10 +320,17 @@ void IndexHNSW::search(
          const SearchParameters* params_in) const {
      FAISS_THROW_IF_NOT(k > 0);
  
@@ -198,10 +198,10 @@ index 2d164123..a68887bd 100644
 +
  } // namespace faiss
 diff --git a/faiss/impl/HNSW.cpp b/faiss/impl/HNSW.cpp
-index a9fb9daf..33b56638 100644
+index 3ba5f72f..c574ce39 100644
 --- a/faiss/impl/HNSW.cpp
 +++ b/faiss/impl/HNSW.cpp
-@@ -804,6 +804,12 @@ int extract_k_from_ResultHandler(ResultHandler<C>& res) {
+@@ -831,6 +831,12 @@ int extract_k_from_ResultHandler(ResultHandler<C>& res) {
      if (auto hres = dynamic_cast<RH::SingleResultHandler*>(&res)) {
          return hres->k;
      }
@@ -329,20 +329,19 @@ index 00000000..d56113d9
 +
 +} // namespace faiss
 diff --git a/faiss/impl/ResultHandler.h b/faiss/impl/ResultHandler.h
-index 270de8dc..3199634f 100644
+index 713fe8e4..d307fd70 100644
 --- a/faiss/impl/ResultHandler.h
 +++ b/faiss/impl/ResultHandler.h
-@@ -12,6 +12,9 @@
- #pragma once
+@@ -13,6 +13,8 @@
  
  #include <faiss/impl/AuxIndexStructures.h>
-+#include <faiss/impl/FaissException.h>
+ #include <faiss/impl/FaissException.h>
 +#include <faiss/impl/IDGrouper.h>
 +#include <faiss/utils/GroupHeap.h>
  #include <faiss/utils/Heap.h>
  #include <faiss/utils/partitioning.h>
- 
-@@ -265,6 +268,193 @@ struct HeapBlockResultHandler : BlockResultHandler<C> {
+ #include <iostream>
+@@ -267,6 +269,193 @@ struct HeapBlockResultHandler : BlockResultHandler<C> {
      }
  };
  
@@ -451,7 +450,7 @@ index 270de8dc..3199634f 100644
 +        /// series of results for query i is done
 +        void end() {
 +            heap_reorder<C>(k, heap_dis, heap_ids);
-+            delete heap_group_ids;
++            delete[] heap_group_ids;
 +        }
 +    };
 +
@@ -528,8 +527,8 @@ index 270de8dc..3199634f 100644
 +        for (size_t i = i0; i < i1; i++) {
 +            heap_reorder<C>(k, heap_dis_tab + i * k, heap_ids_tab + i * k);
 +        }
-+        delete group_id_to_index_in_heap_tab;
-+        delete heap_group_ids_tab;
++        delete[] group_id_to_index_in_heap_tab;
++        delete[] heap_group_ids_tab;
 +    }
 +};
 +
@@ -726,7 +725,7 @@ index 00000000..3b7078da
 +} // namespace faiss
 \ No newline at end of file
 diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
-index 9017edc5..a8e9d30c 100644
+index 3980d7dd..c888a5a6 100644
 --- a/tests/CMakeLists.txt
 +++ b/tests/CMakeLists.txt
 @@ -27,6 +27,8 @@ set(FAISS_TEST_SRC
@@ -1090,5 +1089,5 @@ index 00000000..6601795b
 +    delete[] xb;
 +}
 -- 
-2.39.3 (Apple Git-145)
+2.37.0
 

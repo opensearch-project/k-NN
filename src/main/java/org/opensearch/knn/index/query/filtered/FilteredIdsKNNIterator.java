@@ -23,7 +23,7 @@ import java.io.IOException;
  *
  * The class is used in KNNWeight to score filtered KNN field by iterating filterIdsArray.
  */
-public class FilteredIdsKNNIterator {
+public class FilteredIdsKNNIterator implements KNNIterator {
     // Array of doc ids to iterate
     protected final BitSet filterIdsBitSet;
     protected final BitSetIterator bitSetIterator;
@@ -53,6 +53,7 @@ public class FilteredIdsKNNIterator {
      *
      * @return next doc id
      */
+    @Override
     public int nextDoc() throws IOException {
 
         if (docId == DocIdSetIterator.NO_MORE_DOCS) {
@@ -64,6 +65,7 @@ public class FilteredIdsKNNIterator {
         return doc;
     }
 
+    @Override
     public float score() {
         return currentScore;
     }
@@ -75,6 +77,6 @@ public class FilteredIdsKNNIterator {
         final float[] vector = vectorSerializer.byteToFloatArray(byteStream);
         // Calculates a similarity score between the two vectors with a specified function. Higher similarity
         // scores correspond to closer vectors.
-        return spaceType.getVectorSimilarityFunction().compare(queryVector, vector);
+        return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
     }
 }

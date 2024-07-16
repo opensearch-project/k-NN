@@ -33,6 +33,8 @@ import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
 import java.util.Set;
+
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
@@ -49,7 +51,9 @@ import java.util.Map;
 
 import static com.carrotsearch.randomizedtesting.RandomizedTest.randomFloat;
 import static org.junit.Assert.assertTrue;
+import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.test.OpenSearchTestCase.randomByteArrayOfLength;
 
 public class KNNCodecTestUtil {
@@ -339,6 +343,37 @@ public class KNNCodecTestUtil {
         int k = 2;
         float[] queryVector = new float[dimension];
         KNNQueryResult[] results = JNIService.queryIndex(indexPtr, queryVector, k, methodParameters, knnEngine, null, 0, null);
+        assertTrue(results.length > 0);
+        JNIService.free(indexPtr, knnEngine);
+    }
+
+    public static void assertBinaryIndexLoadableByEngine(
+        SegmentWriteState state,
+        String fileName,
+        KNNEngine knnEngine,
+        SpaceType spaceType,
+        int dimension,
+        VectorDataType vectorDataType
+    ) {
+        String filePath = Paths.get(((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(), fileName)
+            .toString();
+        long indexPtr = JNIService.loadIndex(
+            filePath,
+            Maps.newHashMap(
+                ImmutableMap.of(
+                    SPACE_TYPE,
+                    spaceType.getValue(),
+                    INDEX_DESCRIPTION_PARAMETER,
+                    "BHNSW32",
+                    VECTOR_DATA_TYPE_FIELD,
+                    vectorDataType.getValue()
+                )
+            ),
+            knnEngine
+        );
+        int k = 2;
+        byte[] queryVector = new byte[dimension];
+        KNNQueryResult[] results = JNIService.queryBinaryIndex(indexPtr, queryVector, k, null, knnEngine, null, 0, null);
         assertTrue(results.length > 0);
         JNIService.free(indexPtr, knnEngine);
     }
