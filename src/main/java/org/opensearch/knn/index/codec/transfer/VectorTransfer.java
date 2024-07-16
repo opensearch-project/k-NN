@@ -6,9 +6,8 @@
 package org.opensearch.knn.index.codec.transfer;
 
 import lombok.Data;
+import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.codec.util.SerializationMode;
-
-import java.io.ByteArrayInputStream;
 
 /**
  * Abstract class to transfer vector value from Java to native memory
@@ -36,9 +35,9 @@ public abstract class VectorTransfer {
     /**
      * Transfer a single vector
      *
-     * @param byteStream a vector in byte stream format
+     * @param bytesRef a vector in bytes format
      */
-    abstract public void transfer(final ByteArrayInputStream byteStream);
+    abstract public void transfer(final BytesRef bytesRef);
 
     /**
      * Close the transfer
@@ -48,8 +47,8 @@ public abstract class VectorTransfer {
     /**
      * Get serialization mode of given byte stream
      *
-     * @param byteStream byte stream of a vector
+     * @param bytesRef bytes of a vector
      * @return serialization mode
      */
-    abstract public SerializationMode getSerializationMode(final ByteArrayInputStream byteStream);
+    abstract public SerializationMode getSerializationMode(final BytesRef bytesRef);
 }

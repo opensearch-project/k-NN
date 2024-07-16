@@ -5,12 +5,12 @@
 
 package org.opensearch.knn.index.codec.transfer;
 
+import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 import org.opensearch.knn.index.codec.util.SerializationMode;
 import org.opensearch.knn.jni.JNICommons;
 
-import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,9 +32,9 @@ public class VectorTransferFloat extends VectorTransfer {
     }
 
     @Override
-    public void transfer(final ByteArrayInputStream byteStream) {
-        final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByStreamContent(byteStream);
-        final float[] vector = vectorSerializer.byteToFloatArray(byteStream);
+    public void transfer(final BytesRef bytesRef) {
+        final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByBytesRef(bytesRef);
+        final float[] vector = vectorSerializer.byteToFloatArray(bytesRef);
         dimension = vector.length;
 
         if (vectorsPerTransfer == Integer.MIN_VALUE) {
@@ -58,8 +58,8 @@ public class VectorTransferFloat extends VectorTransfer {
     }
 
     @Override
-    public SerializationMode getSerializationMode(final ByteArrayInputStream byteStream) {
-        return KNNVectorSerializerFactory.getSerializerModeFromStream(byteStream);
+    public SerializationMode getSerializationMode(final BytesRef bytesRef) {
+        return KNNVectorSerializerFactory.getSerializerModeFromBytesRef(bytesRef);
     }
 
     private void transfer() {
