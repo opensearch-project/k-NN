@@ -205,6 +205,69 @@ public abstract class Parameter<T> {
     }
 
     /**
+     * Double method parameter
+     */
+    public static class DoubleParameter extends Parameter<Double> {
+        public DoubleParameter(String name, Double defaultValue, Predicate<Double> validator) {
+            super(name, defaultValue, validator);
+        }
+
+        public DoubleParameter(
+            String name,
+            Double defaultValue,
+            Predicate<Double> validator,
+            BiFunction<Double, VectorSpaceInfo, Boolean> validatorWithData
+        ) {
+            super(name, defaultValue, validator, validatorWithData);
+        }
+
+        @Override
+        public ValidationException validate(Object value) {
+            ValidationException validationException = null;
+            if (value.equals(0)) value = 0.0;
+
+            if (!(value instanceof Double)) {
+                validationException = new ValidationException();
+                validationException.addValidationError(
+                    String.format("Value not of type Double for Double " + "parameter \"%s\".", getName())
+                );
+                return validationException;
+            }
+
+            if (!validator.test((Double) value)) {
+                validationException = new ValidationException();
+                validationException.addValidationError(
+                    String.format("Parameter validation failed for Double " + "parameter \"%s\".", getName())
+                );
+            }
+            return validationException;
+        }
+
+        @Override
+        public ValidationException validateWithData(Object value, VectorSpaceInfo vectorSpaceInfo) {
+            ValidationException validationException = null;
+            if (!(value instanceof Double)) {
+                validationException = new ValidationException();
+                validationException.addValidationError(
+                    String.format("value is not an instance of Double for Double parameter [%s].", getName())
+                );
+                return validationException;
+            }
+
+            if (validatorWithData == null) {
+                return null;
+            }
+
+            if (!validatorWithData.apply((Double) value, vectorSpaceInfo)) {
+                validationException = new ValidationException();
+                validationException.addValidationError(String.format("parameter validation failed for Double parameter [%s].", getName()));
+            }
+
+            return validationException;
+        }
+    }
+
+    /**
      * String method parameter
      */
     public static class StringParameter extends Parameter<String> {

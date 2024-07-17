@@ -15,11 +15,22 @@ import org.opensearch.knn.index.SpaceType;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 
+import static org.opensearch.knn.common.KNNConstants.DYNAMIC_CONFIDENCE_INTERVAL;
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS_SUPPORTED;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_COMPRESS;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_DEFAULT_BITS;
+import static org.opensearch.knn.common.KNNConstants.MAXIMUM_CONFIDENCE_INTERVAL;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.common.KNNConstants.MINIMUM_CONFIDENCE_INTERVAL;
 
 /**
  * KNN Library for Lucene
@@ -27,6 +38,25 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 public class Lucene extends JVMLibrary {
 
     Map<SpaceType, Function<Float, Float>> distanceTransform;
+
+    private final static Map<String, MethodComponent> HNSW_ENCODERS = ImmutableMap.of(
+        ENCODER_SQ,
+        MethodComponent.Builder.builder(ENCODER_SQ)
+            .addParameter(
+                LUCENE_SQ_CONFIDENCE_INTERVAL,
+                new Parameter.DoubleParameter(
+                    LUCENE_SQ_CONFIDENCE_INTERVAL,
+                    null,
+                    v -> v == DYNAMIC_CONFIDENCE_INTERVAL || (v >= MINIMUM_CONFIDENCE_INTERVAL && v <= MAXIMUM_CONFIDENCE_INTERVAL)
+                )
+            )
+            .addParameter(
+                LUCENE_SQ_BITS,
+                new Parameter.IntegerParameter(LUCENE_SQ_BITS, LUCENE_SQ_DEFAULT_BITS, LUCENE_SQ_BITS_SUPPORTED::contains)
+            )
+            .addParameter(LUCENE_SQ_COMPRESS, new Parameter.BooleanParameter(LUCENE_SQ_COMPRESS, false, Objects::nonNull))
+            .build()
+    );
 
     final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
         METHOD_HNSW,
@@ -43,6 +73,10 @@ public class Lucene extends JVMLibrary {
                         KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
                         v -> v > 0
                     )
+                )
+                .addParameter(
+                    METHOD_ENCODER_PARAMETER,
+                    new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, null, HNSW_ENCODERS)
                 )
                 .build()
         ).addSpaces(SpaceType.UNDEFINED, SpaceType.L2, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT).build()

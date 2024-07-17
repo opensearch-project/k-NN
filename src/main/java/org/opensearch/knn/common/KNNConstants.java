@@ -16,6 +16,8 @@ public class KNNConstants {
     public static final String KNN_METHOD = "method";
     public static final String NAME = "name";
     public static final String PARAMETERS = "parameters";
+    public static final String MAX_CONNECTIONS = "max_connections";
+    public static final String BEAM_WIDTH = "beam_width";
     public static final String METHOD_HNSW = "hnsw";
     public static final String TYPE = "type";
     public static final String TYPE_NESTED = "nested";
@@ -74,6 +76,14 @@ public class KNNConstants {
 
     // Lucene specific constants
     public static final String LUCENE_NAME = "lucene";
+    public static final String LUCENE_SQ_CONFIDENCE_INTERVAL = "confidence_interval";
+    public static final int DYNAMIC_CONFIDENCE_INTERVAL = 0;
+    public static final double MINIMUM_CONFIDENCE_INTERVAL = 0.9;
+    public static final double MAXIMUM_CONFIDENCE_INTERVAL = 1.0;
+    public static final String LUCENE_SQ_BITS = "bits";
+    public static final Integer LUCENE_SQ_DEFAULT_BITS = 7;
+    public static final List<Integer> LUCENE_SQ_BITS_SUPPORTED = List.of(7);
+    public static final String LUCENE_SQ_COMPRESS = "compress";
 
     // nmslib specific constants
     public static final String NMSLIB_NAME = "nmslib";
