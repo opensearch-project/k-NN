@@ -13,6 +13,7 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Map;
 import java.util.Optional;
@@ -61,34 +62,19 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
         var params = type.getKnnMethodContext().getMethodComponentContext().getParameters();
         int maxConnections = getMaxConnections(params);
         int beamWidth = getBeamWidth(params);
-        if (params != null && params.containsKey(METHOD_ENCODER_PARAMETER)) {
-            if (params.get(METHOD_ENCODER_PARAMETER) != null) {
-                MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) params.get(METHOD_ENCODER_PARAMETER);
-                if (ENCODER_SQ.equals(encoderMethodComponentContext.getName())) {
-                    Map<String, Object> sqEncoderParams = encoderMethodComponentContext.getParameters();
 
-                    Float confidenceInterval = getConfidenceInterval(sqEncoderParams);
-                    int bits = getBits(sqEncoderParams);
-                    boolean compressFlag = getCompressFlag(sqEncoderParams);
-                    log.debug(
-                        "Initialize KNN vector format for field [{}] with params [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\",[{}] = \"{}\"",
-                        field,
-                        MAX_CONNECTIONS,
-                        maxConnections,
-                        BEAM_WIDTH,
-                        beamWidth,
-                        LUCENE_SQ_CONFIDENCE_INTERVAL,
-                        confidenceInterval,
-                        LUCENE_SQ_BITS,
-                        bits,
-                        LUCENE_SQ_COMPRESS,
-                        compressFlag
-                    );
-                    return quantizedVectorsFormatSupplier.apply(maxConnections, beamWidth, confidenceInterval, bits, compressFlag);
-                }
-
+        if (type.getKnnMethodContext().getKnnEngine() == KNNEngine.LUCENE
+            && params != null
+            && params.containsKey(METHOD_ENCODER_PARAMETER)) {
+            final KnnVectorsFormat knnVectorsFormat = validateAndApplyQuantizedVectorsFormatForLuceneEngine(
+                params,
+                field,
+                maxConnections,
+                beamWidth
+            );
+            if (knnVectorsFormat != null) {
+                return knnVectorsFormat;
             }
-
         }
 
         log.debug(
@@ -98,6 +84,46 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             beamWidth
         );
         return formatSupplier.apply(maxConnections, beamWidth);
+    }
+
+    private KnnVectorsFormat validateAndApplyQuantizedVectorsFormatForLuceneEngine(
+        final Map<String, Object> params,
+        final String field,
+        final int maxConnections,
+        final int beamWidth
+    ) {
+
+        if (params.get(METHOD_ENCODER_PARAMETER) == null) {
+            return null;
+        }
+
+        // Validate if the object is of type MethodComponentContext before casting it later
+        if (!(params.get(METHOD_ENCODER_PARAMETER) instanceof MethodComponentContext)) {
+            return null;
+        }
+        MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) params.get(METHOD_ENCODER_PARAMETER);
+        if (!ENCODER_SQ.equals(encoderMethodComponentContext.getName())) {
+            return null;
+        }
+        Map<String, Object> sqEncoderParams = encoderMethodComponentContext.getParameters();
+        Float confidenceInterval = getConfidenceInterval(sqEncoderParams);
+        int bits = getBits(sqEncoderParams);
+        boolean compressFlag = getCompressFlag(sqEncoderParams);
+        log.debug(
+            "Initialize KNN vector format for field [{}] with params [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\", [{}] = \"{}\",[{}] = \"{}\"",
+            field,
+            MAX_CONNECTIONS,
+            maxConnections,
+            BEAM_WIDTH,
+            beamWidth,
+            LUCENE_SQ_CONFIDENCE_INTERVAL,
+            confidenceInterval,
+            LUCENE_SQ_BITS,
+            bits,
+            LUCENE_SQ_COMPRESS,
+            compressFlag
+        );
+        return quantizedVectorsFormatSupplier.apply(maxConnections, beamWidth, confidenceInterval, bits, compressFlag);
     }
 
     @Override
