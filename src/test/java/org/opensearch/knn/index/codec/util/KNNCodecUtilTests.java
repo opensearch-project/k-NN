@@ -18,6 +18,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.calculateArraySize;
 
 public class KNNCodecUtilTests extends TestCase {
     @SneakyThrows
@@ -51,5 +52,22 @@ public class KNNCodecUtilTests extends TestCase {
         assertEquals(vectorAddress, pair.getVectorAddress());
         assertEquals(dimension, pair.getDimension());
         assertEquals(SerializationMode.COLLECTIONS_OF_BYTES, pair.serializationMode);
+    }
+
+    public void testCalculateArraySize() {
+        int numVectors = 4;
+        int vectorLength = 10;
+
+        // Array
+        SerializationMode serializationMode = SerializationMode.ARRAY;
+        assertEquals(256, calculateArraySize(numVectors, vectorLength, serializationMode));
+
+        // Collection of floats
+        serializationMode = SerializationMode.COLLECTION_OF_FLOATS;
+        assertEquals(176, calculateArraySize(numVectors, vectorLength, serializationMode));
+
+        // Collection of bytes
+        serializationMode = SerializationMode.COLLECTIONS_OF_BYTES;
+        assertEquals(80, calculateArraySize(numVectors, vectorLength, serializationMode));
     }
 }

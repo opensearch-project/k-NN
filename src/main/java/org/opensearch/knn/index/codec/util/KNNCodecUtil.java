@@ -70,37 +70,32 @@ public class KNNCodecUtil {
     public static long calculateArraySize(int numVectors, int vectorLength, SerializationMode serializationMode) {
         if (serializationMode == SerializationMode.ARRAY) {
             int vectorSize = vectorLength * FLOAT_BYTE_SIZE + JAVA_ARRAY_HEADER_SIZE;
-            if (vectorSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorSize += vectorSize % JAVA_ROUNDING_NUMBER;
-            }
+            vectorSize = roundVectorSize(vectorSize);
             int vectorsSize = numVectors * (vectorSize + JAVA_REFERENCE_SIZE) + JAVA_ARRAY_HEADER_SIZE;
-            if (vectorsSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorsSize += vectorsSize % JAVA_ROUNDING_NUMBER;
-            }
+            vectorsSize = roundVectorSize(vectorsSize);
             return vectorsSize;
         } else if (serializationMode == SerializationMode.COLLECTION_OF_FLOATS) {
             int vectorSize = vectorLength * FLOAT_BYTE_SIZE;
-            if (vectorSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorSize += vectorSize % JAVA_ROUNDING_NUMBER;
-            }
+            vectorSize = roundVectorSize(vectorSize);
             int vectorsSize = numVectors * (vectorSize + JAVA_REFERENCE_SIZE);
-            if (vectorsSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorsSize += vectorsSize % JAVA_ROUNDING_NUMBER;
-            }
+            vectorsSize = roundVectorSize(vectorsSize);
             return vectorsSize;
         } else if (serializationMode == SerializationMode.COLLECTIONS_OF_BYTES) {
             int vectorSize = vectorLength;
-            if (vectorSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorSize += vectorSize % JAVA_ROUNDING_NUMBER;
-            }
+            vectorSize = roundVectorSize(vectorSize);
             int vectorsSize = numVectors * (vectorSize + JAVA_REFERENCE_SIZE);
-            if (vectorsSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorsSize += vectorsSize % JAVA_ROUNDING_NUMBER;
-            }
+            vectorsSize = roundVectorSize(vectorsSize);
             return vectorsSize;
         } else {
             throw new IllegalStateException("Unreachable code");
         }
+    }
+
+    private static int roundVectorSize(int vectorSize) {
+        if (vectorSize % JAVA_ROUNDING_NUMBER != 0) {
+            return vectorSize + (JAVA_ROUNDING_NUMBER - vectorSize % JAVA_ROUNDING_NUMBER);
+        }
+        return vectorSize;
     }
 
     public static String buildEngineFileName(String segmentName, String latestBuildVersion, String fieldName, String extension) {
