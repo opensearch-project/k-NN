@@ -866,7 +866,6 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertEquals(HNSW_METHOD_PARAMS, ((KNNQuery) query).getMethodParameters());
     }
 
-    /** This test should be uncommented once we have nprobs. Considering engine instance is static its not possible to test this right now
     public void testDoToQuery_ThrowsIllegalArgumentExceptionForUnknownMethodParameter() {
 
         QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
@@ -882,11 +881,11 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             .fieldName(FIELD_NAME)
             .vector(queryVector)
             .k(K)
-            .methodParameters(Map.of("ef_search", 10))
+            .methodParameters(Map.of("nprobes", 10))
             .build();
 
         expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
-    }**/
+    }
 
     public void testDoToQuery_whenknnQueryWithFilterAndNmsLibEngine_thenException() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };

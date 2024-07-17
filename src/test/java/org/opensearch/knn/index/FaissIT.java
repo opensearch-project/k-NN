@@ -617,6 +617,7 @@ public class FaissIT extends KNNRestTestCase {
 
         indexTestData(indexName, fieldName, dimension, numDocs);
         queryTestData(indexName, fieldName, dimension, numDocs);
+        queryTestData(indexName, fieldName, dimension, numDocs, Map.of("nprobes", 100));
         deleteKNNIndex(indexName);
         validateGraphEviction();
     }
@@ -1622,12 +1623,23 @@ public class FaissIT extends KNNRestTestCase {
         refreshIndex(INDEX_NAME);
     }
 
-    private void queryTestData(final String indexName, final String fieldName, final int dimension, final int numDocs) throws IOException {
+    @SneakyThrows
+    private void queryTestData(final String indexName, final String fieldName, final int dimension, final int numDocs) {
+        queryTestData(indexName, fieldName, dimension, numDocs, null);
+    }
+
+    private void queryTestData(
+        final String indexName,
+        final String fieldName,
+        final int dimension,
+        final int numDocs,
+        Map<String, ?> methodParams
+    ) throws IOException, ParseException {
         float[] queryVector = new float[dimension];
         Arrays.fill(queryVector, (float) numDocs);
         int k = 10;
 
-        Response searchResponse = searchKNNIndex(indexName, new KNNQueryBuilder(fieldName, queryVector, k), k);
+        Response searchResponse = searchKNNIndex(indexName, buildSearchQuery(fieldName, k, queryVector, methodParams), k);
         List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), fieldName);
         assertEquals(k, results.size());
         for (int i = 0; i < k; i++) {

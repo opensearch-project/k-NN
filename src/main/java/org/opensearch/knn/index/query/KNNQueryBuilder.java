@@ -51,6 +51,7 @@ import java.util.Objects;
 import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
+import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 import static org.opensearch.knn.index.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
@@ -75,6 +76,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     public static final ParseField MAX_DISTANCE_FIELD = new ParseField(MAX_DISTANCE);
     public static final ParseField MIN_SCORE_FIELD = new ParseField(MIN_SCORE);
     public static final ParseField EF_SEARCH_FIELD = new ParseField(METHOD_PARAMETER_EF_SEARCH);
+    public static final ParseField NPROBE_FIELD = new ParseField(METHOD_PARAMETER_NPROBES);
     public static final ParseField METHOD_PARAMS_FIELD = new ParseField(METHOD_PARAMETER);
     public static final int K_MAX = 10000;
     /**
@@ -223,9 +225,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
             if (k != null) {
                 if (k <= 0 || k > K_MAX) {
-                    throw new IllegalArgumentException(
-                        String.format(Locale.ROOT, "[%s] requires k to be in the range (0, %d]", NAME, K_MAX)
-                    );
+                    final String errorMessage = "[" + NAME + "] requires k to be in the range (0, " + K_MAX + "]";
+                    throw new IllegalArgumentException(errorMessage);
                 }
             }
 

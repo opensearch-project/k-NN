@@ -1642,4 +1642,25 @@ public class KNNRestTestCase extends ODFERestTestCase {
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
     }
+
+    @SneakyThrows
+    protected XContentBuilder buildSearchQuery(String fieldName, int k, float[] vector, Map<String, ?> methodParams) {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("query")
+            .startObject("knn")
+            .startObject(fieldName)
+            .field("vector", vector)
+            .field("k", k);
+        if (methodParams != null) {
+            builder.startObject("method_parameters");
+            for (Map.Entry<String, ?> entry : methodParams.entrySet()) {
+                builder.field(entry.getKey(), entry.getValue());
+            }
+            builder.endObject();
+        }
+
+        builder.endObject().endObject().endObject().endObject();
+        return builder;
+    }
 }
