@@ -14,6 +14,7 @@ package org.opensearch.knn.index;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.training.VectorSpaceInfo;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
@@ -229,7 +230,7 @@ public abstract class Parameter<T> {
             if (!(value instanceof Double)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(
-                    String.format("Value not of type Double for Double " + "parameter \"%s\".", getName())
+                    String.format(Locale.ROOT, "Value not of type Double for Double " + "parameter \"%s\".", getName())
                 );
                 return validationException;
             }
@@ -237,7 +238,7 @@ public abstract class Parameter<T> {
             if (!validator.test((Double) value)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(
-                    String.format("Parameter validation failed for Double " + "parameter \"%s\".", getName())
+                    String.format(Locale.ROOT, "Parameter validation failed for Double " + "parameter \"%s\".", getName())
                 );
             }
             return validationException;
@@ -249,7 +250,7 @@ public abstract class Parameter<T> {
             if (!(value instanceof Double)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(
-                    String.format("value is not an instance of Double for Double parameter [%s].", getName())
+                    String.format(Locale.ROOT, "value is not an instance of Double for Double parameter [%s].", getName())
                 );
                 return validationException;
             }
@@ -260,7 +261,9 @@ public abstract class Parameter<T> {
 
             if (!validatorWithData.apply((Double) value, vectorSpaceInfo)) {
                 validationException = new ValidationException();
-                validationException.addValidationError(String.format("parameter validation failed for Double parameter [%s].", getName()));
+                validationException.addValidationError(
+                    String.format(Locale.ROOT, "parameter validation failed for Double parameter [%s].", getName())
+                );
             }
 
             return validationException;

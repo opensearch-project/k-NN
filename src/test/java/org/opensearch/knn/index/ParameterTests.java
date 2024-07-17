@@ -125,6 +125,40 @@ public class ParameterTests extends KNNTestCase {
         assertNotNull(parameter.validateWithData("test", testVectorSpaceInfo));
     }
 
+    public void testDoubleParameter_validate() {
+        final Parameter.DoubleParameter parameter = new Parameter.DoubleParameter("test_parameter", 1.0, v -> v >= 0);
+
+        // valid value
+        assertNull(parameter.validate(0.9));
+
+        // Invalid type
+        assertNotNull(parameter.validate(true));
+
+        // Invalid type
+        assertNotNull(parameter.validate(-1));
+
+    }
+
+    public void testDoubleParameter_validateWithData() {
+        final Parameter.DoubleParameter parameter = new Parameter.DoubleParameter(
+            "test",
+            1.0,
+            v -> v > 0,
+            (v, vectorSpaceInfo) -> v > vectorSpaceInfo.getDimension()
+        );
+
+        VectorSpaceInfo testVectorSpaceInfo = new VectorSpaceInfo(0);
+
+        // Invalid type
+        assertNotNull(parameter.validateWithData("String", testVectorSpaceInfo));
+
+        // Invalid value
+        assertNotNull(parameter.validateWithData(-1, testVectorSpaceInfo));
+
+        // valid value
+        assertNull(parameter.validateWithData(1.2, testVectorSpaceInfo));
+    }
+
     public void testMethodComponentContextParameter_validate() {
         String methodComponentName1 = "method-1";
         String parameterKey1 = "parameter_key_1";
