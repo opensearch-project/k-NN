@@ -745,6 +745,30 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
     }
 
+    public void testDoToQuery_whenRadialSearchOnBinaryIndex_thenException() {
+        float[] queryVector = { 1.0f };
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(queryVector)
+            .maxDistance(MAX_DISTANCE)
+            .build();
+        Index dummyIndex = new Index("dummy", "dummy");
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
+        when(mockKNNVectorField.getDimension()).thenReturn(8);
+        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.BINARY);
+        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
+        MethodComponentContext methodComponentContext = new MethodComponentContext(
+            org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
+            ImmutableMap.of()
+        );
+        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.HAMMING_BIT, methodComponentContext);
+        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
+        Exception e = expectThrows(UnsupportedOperationException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
+        assertTrue(e.getMessage().contains("Binary data type does not support radial search"));
+    }
+
     public void testDoToQuery_KnnQueryWithFilter_Lucene() throws Exception {
         // Given
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };

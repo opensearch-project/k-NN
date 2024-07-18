@@ -192,6 +192,19 @@ public class IndexUtil {
             return exception;
         }
 
+        String vectorDataType = (String) fieldMap.get(VECTOR_DATA_TYPE_FIELD);
+        if (VectorDataType.BINARY.toString().equalsIgnoreCase(vectorDataType)) {
+            exception.addValidationError(
+                String.format(
+                    Locale.ROOT,
+                    "Field \"%s\" is of data type %s. Only FLOAT or BYTE is supported.",
+                    field,
+                    VectorDataType.BINARY
+                )
+            );
+            return exception;
+        }
+
         // Return if dimension does not need to be checked
         if (expectedDimension < 0) {
             return null;

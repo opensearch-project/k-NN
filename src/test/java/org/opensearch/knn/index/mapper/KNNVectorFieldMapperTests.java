@@ -192,14 +192,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         ModelDao modelDao = mock(ModelDao.class);
         KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT);
 
-        SpaceType spaceType = SpaceType.COSINESIMIL;
         int m = 17;
         int efConstruction = 17;
 
         // Setup settings
         Settings settings = Settings.builder()
             .put(settings(CURRENT).build())
-            .put(KNNSettings.KNN_SPACE_TYPE, spaceType.getValue())
             .put(KNNSettings.KNN_ALGO_PARAM_M, m)
             .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, efConstruction)
             .build();
@@ -207,9 +205,25 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
         assertTrue(knnVectorFieldMapper instanceof LegacyFieldMapper);
-
         assertNull(knnVectorFieldMapper.modelId);
         assertNull(knnVectorFieldMapper.knnMethod);
+        assertEquals(SpaceType.L2.getValue(), ((LegacyFieldMapper) knnVectorFieldMapper).spaceType);
+    }
+
+    public void testBuilder_whenKnnFalseWithBinary_thenSetHammingAsDefault() {
+        // Check legacy is picked up if model context and method context are not set
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT);
+        builder.vectorDataType.setValue(VectorDataType.BINARY);
+        builder.dimension.setValue(8);
+
+        // Setup settings
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).build();
+
+        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+        KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
+        assertTrue(knnVectorFieldMapper instanceof LegacyFieldMapper);
+        assertEquals(SpaceType.HAMMING_BIT.getValue(), ((LegacyFieldMapper) knnVectorFieldMapper).spaceType);
     }
 
     public void testBuilder_parse_fromKnnMethodContext_luceneEngine() throws IOException {

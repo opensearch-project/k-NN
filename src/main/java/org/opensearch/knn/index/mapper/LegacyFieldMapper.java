@@ -12,6 +12,7 @@ import org.opensearch.common.Explicit;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -78,17 +79,19 @@ public class LegacyFieldMapper extends KNNVectorFieldMapper {
         );
     }
 
-    static String getSpaceType(Settings indexSettings) {
+    static String getSpaceType(final Settings indexSettings, final VectorDataType vectorDataType) {
         String spaceType = indexSettings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey());
         if (spaceType == null) {
+            spaceType = VectorDataType.BINARY == vectorDataType
+                ? KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE_FOR_BINARY
+                : KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE;
             log.info(
                 String.format(
                     "[KNN] The setting \"%s\" was not set for the index. Likely caused by recent version upgrade. Setting the setting to the default value=%s",
                     METHOD_PARAMETER_SPACE_TYPE,
-                    KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE
+                    spaceType
                 )
             );
-            return KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE;
         }
         return spaceType;
     }
