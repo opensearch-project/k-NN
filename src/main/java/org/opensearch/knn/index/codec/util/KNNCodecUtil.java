@@ -21,8 +21,8 @@ import java.util.List;
 public class KNNCodecUtil {
     // Floats are 4 bytes in size
     public static final int FLOAT_BYTE_SIZE = 4;
-    // References to objects are 4 bytes in size
-    public static final int JAVA_REFERENCE_SIZE = 4;
+    // References to objects are 8 bytes in size
+    public static final int JAVA_REFERENCE_SIZE = 8;
     // Each array in Java has a header that is 12 bytes
     public static final int JAVA_ARRAY_HEADER_SIZE = 12;
     // Java rounds each array size up to multiples of 8 bytes
@@ -75,24 +75,26 @@ public class KNNCodecUtil {
      * @return rough estimate of number of bytes used to store an array with the given parameters
      */
     public static long calculateArraySize(int numVectors, int vectorLength, SerializationMode serializationMode) {
+        // For more information about array storage in Java, visit https://www.javamex.com/tutorials/memory/array_memory_usage.shtml
+        // Note: java reference size is 8 bytes for 64 bit machines and 4 bytes for 32 bit machines, this method assumes 64 bit
         if (serializationMode == SerializationMode.ARRAY) {
-            int vectorSize = vectorLength * FLOAT_BYTE_SIZE + JAVA_ARRAY_HEADER_SIZE;
-            vectorSize = roundVectorSize(vectorSize);
-            int vectorsSize = numVectors * (vectorSize + JAVA_REFERENCE_SIZE) + JAVA_ARRAY_HEADER_SIZE;
-            vectorsSize = roundVectorSize(vectorsSize);
-            return vectorsSize;
+            int sizeOfVector = vectorLength * FLOAT_BYTE_SIZE + JAVA_ARRAY_HEADER_SIZE;
+            int sizeOfVectorArray = roundVectorSize(sizeOfVector) * numVectors;
+            int sizeOfReferenceArray = numVectors * JAVA_REFERENCE_SIZE + JAVA_ARRAY_HEADER_SIZE;
+            sizeOfReferenceArray = roundVectorSize(sizeOfReferenceArray);
+            return sizeOfReferenceArray + sizeOfVectorArray;
         } else if (serializationMode == SerializationMode.COLLECTION_OF_FLOATS) {
-            int vectorSize = vectorLength * FLOAT_BYTE_SIZE;
-            vectorSize = roundVectorSize(vectorSize);
-            int vectorsSize = numVectors * (vectorSize + JAVA_REFERENCE_SIZE);
-            vectorsSize = roundVectorSize(vectorsSize);
-            return vectorsSize;
+            int sizeOfVector = vectorLength * FLOAT_BYTE_SIZE;
+            int sizeOfVectorArray = roundVectorSize(sizeOfVector) * numVectors;
+            int sizeOfReferenceArray = numVectors * JAVA_REFERENCE_SIZE;
+            sizeOfReferenceArray = roundVectorSize(sizeOfReferenceArray);
+            return sizeOfReferenceArray + sizeOfVectorArray;
         } else if (serializationMode == SerializationMode.COLLECTIONS_OF_BYTES) {
-            int vectorSize = vectorLength;
-            vectorSize = roundVectorSize(vectorSize);
-            int vectorsSize = numVectors * (vectorSize + JAVA_REFERENCE_SIZE);
-            vectorsSize = roundVectorSize(vectorsSize);
-            return vectorsSize;
+            int sizeOfVector = vectorLength;
+            int sizeOfVectorArray = roundVectorSize(sizeOfVector) * numVectors;
+            int sizeOfReferenceArray = numVectors * JAVA_REFERENCE_SIZE;
+            sizeOfReferenceArray = roundVectorSize(sizeOfReferenceArray);
+            return sizeOfReferenceArray + sizeOfVectorArray;
         } else {
             throw new IllegalStateException("Unreachable code");
         }
