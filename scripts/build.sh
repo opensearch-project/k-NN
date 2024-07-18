@@ -122,7 +122,9 @@ cd $work_dir
 
 if [ "$PLATFORM" != "windows" ] && [ "$ARCHITECTURE" = "x64" ]; then
   echo "Building k-NN library after enabling AVX2"
-  ./gradlew :buildJniLib -Dsimd.enabled=true -Dbuild.lib.commit_patches=false
+  # Skip applying patches as patches were applied already from previous :buildJniLib task
+  # If we apply patches again, it fails with conflict
+  ./gradlew :buildJniLib -Dsimd.enabled=true -Dbuild.lib.commit_patches=false -Dbuild.lib.apply_patches=false
 fi
 
 ./gradlew publishPluginZipPublicationToZipStagingRepository -Dopensearch.version=$VERSION -Dbuild.snapshot=$SNAPSHOT -Dbuild.version_qualifier=$QUALIFIER
