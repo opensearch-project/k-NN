@@ -67,6 +67,13 @@ public class KNNCodecUtil {
         );
     }
 
+    /**
+     * This method provides a rough estimate of the number of bytes used for storing an array with the given parameters.
+     * @param numVectors number of vectors in the array
+     * @param vectorLength the length of each vector
+     * @param serializationMode serialization mode
+     * @return rough estimate of number of bytes used to store an array with the given parameters
+     */
     public static long calculateArraySize(int numVectors, int vectorLength, SerializationMode serializationMode) {
         if (serializationMode == SerializationMode.ARRAY) {
             int vectorSize = vectorLength * FLOAT_BYTE_SIZE + JAVA_ARRAY_HEADER_SIZE;
