@@ -28,6 +28,7 @@ jni/bin/
 jni/lib/
 jni/jni_test*
 jni/googletest*
+jni/cmake/*.cmake-e
 
 benchmarks/perf-tool/okpt/output
 benchmarks/perf-tool/okpt/dev
