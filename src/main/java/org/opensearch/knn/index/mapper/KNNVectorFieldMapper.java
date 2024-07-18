@@ -307,7 +307,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
             // Build legacy
             if (this.spaceType == null) {
-                this.spaceType = LegacyFieldMapper.getSpaceType(context.indexSettings());
+                this.spaceType = LegacyFieldMapper.getSpaceType(context.indexSettings(), vectorDataType.getValue());
             }
 
             if (this.m == null) {

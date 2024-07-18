@@ -476,8 +476,15 @@ public class KNNWeight extends Weight {
         if (isExactSearchThresholdSettingSet(filterThresholdValue)) {
             return filterThresholdValue >= filterIdsCount;
         }
+
         // if no setting is set, then use the default max distance computation value to see if we can do exact search.
-        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= filterIdsCount * knnQuery.getQueryVector().length;
+        /**
+         * TODO we can have a different MAX_DISTANCE_COMPUTATIONS for binary index as computation cost for binary index
+         * is cheaper than computation cost for non binary vector
+         */
+        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= filterIdsCount * (knnQuery.getVectorDataType() == VectorDataType.FLOAT
+            ? knnQuery.getQueryVector().length
+            : knnQuery.getByteQueryVector().length);
     }
 
     /**
