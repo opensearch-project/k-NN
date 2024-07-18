@@ -223,7 +223,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
         assertTrue(knnVectorFieldMapper instanceof LegacyFieldMapper);
-        assertEquals(SpaceType.HAMMING_BIT.getValue(), ((LegacyFieldMapper) knnVectorFieldMapper).spaceType);
+        assertEquals(SpaceType.HAMMING.getValue(), ((LegacyFieldMapper) knnVectorFieldMapper).spaceType);
     }
 
     public void testBuilder_parse_fromKnnMethodContext_luceneEngine() throws IOException {
@@ -944,7 +944,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
     public void testBuilder_whenBinaryFaissHNSWWithInvalidSpaceType_thenException() {
         for (SpaceType spaceType : SpaceType.values()) {
-            if (SpaceType.UNDEFINED == spaceType || SpaceType.HAMMING_BIT == spaceType) {
+            if (SpaceType.UNDEFINED == spaceType || SpaceType.HAMMING == spaceType) {
                 continue;
             }
             testBuilderWithBinaryDataType(KNNEngine.FAISS, spaceType, METHOD_HNSW, 8, "is not supported");
@@ -980,7 +980,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
             assertTrue(knnVectorFieldMapper instanceof MethodFieldMapper);
             if (SpaceType.UNDEFINED == spaceType) {
-                assertEquals(SpaceType.HAMMING_BIT, knnVectorFieldMapper.fieldType().spaceType);
+                assertEquals(SpaceType.HAMMING, knnVectorFieldMapper.fieldType().spaceType);
             }
         } else {
             Exception ex = expectThrows(Exception.class, () -> builder.build(builderContext));
@@ -998,7 +998,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         builder.knnMethodContext.setValue(
             new KNNMethodContext(
                 KNNEngine.FAISS,
-                SpaceType.HAMMING_BIT,
+                SpaceType.HAMMING,
                 new MethodComponentContext(
                     METHOD_HNSW,
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Collections.emptyMap()))

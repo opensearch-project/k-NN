@@ -275,7 +275,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         Long queryValue1 = -9223372036818526181L;
         params1.put("field", FIELD_NAME);
         params1.put("query_value", queryValue1);
-        params1.put("space_type", SpaceType.HAMMING_BIT.getValue());
+        params1.put("space_type", KNNScoringSpaceFactory.HAMMING_BIT);
         Request request1 = constructKNNScriptQueryRequest(INDEX_NAME, qb1, params1, 4, Collections.emptyMap());
         Response response1 = client().performRequest(request1);
         assertEquals(request1.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response1.getStatusLine().getStatusCode()));
@@ -315,7 +315,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         Long queryValue2 = 10L;
         params2.put("field", FIELD_NAME);
         params2.put("query_value", queryValue2);
-        params2.put("space_type", SpaceType.HAMMING_BIT.getValue());
+        params2.put("space_type", KNNScoringSpaceFactory.HAMMING_BIT);
         Request request2 = constructKNNScriptQueryRequest(INDEX_NAME, qb2, params2, 4, Collections.emptyMap());
         Response response2 = client().performRequest(request2);
         assertEquals(request2.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response2.getStatusLine().getStatusCode()));
@@ -385,7 +385,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         String queryValue1 = "gAAAAAIpIBs=";
         params1.put("field", FIELD_NAME);
         params1.put("query_value", queryValue1);
-        params1.put("space_type", SpaceType.HAMMING_BIT.getValue());
+        params1.put("space_type", KNNScoringSpaceFactory.HAMMING_BIT);
         Request request1 = constructKNNScriptQueryRequest(INDEX_NAME, qb1, params1, 4, Collections.emptyMap());
         Response response1 = client().performRequest(request1);
         assertEquals(request1.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response1.getStatusLine().getStatusCode()));
@@ -425,7 +425,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         String queryValue2 = "AAAAAAIpIBs=";
         params2.put("field", FIELD_NAME);
         params2.put("query_value", queryValue2);
-        params2.put("space_type", SpaceType.HAMMING_BIT.getValue());
+        params2.put("space_type", KNNScoringSpaceFactory.HAMMING_BIT);
         Request request2 = constructKNNScriptQueryRequest(INDEX_NAME, qb2, params2, 4, Collections.emptyMap());
         Response response2 = client().performRequest(request2);
         assertEquals(request2.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response2.getStatusLine().getStatusCode()));
@@ -597,7 +597,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
             .toString();
 
         for (SpaceType spaceType : SpaceType.values()) {
-            if (SpaceType.UNDEFINED == spaceType || SpaceType.HAMMING_BIT == spaceType) {
+            if (SpaceType.UNDEFINED == spaceType || SpaceType.HAMMING == spaceType) {
                 continue;
             }
             final float[] queryVector = randomVector(dimensions);

@@ -339,7 +339,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
 
         KNNEngine knnEngine = KNNEngine.FAISS;
-        SpaceType spaceType = SpaceType.HAMMING_BIT;
+        SpaceType spaceType = SpaceType.HAMMING;
         VectorDataType dataType = VectorDataType.BINARY;
         int dimension = 16;
 
