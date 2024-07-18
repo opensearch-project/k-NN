@@ -22,8 +22,14 @@ public class KNN940PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat
             Lucene94HnswVectorsFormat.DEFAULT_MAX_CONN,
             Lucene94HnswVectorsFormat.DEFAULT_BEAM_WIDTH,
             () -> new Lucene94HnswVectorsFormat(),
-            (maxConnm, beamWidth) -> new Lucene94HnswVectorsFormat(maxConnm, beamWidth),
-            (maxConnm, beamWidth, confidenceInterval, bits, compress) -> new Lucene94HnswVectorsFormat(maxConnm, beamWidth)
+            knnVectorsFormatParams -> new Lucene94HnswVectorsFormat(
+                knnVectorsFormatParams.getMaxConnections(),
+                knnVectorsFormatParams.getBeamWidth()
+            ),
+            knnScalarQuantizedVectorsFormatParams -> new Lucene94HnswVectorsFormat(
+                knnScalarQuantizedVectorsFormatParams.getMaxConnections(),
+                knnScalarQuantizedVectorsFormatParams.getBeamWidth()
+            )
         );
     }
 }
