@@ -87,7 +87,7 @@ TEST(FaissCreateBinaryIndexTest, BasicAssertions) {
     }
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
-    std::string spaceType = knn_jni::HAMMING_BIT;
+    std::string spaceType = knn_jni::HAMMING;
     std::string indexDescription = "BHNSW32";
 
     std::unordered_map<std::string, jobject> parametersMap;
@@ -222,7 +222,7 @@ TEST(FaissLoadBinaryIndexTest, BasicAssertions) {
     }
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
-    std::string spaceType = knn_jni::HAMMING_BIT;
+    std::string spaceType = knn_jni::HAMMING;
     std::string method = "BHNSW32";
 
     // Create the index

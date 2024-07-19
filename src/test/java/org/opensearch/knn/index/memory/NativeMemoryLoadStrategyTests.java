@@ -97,7 +97,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         }
         Map<String, Object> parameters = ImmutableMap.of(
             KNNConstants.SPACE_TYPE,
-            SpaceType.HAMMING_BIT.getValue(),
+            SpaceType.HAMMING.getValue(),
             KNNConstants.INDEX_DESCRIPTION_PARAMETER,
             "BHNSW32",
             KNNConstants.VECTOR_DATA_TYPE_FIELD,

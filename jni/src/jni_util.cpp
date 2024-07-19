@@ -540,7 +540,7 @@ const std::string knn_jni::LINF = "linf";
 const std::string knn_jni::COSINESIMIL = "cosinesimil";
 const std::string knn_jni::INNER_PRODUCT = "innerproduct";
 const std::string knn_jni::NEG_DOT_PRODUCT = "negdotprod";
-const std::string knn_jni::HAMMING_BIT = "hammingbit";
+const std::string knn_jni::HAMMING = "hamming";
 
 const std::string knn_jni::NPROBES = "nprobes";
 const std::string knn_jni::COARSE_QUANTIZER = "coarse_quantizer";

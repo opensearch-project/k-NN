@@ -29,6 +29,7 @@ import java.util.function.BiFunction;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.plugin.script.KNNScoringSpace.KNNFieldSpace.DATA_TYPES_DEFAULT;
 
 public class KNNScoringSpaceTests extends KNNTestCase {
 
@@ -37,7 +38,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         NumberFieldMapper.NumberFieldType invalidFieldType = mock(NumberFieldMapper.NumberFieldType.class);
         Exception e = expectThrows(InvocationTargetException.class, () -> constructor.newInstance(null, invalidFieldType));
         assertTrue(e.getCause() instanceof IllegalArgumentException);
-        assertTrue(e.getCause().getMessage().contains("The field type must be knn_vector"));
+        assertTrue(e.getCause().getMessage(), e.getCause().getMessage().contains("The field type must be knn_vector"));
     }
 
     private void expectThrowsExceptionWithKNNFieldWithBinaryDataType(Class clazz) throws NoSuchMethodException {
@@ -46,7 +47,10 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         when(invalidFieldType.getVectorDataType()).thenReturn(VectorDataType.BINARY);
         Exception e = expectThrows(InvocationTargetException.class, () -> constructor.newInstance(null, invalidFieldType));
         assertTrue(e.getCause() instanceof IllegalArgumentException);
-        assertTrue(e.getCause().getMessage().contains("The data type should be either float or byte"));
+        assertTrue(
+            e.getCause().getMessage(),
+            e.getCause().getMessage().contains(String.format("The data type should be %s", DATA_TYPES_DEFAULT))
+        );
     }
 
     @SneakyThrows
@@ -197,7 +201,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         );
     }
 
-    public void testHammingBit_whenKNNFieldType_thenSucceed() {
+    public void testHamming_whenKNNFieldType_thenSucceed() {
         List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
         KNNMethodContext knnMethodContext = KNNMethodContext.getDefault();
         KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
@@ -207,17 +211,16 @@ public class KNNScoringSpaceTests extends KNNTestCase {
             knnMethodContext,
             VectorDataType.BINARY
         );
-        KNNScoringSpace.HammingBit hammingBit = new KNNScoringSpace.HammingBit(arrayListQueryObject, fieldType);
+        KNNScoringSpace.Hamming hamming = new KNNScoringSpace.Hamming(arrayListQueryObject, fieldType);
 
         float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
-        BiFunction<float[], float[], Float> scoringMethod = (BiFunction<float[], float[], Float>) hammingBit.scoringMethod;
-        assertEquals(1F, scoringMethod.apply(arrayFloat, arrayFloat), 0.1F);
+        assertEquals(1F, hamming.scoringMethod.apply(arrayFloat, arrayFloat), 0.1F);
     }
 
-    public void testHammingBit_whenNonBinaryVectorDataType_thenException() {
+    public void testHamming_whenNonBinaryVectorDataType_thenException() {
         KNNVectorFieldMapper.KNNVectorFieldType invalidFieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
         when(invalidFieldType.getVectorDataType()).thenReturn(randomInt() % 2 == 0 ? VectorDataType.FLOAT : VectorDataType.BYTE);
-        Exception e = expectThrows(IllegalArgumentException.class, () -> new KNNScoringSpace.HammingBit(null, invalidFieldType));
-        assertTrue(e.getMessage().contains("The data type should be binary"));
+        Exception e = expectThrows(IllegalArgumentException.class, () -> new KNNScoringSpace.Hamming(null, invalidFieldType));
+        assertTrue(e.getMessage(), e.getMessage().contains("The data type should be [BINARY]"));
     }
 }
