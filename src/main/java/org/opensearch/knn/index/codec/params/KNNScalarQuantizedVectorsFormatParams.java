@@ -9,10 +9,9 @@
  * GitHub history for details.
  */
 
-package org.opensearch.knn.index.codec;
+package org.opensearch.knn.index.codec.params;
 
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import org.opensearch.knn.index.MethodComponentContext;
 
 import java.util.Map;
@@ -28,14 +27,13 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
  * Class provides params for LuceneHnswScalarQuantizedVectorsFormat
  */
 @Getter
-@NoArgsConstructor
 public class KNNScalarQuantizedVectorsFormatParams extends KNNVectorsFormatParams {
-    private float confidenceInterval;
+    private Float confidenceInterval;
     private int bits;
     private boolean compressFlag;
 
     @Override
-    protected boolean validate(Map<String, Object> params) {
+    public boolean validate(Map<String, Object> params) {
         if (params.get(METHOD_ENCODER_PARAMETER) == null) {
             return false;
         }
@@ -53,37 +51,47 @@ public class KNNScalarQuantizedVectorsFormatParams extends KNNVectorsFormatParam
     }
 
     @Override
-    protected void initialize(Map<String, Object> params, int defaultMaxConnections, int defaultBeamWidth) {
+    public void initialize(Map<String, Object> params, int defaultMaxConnections, int defaultBeamWidth) {
         super.initialize(params, defaultMaxConnections, defaultBeamWidth);
         MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) params.get(METHOD_ENCODER_PARAMETER);
         Map<String, Object> sqEncoderParams = encoderMethodComponentContext.getParameters();
-        this.confidenceInterval = getConfidenceInterval(sqEncoderParams);
-        this.bits = getBits(sqEncoderParams);
-        this.compressFlag = getCompressFlag(sqEncoderParams);
+        this.initConfidenceInterval(sqEncoderParams);
+        this.initBits(sqEncoderParams);
+        this.initCompressFlag(sqEncoderParams);
+        // this.confidenceInterval = getConfidenceInterval(sqEncoderParams);
+        // this.bits = getBits(sqEncoderParams);
+        // this.compressFlag = getCompressFlag(sqEncoderParams);
     }
 
-    private Float getConfidenceInterval(final Map<String, Object> params) {
+    private void initConfidenceInterval(final Map<String, Object> params) {
 
         if (params != null && params.containsKey(LUCENE_SQ_CONFIDENCE_INTERVAL)) {
-            if (params.get(LUCENE_SQ_CONFIDENCE_INTERVAL).equals(0)) return Float.valueOf(0);
-
-            return ((Double) params.get(LUCENE_SQ_CONFIDENCE_INTERVAL)).floatValue();
-
+            if (params.get(LUCENE_SQ_CONFIDENCE_INTERVAL).equals(0)) {
+                this.confidenceInterval = (float) 0;
+                return;
+            }
+            this.confidenceInterval = ((Double) params.get(LUCENE_SQ_CONFIDENCE_INTERVAL)).floatValue();
+            return;
         }
-        return null;
+
+        // If confidence_interval is not provided by user, then it will be set with a default value as null so that
+        // it will be computer later in Lucene based on the dimension of the vector as 1 - 1/(1 + d)
+        this.confidenceInterval = null;
     }
 
-    private int getBits(final Map<String, Object> params) {
+    private void initBits(final Map<String, Object> params) {
         if (params != null && params.containsKey(LUCENE_SQ_BITS)) {
-            return (int) params.get(LUCENE_SQ_BITS);
+            this.bits = (int) params.get(LUCENE_SQ_BITS);
+            return;
         }
-        return LUCENE_SQ_DEFAULT_BITS;
+        this.bits = LUCENE_SQ_DEFAULT_BITS;
     }
 
-    private boolean getCompressFlag(final Map<String, Object> params) {
+    private void initCompressFlag(final Map<String, Object> params) {
         if (params != null && params.containsKey(LUCENE_SQ_COMPRESS)) {
-            return (boolean) params.get(LUCENE_SQ_COMPRESS);
+            this.compressFlag = (boolean) params.get(LUCENE_SQ_COMPRESS);
+            return;
         }
-        return false;
+        this.compressFlag = false;
     }
 }
