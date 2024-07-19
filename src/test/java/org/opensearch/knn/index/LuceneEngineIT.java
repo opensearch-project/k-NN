@@ -35,7 +35,6 @@ import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_COMPRESS;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_DEFAULT_BITS;
 import static org.opensearch.knn.common.KNNConstants.MAXIMUM_CONFIDENCE_INTERVAL;
@@ -486,8 +485,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
                 SpaceType.L2,
                 VectorDataType.FLOAT,
                 bits,
-                MINIMUM_CONFIDENCE_INTERVAL,
-                false
+                MINIMUM_CONFIDENCE_INTERVAL
             )
         );
     }
@@ -502,8 +500,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
                 SpaceType.L2,
                 VectorDataType.FLOAT,
                 LUCENE_SQ_DEFAULT_BITS,
-                confidenceInterval,
-                false
+                confidenceInterval
             )
         );
     }
@@ -517,8 +514,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
                 SpaceType.L2,
                 VectorDataType.BYTE,
                 LUCENE_SQ_DEFAULT_BITS,
-                MINIMUM_CONFIDENCE_INTERVAL,
-                false
+                MINIMUM_CONFIDENCE_INTERVAL
             )
         );
         assertTrue(ex.getMessage(), ex.getMessage().contains("data type does not support"));
@@ -531,8 +527,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             SpaceType.L2,
             VectorDataType.FLOAT,
             LUCENE_SQ_DEFAULT_BITS,
-            MAXIMUM_CONFIDENCE_INTERVAL,
-            false
+            MAXIMUM_CONFIDENCE_INTERVAL
         );
         Float[] vector = new Float[] { 2.0f, 4.5f, 6.5f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
@@ -548,8 +543,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             SpaceType.INNER_PRODUCT,
             VectorDataType.FLOAT,
             LUCENE_SQ_DEFAULT_BITS,
-            MAXIMUM_CONFIDENCE_INTERVAL,
-            false
+            MAXIMUM_CONFIDENCE_INTERVAL
         );
         Float[] vector = { 6.0f, 6.0f, 7.0f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
@@ -568,8 +562,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             SpaceType.INNER_PRODUCT,
             VectorDataType.FLOAT,
             LUCENE_SQ_DEFAULT_BITS,
-            MAXIMUM_CONFIDENCE_INTERVAL,
-            false
+            MAXIMUM_CONFIDENCE_INTERVAL
         );
         Float[] vector = { 6.0f, 6.0f, 7.0f };
         addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
@@ -587,8 +580,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             SpaceType.INNER_PRODUCT,
             VectorDataType.FLOAT,
             LUCENE_SQ_DEFAULT_BITS,
-            MAXIMUM_CONFIDENCE_INTERVAL,
-            false
+            MAXIMUM_CONFIDENCE_INTERVAL
         );
 
         int numDocs = 10;
@@ -620,8 +612,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
             SpaceType.INNER_PRODUCT,
             VectorDataType.FLOAT,
             LUCENE_SQ_DEFAULT_BITS,
-            MAXIMUM_CONFIDENCE_INTERVAL,
-            false
+            MAXIMUM_CONFIDENCE_INTERVAL
         );
 
         addKnnDocWithAttributes(
@@ -645,8 +636,7 @@ public class LuceneEngineIT extends KNNRestTestCase {
         SpaceType spaceType,
         VectorDataType vectorDataType,
         int bits,
-        double confidenceInterval,
-        boolean compress
+        double confidenceInterval
     ) throws Exception {
         XContentBuilder builder = XContentFactory.jsonBuilder()
             .startObject()
@@ -667,7 +657,6 @@ public class LuceneEngineIT extends KNNRestTestCase {
             .startObject(PARAMETERS)
             .field(LUCENE_SQ_BITS, bits)
             .field(LUCENE_SQ_CONFIDENCE_INTERVAL, confidenceInterval)
-            .field(LUCENE_SQ_COMPRESS, compress)
             .endObject()
             .endObject()
             .endObject()

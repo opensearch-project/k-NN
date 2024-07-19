@@ -15,14 +15,12 @@ import org.opensearch.knn.index.SpaceType;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.DYNAMIC_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS_SUPPORTED;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_COMPRESS;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_DEFAULT_BITS;
 import static org.opensearch.knn.common.KNNConstants.MAXIMUM_CONFIDENCE_INTERVAL;
@@ -54,7 +52,6 @@ public class Lucene extends JVMLibrary {
                 LUCENE_SQ_BITS,
                 new Parameter.IntegerParameter(LUCENE_SQ_BITS, LUCENE_SQ_DEFAULT_BITS, LUCENE_SQ_BITS_SUPPORTED::contains)
             )
-            .addParameter(LUCENE_SQ_COMPRESS, new Parameter.BooleanParameter(LUCENE_SQ_COMPRESS, false, Objects::nonNull))
             .build()
     );
 

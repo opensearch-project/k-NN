@@ -24,13 +24,13 @@ public class KNNVectorsFormatParams {
     private int maxConnections;
     private int beamWidth;
 
-    public boolean validate(final Map<String, Object> params) {
-        return false;
-    }
-
-    public void initialize(final Map<String, Object> params, int defaultMaxConnections, int defaultBeamWidth) {
+    public KNNVectorsFormatParams(final Map<String, Object> params, int defaultMaxConnections, int defaultBeamWidth) {
         initMaxConnections(params, defaultMaxConnections);
         initBeamWidth(params, defaultBeamWidth);
+    }
+
+    public boolean validate(final Map<String, Object> params) {
+        return true;
     }
 
     private void initMaxConnections(final Map<String, Object> params, int defaultMaxConnections) {
