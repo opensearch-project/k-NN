@@ -120,7 +120,7 @@ public enum SpaceType {
             return KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT;
         }
     },
-    HAMMING_BIT("hammingbit") {
+    HAMMING("hamming") {
         @Override
         public float scoreTranslation(float rawScore) {
             return 1 / (1 + rawScore);
@@ -147,7 +147,7 @@ public enum SpaceType {
     };
 
     public static SpaceType DEFAULT = L2;
-    public static SpaceType DEFAULT_BINARY = HAMMING_BIT;
+    public static SpaceType DEFAULT_BINARY = HAMMING;
 
     private final String value;
 

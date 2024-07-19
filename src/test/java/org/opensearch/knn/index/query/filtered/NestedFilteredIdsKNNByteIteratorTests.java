@@ -24,7 +24,7 @@ import static org.mockito.Mockito.when;
 public class NestedFilteredIdsKNNByteIteratorTests extends TestCase {
     @SneakyThrows
     public void testNextDoc_whenIterate_ReturnBestChildDocsPerParent() {
-        final SpaceType spaceType = SpaceType.HAMMING_BIT;
+        final SpaceType spaceType = SpaceType.HAMMING;
         final byte[] queryVector = { 1, 2, 3 };
         final int[] filterIds = { 0, 2, 3 };
         // Parent id for 0 -> 1

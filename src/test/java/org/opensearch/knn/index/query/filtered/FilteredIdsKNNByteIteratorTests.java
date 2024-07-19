@@ -23,7 +23,7 @@ import static org.mockito.Mockito.when;
 public class FilteredIdsKNNByteIteratorTests extends TestCase {
     @SneakyThrows
     public void testNextDoc_whenCalled_IterateAllDocs() {
-        final SpaceType spaceType = SpaceType.HAMMING_BIT;
+        final SpaceType spaceType = SpaceType.HAMMING;
         final byte[] queryVector = { 1, 2, 3 };
         final int[] filterIds = { 1, 2, 3 };
         final List<byte[]> dataVectors = Arrays.asList(new byte[] { 11, 12, 13 }, new byte[] { 14, 15, 16 }, new byte[] { 17, 18, 19 });
