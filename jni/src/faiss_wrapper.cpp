@@ -644,7 +644,7 @@ faiss::MetricType TranslateSpaceToMetric(const std::string& spaceType) {
     }
 
     // Space type is not used for binary index. Use L2 just to avoid an error.
-    if (spaceType == knn_jni::HAMMING_BIT) {
+    if (spaceType == knn_jni::HAMMING) {
         return faiss::METRIC_L2;
     }
 

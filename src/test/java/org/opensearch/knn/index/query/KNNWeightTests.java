@@ -581,7 +581,7 @@ public class KNNWeightTests extends KNNTestCase {
             KNN_ENGINE,
             KNNEngine.FAISS.getName(),
             SPACE_TYPE,
-            isBinary ? SpaceType.HAMMING_BIT.getValue() : SpaceType.L2.getValue()
+            isBinary ? SpaceType.HAMMING.getValue() : SpaceType.L2.getValue()
         );
 
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
@@ -694,7 +694,7 @@ public class KNNWeightTests extends KNNTestCase {
             KNN_ENGINE,
             KNNEngine.FAISS.getName(),
             SPACE_TYPE,
-            isBinary ? SpaceType.HAMMING_BIT.getValue() : SpaceType.L2.getValue()
+            isBinary ? SpaceType.HAMMING.getValue() : SpaceType.L2.getValue()
         );
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);
@@ -703,7 +703,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
         when(fieldInfo.attributes()).thenReturn(attributesMap);
         if (isBinary) {
-            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING_BIT.getValue());
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING.getValue());
         } else {
             when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
         }
@@ -899,7 +899,7 @@ public class KNNWeightTests extends KNNTestCase {
             KNN_ENGINE,
             KNNEngine.FAISS.getName(),
             SPACE_TYPE,
-            SpaceType.HAMMING_BIT.name(),
+            SpaceType.HAMMING.name(),
             PARAMETERS,
             String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "BHNSW32")
         );
@@ -909,7 +909,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
         when(fieldInfo.attributes()).thenReturn(attributesMap);
-        when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING_BIT.getValue());
+        when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING.getValue());
         when(fieldInfo.getName()).thenReturn(FIELD_NAME);
         when(reader.getBinaryDocValues(FIELD_NAME)).thenReturn(binaryDocValues);
         when(binaryDocValues.advance(0)).thenReturn(0);
