@@ -651,6 +651,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                     String.format(Locale.ROOT, "Engine [%s] does not support radial search", knnEngine)
                 );
             }
+            if (vectorDataType == VectorDataType.BINARY) {
+                throw new UnsupportedOperationException(String.format(Locale.ROOT, "Binary data type does not support radial search"));
+            }
             RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
                 .indexName(indexName)

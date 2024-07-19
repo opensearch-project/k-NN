@@ -228,6 +228,27 @@ public class IndexUtilTests extends KNNTestCase {
         assert (Objects.requireNonNull(e).getMessage().matches("Validation Failed: 1: Invalid index. Index does not contain a mapping;"));
     }
 
+    public void testValidateKnnField_whenBinaryDataType_thenThrowException() {
+        Map<String, Object> fieldValues = Map.of("type", "knn_vector", "dimension", 8, "data_type", "BINARY");
+        Map<String, Object> top_level_field = Map.of("top_level_field", fieldValues);
+        Map<String, Object> properties = Map.of("properties", top_level_field);
+        String field = "top_level_field";
+        int dimension = 8;
+
+        MappingMetadata mappingMetadata = mock(MappingMetadata.class);
+        when(mappingMetadata.getSourceAsMap()).thenReturn(properties);
+        IndexMetadata indexMetadata = mock(IndexMetadata.class);
+        when(indexMetadata.mapping()).thenReturn(mappingMetadata);
+        ModelDao modelDao = mock(ModelDao.class);
+        ModelMetadata trainingFieldModelMetadata = mock(ModelMetadata.class);
+        when(trainingFieldModelMetadata.getDimension()).thenReturn(dimension);
+        when(modelDao.getMetadata(anyString())).thenReturn(trainingFieldModelMetadata);
+
+        ValidationException e = IndexUtil.validateKnnField(indexMetadata, field, dimension, modelDao);
+
+        assert (Objects.requireNonNull(e).getMessage().contains("is of data type BINARY. Only FLOAT or BYTE is supported"));
+    }
+
     public void testIsShareableStateContainedInIndex_whenIndexNotModelBased_thenReturnFalse() {
         String modelId = null;
         KNNEngine knnEngine = KNNEngine.FAISS;
