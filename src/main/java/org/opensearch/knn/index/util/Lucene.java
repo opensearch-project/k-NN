@@ -20,7 +20,6 @@ import java.util.function.Function;
 import static org.opensearch.knn.common.KNNConstants.DYNAMIC_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS_SUPPORTED;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_DEFAULT_BITS;
 import static org.opensearch.knn.common.KNNConstants.MAXIMUM_CONFIDENCE_INTERVAL;
@@ -36,6 +35,7 @@ import static org.opensearch.knn.common.KNNConstants.MINIMUM_CONFIDENCE_INTERVAL
 public class Lucene extends JVMLibrary {
 
     Map<SpaceType, Function<Float, Float>> distanceTransform;
+    private static final List<Integer> LUCENE_SQ_BITS_SUPPORTED = List.of(7);
 
     private final static Map<String, MethodComponent> HNSW_ENCODERS = ImmutableMap.of(
         ENCODER_SQ,

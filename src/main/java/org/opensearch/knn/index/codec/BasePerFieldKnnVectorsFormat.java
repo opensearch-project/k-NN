@@ -19,10 +19,8 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static org.opensearch.knn.common.KNNConstants.BEAM_WIDTH;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
-import static org.opensearch.knn.common.KNNConstants.MAX_CONNECTIONS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 
 /**
@@ -37,15 +35,33 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     private final int defaultBeamWidth;
     private final Supplier<KnnVectorsFormat> defaultFormatSupplier;
     private final Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier;
-    private final Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier;
+    private Function<KNNScalarQuantizedVectorsFormatParams, KnnVectorsFormat> scalarQuantizedVectorsFormatSupplier;
+    private static final String MAX_CONNECTIONS = "max_connections";
+    private static final String BEAM_WIDTH = "beam_width";
+
+    public BasePerFieldKnnVectorsFormat(
+        Optional<MapperService> mapperService,
+        int defaultMaxConnections,
+        int defaultBeamWidth,
+        Supplier<KnnVectorsFormat> defaultFormatSupplier,
+        Function<KNNVectorsFormatParams, KnnVectorsFormat> vectorsFormatSupplier
+    ) {
+        this.mapperService = mapperService;
+        this.defaultMaxConnections = defaultMaxConnections;
+        this.defaultBeamWidth = defaultBeamWidth;
+        this.defaultFormatSupplier = defaultFormatSupplier;
+        this.vectorsFormatSupplier = vectorsFormatSupplier;
+    }
 
     @Override
     public KnnVectorsFormat getKnnVectorsFormatForField(final String field) {
         if (isKnnVectorFieldType(field) == false) {
             log.debug(
-                "Initialize KNN vector format for field [{}] with default params [max_connections] = \"{}\" and [beam_width] = \"{}\"",
+                "Initialize KNN vector format for field [{}] with default params [{}] = \"{}\" and [{}] = \"{}\"",
                 field,
+                MAX_CONNECTIONS,
                 defaultMaxConnections,
+                BEAM_WIDTH,
                 defaultBeamWidth
             );
             return defaultFormatSupplier.get();
@@ -85,9 +101,11 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
 
         KNNVectorsFormatParams knnVectorsFormatParams = new KNNVectorsFormatParams(params, defaultMaxConnections, defaultBeamWidth);
         log.debug(
-            "Initialize KNN vector format for field [{}] with params [max_connections] = \"{}\" and [beam_width] = \"{}\"",
+            "Initialize KNN vector format for field [{}] with params [{}] = \"{}\" and [{}] = \"{}\"",
             field,
+            MAX_CONNECTIONS,
             knnVectorsFormatParams.getMaxConnections(),
+            BEAM_WIDTH,
             knnVectorsFormatParams.getBeamWidth()
         );
         return vectorsFormatSupplier.apply(knnVectorsFormatParams);

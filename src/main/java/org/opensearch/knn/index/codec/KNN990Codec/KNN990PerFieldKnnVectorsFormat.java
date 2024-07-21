@@ -17,6 +17,7 @@ import java.util.Optional;
  * Class provides per field format implementation for Lucene Knn vector type
  */
 public class KNN990PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat {
+    private static final int NUM_MERGE_WORKERS = 1;
 
     public KNN990PerFieldKnnVectorsFormat(final Optional<MapperService> mapperService) {
         super(
@@ -31,7 +32,7 @@ public class KNN990PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat
             knnScalarQuantizedVectorsFormatParams -> new Lucene99HnswScalarQuantizedVectorsFormat(
                 knnScalarQuantizedVectorsFormatParams.getMaxConnections(),
                 knnScalarQuantizedVectorsFormatParams.getBeamWidth(),
-                1,
+                NUM_MERGE_WORKERS,
                 knnScalarQuantizedVectorsFormatParams.getBits(),
                 knnScalarQuantizedVectorsFormatParams.isCompressFlag(),
                 knnScalarQuantizedVectorsFormatParams.getConfidenceInterval(),

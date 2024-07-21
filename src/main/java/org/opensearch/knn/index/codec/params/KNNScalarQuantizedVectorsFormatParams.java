@@ -1,12 +1,6 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
 package org.opensearch.knn.index.codec.params;
@@ -70,7 +64,7 @@ public class KNNScalarQuantizedVectorsFormatParams extends KNNVectorsFormatParam
         }
 
         // If confidence_interval is not provided by user, then it will be set with a default value as null so that
-        // it will be computer later in Lucene based on the dimension of the vector as 1 - 1/(1 + d)
+        // it will be computed later in Lucene based on the dimension of the vector as 1 - 1/(1 + d)
         this.confidenceInterval = null;
     }
 
