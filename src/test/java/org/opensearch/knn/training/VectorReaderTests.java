@@ -8,25 +8,23 @@
  * Modifications Copyright OpenSearch Contributors. See
  * GitHub history for details.
  */
-
 package org.opensearch.knn.training;
 
+import lombok.Getter;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.cluster.service.ClusterService;
-import org.opensearch.common.ValidationException;
 import org.opensearch.knn.KNNSingleNodeTestCase;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.memory.NativeMemoryAllocation;
+import org.opensearch.common.ValidationException;
+import org.opensearch.search.SearchHit;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class VectorReaderTests extends KNNSingleNodeTestCase {
@@ -36,9 +34,9 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
     private final static String DEFAULT_FIELD_NAME = "test-field";
     private final static String DEFAULT_NESTED_FIELD_PATH = "a.b.test-field";
     private final static int DEFAULT_DIMENSION = 16;
-    private final static int DEFAULT_NUM_VECTORS = 100;
+    private final static int DEFAULT_NUM_VECTORS = 50;
     private final static int DEFAULT_MAX_VECTOR_COUNT = 10000;
-    private final static int DEFAULT_SEARCH_SIZE = 10;
+    private final static int DEFAULT_SEARCH_SIZE = 120;
 
     public void testRead_valid_completeIndex() throws InterruptedException, ExecutionException, IOException {
         createIndex(DEFAULT_INDEX_NAME);
@@ -56,9 +54,9 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         // Configure VectorReader
         ClusterService clusterService = node().injector().getInstance(ClusterService.class);
         VectorReader vectorReader = new VectorReader(client());
+        TestFloatTrainingDataConsumer trainingDataConsumer = new TestFloatTrainingDataConsumer(createMockTrainingDataAllocation());
 
         // Read all vectors and confirm they match vectors
-        TestVectorConsumer testVectorConsumer = new TestVectorConsumer();
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
         vectorReader.read(
             clusterService,
@@ -66,14 +64,14 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
             DEFAULT_FIELD_NAME,
             DEFAULT_MAX_VECTOR_COUNT,
             DEFAULT_SEARCH_SIZE,
-            testVectorConsumer,
+            trainingDataConsumer,
             createOnSearchResponseCountDownListener(inProgressLatch)
         );
 
         assertLatchDecremented(inProgressLatch);
 
-        List<Float[]> consumedVectors = testVectorConsumer.getVectorsConsumed();
-        assertEquals(DEFAULT_NUM_VECTORS, consumedVectors.size());
+        List<Float[]> consumedVectors = trainingDataConsumer.getTotalAddedVectors();
+        assertEquals(DEFAULT_NUM_VECTORS, trainingDataConsumer.getTotalVectorsCountAdded());
 
         List<Float> flatVectors = vectors.stream().flatMap(Arrays::stream).collect(Collectors.toList());
         List<Float> flatConsumedVectors = consumedVectors.stream().flatMap(Arrays::stream).collect(Collectors.toList());
@@ -98,21 +96,21 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         VectorReader vectorReader = new VectorReader(client());
 
         // Read all vectors and confirm they match vectors
-        TestVectorConsumer testVectorConsumer = new TestVectorConsumer();
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        TestFloatTrainingDataConsumer trainingDataConsumer = new TestFloatTrainingDataConsumer(createMockTrainingDataAllocation());
         vectorReader.read(
             clusterService,
             DEFAULT_INDEX_NAME,
             DEFAULT_FIELD_NAME,
             DEFAULT_MAX_VECTOR_COUNT,
             DEFAULT_SEARCH_SIZE,
-            testVectorConsumer,
+            trainingDataConsumer,
             createOnSearchResponseCountDownListener(inProgressLatch)
         );
 
         assertLatchDecremented(inProgressLatch);
 
-        List<Float[]> consumedVectors = testVectorConsumer.getVectorsConsumed();
+        List<Float[]> consumedVectors = trainingDataConsumer.getTotalAddedVectors();
         assertEquals(DEFAULT_NUM_VECTORS, consumedVectors.size());
 
         List<Float> flatVectors = vectors.stream().flatMap(Arrays::stream).map(Integer::floatValue).collect(Collectors.toList());
@@ -149,21 +147,22 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         VectorReader vectorReader = new VectorReader(client());
 
         // Read all vectors and confirm they match vectors
-        TestVectorConsumer testVectorConsumer = new TestVectorConsumer();
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        TestFloatTrainingDataConsumer trainingDataConsumer = new TestFloatTrainingDataConsumer(createMockTrainingDataAllocation());
+
         vectorReader.read(
             clusterService,
             DEFAULT_INDEX_NAME,
             DEFAULT_FIELD_NAME,
             DEFAULT_MAX_VECTOR_COUNT,
             DEFAULT_SEARCH_SIZE,
-            testVectorConsumer,
+            trainingDataConsumer,
             createOnSearchResponseCountDownListener(inProgressLatch)
         );
 
         assertLatchDecremented(inProgressLatch);
 
-        List<Float[]> consumedVectors = testVectorConsumer.getVectorsConsumed();
+        List<Float[]> consumedVectors = trainingDataConsumer.getTotalAddedVectors();
         assertEquals(DEFAULT_NUM_VECTORS, consumedVectors.size());
 
         List<Float> flatVectors = vectors.stream().flatMap(Arrays::stream).collect(Collectors.toList());
@@ -192,21 +191,21 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         VectorReader vectorReader = new VectorReader(client());
 
         // Read maxNumVectorsRead vectors
-        TestVectorConsumer testVectorConsumer = new TestVectorConsumer();
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        TestFloatTrainingDataConsumer trainingDataConsumer = new TestFloatTrainingDataConsumer(createMockTrainingDataAllocation());
         vectorReader.read(
             clusterService,
             DEFAULT_INDEX_NAME,
             DEFAULT_FIELD_NAME,
             maxNumVectorsRead,
             DEFAULT_SEARCH_SIZE,
-            testVectorConsumer,
+            trainingDataConsumer,
             createOnSearchResponseCountDownListener(inProgressLatch)
         );
 
         assertLatchDecremented(inProgressLatch);
 
-        List<Float[]> consumedVectors = testVectorConsumer.getVectorsConsumed();
+        List<Float[]> consumedVectors = trainingDataConsumer.getTotalAddedVectors();
         assertEquals(maxNumVectorsRead, consumedVectors.size());
     }
 
@@ -364,44 +363,26 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
         VectorReader vectorReader = new VectorReader(client());
 
         // Read all vectors and confirm they match vectors
-        TestVectorConsumer testVectorConsumer = new TestVectorConsumer();
         final CountDownLatch inProgressLatch = new CountDownLatch(1);
+        TestFloatTrainingDataConsumer trainingDataConsumer = new TestFloatTrainingDataConsumer(createMockTrainingDataAllocation());
         vectorReader.read(
             clusterService,
             DEFAULT_INDEX_NAME,
             DEFAULT_NESTED_FIELD_PATH,
             DEFAULT_MAX_VECTOR_COUNT,
             DEFAULT_SEARCH_SIZE,
-            testVectorConsumer,
+            trainingDataConsumer,
             createOnSearchResponseCountDownListener(inProgressLatch)
         );
 
         assertLatchDecremented(inProgressLatch);
 
-        List<Float[]> consumedVectors = testVectorConsumer.getVectorsConsumed();
+        List<Float[]> consumedVectors = trainingDataConsumer.getTotalAddedVectors();
         assertEquals(DEFAULT_NUM_VECTORS, consumedVectors.size());
 
         List<Float> flatVectors = vectors.stream().flatMap(Arrays::stream).collect(Collectors.toList());
         List<Float> flatConsumedVectors = consumedVectors.stream().flatMap(Arrays::stream).collect(Collectors.toList());
         assertEquals(new HashSet<>(flatVectors), new HashSet<>(flatConsumedVectors));
-    }
-
-    private static class TestVectorConsumer implements Consumer<List<Float[]>> {
-
-        List<Float[]> vectorsConsumed;
-
-        TestVectorConsumer() {
-            vectorsConsumed = new ArrayList<>();
-        }
-
-        @Override
-        public void accept(List<Float[]> vectors) {
-            vectorsConsumed.addAll(vectors);
-        }
-
-        public List<Float[]> getVectorsConsumed() {
-            return vectorsConsumed;
-        }
     }
 
     private void assertLatchDecremented(CountDownLatch countDownLatch) throws InterruptedException {
@@ -410,5 +391,41 @@ public class VectorReaderTests extends KNNSingleNodeTestCase {
 
     private ActionListener<SearchResponse> createOnSearchResponseCountDownListener(CountDownLatch countDownLatch) {
         return ActionListener.wrap(response -> countDownLatch.countDown(), Throwable::printStackTrace);
+    }
+
+    private NativeMemoryAllocation.TrainingDataAllocation createMockTrainingDataAllocation() {
+        return new NativeMemoryAllocation.TrainingDataAllocation(null, 0, 0, VectorDataType.FLOAT);
+    }
+
+    // create test float training data consumer class extending FloatTrainingDataConsumer
+    private static class TestFloatTrainingDataConsumer extends FloatTrainingDataConsumer {
+        @Getter
+        private List<Float[]> totalAddedVectors = new ArrayList<>();
+
+        public TestFloatTrainingDataConsumer(NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation) {
+            super(trainingDataAllocation);
+        }
+
+        @Override
+        public void processTrainingVectors(SearchResponse searchResponse, int vectorsToAdd, String fieldName) {
+            SearchHit[] hits = searchResponse.getHits().getHits();
+            List<Float[]> vectors = new ArrayList<>();
+
+            String[] fieldPath = fieldName.split("\\.");
+
+            for (int vector = 0; vector < vectorsToAdd; vector++) {
+                Object fieldValue = extractFieldValue(hits[vector], fieldPath);
+                if (!(fieldValue instanceof List<?>)) {
+                    continue;
+                }
+
+                List<Number> fieldList = (List<Number>) fieldValue;
+                vectors.add(fieldList.stream().map(Number::floatValue).toArray(Float[]::new));
+            }
+
+            totalAddedVectors.addAll(vectors);
+            setTotalVectorsCountAdded(getTotalVectorsCountAdded() + vectors.size());
+            accept(vectors);
+        }
     }
 }

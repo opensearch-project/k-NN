@@ -24,6 +24,7 @@ import org.opensearch.cluster.node.DiscoveryNodes;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.transport.TransportService;
@@ -307,7 +308,8 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
             trainingIndexName,
             "training-field",
             null,
-            "description"
+            "description",
+            VectorDataType.DEFAULT
         );
 
         // Mock client to return the right number of docs
@@ -316,6 +318,102 @@ public class TrainingJobRouterTransportActionTests extends KNNTestCase {
         SearchResponse searchResponse = mock(SearchResponse.class);
         when(searchResponse.getHits()).thenReturn(searchHits);
         Client client = mock(Client.class);
+        doAnswer(invocationOnMock -> {
+            ((ActionListener<SearchResponse>) invocationOnMock.getArguments()[1]).onResponse(searchResponse);
+            return null;
+        }).when(client).search(any(), any());
+
+        // Setup the action
+        ClusterService clusterService = mock(ClusterService.class);
+        TransportService transportService = mock(TransportService.class);
+        TrainingJobRouterTransportAction transportAction = new TrainingJobRouterTransportAction(
+            transportService,
+            new ActionFilters(Collections.emptySet()),
+            clusterService,
+            client
+        );
+
+        ActionListener<Integer> listener = ActionListener.wrap(
+            size -> assertEquals(expectedSize, size.intValue()),
+            e -> fail(e.getMessage())
+        );
+
+        transportAction.getTrainingIndexSizeInKB(trainingModelRequest, listener);
+    }
+
+    public void testTrainIndexSize_whenDataTypeIsBinary() {
+        String trainingIndexName = "training-index";
+        int dimension = 8;
+        int vectorCount = 1000000;
+        int expectedSize = Byte.BYTES * (dimension / 8) * vectorCount / BYTES_PER_KILOBYTES + 1; // 977 KB
+
+        // Setup the request
+        TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
+            null,
+            KNNMethodContext.getDefault(),
+            dimension,
+            trainingIndexName,
+            "training-field",
+            null,
+            "description",
+            VectorDataType.BINARY
+        );
+
+        // Mock client to return the right number of docs
+        TotalHits totalHits = new TotalHits(vectorCount, TotalHits.Relation.EQUAL_TO);
+        SearchHits searchHits = new SearchHits(new SearchHit[2], totalHits, 1.0f);
+        SearchResponse searchResponse = mock(SearchResponse.class);
+        when(searchResponse.getHits()).thenReturn(searchHits);
+        Client client = mock(Client.class);
+
+        doAnswer(invocationOnMock -> {
+            ((ActionListener<SearchResponse>) invocationOnMock.getArguments()[1]).onResponse(searchResponse);
+            return null;
+        }).when(client).search(any(), any());
+
+        // Setup the action
+        ClusterService clusterService = mock(ClusterService.class);
+        TransportService transportService = mock(TransportService.class);
+        TrainingJobRouterTransportAction transportAction = new TrainingJobRouterTransportAction(
+            transportService,
+            new ActionFilters(Collections.emptySet()),
+            clusterService,
+            client
+        );
+
+        ActionListener<Integer> listener = ActionListener.wrap(
+            size -> assertEquals(expectedSize, size.intValue()),
+            e -> fail(e.getMessage())
+        );
+
+        transportAction.getTrainingIndexSizeInKB(trainingModelRequest, listener);
+    }
+
+    public void testTrainIndexSize_whenDataTypeIsByte() {
+        String trainingIndexName = "training-index";
+        int dimension = 8;
+        int vectorCount = 1000000;
+        int expectedSize = Byte.BYTES * dimension * vectorCount / BYTES_PER_KILOBYTES + 1; // 7813 KB
+
+        // Setup the request
+        TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
+            null,
+            KNNMethodContext.getDefault(),
+            dimension,
+            trainingIndexName,
+            "training-field",
+            null,
+            "description",
+            VectorDataType.BYTE
+        );
+
+        // Mock client to return the right number of docs
+        TotalHits totalHits = new TotalHits(vectorCount, TotalHits.Relation.EQUAL_TO);
+        SearchHits searchHits = new SearchHits(new SearchHit[2], totalHits, 1.0f);
+        SearchResponse searchResponse = mock(SearchResponse.class);
+        when(searchResponse.getHits()).thenReturn(searchHits);
+        Client client = mock(Client.class);
+
         doAnswer(invocationOnMock -> {
             ((ActionListener<SearchResponse>) invocationOnMock.getArguments()[1]).onResponse(searchResponse);
             return null;
