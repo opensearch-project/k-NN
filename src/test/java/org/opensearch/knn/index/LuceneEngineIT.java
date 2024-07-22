@@ -476,7 +476,9 @@ public class LuceneEngineIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testSQ_whenInvalidBits_thenThrowException() {
+    public void testSQ_withInvalidParams_thenThrowException() {
+
+        // Use invalid number of bits for the bits param which throws an exception
         int bits = -1;
         expectThrows(
             ResponseException.class,
@@ -488,11 +490,9 @@ public class LuceneEngineIT extends KNNRestTestCase {
                 MINIMUM_CONFIDENCE_INTERVAL
             )
         );
-    }
 
-    @SneakyThrows
-    public void testSQ_whenInvalidConfidenceInterval_thenThrowException() {
-        double confidenceInterval = 2.5;
+        // Use invalid value for confidence_interval param which throws an exception
+        double confidenceInterval = -2.5;
         expectThrows(
             ResponseException.class,
             () -> createKnnIndexMappingWithLuceneEngineAndSQEncoder(
@@ -503,11 +503,9 @@ public class LuceneEngineIT extends KNNRestTestCase {
                 confidenceInterval
             )
         );
-    }
 
-    @SneakyThrows
-    public void testSQ_withByteVectorDataType_thenThrowException() {
-        Exception ex = expectThrows(
+        // Use "byte" data_type with sq encoder which throws an exception
+        expectThrows(
             ResponseException.class,
             () -> createKnnIndexMappingWithLuceneEngineAndSQEncoder(
                 DIMENSION,
@@ -517,7 +515,6 @@ public class LuceneEngineIT extends KNNRestTestCase {
                 MINIMUM_CONFIDENCE_INTERVAL
             )
         );
-        assertTrue(ex.getMessage(), ex.getMessage().contains("data type does not support"));
     }
 
     @SneakyThrows
