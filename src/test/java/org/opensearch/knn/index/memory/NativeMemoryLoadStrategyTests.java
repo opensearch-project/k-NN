@@ -22,7 +22,7 @@ import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.training.TrainingDataConsumer;
+import org.opensearch.knn.training.FloatTrainingDataConsumer;
 import org.opensearch.knn.training.VectorReader;
 import org.opensearch.watcher.ResourceWatcherService;
 
@@ -150,12 +150,12 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         logger.info("J0");
         doAnswer(invocationOnMock -> {
             logger.info("J1");
-            TrainingDataConsumer trainingDataConsumer = (TrainingDataConsumer) invocationOnMock.getArguments()[5];
+            FloatTrainingDataConsumer floatTrainingDataConsumer = (FloatTrainingDataConsumer) invocationOnMock.getArguments()[5];
             ActionListener<SearchResponse> listener = (ActionListener<SearchResponse>) invocationOnMock.getArguments()[6];
             Thread thread = new Thread(() -> {
                 try {
                     Thread.sleep(2000);
-                    trainingDataConsumer.accept(vectors); // Transfer some floats
+                    floatTrainingDataConsumer.accept(vectors); // Transfer some floats
                     listener.onResponse(null);
                 } catch (InterruptedException e) {
                     listener.onFailure(null);
@@ -176,7 +176,8 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
             NativeMemoryLoadStrategy.TrainingLoadStrategy.getInstance(),
             null,
             0,
-            0
+            0,
+            VectorDataType.FLOAT
         );
 
         // Load the allocation. Initially, the memory address should be 0. However, after the readlock is obtained,

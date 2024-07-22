@@ -131,4 +131,6 @@ public enum VectorDataType {
             );
         }
     }
+
+    public static VectorDataType DEFAULT = FLOAT;
 }

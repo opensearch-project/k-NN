@@ -20,15 +20,16 @@ import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.query.KNNQueryFactory;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.query.KNNQuery;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.query.KNNWeight;
-import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.VectorField;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.FieldType;
@@ -213,7 +214,8 @@ public class KNNCodecTestCase extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.EMPTY
+            MethodComponentContext.EMPTY,
+            VectorDataType.FLOAT
         );
 
         Model mockModel = new Model(modelMetadata1, modelBlob, modelId);

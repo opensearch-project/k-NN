@@ -175,7 +175,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.EMPTY
+            MethodComponentContext.EMPTY,
+            VectorDataType.FLOAT
         );
         builder.modelId.setValue(modelId);
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
@@ -676,7 +677,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.EMPTY
+            MethodComponentContext.EMPTY,
+            VectorDataType.FLOAT
         );
         when(mockModelDao.getMetadata(modelId)).thenReturn(mockModelMetadata);
 
@@ -747,7 +749,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             parseContext,
             TEST_DIMENSION,
             luceneFieldMapper.fieldType().spaceType,
-            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext()
+            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext(),
+            VectorDataType.FLOAT
         );
 
         // Document should have 2 fields: one for VectorField (binary doc values) and one for KnnVectorField
@@ -791,7 +794,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             parseContext,
             TEST_DIMENSION,
             luceneFieldMapper.fieldType().spaceType,
-            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext()
+            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext(),
+            VectorDataType.FLOAT
         );
 
         // Document should have 1 field: one for KnnVectorField
@@ -826,7 +830,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             parseContext,
             TEST_DIMENSION,
             luceneFieldMapper.fieldType().spaceType,
-            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext()
+            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext(),
+            VectorDataType.BYTE
         );
 
         // Document should have 2 fields: one for VectorField (binary doc values) and one for KnnByteVectorField
@@ -869,7 +874,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             parseContext,
             TEST_DIMENSION,
             luceneFieldMapper.fieldType().spaceType,
-            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext()
+            luceneFieldMapper.fieldType().knnMethodContext.getMethodComponentContext(),
+            VectorDataType.BYTE
         );
 
         // Document should have 1 field: one for KnnByteVectorField

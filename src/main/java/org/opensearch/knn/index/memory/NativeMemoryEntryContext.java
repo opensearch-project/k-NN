@@ -14,6 +14,7 @@ package org.opensearch.knn.index.memory;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.index.IndexUtil;
+import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
 import java.util.Map;
@@ -169,6 +170,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
         private final String trainFieldName;
         private final int maxVectorCount;
         private final int searchSize;
+        private final VectorDataType vectorDataType;
 
         /**
          * Constructor
@@ -188,7 +190,8 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             NativeMemoryLoadStrategy.TrainingLoadStrategy trainingLoadStrategy,
             ClusterService clusterService,
             int maxVectorCount,
-            int searchSize
+            int searchSize,
+            VectorDataType vectorDataType
         ) {
             super(generateKey(trainIndexName, trainFieldName));
             this.size = size;
@@ -198,6 +201,7 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
             this.clusterService = clusterService;
             this.maxVectorCount = maxVectorCount;
             this.searchSize = searchSize;
+            this.vectorDataType = vectorDataType;
         }
 
         @Override
@@ -253,6 +257,15 @@ public abstract class NativeMemoryEntryContext<T extends NativeMemoryAllocation>
          */
         public ClusterService getClusterService() {
             return clusterService;
+        }
+
+        /**
+         * Getter for vector data type.
+         *
+         * @return vector data type
+         */
+        public VectorDataType getVectorDataType() {
+            return vectorDataType;
         }
 
         private static String generateKey(String trainIndexName, String trainFieldName) {
