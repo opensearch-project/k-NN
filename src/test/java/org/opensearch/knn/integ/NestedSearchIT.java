@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index;
+package org.opensearch.knn.integ;
 
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
@@ -16,6 +16,8 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.NestedKnnDocBuilder;
+import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;

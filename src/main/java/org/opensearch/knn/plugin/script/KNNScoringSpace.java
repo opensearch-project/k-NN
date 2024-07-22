@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin.script;
 
+import lombok.Getter;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.IndexSearcher;
 import org.opensearch.index.mapper.MappedFieldType;
@@ -52,8 +53,9 @@ public interface KNNScoringSpace {
     abstract class KNNFieldSpace implements KNNScoringSpace {
         public static final Set<VectorDataType> DATA_TYPES_DEFAULT = Set.of(VectorDataType.FLOAT, VectorDataType.BYTE);
 
-        float[] processedQuery;
-        BiFunction<float[], float[], Float> scoringMethod;
+        private float[] processedQuery;
+        @Getter
+        private BiFunction<float[], float[], Float> scoringMethod;
 
         public KNNFieldSpace(final Object query, final MappedFieldType fieldType, final String spaceName) {
             this(query, fieldType, spaceName, DATA_TYPES_DEFAULT);

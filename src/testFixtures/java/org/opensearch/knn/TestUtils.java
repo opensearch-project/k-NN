@@ -256,11 +256,19 @@ public class TestUtils {
         public Pair indexData;
         public byte[][] indexBinaryData;
         public float[][] queries;
+        public String[][] groundTruthValues;
         public byte[][] binaryQueries;
 
         public TestData(String testIndexVectorsPath, String testQueriesPath) throws IOException {
             indexData = readIndexData(testIndexVectorsPath);
             queries = readQueries(testQueriesPath);
+            initBinaryData();
+        }
+
+        public TestData(String testIndexVectorsPath, String testQueriesPath, String groundTruthValuesPath) throws IOException {
+            indexData = readIndexData(testIndexVectorsPath);
+            queries = readQueries(testQueriesPath);
+            groundTruthValues = readGroundTruthValues(groundTruthValuesPath);
             initBinaryData();
         }
 
@@ -280,10 +288,10 @@ public class TestUtils {
                 idsList.add((Integer) doc.get("id"));
 
                 @SuppressWarnings("unchecked")
-                ArrayList<Double> vector = (ArrayList<Double>) doc.get("vector");
+                ArrayList<Object> vector = (ArrayList<Object>) doc.get("vector");
                 Float[] floatArray = new Float[vector.size()];
                 for (int i = 0; i < vector.size(); i++) {
-                    floatArray[i] = vector.get(i).floatValue();
+                    floatArray[i] = Float.valueOf(vector.get(i).toString());
                 }
                 vectorsList.add(floatArray);
 
@@ -330,6 +338,28 @@ public class TestUtils {
                 }
             }
             return queryArray;
+        }
+
+        private String[][] readGroundTruthValues(String path) throws IOException {
+            BufferedReader reader = new BufferedReader(new FileReader(path));
+            String line = reader.readLine();
+
+            List<String[]> stringList = new ArrayList<>();
+
+            while (line != null) {
+                String[] intStrings = line.split(",");
+                stringList.add(intStrings);
+                line = reader.readLine();
+            }
+            reader.close();
+
+            String[][] docIdArray = new String[stringList.size()][stringList.get(0).length];
+            for (int i = 0; i < docIdArray.length; i++) {
+                for (int j = 0; j < docIdArray[i].length; j++) {
+                    docIdArray[i][j] = stringList.get(i)[j].trim();
+                }
+            }
+            return docIdArray;
         }
 
         private void initBinaryData() {
