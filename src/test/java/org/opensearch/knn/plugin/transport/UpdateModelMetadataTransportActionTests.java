@@ -19,6 +19,7 @@ import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -68,7 +69,8 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
             "",
             "",
             "",
-            MethodComponentContext.EMPTY
+            MethodComponentContext.EMPTY,
+            VectorDataType.DEFAULT
         );
 
         // Get update transport action

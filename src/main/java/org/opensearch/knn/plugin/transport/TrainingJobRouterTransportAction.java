@@ -22,6 +22,7 @@ import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.tasks.Task;
 import org.opensearch.transport.TransportRequestOptions;
@@ -133,7 +134,9 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
                 trainingVectors = trainingModelRequest.getMaximumVectorCount();
             }
 
-            listener.onResponse(estimateVectorSetSizeInKB(trainingVectors, trainingModelRequest.getDimension()));
+            listener.onResponse(
+                estimateVectorSetSizeInKB(trainingVectors, trainingModelRequest.getDimension(), trainingModelRequest.getVectorDataType())
+            );
         }, listener::onFailure));
     }
 
@@ -144,8 +147,14 @@ public class TrainingJobRouterTransportAction extends HandledTransportAction<Tra
      * @param dimension dimension of vectors
      * @return size estimate
      */
-    public static int estimateVectorSetSizeInKB(long vectorCount, int dimension) {
-        // Ensure we do not overflow the int on estimate
-        return Math.toIntExact(((Float.BYTES * dimension * vectorCount) / BYTES_PER_KILOBYTES) + 1L);
+    public static int estimateVectorSetSizeInKB(long vectorCount, int dimension, VectorDataType vectorDataType) {
+        switch (vectorDataType) {
+            case BINARY:
+                return Math.toIntExact(((Byte.BYTES * (dimension / 8) * vectorCount) / BYTES_PER_KILOBYTES) + 1L);
+            case BYTE:
+                return Math.toIntExact(((Byte.BYTES * dimension * vectorCount) / BYTES_PER_KILOBYTES) + 1L);
+            default:
+                return Math.toIntExact(((Float.BYTES * dimension * vectorCount) / BYTES_PER_KILOBYTES) + 1L);
+        }
     }
 }

@@ -13,6 +13,8 @@ package org.opensearch.knn.index.memory;
 
 import lombok.Getter;
 import org.apache.lucene.index.LeafReaderContext;
+import org.opensearch.knn.index.IndexUtil;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
@@ -248,6 +250,7 @@ public interface NativeMemoryAllocation {
         private int readCount;
         private Semaphore readSemaphore;
         private Semaphore writeSemaphore;
+        private VectorDataType vectorDataType;
 
         /**
          * Constructor
@@ -256,7 +259,7 @@ public interface NativeMemoryAllocation {
          * @param memoryAddress pointer in memory to the training data allocation
          * @param size amount memory needed for allocation in kilobytes
          */
-        TrainingDataAllocation(ExecutorService executor, long memoryAddress, int size) {
+        public TrainingDataAllocation(ExecutorService executor, long memoryAddress, int size, VectorDataType vectorDataType) {
             this.executor = executor;
             this.closed = false;
             this.memoryAddress = memoryAddress;
@@ -265,6 +268,7 @@ public interface NativeMemoryAllocation {
             this.readCount = 0;
             this.readSemaphore = new Semaphore(1);
             this.writeSemaphore = new Semaphore(1);
+            this.vectorDataType = vectorDataType;
         }
 
         @Override
@@ -295,7 +299,11 @@ public interface NativeMemoryAllocation {
             closed = true;
 
             if (this.memoryAddress != 0) {
-                JNICommons.freeVectorData(this.memoryAddress);
+                if (IndexUtil.isBinaryIndex(vectorDataType)) {
+                    JNICommons.freeByteVectorData(this.memoryAddress);
+                } else {
+                    JNICommons.freeVectorData(this.memoryAddress);
+                }
             }
         }
 
