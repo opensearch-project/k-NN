@@ -18,6 +18,7 @@ import org.opensearch.knn.KNNJsonQueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNEngine;
 
@@ -31,20 +32,20 @@ import java.util.stream.Collectors;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
 /**
- * This class contains integration tests for binary index with HNSW in Faiss
+ * This class contains integration tests for index
  */
 @Log4j2
-public class BinaryIndexIT extends KNNRestTestCase {
+public class IndexIT extends KNNRestTestCase {
     private static TestUtils.TestData testData;
 
     @BeforeClass
     public static void setUpClass() throws IOException {
-        if (BinaryIndexIT.class.getClassLoader() == null) {
-            throw new IllegalStateException("ClassLoader of BinaryIndexIT Class is null");
+        if (IndexIT.class.getClassLoader() == null) {
+            throw new IllegalStateException("ClassLoader of IndexIT Class is null");
         }
-        URL testIndexVectors = BinaryIndexIT.class.getClassLoader().getResource("data/test_vectors_binary_1000x128.json");
-        URL testQueries = BinaryIndexIT.class.getClassLoader().getResource("data/test_queries_binary_100x128.csv");
-        URL groundTruthValues = BinaryIndexIT.class.getClassLoader().getResource("data/test_ground_truth_binary_100.csv");
+        URL testIndexVectors = IndexIT.class.getClassLoader().getResource("data/test_vectors_1000x128.json");
+        URL testQueries = IndexIT.class.getClassLoader().getResource("data/test_queries_100x128.csv");
+        URL groundTruthValues = IndexIT.class.getClassLoader().getResource("data/test_ground_truth_l2_100.csv");
         assert testIndexVectors != null;
         assert testQueries != null;
         assert groundTruthValues != null;
@@ -61,36 +62,9 @@ public class BinaryIndexIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testFaissHnswBinary_whenSmallDataSet_thenCreateIngestQueryWorks() {
+    public void testFaissHnsw_when1000Data_thenRecallIsAboveNinePointZero() {
         // Create Index
-        createKnnHnswBinaryIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 16);
-
-        // Ingest
-        Byte[] vector1 = { 0b00000001, 0b00000001 };
-        Byte[] vector2 = { 0b00000011, 0b00000001 };
-        Byte[] vector3 = { 0b00000111, 0b00000001 };
-        Byte[] vector4 = { 0b00001111, 0b00000001 };
-        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector1);
-        addKnnDoc(INDEX_NAME, "2", FIELD_NAME, vector2);
-        addKnnDoc(INDEX_NAME, "3", FIELD_NAME, vector3);
-        addKnnDoc(INDEX_NAME, "4", FIELD_NAME, vector4);
-
-        // Query
-        float[] queryVector = { (byte) 0b10001111, (byte) 0b10000000 };
-        int k = 4;
-        List<KNNResult> results = runKnnQuery(INDEX_NAME, FIELD_NAME, queryVector, k);
-
-        // Validate
-        assertEquals(k, results.size());
-        for (int i = 0; i < k; i++) {
-            assertEquals(k - i, Integer.parseInt(results.get(i).getDocId()));
-        }
-    }
-
-    @SneakyThrows
-    public void testFaissHnswBinary_when1000Data_thenRecallIsAboveNinePointZero() {
-        // Create Index
-        createKnnHnswBinaryIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 128);
+        createKnnHnswIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 128);
         ingestTestData(INDEX_NAME, FIELD_NAME);
 
         int k = 100;
@@ -100,19 +74,8 @@ public class BinaryIndexIT extends KNNRestTestCase {
                 Set.of(Arrays.copyOf(testData.groundTruthValues[i], k)),
                 knnResults.stream().map(KNNResult::getDocId).collect(Collectors.toSet())
             );
-            assertTrue("Recall: " + recall, recall > 0.1);
+            assertTrue("Recall: " + recall, recall > 0.9);
         }
-    }
-
-    @SneakyThrows
-    public void testFaissHnswBinary_whenRadialSearch_thenThrowException() {
-        // Create Index
-        createKnnHnswBinaryIndex(KNNEngine.FAISS, INDEX_NAME, FIELD_NAME, 16);
-
-        // Query
-        float[] queryVector = { (byte) 0b10001111, (byte) 0b10000000 };
-        Exception e = expectThrows(Exception.class, () -> runRnnQuery(INDEX_NAME, FIELD_NAME, queryVector, 1, 4));
-        assertTrue(e.getMessage(), e.getMessage().contains("Binary data type does not support radial search"));
     }
 
     private float getRecall(final Set<String> truth, final Set<String> result) {
@@ -125,23 +88,6 @@ public class BinaryIndexIT extends KNNRestTestCase {
 
         // Calculate recall
         return (float) relevantRetrieved / totalRelevant;
-    }
-
-    private List<KNNResult> runRnnQuery(
-        final String indexName,
-        final String fieldName,
-        final float[] queryVector,
-        final float minScore,
-        final int size
-    ) throws Exception {
-        String query = KNNJsonQueryBuilder.builder()
-            .fieldName(fieldName)
-            .vector(ArrayUtils.toObject(queryVector))
-            .minScore(minScore)
-            .build()
-            .getQueryString();
-        Response response = searchKNNIndex(indexName, query, size);
-        return parseSearchResponse(EntityUtils.toString(response.getEntity()), fieldName);
     }
 
     private List<KNNResult> runKnnQuery(final String indexName, final String fieldName, final float[] queryVector, final int k)
@@ -172,17 +118,24 @@ public class BinaryIndexIT extends KNNRestTestCase {
         assertEquals(testData.indexData.docs.length, getDocCount(indexName));
     }
 
-    private void createKnnHnswBinaryIndex(final KNNEngine knnEngine, final String indexName, final String fieldName, final int dimension)
+    private void createKnnHnswIndex(final KNNEngine knnEngine, final String indexName, final String fieldName, final int dimension)
         throws IOException {
+        KNNJsonIndexMappingsBuilder.Method.Parameters parameters = KNNJsonIndexMappingsBuilder.Method.Parameters.builder()
+            .efSearch(10)
+            .efConstruction(10)
+            .build();
+
         KNNJsonIndexMappingsBuilder.Method method = KNNJsonIndexMappingsBuilder.Method.builder()
             .methodName(METHOD_HNSW)
+            .spaceType(SpaceType.L2.getValue())
+            .parameters(parameters)
             .engine(knnEngine.getName())
             .build();
 
         String knnIndexMapping = KNNJsonIndexMappingsBuilder.builder()
             .fieldName(fieldName)
             .dimension(dimension)
-            .vectorDataType(VectorDataType.BINARY.getValue())
+            .vectorDataType(VectorDataType.FLOAT.getValue())
             .method(method)
             .build()
             .getIndexMapping();
