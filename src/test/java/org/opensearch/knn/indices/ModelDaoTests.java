@@ -35,6 +35,7 @@ import org.opensearch.knn.KNNSingleNodeTestCase;
 import org.opensearch.knn.common.exception.DeleteModelException;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.plugin.transport.DeleteModelResponse;
 import org.opensearch.knn.plugin.transport.GetModelResponse;
@@ -139,7 +140,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             modelBlob,
             modelId
@@ -159,7 +161,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             modelBlob,
             modelId
@@ -187,7 +190,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                new MethodComponentContext("test", Collections.emptyMap())
+                new MethodComponentContext("test", Collections.emptyMap()),
+                VectorDataType.DEFAULT
             ),
             modelBlob,
             modelId
@@ -248,7 +252,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             modelBlob,
             modelId
@@ -310,7 +315,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             modelBlob,
             "any-id"
@@ -347,7 +353,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             null,
             modelId
@@ -386,7 +393,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             modelBlob,
             modelId
@@ -437,7 +445,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             modelBlob,
             modelId
@@ -456,7 +465,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             null,
             modelId
@@ -493,7 +503,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
             "",
             "",
             "",
-            MethodComponentContext.EMPTY
+            MethodComponentContext.EMPTY,
+            VectorDataType.DEFAULT
         );
 
         Model model = new Model(modelMetadata, modelBlob, modelId);
@@ -570,7 +581,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             modelBlob,
             modelId
@@ -604,7 +616,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             modelBlob,
             modelId1
@@ -672,7 +685,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             modelBlob,
             modelId
@@ -714,7 +728,8 @@ public class ModelDaoTests extends KNNSingleNodeTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             modelBlob,
             modelId

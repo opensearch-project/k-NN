@@ -926,6 +926,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(modelMetadata.getSpaceType()).thenReturn(SpaceType.COSINESIMIL);
         when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
         when(modelMetadata.getMethodComponentContext()).thenReturn(new MethodComponentContext("ivf", emptyMap()));
+        when(modelMetadata.getVectorDataType()).thenReturn(VectorDataType.DEFAULT);
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
         KNNQueryBuilder.initialize(modelDao);
@@ -963,6 +964,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(modelMetadata.getSpaceType()).thenReturn(SpaceType.L2);
         when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
         when(modelMetadata.getMethodComponentContext()).thenReturn(new MethodComponentContext("ivf", emptyMap()));
+        when(modelMetadata.getVectorDataType()).thenReturn(VectorDataType.DEFAULT);
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
         KNNQueryBuilder.initialize(modelDao);
@@ -998,6 +1000,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         when(modelMetadata.getSpaceType()).thenReturn(SpaceType.L2);
         when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
+        when(modelMetadata.getVectorDataType()).thenReturn(VectorDataType.DEFAULT);
         when(modelMetadata.getMethodComponentContext()).thenReturn(new MethodComponentContext("ivf", emptyMap()));
         ModelDao modelDao = mock(ModelDao.class);
         when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);

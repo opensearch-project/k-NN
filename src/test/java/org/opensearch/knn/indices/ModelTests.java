@@ -15,6 +15,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNEngine;
 
 import java.time.ZoneOffset;
@@ -41,7 +42,8 @@ public class ModelTests extends KNNTestCase {
                     "",
                     "",
                     "",
-                    MethodComponentContext.EMPTY
+                    MethodComponentContext.EMPTY,
+                    VectorDataType.DEFAULT
                 ),
                 null,
                 "test-model"
@@ -62,7 +64,8 @@ public class ModelTests extends KNNTestCase {
                     "",
                     "",
                     "",
-                    MethodComponentContext.EMPTY
+                    MethodComponentContext.EMPTY,
+                    VectorDataType.DEFAULT
                 ),
                 new byte[16],
                 "test-model"
@@ -80,7 +83,8 @@ public class ModelTests extends KNNTestCase {
                     "",
                     "",
                     "",
-                    MethodComponentContext.EMPTY
+                    MethodComponentContext.EMPTY,
+                    VectorDataType.DEFAULT
                 ),
                 new byte[16],
                 "test-model"
@@ -98,7 +102,8 @@ public class ModelTests extends KNNTestCase {
                     "",
                     "",
                     "",
-                    MethodComponentContext.EMPTY
+                    MethodComponentContext.EMPTY,
+                    VectorDataType.DEFAULT
                 ),
                 new byte[16],
                 "test-model"
@@ -117,7 +122,8 @@ public class ModelTests extends KNNTestCase {
             "",
             "",
             "",
-            MethodComponentContext.EMPTY
+            MethodComponentContext.EMPTY,
+            VectorDataType.DEFAULT
         );
         Model model = new Model(modelMetadata, new byte[16], "test-model");
         assertEquals(modelMetadata, model.getModelMetadata());
@@ -135,7 +141,8 @@ public class ModelTests extends KNNTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             modelBlob,
             "test-model"
@@ -155,7 +162,8 @@ public class ModelTests extends KNNTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             new byte[size],
             "test-model"
@@ -172,7 +180,8 @@ public class ModelTests extends KNNTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             null,
             "test-model"
@@ -192,7 +201,8 @@ public class ModelTests extends KNNTestCase {
                 "",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             blob1,
             "test-model"
@@ -209,17 +219,50 @@ public class ModelTests extends KNNTestCase {
         String time = ZonedDateTime.now(ZoneOffset.UTC).toString();
 
         Model model1 = new Model(
-            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, time, "", "", "", MethodComponentContext.EMPTY),
+            new ModelMetadata(
+                KNNEngine.DEFAULT,
+                SpaceType.L1,
+                2,
+                ModelState.CREATED,
+                time,
+                "",
+                "",
+                "",
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
+            ),
             new byte[16],
             "test-model-1"
         );
         Model model2 = new Model(
-            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, time, "", "", "", MethodComponentContext.EMPTY),
+            new ModelMetadata(
+                KNNEngine.DEFAULT,
+                SpaceType.L1,
+                2,
+                ModelState.CREATED,
+                time,
+                "",
+                "",
+                "",
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
+            ),
             new byte[16],
             "test-model-1"
         );
         Model model3 = new Model(
-            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L2, 2, ModelState.CREATED, time, "", "", "", MethodComponentContext.EMPTY),
+            new ModelMetadata(
+                KNNEngine.DEFAULT,
+                SpaceType.L2,
+                2,
+                ModelState.CREATED,
+                time,
+                "",
+                "",
+                "",
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
+            ),
             new byte[16],
             "test-model-2"
         );
@@ -234,17 +277,50 @@ public class ModelTests extends KNNTestCase {
         String time = ZonedDateTime.now(ZoneOffset.UTC).toString();
 
         Model model1 = new Model(
-            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, time, "", "", "", MethodComponentContext.EMPTY),
+            new ModelMetadata(
+                KNNEngine.DEFAULT,
+                SpaceType.L1,
+                2,
+                ModelState.CREATED,
+                time,
+                "",
+                "",
+                "",
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
+            ),
             new byte[16],
             "test-model-1"
         );
         Model model2 = new Model(
-            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, time, "", "", "", MethodComponentContext.EMPTY),
+            new ModelMetadata(
+                KNNEngine.DEFAULT,
+                SpaceType.L1,
+                2,
+                ModelState.CREATED,
+                time,
+                "",
+                "",
+                "",
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
+            ),
             new byte[16],
             "test-model-1"
         );
         Model model3 = new Model(
-            new ModelMetadata(KNNEngine.DEFAULT, SpaceType.L1, 2, ModelState.CREATED, time, "", "", "", MethodComponentContext.EMPTY),
+            new ModelMetadata(
+                KNNEngine.DEFAULT,
+                SpaceType.L1,
+                2,
+                ModelState.CREATED,
+                time,
+                "",
+                "",
+                "",
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
+            ),
             new byte[16],
             "test-model-2"
         );
@@ -274,7 +350,8 @@ public class ModelTests extends KNNTestCase {
             description,
             error,
             nodeAssignment,
-            MethodComponentContext.EMPTY
+            MethodComponentContext.EMPTY,
+            VectorDataType.DEFAULT
         );
         Map<String, Object> modelAsMap = new HashMap<>();
         modelAsMap.put(KNNConstants.MODEL_ID, modelID);
@@ -287,6 +364,7 @@ public class ModelTests extends KNNTestCase {
         modelAsMap.put(KNNConstants.MODEL_ERROR, error);
         modelAsMap.put(KNNConstants.MODEL_NODE_ASSIGNMENT, nodeAssignment);
         modelAsMap.put(KNNConstants.MODEL_BLOB_PARAMETER, "aGVsbG8=");
+        modelAsMap.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue());
 
         byte[] blob1 = "hello".getBytes();
         Model expected = new Model(metadata, blob1, modelID);
