@@ -7,12 +7,15 @@ package org.opensearch.knn.index.util;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.util.Version;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.MethodComponent;
+import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.Parameter;
 import org.opensearch.knn.index.SpaceType;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -36,6 +39,11 @@ public class Lucene extends JVMLibrary {
 
     Map<SpaceType, Function<Float, Float>> distanceTransform;
     private static final List<Integer> LUCENE_SQ_BITS_SUPPORTED = List.of(7);
+
+    private final static MethodComponentContext ENCODER_DEFAULT = new MethodComponentContext(
+        KNNConstants.ENCODER_FLAT,
+        Collections.emptyMap()
+    );
 
     private final static Map<String, MethodComponent> HNSW_ENCODERS = ImmutableMap.of(
         ENCODER_SQ,
@@ -73,7 +81,7 @@ public class Lucene extends JVMLibrary {
                 )
                 .addParameter(
                     METHOD_ENCODER_PARAMETER,
-                    new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, null, HNSW_ENCODERS)
+                    new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, ENCODER_DEFAULT, HNSW_ENCODERS)
                 )
                 .build()
         ).addSpaces(SpaceType.UNDEFINED, SpaceType.L2, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT).build()
