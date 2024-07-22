@@ -332,7 +332,8 @@ public class TrainingModelRequest extends ActionRequest {
             this.trainingField,
             this.dimension,
             modelDao,
-            this.vectorDataType
+            vectorDataType,
+            knnMethodContext
         );
         if (fieldValidation != null) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
