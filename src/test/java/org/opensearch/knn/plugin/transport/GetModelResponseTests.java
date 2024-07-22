@@ -21,6 +21,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNClusterUtil;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -44,7 +45,8 @@ public class GetModelResponseTests extends KNNTestCase {
             "test model",
             "",
             "",
-            MethodComponentContext.EMPTY
+            MethodComponentContext.EMPTY,
+            VectorDataType.DEFAULT
         );
     }
 
@@ -69,7 +71,7 @@ public class GetModelResponseTests extends KNNTestCase {
             Model model = new Model(getModelMetadata(ModelState.CREATED), testModelBlob, modelId);
             GetModelResponse getModelResponse = new GetModelResponse(model);
             String expectedResponseString =
-                "{\"model_id\":\"test-model\",\"model_blob\":\"aGVsbG8=\",\"state\":\"created\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\",\"training_node_assignment\":\"\",\"model_definition\":{\"name\":\"\",\"parameters\":{}}}";
+                "{\"model_id\":\"test-model\",\"model_blob\":\"aGVsbG8=\",\"state\":\"created\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\",\"training_node_assignment\":\"\",\"model_definition\":{\"name\":\"\",\"parameters\":{}},\"data_type\":\"float\"}";
             XContentBuilder xContentBuilder = MediaTypeRegistry.contentBuilder(XContentType.JSON);
             getModelResponse.toXContent(xContentBuilder, null);
             assertEquals(expectedResponseString, xContentBuilder.toString());
@@ -85,7 +87,7 @@ public class GetModelResponseTests extends KNNTestCase {
             Model model = new Model(getModelMetadata(ModelState.FAILED), null, modelId);
             GetModelResponse getModelResponse = new GetModelResponse(model);
             String expectedResponseString =
-                "{\"model_id\":\"test-model\",\"model_blob\":\"\",\"state\":\"failed\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\",\"training_node_assignment\":\"\",\"model_definition\":{\"name\":\"\",\"parameters\":{}}}";
+                "{\"model_id\":\"test-model\",\"model_blob\":\"\",\"state\":\"failed\",\"timestamp\":\"2021-03-27 10:15:30 AM +05:30\",\"description\":\"test model\",\"error\":\"\",\"space_type\":\"l2\",\"dimension\":4,\"engine\":\"nmslib\",\"training_node_assignment\":\"\",\"model_definition\":{\"name\":\"\",\"parameters\":{}},\"data_type\":\"float\"}";
             XContentBuilder xContentBuilder = MediaTypeRegistry.contentBuilder(XContentType.JSON);
             getModelResponse.toXContent(xContentBuilder, null);
             assertEquals(expectedResponseString, xContentBuilder.toString());

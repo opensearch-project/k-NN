@@ -292,6 +292,7 @@ public interface ModelDao {
                     put(KNNConstants.MODEL_DESCRIPTION, modelMetadata.getDescription());
                     put(KNNConstants.MODEL_ERROR, modelMetadata.getError());
                     put(KNNConstants.MODEL_NODE_ASSIGNMENT, modelMetadata.getNodeAssignment());
+                    put(KNNConstants.VECTOR_DATA_TYPE_FIELD, modelMetadata.getVectorDataType());
 
                     MethodComponentContext methodComponentContext = modelMetadata.getMethodComponentContext();
                     if (!methodComponentContext.getName().isEmpty()) {

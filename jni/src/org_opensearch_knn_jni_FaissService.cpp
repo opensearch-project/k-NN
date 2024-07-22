@@ -90,6 +90,21 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createIndexFromT
     }
 }
 
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_createBinaryIndexFromTemplate(JNIEnv * env, jclass cls,
+                                                                                        jintArray idsJ,
+                                                                                        jlong vectorsAddressJ,
+                                                                                        jint dimJ,
+                                                                                        jstring indexPathJ,
+                                                                                        jbyteArray templateIndexJ,
+                                                                                        jobject parametersJ)
+{
+    try {
+        knn_jni::faiss_wrapper::CreateBinaryIndexFromTemplate(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexPathJ, templateIndexJ, parametersJ);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+}
+
 JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_loadIndex(JNIEnv * env, jclass cls, jstring indexPathJ)
 {
     try {
@@ -214,6 +229,19 @@ JNIEXPORT jbyteArray JNICALL Java_org_opensearch_knn_jni_FaissService_trainIndex
 {
     try {
         return knn_jni::faiss_wrapper::TrainIndex(&jniUtil, env, parametersJ, dimensionJ, trainVectorsPointerJ);
+    } catch (...) {
+        jniUtil.CatchCppExceptionAndThrowJava(env);
+    }
+    return nullptr;
+}
+
+JNIEXPORT jbyteArray JNICALL Java_org_opensearch_knn_jni_FaissService_trainBinaryIndex(JNIEnv * env, jclass cls,
+                                                                                 jobject parametersJ,
+                                                                                 jint dimensionJ,
+                                                                                 jlong trainVectorsPointerJ)
+{
+    try {
+        return knn_jni::faiss_wrapper::TrainBinaryIndex(&jniUtil, env, parametersJ, dimensionJ, trainVectorsPointerJ);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }

@@ -49,28 +49,9 @@ public class IndexUtil {
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_METHOD_COMPONENT_CONTEXT = Version.V_2_13_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_RADIAL_SEARCH = Version.V_2_14_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_METHOD_PARAMETERS = Version.V_2_16_0;
+    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VECTOR_DATA_TYPE = Version.V_2_16_0;
     // public so neural search can access it
     public static final Map<String, Version> minimalRequiredVersionMap = initializeMinimalRequiredVersionMap();
-
-    private static Map<String, Version> initializeMinimalRequiredVersionMap() {
-        final Map<String, Version> versionMap = new HashMap<>() {
-            {
-                put("filter", MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER);
-                put("ignore_unmapped", MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED);
-                put(MODEL_NODE_ASSIGNMENT_KEY, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_NODE_ASSIGNMENT);
-                put(MODEL_METHOD_COMPONENT_CONTEXT_KEY, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_METHOD_COMPONENT_CONTEXT);
-                put(KNNConstants.RADIAL_SEARCH_KEY, MINIMAL_SUPPORTED_VERSION_FOR_RADIAL_SEARCH);
-                put(KNNConstants.METHOD_PARAMETER, MINIMAL_SUPPORTED_VERSION_FOR_METHOD_PARAMETERS);
-            }
-        };
-
-        for (final MethodParameter methodParameter : MethodParameter.values()) {
-            if (methodParameter.getVersion() != null) {
-                versionMap.put(methodParameter.getName(), methodParameter.getVersion());
-            }
-        }
-        return Collections.unmodifiableMap(versionMap);
-    }
 
     /**
      * Determines the size of a file on disk in kilobytes
@@ -91,37 +72,6 @@ public class IndexUtil {
     }
 
     /**
-     * This method retrieves the field mapping by a given field path from the index metadata.
-     *
-     * @param properties Index metadata mapping properties.
-     * @param fieldPath The field path string that make up the path to the field mapping. e.g. "a.b.field" or "field".
-     *                  The field path is applied and checked in OpenSearch, so it is guaranteed to be valid.
-     *
-     * @return           The field mapping object if found, or null if the field is not found in the index metadata.
-     */
-    private static Object getFieldMapping(final Map<String, Object> properties, final String fieldPath) {
-        String[] fieldPaths = fieldPath.split("\\.");
-        Object currentFieldMapping = properties;
-
-        // Iterate through the field path list to retrieve the field mapping.
-        for (String path : fieldPaths) {
-            currentFieldMapping = ((Map<String, Object>) currentFieldMapping).get(path);
-            if (currentFieldMapping == null) {
-                return null;
-            }
-
-            if (currentFieldMapping instanceof Map<?, ?>) {
-                Object possibleProperties = ((Map<String, Object>) currentFieldMapping).get("properties");
-                if (possibleProperties instanceof Map<?, ?>) {
-                    currentFieldMapping = possibleProperties;
-                }
-            }
-        }
-
-        return currentFieldMapping;
-    }
-
-    /**
      * Validate that a field is a k-NN vector field and has the expected dimension
      *
      * @param indexMetadata metadata for index to validate
@@ -137,7 +87,8 @@ public class IndexUtil {
         IndexMetadata indexMetadata,
         String field,
         int expectedDimension,
-        ModelDao modelDao
+        ModelDao modelDao,
+        VectorDataType expectedVectorDataType
     ) {
         // Index metadata should not be null
         if (indexMetadata == null) {
@@ -192,17 +143,27 @@ public class IndexUtil {
             return exception;
         }
 
-        String vectorDataType = (String) fieldMap.get(VECTOR_DATA_TYPE_FIELD);
-        if (VectorDataType.BINARY.toString().equalsIgnoreCase(vectorDataType)) {
-            exception.addValidationError(
-                String.format(
-                    Locale.ROOT,
-                    "Field \"%s\" is of data type %s. Only FLOAT or BYTE is supported.",
-                    field,
-                    VectorDataType.BINARY
-                )
-            );
-            return exception;
+        if (expectedVectorDataType != null) {
+            if (VectorDataType.BYTE == expectedVectorDataType) {
+                exception.addValidationError(
+                    String.format(Locale.ROOT, "vector data type \"%s\" is not supported for training.", expectedVectorDataType.getValue())
+                );
+                return exception;
+            }
+            VectorDataType trainIndexDataType = getVectorDataTypeFromFieldMapping(fieldMap);
+
+            if (trainIndexDataType != expectedVectorDataType) {
+                exception.addValidationError(
+                    String.format(
+                        Locale.ROOT,
+                        "Field \"%s\" has data type %s, which is different from data type used in the training request: %s",
+                        field,
+                        trainIndexDataType.getValue(),
+                        expectedVectorDataType.getValue()
+                    )
+                );
+                return exception;
+            }
         }
 
         // Return if dimension does not need to be checked
@@ -335,5 +296,96 @@ public class IndexUtil {
         return KNNEngine.FAISS == knnEngine
             && parameters.get(VECTOR_DATA_TYPE_FIELD) != null
             && parameters.get(VECTOR_DATA_TYPE_FIELD).toString().equals(VectorDataType.BINARY.getValue());
+    }
+
+    /**
+     * Tell if it is binary index or not
+     *
+     * @param vectorDataType vector data type
+     * @return true if it is binary index
+     */
+    public static boolean isBinaryIndex(VectorDataType vectorDataType) {
+        return VectorDataType.BINARY == vectorDataType;
+    }
+
+    /**
+     * Update vector data type into parameters
+     *
+     * @param parameters parameters associated with an index
+     * @param vectorDataType vector data type
+     */
+    public static void updateVectorDataTypeToParameters(Map<String, Object> parameters, VectorDataType vectorDataType) {
+        if (VectorDataType.BINARY == vectorDataType) {
+            parameters.put(VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue());
+        }
+    }
+
+    /**
+     * This method retrieves the field mapping by a given field path from the index metadata.
+     *
+     * @param properties Index metadata mapping properties.
+     * @param fieldPath The field path string that make up the path to the field mapping. e.g. "a.b.field" or "field".
+     *                  The field path is applied and checked in OpenSearch, so it is guaranteed to be valid.
+     *
+     * @return           The field mapping object if found, or null if the field is not found in the index metadata.
+     */
+    private static Object getFieldMapping(final Map<String, Object> properties, final String fieldPath) {
+        String[] fieldPaths = fieldPath.split("\\.");
+        Object currentFieldMapping = properties;
+
+        // Iterate through the field path list to retrieve the field mapping.
+        for (String path : fieldPaths) {
+            currentFieldMapping = ((Map<String, Object>) currentFieldMapping).get(path);
+            if (currentFieldMapping == null) {
+                return null;
+            }
+
+            if (currentFieldMapping instanceof Map<?, ?>) {
+                Object possibleProperties = ((Map<String, Object>) currentFieldMapping).get("properties");
+                if (possibleProperties instanceof Map<?, ?>) {
+                    currentFieldMapping = possibleProperties;
+                }
+            }
+        }
+
+        return currentFieldMapping;
+    }
+
+    /**
+     *  This method is used to get the vector data type from field mapping
+     * @param fieldMap field mapping
+     * @return vector data type
+     */
+    private static VectorDataType getVectorDataTypeFromFieldMapping(Map<String, Object> fieldMap) {
+        if (fieldMap.containsKey(VECTOR_DATA_TYPE_FIELD)) {
+            return VectorDataType.get((String) fieldMap.get(VECTOR_DATA_TYPE_FIELD));
+        }
+        return VectorDataType.DEFAULT;
+    }
+
+    /**
+     * Initialize the minimal required version map
+     *
+     * @return minimal required version map
+     */
+    private static Map<String, Version> initializeMinimalRequiredVersionMap() {
+        final Map<String, Version> versionMap = new HashMap<>() {
+            {
+                put("filter", MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER);
+                put("ignore_unmapped", MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED);
+                put(MODEL_NODE_ASSIGNMENT_KEY, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_NODE_ASSIGNMENT);
+                put(MODEL_METHOD_COMPONENT_CONTEXT_KEY, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_METHOD_COMPONENT_CONTEXT);
+                put(KNNConstants.RADIAL_SEARCH_KEY, MINIMAL_SUPPORTED_VERSION_FOR_RADIAL_SEARCH);
+                put(KNNConstants.METHOD_PARAMETER, MINIMAL_SUPPORTED_VERSION_FOR_METHOD_PARAMETERS);
+                put(KNNConstants.MODEL_VECTOR_DATA_TYPE_KEY, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VECTOR_DATA_TYPE);
+            }
+        };
+
+        for (final MethodParameter methodParameter : MethodParameter.values()) {
+            if (methodParameter.getVersion() != null) {
+                versionMap.put(methodParameter.getName(), methodParameter.getVersion());
+            }
+        }
+        return Collections.unmodifiableMap(versionMap);
     }
 }
