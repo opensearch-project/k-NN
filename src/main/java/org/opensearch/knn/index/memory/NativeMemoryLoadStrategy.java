@@ -14,8 +14,11 @@ package org.opensearch.knn.index.memory;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.knn.index.IndexUtil;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.training.ByteTrainingDataConsumer;
+import org.opensearch.knn.training.FloatTrainingDataConsumer;
 import org.opensearch.knn.training.TrainingDataConsumer;
 import org.opensearch.knn.training.VectorReader;
 import org.opensearch.watcher.FileChangesListener;
@@ -167,11 +170,13 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
             NativeMemoryAllocation.TrainingDataAllocation trainingDataAllocation = new NativeMemoryAllocation.TrainingDataAllocation(
                 executor,
                 0,
-                nativeMemoryEntryContext.calculateSizeInKB()
+                nativeMemoryEntryContext.calculateSizeInKB(),
+                nativeMemoryEntryContext.getVectorDataType()
             );
 
-            // Start loading all training data. Once the data has been loaded, release the lock
-            TrainingDataConsumer trainingDataConsumer = new TrainingDataConsumer(trainingDataAllocation);
+            TrainingDataConsumer vectorDataConsumer = nativeMemoryEntryContext.getVectorDataType() == VectorDataType.FLOAT
+                ? new FloatTrainingDataConsumer(trainingDataAllocation)
+                : new ByteTrainingDataConsumer(trainingDataAllocation);
 
             trainingDataAllocation.writeLock();
 
@@ -181,7 +186,7 @@ public interface NativeMemoryLoadStrategy<T extends NativeMemoryAllocation, U ex
                 nativeMemoryEntryContext.getTrainFieldName(),
                 nativeMemoryEntryContext.getMaxVectorCount(),
                 nativeMemoryEntryContext.getSearchSize(),
-                trainingDataConsumer,
+                vectorDataConsumer,
                 ActionListener.wrap(response -> trainingDataAllocation.writeUnlock(), ex -> {
                     // Close unsafe will assume that the caller passes control of the writelock to it. It
                     // will then handle releasing the write lock once the close operations finish.

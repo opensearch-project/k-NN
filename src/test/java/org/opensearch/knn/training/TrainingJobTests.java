@@ -18,6 +18,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
@@ -67,7 +68,8 @@ public class TrainingJobTests extends KNNTestCase {
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
             10,
             "",
-            "test-node"
+            "test-node",
+            VectorDataType.DEFAULT
         );
 
         assertEquals(modelId, trainingJob.getModelId());
@@ -96,7 +98,8 @@ public class TrainingJobTests extends KNNTestCase {
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
             dimension,
             description,
-            nodeAssignment
+            nodeAssignment,
+            VectorDataType.DEFAULT
         );
 
         Model model = new Model(
@@ -109,7 +112,8 @@ public class TrainingJobTests extends KNNTestCase {
                 description,
                 error,
                 nodeAssignment,
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.DEFAULT
             ),
             null,
             modelID
@@ -183,8 +187,8 @@ public class TrainingJobTests extends KNNTestCase {
             modelContext,
             dimension,
             "",
-            "test-node"
-
+            "test-node",
+            VectorDataType.DEFAULT
         );
 
         trainingJob.run();
@@ -262,8 +266,8 @@ public class TrainingJobTests extends KNNTestCase {
             modelContext,
             dimension,
             "",
-
-            "test-node"
+            "test-node",
+            VectorDataType.DEFAULT
         );
 
         trainingJob.run();
@@ -330,8 +334,8 @@ public class TrainingJobTests extends KNNTestCase {
             modelContext,
             dimension,
             "",
-
-            "test-node"
+            "test-node",
+            VectorDataType.DEFAULT
         );
 
         trainingJob.run();
@@ -397,7 +401,8 @@ public class TrainingJobTests extends KNNTestCase {
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
             dimension,
             "",
-            "test-node"
+            "test-node",
+            VectorDataType.DEFAULT
         );
 
         trainingJob.run();
@@ -470,7 +475,8 @@ public class TrainingJobTests extends KNNTestCase {
             modelContext,
             dimension,
             "",
-            "test-node"
+            "test-node",
+            VectorDataType.DEFAULT
         );
 
         trainingJob.run();
