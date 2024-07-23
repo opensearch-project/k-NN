@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.KNN990Codec;
 
+import org.apache.lucene.codecs.lucene99.Lucene99HnswScalarQuantizedVectorsFormat;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.BasePerFieldKnnVectorsFormat;
@@ -16,6 +17,7 @@ import java.util.Optional;
  * Class provides per field format implementation for Lucene Knn vector type
  */
 public class KNN990PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat {
+    private static final int NUM_MERGE_WORKERS = 1;
 
     public KNN990PerFieldKnnVectorsFormat(final Optional<MapperService> mapperService) {
         super(
@@ -23,7 +25,19 @@ public class KNN990PerFieldKnnVectorsFormat extends BasePerFieldKnnVectorsFormat
             Lucene99HnswVectorsFormat.DEFAULT_MAX_CONN,
             Lucene99HnswVectorsFormat.DEFAULT_BEAM_WIDTH,
             () -> new Lucene99HnswVectorsFormat(),
-            (maxConnm, beamWidth) -> new Lucene99HnswVectorsFormat(maxConnm, beamWidth)
+            knnVectorsFormatParams -> new Lucene99HnswVectorsFormat(
+                knnVectorsFormatParams.getMaxConnections(),
+                knnVectorsFormatParams.getBeamWidth()
+            ),
+            knnScalarQuantizedVectorsFormatParams -> new Lucene99HnswScalarQuantizedVectorsFormat(
+                knnScalarQuantizedVectorsFormatParams.getMaxConnections(),
+                knnScalarQuantizedVectorsFormatParams.getBeamWidth(),
+                NUM_MERGE_WORKERS,
+                knnScalarQuantizedVectorsFormatParams.getBits(),
+                knnScalarQuantizedVectorsFormatParams.isCompressFlag(),
+                knnScalarQuantizedVectorsFormatParams.getConfidenceInterval(),
+                null
+            )
         );
     }
 
