@@ -14,7 +14,9 @@ package org.opensearch.knn.index;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.training.VectorSpaceInfo;
 
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 
@@ -200,6 +202,85 @@ public abstract class Parameter<T> {
                 validationException.addValidationError(String.format("parameter validation failed for Integer parameter [%s].", getName()));
             }
 
+            return validationException;
+        }
+    }
+
+    /**
+     * Double method parameter
+     */
+    public static class DoubleParameter extends Parameter<Double> {
+        public DoubleParameter(String name, Double defaultValue, Predicate<Double> validator) {
+            super(name, defaultValue, validator);
+        }
+
+        public DoubleParameter(
+            String name,
+            Double defaultValue,
+            Predicate<Double> validator,
+            BiFunction<Double, VectorSpaceInfo, Boolean> validatorWithData
+        ) {
+            super(name, defaultValue, validator, validatorWithData);
+        }
+
+        @Override
+        public ValidationException validate(Object value) {
+            if (Objects.isNull(value)) {
+                String validationErrorMsg = String.format(Locale.ROOT, "Null value provided for Double " + "parameter \"%s\".", getName());
+                return getValidationException(validationErrorMsg);
+            }
+            if (value.equals(0)) value = 0.0;
+
+            if (!(value instanceof Double)) {
+                String validationErrorMsg = String.format(
+                    Locale.ROOT,
+                    "Value not of type Double for Double " + "parameter \"%s\".",
+                    getName()
+                );
+                return getValidationException(validationErrorMsg);
+            }
+
+            if (!validator.test((Double) value)) {
+                String validationErrorMsg = String.format(
+                    Locale.ROOT,
+                    "Parameter validation failed for Double " + "parameter \"%s\".",
+                    getName()
+                );
+                return getValidationException(validationErrorMsg);
+            }
+            return null;
+        }
+
+        @Override
+        public ValidationException validateWithData(Object value, VectorSpaceInfo vectorSpaceInfo) {
+            if (Objects.isNull(value)) {
+                String validationErrorMsg = String.format(Locale.ROOT, "Null value provided for Double " + "parameter \"%s\".", getName());
+                return getValidationException(validationErrorMsg);
+            }
+
+            if (!(value instanceof Double)) {
+                String validationErrorMsg = String.format(
+                    Locale.ROOT,
+                    "value is not an instance of Double for Double parameter [%s].",
+                    getName()
+                );
+                return getValidationException(validationErrorMsg);
+            }
+
+            if (validatorWithData == null) {
+                return null;
+            }
+
+            if (!validatorWithData.apply((Double) value, vectorSpaceInfo)) {
+                String validationErrorMsg = String.format(Locale.ROOT, "parameter validation failed for Double parameter [%s].", getName());
+                return getValidationException(validationErrorMsg);
+            }
+            return null;
+        }
+
+        private ValidationException getValidationException(String validationErrorMsg) {
+            ValidationException validationException = new ValidationException();
+            validationException.addValidationError(validationErrorMsg);
             return validationException;
         }
     }

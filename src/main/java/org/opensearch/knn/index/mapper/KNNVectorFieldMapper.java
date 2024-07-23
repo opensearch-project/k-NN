@@ -349,7 +349,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 return;
             }
 
-            if (VectorDataType.BINARY != vectorDataType) {
+            if (VectorDataType.FLOAT == vectorDataType) {
                 return;
             }
 
@@ -380,7 +380,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     String.format(
                         Locale.ROOT,
                         "%s data type does not support %s encoder",
-                        VectorDataType.BINARY.getValue(),
+                        vectorDataType.getValue(),
                         encoderMethodComponentContext.getName()
                     )
                 );
