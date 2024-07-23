@@ -88,7 +88,7 @@ public class VectorReader {
             throw validationException;
         }
 
-        ValidationException fieldValidationException = IndexUtil.validateKnnField(indexMetadata, fieldName, -1, null, null);
+        ValidationException fieldValidationException = IndexUtil.validateKnnField(indexMetadata, fieldName, -1, null, null, null);
         if (fieldValidationException != null) {
             validationException = validationException == null ? new ValidationException() : validationException;
             validationException.addValidationErrors(validationException.validationErrors());
