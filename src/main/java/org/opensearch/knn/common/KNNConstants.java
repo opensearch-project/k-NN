@@ -74,6 +74,12 @@ public class KNNConstants {
 
     // Lucene specific constants
     public static final String LUCENE_NAME = "lucene";
+    public static final String LUCENE_SQ_CONFIDENCE_INTERVAL = "confidence_interval";
+    public static final int DYNAMIC_CONFIDENCE_INTERVAL = 0;
+    public static final double MINIMUM_CONFIDENCE_INTERVAL = 0.9;
+    public static final double MAXIMUM_CONFIDENCE_INTERVAL = 1.0;
+    public static final String LUCENE_SQ_BITS = "bits";
+    public static final int LUCENE_SQ_DEFAULT_BITS = 7;
 
     // nmslib specific constants
     public static final String NMSLIB_NAME = "nmslib";
