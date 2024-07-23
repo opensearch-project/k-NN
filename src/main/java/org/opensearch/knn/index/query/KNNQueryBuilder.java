@@ -485,7 +485,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     }
 
     @Override
-    protected Query doToQuery(QueryShardContext context) {
+    protected Query doToQuery(QueryShardContext context) throws IOException {
         MappedFieldType mappedFieldType = context.fieldMapper(this.fieldName);
 
         if (mappedFieldType == null && ignoreUnmapped) {
@@ -598,6 +598,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             && filter != null
             && !KNNEngine.getEnginesThatSupportsFilters().contains(knnEngine)) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support filters", knnEngine));
+        }
+
+        // rewrite filter query if it exists to avoid runtime errors in next steps of query phase
+        if (Objects.nonNull(filter)) {
+            filter = filter.rewrite(context);
         }
 
         String indexName = context.index().getName();
