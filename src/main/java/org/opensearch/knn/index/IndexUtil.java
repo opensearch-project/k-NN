@@ -87,7 +87,8 @@ public class IndexUtil {
         String field,
         int expectedDimension,
         ModelDao modelDao,
-        VectorDataType expectedVectorDataType
+        VectorDataType trainRequestVectorDataType,
+        KNNMethodContext trainRequestKnnMethodContext
     ) {
         // Index metadata should not be null
         if (indexMetadata == null) {
@@ -142,26 +143,52 @@ public class IndexUtil {
             return exception;
         }
 
-        if (expectedVectorDataType != null) {
-            if (VectorDataType.BYTE == expectedVectorDataType) {
+        if (trainRequestVectorDataType != null) {
+            if (VectorDataType.BYTE == trainRequestVectorDataType) {
                 exception.addValidationError(
-                    String.format(Locale.ROOT, "vector data type \"%s\" is not supported for training.", expectedVectorDataType.getValue())
+                    String.format(
+                        Locale.ROOT,
+                        "vector data type \"%s\" is not supported for training.",
+                        trainRequestVectorDataType.getValue()
+                    )
                 );
                 return exception;
             }
             VectorDataType trainIndexDataType = getVectorDataTypeFromFieldMapping(fieldMap);
 
-            if (trainIndexDataType != expectedVectorDataType) {
+            if (trainIndexDataType != trainRequestVectorDataType) {
                 exception.addValidationError(
                     String.format(
                         Locale.ROOT,
                         "Field \"%s\" has data type %s, which is different from data type used in the training request: %s",
                         field,
                         trainIndexDataType.getValue(),
-                        expectedVectorDataType.getValue()
+                        trainRequestVectorDataType.getValue()
                     )
                 );
                 return exception;
+            }
+
+            // Block binary vector data type for pq encoder
+            if (trainRequestKnnMethodContext != null) {
+                MethodComponentContext methodComponentContext = trainRequestKnnMethodContext.getMethodComponentContext();
+                Map<String, Object> parameters = methodComponentContext.getParameters();
+
+                if (parameters != null && parameters.containsKey(KNNConstants.METHOD_ENCODER_PARAMETER)) {
+                    MethodComponentContext encoder = (MethodComponentContext) parameters.get(KNNConstants.METHOD_ENCODER_PARAMETER);
+                    if (encoder != null
+                        && KNNConstants.ENCODER_PQ.equals(encoder.getName())
+                        && VectorDataType.BINARY == trainRequestVectorDataType) {
+                        exception.addValidationError(
+                            String.format(
+                                Locale.ROOT,
+                                "vector data type \"%s\" is not supported for pq encoder.",
+                                trainRequestVectorDataType.getValue()
+                            )
+                        );
+                        return exception;
+                    }
+                }
             }
         }
 
