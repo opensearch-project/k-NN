@@ -108,6 +108,22 @@ public class KNNWeight extends Weight {
 
     @Override
     public Scorer scorer(LeafReaderContext context) throws IOException {
+        final Map<Integer, Float> docIdToScoreMap = searchLeaf(context);
+        if (docIdToScoreMap.isEmpty()) {
+            return KNNScorer.emptyScorer(this);
+        }
+
+        return convertSearchResponseToScorer(docIdToScoreMap);
+    }
+
+    /**
+     * Executes k nearest neighbor search for a segment to get the top K results
+     * This is made public purely to be able to be reused in {@link org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery}
+     *
+     * @param context LeafReaderContext
+     * @return A Map of docId to scores for top k results
+     */
+    public Map<Integer, Float> searchLeaf(LeafReaderContext context) throws IOException {
 
         final BitSet filterBitSet = getFilteredDocsBitSet(context);
         int cardinality = filterBitSet.cardinality();
@@ -115,7 +131,7 @@ public class KNNWeight extends Weight {
         // We should give this condition a deeper look that where it should be placed. For now I feel this is a good
         // place,
         if (filterWeight != null && cardinality == 0) {
-            return KNNScorer.emptyScorer(this);
+            return Collections.emptyMap();
         }
         final Map<Integer, Float> docIdsToScoreMap = new HashMap<>();
 
@@ -129,7 +145,7 @@ public class KNNWeight extends Weight {
         } else {
             Map<Integer, Float> annResults = doANNSearch(context, filterBitSet, cardinality);
             if (annResults == null) {
-                return null;
+                return Collections.emptyMap();
             }
             if (canDoExactSearchAfterANNSearch(cardinality, annResults.size())) {
                 log.debug(
@@ -144,9 +160,9 @@ public class KNNWeight extends Weight {
             docIdsToScoreMap.putAll(annResults);
         }
         if (docIdsToScoreMap.isEmpty()) {
-            return KNNScorer.emptyScorer(this);
+            return Collections.emptyMap();
         }
-        return convertSearchResponseToScorer(docIdsToScoreMap);
+        return docIdsToScoreMap;
     }
 
     private BitSet getFilteredDocsBitSet(final LeafReaderContext ctx) throws IOException {
