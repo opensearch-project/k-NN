@@ -1,8 +1,0 @@
-{
-    "name":"ivf",
-    "engine":"faiss",
-    "parameters":{
-      "nlist":16,
-      "nprobes": 4
-    }
-}
