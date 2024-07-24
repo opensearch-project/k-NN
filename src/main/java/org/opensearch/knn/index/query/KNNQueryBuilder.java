@@ -24,6 +24,7 @@ import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.IndexUtil;
@@ -485,7 +486,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     }
 
     @Override
-    protected Query doToQuery(QueryShardContext context) throws IOException {
+    protected Query doToQuery(QueryShardContext context) {
         MappedFieldType mappedFieldType = context.fieldMapper(this.fieldName);
 
         if (mappedFieldType == null && ignoreUnmapped) {
@@ -600,11 +601,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Engine [%s] does not support filters", knnEngine));
         }
 
-        // rewrite filter query if it exists to avoid runtime errors in next steps of query phase
-        if (Objects.nonNull(filter)) {
-            filter = filter.rewrite(context);
-        }
-
         String indexName = context.index().getName();
 
         if (k != 0) {
@@ -714,5 +710,14 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     @Override
     public String getWriteableName() {
         return NAME;
+    }
+
+    @Override
+    protected QueryBuilder doRewrite(QueryRewriteContext queryShardContext) throws IOException {
+        // rewrite filter query if it exists to avoid runtime errors in next steps of query phase
+        if (Objects.nonNull(filter)) {
+            filter = filter.rewrite(queryShardContext);
+        }
+        return super.doRewrite(queryShardContext);
     }
 }

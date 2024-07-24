@@ -16,7 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Features
 ### Enhancements
 ### Bug Fixes
-* Return empty results for non-existent filter fields [#1874](https://github.com/opensearch-project/k-NN/pull/1874)
+* Corrected search logic for scenario with non-existent fields in filter [#1874](https://github.com/opensearch-project/k-NN/pull/1874)
 ### Infrastructure
 ### Documentation
 ### Maintenance

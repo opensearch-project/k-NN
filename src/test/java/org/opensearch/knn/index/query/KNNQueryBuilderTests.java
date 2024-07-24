@@ -27,6 +27,7 @@ import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNTestCase;
@@ -70,6 +71,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     private static final Float MIN_SCORE = 0.5f;
     private static final TermQueryBuilder TERM_QUERY = QueryBuilders.termQuery("field", "value");
     private static final float[] QUERY_VECTOR = new float[] { 1.0f, 2.0f, 3.0f, 4.0f };
+    protected static final String TEXT_FIELD_NAME = "some_field";
+    protected static final String TEXT_VALUE = "some_value";
 
     public void testInvalidK() {
         float[] queryVector = { 1.0f, 1.0f };
@@ -1305,5 +1308,20 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
         Exception ex = expectThrows(IllegalArgumentException.class, () -> knnQueryBuilder.doToQuery(mockQueryShardContext));
         assertTrue(ex.getMessage(), ex.getMessage().contains("invalid dimension"));
+    }
+
+    @SneakyThrows
+    public void testDoRewrite_whenNoFilter_thenSuccessful() {
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, K);
+        QueryBuilder rewritten = knnQueryBuilder.rewrite(mock(QueryRewriteContext.class));
+        assertEquals(knnQueryBuilder, rewritten);
+    }
+
+    @SneakyThrows
+    public void testDoRewrite_whenFilterSet_thenSuccessful() {
+        QueryBuilder filter = QueryBuilders.termQuery(TEXT_FIELD_NAME, TEXT_VALUE);
+        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, K, filter);
+        QueryBuilder rewritten = knnQueryBuilder.rewrite(mock(QueryRewriteContext.class));
+        assertEquals(knnQueryBuilder, rewritten);
     }
 }
