@@ -22,6 +22,7 @@ import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.client.ResponseException;
 import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
@@ -82,6 +83,15 @@ public class FaissIT extends KNNRestTestCase {
     private static final String DOC_ID_3 = "doc3";
     private static final String COLOR_FIELD_NAME = "color";
     private static final String TASTE_FIELD_NAME = "taste";
+
+    private static final String DIMENSION_FIELD_NAME = "dimension";
+    private static final int VECTOR_DIMENSION = 3;
+    private static final String KNN_VECTOR_TYPE = "knn_vector";
+    private static final String PROPERTIES_FIELD_NAME = "properties";
+    private static final String TYPE_FIELD_NAME = "type";
+    private static final String INTEGER_FIELD_NAME = "int_field";
+    private static final String FILED_TYPE_INTEGER = "integer";
+    private static final String NON_EXISTENT_INTEGER_FIELD_NAME = "nonexistent_int_field";
 
     static TestUtils.TestData testData;
 
@@ -1710,6 +1720,77 @@ public class FaissIT extends KNNRestTestCase {
         deleteModel(modelId);
         deleteKNNIndex(trainingIndexName);
         validateGraphEviction();
+    }
+
+    @SneakyThrows
+    public void testQueryWithFilter_whenNonExistingFieldUsedInFilter_thenSuccessful() {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD_NAME)
+            .startObject(FIELD_NAME)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, VECTOR_DIMENSION)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNEngine.FAISS.getMethod(METHOD_HNSW).getMethodComponent().getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject()
+            .endObject()
+            .startObject(INTEGER_FIELD_NAME)
+            .field(TYPE_FIELD_NAME, FILED_TYPE_INTEGER)
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        String mapping = builder.toString();
+
+        createKnnIndex(INDEX_NAME, mapping);
+
+        Float[] vector = new Float[] { 2.0f, 4.5f, 6.5f };
+
+        String documentAsString = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(INTEGER_FIELD_NAME, 5)
+            .field(FIELD_NAME, vector)
+            .endObject()
+            .toString();
+
+        addKnnDoc(INDEX_NAME, DOC_ID_1, documentAsString);
+
+        refreshIndex(INDEX_NAME);
+        assertEquals(1, getDocCount(INDEX_NAME));
+
+        float[] searchVector = new float[] { 1.0f, 2.1f, 3.9f };
+        int k = 10;
+
+        // use filter where nonexistent field is must, we should have no results
+        QueryBuilder filterWithRequiredNonExistentField = QueryBuilders.boolQuery()
+            .must(QueryBuilders.rangeQuery(NON_EXISTENT_INTEGER_FIELD_NAME).gte(1));
+        Response searchWithRequiredNonExistentFiledInFilterResponse = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(FIELD_NAME, searchVector, k, filterWithRequiredNonExistentField),
+            k
+        );
+        List<KNNResult> resultsQuery1 = parseSearchResponse(
+            EntityUtils.toString(searchWithRequiredNonExistentFiledInFilterResponse.getEntity()),
+            FIELD_NAME
+        );
+        assertTrue(resultsQuery1.isEmpty());
+
+        // use filter with non existent field as optional, we should have some results
+        QueryBuilder filterWithOptionalNonExistentField = QueryBuilders.boolQuery()
+            .should(QueryBuilders.rangeQuery(NON_EXISTENT_INTEGER_FIELD_NAME).gte(1))
+            .must(QueryBuilders.rangeQuery(INTEGER_FIELD_NAME).gte(1));
+        Response searchWithOptionalNonExistentFiledInFilterResponse = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(FIELD_NAME, searchVector, k, filterWithOptionalNonExistentField),
+            k
+        );
+        List<KNNResult> resultsQuery2 = parseSearchResponse(
+            EntityUtils.toString(searchWithOptionalNonExistentFiledInFilterResponse.getEntity()),
+            FIELD_NAME
+        );
+        assertEquals(1, resultsQuery2.size());
     }
 
     protected void setupKNNIndexForFilterQuery() throws Exception {
