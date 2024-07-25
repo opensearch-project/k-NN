@@ -67,9 +67,8 @@ jlong IndexService::initIndex(
         int threadCount,
         std::unordered_map<std::string, jobject> parameters
     ) {
-    // Removed the check for number of vectors
-    // Don't use unique_ptr here since we want to access the index in the future.
-    faiss::Index * indexWriter(faissMethods->indexFactory(dim, indexDescription.c_str(), metric));
+    // Create index using Faiss factory method
+    std::unique_ptr<faiss::Index> indexWriter(faissMethods->indexFactory(dim, indexDescription.c_str(), metric));
 
     // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
     if(threadCount != 0) {
@@ -77,7 +76,7 @@ jlong IndexService::initIndex(
     }
 
     // Add extra parameters that cant be configured with the index factory
-    SetExtraParameters<faiss::Index, faiss::IndexIVF, faiss::IndexHNSW>(jniUtil, env, parameters, indexWriter);
+    SetExtraParameters<faiss::Index, faiss::IndexIVF, faiss::IndexHNSW>(jniUtil, env, parameters, indexWriter.get());
 
     // Check that the index does not need to be trained
     if(!indexWriter->is_trained) {
@@ -85,7 +84,7 @@ jlong IndexService::initIndex(
     }
 
     // Add vectors
-    faiss::IndexIDMap * idMap(faissMethods->indexIdMap(indexWriter));
+    std::unique_ptr<faiss::IndexIDMap> idMap (faissMethods->indexIdMap(indexWriter.get()));
 
     // Check to see if the current index is HNSW
     faiss::IndexHNSW * hnsw = dynamic_cast<faiss::IndexHNSW *>(idMap->index);
@@ -100,7 +99,7 @@ jlong IndexService::initIndex(
         }
     }
 
-    return (jlong)idMap;
+    return reinterpret_cast<jlong>(idMap.release());
 }
 
 void IndexService::insertToIndex(
@@ -216,9 +215,8 @@ jlong BinaryIndexService::initIndex(
         int threadCount,
         std::unordered_map<std::string, jobject> parameters
     ) {
-    // Removed the check for number of vectors
-    // Don't use unique_ptr here since we want to access the index in the future.
-    faiss::IndexBinary * indexWriter(faissMethods->indexBinaryFactory(dim, indexDescription.c_str()));
+    // Create index using Faiss factory method
+    std::unique_ptr<faiss::IndexBinary> indexWriter(faissMethods->indexBinaryFactory(dim, indexDescription.c_str()));
 
     // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
     if(threadCount != 0) {
@@ -226,7 +224,7 @@ jlong BinaryIndexService::initIndex(
     }
 
     // Add extra parameters that cant be configured with the index factory
-    SetExtraParameters<faiss::IndexBinary, faiss::IndexBinaryIVF, faiss::IndexBinaryHNSW>(jniUtil, env, parameters, indexWriter);
+    SetExtraParameters<faiss::IndexBinary, faiss::IndexBinaryIVF, faiss::IndexBinaryHNSW>(jniUtil, env, parameters, indexWriter.get());
 
     // Check that the index does not need to be trained
     if(!indexWriter->is_trained) {
@@ -234,7 +232,7 @@ jlong BinaryIndexService::initIndex(
     }
 
     // Add vectors
-    faiss::IndexBinaryIDMap * idMap(faissMethods->indexBinaryIdMap(indexWriter));
+    std::unique_ptr<faiss::IndexBinaryIDMap> idMap(faissMethods->indexBinaryIdMap(indexWriter.get()));
 
     // Check to see if the current index is BinaryHNSW
     faiss::IndexBinaryHNSW * hnsw = dynamic_cast<faiss::IndexBinaryHNSW *>(idMap->index);
