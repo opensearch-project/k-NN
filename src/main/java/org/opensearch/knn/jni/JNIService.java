@@ -77,7 +77,9 @@ public class JNIService {
             return;
         }
 
-        throw new IllegalArgumentException(String.format(Locale.ROOT, "insertToIndex not supported for provided engine : %s", knnEngine.getName()));
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "insertToIndex not supported for provided engine : %s", knnEngine.getName())
+        );
     }
 
     /**
@@ -99,7 +101,9 @@ public class JNIService {
             return;
         }
 
-        throw new IllegalArgumentException(String.format(Locale.ROOT, "writeIndex not supported for provided engine : %s", knnEngine.getName()));
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "writeIndex not supported for provided engine : %s", knnEngine.getName())
+        );
     }
 
     /**
@@ -129,7 +133,9 @@ public class JNIService {
             return;
         }
 
-        throw new IllegalArgumentException(String.format(Locale.ROOT, "CreateIndex not supported for provided engine : %s", knnEngine.getName()));
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "CreateIndex not supported for provided engine : %s", knnEngine.getName())
+        );
     }
 
     /**
@@ -188,7 +194,9 @@ public class JNIService {
             }
         }
 
-        throw new IllegalArgumentException(String.format(Locale.ROOT, "LoadIndex not supported for provided engine : %s", knnEngine.getName()));
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "LoadIndex not supported for provided engine : %s", knnEngine.getName())
+        );
     }
 
     /**
@@ -286,7 +294,9 @@ public class JNIService {
             }
             return FaissService.queryIndex(indexPointer, queryVector, k, methodParameters, parentIds);
         }
-        throw new IllegalArgumentException(String.format(Locale.ROOT, "QueryIndex not supported for provided engine : %s", knnEngine.getName()));
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "QueryIndex not supported for provided engine : %s", knnEngine.getName())
+        );
     }
 
     /**
@@ -322,7 +332,9 @@ public class JNIService {
                 parentIds
             );
         }
-        throw new IllegalArgumentException(String.format(Locale.ROOT, "QueryBinaryIndex not supported for provided engine : %s", knnEngine.getName()));
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "QueryBinaryIndex not supported for provided engine : %s", knnEngine.getName())
+        );
     }
 
     /**
@@ -389,7 +401,9 @@ public class JNIService {
             return FaissService.trainIndex(indexParameters, dimension, trainVectorsPointer);
         }
 
-        throw new IllegalArgumentException(String.format(Locale.ROOT, "TrainIndex not supported for provided engine : %s", knnEngine.getName()));
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "TrainIndex not supported for provided engine : %s", knnEngine.getName())
+        );
     }
 
     /**
