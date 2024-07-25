@@ -1319,9 +1319,23 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     @SneakyThrows
     public void testDoRewrite_whenFilterSet_thenSuccessful() {
-        QueryBuilder filter = QueryBuilders.termQuery(TEXT_FIELD_NAME, TEXT_VALUE);
-        KNNQueryBuilder knnQueryBuilder = new KNNQueryBuilder(FIELD_NAME, QUERY_VECTOR, K, filter);
-        QueryBuilder rewritten = knnQueryBuilder.rewrite(mock(QueryRewriteContext.class));
-        assertEquals(knnQueryBuilder, rewritten);
+        // Given
+        QueryBuilder filter = mock(QueryBuilder.class);
+        QueryBuilder rewrittenFilter = mock(QueryBuilder.class);
+        QueryRewriteContext context = mock(QueryRewriteContext.class);
+        when(filter.rewrite(context)).thenReturn(rewrittenFilter);
+        KNNQueryBuilder expected = KNNQueryBuilder.builder()
+            .fieldName(FIELD_NAME)
+            .vector(QUERY_VECTOR)
+            .filter(rewrittenFilter)
+            .k(K)
+            .build();
+        // When
+        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).filter(filter).k(K).build();
+
+        QueryBuilder actual = knnQueryBuilder.rewrite(context);
+
+        // Then
+        assertEquals(expected, actual);
     }
 }
