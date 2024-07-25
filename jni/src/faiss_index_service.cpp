@@ -84,7 +84,7 @@ jlong IndexService::initIndex(
     }
 
     // Add vectors
-    std::unique_ptr<faiss::IndexIDMap> idMap (faissMethods->indexIdMap(indexWriter.get()));
+    std::unique_ptr<faiss::IndexIDMap> idMap (faissMethods->indexIdMap(indexWriter.release()));
 
     // Check to see if the current index is HNSW
     faiss::IndexHNSW * hnsw = dynamic_cast<faiss::IndexHNSW *>(idMap->index);
@@ -232,7 +232,7 @@ jlong BinaryIndexService::initIndex(
     }
 
     // Add vectors
-    std::unique_ptr<faiss::IndexBinaryIDMap> idMap(faissMethods->indexBinaryIdMap(indexWriter.get()));
+    std::unique_ptr<faiss::IndexBinaryIDMap> idMap(faissMethods->indexBinaryIdMap(indexWriter.release()));
 
     // Check to see if the current index is BinaryHNSW
     faiss::IndexBinaryHNSW * hnsw = dynamic_cast<faiss::IndexBinaryHNSW *>(idMap->index);
@@ -247,7 +247,7 @@ jlong BinaryIndexService::initIndex(
         }
     }
 
-    return (jlong)idMap;
+    return reinterpret_cast<jlong>(idMap.release());
 }
 
 void BinaryIndexService::insertToIndex(
