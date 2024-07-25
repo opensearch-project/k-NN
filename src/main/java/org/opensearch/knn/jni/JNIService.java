@@ -46,10 +46,7 @@ public class JNIService {
         long indexAddress,
         KNNEngine knnEngine
     ) {
-        int threadCount = 0;
-        if (parameters.containsKey(KNNConstants.INDEX_THREAD_QTY)) {
-            threadCount = (int) parameters.get(KNNConstants.INDEX_THREAD_QTY);
-        }
+        int threadCount = (int) parameters.getOrDefault(KNNConstants.INDEX_THREAD_QTY, 0);
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
                 FaissService.insertToBinaryIndex(docs, vectorAddress, dimension, indexAddress, threadCount);
@@ -63,10 +60,7 @@ public class JNIService {
     }
 
     public static void writeIndex(String indexPath, long indexAddress, KNNEngine knnEngine, Map<String, Object> parameters) {
-        int threadCount = 0;
-        if (parameters.containsKey(KNNConstants.INDEX_THREAD_QTY)) {
-            threadCount = (int) parameters.get(KNNConstants.INDEX_THREAD_QTY);
-        }
+        int threadCount = (int) parameters.getOrDefault(KNNConstants.INDEX_THREAD_QTY, 0);
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
                 FaissService.writeBinaryIndex(indexAddress, indexPath, threadCount);
