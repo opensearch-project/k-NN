@@ -21,7 +21,7 @@ public class VectorTransferByteTests extends TestCase {
     public void testTransfer_whenCalled_thenAdded() {
         final BytesRef bytesRef1 = getByteArrayOfVectors(20);
         final BytesRef bytesRef2 = getByteArrayOfVectors(20);
-        VectorTransferByte vectorTransfer = new VectorTransferByte(1000);
+        VectorTransferByte vectorTransfer = new VectorTransferByte(40);
         try {
             vectorTransfer.init(2);
 
