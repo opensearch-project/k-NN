@@ -49,16 +49,64 @@ class FaissService {
         });
     }
 
+    /**
+     * Initialize an index for the native library. Takes in numDocs to
+     * allocate the correct amount of memory.
+     *
+     * @param numDocs number of documents to be added
+     * @param dim dimension of the vector to be indexed
+     * @param parameters parameters to build index
+     */
     public static native long initIndex(long numDocs, int dim, Map<String, Object> parameters);
 
+    /**
+     * Initialize an index for the native library. Takes in numDocs to
+     * allocate the correct amount of memory.
+     *
+     * @param numDocs number of documents to be added
+     * @param dim dimension of the vector to be indexed
+     * @param parameters parameters to build index
+     */
     public static native long initBinaryIndex(long numDocs, int dim, Map<String, Object> parameters);
 
+    /**
+     * Inserts to a faiss index.
+     *
+     * @param ids ids of documents
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim dimension of the vector to be indexed
+     * @param indexAddress address of native memory where index is stored
+     * @param threadCount number of threads to use for insertion
+     */
     public static native void insertToIndex(int[] ids, long vectorsAddress, int dim, long indexAddress, int threadCount);
 
+    /**
+     * Inserts to a faiss index.
+     *
+     * @param ids ids of documents
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim dimension of the vector to be indexed
+     * @param indexAddress address of native memory where index is stored
+     * @param threadCount number of threads to use for insertion
+     */
     public static native void insertToBinaryIndex(int[] ids, long vectorsAddress, int dim, long indexAddress, int threadCount);
 
+    /**
+     * Writes a faiss index.
+     *
+     * @param indexAddress address of native memory where index is stored
+     * @param indexPath path to save index file to
+     * @param threadCount number of threads to use for insertion
+     */
     public static native void writeIndex(long indexAddress, String indexPath, int threadCount);
 
+    /**
+     * Writes a faiss index.
+     *
+     * @param indexAddress address of native memory where index is stored
+     * @param indexPath path to save index file to
+     * @param threadCount number of threads to use for insertion
+     */
     public static native void writeBinaryIndex(long indexAddress, String indexPath, int threadCount);
 
     /**

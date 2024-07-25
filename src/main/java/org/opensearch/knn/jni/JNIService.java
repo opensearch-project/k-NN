@@ -24,12 +24,22 @@ import java.util.Map;
  * Service to distribute requests to the proper engine jni service
  */
 public class JNIService {
-    public static long initIndexFromScratch(long size, int dim, Map<String, Object> parameters, KNNEngine knnEngine) {
+    /**
+     * Initialize an index for the native library. Takes in numDocs to
+     * allocate the correct amount of memory.
+     *
+     * @param numDocs number of documents to be added
+     * @param dim dimension of the vector to be indexed
+     * @param parameters parameters to build index
+     * @param knnEngine knn engine
+     * @return address of the index in memory
+     */
+    public static long initIndexFromScratch(long numDocs, int dim, Map<String, Object> parameters, KNNEngine knnEngine) {
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
-                return FaissService.initBinaryIndex(size, dim, parameters);
+                return FaissService.initBinaryIndex(numDocs, dim, parameters);
             } else {
-                return FaissService.initIndex(size, dim, parameters);
+                return FaissService.initIndex(numDocs, dim, parameters);
             }
         }
 
@@ -38,6 +48,16 @@ public class JNIService {
         );
     }
 
+    /**
+     * Inserts to a faiss index.
+     *
+     * @param ids ids of documents
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim dimension of the vector to be indexed
+     * @param parameters parameters to build index
+     * @param indexAddress address of native memory where index is stored
+     * @param knnEngine knn engine
+     */
     public static void insertToIndex(
         int[] docs,
         long vectorAddress,
@@ -59,6 +79,14 @@ public class JNIService {
         throw new IllegalArgumentException(String.format("insertToIndex not supported for provided engine : %s", knnEngine.getName()));
     }
 
+    /**
+     * Writes a faiss index to disk.
+     *
+     * @param indexPath path to save index to
+     * @param indexAddress address of native memory where index is stored
+     * @param knnEngine knn engine
+     * @param parameters parameters to build index
+     */
     public static void writeIndex(String indexPath, long indexAddress, KNNEngine knnEngine, Map<String, Object> parameters) {
         int threadCount = (int) parameters.getOrDefault(KNNConstants.INDEX_THREAD_QTY, 0);
         if (KNNEngine.FAISS == knnEngine) {
