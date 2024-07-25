@@ -380,13 +380,6 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         } else {
             createKNNIndexFromTemplate(fieldInfo, values, knnEngine, indexPath, parameters, isMerge);
         }
-        /*
-        if(fromScratch) {
-            createKNNIndexFromScratch(fieldInfo, values, knnEngine, indexPath, parameters, isMerge);
-        } else {
-            createKNNIndexFromTemplate(fieldInfo, values, knnEngine, indexPath, parameters, isMerge);
-        }
-        */
     }
 
     /**
