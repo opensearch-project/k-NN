@@ -15,6 +15,7 @@ import com.google.common.collect.ImmutableMap;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.jni.JNICommons;
@@ -42,17 +43,6 @@ import static org.mockito.Mockito.mock;
 
 public class NativeMemoryLoadStrategyTests extends KNNTestCase {
 
-    void createIndex(int[] ids, long address, int dimension, String name, Map<String, Object> parameters, KNNEngine engine) {
-        if (engine != KNNEngine.FAISS) {
-            JNIService.createIndex(ids, address, dimension, name, parameters, engine);
-        } else {
-            // We can initialize numDocs as 0, this will just not reserve anything.
-            long indexAddress = JNIService.initIndexFromScratch(0, dimension, parameters, engine);
-            JNIService.insertToIndex(ids, address, dimension, parameters, indexAddress, engine);
-            JNIService.writeIndex(name, indexAddress, engine, parameters);
-        }
-    }
-
     public void testIndexLoadStrategy_load() throws IOException {
         // Create basic nmslib HNSW index
         Path dir = createTempDir();
@@ -69,7 +59,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         }
         Map<String, Object> parameters = ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
         long memoryAddress = JNICommons.storeVectorData(0, vectors, numVectors * dimension);
-        createIndex(ids, memoryAddress, dimension, path, parameters, knnEngine);
+        TestUtils.createIndex(ids, memoryAddress, dimension, path, parameters, knnEngine);
 
         // Setup mock resource manager
         ResourceWatcherService resourceWatcherService = mock(ResourceWatcherService.class);
@@ -117,7 +107,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
             VectorDataType.BINARY.getValue()
         );
         long memoryAddress = JNICommons.storeByteVectorData(0, vectors, numVectors);
-        createIndex(ids, memoryAddress, dimension, path, parameters, knnEngine);
+        TestUtils.createIndex(ids, memoryAddress, dimension, path, parameters, knnEngine);
 
         // Setup mock resource manager
         ResourceWatcherService resourceWatcherService = mock(ResourceWatcherService.class);
