@@ -356,7 +356,10 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         for (; !batch.finished; batch = KNNCodecUtil.getVectorBatch(values, transfer, true)) {
             insertToIndex(batch, knnEngine, indexAddress, parameters);
         }
-        insertToIndex(batch, knnEngine, indexAddress, parameters);
+        // Last batch could have no vectors if previous has the last document
+        if (batch.docs.length != 0) {
+            insertToIndex(batch, knnEngine, indexAddress, parameters);
+        }
         writeIndex(indexAddress, indexPath, knnEngine, parameters);
         if (isMerge) {
             recordMergeStats(numDocs, arraySize);
