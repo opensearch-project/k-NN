@@ -69,12 +69,12 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_initBinaryIndex
 
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToIndex(JNIEnv * env, jclass cls, jintArray idsJ,
                                                                             jlong vectorsAddressJ, jint dimJ,
-                                                                            jlong indexAddress, jobject parametersJ)
+                                                                            jlong indexAddress, jint threadCount)
 {
     try {
         std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
         knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
-        knn_jni::faiss_wrapper::InsertToIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexAddress, parametersJ, &indexService);
+        knn_jni::faiss_wrapper::InsertToIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexAddress, threadCount, &indexService);
 
         // Releasing the vectorsAddressJ memory as that is not required once we have created the index.
         // This is not the ideal approach, please refer this gh issue for long term solution:
@@ -87,12 +87,12 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToIndex(JN
 
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToBinaryIndex(JNIEnv * env, jclass cls, jintArray idsJ,
                                                                             jlong vectorsAddressJ, jint dimJ,
-                                                                            jlong indexAddress, jobject parametersJ)
+                                                                            jlong indexAddress, jint threadCount)
 {
     try {
         std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
         knn_jni::faiss_wrapper::BinaryIndexService binaryIndexService(std::move(faissMethods));
-        knn_jni::faiss_wrapper::InsertToIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexAddress, parametersJ, &binaryIndexService);
+        knn_jni::faiss_wrapper::InsertToIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexAddress, threadCount, &binaryIndexService);
 
         // Releasing the vectorsAddressJ memory as that is not required once we have created the index.
         // This is not the ideal approach, please refer this gh issue for long term solution:
@@ -105,12 +105,12 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToBinaryIn
 
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeIndex(JNIEnv * env, jclass cls,
                                                                             jlong indexAddress,
-                                                                            jstring indexPathJ, jobject parametersJ)
+                                                                            jstring indexPathJ, jint threadCount)
 {
     try {
         std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
         knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
-        knn_jni::faiss_wrapper::WriteIndex(&jniUtil, env, indexPathJ, indexAddress, parametersJ, &indexService);
+        knn_jni::faiss_wrapper::WriteIndex(&jniUtil, env, indexPathJ, indexAddress, threadCount, &indexService);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
@@ -118,12 +118,12 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeIndex(JNIEn
 
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeBinaryIndex(JNIEnv * env, jclass cls,
                                                                             jlong indexAddress,
-                                                                            jstring indexPathJ, jobject parametersJ)
+                                                                            jstring indexPathJ, jint threadCount)
 {
     try {
         std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
         knn_jni::faiss_wrapper::BinaryIndexService binaryIndexService(std::move(faissMethods));
-        knn_jni::faiss_wrapper::WriteIndex(&jniUtil, env, indexPathJ, indexAddress, parametersJ, &binaryIndexService);
+        knn_jni::faiss_wrapper::WriteIndex(&jniUtil, env, indexPathJ, indexAddress, threadCount, &binaryIndexService);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }

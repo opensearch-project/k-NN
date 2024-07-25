@@ -53,19 +53,13 @@ class FaissService {
 
     public static native long initBinaryIndex(long numDocs, int dim, Map<String, Object> parameters);
 
-    public static native void insertToIndex(int[] ids, long vectorsAddress, int dim, long indexAddress, Map<String, Object> parameters);
+    public static native void insertToIndex(int[] ids, long vectorsAddress, int dim, long indexAddress, int threadCount);
 
-    public static native void insertToBinaryIndex(
-        int[] ids,
-        long vectorsAddress,
-        int dim,
-        long indexAddress,
-        Map<String, Object> parameters
-    );
+    public static native void insertToBinaryIndex(int[] ids, long vectorsAddress, int dim, long indexAddress, int threadCount);
 
-    public static native void writeIndex(long indexAddress, String indexPath, Map<String, Object> parameters);
+    public static native void writeIndex(long indexAddress, String indexPath, int threadCount);
 
-    public static native void writeBinaryIndex(long indexAddress, String indexPath, Map<String, Object> parameters);
+    public static native void writeBinaryIndex(long indexAddress, String indexPath, int threadCount);
 
     /**
      * Create an index for the native library The memory occupied by the vectorsAddress will be freed up during the

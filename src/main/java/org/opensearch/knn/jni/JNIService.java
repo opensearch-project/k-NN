@@ -13,6 +13,7 @@ package org.opensearch.knn.jni;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.opensearch.common.Nullable;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.util.KNNEngine;
@@ -23,8 +24,6 @@ import java.util.Map;
  * Service to distribute requests to the proper engine jni service
  */
 public class JNIService {
-    private static final String FAISS_BINARY_INDEX_PREFIX = "B";
-
     public static long initIndexFromScratch(long size, int dim, Map<String, Object> parameters, KNNEngine knnEngine) {
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
@@ -47,11 +46,15 @@ public class JNIService {
         long indexAddress,
         KNNEngine knnEngine
     ) {
+        int threadCount = 0;
+        if (parameters.containsKey(KNNConstants.INDEX_THREAD_QTY)) {
+            threadCount = (int) parameters.get(KNNConstants.INDEX_THREAD_QTY);
+        }
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
-                FaissService.insertToBinaryIndex(docs, vectorAddress, dimension, indexAddress, parameters);
+                FaissService.insertToBinaryIndex(docs, vectorAddress, dimension, indexAddress, threadCount);
             } else {
-                FaissService.insertToIndex(docs, vectorAddress, dimension, indexAddress, parameters);
+                FaissService.insertToIndex(docs, vectorAddress, dimension, indexAddress, threadCount);
             }
             return;
         }
@@ -60,11 +63,15 @@ public class JNIService {
     }
 
     public static void writeIndex(String indexPath, long indexAddress, KNNEngine knnEngine, Map<String, Object> parameters) {
+        int threadCount = 0;
+        if (parameters.containsKey(KNNConstants.INDEX_THREAD_QTY)) {
+            threadCount = (int) parameters.get(KNNConstants.INDEX_THREAD_QTY);
+        }
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
-                FaissService.writeBinaryIndex(indexAddress, indexPath, parameters);
+                FaissService.writeBinaryIndex(indexAddress, indexPath, threadCount);
             } else {
-                FaissService.writeIndex(indexAddress, indexPath, parameters);
+                FaissService.writeIndex(indexAddress, indexPath, threadCount);
             }
             return;
         }

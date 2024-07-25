@@ -59,7 +59,7 @@ public:
      * @param idMap a map of document id and vector id
      * @param parameters parameters to be applied to faiss index
      */
-    virtual void insertToIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric, std::string indexDescription, int dim, int numIds, int threadCount, int64_t vectorsAddress, std::vector<int64_t> &ids, jlong idMapAddress, std::unordered_map<std::string, jobject> parameters);
+    virtual void insertToIndex(int dim, int numIds, int threadCount, int64_t vectorsAddress, std::vector<int64_t> &ids, jlong idMapAddress);
     /**
      * Write index to disk
      *
@@ -72,7 +72,7 @@ public:
      * @param idMap a map of document id and vector id
      * @param parameters parameters to be applied to faiss index
      */
-    virtual void writeIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric, std::string indexDescription, int threadCount, std::string indexPath, jlong idMapAddress, std::unordered_map<std::string, jobject> parameters);
+    virtual void writeIndex(int threadCount, std::string indexPath, jlong idMapAddress);
     // TODO Remove dependency on JNIUtilInterface and JNIEnv
     // TODO Reduce the number of parameters
 
@@ -145,7 +145,7 @@ public:
      * @param idMap a map of document id and vector id
      * @param parameters parameters to be applied to faiss index
      */
-    virtual void insertToIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric, std::string indexDescription, int dim, int numIds, int threadCount, int64_t vectorsAddress, std::vector<int64_t> &ids, jlong idMapAddress, std::unordered_map<std::string, jobject> parameters) override;
+    virtual void insertToIndex(int dim, int numIds, int threadCount, int64_t vectorsAddress, std::vector<int64_t> &ids, jlong idMapAddress) override;
     /**
      * Write index to disk
      *
@@ -158,7 +158,7 @@ public:
      * @param idMap a map of document id and vector id
      * @param parameters parameters to be applied to faiss index
      */
-    virtual void writeIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric, std::string indexDescription, int threadCount, std::string indexPath, jlong idMapAddress, std::unordered_map<std::string, jobject> parameters) override;
+    virtual void writeIndex(int threadCount, std::string indexPath, jlong idMapAddress) override;
     /**
      * Create binary index
      *

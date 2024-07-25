@@ -87,12 +87,16 @@ jlong IndexService::initIndex(
     // Add vectors
     faiss::IndexIDMap * idMap(faissMethods->indexIdMap(indexWriter));
 
+    // Check to see if the current index is HNSW
     faiss::IndexHNSW * hnsw = dynamic_cast<faiss::IndexHNSW *>(idMap->index);
 
     if(hnsw != NULL) {
+        // Check to see if the HNSW storage is IndexFlat
         faiss::IndexFlat * storage = dynamic_cast<faiss::IndexFlat *>(hnsw->storage);
         if(storage != NULL) {
-            storage->codes.reserve(dim * numVectors);
+            // Allocate enough memory for all of the vectors we plan on inserting
+            // We do this to avoid unnecessary memory allocations during insert
+            storage->codes.reserve(dim * numVectors * 4);
         }
     }
 
@@ -100,17 +104,12 @@ jlong IndexService::initIndex(
 }
 
 void IndexService::insertToIndex(
-        knn_jni::JNIUtilInterface * jniUtil,
-        JNIEnv * env,
-        faiss::MetricType metric,
-        std::string indexDescription,
         int dim,
         int numIds,
         int threadCount,
         int64_t vectorsAddress,
         std::vector<int64_t> & ids,
-        jlong idMapAddress,
-        std::unordered_map<std::string, jobject> parameters
+        jlong idMapAddress
     ) {
     // Read vectors from memory address (unique ptr since we want to remove from memory after use)
     std::vector<float> * inputVectors = reinterpret_cast<std::vector<float>*>(vectorsAddress);
@@ -137,14 +136,9 @@ void IndexService::insertToIndex(
 }
 
 void IndexService::writeIndex(
-        knn_jni::JNIUtilInterface * jniUtil,
-        JNIEnv * env,
-        faiss::MetricType metric,
-        std::string indexDescription,
         int threadCount,
         std::string indexPath,
-        jlong idMapAddress,
-        std::unordered_map<std::string, jobject> parameters
+        jlong idMapAddress
     ) {
     // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
     if(threadCount != 0) {
@@ -242,11 +236,15 @@ jlong BinaryIndexService::initIndex(
     // Add vectors
     faiss::IndexBinaryIDMap * idMap(faissMethods->indexBinaryIdMap(indexWriter));
 
+    // Check to see if the current index is BinaryHNSW
     faiss::IndexBinaryHNSW * hnsw = dynamic_cast<faiss::IndexBinaryHNSW *>(idMap->index);
 
     if(hnsw != NULL) {
+        // Check to see if the HNSW storage is IndexBinaryFlat
         faiss::IndexBinaryFlat * storage = dynamic_cast<faiss::IndexBinaryFlat *>(hnsw->storage);
         if(storage != NULL) {
+            // Allocate enough memory for all of the vectors we plan on inserting
+            // We do this to avoid unnecessary memory allocations during insert
             storage->xb.reserve(dim / 8 * numVectors);
         }
     }
@@ -255,17 +253,12 @@ jlong BinaryIndexService::initIndex(
 }
 
 void BinaryIndexService::insertToIndex(
-        knn_jni::JNIUtilInterface * jniUtil,
-        JNIEnv * env,
-        faiss::MetricType metric,
-        std::string indexDescription,
         int dim,
         int numIds,
         int threadCount,
         int64_t vectorsAddress,
         std::vector<int64_t> & ids,
-        jlong idMapAddress,
-        std::unordered_map<std::string, jobject> parameters
+        jlong idMapAddress
     ) {
     // Read vectors from memory address (unique ptr since we want to remove from memory after use)
     std::vector<uint8_t> * inputVectors = reinterpret_cast<std::vector<uint8_t>*>(vectorsAddress);
@@ -292,14 +285,9 @@ void BinaryIndexService::insertToIndex(
 }
 
 void BinaryIndexService::writeIndex(
-        knn_jni::JNIUtilInterface * jniUtil,
-        JNIEnv * env,
-        faiss::MetricType metric,
-        std::string indexDescription,
         int threadCount,
         std::string indexPath,
-        jlong idMapAddress,
-        std::unordered_map<std::string, jobject> parameters
+        jlong idMapAddress
     ) {
     // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
     if(threadCount != 0) {
