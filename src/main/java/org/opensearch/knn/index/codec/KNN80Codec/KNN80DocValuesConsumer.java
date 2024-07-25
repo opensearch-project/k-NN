@@ -227,6 +227,8 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
     private void insertToIndex(KNNCodecUtil.VectorBatch pair, KNNEngine knnEngine, long indexAddress, Map<String, Object> parameters)
         throws IOException {
+        // Could be zero docs because of edge cases with batch creation
+        if (pair.docs.length == 0) return;
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             JNIService.insertToIndex(pair.docs, pair.getVectorAddress(), pair.getDimension(), parameters, indexAddress, knnEngine);
             return null;
@@ -356,10 +358,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         for (; !batch.finished; batch = KNNCodecUtil.getVectorBatch(values, transfer, true)) {
             insertToIndex(batch, knnEngine, indexAddress, parameters);
         }
-        // Last batch could have no vectors if previous has the last document
-        if (batch.docs.length != 0) {
-            insertToIndex(batch, knnEngine, indexAddress, parameters);
-        }
+        insertToIndex(batch, knnEngine, indexAddress, parameters);
         writeIndex(indexAddress, indexPath, knnEngine, parameters);
         if (isMerge) {
             recordMergeStats(numDocs, arraySize);
