@@ -35,14 +35,19 @@ public class VectorTransferFloat extends VectorTransfer {
     public void transfer(final BytesRef bytesRef) {
         final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByBytesRef(bytesRef);
         final float[] vector = vectorSerializer.byteToFloatArray(bytesRef);
+        // System.out.println("Vector: " + vector.length);
         dimension = vector.length;
 
         if (vectorsPerTransfer == Integer.MIN_VALUE) {
-            vectorsPerTransfer = (dimension * Float.BYTES * totalLiveDocs) / vectorsStreamingMemoryLimit;
+            vectorsPerTransfer = vectorsStreamingMemoryLimit / bytesRef.length;
+            if (totalLiveDocs > 0) {
+                vectorsPerTransfer = Math.min(vectorsPerTransfer, totalLiveDocs);
+            }
+
             // This condition comes if vectorsStreamingMemoryLimit is higher than total number floats to transfer
             // Doing this will reduce 1 extra trip to JNI layer.
             if (vectorsPerTransfer == 0) {
-                vectorsPerTransfer = totalLiveDocs;
+                vectorsPerTransfer = 1;
             }
         }
 
@@ -63,7 +68,11 @@ public class VectorTransferFloat extends VectorTransfer {
     }
 
     private void transfer() {
-        vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
+        if (totalLiveDocs != 0) {
+            vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
+        } else {
+            vectorAddress = JNICommons.storeVectorData(0, vectorList.toArray(new float[][] {}), vectorList.size() * dimension);
+        }
         vectorList.clear();
     }
 }

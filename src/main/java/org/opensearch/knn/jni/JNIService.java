@@ -23,6 +23,55 @@ import java.util.Map;
  * Service to distribute requests to the proper engine jni service
  */
 public class JNIService {
+    private static final String FAISS_BINARY_INDEX_PREFIX = "B";
+
+    public static long initIndexFromScratch(long size, int dim, Map<String, Object> parameters, KNNEngine knnEngine) {
+        if (KNNEngine.FAISS == knnEngine) {
+            if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
+                return FaissService.initBinaryIndex(size, dim, parameters);
+            } else {
+                return FaissService.initIndex(size, dim, parameters);
+            }
+        }
+
+        throw new IllegalArgumentException(
+            String.format("initIndexFromScratch not supported for provided engine : %s", knnEngine.getName())
+        );
+    }
+
+    public static void insertToIndex(
+        int[] docs,
+        long vectorAddress,
+        int dimension,
+        Map<String, Object> parameters,
+        long indexAddress,
+        KNNEngine knnEngine
+    ) {
+        if (KNNEngine.FAISS == knnEngine) {
+            if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
+                FaissService.insertToBinaryIndex(docs, vectorAddress, dimension, indexAddress, parameters);
+            } else {
+                FaissService.insertToIndex(docs, vectorAddress, dimension, indexAddress, parameters);
+            }
+            return;
+        }
+
+        throw new IllegalArgumentException(String.format("insertToIndex not supported for provided engine : %s", knnEngine.getName()));
+    }
+
+    public static void writeIndex(String indexPath, long indexAddress, KNNEngine knnEngine, Map<String, Object> parameters) {
+        if (KNNEngine.FAISS == knnEngine) {
+            if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
+                FaissService.writeBinaryIndex(indexAddress, indexPath, parameters);
+            } else {
+                FaissService.writeIndex(indexAddress, indexPath, parameters);
+            }
+            return;
+        }
+
+        throw new IllegalArgumentException(String.format("writeIndex not supported for provided engine : %s", knnEngine.getName()));
+    }
+
     /**
      * Create an index for the native library. The memory occupied by the vectorsAddress will be freed up during the
      * function call. So Java layer doesn't need to free up the memory. This is not an ideal behavior because Java layer

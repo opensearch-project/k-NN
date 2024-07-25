@@ -18,6 +18,54 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    initIndex
+ * Signature: ([IJILjava/lang/String;Ljava/util/Map;)V
+ */
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_initIndex(JNIEnv * env, jclass cls,
+                                                                            jlong numDocs, jint dimJ,
+                                                                            jobject parametersJ);
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    initBinaryIndex
+ * Signature: ([IJILjava/lang/String;Ljava/util/Map;)V
+ */
+JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_FaissService_initBinaryIndex(JNIEnv * env, jclass cls,
+                                                                            jlong numDocs, jint dimJ,
+                                                                            jobject parametersJ);
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    insertToIndex
+ * Signature: ([IJILjava/lang/String;Ljava/util/Map;)V
+ */
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToIndex(JNIEnv * env, jclass cls, jintArray idsJ,
+                                                                            jlong vectorsAddressJ, jint dimJ,
+                                                                            jlong indexAddress, jobject parametersJ);
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    insertToBinaryIndex
+ * Signature: ([IJILjava/lang/String;Ljava/util/Map;)V
+ */
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToBinaryIndex(JNIEnv * env, jclass cls, jintArray idsJ,
+                                                                            jlong vectorsAddressJ, jint dimJ,
+                                                                            jlong indexAddress, jobject parametersJ);
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    writeIndex
+ * Signature: ([IJILjava/lang/String;Ljava/util/Map;)V
+ */
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeIndex(JNIEnv * env, jclass cls,
+                                                                            jlong indexAddress,
+                                                                            jstring indexPathJ, jobject parametersJ);
+/*
+ * Class:     org_opensearch_knn_jni_FaissService
+ * Method:    writeBinaryIndex
+ * Signature: ([IJILjava/lang/String;Ljava/util/Map;)V
+ */
+JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeBinaryIndex(JNIEnv * env, jclass cls,
+                                                                            jlong indexAddress,
+                                                                            jstring indexPathJ, jobject parametersJ);
 
 /*
  * Class:     org_opensearch_knn_jni_FaissService

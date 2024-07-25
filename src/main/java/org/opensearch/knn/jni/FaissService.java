@@ -49,6 +49,24 @@ class FaissService {
         });
     }
 
+    public static native long initIndex(long numDocs, int dim, Map<String, Object> parameters);
+
+    public static native long initBinaryIndex(long numDocs, int dim, Map<String, Object> parameters);
+
+    public static native void insertToIndex(int[] ids, long vectorsAddress, int dim, long indexAddress, Map<String, Object> parameters);
+
+    public static native void insertToBinaryIndex(
+        int[] ids,
+        long vectorsAddress,
+        int dim,
+        long indexAddress,
+        Map<String, Object> parameters
+    );
+
+    public static native void writeIndex(long indexAddress, String indexPath, Map<String, Object> parameters);
+
+    public static native void writeBinaryIndex(long indexAddress, String indexPath, Map<String, Object> parameters);
+
     /**
      * Create an index for the native library The memory occupied by the vectorsAddress will be freed up during the
      * function call. So Java layer doesn't need to free up the memory. This is not an ideal behavior because Java layer

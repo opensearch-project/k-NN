@@ -34,11 +34,14 @@ public class VectorTransferByte extends VectorTransfer {
     public void transfer(final BytesRef bytesRef) {
         dimension = bytesRef.length * 8;
         if (vectorsPerTransfer == Integer.MIN_VALUE) {
-            vectorsPerTransfer = (bytesRef.length * totalLiveDocs) / vectorsStreamingMemoryLimit;
+            vectorsPerTransfer = vectorsStreamingMemoryLimit / bytesRef.length;
+            if (totalLiveDocs > 0) {
+                vectorsPerTransfer = Math.min(vectorsPerTransfer, totalLiveDocs);
+            }
             // This condition comes if vectorsStreamingMemoryLimit is higher than total number floats to transfer
             // Doing this will reduce 1 extra trip to JNI layer.
             if (vectorsPerTransfer == 0) {
-                vectorsPerTransfer = totalLiveDocs;
+                vectorsPerTransfer = 1;
             }
         }
 
@@ -60,7 +63,15 @@ public class VectorTransferByte extends VectorTransfer {
 
     private void transfer() {
         int lengthOfVector = dimension / 8;
-        vectorAddress = JNICommons.storeByteVectorData(vectorAddress, vectorList.toArray(new byte[][] {}), totalLiveDocs * lengthOfVector);
+        if (totalLiveDocs != 0) {
+            vectorAddress = JNICommons.storeByteVectorData(
+                vectorAddress,
+                vectorList.toArray(new byte[][] {}),
+                totalLiveDocs * lengthOfVector
+            );
+        } else {
+            vectorAddress = JNICommons.storeByteVectorData(0, vectorList.toArray(new byte[][] {}), vectorList.size() * lengthOfVector);
+        }
         vectorList.clear();
     }
 }
