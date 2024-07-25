@@ -42,7 +42,7 @@ public:
      * @param numVectors number of vectors
      * @param threadCount number of thread count to be used while adding data
      * @param parameters parameters to be applied to faiss index
-     * @return pointer to the native index object
+     * @return memory address of the native index object
      */
     virtual jlong initIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric, std::string indexDescription, int dim, int numVectors, int threadCount, std::unordered_map<std::string, jobject> parameters);
     /**
@@ -128,7 +128,7 @@ public:
      * @param numVectors number of vectors
      * @param threadCount number of thread count to be used while adding data
      * @param parameters parameters to be applied to faiss index
-     * @return pointer to the native index object
+     * @return memory address of the native index object
      */
     virtual jlong initIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric, std::string indexDescription, int dim, int numVectors, int threadCount, std::unordered_map<std::string, jobject> parameters) override;
     /**
