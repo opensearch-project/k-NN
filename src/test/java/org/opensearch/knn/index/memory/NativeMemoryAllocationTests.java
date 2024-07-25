@@ -40,6 +40,17 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
     private int testLockValue3;
     private int testLockValue4;
 
+    void createIndex(int[] ids, long address, int dimension, String name, Map<String, Object> parameters, KNNEngine engine) {
+        if (engine != KNNEngine.FAISS) {
+            JNIService.createIndex(ids, address, dimension, name, parameters, engine);
+        } else {
+            // We can initialize numDocs as 0, this will just not reserve anything.
+            long indexAddress = JNIService.initIndexFromScratch(0, dimension, parameters, engine);
+            JNIService.insertToIndex(ids, address, dimension, parameters, indexAddress, engine);
+            JNIService.writeIndex(name, indexAddress, engine, parameters);
+        }
+    }
+
     public void testIndexAllocation_close() throws InterruptedException {
         // Create basic nmslib HNSW index
         Path dir = createTempDir();
@@ -56,7 +67,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
         }
         Map<String, Object> parameters = ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
         long vectorMemoryAddress = JNICommons.storeVectorData(0, vectors, numVectors * dimension);
-        JNIService.createIndex(ids, vectorMemoryAddress, dimension, path, parameters, knnEngine);
+        createIndex(ids, vectorMemoryAddress, dimension, path, parameters, knnEngine);
 
         // Load index into memory
         long memoryAddress = JNIService.loadIndex(path, parameters, knnEngine);
@@ -117,7 +128,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             VectorDataType.BINARY.getValue()
         );
         long vectorMemoryAddress = JNICommons.storeByteVectorData(0, vectors, numVectors * dataLength);
-        JNIService.createIndex(ids, vectorMemoryAddress, dimension, path, parameters, knnEngine);
+        createIndex(ids, vectorMemoryAddress, dimension, path, parameters, knnEngine);
 
         // Load index into memory
         long memoryAddress = JNIService.loadIndex(path, parameters, knnEngine);

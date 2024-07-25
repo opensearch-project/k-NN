@@ -51,16 +51,16 @@ public class JNIService {
     /**
      * Inserts to a faiss index.
      *
-     * @param ids ids of documents
+     * @param docs ids of documents
      * @param vectorsAddress address of native memory where vectors are stored
-     * @param dim dimension of the vector to be indexed
+     * @param dimension dimension of the vector to be indexed
      * @param parameters parameters to build index
      * @param indexAddress address of native memory where index is stored
      * @param knnEngine knn engine
      */
     public static void insertToIndex(
         int[] docs,
-        long vectorAddress,
+        long vectorsAddress,
         int dimension,
         Map<String, Object> parameters,
         long indexAddress,
@@ -69,9 +69,9 @@ public class JNIService {
         int threadCount = (int) parameters.getOrDefault(KNNConstants.INDEX_THREAD_QTY, 0);
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
-                FaissService.insertToBinaryIndex(docs, vectorAddress, dimension, indexAddress, threadCount);
+                FaissService.insertToBinaryIndex(docs, vectorsAddress, dimension, indexAddress, threadCount);
             } else {
-                FaissService.insertToIndex(docs, vectorAddress, dimension, indexAddress, threadCount);
+                FaissService.insertToIndex(docs, vectorsAddress, dimension, indexAddress, threadCount);
             }
             return;
         }
@@ -125,15 +125,6 @@ public class JNIService {
 
         if (KNNEngine.NMSLIB == knnEngine) {
             NmslibService.createIndex(ids, vectorsAddress, dim, indexPath, parameters);
-            return;
-        }
-
-        if (KNNEngine.FAISS == knnEngine) {
-            if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
-                FaissService.createBinaryIndex(ids, vectorsAddress, dim, indexPath, parameters);
-            } else {
-                FaissService.createIndex(ids, vectorsAddress, dim, indexPath, parameters);
-            }
             return;
         }
 
