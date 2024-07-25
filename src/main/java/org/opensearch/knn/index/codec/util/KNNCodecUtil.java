@@ -57,6 +57,8 @@ public class KNNCodecUtil {
         List<Integer> docIdList = new ArrayList<>();
         SerializationMode serializationMode = SerializationMode.COLLECTION_OF_FLOATS;
         if (iterative) {
+            // Initializing with a value of zero means to only allocate as much memory on JNI as
+            // we have inserted for vectors in java side
             vectorTransfer.init(0);
         } else {
             vectorTransfer.init(getTotalLiveDocsCount(values));
