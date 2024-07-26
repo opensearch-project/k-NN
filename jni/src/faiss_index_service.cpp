@@ -144,13 +144,12 @@ void IndexService::writeIndex(
         omp_set_num_threads(threadCount);
     }
 
-    faiss::IndexIDMap * idMap = reinterpret_cast<faiss::IndexIDMap *> (idMapAddress);
+    std::unique_ptr<faiss::IndexIDMap> idMap (reinterpret_cast<faiss::IndexIDMap *> (idMapAddress));
 
     // Write the index to disk
-    faissMethods->writeIndex(idMap, indexPath.c_str());
+    faissMethods->writeIndex(idMap.get(), indexPath.c_str());
 
     // Free the memory used by the index
-    delete idMap;
     delete idMap->index;
 }
 
@@ -201,6 +200,7 @@ void IndexService::createIndex(
 
     // Write the index to disk
     faissMethods->writeIndex(idMap.get(), indexPath.c_str());
+    delete idMap->index;
 }
 
 BinaryIndexService::BinaryIndexService(std::unique_ptr<FaissMethods> faissMethods) : IndexService(std::move(faissMethods)) {}
@@ -292,13 +292,12 @@ void BinaryIndexService::writeIndex(
         omp_set_num_threads(threadCount);
     }
 
-    faiss::IndexBinaryIDMap * idMap = reinterpret_cast<faiss::IndexBinaryIDMap *> (idMapAddress);
+    std::unique_ptr<faiss::IndexBinaryIDMap> idMap (reinterpret_cast<faiss::IndexBinaryIDMap *> (idMapAddress));
 
     // Write the index to disk
-    faissMethods->writeIndexBinary(idMap, indexPath.c_str());
+    faissMethods->writeIndexBinary(idMap.get(), indexPath.c_str());
 
     // Free the memory used by the index
-    delete idMap;
     delete idMap->index;
 }
 
@@ -352,6 +351,7 @@ void BinaryIndexService::createIndex(
 
     // Write the index to disk
     faissMethods->writeIndexBinary(idMap.get(), indexPath.c_str());
+    delete idMap->index;
 }
 
 } // namespace faiss_wrapper
