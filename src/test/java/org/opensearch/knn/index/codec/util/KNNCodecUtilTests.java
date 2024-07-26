@@ -60,14 +60,14 @@ public class KNNCodecUtilTests extends TestCase {
 
         // Array
         SerializationMode serializationMode = SerializationMode.ARRAY;
-        assertEquals(272, calculateArraySize(numVectors, vectorLength, serializationMode));
+        assertEquals(160, calculateArraySize(numVectors, vectorLength, serializationMode));
 
         // Collection of floats
         serializationMode = SerializationMode.COLLECTION_OF_FLOATS;
-        assertEquals(192, calculateArraySize(numVectors, vectorLength, serializationMode));
+        assertEquals(160, calculateArraySize(numVectors, vectorLength, serializationMode));
 
         // Collection of bytes
         serializationMode = SerializationMode.COLLECTIONS_OF_BYTES;
-        assertEquals(96, calculateArraySize(numVectors, vectorLength, serializationMode));
+        assertEquals(40, calculateArraySize(numVectors, vectorLength, serializationMode));
     }
 }
