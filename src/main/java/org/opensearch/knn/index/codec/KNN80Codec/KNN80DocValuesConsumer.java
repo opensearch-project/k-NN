@@ -111,23 +111,13 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         ).toString();
 
         state.directory.createOutput(engineFileName, state.context).close();
-        boolean fromScratch = !field.attributes().containsKey(MODEL_ID);
-        boolean iterative = fromScratch && KNNEngine.FAISS == knnEngine;
 
         KNNIndexBuilder indexBuilder = new KNNIndexBuilder();
         indexBuilder.setFieldInfo(field);
-        indexBuilder.setFromScratch(true);
-        indexBuilder.setIterative(iterative);
         indexBuilder.setIndexPath(indexPath);
         indexBuilder.setValues(values);
-        indexBuilder.setKnnEngine(knnEngine);
-        if (isMerge) {
-            indexBuilder.doMerge();
-        }
-        if (isRefresh) {
-            indexBuilder.doRefresh();
-        }
-
+        indexBuilder.setMerge(isMerge);
+        indexBuilder.setRefresh(isRefresh);
         indexBuilder.createKNNIndex();
 
         writeFooter(indexPath, engineFileName);

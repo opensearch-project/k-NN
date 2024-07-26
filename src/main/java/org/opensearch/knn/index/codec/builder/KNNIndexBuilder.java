@@ -13,6 +13,7 @@ import java.util.Map;
 
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.util.BytesRef;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.xcontent.DeprecationHandler;
@@ -35,14 +36,23 @@ import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.Setter;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.getTotalLiveDocsCount;
 import static org.opensearch.knn.index.util.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
 public class KNNIndexBuilder {
+    public static String FROM_SCRATCH_ITERATIVE = "FROM_SCRATCH_ITERATIVE";
+    public static String FROM_SCRATCH = "FROM_SCRATCH";
+    public static String FROM_TEMPLATE = "FROM_TEMPLATE";
+    @Getter
+    @Setter
     protected boolean isMerge;
+    @Getter
+    @Setter
     protected boolean isRefresh;
     @Getter
     @Setter
@@ -52,70 +62,83 @@ public class KNNIndexBuilder {
     protected BinaryDocValues values;
     @Getter
     @Setter
-    protected KNNEngine knnEngine;
-    @Getter
-    @Setter
     protected String indexPath;
-    @Getter
-    @Setter
+
+    protected KNNEngine knnEngine;
     protected boolean fromScratch;
-    @Getter
-    @Setter
     protected boolean iterative;
+    protected String creationMethod;
     protected long numDocs;
     protected VectorDataType vectorDataType;
     protected VectorTransfer vectorTransfer;
     protected SerializationMode serializationMode;
     protected Map<String, Object> parameters;
+    protected byte[] modelBlob;
+    protected long arraySize;
+
+    @FunctionalInterface
+    private interface NativeIndexCreator {
+        void createIndex() throws IOException;
+    }
+
+    protected final Map<String, NativeIndexCreator> methods;
 
     public KNNIndexBuilder() {
-        this.isMerge = false;
-        this.isRefresh = false;
-        this.fieldInfo = null;
-        this.values = null;
-        this.knnEngine = null;
-        this.indexPath = null;
-        this.fromScratch = false;
-        this.iterative = false;
+        methods = new HashMap<>();
+        // Add all methods here
+        methods.put(FROM_SCRATCH_ITERATIVE, () -> { createKNNIndexFromScratchIteratively(); });
+        methods.put(FROM_SCRATCH, () -> { createKNNIndexFromScratch(); });
+        methods.put(FROM_TEMPLATE, () -> { createKNNIndexFromTemplate(); });
     }
 
     public void createKNNIndex() throws IOException {
-        Map<String, Object> parameters = genParameters(fromScratch, fieldInfo, knnEngine);
-        if (fromScratch && iterative) {
-            createKNNIndexFromScratchIteratively(fieldInfo, values, knnEngine, indexPath, parameters);
-        } else if (fromScratch) {
-            createKNNIndexFromScratch(fieldInfo, values, knnEngine, indexPath, parameters);
+        getInfoFromField();
+        genParameters();
+        genDatasetMetrics();
+        recordRefreshStats();
+        startMergeStats();
+        methods.get(creationMethod).createIndex();
+        endMergeStats();
+    }
+
+    private void getInfoFromField() {
+        fromScratch = !fieldInfo.attributes().containsKey(MODEL_ID);
+        knnEngine = getKNNEngine(fieldInfo);
+        iterative = fromScratch && KNNEngine.FAISS == knnEngine;
+        if(fromScratch && iterative) {
+            creationMethod = KNNIndexBuilder.FROM_SCRATCH_ITERATIVE;
+        } else if(fromScratch) {
+            creationMethod = KNNIndexBuilder.FROM_SCRATCH;
         } else {
-            createKNNIndexFromTemplate(fieldInfo, values, knnEngine, indexPath, parameters);
+            creationMethod = KNNIndexBuilder.FROM_TEMPLATE;
         }
     }
 
-    public void doMerge() {
-        this.isMerge = true;
+    private void startMergeStats() {
+        if(!isMerge) {
+            return;
+        }
         KNNGraphValue.MERGE_CURRENT_OPERATIONS.increment();
-    }
-
-    public void doRefresh() {
-        this.isRefresh = true;
-        recordRefreshStats();
-    }
-
-    private void currentMergeStats(int length, long arraySize) {
-        KNNGraphValue.MERGE_CURRENT_OPERATIONS.increment();
-        KNNGraphValue.MERGE_CURRENT_DOCS.incrementBy(length);
+        KNNGraphValue.MERGE_CURRENT_DOCS.incrementBy(numDocs);
         KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.incrementBy(arraySize);
         KNNGraphValue.MERGE_TOTAL_OPERATIONS.increment();
-        KNNGraphValue.MERGE_TOTAL_DOCS.incrementBy(length);
+        KNNGraphValue.MERGE_TOTAL_DOCS.incrementBy(numDocs);
         KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.incrementBy(arraySize);
     }
 
-    private void recordMergeStats(int length, long arraySize) {
+    private void endMergeStats() {
+        if(!isMerge) {
+            return;
+        }
         KNNGraphValue.MERGE_CURRENT_OPERATIONS.decrement();
-        KNNGraphValue.MERGE_CURRENT_DOCS.decrementBy(length);
+        KNNGraphValue.MERGE_CURRENT_DOCS.decrementBy(numDocs);
         KNNGraphValue.MERGE_CURRENT_SIZE_IN_BYTES.decrementBy(arraySize);
     }
 
     private void recordRefreshStats() {
+        if(!isRefresh) {
+            return;
+        }
         KNNGraphValue.REFRESH_TOTAL_OPERATIONS.increment();
     }
 
@@ -143,8 +166,8 @@ public class KNNIndexBuilder {
         });
     }
 
-    private Map<String, Object> genParameters(boolean fromScratch, FieldInfo fieldInfo, KNNEngine knnEngine) throws IOException {
-        Map<String, Object> parameters = new HashMap<>();
+    private void genParameters() throws IOException {
+        parameters = new HashMap<>();
         if (fromScratch) {
             Map<String, String> fieldAttributes = fieldInfo.attributes();
             String parametersString = fieldAttributes.get(KNNConstants.PARAMETERS);
@@ -192,37 +215,32 @@ public class KNNIndexBuilder {
         }
         // Used to determine how many threads to use when indexing
         parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
-        return parameters;
     }
 
-    private void createKNNIndexFromTemplate(
-        FieldInfo field,
-        BinaryDocValues values,
-        KNNEngine knnEngine,
-        String indexPath,
-        Map<String, Object> parameters
-    ) throws IOException {
-        String modelId = field.attributes().get(MODEL_ID);
-        Model model = ModelCache.getInstance().get(modelId);
-        if (model.getModelBlob() == null) {
-            throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
+    private void genDatasetMetrics() throws IOException {
+        numDocs = getTotalLiveDocsCount(values);
+        if(fromScratch) {
+            vectorDataType = VectorDataType.get(fieldInfo.attributes().getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue()));
+        } else {
+            String modelId = fieldInfo.attributes().get(MODEL_ID);
+            Model model = ModelCache.getInstance().get(modelId);
+            if (model.getModelBlob() == null) {
+                throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
+            }
+            modelBlob = model.getModelBlob();
+            IndexUtil.updateVectorDataTypeToParameters(parameters, model.getModelMetadata().getVectorDataType());
+            vectorDataType = model.getModelMetadata().getVectorDataType();
         }
-        byte[] modelBlob = model.getModelBlob();
-        IndexUtil.updateVectorDataTypeToParameters(parameters, model.getModelMetadata().getVectorDataType());
-        VectorDataType vectorDataType = model.getModelMetadata().getVectorDataType();
+        // Hack to get the data metrics from the first document. We account for this in KNNCodecUtil.
+        values.nextDoc();
+        BytesRef firstDoc = values.binaryValue();
+        vectorTransfer = getVectorTransfer(vectorDataType);
+        serializationMode = vectorTransfer.getSerializationMode(firstDoc);
+        arraySize = numDocs * firstDoc.length;
+    }
+
+    private void createKNNIndexFromTemplate() throws IOException {
         KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, getVectorTransfer(vectorDataType), false);
-
-        int numDocs = (int) KNNCodecUtil.getTotalLiveDocsCount(values);
-
-        if (numDocs == 0) {
-            return;
-        }
-
-        long arraySize = KNNCodecUtil.calculateArraySize(numDocs, batch.getDimension(), batch.serializationMode);
-
-        if (isMerge) {
-            currentMergeStats(numDocs, arraySize);
-        }
 
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             JNIService.createIndexFromTemplate(
@@ -236,83 +254,24 @@ public class KNNIndexBuilder {
             );
             return null;
         });
-
-        if (isMerge) {
-            recordMergeStats(numDocs, arraySize);
-        }
     }
 
-    private void createKNNIndexFromScratch(
-        FieldInfo fieldInfo,
-        BinaryDocValues values,
-        KNNEngine knnEngine,
-        String indexPath,
-        Map<String, Object> parameters
-    ) throws IOException {
-        Map<String, String> fieldAttributes = fieldInfo.attributes();
-        VectorDataType vectorDataType = VectorDataType.get(
-            fieldAttributes.getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
-        );
-        VectorTransfer transfer = getVectorTransfer(vectorDataType);
-        KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, transfer, false);
-
-        int numDocs = (int) KNNCodecUtil.getTotalLiveDocsCount(values);
-
-        if (numDocs == 0) {
-            return;
-        }
-
-        long arraySize = KNNCodecUtil.calculateArraySize(numDocs, batch.getDimension(), batch.serializationMode);
-
-        if (isMerge) {
-            currentMergeStats(numDocs, arraySize);
-        }
-
+    private void createKNNIndexFromScratch() throws IOException {
+        KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, vectorTransfer, false);
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             JNIService.createIndex(batch.docs, batch.getVectorAddress(), batch.getDimension(), indexPath, parameters, knnEngine);
             return null;
         });
-
-        if (isMerge) {
-            recordMergeStats(numDocs, arraySize);
-        }
     }
 
-    private void createKNNIndexFromScratchIteratively(
-        FieldInfo fieldInfo,
-        BinaryDocValues values,
-        KNNEngine knnEngine,
-        String indexPath,
-        Map<String, Object> parameters
-    ) throws IOException {
-        Map<String, String> fieldAttributes = fieldInfo.attributes();
-        VectorDataType vectorDataType = VectorDataType.get(
-            fieldAttributes.getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
-        );
-        VectorTransfer transfer = getVectorTransfer(vectorDataType);
-        KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, transfer, true);
-
-        int numDocs = (int) KNNCodecUtil.getTotalLiveDocsCount(values);
-
-        if (numDocs == 0) {
-            return;
-        }
-
-        long arraySize = KNNCodecUtil.calculateArraySize(numDocs, batch.getDimension(), batch.serializationMode);
-
-        if (isMerge) {
-            currentMergeStats(numDocs, arraySize);
-        }
-
+    private void createKNNIndexFromScratchIteratively() throws IOException {
+        KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, vectorTransfer, true);
         long indexAddress = initIndexFromScratch(numDocs, batch.getDimension(), knnEngine, parameters);
-        for (; !batch.finished; batch = KNNCodecUtil.getVectorBatch(values, transfer, true)) {
+        for (; !batch.finished; batch = KNNCodecUtil.getVectorBatch(values, vectorTransfer, true)) {
             insertToIndex(batch, knnEngine, indexAddress, parameters);
         }
         insertToIndex(batch, knnEngine, indexAddress, parameters);
         writeIndex(indexAddress, indexPath, knnEngine, parameters);
-        if (isMerge) {
-            recordMergeStats(numDocs, arraySize);
-        }
     }
 
     private VectorTransfer getVectorTransfer(VectorDataType vectorDataType) {
@@ -320,5 +279,15 @@ public class KNNIndexBuilder {
             return new VectorTransferByte(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
         }
         return new VectorTransferFloat(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
+    }
+
+    private KNNEngine getKNNEngine(@NonNull FieldInfo field) {
+        final String modelId = field.attributes().get(MODEL_ID);
+        if (modelId != null) {
+            var model = ModelCache.getInstance().get(modelId);
+            return model.getModelMetadata().getKnnEngine();
+        }
+        final String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
+        return KNNEngine.getEngine(engineName);
     }
 }
