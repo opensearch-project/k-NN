@@ -84,7 +84,7 @@ jlong IndexService::initIndex(
     }
 
     // Add vectors
-    std::unique_ptr<faiss::IndexIDMap> idMap (faissMethods->indexIdMap(indexWriter.release()));
+    std::unique_ptr<faiss::IndexIDMap> idMap (faissMethods->indexIdMap(indexWriter.get()));
 
     /*
      * NOTE: The process of memory allocation is currently only implemented for HNSW.
@@ -104,7 +104,7 @@ jlong IndexService::initIndex(
             storage->codes.reserve(dim * numVectors * 4);
         }
     }
-
+    indexWriter.release();
     return reinterpret_cast<jlong>(idMap.release());
 }
 
@@ -238,7 +238,7 @@ jlong BinaryIndexService::initIndex(
     }
 
     // Add vectors
-    std::unique_ptr<faiss::IndexBinaryIDMap> idMap(faissMethods->indexBinaryIdMap(indexWriter.release()));
+    std::unique_ptr<faiss::IndexBinaryIDMap> idMap(faissMethods->indexBinaryIdMap(indexWriter.get()));
 
     /*
      * NOTE: The process of memory allocation is currently only implemented for HNSW.
@@ -258,7 +258,7 @@ jlong BinaryIndexService::initIndex(
             storage->xb.reserve(dim / 8 * numVectors);
         }
     }
-
+    indexWriter.release();
     return reinterpret_cast<jlong>(idMap.release());
 }
 
