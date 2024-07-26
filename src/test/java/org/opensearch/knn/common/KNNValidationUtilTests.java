@@ -12,7 +12,7 @@ import static org.hamcrest.Matchers.containsString;
 
 public class KNNValidationUtilTests extends KNNTestCase {
     public void testValidateVectorDimension_whenBinary_thenVectorSizeShouldBeEightTimesLarger() {
-        int vectorLength = randomInt(100);
+        int vectorLength = randomInt(100) + 1;
         Exception ex = expectThrows(
             IllegalArgumentException.class,
             () -> KNNValidationUtil.validateVectorDimension(vectorLength, vectorLength, VectorDataType.BINARY)

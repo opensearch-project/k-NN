@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -57,8 +58,10 @@ public class KNNMethod {
         if (!isSpaceTypeSupported(knnMethodContext.getSpaceType())) {
             errorMessages.add(
                 String.format(
-                    "\"%s\" configuration does not support space type: " + "\"%s\".",
+                    Locale.ROOT,
+                    "\"%s\" with \"%s\" configuration does not support space type: " + "\"%s\".",
                     this.methodComponent.getName(),
+                    knnMethodContext.getKnnEngine().getName().toLowerCase(Locale.ROOT),
                     knnMethodContext.getSpaceType().getValue()
                 )
             );
@@ -90,8 +93,10 @@ public class KNNMethod {
         if (!isSpaceTypeSupported(knnMethodContext.getSpaceType())) {
             errorMessages.add(
                 String.format(
-                    "\"%s\" configuration does not support space type: " + "\"%s\".",
+                    Locale.ROOT,
+                    "\"%s\" with \"%s\" configuration does not support space type: " + "\"%s\".",
                     this.methodComponent.getName(),
+                    knnMethodContext.getKnnEngine().getName().toLowerCase(Locale.ROOT),
                     knnMethodContext.getSpaceType().getValue()
                 )
             );

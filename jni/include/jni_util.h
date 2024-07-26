@@ -199,7 +199,7 @@ namespace knn_jni {
     extern const std::string COSINESIMIL;
     extern const std::string INNER_PRODUCT;
     extern const std::string NEG_DOT_PRODUCT;
-    extern const std::string HAMMING_BIT;
+    extern const std::string HAMMING;
 
     extern const std::string NPROBES;
     extern const std::string COARSE_QUANTIZER;

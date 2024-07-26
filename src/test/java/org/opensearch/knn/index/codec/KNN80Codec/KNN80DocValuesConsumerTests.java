@@ -125,8 +125,21 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         DocValuesConsumer delegate = mock(DocValuesConsumer.class);
         doNothing().when(delegate).addBinaryField(fieldInfo, docValuesProducer);
 
+        String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+        int docsInSegment = 100;
+
+        SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
+            .directory(directory)
+            .segmentName(segmentName)
+            .docsInSegment(docsInSegment)
+            .codec(codec)
+            .build();
+
+        FieldInfos fieldInfos = mock(FieldInfos.class);
+        SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
+
         final boolean[] called = { false };
-        KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(delegate, null) {
+        KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(delegate, state) {
 
             @Override
             public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge, boolean isRefresh) {
@@ -148,7 +161,19 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         Long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
         Long initialMergeSize = KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue();
         Long initialMergeDocs = KNNGraphValue.MERGE_TOTAL_DOCS.getValue();
-        KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, null);
+        String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+        int docsInSegment = 100;
+
+        SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
+            .directory(directory)
+            .segmentName(segmentName)
+            .docsInSegment(docsInSegment)
+            .codec(codec)
+            .build();
+
+        FieldInfos fieldInfos = mock(FieldInfos.class);
+        SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
+        KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test-field").build();
         knn80DocValuesConsumer.addKNNBinaryField(fieldInfo, randomVectorDocValuesProducer, true, true);
         assertEquals(initialGraphIndexRequests, KNNCounter.GRAPH_INDEX_REQUESTS.getCount());
@@ -339,7 +364,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
 
         KNNEngine knnEngine = KNNEngine.FAISS;
-        SpaceType spaceType = SpaceType.HAMMING_BIT;
+        SpaceType spaceType = SpaceType.HAMMING;
         VectorDataType dataType = VectorDataType.BINARY;
         int dimension = 16;
 
@@ -424,7 +449,8 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
                 "Empty description",
                 "",
                 "",
-                MethodComponentContext.EMPTY
+                MethodComponentContext.EMPTY,
+                VectorDataType.FLOAT
             ),
             modelBytes,
             modelId

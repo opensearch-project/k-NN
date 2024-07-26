@@ -30,7 +30,6 @@ import org.opensearch.search.sort.SortOrder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 public class VectorReader {
 
@@ -59,13 +58,13 @@ public class VectorReader {
      * @param vectorConsumer consumer used to do something with the collected vectors after each search
      * @param listener ActionListener that should be called once all search operations complete
      */
-    public void read(
+    public <T> void read(
         ClusterService clusterService,
         String indexName,
         String fieldName,
         int maxVectorCount,
         int searchSize,
-        Consumer<List<Float[]>> vectorConsumer,
+        TrainingDataConsumer vectorConsumer,
         ActionListener<SearchResponse> listener
     ) {
 
@@ -89,7 +88,7 @@ public class VectorReader {
             throw validationException;
         }
 
-        ValidationException fieldValidationException = IndexUtil.validateKnnField(indexMetadata, fieldName, -1, null);
+        ValidationException fieldValidationException = IndexUtil.validateKnnField(indexMetadata, fieldName, -1, null, null, null);
         if (fieldValidationException != null) {
             validationException = validationException == null ? new ValidationException() : validationException;
             validationException.addValidationErrors(validationException.validationErrors());
@@ -136,14 +135,14 @@ public class VectorReader {
         return searchScrollRequestBuilder;
     }
 
-    private static class VectorReaderListener implements ActionListener<SearchResponse> {
+    private static class VectorReaderListener<T> implements ActionListener<SearchResponse> {
 
         final Client client;
         final String fieldName;
         final int maxVectorCount;
         int collectedVectorCount;
         final ActionListener<SearchResponse> listener;
-        final Consumer<List<Float[]>> vectorConsumer;
+        final TrainingDataConsumer vectorConsumer;
         SearchScrollRequestBuilder searchScrollRequestBuilder;
 
         /**
@@ -162,7 +161,7 @@ public class VectorReader {
             int maxVectorCount,
             int collectedVectorCount,
             ActionListener<SearchResponse> listener,
-            Consumer<List<Float[]>> vectorConsumer,
+            TrainingDataConsumer vectorConsumer,
             SearchScrollRequestBuilder searchScrollRequestBuilder
         ) {
             this.client = client;
@@ -181,12 +180,9 @@ public class VectorReader {
             // Either add the entire set of returned hits, or maxVectorCount - collectedVectorCount hits
             SearchHit[] hits = searchResponse.getHits().getHits();
             int vectorsToAdd = Integer.min(maxVectorCount - collectedVectorCount, hits.length);
-            List<Float[]> trainingData = extractVectorsFromHits(searchResponse, vectorsToAdd);
 
-            this.collectedVectorCount += trainingData.size();
-
-            // Do something with the vectors
-            vectorConsumer.accept(trainingData);
+            vectorConsumer.processTrainingVectors(searchResponse, vectorsToAdd, fieldName);
+            this.collectedVectorCount = vectorConsumer.getTotalVectorsCountAdded();
 
             if (vectorsToAdd <= 0 || this.collectedVectorCount >= maxVectorCount) {
                 // Clear scroll context

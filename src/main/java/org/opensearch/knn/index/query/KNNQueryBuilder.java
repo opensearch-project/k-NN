@@ -24,6 +24,7 @@ import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.index.mapper.NumberFieldMapper;
 import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.IndexUtil;
@@ -516,6 +517,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             knnEngine = modelMetadata.getKnnEngine();
             spaceType = modelMetadata.getSpaceType();
             methodComponentContext = modelMetadata.getMethodComponentContext();
+            vectorDataType = modelMetadata.getVectorDataType();
 
         } else if (knnMethodContext != null) {
             // If the dimension is set but the knnMethodContext is not then the field is using the legacy mapping
@@ -622,6 +624,9 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                     String.format(Locale.ROOT, "Engine [%s] does not support radial search", knnEngine)
                 );
             }
+            if (vectorDataType == VectorDataType.BINARY) {
+                throw new UnsupportedOperationException(String.format(Locale.ROOT, "Binary data type does not support radial search"));
+            }
             RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
                 .indexName(indexName)
@@ -705,5 +710,14 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     @Override
     public String getWriteableName() {
         return NAME;
+    }
+
+    @Override
+    protected QueryBuilder doRewrite(QueryRewriteContext queryShardContext) throws IOException {
+        // rewrite filter query if it exists to avoid runtime errors in next steps of query phase
+        if (Objects.nonNull(filter)) {
+            filter = filter.rewrite(queryShardContext);
+        }
+        return super.doRewrite(queryShardContext);
     }
 }

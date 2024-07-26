@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin.script;
 
+import java.util.Arrays;
 import java.util.Locale;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNVectorScriptDocValues;
@@ -25,6 +26,10 @@ import org.apache.lucene.store.Directory;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.List;
+import java.util.function.BiFunction;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class KNNScoringUtilTests extends KNNTestCase {
 
@@ -271,6 +276,50 @@ public class KNNScoringUtilTests extends KNNTestCase {
         byte[] v1 = { 1, 16, -128 };  // 0000 0001, 0001 0000, 1000 0000
         byte[] v2 = { 2, 17, -1 };    // 0000 0010, 0001 0001, 1111 1111
         assertEquals(10, KNNScoringUtil.calculateHammingBit(v1, v2), 0.001f);
+    }
+
+    private void validateThrowExceptionOnGivenDataType(
+        final BiFunction<List<Number>, KNNVectorScriptDocValues, Float> func,
+        final VectorDataType dataType,
+        final String errorMsg
+    ) {
+        List<Number> queryVector = Arrays.asList(1, 2);
+        KNNVectorScriptDocValues docValues = mock(KNNVectorScriptDocValues.class);
+        when(docValues.getVectorDataType()).thenReturn(dataType);
+        Exception e = expectThrows(IllegalArgumentException.class, () -> func.apply(queryVector, docValues));
+        assertTrue(e.getMessage().contains(errorMsg));
+    }
+
+    public void testLInfNorm_whenKNNVectorScriptDocValuesOfBinary_thenThrowException() {
+        validateThrowExceptionOnGivenDataType(KNNScoringUtil::lInfNorm, VectorDataType.BINARY, "should be either float or byte");
+    }
+
+    public void testL1Norm_whenKNNVectorScriptDocValuesOfBinary_thenThrowException() {
+        validateThrowExceptionOnGivenDataType(KNNScoringUtil::l1Norm, VectorDataType.BINARY, "should be either float or byte");
+    }
+
+    public void testInnerProduct_whenKNNVectorScriptDocValuesOfBinary_thenThrowException() {
+        validateThrowExceptionOnGivenDataType(KNNScoringUtil::innerProduct, VectorDataType.BINARY, "should be either float or byte");
+    }
+
+    public void testCosineSimilarity_whenKNNVectorScriptDocValuesOfBinary_thenThrowException() {
+        validateThrowExceptionOnGivenDataType(KNNScoringUtil::cosineSimilarity, VectorDataType.BINARY, "should be either float or byte");
+    }
+
+    public void testHamming_whenKNNVectorScriptDocValuesOfNonBinary_thenThrowException() {
+        validateThrowExceptionOnGivenDataType(KNNScoringUtil::hamming, VectorDataType.FLOAT, "should be binary");
+    }
+
+    public void testHamming_whenKNNVectorScriptDocValuesOfBinary_thenSuccess() {
+        byte[] b1 = { 1, 16, -128 };  // 0000 0001, 0001 0000, 1000 0000
+        byte[] b2 = { 2, 17, -1 };    // 0000 0010, 0001 0001, 1111 1111
+        float[] f1 = { 1, 16, -128 };  // 0000 0001, 0001 0000, 1000 0000
+        float[] f2 = { 2, 17, -1 };    // 0000 0010, 0001 0001, 1111 1111
+        List<Number> queryVector = Arrays.asList(f1[0], f1[1], f1[2]);
+        KNNVectorScriptDocValues docValues = mock(KNNVectorScriptDocValues.class);
+        when(docValues.getVectorDataType()).thenReturn(VectorDataType.BINARY);
+        when(docValues.getValue()).thenReturn(f2);
+        assertEquals(KNNScoringUtil.calculateHammingBit(b1, b2), KNNScoringUtil.hamming(queryVector, docValues), 0.01f);
     }
 
     class TestKNNScriptDocValues {

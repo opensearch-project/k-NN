@@ -21,6 +21,7 @@ import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.training.VectorSpaceInfo;
 
@@ -41,6 +42,7 @@ public class TrainingModelRequest extends ActionRequest {
     private final String trainingField;
     private final String preferredNodeId;
     private final String description;
+    private final VectorDataType vectorDataType;
 
     private int maximumVectorCount;
     private int searchSize;
@@ -65,7 +67,8 @@ public class TrainingModelRequest extends ActionRequest {
         String trainingIndex,
         String trainingField,
         String preferredNodeId,
-        String description
+        String description,
+        VectorDataType vectorDataType
     ) {
         super();
         this.modelId = modelId;
@@ -75,6 +78,7 @@ public class TrainingModelRequest extends ActionRequest {
         this.trainingField = trainingField;
         this.preferredNodeId = preferredNodeId;
         this.description = description;
+        this.vectorDataType = vectorDataType;
 
         // Set these as defaults initially. If call wants to override them, they can use the setters.
         this.maximumVectorCount = Integer.MAX_VALUE; // By default, get all vectors in the index
@@ -103,6 +107,11 @@ public class TrainingModelRequest extends ActionRequest {
         this.maximumVectorCount = in.readInt();
         this.searchSize = in.readInt();
         this.trainingDataSizeInKB = in.readInt();
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(in.getVersion(), KNNConstants.MODEL_VECTOR_DATA_TYPE_KEY)) {
+            this.vectorDataType = VectorDataType.get(in.readString());
+        } else {
+            this.vectorDataType = VectorDataType.DEFAULT;
+        }
     }
 
     /**
@@ -213,6 +222,10 @@ public class TrainingModelRequest extends ActionRequest {
         return searchSize;
     }
 
+    public VectorDataType getVectorDataType() {
+        return vectorDataType;
+    }
+
     /**
      * Setter for search size.
      *
@@ -314,7 +327,14 @@ public class TrainingModelRequest extends ActionRequest {
         }
 
         // Validate the training field
-        ValidationException fieldValidation = IndexUtil.validateKnnField(indexMetadata, this.trainingField, this.dimension, modelDao);
+        ValidationException fieldValidation = IndexUtil.validateKnnField(
+            indexMetadata,
+            this.trainingField,
+            this.dimension,
+            modelDao,
+            vectorDataType,
+            knnMethodContext
+        );
         if (fieldValidation != null) {
             exception = exception == null ? new ActionRequestValidationException() : exception;
             exception.addValidationErrors(fieldValidation.validationErrors());
@@ -336,5 +356,10 @@ public class TrainingModelRequest extends ActionRequest {
         out.writeInt(this.maximumVectorCount);
         out.writeInt(this.searchSize);
         out.writeInt(this.trainingDataSizeInKB);
+        if (IndexUtil.isVersionOnOrAfterMinRequiredVersion(out.getVersion(), KNNConstants.MODEL_VECTOR_DATA_TYPE_KEY)) {
+            out.writeString(this.vectorDataType.getValue());
+        } else {
+            out.writeString(VectorDataType.DEFAULT.getValue());
+        }
     }
 }

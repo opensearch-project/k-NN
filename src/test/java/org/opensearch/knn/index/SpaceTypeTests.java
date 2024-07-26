@@ -79,7 +79,7 @@ public class SpaceTypeTests extends KNNTestCase {
             Set.of(VectorDataType.FLOAT, VectorDataType.BYTE),
             SpaceType.INNER_PRODUCT,
             Set.of(VectorDataType.FLOAT, VectorDataType.BYTE),
-            SpaceType.HAMMING_BIT,
+            SpaceType.HAMMING,
             Set.of(VectorDataType.BINARY)
         );
 

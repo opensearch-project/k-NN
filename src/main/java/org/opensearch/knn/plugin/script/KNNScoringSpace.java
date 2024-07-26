@@ -5,13 +5,14 @@
 
 package org.opensearch.knn.plugin.script;
 
+import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.IndexSearcher;
+import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil;
 import org.opensearch.knn.index.query.KNNWeight;
-import org.apache.lucene.index.LeafReaderContext;
-import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.script.ScoreScript;
 import org.opensearch.search.lookup.SearchLookup;
 
@@ -19,11 +20,11 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
 
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.getVectorMagnitudeSquared;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.isBinaryFieldType;
-import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.isBinaryVectorDataType;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.isKNNVectorFieldType;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.isLongFieldType;
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.parseToBigInteger;
@@ -31,7 +32,6 @@ import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.parseToFloatA
 import static org.opensearch.knn.plugin.script.KNNScoringSpaceUtil.parseToLong;
 
 public interface KNNScoringSpace {
-
     /**
      * Return the correct scoring script for a given query. The scoring script
      *
@@ -47,17 +47,29 @@ public interface KNNScoringSpace {
         throws IOException;
 
     /**
-     * Base class to represent linear space
-     *
-     * As of now, all supporting spaces are linear space except hamming.
-     * LinearSpace does not support binary vector.
+     * Base class to represent vector space for knn field
      */
-    abstract class LinearSpace implements KNNScoringSpace {
+    abstract class KNNFieldSpace implements KNNScoringSpace {
+        public static final Set<VectorDataType> DATA_TYPES_DEFAULT = Set.of(VectorDataType.FLOAT, VectorDataType.BYTE);
+
         float[] processedQuery;
         BiFunction<float[], float[], Float> scoringMethod;
 
-        public LinearSpace(final Object query, final MappedFieldType fieldType, final String spaceName) {
-            KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = toKNNVectorFieldType(fieldType, spaceName);
+        public KNNFieldSpace(final Object query, final MappedFieldType fieldType, final String spaceName) {
+            this(query, fieldType, spaceName, DATA_TYPES_DEFAULT);
+        }
+
+        public KNNFieldSpace(
+            final Object query,
+            final MappedFieldType fieldType,
+            final String spaceName,
+            final Set<VectorDataType> supportingVectorDataTypes
+        ) {
+            KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = toKNNVectorFieldType(
+                fieldType,
+                spaceName,
+                supportingVectorDataTypes
+            );
             this.processedQuery = getProcessedQuery(query, knnVectorFieldType);
             this.scoringMethod = getScoringMethod(this.processedQuery);
         }
@@ -72,7 +84,11 @@ public interface KNNScoringSpace {
             return new KNNScoreScript.KNNVectorType(params, this.processedQuery, field, this.scoringMethod, lookup, ctx, searcher);
         }
 
-        private KNNVectorFieldMapper.KNNVectorFieldType toKNNVectorFieldType(final MappedFieldType fieldType, final String spaceName) {
+        private KNNVectorFieldMapper.KNNVectorFieldType toKNNVectorFieldType(
+            final MappedFieldType fieldType,
+            final String spaceName,
+            final Set<VectorDataType> supportingVectorDataTypes
+        ) {
             if (isKNNVectorFieldType(fieldType) == false) {
                 throw new IllegalArgumentException(
                     String.format(Locale.ROOT, "Incompatible field_type for %s space. The field type must be knn_vector.", spaceName)
@@ -80,13 +96,17 @@ public interface KNNScoringSpace {
             }
 
             KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldMapper.KNNVectorFieldType) fieldType;
-            if (isBinaryVectorDataType(knnVectorFieldType)) {
+            VectorDataType vectorDataType = knnVectorFieldType.getVectorDataType() == null
+                ? VectorDataType.FLOAT
+                : knnVectorFieldType.getVectorDataType();
+            if (supportingVectorDataTypes.contains(vectorDataType) == false) {
                 throw new IllegalArgumentException(
                     String.format(
                         Locale.ROOT,
-                        "Incompatible field_type for %s space. The data type should be either float or byte but got %s",
+                        "Incompatible field_type for %s space. The data type should be %s but got %s",
                         spaceName,
-                        knnVectorFieldType.getVectorDataType().getValue()
+                        supportingVectorDataTypes,
+                        vectorDataType
                     )
                 );
             }
@@ -106,7 +126,7 @@ public interface KNNScoringSpace {
 
     }
 
-    class L2 extends LinearSpace {
+    class L2 extends KNNFieldSpace {
         public L2(final Object query, final MappedFieldType fieldType) {
             super(query, fieldType, "l2");
         }
@@ -117,7 +137,7 @@ public interface KNNScoringSpace {
         }
     }
 
-    class CosineSimilarity extends LinearSpace {
+    class CosineSimilarity extends KNNFieldSpace {
         public CosineSimilarity(Object query, MappedFieldType fieldType) {
             super(query, fieldType, "cosine");
         }
@@ -130,7 +150,7 @@ public interface KNNScoringSpace {
         }
     }
 
-    class L1 extends LinearSpace {
+    class L1 extends KNNFieldSpace {
         public L1(Object query, MappedFieldType fieldType) {
             super(query, fieldType, "l1");
         }
@@ -141,7 +161,7 @@ public interface KNNScoringSpace {
         }
     }
 
-    class LInf extends LinearSpace {
+    class LInf extends KNNFieldSpace {
         public LInf(Object query, MappedFieldType fieldType) {
             super(query, fieldType, "l-inf");
         }
@@ -152,7 +172,7 @@ public interface KNNScoringSpace {
         }
     }
 
-    class InnerProd extends LinearSpace {
+    class InnerProd extends KNNFieldSpace {
         public InnerProd(Object query, MappedFieldType fieldType) {
             super(query, fieldType, "innerproduct");
         }
@@ -163,6 +183,28 @@ public interface KNNScoringSpace {
         }
     }
 
+    class Hamming extends KNNFieldSpace {
+        private static final Set<VectorDataType> DATA_TYPES_HAMMING = Set.of(VectorDataType.BINARY);
+
+        public Hamming(Object query, MappedFieldType fieldType) {
+            super(query, fieldType, "hamming", DATA_TYPES_HAMMING);
+        }
+
+        @Override
+        protected BiFunction<float[], float[], Float> getScoringMethod(final float[] processedQuery) {
+            // TODO we want to avoid converting back and forth between byte and float
+            return (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.calculateHammingBit(toByte(q), toByte(v)));
+        }
+
+        private byte[] toByte(final float[] vector) {
+            byte[] bytes = new byte[vector.length];
+            for (int i = 0; i < vector.length; i++) {
+                bytes[i] = (byte) vector[i];
+            }
+            return bytes;
+        }
+    }
+
     class HammingBit implements KNNScoringSpace {
 
         Object processedQuery;
@@ -170,7 +212,7 @@ public interface KNNScoringSpace {
 
         /**
          * Constructor for HammingBit scoring space. HammingBit scoring space expects values to either be of type
-         * Long or Base64 encoded strings, or KNN type with binary data type.
+         * Long or Base64 encoded strings.
          *
          * @param query Query object that, along with the doc values, will be used to compute HammingBit score
          * @param fieldType FieldType for the doc values that will be used
@@ -182,37 +224,11 @@ public interface KNNScoringSpace {
             } else if (isBinaryFieldType(fieldType)) {
                 this.processedQuery = parseToBigInteger(query);
                 this.scoringMethod = (BigInteger q, BigInteger v) -> 1.0f / (1 + KNNScoringUtil.calculateHammingBit(q, v));
-            } else if (isKNNVectorFieldType(fieldType)) {
-                KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldMapper.KNNVectorFieldType) fieldType;
-                if (isBinaryVectorDataType(knnVectorFieldType) == false) {
-                    throw new IllegalArgumentException(
-                        String.format(
-                            Locale.ROOT,
-                            "Incompatible field_type for hamming space. The data type should be binary but got %s",
-                            knnVectorFieldType.getVectorDataType().getValue()
-                        )
-                    );
-                }
-                this.processedQuery = parseToFloatArray(
-                    query,
-                    KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldType),
-                    ((KNNVectorFieldMapper.KNNVectorFieldType) fieldType).getVectorDataType()
-                );
-                // TODO we want to avoid converting back and forth between byte and float
-                this.scoringMethod = (float[] q, float[] v) -> 1 / (1 + KNNScoringUtil.calculateHammingBit(toByte(q), toByte(v)));
             } else {
                 throw new IllegalArgumentException(
-                    "Incompatible field_type for hamming space. The field type must of type long, binary, or knn_vector."
+                    "Incompatible field_type for hammingbit space. The field type must of type long or binary."
                 );
             }
-        }
-
-        private byte[] toByte(final float[] vector) {
-            byte[] bytes = new byte[vector.length];
-            for (int i = 0; i < vector.length; i++) {
-                bytes[i] = (byte) vector[i];
-            }
-            return bytes;
         }
 
         @SuppressWarnings("unchecked")
@@ -233,27 +249,17 @@ public interface KNNScoringSpace {
                     ctx,
                     searcher
                 );
-            } else if (this.processedQuery instanceof BigInteger) {
-                return new KNNScoreScript.BigIntegerType(
-                    params,
-                    (BigInteger) this.processedQuery,
-                    field,
-                    (BiFunction<BigInteger, BigInteger, Float>) this.scoringMethod,
-                    lookup,
-                    ctx,
-                    searcher
-                );
-            } else {
-                return new KNNScoreScript.KNNVectorType(
-                    params,
-                    (float[]) this.processedQuery,
-                    field,
-                    (BiFunction<float[], float[], Float>) this.scoringMethod,
-                    lookup,
-                    ctx,
-                    searcher
-                );
             }
+
+            return new KNNScoreScript.BigIntegerType(
+                params,
+                (BigInteger) this.processedQuery,
+                field,
+                (BiFunction<BigInteger, BigInteger, Float>) this.scoringMethod,
+                lookup,
+                ctx,
+                searcher
+            );
         }
     }
 }

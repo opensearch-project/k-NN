@@ -215,6 +215,7 @@ public class KNNWeight extends Weight {
 
         KNNEngine knnEngine;
         SpaceType spaceType;
+        VectorDataType vectorDataType;
 
         // Check if a modelId exists. If so, the space type and engine will need to be picked up from the model's
         // metadata.
@@ -227,11 +228,15 @@ public class KNNWeight extends Weight {
 
             knnEngine = modelMetadata.getKnnEngine();
             spaceType = modelMetadata.getSpaceType();
+            vectorDataType = modelMetadata.getVectorDataType();
         } else {
             String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, KNNEngine.NMSLIB.getName());
             knnEngine = KNNEngine.getEngine(engineName);
             String spaceTypeName = fieldInfo.attributes().getOrDefault(SPACE_TYPE, SpaceType.L2.getValue());
             spaceType = SpaceType.getSpace(spaceTypeName);
+            vectorDataType = VectorDataType.get(
+                fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue())
+            );
         }
 
         List<String> engineFiles = getEngineFiles(reader, knnEngine.getExtension());
@@ -251,12 +256,7 @@ public class KNNWeight extends Weight {
                 new NativeMemoryEntryContext.IndexEntryContext(
                     indexPath.toString(),
                     NativeMemoryLoadStrategy.IndexLoadStrategy.getInstance(),
-                    getParametersAtLoading(
-                        spaceType,
-                        knnEngine,
-                        knnQuery.getIndexName(),
-                        VectorDataType.get(fieldInfo.attributes().getOrDefault(VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue()))
-                    ),
+                    getParametersAtLoading(spaceType, knnEngine, knnQuery.getIndexName(), vectorDataType),
                     knnQuery.getIndexName(),
                     modelId
                 ),
@@ -476,8 +476,15 @@ public class KNNWeight extends Weight {
         if (isExactSearchThresholdSettingSet(filterThresholdValue)) {
             return filterThresholdValue >= filterIdsCount;
         }
+
         // if no setting is set, then use the default max distance computation value to see if we can do exact search.
-        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= filterIdsCount * knnQuery.getQueryVector().length;
+        /**
+         * TODO we can have a different MAX_DISTANCE_COMPUTATIONS for binary index as computation cost for binary index
+         * is cheaper than computation cost for non binary vector
+         */
+        return KNNConstants.MAX_DISTANCE_COMPUTATIONS >= filterIdsCount * (knnQuery.getVectorDataType() == VectorDataType.FLOAT
+            ? knnQuery.getQueryVector().length
+            : knnQuery.getByteQueryVector().length);
     }
 
     /**

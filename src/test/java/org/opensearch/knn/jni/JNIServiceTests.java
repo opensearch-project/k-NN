@@ -678,7 +678,7 @@ public class JNIServiceTests extends KNNTestCase {
                 INDEX_DESCRIPTION_PARAMETER,
                 faissBinaryMethod,
                 KNNConstants.SPACE_TYPE,
-                SpaceType.HAMMING_BIT.getValue(),
+                SpaceType.HAMMING.getValue(),
                 KNNConstants.VECTOR_DATA_TYPE_FIELD,
                 VectorDataType.BINARY.getValue()
             ),
@@ -993,7 +993,7 @@ public class JNIServiceTests extends KNNTestCase {
                     INDEX_DESCRIPTION_PARAMETER,
                     method,
                     KNNConstants.SPACE_TYPE,
-                    SpaceType.HAMMING_BIT.getValue(),
+                    SpaceType.HAMMING.getValue(),
                     KNNConstants.VECTOR_DATA_TYPE_FIELD,
                     VectorDataType.BINARY.getValue()
                 ),

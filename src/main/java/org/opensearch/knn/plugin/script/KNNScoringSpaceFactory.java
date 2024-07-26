@@ -13,9 +13,11 @@ import org.opensearch.index.mapper.MappedFieldType;
  * Factory to create correct KNNScoringSpace based on the spaceType passed in.
  */
 public class KNNScoringSpaceFactory {
+    public static final String HAMMING_BIT = "hammingbit";
+
     public static KNNScoringSpace create(String spaceType, Object query, MappedFieldType mappedFieldType) {
-        if (SpaceType.HAMMING_BIT.getValue().equalsIgnoreCase(spaceType)) {
-            return new KNNScoringSpace.HammingBit(query, mappedFieldType);
+        if (SpaceType.HAMMING.getValue().equalsIgnoreCase(spaceType)) {
+            return new KNNScoringSpace.Hamming(query, mappedFieldType);
         }
 
         if (SpaceType.L2.getValue().equalsIgnoreCase(spaceType)) {
@@ -34,6 +36,10 @@ public class KNNScoringSpaceFactory {
 
         if (SpaceType.COSINESIMIL.getValue().equalsIgnoreCase(spaceType)) {
             return new KNNScoringSpace.CosineSimilarity(query, mappedFieldType);
+        }
+
+        if (HAMMING_BIT.equalsIgnoreCase(spaceType)) {
+            return new KNNScoringSpace.HammingBit(query, mappedFieldType);
         }
 
         KNNCounter.SCRIPT_QUERY_ERRORS.increment();

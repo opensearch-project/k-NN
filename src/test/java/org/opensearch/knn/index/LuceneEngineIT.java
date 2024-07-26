@@ -17,6 +17,7 @@ import org.opensearch.client.ResponseException;
 import org.opensearch.common.Nullable;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
@@ -33,11 +34,20 @@ import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
+import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_DEFAULT_BITS;
+import static org.opensearch.knn.common.KNNConstants.MAXIMUM_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
+import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
+import static org.opensearch.knn.common.KNNConstants.MINIMUM_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
+import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 
 public class LuceneEngineIT extends KNNRestTestCase {
@@ -77,6 +87,9 @@ public class LuceneEngineIT extends KNNRestTestCase {
     private static final String KNN_VECTOR_TYPE = "knn_vector";
     private static final String PROPERTIES_FIELD_NAME = "properties";
     private static final String TYPE_FIELD_NAME = "type";
+    private static final String INTEGER_FIELD_NAME = "int_field";
+    private static final String FILED_TYPE_INTEGER = "integer";
+    private static final String NON_EXISTENT_INTEGER_FIELD_NAME = "nonexistent_int_field";
 
     @After
     public final void cleanUp() throws IOException {
@@ -267,6 +280,77 @@ public class LuceneEngineIT extends KNNRestTestCase {
         List<String> expectedDocIdsKGreaterThanFilterResult = Arrays.asList(DOC_ID, DOC_ID_3);
         List<String> expectedDocIdsKLimitsFilterResult = Arrays.asList(DOC_ID);
         validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
+    }
+
+    @SneakyThrows
+    public void testQueryWithFilter_whenNonExistingFieldUsedInFilter_thenSuccessful() {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD_NAME)
+            .startObject(FIELD_NAME)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, DIMENSION)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNEngine.LUCENE.getMethod(METHOD_HNSW).getMethodComponent().getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .endObject()
+            .endObject()
+            .startObject(INTEGER_FIELD_NAME)
+            .field(TYPE_FIELD_NAME, FILED_TYPE_INTEGER)
+            .endObject()
+            .endObject()
+            .endObject();
+        Map<String, Object> mappingMap = xContentBuilderToMap(builder);
+        String mapping = builder.toString();
+
+        createKnnIndex(INDEX_NAME, mapping);
+
+        Float[] vector = new Float[] { 2.0f, 4.5f, 6.5f };
+
+        String documentAsString = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(INTEGER_FIELD_NAME, 5)
+            .field(FIELD_NAME, vector)
+            .endObject()
+            .toString();
+
+        addKnnDoc(INDEX_NAME, DOC_ID, documentAsString);
+
+        refreshIndex(INDEX_NAME);
+        assertEquals(1, getDocCount(INDEX_NAME));
+
+        float[] searchVector = new float[] { 1.0f, 2.1f, 3.9f };
+        int k = 10;
+
+        // use filter where nonexistent field is must, we should have no results
+        QueryBuilder filterWithRequiredNonExistentField = QueryBuilders.boolQuery()
+            .must(QueryBuilders.rangeQuery(NON_EXISTENT_INTEGER_FIELD_NAME).gte(1));
+        Response searchWithRequiredNonExistentFiledInFilterResponse = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(FIELD_NAME, searchVector, k, filterWithRequiredNonExistentField),
+            k
+        );
+        List<KNNResult> resultsQuery1 = parseSearchResponse(
+            EntityUtils.toString(searchWithRequiredNonExistentFiledInFilterResponse.getEntity()),
+            FIELD_NAME
+        );
+        assertTrue(resultsQuery1.isEmpty());
+
+        // use filter with non existent field as optional, we should have some results
+        QueryBuilder filterWithOptionalNonExistentField = QueryBuilders.boolQuery()
+            .should(QueryBuilders.rangeQuery(NON_EXISTENT_INTEGER_FIELD_NAME).gte(1))
+            .must(QueryBuilders.rangeQuery(INTEGER_FIELD_NAME).gte(1));
+        Response searchWithOptionalNonExistentFiledInFilterResponse = searchKNNIndex(
+            INDEX_NAME,
+            new KNNQueryBuilder(FIELD_NAME, searchVector, k, filterWithOptionalNonExistentField),
+            k
+        );
+        List<KNNResult> resultsQuery2 = parseSearchResponse(
+            EntityUtils.toString(searchWithOptionalNonExistentFiledInFilterResponse.getEntity()),
+            FIELD_NAME
+        );
+        assertEquals(1, resultsQuery2.size());
     }
 
     public void testQuery_filterWithNonLuceneEngine() throws Exception {
@@ -464,6 +548,197 @@ public class LuceneEngineIT extends KNNRestTestCase {
         final int[] expectedResults = { 1, 1, 1 };
 
         validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.COSINESIMIL, expectedResults, COLOR_FIELD_NAME, "red", null);
+    }
+
+    @SneakyThrows
+    public void testSQ_withInvalidParams_thenThrowException() {
+
+        // Use invalid number of bits for the bits param which throws an exception
+        int bits = -1;
+        expectThrows(
+            ResponseException.class,
+            () -> createKnnIndexMappingWithLuceneEngineAndSQEncoder(
+                DIMENSION,
+                SpaceType.L2,
+                VectorDataType.FLOAT,
+                bits,
+                MINIMUM_CONFIDENCE_INTERVAL
+            )
+        );
+
+        // Use invalid value for confidence_interval param which throws an exception
+        double confidenceInterval = -2.5;
+        expectThrows(
+            ResponseException.class,
+            () -> createKnnIndexMappingWithLuceneEngineAndSQEncoder(
+                DIMENSION,
+                SpaceType.L2,
+                VectorDataType.FLOAT,
+                LUCENE_SQ_DEFAULT_BITS,
+                confidenceInterval
+            )
+        );
+
+        // Use "byte" data_type with sq encoder which throws an exception
+        expectThrows(
+            ResponseException.class,
+            () -> createKnnIndexMappingWithLuceneEngineAndSQEncoder(
+                DIMENSION,
+                SpaceType.L2,
+                VectorDataType.BYTE,
+                LUCENE_SQ_DEFAULT_BITS,
+                MINIMUM_CONFIDENCE_INTERVAL
+            )
+        );
+    }
+
+    @SneakyThrows
+    public void testAddDocWithSQEncoder() {
+        createKnnIndexMappingWithLuceneEngineAndSQEncoder(
+            DIMENSION,
+            SpaceType.L2,
+            VectorDataType.FLOAT,
+            LUCENE_SQ_DEFAULT_BITS,
+            MAXIMUM_CONFIDENCE_INTERVAL
+        );
+        Float[] vector = new Float[] { 2.0f, 4.5f, 6.5f };
+        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
+
+        refreshIndex(INDEX_NAME);
+        assertEquals(1, getDocCount(INDEX_NAME));
+    }
+
+    @SneakyThrows
+    public void testUpdateDocWithSQEncoder() {
+        createKnnIndexMappingWithLuceneEngineAndSQEncoder(
+            DIMENSION,
+            SpaceType.INNER_PRODUCT,
+            VectorDataType.FLOAT,
+            LUCENE_SQ_DEFAULT_BITS,
+            MAXIMUM_CONFIDENCE_INTERVAL
+        );
+        Float[] vector = { 6.0f, 6.0f, 7.0f };
+        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
+
+        Float[] updatedVector = { 8.0f, 8.0f, 8.0f };
+        updateKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, updatedVector);
+
+        refreshIndex(INDEX_NAME);
+        assertEquals(1, getDocCount(INDEX_NAME));
+    }
+
+    @SneakyThrows
+    public void testDeleteDocWithSQEncoder() {
+        createKnnIndexMappingWithLuceneEngineAndSQEncoder(
+            DIMENSION,
+            SpaceType.INNER_PRODUCT,
+            VectorDataType.FLOAT,
+            LUCENE_SQ_DEFAULT_BITS,
+            MAXIMUM_CONFIDENCE_INTERVAL
+        );
+        Float[] vector = { 6.0f, 6.0f, 7.0f };
+        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
+
+        deleteKnnDoc(INDEX_NAME, DOC_ID);
+
+        refreshIndex(INDEX_NAME);
+        assertEquals(0, getDocCount(INDEX_NAME));
+    }
+
+    @SneakyThrows
+    public void testIndexingAndQueryingWithSQEncoder() {
+        createKnnIndexMappingWithLuceneEngineAndSQEncoder(
+            DIMENSION,
+            SpaceType.INNER_PRODUCT,
+            VectorDataType.FLOAT,
+            LUCENE_SQ_DEFAULT_BITS,
+            MAXIMUM_CONFIDENCE_INTERVAL
+        );
+
+        int numDocs = 10;
+        for (int i = 0; i < numDocs; i++) {
+            float[] indexVector = new float[DIMENSION];
+            Arrays.fill(indexVector, (float) i);
+            addKnnDocWithAttributes(INDEX_NAME, Integer.toString(i), FIELD_NAME, indexVector, ImmutableMap.of("rating", String.valueOf(i)));
+        }
+
+        // Assert that all docs are ingested
+        refreshAllNonSystemIndices();
+        assertEquals(numDocs, getDocCount(INDEX_NAME));
+
+        float[] queryVector = new float[DIMENSION];
+        Arrays.fill(queryVector, (float) numDocs);
+        int k = 10;
+
+        Response searchResponse = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, queryVector, k), k);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), FIELD_NAME);
+        assertEquals(k, results.size());
+        for (int i = 0; i < k; i++) {
+            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
+        }
+    }
+
+    public void testQueryWithFilterUsingSQEncoder() throws Exception {
+        createKnnIndexMappingWithLuceneEngineAndSQEncoder(
+            DIMENSION,
+            SpaceType.INNER_PRODUCT,
+            VectorDataType.FLOAT,
+            LUCENE_SQ_DEFAULT_BITS,
+            MAXIMUM_CONFIDENCE_INTERVAL
+        );
+
+        addKnnDocWithAttributes(
+            DOC_ID,
+            new float[] { 6.0f, 7.9f, 3.1f },
+            ImmutableMap.of(COLOR_FIELD_NAME, "red", TASTE_FIELD_NAME, "sweet")
+        );
+        addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.2f, 2.1f, 4.8f }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
+        addKnnDocWithAttributes(DOC_ID_3, new float[] { 4.1f, 5.0f, 7.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
+
+        refreshIndex(INDEX_NAME);
+
+        final float[] searchVector = { 6.0f, 6.0f, 4.1f };
+        List<String> expectedDocIdsKGreaterThanFilterResult = Arrays.asList(DOC_ID, DOC_ID_3);
+        List<String> expectedDocIdsKLimitsFilterResult = Arrays.asList(DOC_ID);
+        validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
+    }
+
+    private void createKnnIndexMappingWithLuceneEngineAndSQEncoder(
+        int dimension,
+        SpaceType spaceType,
+        VectorDataType vectorDataType,
+        int bits,
+        double confidenceInterval
+    ) throws Exception {
+        XContentBuilder builder = XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject(PROPERTIES_FIELD_NAME)
+            .startObject(FIELD_NAME)
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, KNNEngine.LUCENE.getMethod(METHOD_HNSW).getMethodComponent().getName())
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE.getName())
+            .startObject(KNNConstants.PARAMETERS)
+            .field(KNNConstants.METHOD_PARAMETER_M, M)
+            .field(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, EF_CONSTRUCTION)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .startObject(PARAMETERS)
+            .field(LUCENE_SQ_BITS, bits)
+            .field(LUCENE_SQ_CONFIDENCE_INTERVAL, confidenceInterval)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
+
+        String mapping = builder.toString();
+        createKnnIndex(INDEX_NAME, mapping);
     }
 
     private void createKnnIndexMappingWithLuceneEngine(int dimension, SpaceType spaceType, VectorDataType vectorDataType) throws Exception {

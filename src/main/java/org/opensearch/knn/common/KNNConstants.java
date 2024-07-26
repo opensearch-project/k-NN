@@ -67,12 +67,19 @@ public class KNNConstants {
     public static final String SEARCH_SIZE_PARAMETER = "search_size";
 
     public static final String VECTOR_DATA_TYPE_FIELD = "data_type";
+    public static final String MODEL_VECTOR_DATA_TYPE_KEY = VECTOR_DATA_TYPE_FIELD;
     public static final VectorDataType DEFAULT_VECTOR_DATA_TYPE_FIELD = VectorDataType.FLOAT;
 
     public static final String RADIAL_SEARCH_KEY = "radial_search";
 
     // Lucene specific constants
     public static final String LUCENE_NAME = "lucene";
+    public static final String LUCENE_SQ_CONFIDENCE_INTERVAL = "confidence_interval";
+    public static final int DYNAMIC_CONFIDENCE_INTERVAL = 0;
+    public static final double MINIMUM_CONFIDENCE_INTERVAL = 0.9;
+    public static final double MAXIMUM_CONFIDENCE_INTERVAL = 1.0;
+    public static final String LUCENE_SQ_BITS = "bits";
+    public static final int LUCENE_SQ_DEFAULT_BITS = 7;
 
     // nmslib specific constants
     public static final String NMSLIB_NAME = "nmslib";
