@@ -32,6 +32,8 @@ public:
     virtual faiss::IndexIDMapTemplate<faiss::IndexBinary>* indexBinaryIdMap(faiss::IndexBinary* index);
     virtual void writeIndex(const faiss::Index* idx, const char* fname);
     virtual void writeIndexBinary(const faiss::IndexBinary* idx, const char* fname);
+    virtual faiss::Index* readIndex(faiss::IOReader* f, int io_flags);
+    virtual faiss::IndexBinary* readIndexBinary(faiss::IOReader* f, int io_flags);
     virtual ~FaissMethods() = default;
 };
 

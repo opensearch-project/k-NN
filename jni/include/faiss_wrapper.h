@@ -27,13 +27,7 @@ namespace knn_jni {
         // based off of the template index passed in. The index is serialized to indexPathJ.
         void CreateIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
                                      jlong vectorsAddressJ, jint dimJ, jstring indexPathJ, jbyteArray templateIndexJ,
-                                     jobject parametersJ);
-
-        // Create an index with ids and vectors. Instead of creating a new index, this function creates the index
-        // based off of the template index passed in. The index is serialized to indexPathJ.
-        void CreateBinaryIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,
-                                     jlong vectorsAddressJ, jint dimJ, jstring indexPathJ, jbyteArray templateIndexJ,
-                                     jobject parametersJ);
+                                     jobject parametersJ, IndexService* indexService);
 
         // Load an index from indexPathJ into memory.
         //

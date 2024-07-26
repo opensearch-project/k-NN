@@ -19,10 +19,12 @@
 #include "jni_util.h"
 #include "faiss_methods.h"
 #include <memory>
+#include <vector>
+#include <unordered_map>
+#include <string>
 
 namespace knn_jni {
 namespace faiss_wrapper {
-
 
 /**
  * A class to provide operations on index
@@ -61,13 +63,38 @@ public:
         std::vector<int64_t> ids,
         std::string indexPath,
         std::unordered_map<std::string, jobject> parameters);
+
+    /**
+     * Create index from template
+     *
+     * @param jniUtil jni util
+     * @param env jni environment
+     * @param dim dimension of vectors
+     * @param numIds number of vectors
+     * @param vectorsAddress memory address which is holding vector data
+     * @param ids a list of document ids for corresponding vectors
+     * @param indexPath path to write index
+     * @param parameters parameters to be applied to faiss index
+     * @param templateIndexData vector containing the template index data
+     */
+    virtual void createIndexFromTemplate(
+        knn_jni::JNIUtilInterface * jniUtil,
+        JNIEnv * env,
+        int dim,
+        int numIds,
+        int64_t vectorsAddress,
+        std::vector<int64_t> ids,
+        std::string indexPath,
+        std::unordered_map<std::string, jobject> parameters,
+        std::vector<uint8_t> templateIndexData);
+
     virtual ~IndexService() = default;
 protected:
     std::unique_ptr<FaissMethods> faissMethods;
 };
 
 /**
- * A class to provide operations on index
+ * A class to provide operations on binary index
  * This class should evolve to have only cpp object but not jni object
  */
 class BinaryIndexService : public IndexService {
@@ -75,6 +102,7 @@ public:
     //TODO Remove dependency on JNIUtilInterface and JNIEnv
     //TODO Reduce the number of parameters
     BinaryIndexService(std::unique_ptr<FaissMethods> faissMethods);
+
     /**
      * Create binary index
      *
@@ -103,11 +131,35 @@ public:
         std::string indexPath,
         std::unordered_map<std::string, jobject> parameters
     ) override;
+
+    /**
+     * Create binary index from template
+     *
+     * @param jniUtil jni util
+     * @param env jni environment
+     * @param dim dimension of vectors
+     * @param numIds number of vectors
+     * @param vectorsAddress memory address which is holding vector data
+     * @param ids a list of document ids for corresponding vectors
+     * @param indexPath path to write index
+     * @param parameters parameters to be applied to faiss index
+     * @param templateIndexData vector containing the template index data
+     */
+    virtual void createIndexFromTemplate(
+        knn_jni::JNIUtilInterface * jniUtil,
+        JNIEnv * env,
+        int dim,
+        int numIds,
+        int64_t vectorsAddress,
+        std::vector<int64_t> ids,
+        std::string indexPath,
+        std::unordered_map<std::string, jobject> parameters,
+        std::vector<uint8_t> templateIndexData);
+
     virtual ~BinaryIndexService() = default;
 };
 
 }
 }
-
 
 #endif //OPENSEARCH_KNN_FAISS_INDEX_SERVICE_H

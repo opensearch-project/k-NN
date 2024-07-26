@@ -35,6 +35,11 @@ void FaissMethods::writeIndex(const faiss::Index* idx, const char* fname) {
 void FaissMethods::writeIndexBinary(const faiss::IndexBinary* idx, const char* fname) {
     faiss::write_index_binary(idx, fname);
 }
-
+faiss::Index* FaissMethods::readIndex(faiss::IOReader* f, int io_flags) {
+    return faiss::read_index(f, io_flags);
+}
+faiss::IndexBinary* FaissMethods::readIndexBinary(faiss::IOReader* f, int io_flags) {
+    return faiss::read_index_binary(f, io_flags);
+}
 } // namespace faiss_wrapper
 } // namesapce knn_jni

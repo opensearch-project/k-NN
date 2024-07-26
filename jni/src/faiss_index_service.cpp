@@ -23,6 +23,7 @@
 #include <vector>
 #include <memory>
 #include <type_traits>
+#include <faiss/impl/io.h>
 
 namespace knn_jni {
 namespace faiss_wrapper {
@@ -106,6 +107,37 @@ void IndexService::createIndex(
     faissMethods->writeIndex(idMap.get(), indexPath.c_str());
 }
 
+void IndexService::createIndexFromTemplate(
+        knn_jni::JNIUtilInterface * jniUtil,
+        JNIEnv * env,
+        int dim,
+        int numIds,
+        int64_t vectorsAddress,
+        std::vector<int64_t> ids,
+        std::string indexPath,
+        std::unordered_map<std::string, jobject> parameters,
+        std::vector<uint8_t> templateIndexData
+    ) {
+    faiss::VectorIOReader vectorIoReader;
+    vectorIoReader.data = templateIndexData;
+
+    std::unique_ptr<faiss::Index> indexWriter(faissMethods->readIndex(&vectorIoReader, 0));
+
+    auto *inputVectors = reinterpret_cast<std::vector<float>*>(vectorsAddress);
+    int numVectors = (int) (inputVectors->size() / (uint64_t) dim);
+    if (numIds != numVectors) {
+        throw std::runtime_error("Number of vectors or IDs does not match expected values");
+    }
+
+    // Add extra parameters that cant be configured with the index factory
+    SetExtraParameters<faiss::Index, faiss::IndexIVF, faiss::IndexHNSW>(jniUtil, env, parameters, indexWriter.get());
+
+    std::unique_ptr<faiss::IndexIDMap> idMap(faissMethods->indexIdMap(indexWriter.get()));
+    idMap->add_with_ids(numVectors, inputVectors->data(), ids.data());
+
+    faissMethods->writeIndex(idMap.get(), indexPath.c_str());
+}
+
 BinaryIndexService::BinaryIndexService(std::unique_ptr<FaissMethods> faissMethods) : IndexService(std::move(faissMethods)) {}
 
 void BinaryIndexService::createIndex(
@@ -160,5 +192,36 @@ void BinaryIndexService::createIndex(
     faissMethods->writeIndexBinary(idMap.get(), indexPath.c_str());
 }
 
+void BinaryIndexService::createIndexFromTemplate(
+        knn_jni::JNIUtilInterface * jniUtil,
+        JNIEnv * env,
+        int dim,
+        int numIds,
+        int64_t vectorsAddress,
+        std::vector<int64_t> ids,
+        std::string indexPath,
+        std::unordered_map<std::string, jobject> parameters,
+        std::vector<uint8_t> templateIndexData
+    ) {
+    faiss::VectorIOReader vectorIoReader;
+    vectorIoReader.data = templateIndexData;
+
+    std::unique_ptr<faiss::IndexBinary> indexWriter(faissMethods->readIndexBinary(&vectorIoReader, 0));
+
+    auto *inputVectors = reinterpret_cast<std::vector<uint8_t>*>(vectorsAddress);
+    int numVectors = (int) (inputVectors->size() / (uint64_t) (dim / 8));
+    if (numIds != numVectors) {
+        throw std::runtime_error("Number of vectors or IDs does not match expected values");
+    }
+
+    // Add extra parameters that cant be configured with the index factory
+    SetExtraParameters<faiss::IndexBinary, faiss::IndexBinaryIVF, faiss::IndexBinaryHNSW>(jniUtil, env, parameters, indexWriter.get());
+
+    std::unique_ptr<faiss::IndexBinaryIDMap> idMap(faissMethods->indexBinaryIdMap(indexWriter.get()));
+    idMap->add_with_ids(numVectors, inputVectors->data(), ids.data());
+
+    faissMethods->writeIndexBinary(idMap.get(), indexPath.c_str());
+}
+
 } // namespace faiss_wrapper
-} // namesapce knn_jni
+} // namespace knn_jni

@@ -1,5 +1,5 @@
 /*
- * SPDX-License-Identifier: Apache-2.0
+* SPDX-License-Identifier: Apache-2.0
  *
  * The OpenSearch Contributors require contributions made to
  * this file be licensed under the Apache-2.0 license or a
@@ -9,8 +9,8 @@
  * GitHub history for details.
  */
 
- #ifndef OPENSEARCH_KNN_FAISS_METHODS_MOCK_H
- #define OPENSEARCH_KNN_FAISS_METHODS_MOCK_H
+#ifndef OPENSEARCH_KNN_FAISS_METHODS_MOCK_H
+#define OPENSEARCH_KNN_FAISS_METHODS_MOCK_H
 
 #include "faiss_methods.h"
 #include <gmock/gmock.h>
@@ -23,6 +23,8 @@ public:
     MOCK_METHOD(faiss::IndexIDMapTemplate<faiss::IndexBinary>*, indexBinaryIdMap, (faiss::IndexBinary* index), (override));
     MOCK_METHOD(void, writeIndex, (const faiss::Index* idx, const char* fname), (override));
     MOCK_METHOD(void, writeIndexBinary, (const faiss::IndexBinary* idx, const char* fname), (override));
+    MOCK_METHOD(faiss::Index*, readIndex, (faiss::IOReader* f, int io_flags), (override));
+    MOCK_METHOD(faiss::IndexBinary*, readIndexBinary, (faiss::IOReader* f, int io_flags), (override));
 };
 
 #endif  // OPENSEARCH_KNN_FAISS_METHODS_MOCK_H

@@ -100,7 +100,6 @@ TEST(FaissCreateBinaryIndexTest, BasicAssertions) {
     JNIEnv *jniEnv = nullptr;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
-    // Create the index
     std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
     NiceMock<MockIndexService> mockIndexService(std::move(faissMethods));
     EXPECT_CALL(mockIndexService, createIndex(_, _, faiss::METRIC_L2, indexDescription, dim, (int)numIds, 0, (int64_t)&vectors, ids, indexPath, subParametersMap))
@@ -129,10 +128,11 @@ TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
 
     std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
     faiss::MetricType metricType = faiss::METRIC_L2;
-    std::string method = "HNSW32,Flat";
+    std::string method = "IVF32,Flat";
 
     std::unique_ptr<faiss::Index> createdIndex(
             test_util::FaissCreateIndex(dim, method, metricType));
+    createdIndex->train(numIds, vectors->data());
     auto vectorIoWriter = test_util::FaissGetSerializedIndex(createdIndex.get());
 
     // Setup jni
@@ -148,15 +148,83 @@ TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
     std::unordered_map<std::string, jobject> parametersMap;
     parametersMap[knn_jni::SPACE_TYPE] = (jobject) &spaceType;
 
+    // Create the index
+    std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
+    IndexService indexService(std::move(faissMethods));
     knn_jni::faiss_wrapper::CreateIndexFromTemplate(
             &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
             (jlong)vectors, dim, (jstring)&indexPath,
             reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)),
-            (jobject) &parametersMap
+            (jobject) &parametersMap,
+            &indexService
             );
 
     // Make sure index can be loaded
     std::unique_ptr<faiss::Index> index(test_util::FaissLoadIndex(indexPath));
+    auto indexIDMap = dynamic_cast<faiss::IndexIDMap *>(index.get());
+
+    // Assert that the index is of the correct type
+    ASSERT_NE(indexIDMap, nullptr);
+    ASSERT_NE(indexIDMap->index, nullptr);
+
+    // Clean up
+    std::remove(indexPath.c_str());
+}
+
+TEST(FaissCreateBinaryIndexFromTemplateTest, BasicAssertions) {
+    // Define the data
+    faiss::idx_t numIds = 100;
+    std::vector<faiss::idx_t> ids;
+    std::vector<uint8_t> vectors;
+    int dim = 128;
+    vectors.reserve(numIds);
+    for (int64_t i = 0; i < numIds; ++i) {
+        ids.push_back(i);
+        for (int j = 0; j < dim / 8; ++j) {
+            vectors.push_back(test_util::RandomInt(0, 255));
+        }
+    }
+
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    std::string spaceType = knn_jni::HAMMING;
+    std::string indexDescription = "BIVF32,Flat";
+
+    std::unordered_map<std::string, jobject> parametersMap;
+    parametersMap[knn_jni::SPACE_TYPE] = (jobject) &spaceType;
+    parametersMap[knn_jni::INDEX_DESCRIPTION] = (jobject) &indexDescription;
+    std::unordered_map<std::string, jobject> subParametersMap;
+    parametersMap[knn_jni::PARAMETERS] = (jobject)&subParametersMap;
+
+    // Setup jni
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    EXPECT_CALL(mockJNIUtil, GetJavaObjectArrayLength(jniEnv, reinterpret_cast<jobjectArray>(&vectors)))
+            .WillRepeatedly(Return(vectors.size()));
+
+    std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
+    knn_jni::faiss_wrapper::BinaryIndexService indexService(std::move(faissMethods));
+
+    std::unique_ptr<faiss::IndexBinary> createdIndex(
+            test_util::FaissCreateBinaryIndex(dim, indexDescription));
+    createdIndex->train(numIds, vectors.data());
+    auto vectorIoWriter = test_util::FaissGetSerializedBinaryIndex(createdIndex.get());
+
+    knn_jni::faiss_wrapper::CreateIndexFromTemplate(
+            &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
+            (jlong)&vectors, dim, (jstring)&indexPath,
+            reinterpret_cast<jbyteArray>(&(vectorIoWriter.data)),
+            (jobject)&parametersMap,
+            &indexService
+            );
+
+    // Make sure index can be loaded
+    std::unique_ptr<faiss::IndexBinary> index(test_util::FaissLoadBinaryIndex(indexPath));
+    auto indexIDMap = dynamic_cast<faiss::IndexBinaryIDMap *>(index.get());
+
+    // Assert that the index is of the correct type
+    ASSERT_NE(indexIDMap, nullptr);
+    ASSERT_NE(indexIDMap->index, nullptr);
 
     // Clean up
     std::remove(indexPath.c_str());
