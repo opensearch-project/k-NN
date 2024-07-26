@@ -86,6 +86,12 @@ jlong IndexService::initIndex(
     // Add vectors
     std::unique_ptr<faiss::IndexIDMap> idMap (faissMethods->indexIdMap(indexWriter.release()));
 
+    /*
+     * NOTE: The process of memory allocation is currently only implemented for HNSW.
+     * This technique of checking the types of the index and subindices should be generalized into
+     * another function.
+     */
+
     // Check to see if the current index is HNSW
     faiss::IndexHNSW * hnsw = dynamic_cast<faiss::IndexHNSW *>(idMap->index);
 
@@ -233,6 +239,12 @@ jlong BinaryIndexService::initIndex(
 
     // Add vectors
     std::unique_ptr<faiss::IndexBinaryIDMap> idMap(faissMethods->indexBinaryIdMap(indexWriter.release()));
+
+    /*
+     * NOTE: The process of memory allocation is currently only implemented for HNSW.
+     * This technique of checking the types of the index and subindices should be generalized into
+     * another function.
+     */
 
     // Check to see if the current index is BinaryHNSW
     faiss::IndexBinaryHNSW * hnsw = dynamic_cast<faiss::IndexBinaryHNSW *>(idMap->index);
