@@ -65,7 +65,7 @@ public class KNNCodecUtil {
         }
         int doc = values.docID();
         // THIS IS A HACK. We check the first document before calling this function in KNNIndexBuilder.
-        if(doc != 0) {
+        if (doc != 0) {
             doc = values.nextDoc();
         }
         for (; doc != DocIdSetIterator.NO_MORE_DOCS; doc = values.nextDoc()) {

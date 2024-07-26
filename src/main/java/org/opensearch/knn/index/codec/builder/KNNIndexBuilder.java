@@ -105,9 +105,9 @@ public class KNNIndexBuilder {
         fromScratch = !fieldInfo.attributes().containsKey(MODEL_ID);
         knnEngine = getKNNEngine(fieldInfo);
         iterative = fromScratch && KNNEngine.FAISS == knnEngine;
-        if(fromScratch && iterative) {
+        if (fromScratch && iterative) {
             creationMethod = KNNIndexBuilder.FROM_SCRATCH_ITERATIVE;
-        } else if(fromScratch) {
+        } else if (fromScratch) {
             creationMethod = KNNIndexBuilder.FROM_SCRATCH;
         } else {
             creationMethod = KNNIndexBuilder.FROM_TEMPLATE;
@@ -115,7 +115,7 @@ public class KNNIndexBuilder {
     }
 
     private void startMergeStats() {
-        if(!isMerge) {
+        if (!isMerge) {
             return;
         }
         KNNGraphValue.MERGE_CURRENT_OPERATIONS.increment();
@@ -127,7 +127,7 @@ public class KNNIndexBuilder {
     }
 
     private void endMergeStats() {
-        if(!isMerge) {
+        if (!isMerge) {
             return;
         }
         KNNGraphValue.MERGE_CURRENT_OPERATIONS.decrement();
@@ -136,7 +136,7 @@ public class KNNIndexBuilder {
     }
 
     private void recordRefreshStats() {
-        if(!isRefresh) {
+        if (!isRefresh) {
             return;
         }
         KNNGraphValue.REFRESH_TOTAL_OPERATIONS.increment();
@@ -219,8 +219,10 @@ public class KNNIndexBuilder {
 
     private void genDatasetMetrics() throws IOException {
         numDocs = getTotalLiveDocsCount(values);
-        if(fromScratch) {
-            vectorDataType = VectorDataType.get(fieldInfo.attributes().getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue()));
+        if (fromScratch) {
+            vectorDataType = VectorDataType.get(
+                fieldInfo.attributes().getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
+            );
         } else {
             String modelId = fieldInfo.attributes().get(MODEL_ID);
             Model model = ModelCache.getInstance().get(modelId);
@@ -267,11 +269,16 @@ public class KNNIndexBuilder {
     private void createKNNIndexFromScratchIteratively() throws IOException {
         KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, vectorTransfer, true);
         long indexAddress = initIndexFromScratch(numDocs, batch.getDimension(), knnEngine, parameters);
-        for (; !batch.finished; batch = KNNCodecUtil.getVectorBatch(values, vectorTransfer, true)) {
+        try {
+            for (; !batch.finished; batch = KNNCodecUtil.getVectorBatch(values, vectorTransfer, true)) {
+                insertToIndex(batch, knnEngine, indexAddress, parameters);
+            }
             insertToIndex(batch, knnEngine, indexAddress, parameters);
+            writeIndex(indexAddress, indexPath, knnEngine, parameters);
+        } catch (Exception e) {
+            JNIService.free(indexAddress, knnEngine, VectorDataType.BINARY == vectorDataType);
+            throw e;
         }
-        insertToIndex(batch, knnEngine, indexAddress, parameters);
-        writeIndex(indexAddress, indexPath, knnEngine, parameters);
     }
 
     private VectorTransfer getVectorTransfer(VectorDataType vectorDataType) {

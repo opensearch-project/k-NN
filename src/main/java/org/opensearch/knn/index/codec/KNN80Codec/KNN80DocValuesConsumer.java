@@ -94,7 +94,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         throws IOException {
         // Get values to be indexed
         BinaryDocValues values = valuesProducer.getBinary(field);
-        if(getTotalLiveDocsCount(values) == 0) {
+        if (getTotalLiveDocsCount(values) == 0) {
             logger.debug("No live docs for field " + field.name);
             return;
         }
