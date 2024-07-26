@@ -9,12 +9,7 @@ import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.opensearch.common.StopWatch;
-import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.builder.KNNIndexBuilder;
-import org.opensearch.knn.index.codec.transfer.VectorTransfer;
-import org.opensearch.knn.index.codec.transfer.VectorTransferByte;
-import org.opensearch.knn.index.codec.transfer.VectorTransferFloat;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelCache;
 import org.apache.logging.log4j.LogManager;
@@ -44,6 +39,7 @@ import java.nio.file.StandardOpenOption;
 import static org.apache.lucene.codecs.CodecUtil.FOOTER_MAGIC;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.getTotalLiveDocsCount;
 
 /**
  * This class writes the KNN docvalues to the segments
@@ -98,6 +94,10 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         throws IOException {
         // Get values to be indexed
         BinaryDocValues values = valuesProducer.getBinary(field);
+        if(getTotalLiveDocsCount(values) == 0) {
+            logger.debug("No live docs for field " + field.name);
+            return;
+        }
         final KNNEngine knnEngine = getKNNEngine(field);
         final String engineFileName = buildEngineFileName(
             state.segmentInfo.name,
@@ -176,11 +176,6 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         delegatee.close();
     }
 
-    @FunctionalInterface
-    private interface NativeIndexCreator {
-        void createIndex() throws IOException;
-    }
-
     private void writeFooter(String indexPath, String engineFileName) throws IOException {
         // Opens the engine file that was created and appends a footer to it. The footer consists of
         // 1. A Footer magic number (int - 4 bytes)
@@ -215,12 +210,5 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         // Check pulled from
         // https://github.com/apache/lucene/blob/branch_9_0/lucene/core/src/java/org/apache/lucene/codecs/CodecUtil.java#L644-L647
         return (value & CRC32_CHECKSUM_SANITY) != 0;
-    }
-
-    private VectorTransfer getVectorTransfer(VectorDataType vectorDataType) {
-        if (VectorDataType.BINARY == vectorDataType) {
-            return new VectorTransferByte(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
-        }
-        return new VectorTransferFloat(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
     }
 }
