@@ -122,7 +122,7 @@ void IndexService::insertToIndex(
     // The number of vectors can be int here because a lucene segment number of total docs never crosses INT_MAX value
     int numVectors = (int) (inputVectors->size() / (uint64_t) dim);
     if(numVectors == 0) {
-        throw std::runtime_error("Number of vectors cannot be 0");
+        return;
     }
 
     if (numIds != numVectors) {
