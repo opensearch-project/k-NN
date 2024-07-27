@@ -299,7 +299,6 @@ public class KNNIndexBuilder {
             return model.getModelMetadata().getKnnEngine();
         }
         final String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
-        System.out.println(engineName);
         return KNNEngine.getEngine(engineName);
     }
 }

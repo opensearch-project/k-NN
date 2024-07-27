@@ -35,7 +35,6 @@ public class VectorTransferFloat extends VectorTransfer {
     public void transfer(final BytesRef bytesRef) {
         final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByBytesRef(bytesRef);
         final float[] vector = vectorSerializer.byteToFloatArray(bytesRef);
-        System.out.println("Vector: " + vector.length);
         dimension = vector.length;
 
         if (vectorsPerTransfer == Integer.MIN_VALUE) {
