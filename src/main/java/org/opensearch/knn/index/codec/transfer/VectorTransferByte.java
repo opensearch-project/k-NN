@@ -35,9 +35,6 @@ public class VectorTransferByte extends VectorTransfer {
         dimension = bytesRef.length * 8;
         if (vectorsPerTransfer == Integer.MIN_VALUE) {
             vectorsPerTransfer = vectorsStreamingMemoryLimit / bytesRef.length;
-            if (totalLiveDocs > 0) {
-                vectorsPerTransfer = Math.min(vectorsPerTransfer, totalLiveDocs);
-            }
             // This condition comes if vectorsStreamingMemoryLimit is higher than total number floats to transfer
             // Doing this will reduce 1 extra trip to JNI layer.
             if (vectorsPerTransfer == 0) {
@@ -59,6 +56,11 @@ public class VectorTransferByte extends VectorTransfer {
     @Override
     public SerializationMode getSerializationMode(final BytesRef bytesRef) {
         return SerializationMode.COLLECTIONS_OF_BYTES;
+    }
+
+    @Override
+    public int numPendingDocs() {
+        return vectorList.size();
     }
 
     private void transfer() {

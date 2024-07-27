@@ -39,9 +39,6 @@ public class VectorTransferFloat extends VectorTransfer {
 
         if (vectorsPerTransfer == Integer.MIN_VALUE) {
             vectorsPerTransfer = vectorsStreamingMemoryLimit / bytesRef.length;
-            if (totalLiveDocs > 0) {
-                vectorsPerTransfer = Math.min(vectorsPerTransfer, totalLiveDocs);
-            }
 
             // This condition comes if vectorsStreamingMemoryLimit is higher than total number floats to transfer
             // Doing this will reduce 1 extra trip to JNI layer.
@@ -64,6 +61,11 @@ public class VectorTransferFloat extends VectorTransfer {
     @Override
     public SerializationMode getSerializationMode(final BytesRef bytesRef) {
         return KNNVectorSerializerFactory.getSerializerModeFromBytesRef(bytesRef);
+    }
+
+    @Override
+    public int numPendingDocs() {
+        return vectorList.size();
     }
 
     private void transfer() {

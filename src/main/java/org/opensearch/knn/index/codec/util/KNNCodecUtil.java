@@ -70,7 +70,7 @@ public class KNNCodecUtil {
             vectorTransfer.transfer(bytesref);
             docIdList.add(doc);
             // Semi-hacky way to check if the streaming limit has been reached
-            if (iterative && vectorTransfer.getVectorAddress() != 0) {
+            if (iterative && vectorTransfer.numPendingDocs() == 0) {
                 break;
             }
         }
