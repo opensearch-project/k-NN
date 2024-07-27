@@ -260,7 +260,6 @@ public class KNNIndexBuilder {
             );
             return null;
         });
-        vectorTransfer.free();
     }
 
     private void createKNNIndexFromScratch() throws IOException {
@@ -269,7 +268,6 @@ public class KNNIndexBuilder {
             JNIService.createIndex(batch.docs, batch.getVectorAddress(), batch.getDimension(), indexPath, parameters, knnEngine);
             return null;
         });
-        vectorTransfer.free();
     }
 
     private void createKNNIndexFromScratchIteratively() throws IOException {
@@ -278,10 +276,8 @@ public class KNNIndexBuilder {
         try {
             for (; !batch.finished; batch = KNNCodecUtil.getVectorBatch(values, vectorTransfer, true)) {
                 insertToIndex(batch, knnEngine, indexAddress, parameters);
-                vectorTransfer.free();
             }
             insertToIndex(batch, knnEngine, indexAddress, parameters);
-            vectorTransfer.free();
             writeIndex(indexAddress, indexPath, knnEngine, parameters);
         } catch (Exception e) {
             JNIService.free(indexAddress, knnEngine, VectorDataType.BINARY == vectorDataType);

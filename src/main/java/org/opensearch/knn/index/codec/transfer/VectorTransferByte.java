@@ -61,14 +61,6 @@ public class VectorTransferByte extends VectorTransfer {
         return SerializationMode.COLLECTIONS_OF_BYTES;
     }
 
-    @Override
-    public void free() {
-        if(vectorAddress != 0) {
-            JNICommons.freeByteVectorData(vectorAddress);
-            vectorAddress = 0;
-        }
-    }
-
     private void transfer() {
         int lengthOfVector = dimension / 8;
         if (totalLiveDocs != 0) {

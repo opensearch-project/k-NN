@@ -51,10 +51,4 @@ public abstract class VectorTransfer {
      * @return serialization mode
      */
     abstract public SerializationMode getSerializationMode(final BytesRef bytesRef);
-
-    /**
-     * Frees the vector memory and sets the address to zero
-     * 
-     */
-    abstract public void free();
 }

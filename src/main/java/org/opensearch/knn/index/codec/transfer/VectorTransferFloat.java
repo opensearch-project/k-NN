@@ -66,13 +66,6 @@ public class VectorTransferFloat extends VectorTransfer {
         return KNNVectorSerializerFactory.getSerializerModeFromBytesRef(bytesRef);
     }
 
-    public void free() {
-        if(vectorAddress != 0) {
-            JNICommons.freeVectorData(vectorAddress);
-            vectorAddress = 0;
-        }
-    }
-
     private void transfer() {
         if (totalLiveDocs != 0) {
             vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
