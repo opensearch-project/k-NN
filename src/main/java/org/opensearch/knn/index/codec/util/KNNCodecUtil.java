@@ -63,11 +63,7 @@ public class KNNCodecUtil {
         } else {
             vectorTransfer.init(getTotalLiveDocsCount(values));
         }
-        int doc = values.docID();
-        // THIS IS A HACK. We check the first document before calling this function in KNNIndexBuilder.
-        if (doc != 0) {
-            doc = values.nextDoc();
-        }
+        int doc = values.nextDoc();
         for (; doc != DocIdSetIterator.NO_MORE_DOCS; doc = values.nextDoc()) {
             BytesRef bytesref = values.binaryValue();
             serializationMode = vectorTransfer.getSerializationMode(bytesref);

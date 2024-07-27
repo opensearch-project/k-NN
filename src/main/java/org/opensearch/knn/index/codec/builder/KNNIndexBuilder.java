@@ -11,6 +11,7 @@ import java.security.PrivilegedAction;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.util.BytesRef;
@@ -59,7 +60,7 @@ public class KNNIndexBuilder {
     protected FieldInfo fieldInfo;
     @Getter
     @Setter
-    protected BinaryDocValues values;
+    protected DocValuesProducer valuesProducer;
     @Getter
     @Setter
     protected String indexPath;
@@ -75,6 +76,7 @@ public class KNNIndexBuilder {
     protected Map<String, Object> parameters;
     protected byte[] modelBlob;
     protected long arraySize;
+    protected BinaryDocValues values;
 
     @FunctionalInterface
     private interface NativeIndexCreator {
@@ -101,7 +103,7 @@ public class KNNIndexBuilder {
         endMergeStats();
     }
 
-    private void getInfoFromField() {
+    private void getInfoFromField() throws IOException {
         fromScratch = !fieldInfo.attributes().containsKey(MODEL_ID);
         knnEngine = getKNNEngine(fieldInfo);
         iterative = fromScratch && KNNEngine.FAISS == knnEngine;
@@ -112,6 +114,7 @@ public class KNNIndexBuilder {
         } else {
             creationMethod = KNNIndexBuilder.FROM_TEMPLATE;
         }
+        values = valuesProducer.getBinary(fieldInfo);
     }
 
     private void startMergeStats() {
@@ -233,9 +236,10 @@ public class KNNIndexBuilder {
             IndexUtil.updateVectorDataTypeToParameters(parameters, model.getModelMetadata().getVectorDataType());
             vectorDataType = model.getModelMetadata().getVectorDataType();
         }
+        BinaryDocValues testValues = valuesProducer.getBinary(fieldInfo);
         // Hack to get the data metrics from the first document. We account for this in KNNCodecUtil.
-        values.nextDoc();
-        BytesRef firstDoc = values.binaryValue();
+        testValues.nextDoc();
+        BytesRef firstDoc = testValues.binaryValue();
         vectorTransfer = getVectorTransfer(vectorDataType);
         serializationMode = vectorTransfer.getSerializationMode(firstDoc);
         arraySize = numDocs * firstDoc.length;
@@ -295,6 +299,7 @@ public class KNNIndexBuilder {
             return model.getModelMetadata().getKnnEngine();
         }
         final String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
+        System.out.println(engineName);
         return KNNEngine.getEngine(engineName);
     }
 }
