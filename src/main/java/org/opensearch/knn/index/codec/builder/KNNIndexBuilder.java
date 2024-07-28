@@ -274,9 +274,9 @@ public class KNNIndexBuilder {
         KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, vectorTransfer, true);
         long indexAddress = initIndexFromScratch(numDocs, batch.getDimension(), knnEngine, parameters);
         try {
-            while(true) {
+            while (true) {
                 insertToIndex(batch, knnEngine, indexAddress, parameters);
-                if(batch.finished) {
+                if (batch.finished) {
                     break;
                 }
                 batch = KNNCodecUtil.getVectorBatch(values, vectorTransfer, true);
