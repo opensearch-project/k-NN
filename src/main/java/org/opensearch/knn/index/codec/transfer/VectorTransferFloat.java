@@ -72,7 +72,7 @@ public class VectorTransferFloat extends VectorTransfer {
         if (totalLiveDocs != 0) {
             vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
         } else {
-            vectorAddress = JNICommons.storeVectorData(0, vectorList.toArray(new float[][] {}), vectorList.size() * dimension);
+            vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), vectorList.size() * dimension);
         }
         vectorList.clear();
     }

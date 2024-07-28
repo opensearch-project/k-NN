@@ -72,7 +72,7 @@ public class VectorTransferByte extends VectorTransfer {
                 totalLiveDocs * lengthOfVector
             );
         } else {
-            vectorAddress = JNICommons.storeByteVectorData(0, vectorList.toArray(new byte[][] {}), vectorList.size() * lengthOfVector);
+            vectorAddress = JNICommons.storeByteVectorData(vectorAddress, vectorList.toArray(new byte[][] {}), vectorList.size() * lengthOfVector);
         }
         vectorList.clear();
     }
