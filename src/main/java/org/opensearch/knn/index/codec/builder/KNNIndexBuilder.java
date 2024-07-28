@@ -279,6 +279,7 @@ public class KNNIndexBuilder {
                 if (batch.finished) {
                     break;
                 }
+                vectorTransfer = getVectorTransfer(vectorDataType);
                 batch = KNNCodecUtil.getVectorBatch(values, vectorTransfer, true);
             }
             writeIndex(indexAddress, indexPath, knnEngine, parameters);
