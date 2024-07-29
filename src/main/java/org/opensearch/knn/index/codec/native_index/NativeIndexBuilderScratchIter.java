@@ -21,10 +21,19 @@ public class NativeIndexBuilderScratchIter extends NativeIndexBuilderScratch {
 
     @Override
     protected void createIndex(NativeIndexInfo indexInfo, BinaryDocValues values) throws IOException {
-        long indexAddress = initIndexFromScratch(indexInfo.numDocs, indexInfo.vectorInfo.dimension, indexInfo.knnEngine, indexInfo.parameters);
+        long indexAddress = initIndexFromScratch(
+            indexInfo.numDocs,
+            indexInfo.vectorInfo.dimension,
+            indexInfo.knnEngine,
+            indexInfo.parameters
+        );
         KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, getVectorTransfer(indexInfo.vectorInfo.vectorDataType), true);
         try {
-            for (; !batch.finished; batch = KNNCodecUtil.getVectorBatch(values, getVectorTransfer(indexInfo.vectorInfo.vectorDataType), true)) {
+            for (; !batch.finished; batch = KNNCodecUtil.getVectorBatch(
+                values,
+                getVectorTransfer(indexInfo.vectorInfo.vectorDataType),
+                true
+            )) {
                 insertToIndex(batch, indexInfo.knnEngine, indexAddress, indexInfo.parameters);
             }
             insertToIndex(batch, indexInfo.knnEngine, indexAddress, indexInfo.parameters);

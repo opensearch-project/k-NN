@@ -44,7 +44,7 @@ public class NativeIndexBuilderScratch extends NativeIndexBuilder {
         );
         VectorTransfer vectorTransfer = getVectorTransfer(vectorInfo.vectorDataType);
         vectorInfo.serializationMode = vectorTransfer.getSerializationMode(firstDoc);
-        if(vectorInfo.vectorDataType == VectorDataType.BINARY) {
+        if (vectorInfo.vectorDataType == VectorDataType.BINARY) {
             vectorInfo.dimension = firstDoc.length * 8;
         } else {
             vectorInfo.dimension = firstDoc.length / 4;
@@ -103,7 +103,14 @@ public class NativeIndexBuilderScratch extends NativeIndexBuilder {
         VectorTransfer vectorTransfer = getVectorTransfer(indexInfo.vectorInfo.vectorDataType);
         KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, vectorTransfer, false);
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            JNIService.createIndex(batch.docs, batch.getVectorAddress(), batch.getDimension(), indexInfo.indexPath, indexInfo.parameters, indexInfo.knnEngine);
+            JNIService.createIndex(
+                batch.docs,
+                batch.getVectorAddress(),
+                batch.getDimension(),
+                indexInfo.indexPath,
+                indexInfo.parameters,
+                indexInfo.knnEngine
+            );
             return null;
         });
     }

@@ -34,7 +34,6 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
  */
 public abstract class NativeIndexBuilder {
 
-
     protected class NativeVectorInfo {
         protected VectorDataType vectorDataType;
         protected int dimension;
@@ -53,17 +52,18 @@ public abstract class NativeIndexBuilder {
 
     protected final Logger logger = LogManager.getLogger(NativeIndexBuilder.class);
 
-    public void createKNNIndex(FieldInfo fieldInfo, DocValuesProducer valuesProducer, String indexPath, boolean isMerge, boolean isRefresh) throws IOException {
+    public void createKNNIndex(FieldInfo fieldInfo, DocValuesProducer valuesProducer, String indexPath, boolean isMerge, boolean isRefresh)
+        throws IOException {
         NativeIndexInfo indexInfo = getIndexInfo(fieldInfo, valuesProducer, indexPath);
         BinaryDocValues values = valuesProducer.getBinary(fieldInfo);
-        if(isMerge) {
+        if (isMerge) {
             startMergeStats(indexInfo.numDocs, indexInfo.arraySize);
         }
-        if(isRefresh) {
+        if (isRefresh) {
             recordRefreshStats();
         }
         createIndex(indexInfo, values);
-        if(isMerge) {
+        if (isMerge) {
             endMergeStats(indexInfo.numDocs, indexInfo.arraySize);
         }
     }
@@ -71,7 +71,7 @@ public abstract class NativeIndexBuilder {
     protected abstract void createIndex(NativeIndexInfo indexInfo, BinaryDocValues values) throws IOException;
 
     private long getVectorSize(NativeVectorInfo vectorInfo) {
-        if(vectorInfo.vectorDataType == VectorDataType.BINARY) {
+        if (vectorInfo.vectorDataType == VectorDataType.BINARY) {
             return vectorInfo.dimension / 8;
         } else {
             return vectorInfo.dimension * 4;
@@ -83,7 +83,7 @@ public abstract class NativeIndexBuilder {
         NativeIndexInfo indexInfo = new NativeIndexInfo();
         indexInfo.fieldInfo = fieldInfo;
         indexInfo.knnEngine = getKNNEngine(fieldInfo);
-        indexInfo.numDocs = (int)KNNCodecUtil.getTotalLiveDocsCount(testValues);
+        indexInfo.numDocs = (int) KNNCodecUtil.getTotalLiveDocsCount(testValues);
         indexInfo.vectorInfo = getVectorInfo(fieldInfo, testValues);
         indexInfo.arraySize = indexInfo.numDocs * getVectorSize(indexInfo.vectorInfo);
         indexInfo.parameters = getParameters(fieldInfo, indexInfo.knnEngine);

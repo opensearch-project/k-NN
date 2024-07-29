@@ -80,7 +80,7 @@ public class NativeIndexBuilderTemplate extends NativeIndexBuilder {
         vectorInfo.vectorDataType = model.getModelMetadata().getVectorDataType();
         VectorTransfer vectorTransfer = getVectorTransfer(vectorInfo.vectorDataType);
         vectorInfo.serializationMode = vectorTransfer.getSerializationMode(firstDoc);
-        if(vectorInfo.vectorDataType == VectorDataType.BINARY) {
+        if (vectorInfo.vectorDataType == VectorDataType.BINARY) {
             vectorInfo.dimension = firstDoc.length * 8;
         } else {
             vectorInfo.dimension = firstDoc.length / 4;
