@@ -52,6 +52,7 @@ void createIndexIteratively(
     for(int i = 0; i < insertions; i++) {
         int start_idx = i * docsPerInsertion;
         int end_idx = start_idx + docsPerInsertion;
+        std::vector<faiss::idx_t> insertIds;
         std::vector<float> insertVecs;
         for(int j = start_idx; j < end_idx; j++) {
             insertIds.push_back(j);
