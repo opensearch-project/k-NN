@@ -38,10 +38,11 @@ public class VectorTransferFloat extends VectorTransfer {
         dimension = vector.length;
 
         if (vectorsPerTransfer == Integer.MIN_VALUE) {
-            vectorsPerTransfer = vectorsStreamingMemoryLimit / bytesRef.length;
-
-            // This condition comes if vectorsStreamingMemoryLimit is higher than total number floats to transfer
-            // Doing this will reduce 1 extra trip to JNI layer.
+            // if vectorsStreamingMemoryLimit is 100 bytes and we have 50 vectors with 5 dimension, then per
+            // transfer we have to send 100/(5 * 4) => 5 vectors.
+            vectorsPerTransfer = vectorsStreamingMemoryLimit / ((long) dimension * Float.BYTES);
+            // If vectorsPerTransfer comes out to be 0, then we set number of vectors per transfer to 1, to ensure that
+            // we are sending minimum number of vectors.
             if (vectorsPerTransfer == 0) {
                 vectorsPerTransfer = 1;
             }

@@ -34,9 +34,11 @@ public class VectorTransferByte extends VectorTransfer {
     public void transfer(final BytesRef bytesRef) {
         dimension = bytesRef.length * 8;
         if (vectorsPerTransfer == Integer.MIN_VALUE) {
+            // if vectorsStreamingMemoryLimit is 100 bytes and we have 50 vectors with length of 5, then per
+            // transfer we have to send 100/5 => 20 vectors.
             vectorsPerTransfer = vectorsStreamingMemoryLimit / bytesRef.length;
-            // This condition comes if vectorsStreamingMemoryLimit is higher than total number floats to transfer
-            // Doing this will reduce 1 extra trip to JNI layer.
+            // If vectorsPerTransfer comes out to be 0, then we set number of vectors per transfer to 1, to ensure that
+            // we are sending minimum number of vectors.
             if (vectorsPerTransfer == 0) {
                 vectorsPerTransfer = 1;
             }
