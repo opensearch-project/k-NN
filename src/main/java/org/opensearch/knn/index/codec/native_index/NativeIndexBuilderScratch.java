@@ -32,7 +32,7 @@ import org.opensearch.knn.jni.JNIService;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.util.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
-public class KNNIndexBuilderScratch extends KNNIndexBuilder {
+public class NativeIndexBuilderScratch extends NativeIndexBuilder {
 
     protected NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, BinaryDocValues testValues) throws IOException {
         NativeVectorInfo vectorInfo = new NativeVectorInfo();

@@ -29,7 +29,11 @@ import lombok.NonNull;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 
-public abstract class KNNIndexBuilder {
+/**
+ * Abstract class to build the KNN index
+ */
+public abstract class NativeIndexBuilder {
+
 
     protected class NativeVectorInfo {
         protected VectorDataType vectorDataType;
@@ -47,7 +51,7 @@ public abstract class KNNIndexBuilder {
         protected String indexPath;
     }
 
-    protected final Logger logger = LogManager.getLogger(KNNIndexBuilder.class);
+    protected final Logger logger = LogManager.getLogger(NativeIndexBuilder.class);
 
     public void createKNNIndex(FieldInfo fieldInfo, DocValuesProducer valuesProducer, String indexPath, boolean isMerge, boolean isRefresh) throws IOException {
         NativeIndexInfo indexInfo = getIndexInfo(fieldInfo, valuesProducer, indexPath);

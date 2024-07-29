@@ -27,7 +27,7 @@ import org.opensearch.knn.jni.JNIService;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 
-public class KNNIndexBuilderTemplate extends KNNIndexBuilder {
+public class NativeIndexBuilderTemplate extends NativeIndexBuilder {
 
     protected void createIndex(NativeIndexInfo indexInfo, BinaryDocValues values) throws IOException {
         String modelId = indexInfo.fieldInfo.attributes().get(MODEL_ID);

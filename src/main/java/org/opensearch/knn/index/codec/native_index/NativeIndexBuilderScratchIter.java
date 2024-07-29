@@ -17,7 +17,7 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 
-public class KNNIndexBuilderScratchIter extends KNNIndexBuilderScratch {
+public class NativeIndexBuilderScratchIter extends NativeIndexBuilderScratch {
 
     @Override
     protected void createIndex(NativeIndexInfo indexInfo, BinaryDocValues values) throws IOException {

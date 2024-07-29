@@ -22,10 +22,10 @@ import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
-import org.opensearch.knn.index.codec.native_index.KNNIndexBuilder;
-import org.opensearch.knn.index.codec.native_index.KNNIndexBuilderScratch;
-import org.opensearch.knn.index.codec.native_index.KNNIndexBuilderScratchIter;
-import org.opensearch.knn.index.codec.native_index.KNNIndexBuilderTemplate;
+import org.opensearch.knn.index.codec.native_index.NativeIndexBuilder;
+import org.opensearch.knn.index.codec.native_index.NativeIndexBuilderScratch;
+import org.opensearch.knn.index.codec.native_index.NativeIndexBuilderScratchIter;
+import org.opensearch.knn.index.codec.native_index.NativeIndexBuilderTemplate;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
@@ -115,21 +115,21 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
         state.directory.createOutput(engineFileName, state.context).close();
 
-        KNNIndexBuilder indexBuilder = getBuilder(field, knnEngine);
+        NativeIndexBuilder indexBuilder = getBuilder(field, knnEngine);
         indexBuilder.createKNNIndex(field, valuesProducer, indexPath, isMerge, isRefresh);
 
         writeFooter(indexPath, engineFileName);
     }
 
-    public static KNNIndexBuilder getBuilder(FieldInfo fieldInfo, KNNEngine knnEngine) {
+    public static NativeIndexBuilder getBuilder(FieldInfo fieldInfo, KNNEngine knnEngine) {
         boolean fromScratch = !fieldInfo.attributes().containsKey(MODEL_ID);
         boolean iterative = fromScratch && KNNEngine.FAISS == knnEngine;
         if (fromScratch && iterative) {
-            return new KNNIndexBuilderScratchIter();
+            return new NativeIndexBuilderScratchIter();
         } else if (fromScratch) {
-            return new KNNIndexBuilderScratch();
+            return new NativeIndexBuilderScratch();
         } else {
-            return new KNNIndexBuilderTemplate();
+            return new NativeIndexBuilderTemplate();
         }
     }
 
