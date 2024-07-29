@@ -74,6 +74,9 @@ public class IndexIT extends KNNRestTestCase {
                 Set.of(Arrays.copyOf(testData.groundTruthValues[i], k)),
                 knnResults.stream().map(KNNResult::getDocId).collect(Collectors.toSet())
             );
+            System.out.println("testFaissHnsw_when1000Data_thenRecallIsAboveNinePointZero");
+            System.out.println("Line: " + i);
+            System.out.println(knnResults.stream().map(KNNResult::getDocId).collect(Collectors.toList()));
             assertTrue("Recall: " + recall, recall > 0.9);
         }
     }

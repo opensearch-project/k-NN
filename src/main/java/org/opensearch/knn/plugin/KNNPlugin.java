@@ -370,9 +370,9 @@ public class KNNPlugin extends Plugin
             .flatMap(engine -> engine.mmapFileExtensions().stream())
             .collect(Collectors.toList());
         final List<String> combinedSettings = Stream.concat(
-            IndexModule.INDEX_STORE_HYBRID_MMAP_EXTENSIONS.getDefault(Settings.EMPTY).stream(),
+            IndexModule.INDEX_STORE_HYBRID_NIO_EXTENSIONS.getDefault(Settings.EMPTY).stream(),
             engineSettings.stream()
         ).collect(Collectors.toList());
-        return Settings.builder().putList(IndexModule.INDEX_STORE_HYBRID_MMAP_EXTENSIONS.getKey(), combinedSettings).build();
+        return Settings.builder().putList(IndexModule.INDEX_STORE_HYBRID_NIO_EXTENSIONS.getKey(), combinedSettings).build();
     }
 }
