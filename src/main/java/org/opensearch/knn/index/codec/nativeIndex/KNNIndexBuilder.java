@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.builder;
+package org.opensearch.knn.index.codec.nativeIndex;
 
 import java.io.IOException;
 import java.util.Map;
@@ -26,9 +26,7 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
-import lombok.Getter;
 import lombok.NonNull;
-import lombok.Setter;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 

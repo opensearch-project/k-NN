@@ -3,10 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.builder;
+package org.opensearch.knn.index.codec.nativeIndex;
 
 import java.io.IOException;
-import java.lang.annotation.Native;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.HashMap;
@@ -31,7 +30,6 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.jni.JNIService;
 
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
-import static org.opensearch.knn.index.codec.util.KNNCodecUtil.getTotalLiveDocsCount;
 import static org.opensearch.knn.index.util.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
 public class KNNIndexBuilderScratch extends KNNIndexBuilder {
