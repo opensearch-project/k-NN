@@ -48,29 +48,19 @@ public:
     /**
      * Add vectors to index
      *
-     * @param jniUtil jni util
-     * @param env jni environment
-     * @param metric space type for distance calculation
-     * @param indexDescription index description to be used by faiss index factory
      * @param dim dimension of vectors
      * @param numIds number of vectors
      * @param threadCount number of thread count to be used while adding data
      * @param vectorsAddress memory address which is holding vector data
-     * @param idMap a map of document id and vector id
-     * @param parameters parameters to be applied to faiss index
+     * @param idMapAddress memory address of the native index object
      */
     virtual void insertToIndex(int dim, int numIds, int threadCount, int64_t vectorsAddress, std::vector<int64_t> &ids, jlong idMapAddress);
     /**
      * Write index to disk
      *
-     * @param jniUtil jni util
-     * @param env jni environment
-     * @param metric space type for distance calculation
-     * @param indexDescription index description to be used by faiss index factory
      * @param threadCount number of thread count to be used while adding data
      * @param indexPath path to write index
-     * @param idMap a map of document id and vector id
-     * @param parameters parameters to be applied to faiss index
+     * @param idMap memory address of the native index object
      */
     virtual void writeIndex(int threadCount, std::string indexPath, jlong idMapAddress);
     // TODO Remove dependency on JNIUtilInterface and JNIEnv
