@@ -38,7 +38,6 @@ public class KNNIndexBuilderScratchIter extends KNNIndexBuilderScratch {
     }
 
     private long initIndexFromScratch(long size, int dim, KNNEngine knnEngine, Map<String, Object> parameters) throws IOException {
-        // Pass the path for the nms library to save the file
         return AccessController.doPrivileged((PrivilegedAction<Long>) () -> {
             return JNIService.initIndexFromScratch(size, dim, parameters, knnEngine);
         });
@@ -47,6 +46,7 @@ public class KNNIndexBuilderScratchIter extends KNNIndexBuilderScratch {
     private void insertToIndex(KNNCodecUtil.VectorBatch batch, KNNEngine knnEngine, long indexAddress, Map<String, Object> parameters)
         throws IOException {
         if (batch.docs.length == 0) {
+            logger.debug("Index insertion called with a batch without docs.");
             return;
         }
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {

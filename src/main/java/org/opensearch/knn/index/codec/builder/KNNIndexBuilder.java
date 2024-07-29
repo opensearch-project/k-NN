@@ -8,6 +8,8 @@ package org.opensearch.knn.index.codec.builder;
 import java.io.IOException;
 import java.util.Map;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
@@ -55,6 +57,8 @@ public abstract class KNNIndexBuilder {
     protected long arraySize;
     protected BinaryDocValues values;
     protected int dimension;
+
+    protected final Logger logger = LogManager.getLogger(KNNIndexBuilder.class);
 
     public void createKNNIndex() throws IOException {
         getInfoFromField();
