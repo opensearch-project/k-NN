@@ -32,6 +32,68 @@ float rangeSearchRandomDataMin = -50;
 float rangeSearchRandomDataMax = 50;
 float rangeSearchRadius = 20000;
 
+void createIndexIteratively(
+        knn_jni::JNIUtilInterface * JNIUtil, 
+        JNIEnv *jniEnv, 
+        std::vector<faiss::idx_t> & ids,
+        std::vector<float> & vectors,
+        int dim,
+        std::string & indexPath,
+        std::unordered_map<string, jobject> parametersMap, 
+        IndexService * indexService,
+        int insertions = 10
+    ) {
+    long numDocs = ids.size();;
+    long index_ptr = knn_jni::faiss_wrapper::InitIndex(JNIUtil, jniEnv, numDocs, dim, (jobject)&parametersMap, indexService);
+    for(int i = 0; i < insertions; i++) {
+        int start_idx = numDocs * i / insertions;
+        int end_idx = numDocs * (i + 1) / insertions;
+        int docs_to_insert = end_idx - start_idx;
+        if(docs_to_insert == 0) continue;
+        std::vector<faiss::idx_t> insertIds;
+        std::vector<float> insertVecs;
+        for(int j = start_idx; j < end_idx; j++) {
+            insertIds.push_back(j);
+            for(int k = 0; k < dim; k++) {
+                insertVecs.push_back(vectors[j * dim + k]);
+            }
+        }
+        knn_jni::faiss_wrapper::InsertToIndex(JNIUtil, jniEnv, reinterpret_cast<jintArray>(&insertIds), (jlong)&insertVecs, dim, index_ptr, 0, indexService);
+    }
+    knn_jni::faiss_wrapper::WriteIndex(JNIUtil, jniEnv, (jstring)&indexPath, index_ptr, 0, indexService);
+}
+
+void createBinaryIndexIteratively(
+        knn_jni::JNIUtilInterface * JNIUtil, 
+        JNIEnv *jniEnv, 
+        std::vector<faiss::idx_t> & ids,
+        std::vector<uint8_t> & vectors,
+        int dim,
+        std::string & indexPath,
+        std::unordered_map<string, jobject> parametersMap, 
+        IndexService * indexService,
+        int insertions = 10
+    ) {
+    long numDocs = ids.size();;
+    long index_ptr = knn_jni::faiss_wrapper::InitIndex(JNIUtil, jniEnv, numDocs, dim, (jobject)&parametersMap, indexService);
+    for(int i = 0; i < insertions; i++) {
+        int start_idx = numDocs * i / insertions;
+        int end_idx = numDocs * (i + 1) / insertions;
+        int docs_to_insert = end_idx - start_idx;
+        if(docs_to_insert == 0) continue;
+        std::vector<faiss::idx_t> insertIds;
+        std::vector<float> insertVecs;
+        for(int j = start_idx; j < end_idx; j++) {
+            insertIds.push_back(j);
+            for(int k = 0; k < dim / 8; k++) {
+                insertVecs.push_back(vectors[j * (dim / 8) + k]);
+            }
+        }
+        knn_jni::faiss_wrapper::InsertToIndex(JNIUtil, jniEnv, reinterpret_cast<jintArray>(&insertIds), (jlong)&insertVecs, dim, index_ptr, 0, indexService);
+    }
+    knn_jni::faiss_wrapper::WriteIndex(JNIUtil, jniEnv, (jstring)&indexPath, index_ptr, 0, indexService);
+}
+
 TEST(FaissCreateIndexTest, BasicAssertions) {
     // Define the data
     faiss::idx_t numIds = 200;
@@ -63,13 +125,12 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
     // Create the index
     std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
     NiceMock<MockIndexService> mockIndexService(std::move(faissMethods));
-    EXPECT_CALL(mockIndexService, createIndex(_, _, faiss::METRIC_L2, indexDescription, dim, (int)numIds, 0, (int64_t)&vectors, ids, indexPath, subParametersMap))
+    EXPECT_CALL(mockIndexService, initIndex(_, _, faiss::METRIC_L2, indexDescription, dim, (int)numIds, 0, subParametersMap))
+        .Times(1);
+    EXPECT_CALL(mockIndexService, writeIndex(0, indexPath, _))
         .Times(1);
 
-    knn_jni::faiss_wrapper::CreateIndex(
-            &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
-            (jlong) &vectors, dim , (jstring)&indexPath,
-            (jobject)&parametersMap, &mockIndexService);
+    createIndexIteratively(&mockJNIUtil, jniEnv, ids, vectors, dim, indexPath, parametersMap, &mockIndexService);
 }
 
 TEST(FaissCreateBinaryIndexTest, BasicAssertions) {
@@ -103,14 +164,13 @@ TEST(FaissCreateBinaryIndexTest, BasicAssertions) {
     // Create the index
     std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
     NiceMock<MockIndexService> mockIndexService(std::move(faissMethods));
-    EXPECT_CALL(mockIndexService, createIndex(_, _, faiss::METRIC_L2, indexDescription, dim, (int)numIds, 0, (int64_t)&vectors, ids, indexPath, subParametersMap))
+    EXPECT_CALL(mockIndexService, initIndex(_, _, faiss::METRIC_L2, indexDescription, dim, (int)numIds, 0, subParametersMap))
+        .Times(1);
+    EXPECT_CALL(mockIndexService, writeIndex(0, indexPath, _))
         .Times(1);
 
     // This method calls delete vectors at the end
-    knn_jni::faiss_wrapper::CreateIndex(
-            &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
-            (jlong) &vectors, dim , (jstring)&indexPath,
-            (jobject)&parametersMap, &mockIndexService);
+    createBinaryIndexIteratively(&mockJNIUtil, jniEnv, ids, vectors, dim, indexPath, parametersMap, &mockIndexService);
 }
 
 TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
@@ -683,10 +743,8 @@ TEST(FaissCreateHnswSQfp16IndexTest, BasicAssertions) {
     // Create the index
     std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
     knn_jni::faiss_wrapper::IndexService IndexService(std::move(faissMethods));
-    knn_jni::faiss_wrapper::CreateIndex(
-            &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
-            (jlong)&vectors, dim, (jstring)&indexPath,
-            (jobject)&parametersMap, &IndexService);
+    
+    createIndexIteratively(&mockJNIUtil, jniEnv, ids, vectors, dim, indexPath, parametersMap, &IndexService);
 
     // Make sure index can be loaded
     std::unique_ptr<faiss::Index> index(test_util::FaissLoadIndex(indexPath));
