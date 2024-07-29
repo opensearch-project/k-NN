@@ -13,7 +13,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;

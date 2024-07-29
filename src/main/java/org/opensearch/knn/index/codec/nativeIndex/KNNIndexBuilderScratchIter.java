@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.builder;
+package org.opensearch.knn.index.codec.nativeIndex;
 
 import java.io.IOException;
 import java.security.AccessController;

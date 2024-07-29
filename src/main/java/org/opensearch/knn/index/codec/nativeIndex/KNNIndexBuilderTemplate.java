@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.builder;
+package org.opensearch.knn.index.codec.nativeIndex;
 
 import java.io.IOException;
 import java.security.AccessController;
@@ -72,9 +72,12 @@ public class KNNIndexBuilderTemplate extends KNNIndexBuilder {
         NativeVectorInfo vectorInfo = new NativeVectorInfo();
         testValues.nextDoc();
         BytesRef firstDoc = testValues.binaryValue();
-        vectorInfo.vectorDataType = VectorDataType.get(
-            fieldInfo.attributes().getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
-        );
+        String modelId = fieldInfo.attributes().get(MODEL_ID);
+        Model model = ModelCache.getInstance().get(modelId);
+        if (model.getModelBlob() == null) {
+            throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
+        }
+        vectorInfo.vectorDataType = model.getModelMetadata().getVectorDataType();
         VectorTransfer vectorTransfer = getVectorTransfer(vectorInfo.vectorDataType);
         vectorInfo.serializationMode = vectorTransfer.getSerializationMode(firstDoc);
         if(vectorInfo.vectorDataType == VectorDataType.BINARY) {
