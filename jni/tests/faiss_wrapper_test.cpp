@@ -171,7 +171,7 @@ TEST(FaissCreateBinaryIndexTest, BasicAssertions) {
     int insertions = 10;
     EXPECT_CALL(mockIndexService, initIndex(_, _, faiss::METRIC_L2, indexDescription, dim, (int)numIds, 0, subParametersMap))
         .Times(1);
-    EXPECT_CALL(mockIndexService, insertToIndex(dim, _, 0, _, _, _))
+    EXPECT_CALL(mockIndexService, insertToIndex(dim, numIds / insertions, 0, _, _, _))
         .Times(insertions);
     EXPECT_CALL(mockIndexService, writeIndex(0, indexPath, _))
         .Times(1);
