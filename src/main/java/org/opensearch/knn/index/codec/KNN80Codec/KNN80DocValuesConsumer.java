@@ -10,6 +10,9 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.codec.builder.KNNIndexBuilder;
+import org.opensearch.knn.index.codec.builder.KNNIndexBuilderScratch;
+import org.opensearch.knn.index.codec.builder.KNNIndexBuilderScratchIter;
+import org.opensearch.knn.index.codec.builder.KNNIndexBuilderTemplate;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelCache;
 import org.apache.logging.log4j.LogManager;
@@ -112,7 +115,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
         state.directory.createOutput(engineFileName, state.context).close();
 
-        KNNIndexBuilder indexBuilder = new KNNIndexBuilder();
+        KNNIndexBuilder indexBuilder = getBuilder(field, knnEngine);
         indexBuilder.setFieldInfo(field);
         indexBuilder.setIndexPath(indexPath);
         indexBuilder.setValuesProducer(valuesProducer);
@@ -121,6 +124,18 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         indexBuilder.createKNNIndex();
 
         writeFooter(indexPath, engineFileName);
+    }
+
+    public static KNNIndexBuilder getBuilder(FieldInfo fieldInfo, KNNEngine knnEngine) {
+        boolean fromScratch = !fieldInfo.attributes().containsKey(MODEL_ID);
+        boolean iterative = fromScratch && KNNEngine.FAISS == knnEngine;
+        if (fromScratch && iterative) {
+            return new KNNIndexBuilderScratchIter();
+        } else if (fromScratch) {
+            return new KNNIndexBuilderScratch();
+        } else {
+            return new KNNIndexBuilderTemplate();
+        }
     }
 
     /**
