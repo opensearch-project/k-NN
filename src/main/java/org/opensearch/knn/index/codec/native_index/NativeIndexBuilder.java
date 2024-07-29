@@ -60,8 +60,8 @@ public abstract class NativeIndexBuilder {
 
     /**
      * Method for creating a KNN index in the specified native library
-     * 
-     * @param fieldInfo 
+     *
+     * @param fieldInfo
      * @param valuesProducer
      * @param indexPath
      * @param isMerge
