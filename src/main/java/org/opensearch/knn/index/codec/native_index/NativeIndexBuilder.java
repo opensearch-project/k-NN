@@ -34,12 +34,18 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
  */
 public abstract class NativeIndexBuilder {
 
+    /**
+     * Class that holds info about vectors
+     */
     protected class NativeVectorInfo {
         protected VectorDataType vectorDataType;
         protected int dimension;
         protected SerializationMode serializationMode;
     }
 
+    /**
+     * Class that holds info about the native index
+     */
     protected class NativeIndexInfo {
         protected FieldInfo fieldInfo;
         protected KNNEngine knnEngine;
@@ -52,6 +58,16 @@ public abstract class NativeIndexBuilder {
 
     protected final Logger logger = LogManager.getLogger(NativeIndexBuilder.class);
 
+    /**
+     * Method for creating a KNN index in the specified native library
+     * 
+     * @param fieldInfo 
+     * @param valuesProducer
+     * @param indexPath
+     * @param isMerge
+     * @param isRefresh
+     * @throws IOException
+     */
     public void createKNNIndex(FieldInfo fieldInfo, DocValuesProducer valuesProducer, String indexPath, boolean isMerge, boolean isRefresh)
         throws IOException {
         NativeIndexInfo indexInfo = getIndexInfo(fieldInfo, valuesProducer, indexPath);
@@ -68,16 +84,47 @@ public abstract class NativeIndexBuilder {
         }
     }
 
+    /**
+     * Method that makes a native index given the parameters from indexInfo
+     * @param indexInfo
+     * @param values
+     * @throws IOException
+     */
     protected abstract void createIndex(NativeIndexInfo indexInfo, BinaryDocValues values) throws IOException;
 
-    private long getVectorSize(NativeVectorInfo vectorInfo) {
-        if (vectorInfo.vectorDataType == VectorDataType.BINARY) {
-            return vectorInfo.dimension / 8;
-        } else {
-            return vectorInfo.dimension * 4;
+    /**
+     * Method that generates extra index parameters to be passed to the native library
+     * @param fieldInfo
+     * @param knnEngine
+     * @return
+     * @throws IOException
+     */
+    protected abstract Map<String, Object> getParameters(FieldInfo fieldInfo, KNNEngine knnEngine) throws IOException;
+
+    /**
+     * Method that gets the native vector info
+     * @param fieldInfo
+     * @param testValues
+     * @return
+     * @throws IOException
+     */
+    protected abstract NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, BinaryDocValues testValues) throws IOException;
+
+    protected VectorTransfer getVectorTransfer(VectorDataType vectorDataType) {
+        if (VectorDataType.BINARY == vectorDataType) {
+            return new VectorTransferByte(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
         }
+        return new VectorTransferFloat(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
     }
 
+    /**
+     * Method that gets the native index info from a given field
+     * @param fieldInfo
+     * @param valuesProducer
+     * @param indexPath
+     * @return
+     * @throws IOException
+     */
     private NativeIndexInfo getIndexInfo(FieldInfo fieldInfo, DocValuesProducer valuesProducer, String indexPath) throws IOException {
         BinaryDocValues testValues = valuesProducer.getBinary(fieldInfo);
         NativeIndexInfo indexInfo = new NativeIndexInfo();
@@ -91,15 +138,12 @@ public abstract class NativeIndexBuilder {
         return indexInfo;
     }
 
-    protected abstract Map<String, Object> getParameters(FieldInfo fieldInfo, KNNEngine knnEngine) throws IOException;
-
-    protected abstract NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, BinaryDocValues testValues) throws IOException;
-
-    protected VectorTransfer getVectorTransfer(VectorDataType vectorDataType) {
-        if (VectorDataType.BINARY == vectorDataType) {
-            return new VectorTransferByte(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
+    private long getVectorSize(NativeVectorInfo vectorInfo) {
+        if (vectorInfo.vectorDataType == VectorDataType.BINARY) {
+            return vectorInfo.dimension / 8;
+        } else {
+            return vectorInfo.dimension * 4;
         }
-        return new VectorTransferFloat(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
     }
 
     protected KNNEngine getKNNEngine(@NonNull FieldInfo field) {
