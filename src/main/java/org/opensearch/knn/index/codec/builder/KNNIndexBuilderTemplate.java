@@ -9,57 +9,79 @@ import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.HashMap;
+import java.util.Map;
 
+import org.apache.lucene.index.BinaryDocValues;
+import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.transfer.VectorTransfer;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
+import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.jni.JNIService;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
-import static org.opensearch.knn.index.codec.util.KNNCodecUtil.getTotalLiveDocsCount;
 
 public class KNNIndexBuilderTemplate extends KNNIndexBuilder {
-    protected byte[] modelBlob;
 
-    protected void getInfoFromField() throws IOException {
-        knnEngine = getKNNEngine(fieldInfo);
-        values = valuesProducer.getBinary(fieldInfo);
-    }
-
-    protected void genParameters() throws IOException {
-        parameters = new HashMap<>();
-        parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
-    }
-
-    protected void genDatasetMetrics() throws IOException {
-        numDocs = getTotalLiveDocsCount(values);
-        String modelId = fieldInfo.attributes().get(MODEL_ID);
+    protected void createIndex(NativeIndexInfo indexInfo, BinaryDocValues values) throws IOException {
+        String modelId = indexInfo.fieldInfo.attributes().get(MODEL_ID);
         Model model = ModelCache.getInstance().get(modelId);
         if (model.getModelBlob() == null) {
             throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
         }
-        modelBlob = model.getModelBlob();
-        IndexUtil.updateVectorDataTypeToParameters(parameters, model.getModelMetadata().getVectorDataType());
-        vectorDataType = model.getModelMetadata().getVectorDataType();
-    }
-
-    protected void createIndex() throws IOException {
-        KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, getVectorTransfer(vectorDataType), false);
+        byte[] modelBlob = model.getModelBlob();
+        IndexUtil.updateVectorDataTypeToParameters(indexInfo.parameters, model.getModelMetadata().getVectorDataType());
+        indexInfo.vectorInfo.vectorDataType = model.getModelMetadata().getVectorDataType();
+        KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, getVectorTransfer(indexInfo.vectorInfo.vectorDataType), false);
 
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             JNIService.createIndexFromTemplate(
                 batch.docs,
                 batch.getVectorAddress(),
                 batch.getDimension(),
-                indexPath,
+                indexInfo.indexPath,
                 modelBlob,
-                parameters,
-                knnEngine
+                indexInfo.parameters,
+                indexInfo.knnEngine
             );
             return null;
         });
+    }
+
+    @Override
+    protected Map<String, Object> getParameters(FieldInfo fieldInfo, KNNEngine knnEngine) throws IOException {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
+        String modelId = fieldInfo.attributes().get(MODEL_ID);
+        Model model = ModelCache.getInstance().get(modelId);
+        if (model.getModelBlob() == null) {
+            throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
+        }
+        IndexUtil.updateVectorDataTypeToParameters(parameters, model.getModelMetadata().getVectorDataType());
+        return parameters;
+    }
+
+    @Override
+    protected NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, BinaryDocValues testValues) throws IOException {
+        NativeVectorInfo vectorInfo = new NativeVectorInfo();
+        testValues.nextDoc();
+        BytesRef firstDoc = testValues.binaryValue();
+        vectorInfo.vectorDataType = VectorDataType.get(
+            fieldInfo.attributes().getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
+        );
+        VectorTransfer vectorTransfer = getVectorTransfer(vectorInfo.vectorDataType);
+        vectorInfo.serializationMode = vectorTransfer.getSerializationMode(firstDoc);
+        if(vectorInfo.vectorDataType == VectorDataType.BINARY) {
+            vectorInfo.dimension = firstDoc.length * 8;
+        } else {
+            vectorInfo.dimension = firstDoc.length / 4;
+        }
+        return vectorInfo;
     }
 }
