@@ -43,14 +43,15 @@ void createIndexIteratively(
         IndexService * indexService,
         int insertions = 10
     ) {
-    long numDocs = ids.size();;
+    long numDocs = ids.size();
+    if(numDocs % insertions != 0) {
+        throw std::invalid_argument("Number of documents should be divisible by number of insertions");
+    }
+    long docsPerInsertion = numDocs / insertions;
     long index_ptr = knn_jni::faiss_wrapper::InitIndex(JNIUtil, jniEnv, numDocs, dim, (jobject)&parametersMap, indexService);
     for(int i = 0; i < insertions; i++) {
-        int start_idx = numDocs * i / insertions;
-        int end_idx = numDocs * (i + 1) / insertions;
-        int docs_to_insert = end_idx - start_idx;
-        if(docs_to_insert == 0) continue;
-        std::vector<faiss::idx_t> insertIds;
+        int start_idx = i * docsPerInsertion;
+        int end_idx = start_idx + docsPerInsertion;
         std::vector<float> insertVecs;
         for(int j = start_idx; j < end_idx; j++) {
             insertIds.push_back(j);
@@ -125,12 +126,15 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
     // Create the index
     std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
     NiceMock<MockIndexService> mockIndexService(std::move(faissMethods));
+    int insertions = 10;
     EXPECT_CALL(mockIndexService, initIndex(_, _, faiss::METRIC_L2, indexDescription, dim, (int)numIds, 0, subParametersMap))
         .Times(1);
+    EXPECT_CALL(mockIndexService, insertToIndex(dim, numIds / insertions, 0, _, _, _))
+        .Times(insertions);
     EXPECT_CALL(mockIndexService, writeIndex(0, indexPath, _))
         .Times(1);
 
-    createIndexIteratively(&mockJNIUtil, jniEnv, ids, vectors, dim, indexPath, parametersMap, &mockIndexService);
+    createIndexIteratively(&mockJNIUtil, jniEnv, ids, vectors, dim, indexPath, parametersMap, &mockIndexService, insertions);
 }
 
 TEST(FaissCreateBinaryIndexTest, BasicAssertions) {
@@ -164,13 +168,16 @@ TEST(FaissCreateBinaryIndexTest, BasicAssertions) {
     // Create the index
     std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
     NiceMock<MockIndexService> mockIndexService(std::move(faissMethods));
+    int insertions = 10;
     EXPECT_CALL(mockIndexService, initIndex(_, _, faiss::METRIC_L2, indexDescription, dim, (int)numIds, 0, subParametersMap))
         .Times(1);
+    EXPECT_CALL(mockIndexService, insertToIndex(dim, _, 0, _, _, _))
+        .Times(insertions);
     EXPECT_CALL(mockIndexService, writeIndex(0, indexPath, _))
         .Times(1);
 
     // This method calls delete vectors at the end
-    createBinaryIndexIteratively(&mockJNIUtil, jniEnv, ids, vectors, dim, indexPath, parametersMap, &mockIndexService);
+    createBinaryIndexIteratively(&mockJNIUtil, jniEnv, ids, vectors, dim, indexPath, parametersMap, &mockIndexService, insertions);
 }
 
 TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
