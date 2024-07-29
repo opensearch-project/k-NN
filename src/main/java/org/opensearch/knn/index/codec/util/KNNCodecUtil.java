@@ -63,8 +63,7 @@ public class KNNCodecUtil {
         } else {
             vectorTransfer.init(getTotalLiveDocsCount(values));
         }
-        int doc = values.nextDoc();
-        for (; doc != DocIdSetIterator.NO_MORE_DOCS; doc = values.nextDoc()) {
+        for (int doc = values.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = values.nextDoc()) {
             BytesRef bytesref = values.binaryValue();
             serializationMode = vectorTransfer.getSerializationMode(bytesref);
             vectorTransfer.transfer(bytesref);
@@ -76,7 +75,7 @@ public class KNNCodecUtil {
         }
         vectorTransfer.close();
 
-        boolean finished = doc == DocIdSetIterator.NO_MORE_DOCS;
+        boolean finished = values.docID() == DocIdSetIterator.NO_MORE_DOCS;
 
         return new KNNCodecUtil.VectorBatch(
             docIdList.stream().mapToInt(Integer::intValue).toArray(),
