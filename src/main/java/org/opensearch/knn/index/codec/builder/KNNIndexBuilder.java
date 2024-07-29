@@ -30,9 +30,6 @@ import lombok.Setter;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 
 public abstract class KNNIndexBuilder {
-    public static String FROM_SCRATCH_ITERATIVE = "FROM_SCRATCH_ITERATIVE";
-    public static String FROM_SCRATCH = "FROM_SCRATCH";
-    public static String FROM_TEMPLATE = "FROM_TEMPLATE";
     @Getter
     @Setter
     protected boolean isMerge;
