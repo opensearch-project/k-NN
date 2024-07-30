@@ -132,14 +132,13 @@ public abstract class NativeIndexWriter {
      * @throws IOException
      */
     private NativeIndexInfo getIndexInfo(FieldInfo fieldInfo, DocValuesProducer valuesProducer, String indexPath) throws IOException {
-        BinaryDocValues testValues = valuesProducer.getBinary(fieldInfo);
-        int numDocs = (int) KNNCodecUtil.getTotalLiveDocsCount(testValues);
+        int numDocs = (int) KNNCodecUtil.getTotalLiveDocsCount(valuesProducer.getBinary(fieldInfo));
         NativeVectorInfo vectorInfo = getVectorInfo(fieldInfo, valuesProducer);
         KNNEngine knnEngine = getKNNEngine(fieldInfo);
         NativeIndexInfo indexInfo = NativeIndexInfo.builder()
             .fieldInfo(fieldInfo)
             .knnEngine(getKNNEngine(fieldInfo))
-            .numDocs((int) KNNCodecUtil.getTotalLiveDocsCount(testValues))
+            .numDocs((int) numDocs)
             .vectorInfo(vectorInfo)
             .arraySize(numDocs * getBytesPerVector(vectorInfo))
             .parameters(getParameters(fieldInfo, knnEngine))
