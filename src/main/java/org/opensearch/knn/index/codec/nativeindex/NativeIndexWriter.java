@@ -110,7 +110,7 @@ public abstract class NativeIndexWriter {
     /**
      * Method that gets the native vector info
      * @param fieldInfo
-     * @param testValues
+     * @param valuesProducer
      * @return native vector info
      * @throws IOException
      */
