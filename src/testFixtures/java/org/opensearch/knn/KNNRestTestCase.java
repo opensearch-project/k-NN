@@ -20,6 +20,7 @@ import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
@@ -97,6 +98,7 @@ import static org.opensearch.knn.TestUtils.FIELD;
 import static org.opensearch.knn.TestUtils.QUERY_VALUE;
 import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
 
+import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
 import static org.opensearch.knn.index.util.KNNEngine.FAISS;
@@ -188,8 +190,10 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     /**
-     * Run KNN Search on Index
+     * Deprecated
+     * To better simulate user request, use {@link #searchKNNIndex(String, XContentBuilder, int)} instead
      */
+    @Deprecated
     protected Response searchKNNIndex(String index, KNNQueryBuilder knnQueryBuilder, int resultSize) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("query");
         knnQueryBuilder.doXContent(builder, ToXContent.EMPTY_PARAMS);
@@ -201,12 +205,20 @@ public class KNNRestTestCase extends ODFERestTestCase {
      * Run KNN Search on Index with XContentBuilder query
      */
     protected Response searchKNNIndex(String index, XContentBuilder xContentBuilder, int resultSize) throws IOException {
+        return searchKNNIndex(index, xContentBuilder.toString(), resultSize);
+    }
+
+    /**
+     * Run KNN Search on Index with json string query
+     */
+    protected Response searchKNNIndex(String index, String query, int resultSize) throws IOException {
         Request request = new Request("POST", "/" + index + "/_search");
-        request.setJsonEntity(xContentBuilder.toString());
+        request.setJsonEntity(query);
 
         request.addParameter("size", Integer.toString(resultSize));
-        request.addParameter("explain", Boolean.toString(true));
         request.addParameter("search_type", "query_then_fetch");
+        // Nested field does not support explain parameter and the request is rejected if we set explain parameter
+        // request.addParameter("explain", Boolean.toString(true));
 
         Response response = client().performRequest(request);
         assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
@@ -347,6 +359,21 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .toString();
     }
 
+    protected String createKnnIndexMapping(final String fieldName, final Integer dimensions, final VectorDataType vectorDataType)
+        throws IOException {
+        return XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field("type", "knn_vector")
+            .field("dimension", dimensions.toString())
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue())
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+    }
+
     /**
      * Utility to create a Knn Index Mapping with specific algorithm and engine
      */
@@ -379,6 +406,34 @@ public class KNNRestTestCase extends ODFERestTestCase {
             .startObject(fieldName)
             .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
             .field(KNNConstants.DIMENSION, dimensions.toString())
+            .field("doc_values", docValues)
+            .startObject(KNNConstants.KNN_METHOD)
+            .field(KNNConstants.NAME, algoName)
+            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType)
+            .field(KNNConstants.KNN_ENGINE, knnEngine)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject()
+            .toString();
+    }
+
+    protected String createKnnIndexMapping(
+        String fieldName,
+        Integer dimensions,
+        String algoName,
+        String knnEngine,
+        String spaceType,
+        boolean docValues,
+        VectorDataType vectorDataType
+    ) throws IOException {
+        return XContentFactory.jsonBuilder()
+            .startObject()
+            .startObject("properties")
+            .startObject(fieldName)
+            .field(KNNConstants.TYPE, KNNConstants.TYPE_KNN_VECTOR)
+            .field(KNNConstants.DIMENSION, dimensions.toString())
+            .field(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue())
             .field("doc_values", docValues)
             .startObject(KNNConstants.KNN_METHOD)
             .field(KNNConstants.NAME, algoName)
