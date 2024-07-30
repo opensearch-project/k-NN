@@ -11,7 +11,7 @@
 
 package org.opensearch.knn.quantization.models.quantizationOutput;
 
-public class OneBitScalarQuantizationOutput  extends QuantizationOutput<byte[]> {
+public class OneBitScalarQuantizationOutput extends QuantizationOutput<byte[]> {
 
     public OneBitScalarQuantizationOutput(byte[] quantizedVector) {
         super(quantizedVector);

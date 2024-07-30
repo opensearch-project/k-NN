@@ -105,7 +105,7 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
         return new OneBitScalarQuantizationOutput(packBitsFromBitArray(quantizedVector));
     }
 
-    private  byte[] packBitsFromBitArray(byte[] bitArray) {
+    private byte[] packBitsFromBitArray(byte[] bitArray) {
         int bitLength = bitArray.length;
         int byteLength = (bitLength + 7) / 8;
         byte[] packedArray = new byte[byteLength];
@@ -122,4 +122,3 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
         return packedArray;
     }
 }
-

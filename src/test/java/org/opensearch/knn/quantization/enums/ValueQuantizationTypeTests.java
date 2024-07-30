@@ -15,9 +15,7 @@ import org.opensearch.knn.KNNTestCase;
 
 public class ValueQuantizationTypeTests extends KNNTestCase {
     public void testValueQuantizationTypeValues() {
-        ValueQuantizationType[] expectedValues = {
-                ValueQuantizationType.SQ
-        };
+        ValueQuantizationType[] expectedValues = { ValueQuantizationType.SQ };
         assertArrayEquals(expectedValues, ValueQuantizationType.values());
     }
 

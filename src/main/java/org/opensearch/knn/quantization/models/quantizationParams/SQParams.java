@@ -13,7 +13,6 @@ package org.opensearch.knn.quantization.models.quantizationParams;
 
 import org.opensearch.knn.quantization.enums.QuantizationType;
 import org.opensearch.knn.quantization.enums.SQTypes;
-import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 
 public class SQParams extends QuantizationParams {
     private SQTypes sqType;
@@ -22,6 +21,7 @@ public class SQParams extends QuantizationParams {
         super(QuantizationType.VALUE_QUANTIZATION);
         this.sqType = sqType;
     }
+
     public SQTypes getSqType() {
         return sqType;
     }

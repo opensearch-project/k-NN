@@ -13,7 +13,6 @@ package org.opensearch.knn.quantization.sampler;
 
 import org.opensearch.knn.KNNTestCase;
 
-
 public class ReservoirSamplerTests extends KNNTestCase {
 
     public void testSample() {
@@ -71,4 +70,3 @@ public class ReservoirSamplerTests extends KNNTestCase {
         assertTrue(samples[0] == 0);
     }
 }
-
