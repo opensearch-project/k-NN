@@ -6,10 +6,28 @@ on:
     branches:
       - "*"
       - "feature/**"
+    paths:
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'src/**'
+      - 'build-tools/**'
+      - 'buildSrc/**'
+      - 'gradle/**'
+      - 'jni/**'
+      - '.github/workflows/test_security.yml'
   pull_request:
     branches:
       - "*"
       - "feature/**"
+    paths:
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'src/**'
+      - 'build-tools/**'
+      - 'buildSrc/**'
+      - 'gradle/**'
+      - 'jni/**'
+      - '.github/workflows/test_security.yml'
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
