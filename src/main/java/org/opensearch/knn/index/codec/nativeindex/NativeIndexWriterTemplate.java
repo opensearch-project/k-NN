@@ -27,6 +27,9 @@ import org.opensearch.knn.jni.JNIService;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 
+/**
+ * Abstract class to build the KNN index from a template model and write it to disk
+ */
 public class NativeIndexWriterTemplate extends NativeIndexWriter {
 
     protected void createIndex(NativeIndexInfo indexInfo, BinaryDocValues values) throws IOException {

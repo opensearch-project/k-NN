@@ -32,6 +32,9 @@ import org.opensearch.knn.jni.JNIService;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.util.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
+/**
+ * Class to build the KNN index from scratch and write it to disk
+ */
 public class NativeIndexWriterScratch extends NativeIndexWriter {
 
     protected NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, BinaryDocValues testValues) throws IOException {

@@ -32,7 +32,7 @@ import lombok.Value;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 
 /**
- * Abstract class to build the KNN index and write to disk
+ * Abstract class to build the KNN index and write it to disk
  */
 public abstract class NativeIndexWriter {
 

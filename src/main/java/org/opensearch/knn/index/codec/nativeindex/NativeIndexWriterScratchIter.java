@@ -17,6 +17,9 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 
+/**
+ * Class to build the KNN index from scratch iteratively and write it to disk
+ */
 public class NativeIndexWriterScratchIter extends NativeIndexWriterScratch {
 
     @Override
