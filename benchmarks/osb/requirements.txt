@@ -89,7 +89,7 @@ yappi==1.2.3
     # via opensearch-benchmark
 yarl==1.7.2
     # via aiohttp
-zipp==3.7.0
+zipp==3.19.1
     # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
