@@ -13,10 +13,10 @@ package org.opensearch.knn.index.memory;
 
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.core.action.ActionListener;
-import org.opensearch.knn.index.IndexUtil;
+import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.training.ByteTrainingDataConsumer;
 import org.opensearch.knn.training.FloatTrainingDataConsumer;
 import org.opensearch.knn.training.TrainingDataConsumer;

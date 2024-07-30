@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.util;
+package org.opensearch.knn.index.engine.nmslib;
 
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.index.KNNMethod;
@@ -11,6 +11,8 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.MethodComponent;
 import org.opensearch.knn.index.Parameter;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.DefaultHnswContext;
+import org.opensearch.knn.index.engine.NativeLibrary;
 
 import java.util.Collections;
 import java.util.Map;
@@ -23,12 +25,12 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 /**
  * Implements NativeLibrary for the nmslib native library
  */
-class Nmslib extends NativeLibrary {
+public class Nmslib extends NativeLibrary {
 
     // Extension to be used for Nmslib files. It is ".hnsw" and not ".nmslib" for legacy purposes.
-    final static String EXTENSION = ".hnsw";
+    public final static String EXTENSION = ".hnsw";
 
-    final static String CURRENT_VERSION = "2011";
+    public final static String CURRENT_VERSION = "2011";
 
     final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
         METHOD_HNSW,
@@ -50,7 +52,7 @@ class Nmslib extends NativeLibrary {
         ).addSpaces(SpaceType.UNDEFINED, SpaceType.L2, SpaceType.L1, SpaceType.LINF, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT).build()
     );
 
-    final static Nmslib INSTANCE = new Nmslib(METHODS, Collections.emptyMap(), CURRENT_VERSION, EXTENSION);
+    public final static Nmslib INSTANCE = new Nmslib(METHODS, Collections.emptyMap(), CURRENT_VERSION, EXTENSION);
 
     /**
      * Constructor for Nmslib

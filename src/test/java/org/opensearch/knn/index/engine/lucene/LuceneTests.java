@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.util;
+package org.opensearch.knn.index.engine.lucene;
 
 import org.apache.lucene.util.Version;
 import org.opensearch.core.xcontent.XContentBuilder;

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index;
+package org.opensearch.knn.index.util;
 
 import org.opensearch.Version;
 import org.opensearch.cluster.service.ClusterService;

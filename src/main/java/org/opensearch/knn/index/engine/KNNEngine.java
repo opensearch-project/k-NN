@@ -3,13 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.util;
+package org.opensearch.knn.index.engine;
 
 import com.google.common.collect.ImmutableSet;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.faiss.Faiss;
+import org.opensearch.knn.index.engine.lucene.Lucene;
+import org.opensearch.knn.index.engine.nmslib.Nmslib;
 import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.util.List;

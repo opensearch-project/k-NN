@@ -36,7 +36,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_STATE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_TIMESTAMP;
 import static org.opensearch.knn.index.SpaceType.L2;
-import static org.opensearch.knn.index.util.KNNEngine.FAISS;
+import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
 
 /**
  * Integration tests to check the correctness of {@link org.opensearch.knn.plugin.rest.RestGetModelHandler}

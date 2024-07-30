@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.util;
+package org.opensearch.knn.index.engine.faiss;
 
 import com.google.common.collect.ImmutableMap;
 import lombok.AllArgsConstructor;
@@ -14,6 +14,9 @@ import org.opensearch.knn.index.MethodComponent;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.Parameter;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.DefaultHnswContext;
+import org.opensearch.knn.index.engine.DefaultIVFContext;
+import org.opensearch.knn.index.engine.NativeLibrary;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -308,7 +311,7 @@ public class Faiss extends NativeLibrary {
         ).addSpaces(SpaceType.UNDEFINED, SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.HAMMING).build()
     );
 
-    final static Faiss INSTANCE = new Faiss(
+    public final static Faiss INSTANCE = new Faiss(
         METHODS,
         SCORE_TRANSLATIONS,
         CURRENT_VERSION,

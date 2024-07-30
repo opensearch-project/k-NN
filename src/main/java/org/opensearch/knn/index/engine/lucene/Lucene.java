@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.util;
+package org.opensearch.knn.index.engine.lucene;
 
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.util.Version;
@@ -14,6 +14,7 @@ import org.opensearch.knn.index.MethodComponent;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.Parameter;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.JVMLibrary;
 
 import java.util.Collections;
 import java.util.List;
@@ -96,7 +97,7 @@ public class Lucene extends JVMLibrary {
         .put(SpaceType.INNER_PRODUCT, distance -> distance <= 0 ? 1 / (1 - distance) : distance + 1)
         .build();
 
-    final static Lucene INSTANCE = new Lucene(METHODS, Version.LATEST.toString(), DISTANCE_TRANSLATIONS);
+    public final static Lucene INSTANCE = new Lucene(METHODS, Version.LATEST.toString(), DISTANCE_TRANSLATIONS);
 
     /**
      * Constructor

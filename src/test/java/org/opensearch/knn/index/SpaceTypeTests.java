@@ -13,7 +13,7 @@ package org.opensearch.knn.index;
 
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Arrays;
 import java.util.Collections;

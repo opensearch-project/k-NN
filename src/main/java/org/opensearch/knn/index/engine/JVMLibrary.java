@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.util;
+package org.opensearch.knn.index.engine;
 
 import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.KNNMethodContext;
@@ -23,7 +23,7 @@ public abstract class JVMLibrary extends AbstractKNNLibrary {
      * @param methods Map of k-NN methods that the library supports
      * @param version String representing version of library
      */
-    JVMLibrary(Map<String, KNNMethod> methods, Map<String, EngineSpecificMethodContext> engineMethodMetadataMap, String version) {
+    public JVMLibrary(Map<String, KNNMethod> methods, Map<String, EngineSpecificMethodContext> engineMethodMetadataMap, String version) {
         super(methods, engineMethodMetadataMap, version);
     }
 

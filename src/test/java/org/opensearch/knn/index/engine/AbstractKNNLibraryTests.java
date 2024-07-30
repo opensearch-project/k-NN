@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.util;
+package org.opensearch.knn.index.engine;
 
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.common.ValidationException;
@@ -12,6 +12,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.*;
+import org.opensearch.knn.index.query.QueryContext;
 
 import java.io.IOException;
 import java.util.Collections;

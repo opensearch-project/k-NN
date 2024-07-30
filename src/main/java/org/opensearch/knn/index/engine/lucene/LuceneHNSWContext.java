@@ -1,18 +1,14 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
-package org.opensearch.knn.index.util;
+package org.opensearch.knn.index.engine.lucene;
 
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.knn.index.Parameter;
+import org.opensearch.knn.index.engine.EngineSpecificMethodContext;
+import org.opensearch.knn.index.query.QueryContext;
 import org.opensearch.knn.index.query.request.MethodParameter;
 
 import java.util.Collections;
@@ -26,7 +22,7 @@ public class LuceneHNSWContext implements EngineSpecificMethodContext {
 
     @Override
     public Map<String, Parameter<?>> supportedMethodParameters(QueryContext ctx) {
-        if (ctx.queryType.isRadialSearch()) {
+        if (ctx.getQueryType().isRadialSearch()) {
             // return empty map if radial search is true
             return Collections.emptyMap();
         }

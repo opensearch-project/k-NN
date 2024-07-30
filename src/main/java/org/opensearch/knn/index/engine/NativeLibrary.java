@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.util;
+package org.opensearch.knn.index.engine;
 
 import lombok.Getter;
 import org.opensearch.knn.common.KNNConstants;
@@ -20,7 +20,7 @@ import java.util.function.Function;
  * Abstract implementation of KNNLibrary. It contains several default methods and fields that
  * are common across different underlying libraries.
  */
-abstract class NativeLibrary extends AbstractKNNLibrary {
+public abstract class NativeLibrary extends AbstractKNNLibrary {
     private final Map<SpaceType, Function<Float, Float>> scoreTranslation;
     @Getter
     private final String extension;
@@ -34,7 +34,7 @@ abstract class NativeLibrary extends AbstractKNNLibrary {
      * @param version String representation of version of the library
      * @param extension String representing the extension that library files should use
      */
-    NativeLibrary(
+    public NativeLibrary(
         Map<String, KNNMethod> methods,
         Map<String, EngineSpecificMethodContext> engineMethods,
         Map<SpaceType, Function<Float, Float>> scoreTranslation,

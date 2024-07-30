@@ -3,10 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.util;
+package org.opensearch.knn.index.engine;
 
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.faiss.Faiss;
+import org.opensearch.knn.index.engine.lucene.Lucene;
+import org.opensearch.knn.index.engine.nmslib.Nmslib;
 
 import java.util.Arrays;
 import java.util.List;
