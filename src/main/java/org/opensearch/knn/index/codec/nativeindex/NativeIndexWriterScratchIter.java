@@ -22,24 +22,24 @@ public class NativeIndexWriterScratchIter extends NativeIndexWriterScratch {
     @Override
     protected void createIndex(NativeIndexInfo indexInfo, BinaryDocValues values) throws IOException {
         long indexAddress = initIndexFromScratch(
-            indexInfo.numDocs,
-            indexInfo.vectorInfo.dimension,
-            indexInfo.knnEngine,
-            indexInfo.parameters
+            indexInfo.getNumDocs(),
+            indexInfo.getVectorInfo().getDimension(),
+            indexInfo.getKnnEngine(),
+            indexInfo.getParameters()
         );
-        KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, getVectorTransfer(indexInfo.vectorInfo.vectorDataType), true);
+        KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, getVectorTransfer(indexInfo.getVectorInfo().getVectorDataType()), true);
         try {
             for (; !batch.finished; batch = KNNCodecUtil.getVectorBatch(
                 values,
-                getVectorTransfer(indexInfo.vectorInfo.vectorDataType),
+                getVectorTransfer(indexInfo.getVectorInfo().getVectorDataType()),
                 true
             )) {
-                insertToIndex(batch, indexInfo.knnEngine, indexAddress, indexInfo.parameters);
+                insertToIndex(batch, indexInfo.getKnnEngine(), indexAddress, indexInfo.getParameters());
             }
-            insertToIndex(batch, indexInfo.knnEngine, indexAddress, indexInfo.parameters);
-            writeIndex(indexAddress, indexInfo.indexPath, indexInfo.knnEngine, indexInfo.parameters);
+            insertToIndex(batch, indexInfo.getKnnEngine(), indexAddress, indexInfo.getParameters());
+            writeIndex(indexAddress, indexInfo.getIndexPath(), indexInfo.getKnnEngine(), indexInfo.getParameters());
         } catch (Exception e) {
-            JNIService.free(indexAddress, indexInfo.knnEngine, VectorDataType.BINARY == indexInfo.vectorInfo.vectorDataType);
+            JNIService.free(indexAddress, indexInfo.getKnnEngine(), VectorDataType.BINARY == indexInfo.getVectorInfo().getVectorDataType());
             if (batch.getVectorAddress() != 0) {
                 JNICommons.freeVectorData(batch.getVectorAddress());
             }

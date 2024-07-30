@@ -25,7 +25,9 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
+import lombok.Builder;
 import lombok.NonNull;
+import lombok.Value;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 
@@ -37,26 +39,30 @@ public abstract class NativeIndexWriter {
     /**
      * Class that holds info about vectors
      */
-    protected class NativeVectorInfo {
-        protected VectorDataType vectorDataType;
-        protected int dimension;
-        protected SerializationMode serializationMode;
+    @Builder
+    @Value
+    protected static class NativeVectorInfo {
+        private VectorDataType vectorDataType;
+        private int dimension;
+        private SerializationMode serializationMode;
     }
 
     /**
      * Class that holds info about the native index
      */
-    protected class NativeIndexInfo {
-        protected FieldInfo fieldInfo;
-        protected KNNEngine knnEngine;
-        protected int numDocs;
-        protected long arraySize;
-        protected Map<String, Object> parameters;
-        protected NativeVectorInfo vectorInfo;
-        protected String indexPath;
+    @Builder
+    @Value
+    protected static class NativeIndexInfo {
+        private FieldInfo fieldInfo;
+        private KNNEngine knnEngine;
+        private int numDocs;
+        private long arraySize;
+        private Map<String, Object> parameters;
+        private NativeVectorInfo vectorInfo;
+        private String indexPath;
     }
 
-    protected final Logger logger = LogManager.getLogger(NativeIndexBuilder.class);
+    protected final Logger logger = LogManager.getLogger(NativeIndexWriter.class);
 
     /**
      * Method for creating a KNN index in the specified native library
@@ -127,14 +133,18 @@ public abstract class NativeIndexWriter {
      */
     private NativeIndexInfo getIndexInfo(FieldInfo fieldInfo, DocValuesProducer valuesProducer, String indexPath) throws IOException {
         BinaryDocValues testValues = valuesProducer.getBinary(fieldInfo);
-        NativeIndexInfo indexInfo = new NativeIndexInfo();
-        indexInfo.fieldInfo = fieldInfo;
-        indexInfo.knnEngine = getKNNEngine(fieldInfo);
-        indexInfo.numDocs = (int) KNNCodecUtil.getTotalLiveDocsCount(testValues);
-        indexInfo.vectorInfo = getVectorInfo(fieldInfo, testValues);
-        indexInfo.arraySize = indexInfo.numDocs * getVectorSize(indexInfo.vectorInfo);
-        indexInfo.parameters = getParameters(fieldInfo, indexInfo.knnEngine);
-        indexInfo.indexPath = indexPath;
+        int numDocs = (int) KNNCodecUtil.getTotalLiveDocsCount(testValues);
+        NativeVectorInfo vectorInfo = getVectorInfo(fieldInfo, testValues);
+        KNNEngine knnEngine = getKNNEngine(fieldInfo);
+        NativeIndexInfo indexInfo = NativeIndexInfo.builder()
+        .fieldInfo(fieldInfo)
+        .knnEngine(getKNNEngine(fieldInfo))
+        .numDocs((int) KNNCodecUtil.getTotalLiveDocsCount(testValues))
+        .vectorInfo(getVectorInfo(fieldInfo, testValues))
+        .arraySize(numDocs * getVectorSize(vectorInfo))
+        .parameters(getParameters(fieldInfo, knnEngine))
+        .indexPath(indexPath)
+        .build();
         return indexInfo;
     }
 

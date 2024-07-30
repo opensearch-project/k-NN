@@ -30,25 +30,27 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 public class NativeIndexWriterTemplate extends NativeIndexWriter {
 
     protected void createIndex(NativeIndexInfo indexInfo, BinaryDocValues values) throws IOException {
-        String modelId = indexInfo.fieldInfo.attributes().get(MODEL_ID);
+        String modelId = indexInfo.getFieldInfo().attributes().get(MODEL_ID);
         Model model = ModelCache.getInstance().get(modelId);
         if (model.getModelBlob() == null) {
             throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
         }
         byte[] modelBlob = model.getModelBlob();
-        IndexUtil.updateVectorDataTypeToParameters(indexInfo.parameters, model.getModelMetadata().getVectorDataType());
-        indexInfo.vectorInfo.vectorDataType = model.getModelMetadata().getVectorDataType();
-        KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, getVectorTransfer(indexInfo.vectorInfo.vectorDataType), false);
+        IndexUtil.updateVectorDataTypeToParameters(indexInfo.getParameters(), model.getModelMetadata().getVectorDataType());
+        // This is carried over from the old index creation process. Why can't we get the vector data type
+        // by just reading it from the field?
+        VectorDataType vectorDataType = model.getModelMetadata().getVectorDataType();
+        KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, getVectorTransfer(vectorDataType), false);
 
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             JNIService.createIndexFromTemplate(
                 batch.docs,
                 batch.getVectorAddress(),
                 batch.getDimension(),
-                indexInfo.indexPath,
+                indexInfo.getIndexPath(),
                 modelBlob,
-                indexInfo.parameters,
-                indexInfo.knnEngine
+                indexInfo.getParameters(),
+                indexInfo.getKnnEngine()
             );
             return null;
         });
@@ -69,7 +71,6 @@ public class NativeIndexWriterTemplate extends NativeIndexWriter {
 
     @Override
     protected NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, BinaryDocValues testValues) throws IOException {
-        NativeVectorInfo vectorInfo = new NativeVectorInfo();
         testValues.nextDoc();
         BytesRef firstDoc = testValues.binaryValue();
         String modelId = fieldInfo.attributes().get(MODEL_ID);
@@ -77,14 +78,19 @@ public class NativeIndexWriterTemplate extends NativeIndexWriter {
         if (model.getModelBlob() == null) {
             throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
         }
-        vectorInfo.vectorDataType = model.getModelMetadata().getVectorDataType();
-        VectorTransfer vectorTransfer = getVectorTransfer(vectorInfo.vectorDataType);
-        vectorInfo.serializationMode = vectorTransfer.getSerializationMode(firstDoc);
-        if (vectorInfo.vectorDataType == VectorDataType.BINARY) {
-            vectorInfo.dimension = firstDoc.length * 8;
+        VectorDataType vectorDataType = model.getModelMetadata().getVectorDataType();
+        VectorTransfer vectorTransfer = getVectorTransfer(vectorDataType);
+        int dimension = 0;
+        if (vectorDataType == VectorDataType.BINARY) {
+            dimension = firstDoc.length * 8;
         } else {
-            vectorInfo.dimension = firstDoc.length / 4;
+            dimension = firstDoc.length / 4;
         }
+        NativeVectorInfo vectorInfo = NativeVectorInfo.builder()
+        .vectorDataType(vectorDataType)
+        .dimension(dimension)
+        .serializationMode(vectorTransfer.getSerializationMode(firstDoc))
+        .build();
         return vectorInfo;
     }
 }

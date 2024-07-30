@@ -35,20 +35,24 @@ import static org.opensearch.knn.index.util.Faiss.FAISS_BINARY_INDEX_DESCRIPTION
 public class NativeIndexWriterScratch extends NativeIndexWriter {
 
     protected NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, BinaryDocValues testValues) throws IOException {
-        NativeVectorInfo vectorInfo = new NativeVectorInfo();
         // Hack to get the data metrics from the first document. We account for this in KNNCodecUtil.
         testValues.nextDoc();
         BytesRef firstDoc = testValues.binaryValue();
-        vectorInfo.vectorDataType = VectorDataType.get(
+        VectorDataType vectorDataType = VectorDataType.get(
             fieldInfo.attributes().getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
         );
-        VectorTransfer vectorTransfer = getVectorTransfer(vectorInfo.vectorDataType);
-        vectorInfo.serializationMode = vectorTransfer.getSerializationMode(firstDoc);
-        if (vectorInfo.vectorDataType == VectorDataType.BINARY) {
-            vectorInfo.dimension = firstDoc.length * 8;
+        VectorTransfer vectorTransfer = getVectorTransfer(vectorDataType);
+        int dimension = 0;
+        if (vectorDataType == VectorDataType.BINARY) {
+            dimension = firstDoc.length * 8;
         } else {
-            vectorInfo.dimension = firstDoc.length / 4;
+            dimension = firstDoc.length / 4;
         }
+        NativeVectorInfo vectorInfo = NativeVectorInfo.builder()
+        .vectorDataType(vectorDataType)
+        .dimension(dimension)
+        .serializationMode(vectorTransfer.getSerializationMode(firstDoc))
+        .build();
         return vectorInfo;
     }
 
@@ -100,16 +104,16 @@ public class NativeIndexWriterScratch extends NativeIndexWriter {
     }
 
     protected void createIndex(NativeIndexInfo indexInfo, BinaryDocValues values) throws IOException {
-        VectorTransfer vectorTransfer = getVectorTransfer(indexInfo.vectorInfo.vectorDataType);
+        VectorTransfer vectorTransfer = getVectorTransfer(indexInfo.getVectorInfo().getVectorDataType());
         KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, vectorTransfer, false);
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             JNIService.createIndex(
                 batch.docs,
                 batch.getVectorAddress(),
                 batch.getDimension(),
-                indexInfo.indexPath,
-                indexInfo.parameters,
-                indexInfo.knnEngine
+                indexInfo.getIndexPath(),
+                indexInfo.getParameters(),
+                indexInfo.getKnnEngine()
             );
             return null;
         });
