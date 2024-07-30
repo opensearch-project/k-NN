@@ -17,6 +17,7 @@ import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.store.Directory;
 import org.opensearch.index.fielddata.ScriptDocValues;
+import org.opensearch.search.DocValueFormat;
 import org.junit.Before;
 
 import java.io.IOException;
@@ -95,5 +96,10 @@ public class KNNVectorDVLeafFieldDataTests extends KNNTestCase {
     public void testGetBytesValues() {
         KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(leafReaderContext.reader(), "", VectorDataType.FLOAT);
         expectThrows(UnsupportedOperationException.class, () -> leafFieldData.getBytesValues());
+    }
+
+    public void testGetLeafValueFetcher() {
+        KNNVectorDVLeafFieldData leafFieldData = new KNNVectorDVLeafFieldData(leafReaderContext.reader(), "", VectorDataType.FLOAT);
+        assertNotNull(leafFieldData.getLeafValueFetcher(DocValueFormat.RAW));
     }
 }
