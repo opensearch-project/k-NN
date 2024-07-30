@@ -11,6 +11,7 @@ import java.security.PrivilegedAction;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.util.BytesRef;
@@ -37,8 +38,9 @@ import static org.opensearch.knn.index.util.Faiss.FAISS_BINARY_INDEX_DESCRIPTION
  */
 public class NativeIndexWriterScratch extends NativeIndexWriter {
 
-    protected NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, BinaryDocValues testValues) throws IOException {
+    protected NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, DocValuesProducer valuesProducer) throws IOException {
         // Hack to get the data metrics from the first document. We account for this in KNNCodecUtil.
+        BinaryDocValues testValues = valuesProducer.getBinary(fieldInfo);
         testValues.nextDoc();
         BytesRef firstDoc = testValues.binaryValue();
         VectorDataType vectorDataType = VectorDataType.get(

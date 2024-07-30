@@ -102,7 +102,7 @@ public abstract class NativeIndexWriter {
      * Method that generates extra index parameters to be passed to the native library
      * @param fieldInfo
      * @param knnEngine
-     * @return
+     * @return extra index parameters to be passed to the native library
      * @throws IOException
      */
     protected abstract Map<String, Object> getParameters(FieldInfo fieldInfo, KNNEngine knnEngine) throws IOException;
@@ -111,10 +111,10 @@ public abstract class NativeIndexWriter {
      * Method that gets the native vector info
      * @param fieldInfo
      * @param testValues
-     * @return
+     * @return native vector info
      * @throws IOException
      */
-    protected abstract NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, BinaryDocValues testValues) throws IOException;
+    protected abstract NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, DocValuesProducer valuesProducer) throws IOException;
 
     protected VectorTransfer getVectorTransfer(VectorDataType vectorDataType) {
         if (VectorDataType.BINARY == vectorDataType) {
@@ -128,19 +128,19 @@ public abstract class NativeIndexWriter {
      * @param fieldInfo
      * @param valuesProducer
      * @param indexPath
-     * @return
+     * @return native index info
      * @throws IOException
      */
     private NativeIndexInfo getIndexInfo(FieldInfo fieldInfo, DocValuesProducer valuesProducer, String indexPath) throws IOException {
         BinaryDocValues testValues = valuesProducer.getBinary(fieldInfo);
         int numDocs = (int) KNNCodecUtil.getTotalLiveDocsCount(testValues);
-        NativeVectorInfo vectorInfo = getVectorInfo(fieldInfo, testValues);
+        NativeVectorInfo vectorInfo = getVectorInfo(fieldInfo, valuesProducer);
         KNNEngine knnEngine = getKNNEngine(fieldInfo);
         NativeIndexInfo indexInfo = NativeIndexInfo.builder()
             .fieldInfo(fieldInfo)
             .knnEngine(getKNNEngine(fieldInfo))
             .numDocs((int) KNNCodecUtil.getTotalLiveDocsCount(testValues))
-            .vectorInfo(getVectorInfo(fieldInfo, testValues))
+            .vectorInfo(vectorInfo)
             .arraySize(numDocs * getBytesPerVector(vectorInfo))
             .parameters(getParameters(fieldInfo, knnEngine))
             .indexPath(indexPath)
@@ -156,7 +156,7 @@ public abstract class NativeIndexWriter {
         }
     }
 
-    protected KNNEngine getKNNEngine(@NonNull FieldInfo field) {
+    private KNNEngine getKNNEngine(@NonNull FieldInfo field) {
         final String modelId = field.attributes().get(MODEL_ID);
         if (modelId != null) {
             var model = ModelCache.getInstance().get(modelId);

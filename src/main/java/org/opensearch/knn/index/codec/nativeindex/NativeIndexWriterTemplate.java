@@ -11,6 +11,7 @@ import java.security.PrivilegedAction;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.util.BytesRef;
@@ -73,7 +74,8 @@ public class NativeIndexWriterTemplate extends NativeIndexWriter {
     }
 
     @Override
-    protected NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, BinaryDocValues testValues) throws IOException {
+    protected NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, DocValuesProducer valuesProducer) throws IOException {
+        BinaryDocValues testValues = valuesProducer.getBinary(fieldInfo);
         testValues.nextDoc();
         BytesRef firstDoc = testValues.binaryValue();
         String modelId = fieldInfo.attributes().get(MODEL_ID);
