@@ -137,14 +137,14 @@ public abstract class NativeIndexWriter {
         NativeVectorInfo vectorInfo = getVectorInfo(fieldInfo, testValues);
         KNNEngine knnEngine = getKNNEngine(fieldInfo);
         NativeIndexInfo indexInfo = NativeIndexInfo.builder()
-        .fieldInfo(fieldInfo)
-        .knnEngine(getKNNEngine(fieldInfo))
-        .numDocs((int) KNNCodecUtil.getTotalLiveDocsCount(testValues))
-        .vectorInfo(getVectorInfo(fieldInfo, testValues))
-        .arraySize(numDocs * getBytesPerVector(vectorInfo))
-        .parameters(getParameters(fieldInfo, knnEngine))
-        .indexPath(indexPath)
-        .build();
+            .fieldInfo(fieldInfo)
+            .knnEngine(getKNNEngine(fieldInfo))
+            .numDocs((int) KNNCodecUtil.getTotalLiveDocsCount(testValues))
+            .vectorInfo(getVectorInfo(fieldInfo, testValues))
+            .arraySize(numDocs * getBytesPerVector(vectorInfo))
+            .parameters(getParameters(fieldInfo, knnEngine))
+            .indexPath(indexPath)
+            .build();
         return indexInfo;
     }
 

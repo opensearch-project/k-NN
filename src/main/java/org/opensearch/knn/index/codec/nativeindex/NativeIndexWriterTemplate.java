@@ -90,10 +90,10 @@ public class NativeIndexWriterTemplate extends NativeIndexWriter {
             dimension = firstDoc.length / 4;
         }
         NativeVectorInfo vectorInfo = NativeVectorInfo.builder()
-        .vectorDataType(vectorDataType)
-        .dimension(dimension)
-        .serializationMode(vectorTransfer.getSerializationMode(firstDoc))
-        .build();
+            .vectorDataType(vectorDataType)
+            .dimension(dimension)
+            .serializationMode(vectorTransfer.getSerializationMode(firstDoc))
+            .build();
         return vectorInfo;
     }
 }
