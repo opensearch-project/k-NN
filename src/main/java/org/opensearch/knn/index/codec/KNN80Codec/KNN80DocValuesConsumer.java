@@ -22,10 +22,10 @@ import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
-import org.opensearch.knn.index.codec.native_index.NativeIndexBuilder;
-import org.opensearch.knn.index.codec.native_index.NativeIndexBuilderScratch;
-import org.opensearch.knn.index.codec.native_index.NativeIndexBuilderScratchIter;
-import org.opensearch.knn.index.codec.native_index.NativeIndexBuilderTemplate;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexBuilder;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriterScratch;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriterScratchIter;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriterTemplate;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
@@ -125,11 +125,11 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         boolean fromScratch = !fieldInfo.attributes().containsKey(MODEL_ID);
         boolean iterative = fromScratch && KNNEngine.FAISS == knnEngine;
         if (fromScratch && iterative) {
-            return new NativeIndexBuilderScratchIter();
+            return new NativeIndexWriterScratchIter();
         } else if (fromScratch) {
-            return new NativeIndexBuilderScratch();
+            return new NativeIndexWriterScratch();
         } else {
-            return new NativeIndexBuilderTemplate();
+            return new NativeIndexWriterTemplate();
         }
     }
 

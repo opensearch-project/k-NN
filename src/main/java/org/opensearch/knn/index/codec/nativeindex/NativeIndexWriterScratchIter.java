@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.native_index;
+package org.opensearch.knn.index.codec.nativeindex;
 
 import java.io.IOException;
 import java.security.AccessController;
@@ -17,7 +17,7 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 
-public class NativeIndexBuilderScratchIter extends NativeIndexBuilderScratch {
+public class NativeIndexWriterScratchIter extends NativeIndexWriterScratch {
 
     @Override
     protected void createIndex(NativeIndexInfo indexInfo, BinaryDocValues values) throws IOException {

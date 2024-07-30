@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.codec.native_index;
+package org.opensearch.knn.index.codec.nativeindex;
 
 import java.io.IOException;
 import java.util.Map;
@@ -30,9 +30,9 @@ import lombok.NonNull;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 
 /**
- * Abstract class to build the KNN index
+ * Abstract class to build the KNN index and write to disk
  */
-public abstract class NativeIndexBuilder {
+public abstract class NativeIndexWriter {
 
     /**
      * Class that holds info about vectors
