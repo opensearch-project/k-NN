@@ -4,10 +4,30 @@ on:
     branches:
       - "*"
       - "feature/**"
+    paths:
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'src/**'
+      - 'build-tools/**'
+      - 'buildSrc/**'
+      - 'gradle/**'
+      - 'jni/**'
+      - 'qa/**'
+      - '.github/workflows/backwards_compatibility_tests_workflow.yml'
   pull_request:
     branches:
       - "*"
       - "feature/**"
+    paths:
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'src/**'
+      - 'build-tools/**'
+      - 'buildSrc/**'
+      - 'gradle/**'
+      - 'jni/**'
+      - 'qa/**'
+      - '.github/workflows/backwards_compatibility_tests_workflow.yml'
 
 jobs:
   Restart-Upgrade-BWCTests-k-NN:

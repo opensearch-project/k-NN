@@ -6,10 +6,30 @@ on:
     branches:
       - "*"
       - "feature/**"
+    paths:
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'src/**'
+      - 'build-tools/**'
+      - 'buildSrc/**'
+      - 'gradle/**'
+      - 'jni/**'
+      - 'micro-benchmarks/**'
+      - '.github/workflows/CI.yml'
   pull_request:
     branches:
       - "*"
       - "feature/**"
+    paths:
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'src/**'
+      - 'build-tools/**'
+      - 'buildSrc/**'
+      - 'gradle/**'
+      - 'jni/**'
+      - 'micro-benchmarks/**'
+      - '.github/workflows/CI.yml'
 env:
   ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 

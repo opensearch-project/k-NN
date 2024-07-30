@@ -452,7 +452,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
 
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
         assertEquals(400, ex.getResponse().getStatusLine().getStatusCode());
-        assertTrue(ex.getMessage().contains("[knn] field 'vector' requires to be an array of numbers"));
+        assertTrue(ex.getMessage(), ex.getMessage().contains("[knn] failed to parse field [vector]"));
     }
 
     @SneakyThrows
@@ -474,7 +474,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
 
         ResponseException ex = expectThrows(ResponseException.class, () -> client().performRequest(request));
         assertEquals(400, ex.getResponse().getStatusLine().getStatusCode());
-        assertTrue(ex.getMessage().contains("[knn] field 'vector' requires to be non-null and non-empty"));
+        assertTrue(ex.getMessage().contains("[knn] requires query vector"));
     }
 
     @SneakyThrows

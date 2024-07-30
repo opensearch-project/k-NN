@@ -19,10 +19,10 @@ import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 
+import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.index.codec.KNNCodecService;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
-import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelGraveyard;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
@@ -109,8 +109,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static java.util.Collections.singletonList;
 import static org.opensearch.knn.common.KNNConstants.KNN_THREAD_POOL_PREFIX;
@@ -173,7 +171,7 @@ public class KNNPlugin extends Plugin
 
     @Override
     public List<QuerySpec<?>> getQueries() {
-        return singletonList(new QuerySpec<>(KNNQueryBuilder.NAME, KNNQueryBuilder::new, KNNQueryBuilder::fromXContent));
+        return singletonList(new QuerySpec<>(KNNQueryBuilder.NAME, KNNQueryBuilder::new, KNNQueryBuilderParser::fromXContent));
     }
 
     @Override
@@ -352,26 +350,5 @@ public class KNNPlugin extends Plugin
     @Override
     public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
         return ImmutableList.of(new SystemIndexDescriptor(MODEL_INDEX_NAME, "Index for storing models used for k-NN indices"));
-    }
-
-    /**
-     * Plugin can provide additional node settings, that includes new settings or overrides for existing one from core.
-     *
-     * @return settings that are set by plugin
-     */
-    @Override
-    public Settings additionalSettings() {
-        // We add engine specific extensions to the core list for HybridFS store type. We read existing values
-        // and append ours because in core setting will be replaced by override.
-        // Values are set as cluster defaults and are used at index creation time. Index specific overrides will take priority over values
-        // that are set here.
-        final List<String> engineSettings = Arrays.stream(KNNEngine.values())
-            .flatMap(engine -> engine.mmapFileExtensions().stream())
-            .collect(Collectors.toList());
-        final List<String> combinedSettings = Stream.concat(
-            IndexModule.INDEX_STORE_HYBRID_MMAP_EXTENSIONS.getDefault(Settings.EMPTY).stream(),
-            engineSettings.stream()
-        ).collect(Collectors.toList());
-        return Settings.builder().putList(IndexModule.INDEX_STORE_HYBRID_MMAP_EXTENSIONS.getKey(), combinedSettings).build();
     }
 }
