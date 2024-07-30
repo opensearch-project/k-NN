@@ -16,6 +16,7 @@ import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.search.NativeEngineKnnFloatVectorQuery;
 
 import java.util.Locale;
 import java.util.Map;
@@ -100,27 +101,31 @@ public class KNNQueryFactory extends BaseQueryFactory {
 
             switch (vectorDataType) {
                 case BINARY:
-                    return KNNQuery.builder()
-                        .field(fieldName)
-                        .byteQueryVector(byteVector)
-                        .indexName(indexName)
-                        .parentsFilter(parentFilter)
-                        .k(k)
-                        .methodParameters(methodParameters)
-                        .filterQuery(validatedFilterQuery)
-                        .vectorDataType(vectorDataType)
-                        .build();
+                    return new NativeEngineKnnFloatVectorQuery(
+                        KNNQuery.builder()
+                            .field(fieldName)
+                            .byteQueryVector(byteVector)
+                            .indexName(indexName)
+                            .parentsFilter(parentFilter)
+                            .k(k)
+                            .methodParameters(methodParameters)
+                            .filterQuery(validatedFilterQuery)
+                            .vectorDataType(vectorDataType)
+                            .build()
+                    );
                 default:
-                    return KNNQuery.builder()
-                        .field(fieldName)
-                        .queryVector(vector)
-                        .indexName(indexName)
-                        .parentsFilter(parentFilter)
-                        .k(k)
-                        .methodParameters(methodParameters)
-                        .filterQuery(validatedFilterQuery)
-                        .vectorDataType(vectorDataType)
-                        .build();
+                    return new NativeEngineKnnFloatVectorQuery(
+                        KNNQuery.builder()
+                            .field(fieldName)
+                            .queryVector(vector)
+                            .indexName(indexName)
+                            .parentsFilter(parentFilter)
+                            .k(k)
+                            .methodParameters(methodParameters)
+                            .filterQuery(validatedFilterQuery)
+                            .vectorDataType(vectorDataType)
+                            .build()
+                    );
             }
         }
 

@@ -201,7 +201,7 @@ public class KNNWeight extends Weight {
         return intArray;
     }
 
-    private Map<Integer, Float> doANNSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality)
+    public Map<Integer, Float> doANNSearch(final LeafReaderContext context, final BitSet filterIdsBitSet, final int cardinality)
         throws IOException {
         final SegmentReader reader = Lucene.segmentReader(context.reader());
         String directory = ((FSDirectory) FilterDirectory.unwrap(reader.directory())).getDirectory().toString();
@@ -356,7 +356,7 @@ public class KNNWeight extends Weight {
         return engineFiles;
     }
 
-    private Map<Integer, Float> doExactSearch(final LeafReaderContext leafReaderContext, final BitSet filterIdsBitSet, int cardinality) {
+    public Map<Integer, Float> doExactSearch(final LeafReaderContext leafReaderContext, final BitSet filterIdsBitSet, int cardinality) {
         try {
             // Creating min heap and init with MAX DocID and Score as -INF.
             final HitQueue queue = new HitQueue(Math.min(this.knnQuery.getK(), cardinality), true);
