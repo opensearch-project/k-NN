@@ -1,7 +1,6 @@
 /*
  * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
  */
 
 package org.opensearch.knn.index.query.parser;
@@ -33,7 +32,7 @@ import static org.opensearch.knn.index.KNNClusterTestUtils.mockClusterService;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.NAME;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.EF_SEARCH_FIELD;
 
-public class KNNQueryParserTests extends KNNTestCase {
+public class KNNQueryBuilderParserTests extends KNNTestCase {
 
     private static final String FIELD_NAME = "myvector";
     private static final int K = 1;
