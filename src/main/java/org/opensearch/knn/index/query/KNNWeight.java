@@ -293,7 +293,6 @@ public class KNNWeight extends Weight {
             int[] parentIds = getParentIdsArray(context);
             byte[] quantizedVector = quantizer.quantize(knnQuery.getQueryVector()).getQuantizedVector();
             if (knnQuery.getK() > 0) {
-<<<<<<< HEAD
                 if (knnQuery.getVectorDataType() == VectorDataType.BINARY) {
                     results = JNIService.queryBinaryIndex(
                         indexAllocation.getMemoryAddress(),
@@ -317,17 +316,6 @@ public class KNNWeight extends Weight {
                         parentIds
                     );
                 }
-=======
-                results = JNIService.queryBinaryIndex(
-                    indexAllocation.getMemoryAddress(),
-                        quantizedVector,
-                    knnQuery.getK(),
-                    knnEngine,
-                    filterIds,
-                    filterType.getValue(),
-                    parentIds
-                );
->>>>>>> 2e1c7a5e (QuantizationFramework Changes (#1800))
             } else {
                 results = JNIService.radiusQueryIndex(
                     indexAllocation.getMemoryAddress(),
