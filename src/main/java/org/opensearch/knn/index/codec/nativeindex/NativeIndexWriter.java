@@ -141,14 +141,14 @@ public abstract class NativeIndexWriter {
         .knnEngine(getKNNEngine(fieldInfo))
         .numDocs((int) KNNCodecUtil.getTotalLiveDocsCount(testValues))
         .vectorInfo(getVectorInfo(fieldInfo, testValues))
-        .arraySize(numDocs * getVectorSize(vectorInfo))
+        .arraySize(numDocs * getBytesPerVector(vectorInfo))
         .parameters(getParameters(fieldInfo, knnEngine))
         .indexPath(indexPath)
         .build();
         return indexInfo;
     }
 
-    private long getVectorSize(NativeVectorInfo vectorInfo) {
+    private long getBytesPerVector(NativeVectorInfo vectorInfo) {
         if (vectorInfo.vectorDataType == VectorDataType.BINARY) {
             return vectorInfo.dimension / 8;
         } else {
