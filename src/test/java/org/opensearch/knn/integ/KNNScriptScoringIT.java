@@ -3,10 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.plugin.script;
+package org.opensearch.knn.integ;
 
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+
+import lombok.SneakyThrows;
 import org.opensearch.ExceptionsHelper;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
@@ -29,6 +32,9 @@ import org.opensearch.core.rest.RestStatus;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
+import org.opensearch.knn.plugin.script.KNNScoringSpace;
+import org.opensearch.knn.plugin.script.KNNScoringSpaceFactory;
 import org.opensearch.script.Script;
 
 import java.util.ArrayList;
@@ -72,6 +78,58 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
 
     public void testKNNCosineScriptScore() throws Exception {
         testKNNScriptScore(SpaceType.COSINESIMIL);
+    }
+
+    @SneakyThrows
+    public void testKNNHammingScriptScore() {
+        testKNNScriptScoreOnBinaryIndex(SpaceType.HAMMING);
+    }
+
+    @SneakyThrows
+    public void testKNNHammingScriptScore_whenNonBinary_thenException() {
+        final int dims = randomIntBetween(2, 10) * 8;
+        final float[] queryVector = randomVector(dims, VectorDataType.BYTE);
+        final BiFunction<float[], float[], Float> scoreFunction = getScoreFunction(SpaceType.HAMMING, queryVector);
+        List<VectorDataType> nonBinary = List.of(VectorDataType.FLOAT, VectorDataType.BYTE);
+        for (VectorDataType vectorDataType : nonBinary) {
+            Exception e = expectThrows(
+                Exception.class,
+                () -> createIndexAndAssertScriptScore(
+                    createKnnIndexMapping(FIELD_NAME, dims, vectorDataType),
+                    SpaceType.HAMMING,
+                    scoreFunction,
+                    dims,
+                    queryVector,
+                    true,
+                    false,
+                    vectorDataType
+                )
+            );
+            assertTrue(e.getMessage(), e.getMessage().contains("data type should be [BINARY]"));
+        }
+    }
+
+    public void testKNNNonHammingScriptScore_whenBinary_thenException() {
+        final int dims = randomIntBetween(2, 10) * 8;
+        final float[] queryVector = randomVector(dims, VectorDataType.BINARY);
+        final BiFunction<float[], float[], Float> scoreFunction = getScoreFunction(SpaceType.HAMMING, queryVector);
+        Set<SpaceType> spaceTypeToExclude = Set.of(SpaceType.UNDEFINED, SpaceType.HAMMING);
+        Arrays.stream(SpaceType.values()).filter(s -> spaceTypeToExclude.contains(s) == false).forEach(s -> {
+            Exception e = expectThrows(
+                Exception.class,
+                () -> createIndexAndAssertScriptScore(
+                    createKnnIndexMapping(FIELD_NAME, dims, VectorDataType.BINARY),
+                    s,
+                    scoreFunction,
+                    dims,
+                    queryVector,
+                    true,
+                    false,
+                    VectorDataType.BINARY
+                )
+            );
+            assertTrue(e.getMessage(), e.getMessage().contains("Incompatible field_type"));
+        });
     }
 
     public void testKNNInvalidSourceScript() throws Exception {
@@ -619,10 +677,38 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         );
     }
 
-    private float[] randomVector(int dimensions) {
-        final float[] vector = new float[dimensions];
-        for (int i = 0; i < dimensions; i++) {
-            vector[i] = randomFloat();
+    private List<String> createBinaryIndexMappers(int dimensions) throws Exception {
+        return List.of(
+            createKnnIndexMapping(
+                FIELD_NAME,
+                dimensions,
+                KNNConstants.METHOD_HNSW,
+                KNNEngine.FAISS.getName(),
+                SpaceType.DEFAULT_BINARY.getValue(),
+                true,
+                VectorDataType.BINARY
+            ),
+            createKnnIndexMapping(
+                FIELD_NAME,
+                dimensions,
+                KNNConstants.METHOD_HNSW,
+                KNNEngine.FAISS.getName(),
+                SpaceType.DEFAULT_BINARY.getValue(),
+                false,
+                VectorDataType.BINARY
+            )
+        );
+    }
+
+    private float[] randomVector(final int dimensions) {
+        return randomVector(dimensions, VectorDataType.FLOAT);
+    }
+
+    private float[] randomVector(final int dimensions, final VectorDataType vectorDataType) {
+        int size = VectorDataType.BINARY == vectorDataType ? dimensions / 8 : dimensions;
+        final float[] vector = new float[size];
+        for (int i = 0; i < size; i++) {
+            vector[i] = VectorDataType.FLOAT == vectorDataType ? randomFloat() : randomByte();
         }
         return vector;
     }
@@ -631,7 +717,8 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         Function<float[], Float> scoreFunction,
         int dimensions,
         int numDocsWithField,
-        boolean dense
+        boolean dense,
+        VectorDataType vectorDataType
     ) {
         final Map<String, KNNResult> dataset = new HashMap<>(dense ? numDocsWithField : numDocsWithField * 3);
         int id = 0;
@@ -640,7 +727,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
             for (int j = 0; j < dummyDocs; j++) {
                 dataset.put(Integer.toString(id++), null);
             }
-            final float[] vector = randomVector(dimensions);
+            final float[] vector = randomVector(dimensions, vectorDataType);
             final float score = scoreFunction.apply(vector);
             dataset.put(Integer.toString(id), new KNNResult(Integer.toString(id++), vector, score));
         }
@@ -651,8 +738,8 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
             FIELD_NAME,
             Collections.emptyMap(),
-            queryVector.length,
-            VectorDataType.FLOAT,
+            SpaceType.HAMMING == spaceType ? queryVector.length * 8 : queryVector.length,
+            SpaceType.HAMMING == spaceType ? VectorDataType.BINARY : VectorDataType.FLOAT,
             null
         );
         List<Float> target = new ArrayList<>(queryVector.length);
@@ -662,15 +749,12 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         KNNScoringSpace knnScoringSpace = KNNScoringSpaceFactory.create(spaceType.getValue(), target, knnVectorFieldType);
         switch (spaceType) {
             case L1:
-                return ((KNNScoringSpace.L1) knnScoringSpace).scoringMethod;
             case L2:
-                return ((KNNScoringSpace.L2) knnScoringSpace).scoringMethod;
             case LINF:
-                return ((KNNScoringSpace.LInf) knnScoringSpace).scoringMethod;
             case COSINESIMIL:
-                return ((KNNScoringSpace.CosineSimilarity) knnScoringSpace).scoringMethod;
             case INNER_PRODUCT:
-                return ((KNNScoringSpace.InnerProd) knnScoringSpace).scoringMethod;
+            case HAMMING:
+                return ((KNNScoringSpace.KNNFieldSpace) knnScoringSpace).getScoringMethod();
             default:
                 throw new IllegalArgumentException();
         }
@@ -686,6 +770,40 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         }
     }
 
+    private void testKNNScriptScoreOnBinaryIndex(SpaceType spaceType) throws Exception {
+        final int dims = randomIntBetween(2, 10) * 8;
+        final float[] queryVector = randomVector(dims, VectorDataType.BINARY);
+        final BiFunction<float[], float[], Float> scoreFunction = getScoreFunction(spaceType, queryVector);
+
+        // Test when knn is enabled and engine is Faiss
+        for (String mapper : createBinaryIndexMappers(dims)) {
+            createIndexAndAssertScriptScore(mapper, spaceType, scoreFunction, dims, queryVector, true, true, VectorDataType.BINARY);
+            createIndexAndAssertScriptScore(mapper, spaceType, scoreFunction, dims, queryVector, false, true, VectorDataType.BINARY);
+        }
+
+        // Test when knn is disabled and engine is default(Nmslib)
+        createIndexAndAssertScriptScore(
+            createKnnIndexMapping(FIELD_NAME, dims, VectorDataType.BINARY),
+            spaceType,
+            scoreFunction,
+            dims,
+            queryVector,
+            true,
+            false,
+            VectorDataType.BINARY
+        );
+        createIndexAndAssertScriptScore(
+            createKnnIndexMapping(FIELD_NAME, dims, VectorDataType.BINARY),
+            spaceType,
+            scoreFunction,
+            dims,
+            queryVector,
+            false,
+            false,
+            VectorDataType.BINARY
+        );
+    }
+
     private void createIndexAndAssertScriptScore(
         String mapper,
         SpaceType spaceType,
@@ -694,38 +812,61 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
         float[] queryVector,
         boolean dense
     ) throws Exception {
+        createIndexAndAssertScriptScore(mapper, spaceType, scoreFunction, dimensions, queryVector, dense, true, VectorDataType.FLOAT);
+    }
+
+    private void createIndexAndAssertScriptScore(
+        String mapper,
+        SpaceType spaceType,
+        BiFunction<float[], float[], Float> scoreFunction,
+        int dimensions,
+        float[] queryVector,
+        boolean dense,
+        boolean enableKnn,
+        VectorDataType vectorDataType
+    ) throws Exception {
         /*
          * Create knn index and populate data
          */
-        createKnnIndex(INDEX_NAME, mapper);
-        final int numDocsWithField = randomIntBetween(4, 10);
-        Map<String, KNNResult> dataset = createDataset(v -> scoreFunction.apply(queryVector, v), dimensions, numDocsWithField, dense);
-        final float[] dummyVector = new float[1];
-        dataset.forEach((k, v) -> {
-            final float[] vector = (v != null) ? v.getVector() : dummyVector;
-            ExceptionsHelper.catchAsRuntimeException(() -> addKnnDoc(INDEX_NAME, k, (v != null) ? FIELD_NAME : "dummy", vector));
-        });
+        Settings settings = Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", enableKnn).build();
+        createKnnIndex(INDEX_NAME, settings, mapper);
+        try {
+            final int numDocsWithField = randomIntBetween(4, 10);
+            Map<String, KNNResult> dataset = createDataset(
+                v -> scoreFunction.apply(queryVector, v),
+                dimensions,
+                numDocsWithField,
+                dense,
+                vectorDataType
+            );
+            final float[] dummyVector = new float[1];
+            dataset.forEach((k, v) -> {
+                final float[] vector = (v != null) ? v.getVector() : dummyVector;
+                ExceptionsHelper.catchAsRuntimeException(() -> addKnnDoc(INDEX_NAME, k, (v != null) ? FIELD_NAME : "dummy", vector));
+            });
 
-        /**
-         * Construct Search Request
-         */
-        QueryBuilder qb = new MatchAllQueryBuilder();
-        Map<String, Object> params = new HashMap<>();
-        /*
-         *   params": {
-         *       "field": FIELD_NAME,
-         *       "vector": queryVector
-         *      }
-         */
-        params.put("field", FIELD_NAME);
-        params.put("query_value", queryVector);
-        params.put("space_type", spaceType.getValue());
-        Request request = constructKNNScriptQueryRequest(INDEX_NAME, qb, params, numDocsWithField);
-        Response response = client().performRequest(request);
-        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+            /**
+             * Construct Search Request
+             */
+            QueryBuilder qb = new MatchAllQueryBuilder();
+            Map<String, Object> params = new HashMap<>();
+            /*
+             *   params": {
+             *       "field": FIELD_NAME,
+             *       "vector": queryVector
+             *      }
+             */
+            params.put("field", FIELD_NAME);
+            params.put("query_value", queryVector);
+            params.put("space_type", spaceType.getValue());
+            Request request = constructKNNScriptQueryRequest(INDEX_NAME, qb, params, numDocsWithField);
+            Response response = client().performRequest(request);
+            assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
 
-        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
-        assertTrue(results.stream().allMatch(r -> dataset.get(r.getDocId()).equals(r)));
-        deleteKNNIndex(INDEX_NAME);
+            List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+            assertTrue(results.stream().allMatch(r -> dataset.get(r.getDocId()).equals(r)));
+        } finally {
+            deleteKNNIndex(INDEX_NAME);
+        }
     }
 }
