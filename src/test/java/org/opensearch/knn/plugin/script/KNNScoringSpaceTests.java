@@ -65,7 +65,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
             knnMethodContext
         );
         KNNScoringSpace.L2 l2 = new KNNScoringSpace.L2(arrayListQueryObject, fieldType);
-        assertEquals(1F, l2.scoringMethod.apply(arrayFloat, arrayFloat), 0.1F);
+        assertEquals(1F, l2.getScoringMethod().apply(arrayFloat, arrayFloat), 0.1F);
     }
 
     @SneakyThrows
@@ -87,7 +87,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
             knnMethodContext
         );
         KNNScoringSpace.CosineSimilarity cosineSimilarity = new KNNScoringSpace.CosineSimilarity(arrayListQueryObject, fieldType);
-        assertEquals(2F, cosineSimilarity.scoringMethod.apply(arrayFloat2, arrayFloat), 0.1F);
+        assertEquals(2F, cosineSimilarity.getScoringMethod().apply(arrayFloat2, arrayFloat), 0.1F);
 
         // invalid zero vector
         final List<Float> queryZeroVector = List.of(0.0f, 0.0f, 0.0f);
@@ -141,7 +141,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         );
         KNNScoringSpace.InnerProd innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case1, fieldType);
 
-        assertEquals(7.0F, innerProd.scoringMethod.apply(arrayFloat_case1, arrayFloat2_case1), 0.001F);
+        assertEquals(7.0F, innerProd.getScoringMethod().apply(arrayFloat_case1, arrayFloat2_case1), 0.001F);
 
         float[] arrayFloat_case2 = new float[] { 100_000.0f, 200_000.0f, 300_000.0f };
         List<Double> arrayListQueryObject_case2 = new ArrayList<>(Arrays.asList(100_000.0, 200_000.0, 300_000.0));
@@ -149,7 +149,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
 
         innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case2, fieldType);
 
-        assertEquals(7.142857143E-12F, innerProd.scoringMethod.apply(arrayFloat_case2, arrayFloat2_case2), 1.0E-11F);
+        assertEquals(7.142857143E-12F, innerProd.getScoringMethod().apply(arrayFloat_case2, arrayFloat2_case2), 1.0E-11F);
 
         float[] arrayFloat_case3 = new float[] { 100_000.0f, 200_000.0f, 300_000.0f };
         List<Double> arrayListQueryObject_case3 = new ArrayList<>(Arrays.asList(100_000.0, 200_000.0, 300_000.0));
@@ -157,7 +157,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
 
         innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case3, fieldType);
 
-        assertEquals(140_000_000_001F, innerProd.scoringMethod.apply(arrayFloat_case3, arrayFloat2_case3), 0.01F);
+        assertEquals(140_000_000_001F, innerProd.getScoringMethod().apply(arrayFloat_case3, arrayFloat2_case3), 0.01F);
     }
 
     @SneakyThrows
@@ -214,7 +214,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         KNNScoringSpace.Hamming hamming = new KNNScoringSpace.Hamming(arrayListQueryObject, fieldType);
 
         float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
-        assertEquals(1F, hamming.scoringMethod.apply(arrayFloat, arrayFloat), 0.1F);
+        assertEquals(1F, hamming.getScoringMethod().apply(arrayFloat, arrayFloat), 0.1F);
     }
 
     public void testHamming_whenNonBinaryVectorDataType_thenException() {

@@ -393,6 +393,17 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
         }
 
+        if (this.maxDistance != null || this.minScore != null) {
+            if (!ENGINES_SUPPORTING_RADIAL_SEARCH.contains(knnEngine)) {
+                throw new UnsupportedOperationException(
+                    String.format(Locale.ROOT, "Engine [%s] does not support radial search", knnEngine)
+                );
+            }
+            if (vectorDataType == VectorDataType.BINARY) {
+                throw new UnsupportedOperationException(String.format(Locale.ROOT, "Binary data type does not support radial search"));
+            }
+        }
+
         // Currently, k-NN supports distance and score types radial search
         // We need transform distance/score to right type of engine required radius.
         Float radius = null;
@@ -464,14 +475,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             return KNNQueryFactory.create(createQueryRequest);
         }
         if (radius != null) {
-            if (!ENGINES_SUPPORTING_RADIAL_SEARCH.contains(knnEngine)) {
-                throw new UnsupportedOperationException(
-                    String.format(Locale.ROOT, "Engine [%s] does not support radial search", knnEngine)
-                );
-            }
-            if (vectorDataType == VectorDataType.BINARY) {
-                throw new UnsupportedOperationException(String.format(Locale.ROOT, "Binary data type does not support radial search"));
-            }
             RNNQueryFactory.CreateQueryRequest createQueryRequest = RNNQueryFactory.CreateQueryRequest.builder()
                 .knnEngine(knnEngine)
                 .indexName(indexName)

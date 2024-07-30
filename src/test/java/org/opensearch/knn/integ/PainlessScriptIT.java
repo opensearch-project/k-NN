@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.plugin.script;
+package org.opensearch.knn.integ;
 
+import lombok.SneakyThrows;
+import org.opensearch.common.settings.Settings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
@@ -12,6 +14,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNMethodContext;
 import org.opensearch.knn.index.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
@@ -27,9 +30,11 @@ import org.opensearch.script.Script;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -582,6 +587,89 @@ public class PainlessScriptIT extends KNNRestTestCase {
             assertEquals(expectedDocIDs[i], results.get(i).getDocId());
         }
         deleteKNNIndex(INDEX_NAME);
+    }
+
+    @SneakyThrows
+    public void testHammingPainlessScript_whenBinary_thenSuccess() {
+        int dimensions = 16;
+        String mappingForKnnDisabled = createKnnIndexMapping(FIELD_NAME, dimensions, VectorDataType.BINARY);
+
+        // 0b00000001, 0b00000001
+        String source = String.format("1/(1 + hamming([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
+
+        Map<String, Float[]> data = new HashMap<>();
+        data.put("1", new Float[] { (float) 0b00000001, (float) 0b00000001 });// Hamming distance 0
+        data.put("2", new Float[] { (float) 0b01101111, (float) 0b00000010 });// Hamming distance 6
+        data.put("3", new Float[] { (float) 0b01100010, (float) 0b00000011 });// Hamming distance 5
+        data.put("4", new Float[] { (float) 0b00000001, (float) 0b01001100 });// Hamming distance 4
+
+        Response response = buildIndexAndRunPainlessScript(source, 4, data, mappingForKnnDisabled, false);
+        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(response.getEntity()), FIELD_NAME);
+        assertEquals(4, results.size());
+
+        String[] expectedDocIDs = { "1", "4", "3", "2" };
+        for (int i = 0; i < results.size(); i++) {
+            assertEquals(expectedDocIDs[i], results.get(i).getDocId());
+        }
+    }
+
+    @SneakyThrows
+    public void testPainlessScript_whenNonBinary_thenException() {
+        int dimensions = 2;
+        String mapping = createKnnIndexMapping(FIELD_NAME, dimensions);
+        String source = String.format("1/(1 + hamming([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
+        Exception e = expectThrows(
+            ResponseException.class,
+            () -> buildIndexAndRunPainlessScript(source, 3, getKnnVectorTestData(), mapping, false)
+        );
+        assertTrue(e.getMessage(), e.getMessage().contains("The data type should be binary"));
+    }
+
+    @SneakyThrows
+    public void testNonPainlessScript_whenBinary_thenException() {
+        List<String> functions = Arrays.asList("l2Squared", "lInfNorm", "l1Norm", "innerProduct", "cosineSimilarity");
+        int dimensions = 16;
+        String mapping = createKnnIndexMapping(FIELD_NAME, dimensions, VectorDataType.BINARY);
+        for (String function : functions) {
+            String source = String.format(Locale.ROOT, "%s([1.0f, 1.0f], doc['%s'])", function, FIELD_NAME);
+            Exception e = expectThrows(
+                ResponseException.class,
+                () -> buildIndexAndRunPainlessScript(source, 3, getKnnVectorTestData(), mapping, false)
+            );
+            assertTrue(e.getMessage(), e.getMessage().contains("The data type should be either float or byte"));
+        }
+    }
+
+    private Response buildIndexAndRunPainlessScript(
+        final String source,
+        final int size,
+        Map<String, Float[]> documents,
+        final String mapper,
+        final boolean enableKnn
+    ) throws Exception {
+        /*
+         * Create knn index and populate data
+         */
+        Settings settings = Settings.builder().put("number_of_shards", 1).put("number_of_replicas", 0).put("index.knn", enableKnn).build();
+        createKnnIndex(INDEX_NAME, settings, mapper);
+        try {
+            for (Map.Entry<String, Float[]> data : documents.entrySet()) {
+                addKnnDoc(INDEX_NAME, data.getKey(), FIELD_NAME, data.getValue());
+            }
+            QueryBuilder qb = new MatchAllQueryBuilder();
+            Request request = constructScriptScoreContextSearchRequest(
+                INDEX_NAME,
+                qb,
+                Collections.emptyMap(),
+                Script.DEFAULT_SCRIPT_LANG,
+                source,
+                size,
+                Collections.emptyMap()
+            );
+            return client().performRequest(request);
+        } finally {
+            deleteKNNIndex(INDEX_NAME);
+        }
     }
 
     static class MappingProperty {
