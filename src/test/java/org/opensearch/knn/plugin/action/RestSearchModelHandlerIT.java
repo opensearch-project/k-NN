@@ -36,7 +36,7 @@ import static org.opensearch.knn.common.KNNConstants.PARAM_SIZE;
 import static org.opensearch.knn.common.KNNConstants.SEARCH_MODEL_MAX_SIZE;
 import static org.opensearch.knn.common.KNNConstants.SEARCH_MODEL_MIN_SIZE;
 import static org.opensearch.knn.index.SpaceType.L2;
-import static org.opensearch.knn.index.util.KNNEngine.FAISS;
+import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
 
 /**
  * Integration tests to check the correctness of {@link org.opensearch.knn.plugin.rest.RestSearchModelHandler}

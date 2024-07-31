@@ -21,7 +21,7 @@ import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.training.FloatTrainingDataConsumer;
 import org.opensearch.knn.training.VectorReader;
 import org.opensearch.watcher.ResourceWatcherService;

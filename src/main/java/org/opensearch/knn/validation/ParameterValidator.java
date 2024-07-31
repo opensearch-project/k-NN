@@ -13,7 +13,7 @@ package org.opensearch.knn.validation;
 
 import org.opensearch.common.Nullable;
 import org.opensearch.common.ValidationException;
-import org.opensearch.knn.index.Parameter;
+import org.opensearch.knn.index.engine.Parameter;
 
 import java.util.ArrayList;
 import java.util.List;

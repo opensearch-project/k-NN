@@ -12,7 +12,7 @@
 package org.opensearch.knn.index.memory;
 
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 public class SharedIndexStateTests extends KNNTestCase {
 

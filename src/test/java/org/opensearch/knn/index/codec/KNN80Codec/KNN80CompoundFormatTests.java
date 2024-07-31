@@ -18,7 +18,7 @@ import org.opensearch.common.util.set.Sets;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.codec.KNN87Codec.KNN87Codec;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
 import java.util.Arrays;

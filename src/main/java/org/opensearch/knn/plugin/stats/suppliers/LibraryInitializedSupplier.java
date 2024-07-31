@@ -11,7 +11,7 @@
 
 package org.opensearch.knn.plugin.stats.suppliers;
 
-import org.opensearch.knn.index.util.KNNLibrary;
+import org.opensearch.knn.index.engine.KNNLibrary;
 
 import java.util.function.Supplier;
 

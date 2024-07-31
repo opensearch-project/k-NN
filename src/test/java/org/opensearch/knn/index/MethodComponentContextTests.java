@@ -18,6 +18,7 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.mapper.MapperParsingException;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.io.IOException;
 import java.util.Collections;

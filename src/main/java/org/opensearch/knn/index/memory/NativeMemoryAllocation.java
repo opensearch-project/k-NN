@@ -13,12 +13,12 @@ package org.opensearch.knn.index.memory;
 
 import lombok.Getter;
 import org.apache.lucene.index.LeafReaderContext;
-import org.opensearch.knn.index.IndexUtil;
+import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.watcher.FileWatcher;
 import org.opensearch.watcher.WatcherHandle;
 

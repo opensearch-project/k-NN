@@ -12,7 +12,7 @@ import java.util.Locale;
 import lombok.SneakyThrows;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
