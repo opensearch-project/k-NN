@@ -13,7 +13,7 @@ package org.opensearch.knn.jni;
 
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryResult;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.security.AccessController;
 import java.security.PrivilegedAction;

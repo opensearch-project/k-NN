@@ -23,7 +23,7 @@ import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.ExistsQueryBuilder;
-import org.opensearch.knn.index.IndexUtil;
+import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.sort.SortOrder;
 

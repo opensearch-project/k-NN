@@ -20,7 +20,7 @@ import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 /**
  * Class to create radius nearest neighbor queries
