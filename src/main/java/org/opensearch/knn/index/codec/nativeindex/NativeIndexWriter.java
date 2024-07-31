@@ -133,8 +133,7 @@ public abstract class NativeIndexWriter {
      */
     protected abstract NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, DocValuesProducer valuesProducer) throws IOException;
 
-    protected VectorTransfer getVectorTransfer(NativeIndexInfo indexInfo) {
-        VectorDataType vectorDataType = indexInfo.getVectorInfo().getVectorDataType();
+    protected VectorTransfer getVectorTransfer(VectorDataType vectorDataType) {
         if (VectorDataType.BINARY == vectorDataType) {
             return new VectorTransferByte(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
         }

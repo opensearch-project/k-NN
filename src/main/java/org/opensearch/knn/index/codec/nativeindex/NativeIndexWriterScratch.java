@@ -112,7 +112,7 @@ public class NativeIndexWriterScratch extends NativeIndexWriter {
     }
 
     protected void createIndex(NativeIndexInfo indexInfo, BinaryDocValues values) throws IOException {
-        VectorTransfer vectorTransfer = getVectorTransfer(indexInfo);
+        VectorTransfer vectorTransfer = getVectorTransfer(indexInfo.getVectorInfo().getVectorDataType());
         KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, vectorTransfer, false);
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             JNIService.createIndex(

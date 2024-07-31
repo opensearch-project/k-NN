@@ -46,7 +46,11 @@ public class NativeIndexWriterTemplate extends NativeIndexWriter {
         IndexUtil.updateVectorDataTypeToParameters(indexInfo.getParameters(), model.getModelMetadata().getVectorDataType());
         // This is carried over from the old index creation process. Why can't we get the vector data type
         // by just reading it from the field?
-        KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, getVectorTransfer(indexInfo), false);
+        KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(
+            values,
+            getVectorTransfer(indexInfo.getVectorInfo().getVectorDataType()),
+            false
+        );
 
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
             JNIService.createIndexFromTemplate(

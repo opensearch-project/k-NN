@@ -32,7 +32,11 @@ public class NativeIndexWriterScratchIter extends NativeIndexWriterScratch {
             indexInfo.getParameters()
         );
         while (true) {
-            KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, getVectorTransfer(indexInfo), true);
+            KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(
+                values,
+                getVectorTransfer(indexInfo.getVectorInfo().getVectorDataType()),
+                true
+            );
             insertToIndex(batch, indexInfo.getKnnEngine(), indexAddress, indexInfo.getParameters());
             if (batch.finished) {
                 break;
