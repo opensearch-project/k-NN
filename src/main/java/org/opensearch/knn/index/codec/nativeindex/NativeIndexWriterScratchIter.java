@@ -11,10 +11,8 @@ import java.security.PrivilegedAction;
 import java.util.Map;
 
 import org.apache.lucene.index.BinaryDocValues;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 
 import lombok.extern.log4j.Log4j2;
@@ -33,19 +31,13 @@ public class NativeIndexWriterScratchIter extends NativeIndexWriterScratch {
             indexInfo.getKnnEngine(),
             indexInfo.getParameters()
         );
-        KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(
-            values,
-            getVectorTransfer(indexInfo.getVectorInfo().getVectorDataType()),
-            true
-        );
-        for (; batch.finished == false; batch = KNNCodecUtil.getVectorBatch(
-            values,
-            getVectorTransfer(indexInfo.getVectorInfo().getVectorDataType()),
-            true
-        )) {
+        while (true) {
+            KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(values, getVectorTransfer(indexInfo), true);
             insertToIndex(batch, indexInfo.getKnnEngine(), indexAddress, indexInfo.getParameters());
+            if (batch.finished) {
+                break;
+            }
         }
-        insertToIndex(batch, indexInfo.getKnnEngine(), indexAddress, indexInfo.getParameters());
         writeIndex(indexAddress, indexInfo.getIndexPath(), indexInfo.getKnnEngine(), indexInfo.getParameters());
     }
 

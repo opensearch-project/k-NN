@@ -97,7 +97,7 @@ class FaissService {
 
     /**
      * Writes a faiss index.
-     * 
+     *
      * NOTE: This will always free the index. Do not call free after this.
      *
      * @param indexAddress address of native memory where index is stored
@@ -108,7 +108,7 @@ class FaissService {
 
     /**
      * Writes a faiss index.
-     * 
+     *
      * NOTE: This will always free the index. Do not call free after this.
      *
      * @param indexAddress address of native memory where index is stored

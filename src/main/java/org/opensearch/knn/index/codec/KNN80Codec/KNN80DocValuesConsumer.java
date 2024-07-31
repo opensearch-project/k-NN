@@ -23,9 +23,6 @@ import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
-import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriterScratch;
-import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriterScratchIter;
-import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriterTemplate;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
@@ -115,9 +112,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
         state.directory.createOutput(engineFileName, state.context).close();
 
-        NativeIndexWriter
-            .getWriter(field, knnEngine)
-            .createKNNIndex(field, valuesProducer, indexPath, isMerge, isRefresh);
+        NativeIndexWriter.getWriter(field, knnEngine).createKNNIndex(field, valuesProducer, indexPath, isMerge, isRefresh);
 
         writeFooter(indexPath, engineFileName);
     }

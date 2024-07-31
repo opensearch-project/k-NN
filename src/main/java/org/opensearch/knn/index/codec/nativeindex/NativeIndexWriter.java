@@ -8,8 +8,6 @@ package org.opensearch.knn.index.codec.nativeindex;
 import java.io.IOException;
 import java.util.Map;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
@@ -66,7 +64,7 @@ public abstract class NativeIndexWriter {
 
     /**
      * Gets the correct writer type from the fieldInfo and knnEngine
-     * 
+     *
      * @param fieldInfo
      * @param knnEngine
      * @return
@@ -135,7 +133,8 @@ public abstract class NativeIndexWriter {
      */
     protected abstract NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, DocValuesProducer valuesProducer) throws IOException;
 
-    protected VectorTransfer getVectorTransfer(VectorDataType vectorDataType) {
+    protected VectorTransfer getVectorTransfer(NativeIndexInfo indexInfo) {
+        VectorDataType vectorDataType = indexInfo.getVectorInfo().getVectorDataType();
         if (VectorDataType.BINARY == vectorDataType) {
             return new VectorTransferByte(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
         }
