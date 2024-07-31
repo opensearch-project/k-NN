@@ -6,11 +6,15 @@
 package org.opensearch.knn.index.codec.nativeindex;
 
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.Map;
 
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.SegmentWriteState;
+import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.store.FilterDirectory;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
@@ -29,6 +33,7 @@ import lombok.Value;
 import lombok.extern.log4j.Log4j2;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
 
 /**
  * Abstract class to build the KNN index and write it to disk
@@ -69,7 +74,8 @@ public abstract class NativeIndexWriter {
      * @param knnEngine
      * @return
      */
-    public static NativeIndexWriter getWriter(FieldInfo fieldInfo, KNNEngine knnEngine) {
+    public static NativeIndexWriter getWriter(FieldInfo fieldInfo) {
+        final KNNEngine knnEngine = getKNNEngine(fieldInfo);
         boolean fromScratch = !fieldInfo.attributes().containsKey(MODEL_ID);
         boolean iterative = fromScratch && KNNEngine.FAISS == knnEngine;
         if (fromScratch && iterative) {
@@ -91,10 +97,27 @@ public abstract class NativeIndexWriter {
      * @param isRefresh
      * @throws IOException
      */
-    public void createKNNIndex(FieldInfo fieldInfo, DocValuesProducer valuesProducer, String indexPath, boolean isMerge, boolean isRefresh)
+    public void createKNNIndex(FieldInfo fieldInfo, DocValuesProducer valuesProducer, SegmentWriteState state, boolean isMerge, boolean isRefresh)
         throws IOException {
-        NativeIndexInfo indexInfo = getIndexInfo(fieldInfo, valuesProducer, indexPath);
         BinaryDocValues values = valuesProducer.getBinary(fieldInfo);
+        if (KNNCodecUtil.getTotalLiveDocsCount(values) == 0) {
+            log.debug("No live docs for field " + fieldInfo.name);
+            return;
+        }
+        final KNNEngine knnEngine = getKNNEngine(fieldInfo);
+        final String engineFileName = buildEngineFileName(
+            state.segmentInfo.name,
+            knnEngine.getVersion(),
+            fieldInfo.name,
+            knnEngine.getExtension()
+        );
+        final String indexPath = Paths.get(
+            ((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
+            engineFileName
+        ).toString();
+
+        state.directory.createOutput(engineFileName, state.context).close();
+        NativeIndexInfo indexInfo = getIndexInfo(fieldInfo, valuesProducer, indexPath);
         if (isMerge) {
             startMergeStats(indexInfo.numDocs, indexInfo.arraySize);
         }
@@ -172,7 +195,7 @@ public abstract class NativeIndexWriter {
         }
     }
 
-    private KNNEngine getKNNEngine(@NonNull FieldInfo field) {
+    private static KNNEngine getKNNEngine(@NonNull FieldInfo field) {
         final String modelId = field.attributes().get(MODEL_ID);
         if (modelId != null) {
             var model = ModelCache.getInstance().get(modelId);

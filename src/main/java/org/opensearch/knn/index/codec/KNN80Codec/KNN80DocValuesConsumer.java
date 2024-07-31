@@ -15,13 +15,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.DocValuesConsumer;
 import org.apache.lucene.codecs.DocValuesProducer;
-import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentWriteState;
-import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.store.FilterDirectory;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.common.KNNConstants;
@@ -38,8 +35,6 @@ import java.nio.file.StandardOpenOption;
 
 import static org.apache.lucene.codecs.CodecUtil.FOOTER_MAGIC;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
-import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
-import static org.opensearch.knn.index.codec.util.KNNCodecUtil.getTotalLiveDocsCount;
 
 /**
  * This class writes the KNN docvalues to the segments
@@ -92,29 +87,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
     public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge, boolean isRefresh)
         throws IOException {
-        // Get values to be indexed
-        BinaryDocValues values = valuesProducer.getBinary(field);
-        if (getTotalLiveDocsCount(values) == 0) {
-            log.debug("No live docs for field " + field.name);
-            return;
-        }
-        final KNNEngine knnEngine = getKNNEngine(field);
-        final String engineFileName = buildEngineFileName(
-            state.segmentInfo.name,
-            knnEngine.getVersion(),
-            field.name,
-            knnEngine.getExtension()
-        );
-        final String indexPath = Paths.get(
-            ((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
-            engineFileName
-        ).toString();
-
-        state.directory.createOutput(engineFileName, state.context).close();
-
-        NativeIndexWriter.getWriter(field, knnEngine).createKNNIndex(field, valuesProducer, indexPath, isMerge, isRefresh);
-
-        writeFooter(indexPath, engineFileName);
+        NativeIndexWriter.getWriter(field).createKNNIndex(field, valuesProducer, state, isMerge, isRefresh);
     }
 
     /**
