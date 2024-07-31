@@ -13,7 +13,7 @@ import org.opensearch.index.codec.CodecServiceFactory;
 import org.opensearch.index.engine.EngineFactory;
 import org.opensearch.indices.SystemIndexDescriptor;
 import org.opensearch.knn.index.KNNCircuitBreaker;
-import org.opensearch.knn.index.KNNClusterUtil;
+import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.KNNSettings;

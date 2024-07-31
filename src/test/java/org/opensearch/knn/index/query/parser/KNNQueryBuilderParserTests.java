@@ -17,7 +17,7 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.KNNClusterUtil;
+import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.plugins.SearchPlugin;
 

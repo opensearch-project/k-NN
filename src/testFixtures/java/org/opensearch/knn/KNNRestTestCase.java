@@ -101,7 +101,7 @@ import static org.opensearch.knn.TestUtils.computeGroundTruthValues;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.SpaceType.L2;
 import static org.opensearch.knn.index.memory.NativeMemoryCacheManager.GRAPH_COUNT;
-import static org.opensearch.knn.index.util.KNNEngine.FAISS;
+import static org.opensearch.knn.index.engine.KNNEngine.FAISS;
 import static org.opensearch.knn.plugin.stats.StatNames.INDICES_IN_CACHE;
 
 /**
