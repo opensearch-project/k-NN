@@ -96,8 +96,13 @@ public abstract class NativeIndexWriter {
      * @param isRefresh
      * @throws IOException
      */
-    public void createKNNIndex(FieldInfo fieldInfo, DocValuesProducer valuesProducer, SegmentWriteState state, boolean isMerge, boolean isRefresh)
-        throws IOException {
+    public void createKNNIndex(
+        FieldInfo fieldInfo,
+        DocValuesProducer valuesProducer,
+        SegmentWriteState state,
+        boolean isMerge,
+        boolean isRefresh
+    ) throws IOException {
         BinaryDocValues values = valuesProducer.getBinary(fieldInfo);
         if (KNNCodecUtil.getTotalLiveDocsCount(values) == 0) {
             log.debug("No live docs for field " + fieldInfo.name);
