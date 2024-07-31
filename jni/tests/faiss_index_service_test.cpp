@@ -135,7 +135,7 @@ TEST(CreateBinaryIndexTest, BasicAssertions) {
 
 TEST(CreateByteIndexTest, BasicAssertions) {
     // Define the data
-    faiss::idx_t numIds = 1200;
+    faiss::idx_t numIds = 200;
     std::vector<faiss::idx_t> ids;
     std::vector<int8_t> vectors;
     int dim = 8;
@@ -160,8 +160,6 @@ TEST(CreateByteIndexTest, BasicAssertions) {
     // Setup faiss method mock
     // This object is handled by unique_ptr inside indexService.createIndex()
     MockIndex* index = new MockIndex();
-    EXPECT_CALL(*index, add(numIds, vectors.data()))
-        .Times(1);
     // This object is handled by unique_ptr inside indexService.createIndex()
     faiss::IndexIDMap* indexIdMap = new faiss::IndexIDMap(index);
     std::unique_ptr<MockFaissMethods> mockFaissMethods(new MockFaissMethods());

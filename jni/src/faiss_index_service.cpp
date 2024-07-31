@@ -210,7 +210,7 @@ void ByteIndexService::createIndex(
     // Add vectors
     std::unique_ptr<faiss::IndexIDMap> idMap(faissMethods->indexIdMap(indexWriter.get()));
 
-    int batchSize = 1;
+    int batchSize = 1000;
     int totalNumVecs = numVectors;
     auto *inputFloatVectors = new std::vector<float>();
     std::vector<int64_t> floatVectorsIds;

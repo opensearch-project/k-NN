@@ -61,11 +61,7 @@ public class VectorTransferByte extends VectorTransfer {
     }
 
     private void transfer() {
-        vectorAddress = JNICommons.storeSignedByteVectorData(
-            vectorAddress,
-            vectorList.toArray(new byte[][] {}),
-            totalLiveDocs * dimension
-        );
+        vectorAddress = JNICommons.storeSignedByteVectorData(vectorAddress, vectorList.toArray(new byte[][] {}), totalLiveDocs * dimension);
         vectorList.clear();
     }
 }

@@ -16,6 +16,7 @@ import static org.junit.Assert.assertNotEquals;
 
 public class VectorTransferByteTests extends TestCase {
     private static final int VECTOR_LENGTH = 20;
+
     @SneakyThrows
     public void testTransfer_whenCalled_thenAdded() {
         final BytesRef bytesRef1 = getByteArrayOfVectors();
