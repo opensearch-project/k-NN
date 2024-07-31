@@ -75,12 +75,9 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToIndex(JN
         std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
         knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
         knn_jni::faiss_wrapper::InsertToIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexAddress, threadCount, &indexService);
-
-        // Releasing the vectorsAddressJ memory as that is not required once we have created the index.
-        // This is not the ideal approach, please refer this gh issue for long term solution:
-        // https://github.com/opensearch-project/k-NN/issues/1600
         delete reinterpret_cast<std::vector<float>*>(vectorsAddressJ);
     } catch (...) {
+        delete reinterpret_cast<std::vector<float>*>(vectorsAddressJ);
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
 }
@@ -99,6 +96,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToBinaryIn
         // https://github.com/opensearch-project/k-NN/issues/1600
         delete reinterpret_cast<std::vector<uint8_t>*>(vectorsAddressJ);
     } catch (...) {
+        delete reinterpret_cast<std::vector<uint8_t>*>(vectorsAddressJ);
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
 }

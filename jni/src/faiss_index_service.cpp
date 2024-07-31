@@ -149,12 +149,15 @@ void IndexService::writeIndex(
     if(threadCount != 0) {
         omp_set_num_threads(threadCount);
     }
-
     std::unique_ptr<faiss::IndexIDMap> idMap (reinterpret_cast<faiss::IndexIDMap *> (idMapAddress));
 
-    // Write the index to disk
-    faissMethods->writeIndex(idMap.get(), indexPath.c_str());
-
+    try {
+        // Write the index to disk
+        faissMethods->writeIndex(idMap.get(), indexPath.c_str());
+    } catch(std::exception &e) {
+        delete idMap->index;
+        throw std::runtime_error("Failed to write index to disk");
+    }
     // Free the memory used by the index
     delete idMap->index;
 }
@@ -256,8 +259,13 @@ void BinaryIndexService::writeIndex(
 
     std::unique_ptr<faiss::IndexBinaryIDMap> idMap (reinterpret_cast<faiss::IndexBinaryIDMap *> (idMapAddress));
 
-    // Write the index to disk
-    faissMethods->writeIndexBinary(idMap.get(), indexPath.c_str());
+    try {
+        // Write the index to disk
+        faissMethods->writeIndexBinary(idMap.get(), indexPath.c_str());
+    } catch(std::exception &e) {
+        delete idMap->index;
+        throw std::runtime_error("Failed to write index to disk");
+    }
 
     // Free the memory used by the index
     delete idMap->index;
