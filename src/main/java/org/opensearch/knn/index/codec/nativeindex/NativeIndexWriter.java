@@ -28,12 +28,14 @@ import org.opensearch.knn.plugin.stats.KNNGraphValue;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.Value;
+import lombok.extern.log4j.Log4j2;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 
 /**
  * Abstract class to build the KNN index and write it to disk
  */
+@Log4j2
 public abstract class NativeIndexWriter {
 
     /**
@@ -62,7 +64,24 @@ public abstract class NativeIndexWriter {
         private String indexPath;
     }
 
-    protected final Logger logger = LogManager.getLogger(NativeIndexWriter.class);
+    /**
+     * Gets the correct writer type from the fieldInfo and knnEngine
+     * 
+     * @param fieldInfo
+     * @param knnEngine
+     * @return
+     */
+    public static NativeIndexWriter getWriter(FieldInfo fieldInfo, KNNEngine knnEngine) {
+        boolean fromScratch = !fieldInfo.attributes().containsKey(MODEL_ID);
+        boolean iterative = fromScratch && KNNEngine.FAISS == knnEngine;
+        if (fromScratch && iterative) {
+            return new NativeIndexWriterScratchIter();
+        } else if (fromScratch) {
+            return new NativeIndexWriterScratch();
+        } else {
+            return new NativeIndexWriterTemplate();
+        }
+    }
 
     /**
      * Method for creating a KNN index in the specified native library

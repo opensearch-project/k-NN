@@ -26,11 +26,14 @@ import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.jni.JNIService;
 
+import lombok.extern.log4j.Log4j2;
+
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 
 /**
  * Abstract class to build the KNN index from a template model and write it to disk
  */
+@Log4j2
 public class NativeIndexWriterTemplate extends NativeIndexWriter {
 
     protected void createIndex(NativeIndexInfo indexInfo, BinaryDocValues values) throws IOException {

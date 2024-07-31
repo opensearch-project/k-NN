@@ -98,7 +98,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         // Get values to be indexed
         BinaryDocValues values = valuesProducer.getBinary(field);
         if (getTotalLiveDocsCount(values) == 0) {
-            logger.debug("No live docs for field " + field.name);
+            log.debug("No live docs for field " + field.name);
             return;
         }
         final KNNEngine knnEngine = getKNNEngine(field);
@@ -115,22 +115,11 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
         state.directory.createOutput(engineFileName, state.context).close();
 
-        NativeIndexWriter indexWriter = getWriter(field, knnEngine);
-        indexWriter.createKNNIndex(field, valuesProducer, indexPath, isMerge, isRefresh);
+        NativeIndexWriter
+            .getWriter(field, knnEngine)
+            .createKNNIndex(field, valuesProducer, indexPath, isMerge, isRefresh);
 
         writeFooter(indexPath, engineFileName);
-    }
-
-    public static NativeIndexWriter getWriter(FieldInfo fieldInfo, KNNEngine knnEngine) {
-        boolean fromScratch = !fieldInfo.attributes().containsKey(MODEL_ID);
-        boolean iterative = fromScratch && KNNEngine.FAISS == knnEngine;
-        if (fromScratch && iterative) {
-            return new NativeIndexWriterScratchIter();
-        } else if (fromScratch) {
-            return new NativeIndexWriterScratch();
-        } else {
-            return new NativeIndexWriterTemplate();
-        }
     }
 
     /**

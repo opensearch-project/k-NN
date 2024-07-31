@@ -30,12 +30,15 @@ import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.jni.JNIService;
 
+import lombok.extern.log4j.Log4j2;
+
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.util.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
 /**
  * Class to build the KNN index from scratch and write it to disk
  */
+@Log4j2
 public class NativeIndexWriterScratch extends NativeIndexWriter {
 
     protected NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, DocValuesProducer valuesProducer) throws IOException {

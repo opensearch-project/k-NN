@@ -17,9 +17,12 @@ import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.jni.JNICommons;
 import org.opensearch.knn.jni.JNIService;
 
+import lombok.extern.log4j.Log4j2;
+
 /**
  * Class to build the KNN index from scratch iteratively and write it to disk
  */
+@Log4j2
 public class NativeIndexWriterScratchIter extends NativeIndexWriterScratch {
 
     @Override
@@ -63,7 +66,7 @@ public class NativeIndexWriterScratchIter extends NativeIndexWriterScratch {
     private void insertToIndex(KNNCodecUtil.VectorBatch batch, KNNEngine knnEngine, long indexAddress, Map<String, Object> parameters)
         throws IOException {
         if (batch.docs.length == 0) {
-            logger.debug("Index insertion called with a batch without docs.");
+            log.debug("Index insertion called with a batch without docs.");
             return;
         }
         AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
