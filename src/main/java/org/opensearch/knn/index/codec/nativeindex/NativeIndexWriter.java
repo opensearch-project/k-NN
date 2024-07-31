@@ -68,11 +68,10 @@ public abstract class NativeIndexWriter {
     }
 
     /**
-     * Gets the correct writer type from the fieldInfo and knnEngine
+     * Gets the correct writer type from fieldInfo
      *
      * @param fieldInfo
-     * @param knnEngine
-     * @return
+     * @return correct NativeIndexWriter to make index specified in fieldInfo
      */
     public static NativeIndexWriter getWriter(FieldInfo fieldInfo) {
         final KNNEngine knnEngine = getKNNEngine(fieldInfo);
@@ -92,7 +91,7 @@ public abstract class NativeIndexWriter {
      *
      * @param fieldInfo
      * @param valuesProducer
-     * @param indexPath
+     * @param state
      * @param isMerge
      * @param isRefresh
      * @throws IOException
