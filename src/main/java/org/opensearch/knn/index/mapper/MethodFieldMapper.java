@@ -8,8 +8,8 @@ package org.opensearch.knn.index.mapper;
 import org.apache.lucene.document.FieldType;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.knn.index.KNNMethodContext;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
 

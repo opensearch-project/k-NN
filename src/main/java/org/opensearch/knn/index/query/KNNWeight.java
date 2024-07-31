@@ -42,7 +42,7 @@ import org.opensearch.knn.index.query.filtered.FilteredIdsKNNIterator;
 import org.opensearch.knn.index.query.filtered.KNNIterator;
 import org.opensearch.knn.index.query.filtered.NestedFilteredIdsKNNByteIterator;
 import org.opensearch.knn.index.query.filtered.NestedFilteredIdsKNNIterator;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
@@ -65,7 +65,7 @@ import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.index.IndexUtil.getParametersAtLoading;
+import static org.opensearch.knn.index.util.IndexUtil.getParametersAtLoading;
 import static org.opensearch.knn.plugin.stats.KNNCounter.GRAPH_QUERY_ERRORS;
 
 /**

@@ -6,7 +6,7 @@
 package org.opensearch.knn.index.codec.params;
 
 import lombok.Getter;
-import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.util.Map;
 

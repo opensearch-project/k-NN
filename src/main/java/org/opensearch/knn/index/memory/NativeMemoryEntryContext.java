@@ -13,7 +13,7 @@ package org.opensearch.knn.index.memory;
 
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.Nullable;
-import org.opensearch.knn.index.IndexUtil;
+import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;

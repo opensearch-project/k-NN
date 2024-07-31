@@ -13,9 +13,9 @@ package org.opensearch.knn.jni;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.opensearch.common.Nullable;
-import org.opensearch.knn.index.IndexUtil;
+import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.query.KNNQueryResult;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Map;
 

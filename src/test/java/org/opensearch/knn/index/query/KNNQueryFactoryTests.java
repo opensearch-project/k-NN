@@ -24,7 +24,7 @@ import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.index.search.NestedHelper;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Arrays;
 import java.util.List;
