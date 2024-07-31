@@ -70,7 +70,9 @@ class FaissService {
     public static native long initBinaryIndex(long numDocs, int dim, Map<String, Object> parameters);
 
     /**
-     * Inserts to a faiss index.
+     * Inserts to a faiss index. The memory occupied by the vectorsAddress will be freed up during the
+     * function call. So Java layer doesn't need to free up the memory. This is not an ideal behavior because Java layer
+     * created the memory address and that should only free up the memory.
      *
      * @param ids ids of documents
      * @param vectorsAddress address of native memory where vectors are stored
@@ -81,7 +83,9 @@ class FaissService {
     public static native void insertToIndex(int[] ids, long vectorsAddress, int dim, long indexAddress, int threadCount);
 
     /**
-     * Inserts to a faiss index.
+     * Inserts to a faiss index. The memory occupied by the vectorsAddress will be freed up during the
+     * function call. So Java layer doesn't need to free up the memory. This is not an ideal behavior because Java layer
+     * created the memory address and that should only free up the memory.
      *
      * @param ids ids of documents
      * @param vectorsAddress address of native memory where vectors are stored
@@ -93,6 +97,8 @@ class FaissService {
 
     /**
      * Writes a faiss index.
+     * 
+     * NOTE: This will always free the index. Do not call free after this.
      *
      * @param indexAddress address of native memory where index is stored
      * @param indexPath path to save index file to
@@ -102,6 +108,8 @@ class FaissService {
 
     /**
      * Writes a faiss index.
+     * 
+     * NOTE: This will always free the index. Do not call free after this.
      *
      * @param indexAddress address of native memory where index is stored
      * @param indexPath path to save index file to

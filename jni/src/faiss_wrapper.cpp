@@ -641,11 +641,13 @@ jobjectArray knn_jni::faiss_wrapper::QueryBinaryIndex_WithFilter(knn_jni::JNIUti
 void knn_jni::faiss_wrapper::Free(jlong indexPointer, jboolean isBinaryIndexJ) {
     bool isBinaryIndex = static_cast<bool>(isBinaryIndexJ);
     if (isBinaryIndex) {
-        auto *indexWrapper = reinterpret_cast<faiss::IndexBinary*>(indexPointer);
+        auto *indexWrapper = reinterpret_cast<faiss::IndexBinaryIDMap*>(indexPointer);
+        delete indexWrapper->index;
         delete indexWrapper;
     }
     else {
-        auto *indexWrapper = reinterpret_cast<faiss::Index*>(indexPointer);
+        auto *indexWrapper = reinterpret_cast<faiss::IndexIDMap*>(indexPointer);
+        delete indexWrapper->index;
         delete indexWrapper;
     }
 }

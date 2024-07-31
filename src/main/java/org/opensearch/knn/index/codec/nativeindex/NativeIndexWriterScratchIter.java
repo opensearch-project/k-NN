@@ -38,23 +38,15 @@ public class NativeIndexWriterScratchIter extends NativeIndexWriterScratch {
             getVectorTransfer(indexInfo.getVectorInfo().getVectorDataType()),
             true
         );
-        try {
-            for (; batch.finished == false; batch = KNNCodecUtil.getVectorBatch(
-                values,
-                getVectorTransfer(indexInfo.getVectorInfo().getVectorDataType()),
-                true
-            )) {
-                insertToIndex(batch, indexInfo.getKnnEngine(), indexAddress, indexInfo.getParameters());
-            }
+        for (; batch.finished == false; batch = KNNCodecUtil.getVectorBatch(
+            values,
+            getVectorTransfer(indexInfo.getVectorInfo().getVectorDataType()),
+            true
+        )) {
             insertToIndex(batch, indexInfo.getKnnEngine(), indexAddress, indexInfo.getParameters());
-            writeIndex(indexAddress, indexInfo.getIndexPath(), indexInfo.getKnnEngine(), indexInfo.getParameters());
-        } catch (Exception e) {
-            JNIService.free(indexAddress, indexInfo.getKnnEngine(), VectorDataType.BINARY == indexInfo.getVectorInfo().getVectorDataType());
-            if (batch.getVectorAddress() != 0) {
-                JNICommons.freeVectorData(batch.getVectorAddress());
-            }
-            throw e;
         }
+        insertToIndex(batch, indexInfo.getKnnEngine(), indexAddress, indexInfo.getParameters());
+        writeIndex(indexAddress, indexInfo.getIndexPath(), indexInfo.getKnnEngine(), indexInfo.getParameters());
     }
 
     private long initIndexFromScratch(long size, int dim, KNNEngine knnEngine, Map<String, Object> parameters) throws IOException {

@@ -78,6 +78,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToIndex(JN
         delete reinterpret_cast<std::vector<float>*>(vectorsAddressJ);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
+        delete reinterpret_cast<std::vector<float>*>(vectorsAddressJ);
     }
 }
 
@@ -89,13 +90,10 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToBinaryIn
         std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
         knn_jni::faiss_wrapper::BinaryIndexService binaryIndexService(std::move(faissMethods));
         knn_jni::faiss_wrapper::InsertToIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexAddress, threadCount, &binaryIndexService);
-
-        // Releasing the vectorsAddressJ memory as that is not required once we have created the index.
-        // This is not the ideal approach, please refer this gh issue for long term solution:
-        // https://github.com/opensearch-project/k-NN/issues/1600
         delete reinterpret_cast<std::vector<uint8_t>*>(vectorsAddressJ);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
+        delete reinterpret_cast<std::vector<uint8_t>*>(vectorsAddressJ);
     }
 }
 
@@ -107,7 +105,13 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeIndex(JNIEn
         std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
         knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
         knn_jni::faiss_wrapper::WriteIndex(&jniUtil, env, indexPathJ, indexAddress, threadCount, &indexService);
+        // Note that we are freeing the index here to ensure that the index is always freed.
+        // This might not be the ideal solution.
+        knn_jni::faiss_wrapper::Free(indexAddress, false);
     } catch (...) {
+        // Note that we are freeing the index here to ensure that the index is always freed.
+        // This might not be the ideal solution.
+        knn_jni::faiss_wrapper::Free(indexAddress, false);
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
 }
@@ -120,7 +124,13 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeBinaryIndex
         std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
         knn_jni::faiss_wrapper::BinaryIndexService binaryIndexService(std::move(faissMethods));
         knn_jni::faiss_wrapper::WriteIndex(&jniUtil, env, indexPathJ, indexAddress, threadCount, &binaryIndexService);
+        // Note that we are freeing the index here to ensure that the index is always freed.
+        // This might not be the ideal solution.
+        knn_jni::faiss_wrapper::Free(indexAddress, false);
     } catch (...) {
+        // Note that we are freeing the index here to ensure that the index is always freed.
+        // This might not be the ideal solution.
+        knn_jni::faiss_wrapper::Free(indexAddress, false);
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
 }
