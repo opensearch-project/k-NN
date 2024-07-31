@@ -12,6 +12,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.*;
+import org.opensearch.knn.index.engine.model.QueryContext;
 
 import java.io.IOException;
 import java.util.Collections;

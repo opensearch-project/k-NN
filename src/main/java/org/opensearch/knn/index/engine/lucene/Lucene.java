@@ -12,7 +12,6 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.JVMLibrary;
 import org.opensearch.knn.index.engine.KNNMethod;
-import org.opensearch.knn.index.engine.LuceneHNSWContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;

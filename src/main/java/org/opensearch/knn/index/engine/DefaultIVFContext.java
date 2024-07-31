@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine;
 
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.query.request.MethodParameter;
 
 import java.util.Map;

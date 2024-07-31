@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.index.engine;
 
+import org.opensearch.knn.index.engine.model.QueryContext;
+
 import java.util.Collections;
 import java.util.Map;
 

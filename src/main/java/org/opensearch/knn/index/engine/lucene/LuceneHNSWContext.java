@@ -3,9 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.engine;
+package org.opensearch.knn.index.engine.lucene;
 
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.knn.index.engine.EngineSpecificMethodContext;
+import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.query.request.MethodParameter;
 
 import java.util.Collections;
@@ -19,7 +22,7 @@ public class LuceneHNSWContext implements EngineSpecificMethodContext {
 
     @Override
     public Map<String, Parameter<?>> supportedMethodParameters(QueryContext ctx) {
-        if (ctx.queryType.isRadialSearch()) {
+        if (ctx.getQueryType().isRadialSearch()) {
             // return empty map if radial search is true
             return Collections.emptyMap();
         }

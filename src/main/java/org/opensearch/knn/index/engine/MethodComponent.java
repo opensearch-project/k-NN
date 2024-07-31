@@ -19,7 +19,7 @@ import java.util.function.BiFunction;
 import java.util.List;
 import java.util.ArrayList;
 
-import static org.opensearch.knn.validation.ParameterValidator.validateParameters;
+import static org.opensearch.knn.index.engine.validation.ParameterValidator.validateParameters;
 
 /**
  * MethodComponent defines the structure of an individual component that can make up an index
