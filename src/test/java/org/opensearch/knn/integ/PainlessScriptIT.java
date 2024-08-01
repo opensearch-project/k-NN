@@ -6,8 +6,17 @@
 package org.opensearch.knn.integ;
 
 import lombok.SneakyThrows;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.opensearch.client.Request;
+import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.core.xcontent.ToXContent;
+import org.opensearch.core.xcontent.XContentBuilder;
+import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
@@ -16,16 +25,7 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
-import org.apache.hc.core5.http.io.entity.EntityUtils;
-import org.opensearch.client.Request;
-import org.opensearch.client.Response;
-import org.opensearch.client.ResponseException;
-import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.index.query.MatchAllQueryBuilder;
-import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.core.rest.RestStatus;
 import org.opensearch.script.Script;
 
 import java.io.IOException;
@@ -161,12 +161,62 @@ public class PainlessScriptIT extends KNNRestTestCase {
         deleteKNNIndex(INDEX_NAME);
     }
 
+    public void testCosineSimilarityScriptFields() throws Exception {
+        String source = String.format("1 + cosineSimilarity([2.0f, -2.0f], doc['%s'])", FIELD_NAME);
+        String scriptFieldName = "similarity";
+        Request request = buildPainlessScriptFieldsRequest(source, 3, getCosineTestData(), scriptFieldName);
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        List<KNNResult> results = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), scriptFieldName);
+        assertEquals(3, results.size());
+
+        String[] expectedDocIDs = { "0", "1", "2" };
+        for (int i = 0; i < results.size(); i++) {
+            assertEquals(expectedDocIDs[i], results.get(i).getDocId());
+        }
+        deleteKNNIndex(INDEX_NAME);
+    }
+
+    public void testScriptFieldsGetValueReturnsDocValues() throws Exception {
+        String source = String.format("doc['%s'].value[0]", FIELD_NAME);
+        String scriptFieldName = "doc_value_field";
+        Map<String, Float[]> testData = getKnnVectorTestData();
+        Request request = buildPainlessScriptFieldsRequest(source, testData.size(), testData, scriptFieldName);
+
+        Response response = client().performRequest(request);
+        assertEquals(request.getEndpoint() + ": failed", RestStatus.OK, RestStatus.fromCode(response.getStatusLine().getStatusCode()));
+
+        List<KNNResult> results = parseSearchResponseScriptFields(EntityUtils.toString(response.getEntity()), scriptFieldName);
+        assertEquals(testData.size(), results.size());
+
+        String[] expectedDocIDs = { "1", "2", "3", "4" };
+        for (int i = 0; i < results.size(); i++) {
+            assertEquals(expectedDocIDs[i], results.get(i).getDocId());
+        }
+        deleteKNNIndex(INDEX_NAME);
+    }
+
     private Request buildPainlessScoreScriptRequest(String source, int size, Map<String, Float[]> documents) throws Exception {
         buildTestIndex(documents);
         QueryBuilder qb = new MatchAllQueryBuilder();
         return constructScriptScoreContextSearchRequest(
             INDEX_NAME,
             qb,
+            Collections.emptyMap(),
+            Script.DEFAULT_SCRIPT_LANG,
+            source,
+            size,
+            Collections.emptyMap()
+        );
+    }
+
+    private Request buildPainlessScriptFieldsRequest(String source, int size, Map<String, Float[]> documents, String scriptFieldName)
+        throws Exception {
+        buildTestIndex(documents);
+        return constructScriptFieldsContextSearchRequest(
+            INDEX_NAME,
+            scriptFieldName,
             Collections.emptyMap(),
             Script.DEFAULT_SCRIPT_LANG,
             source,
