@@ -303,7 +303,7 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return knnSearchResponses;
     }
 
-    protected List<KNNResult> parseSearchResponseScriptFields(String responseBody, String scriptFieldName) throws IOException {
+    protected List<KNNResult> parseSearchResponseScriptFields(final String responseBody, final String scriptFieldName) throws IOException {
         @SuppressWarnings("unchecked")
         List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
             MediaTypeRegistry.getDefaultMediaType().xContent(),
@@ -1028,13 +1028,13 @@ public class KNNRestTestCase extends ODFERestTestCase {
     }
 
     protected Request constructScriptFieldsContextSearchRequest(
-        String indexName,
-        String fieldName,
-        Map<String, Object> scriptParams,
-        String language,
-        String source,
-        int size,
-        Map<String, Object> searchParams
+        final String indexName,
+        final String fieldName,
+        final Map<String, Object> scriptParams,
+        final String language,
+        final String source,
+        final int size,
+        final Map<String, Object> searchParams
     ) throws Exception {
         Script script = buildScript(source, language, scriptParams);
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field("size", size).startObject("query");
