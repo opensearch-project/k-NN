@@ -6,13 +6,19 @@
 package org.opensearch.knn.index.codec.nativeindex;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.Map;
 
 import org.apache.lucene.codecs.DocValuesProducer;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.SegmentWriteState;
+import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
 import org.opensearch.knn.common.KNNConstants;
@@ -32,6 +38,7 @@ import lombok.NonNull;
 import lombok.Value;
 import lombok.extern.log4j.Log4j2;
 
+import static org.apache.lucene.codecs.CodecUtil.FOOTER_MAGIC;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
 
@@ -40,6 +47,7 @@ import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileNa
  */
 @Log4j2
 public abstract class NativeIndexWriter {
+    private static final Long CRC32_CHECKSUM_SANITY = 0xFFFFFFFF00000000L;
 
     /**
      * Class that holds info about vectors
@@ -132,6 +140,7 @@ public abstract class NativeIndexWriter {
         if (isMerge) {
             endMergeStats(indexInfo.numDocs, indexInfo.arraySize);
         }
+        writeFooter(indexPath, engineFileName, state);
     }
 
     /**
@@ -226,5 +235,41 @@ public abstract class NativeIndexWriter {
 
     private void recordRefreshStats() {
         KNNGraphValue.REFRESH_TOTAL_OPERATIONS.increment();
+    }
+
+    private boolean isChecksumValid(long value) {
+        // Check pulled from
+        // https://github.com/apache/lucene/blob/branch_9_0/lucene/core/src/java/org/apache/lucene/codecs/CodecUtil.java#L644-L647
+        return (value & CRC32_CHECKSUM_SANITY) != 0;
+    }
+    
+    private void writeFooter(String indexPath, String engineFileName, SegmentWriteState state) throws IOException {
+        // Opens the engine file that was created and appends a footer to it. The footer consists of
+        // 1. A Footer magic number (int - 4 bytes)
+        // 2. A checksum algorithm id (int - 4 bytes)
+        // 3. A checksum (long - bytes)
+        // The checksum is computed on all the bytes written to the file up to that point.
+        // Logic where footer is written in Lucene can be found here:
+        // https://github.com/apache/lucene/blob/branch_9_0/lucene/core/src/java/org/apache/lucene/codecs/CodecUtil.java#L390-L412
+        OutputStream os = Files.newOutputStream(Paths.get(indexPath), StandardOpenOption.APPEND);
+        ByteBuffer byteBuffer = ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN);
+        byteBuffer.putInt(FOOTER_MAGIC);
+        byteBuffer.putInt(0);
+        os.write(byteBuffer.array());
+        os.flush();
+
+        ChecksumIndexInput checksumIndexInput = state.directory.openChecksumInput(engineFileName, state.context);
+        checksumIndexInput.seek(checksumIndexInput.length());
+        long value = checksumIndexInput.getChecksum();
+        checksumIndexInput.close();
+
+        if (isChecksumValid(value)) {
+            throw new IllegalStateException("Illegal CRC-32 checksum: " + value + " (resource=" + os + ")");
+        }
+
+        // Write the CRC checksum to the end of the OutputStream and close the stream
+        byteBuffer.putLong(0, value);
+        os.write(byteBuffer.array());
+        os.close();
     }
 }
