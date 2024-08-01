@@ -23,7 +23,7 @@ import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.nmslib.Nmslib;
+import org.opensearch.knn.index.engine.nmslib.NmslibHNSWMethod;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
@@ -266,7 +266,7 @@ public class JNIServiceTests extends KNNTestCase {
 
     public void testCreateIndex_nmslib_valid() throws IOException {
 
-        for (SpaceType spaceType : Nmslib.SUPPORTED_SPACES) {
+        for (SpaceType spaceType : NmslibHNSWMethod.SUPPORTED_SPACES) {
             if (SpaceType.UNDEFINED == spaceType) {
                 continue;
             }
@@ -815,7 +815,7 @@ public class JNIServiceTests extends KNNTestCase {
     public void testQueryIndex_nmslib_valid() throws IOException {
 
         int k = 50;
-        for (SpaceType spaceType : Nmslib.SUPPORTED_SPACES) {
+        for (SpaceType spaceType : NmslibHNSWMethod.SUPPORTED_SPACES) {
             if (SpaceType.UNDEFINED == spaceType) {
                 continue;
             }
