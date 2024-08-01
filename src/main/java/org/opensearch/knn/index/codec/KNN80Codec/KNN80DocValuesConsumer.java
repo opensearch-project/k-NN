@@ -7,7 +7,6 @@ package org.opensearch.knn.index.codec.KNN80Codec;
 
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
-import org.apache.lucene.store.ChecksumIndexInput;
 import org.opensearch.common.StopWatch;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelCache;
@@ -26,28 +25,19 @@ import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 
-import static org.apache.lucene.codecs.CodecUtil.FOOTER_MAGIC;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 
 /**
  * This class writes the KNN docvalues to the segments
  */
 @Log4j2
-class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
+class KNN80DocValuesConsumer extends DocValuesConsumer {
 
     private final Logger logger = LogManager.getLogger(KNN80DocValuesConsumer.class);
 
     private final DocValuesConsumer delegatee;
     private final SegmentWriteState state;
-
-    private static final Long CRC32_CHECKSUM_SANITY = 0xFFFFFFFF00000000L;
 
     KNN80DocValuesConsumer(DocValuesConsumer delegatee, SegmentWriteState state) {
         this.delegatee = delegatee;
@@ -141,41 +131,5 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     @Override
     public void close() throws IOException {
         delegatee.close();
-    }
-
-    private void writeFooter(String indexPath, String engineFileName) throws IOException {
-        // Opens the engine file that was created and appends a footer to it. The footer consists of
-        // 1. A Footer magic number (int - 4 bytes)
-        // 2. A checksum algorithm id (int - 4 bytes)
-        // 3. A checksum (long - bytes)
-        // The checksum is computed on all the bytes written to the file up to that point.
-        // Logic where footer is written in Lucene can be found here:
-        // https://github.com/apache/lucene/blob/branch_9_0/lucene/core/src/java/org/apache/lucene/codecs/CodecUtil.java#L390-L412
-        OutputStream os = Files.newOutputStream(Paths.get(indexPath), StandardOpenOption.APPEND);
-        ByteBuffer byteBuffer = ByteBuffer.allocate(8).order(ByteOrder.BIG_ENDIAN);
-        byteBuffer.putInt(FOOTER_MAGIC);
-        byteBuffer.putInt(0);
-        os.write(byteBuffer.array());
-        os.flush();
-
-        ChecksumIndexInput checksumIndexInput = state.directory.openChecksumInput(engineFileName, state.context);
-        checksumIndexInput.seek(checksumIndexInput.length());
-        long value = checksumIndexInput.getChecksum();
-        checksumIndexInput.close();
-
-        if (isChecksumValid(value)) {
-            throw new IllegalStateException("Illegal CRC-32 checksum: " + value + " (resource=" + os + ")");
-        }
-
-        // Write the CRC checksum to the end of the OutputStream and close the stream
-        byteBuffer.putLong(0, value);
-        os.write(byteBuffer.array());
-        os.close();
-    }
-
-    private boolean isChecksumValid(long value) {
-        // Check pulled from
-        // https://github.com/apache/lucene/blob/branch_9_0/lucene/core/src/java/org/apache/lucene/codecs/CodecUtil.java#L644-L647
-        return (value & CRC32_CHECKSUM_SANITY) != 0;
     }
 }
