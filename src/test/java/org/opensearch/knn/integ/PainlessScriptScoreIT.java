@@ -36,7 +36,7 @@ import java.util.Map;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.integ.PainlessScriptHelper.createMapping;
 
-public class PainlessScriptScoreIT extends KNNRestTestCase {
+public final class PainlessScriptScoreIT extends KNNRestTestCase {
 
     public static final int AGGREGATION_FIELD_NAME_MIN_LENGTH = 2;
     public static final int AGGREGATION_FIELD_NAME_MAX_LENGTH = 5;

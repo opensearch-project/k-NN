@@ -30,7 +30,7 @@ import static org.opensearch.knn.integ.PainlessScriptHelper.createMapping;
 // it is clear if similarity method is supported by script_score, then same is applicable for script_fields
 // provided script_fields context is supported. Hence, we test for one similarity method to verify that script_fields
 // context is supported by this plugin.
-public class PainlessScriptFieldsIT extends KNNRestTestCase {
+public final class PainlessScriptFieldsIT extends KNNRestTestCase {
 
     private static final String NUMERIC_INDEX_FIELD_NAME = "price";
 

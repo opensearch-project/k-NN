@@ -15,8 +15,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 
-public class PainlessScriptHelper {
-
+public final class PainlessScriptHelper {
     /**
      * Utility to create a Index Mapping with multiple fields
      */
@@ -45,7 +44,7 @@ public class PainlessScriptHelper {
         return xContentBuilder.toString();
     }
 
-    static class MappingProperty {
+    final static class MappingProperty {
 
         private final String name;
         private final String type;
