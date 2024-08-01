@@ -40,11 +40,6 @@ public class LuceneSQEncoder implements Encoder {
         .build();
 
     @Override
-    public String getName() {
-        return METHOD_COMPONENT.getName();
-    }
-
-    @Override
     public MethodComponent getMethodComponent() {
         return METHOD_COMPONENT;
     }

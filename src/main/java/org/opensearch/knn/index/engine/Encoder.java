@@ -15,7 +15,9 @@ public interface Encoder {
      *
      * @return Name of the encoder
      */
-    String getName();
+    default String getName() {
+        return getMethodComponent().getName();
+    }
 
     /**
      *
