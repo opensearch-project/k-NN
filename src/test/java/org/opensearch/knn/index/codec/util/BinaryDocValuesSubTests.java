@@ -7,14 +7,14 @@ package org.opensearch.knn.index.codec.util;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.MergeState;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.codec.KNNCodecTestUtil;
+import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 
 import java.io.IOException;
 
 public class BinaryDocValuesSubTests extends KNNTestCase {
 
     public void testNextDoc() throws IOException {
-        BinaryDocValues binaryDocValues = new KNNCodecTestUtil.ConstantVectorBinaryDocValues(10, 128, 2.0f);
+        BinaryDocValues binaryDocValues = new TestVectorValues.ConstantVectorBinaryDocValues(10, 128, 2.0f);
         MergeState.DocMap docMap = new MergeState.DocMap() {
             @Override
             public int get(int docID) {
@@ -28,7 +28,7 @@ public class BinaryDocValuesSubTests extends KNNTestCase {
     }
 
     public void testGetValues() {
-        BinaryDocValues binaryDocValues = new KNNCodecTestUtil.ConstantVectorBinaryDocValues(10, 128, 2.0f);
+        BinaryDocValues binaryDocValues = new TestVectorValues.ConstantVectorBinaryDocValues(10, 128, 2.0f);
         MergeState.DocMap docMap = new MergeState.DocMap() {
             @Override
             public int get(int docID) {
