@@ -49,18 +49,13 @@ public class NativeIndexWriterScratch extends NativeIndexWriter {
         VectorDataType vectorDataType = VectorDataType.get(
             fieldInfo.attributes().getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
         );
-        VectorTransfer vectorTransfer = getVectorTransfer(vectorDataType);
         int dimension = 0;
         if (vectorDataType == VectorDataType.BINARY) {
             dimension = firstDoc.length * 8;
         } else {
             dimension = firstDoc.length / 4;
         }
-        NativeVectorInfo vectorInfo = NativeVectorInfo.builder()
-            .vectorDataType(vectorDataType)
-            .dimension(dimension)
-            .serializationMode(vectorTransfer.getSerializationMode(firstDoc))
-            .build();
+        NativeVectorInfo vectorInfo = NativeVectorInfo.builder().vectorDataType(vectorDataType).dimension(dimension).build();
         return vectorInfo;
     }
 

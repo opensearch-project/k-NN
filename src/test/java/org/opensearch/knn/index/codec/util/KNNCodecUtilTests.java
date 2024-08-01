@@ -34,7 +34,6 @@ public class KNNCodecUtilTests extends TestCase {
         when(binaryDocValues.binaryValue()).thenReturn(bytesRef);
 
         VectorTransfer vectorTransfer = mock(VectorTransfer.class);
-        when(vectorTransfer.getSerializationMode(any(BytesRef.class))).thenReturn(SerializationMode.COLLECTIONS_OF_BYTES);
         when(vectorTransfer.getVectorAddress()).thenReturn(vectorAddress);
         when(vectorTransfer.getDimension()).thenReturn(dimension);
 
@@ -43,13 +42,11 @@ public class KNNCodecUtilTests extends TestCase {
 
         // Verify
         verify(vectorTransfer).init(liveDocCount);
-        verify(vectorTransfer).getSerializationMode(any(BytesRef.class));
         verify(vectorTransfer).transfer(any(BytesRef.class));
         verify(vectorTransfer).close();
 
         assertTrue(Arrays.equals(docId, batch.docs));
         assertEquals(vectorAddress, batch.getVectorAddress());
         assertEquals(dimension, batch.getDimension());
-        assertEquals(SerializationMode.COLLECTIONS_OF_BYTES, batch.serializationMode);
     }
 }

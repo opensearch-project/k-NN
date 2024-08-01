@@ -23,7 +23,6 @@ import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
-import java.io.Closeable;
 import java.io.IOException;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;

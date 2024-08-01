@@ -28,7 +28,6 @@ import org.opensearch.knn.index.codec.transfer.VectorTransfer;
 import org.opensearch.knn.index.codec.transfer.VectorTransferByte;
 import org.opensearch.knn.index.codec.transfer.VectorTransferFloat;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
-import org.opensearch.knn.index.codec.util.SerializationMode;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
@@ -57,7 +56,6 @@ public abstract class NativeIndexWriter {
     protected static class NativeVectorInfo {
         private VectorDataType vectorDataType;
         private int dimension;
-        private SerializationMode serializationMode;
     }
 
     /**

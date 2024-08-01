@@ -19,7 +19,6 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.IndexUtil;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.transfer.VectorTransfer;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.util.KNNEngine;
 import org.opensearch.knn.indices.Model;
@@ -90,18 +89,13 @@ public class NativeIndexWriterTemplate extends NativeIndexWriter {
             throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
         }
         VectorDataType vectorDataType = model.getModelMetadata().getVectorDataType();
-        VectorTransfer vectorTransfer = getVectorTransfer(vectorDataType);
         int dimension = 0;
         if (vectorDataType == VectorDataType.BINARY) {
             dimension = firstDoc.length * 8;
         } else {
             dimension = firstDoc.length / 4;
         }
-        NativeVectorInfo vectorInfo = NativeVectorInfo.builder()
-            .vectorDataType(vectorDataType)
-            .dimension(dimension)
-            .serializationMode(vectorTransfer.getSerializationMode(firstDoc))
-            .build();
+        NativeVectorInfo vectorInfo = NativeVectorInfo.builder().vectorDataType(vectorDataType).dimension(dimension).build();
         return vectorInfo;
     }
 }
