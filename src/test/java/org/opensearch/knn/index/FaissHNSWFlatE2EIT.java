@@ -25,7 +25,6 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.engine.KNNMethod;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
@@ -87,8 +86,6 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
     public void testEndToEnd_whenMethodIsHNSWFlat_thenSucceed() {
         String indexName = "test-index-1";
         String fieldName = "test-field-1";
-
-        KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(METHOD_HNSW);
         SpaceType spaceType = SpaceType.L2;
 
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
@@ -105,7 +102,7 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(NAME, hnswMethod.getMethodComponent().getName())
+            .field(NAME, METHOD_HNSW)
             .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNN_ENGINE, KNNEngine.FAISS.getName())
             .startObject(PARAMETERS)

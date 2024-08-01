@@ -14,7 +14,9 @@ import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.NativeLibrary;
 import org.opensearch.knn.index.engine.Parameter;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -29,6 +31,14 @@ public class Nmslib extends NativeLibrary {
 
     // Extension to be used for Nmslib files. It is ".hnsw" and not ".nmslib" for legacy purposes.
     public final static String EXTENSION = ".hnsw";
+    public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
+        SpaceType.UNDEFINED,
+        SpaceType.L2,
+        SpaceType.L1,
+        SpaceType.LINF,
+        SpaceType.COSINESIMIL,
+        SpaceType.INNER_PRODUCT
+    );
 
     final static String CURRENT_VERSION = "2011";
 
@@ -49,7 +59,7 @@ public class Nmslib extends NativeLibrary {
                     )
                 )
                 .build()
-        ).addSpaces(SpaceType.UNDEFINED, SpaceType.L2, SpaceType.L1, SpaceType.LINF, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT).build()
+        ).addSpaces(SUPPORTED_SPACES.toArray(new SpaceType[0])).build()
     );
 
     public final static Nmslib INSTANCE = new Nmslib(METHODS, Collections.emptyMap(), CURRENT_VERSION, EXTENSION);

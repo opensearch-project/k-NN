@@ -25,51 +25,56 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
     protected final String version;
 
     @Override
-    public KNNMethod getMethod(String methodName) {
-        KNNMethod method = methods.get(methodName);
-        if (method == null) {
-            throw new IllegalArgumentException(String.format("Invalid method name: %s", methodName));
-        }
-        return method;
-    }
-
-    @Override
     public EngineSpecificMethodContext getMethodContext(String methodName) {
         EngineSpecificMethodContext method = engineMethods.get(methodName);
-        if (method == null) {
-            throw new IllegalArgumentException(String.format("Invalid method name: %s", methodName));
-        }
+        validateMethodContextExists(methodName);
         return method;
     }
 
     @Override
     public ValidationException validateMethod(KNNMethodContext knnMethodContext) {
         String methodName = knnMethodContext.getMethodComponentContext().getName();
-        return getMethod(methodName).validate(knnMethodContext);
+        validateMethodExists(methodName);
+        return methods.get(methodName).validate(knnMethodContext);
     }
 
     @Override
     public ValidationException validateMethodWithData(KNNMethodContext knnMethodContext, VectorSpaceInfo vectorSpaceInfo) {
         String methodName = knnMethodContext.getMethodComponentContext().getName();
-        return getMethod(methodName).validateWithData(knnMethodContext, vectorSpaceInfo);
+        validateMethodExists(methodName);
+        return methods.get(methodName).validateWithData(knnMethodContext, vectorSpaceInfo);
     }
 
     @Override
     public boolean isTrainingRequired(KNNMethodContext knnMethodContext) {
         String methodName = knnMethodContext.getMethodComponentContext().getName();
-        return getMethod(methodName).isTrainingRequired(knnMethodContext);
+        validateMethodExists(methodName);
+        return methods.get(methodName).isTrainingRequired(knnMethodContext);
     }
 
     @Override
     public Map<String, Object> getMethodAsMap(KNNMethodContext knnMethodContext) {
-        KNNMethod knnMethod = methods.get(knnMethodContext.getMethodComponentContext().getName());
-
-        if (knnMethod == null) {
-            throw new IllegalArgumentException(
-                String.format("Invalid method name: %s", knnMethodContext.getMethodComponentContext().getName())
-            );
-        }
-
+        String method = knnMethodContext.getMethodComponentContext().getName();
+        validateMethodExists(method);
+        KNNMethod knnMethod = methods.get(method);
         return knnMethod.getAsMap(knnMethodContext);
+    }
+
+    private void validateMethodExists(String methodName) {
+        KNNMethod method = methods.get(methodName);
+        if (method == null) {
+            throwInvalidMethod(methodName);
+        }
+    }
+
+    private void validateMethodContextExists(String methodName) {
+        EngineSpecificMethodContext method = engineMethods.get(methodName);
+        if (method == null) {
+            throwInvalidMethod(methodName);
+        }
+    }
+
+    private void throwInvalidMethod(String methodName) {
+        throw new IllegalArgumentException(String.format("Invalid method name: %s", methodName));
     }
 }

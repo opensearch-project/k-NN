@@ -29,21 +29,6 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         assertEquals(testVersion, testAbstractKNNLibrary.getVersion());
     }
 
-    public void testGetMethod() {
-        String methodName1 = "test-method-1";
-        KNNMethod knnMethod1 = KNNMethod.Builder.builder(MethodComponent.Builder.builder(methodName1).build()).build();
-
-        String methodName2 = "test-method-2";
-        KNNMethod knnMethod2 = KNNMethod.Builder.builder(MethodComponent.Builder.builder(methodName2).build()).build();
-
-        Map<String, KNNMethod> knnMethodMap = ImmutableMap.of(methodName1, knnMethod1, methodName2, knnMethod2);
-
-        TestAbstractKNNLibrary testAbstractKNNLibrary = new TestAbstractKNNLibrary(knnMethodMap, "");
-        assertEquals(knnMethod1, testAbstractKNNLibrary.getMethod(methodName1));
-        assertEquals(knnMethod2, testAbstractKNNLibrary.getMethod(methodName2));
-        expectThrows(IllegalArgumentException.class, () -> testAbstractKNNLibrary.getMethod("invalid"));
-    }
-
     public void testValidateMethod() throws IOException {
         // Invalid - method not supported
         String methodName1 = "test-method-1";
