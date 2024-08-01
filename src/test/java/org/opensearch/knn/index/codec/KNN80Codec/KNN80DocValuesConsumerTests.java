@@ -27,6 +27,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
@@ -69,8 +70,6 @@ import static org.opensearch.knn.index.codec.KNNCodecTestUtil.assertBinaryIndexL
 import static org.opensearch.knn.index.codec.KNNCodecTestUtil.assertFileInCorrectLocation;
 import static org.opensearch.knn.index.codec.KNNCodecTestUtil.assertLoadableByEngine;
 import static org.opensearch.knn.index.codec.KNNCodecTestUtil.assertValidFooter;
-import static org.opensearch.knn.index.codec.KNNCodecTestUtil.getRandomVectors;
-import static org.opensearch.knn.index.codec.KNNCodecTestUtil.RandomVectorDocValuesProducer;
 
 public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
@@ -155,7 +154,10 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
     public void testAddKNNBinaryField_noVectors() throws IOException {
         // When there are no new vectors, no more graph index requests should be added
-        RandomVectorDocValuesProducer randomVectorDocValuesProducer = new RandomVectorDocValuesProducer(0, 128);
+        TestVectorValues.RandomVectorDocValuesProducer randomVectorDocValuesProducer = new TestVectorValues.RandomVectorDocValuesProducer(
+            0,
+            128
+        );
         Long initialGraphIndexRequests = KNNCounter.GRAPH_INDEX_REQUESTS.getCount();
         Long initialRefreshOperations = KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue();
         Long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
@@ -224,7 +226,10 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         // Add documents to the field
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
-        RandomVectorDocValuesProducer randomVectorDocValuesProducer = new RandomVectorDocValuesProducer(docsInSegment, dimension);
+        TestVectorValues.RandomVectorDocValuesProducer randomVectorDocValuesProducer = new TestVectorValues.RandomVectorDocValuesProducer(
+            docsInSegment,
+            dimension
+        );
         knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true, true);
 
         // The document should be created in the correct location
@@ -277,7 +282,10 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         // Add documents to the field
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
-        RandomVectorDocValuesProducer randomVectorDocValuesProducer = new RandomVectorDocValuesProducer(docsInSegment, dimension);
+        TestVectorValues.RandomVectorDocValuesProducer randomVectorDocValuesProducer = new TestVectorValues.RandomVectorDocValuesProducer(
+            docsInSegment,
+            dimension
+        );
         knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true, true);
 
         // The document should be created in the correct location
@@ -338,7 +346,10 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         // Add documents to the field
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
-        RandomVectorDocValuesProducer randomVectorDocValuesProducer = new RandomVectorDocValuesProducer(docsInSegment, dimension);
+        TestVectorValues.RandomVectorDocValuesProducer randomVectorDocValuesProducer = new TestVectorValues.RandomVectorDocValuesProducer(
+            docsInSegment,
+            dimension
+        );
         knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true, true);
 
         // The document should be created in the correct location
@@ -401,7 +412,10 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         // Add documents to the field
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
-        RandomVectorDocValuesProducer randomVectorDocValuesProducer = new RandomVectorDocValuesProducer(docsInSegment, dimension);
+        TestVectorValues.RandomVectorDocValuesProducer randomVectorDocValuesProducer = new TestVectorValues.RandomVectorDocValuesProducer(
+            docsInSegment,
+            dimension
+        );
         knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true, true);
 
         // The document should be created in the correct location
@@ -428,7 +442,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         int dimension = 16;
         String modelId = "test-model-id";
 
-        float[][] trainingData = getRandomVectors(200, dimension);
+        float[][] trainingData = TestVectorValues.getRandomVectors(200, dimension);
         long trainingPtr = JNIService.transferVectors(0, trainingData);
 
         Map<String, Object> parameters = ImmutableMap.of(
@@ -497,7 +511,10 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         // Add documents to the field
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
-        RandomVectorDocValuesProducer randomVectorDocValuesProducer = new RandomVectorDocValuesProducer(docsInSegment, dimension);
+        TestVectorValues.RandomVectorDocValuesProducer randomVectorDocValuesProducer = new TestVectorValues.RandomVectorDocValuesProducer(
+            docsInSegment,
+            dimension
+        );
         knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true, true);
 
         // The document should be created in the correct location
