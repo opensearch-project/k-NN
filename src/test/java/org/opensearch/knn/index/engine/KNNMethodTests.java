@@ -22,12 +22,14 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 
 public class KNNMethodTests extends KNNTestCase {
+
     /**
      * Test KNNMethod method component getter
      */
     public void testGetMethodComponent() {
         String name = "test";
-        KNNMethod knnMethod = KNNMethod.Builder.builder(MethodComponent.Builder.builder(name).build()).build();
+        KNNMethod knnMethod = KNNMethod.Builder.builder(MethodComponent.Builder.builder(name).build(), EMPTY_ENGINE_SPECIFIC_CONTEXT)
+            .build();
         assertEquals(name, knnMethod.getMethodComponent().getName());
     }
 
@@ -36,7 +38,7 @@ public class KNNMethodTests extends KNNTestCase {
      */
     public void testHasSpace() {
         String name = "test";
-        KNNMethod knnMethod = KNNMethod.Builder.builder(MethodComponent.Builder.builder(name).build())
+        KNNMethod knnMethod = KNNMethod.Builder.builder(MethodComponent.Builder.builder(name).build(), EMPTY_ENGINE_SPECIFIC_CONTEXT)
             .addSpaces(SpaceType.L2, SpaceType.COSINESIMIL)
             .build();
         assertTrue(knnMethod.isSpaceTypeSupported(SpaceType.L2));
@@ -49,7 +51,7 @@ public class KNNMethodTests extends KNNTestCase {
      */
     public void testValidate() throws IOException {
         String methodName = "test-method";
-        KNNMethod knnMethod = KNNMethod.Builder.builder(MethodComponent.Builder.builder(methodName).build())
+        KNNMethod knnMethod = KNNMethod.Builder.builder(MethodComponent.Builder.builder(methodName).build(), EMPTY_ENGINE_SPECIFIC_CONTEXT)
             .addSpaces(SpaceType.L2)
             .build();
 
@@ -93,7 +95,7 @@ public class KNNMethodTests extends KNNTestCase {
      */
     public void testValidateWithData() throws IOException {
         String methodName = "test-method";
-        KNNMethod knnMethod = KNNMethod.Builder.builder(MethodComponent.Builder.builder(methodName).build())
+        KNNMethod knnMethod = KNNMethod.Builder.builder(MethodComponent.Builder.builder(methodName).build(), EMPTY_ENGINE_SPECIFIC_CONTEXT)
             .addSpaces(SpaceType.L2)
             .build();
 
@@ -142,7 +144,7 @@ public class KNNMethodTests extends KNNTestCase {
             .setMapGenerator(((methodComponent1, methodComponentContext) -> methodComponentContext.getParameters()))
             .build();
 
-        KNNMethod knnMethod = KNNMethod.Builder.builder(methodComponent).build();
+        KNNMethod knnMethod = KNNMethod.Builder.builder(methodComponent, EMPTY_ENGINE_SPECIFIC_CONTEXT).build();
 
         Map<String, Object> expectedMap = new HashMap<>(generatedMap);
         expectedMap.put(KNNConstants.SPACE_TYPE, spaceType.getValue());
@@ -155,7 +157,7 @@ public class KNNMethodTests extends KNNTestCase {
 
     public void testBuilder() {
         String name = "test";
-        KNNMethod.Builder builder = KNNMethod.Builder.builder(MethodComponent.Builder.builder(name).build());
+        KNNMethod.Builder builder = KNNMethod.Builder.builder(MethodComponent.Builder.builder(name).build(), EMPTY_ENGINE_SPECIFIC_CONTEXT);
         KNNMethod knnMethod = builder.build();
 
         assertEquals(name, knnMethod.getMethodComponent().getName());

@@ -32,7 +32,10 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
     public void testValidateMethod() throws IOException {
         // Invalid - method not supported
         String methodName1 = "test-method-1";
-        KNNMethod knnMethod1 = KNNMethod.Builder.builder(MethodComponent.Builder.builder(methodName1).build()).build();
+        KNNMethod knnMethod1 = KNNMethod.Builder.builder(
+            MethodComponent.Builder.builder(methodName1).build(),
+            EMPTY_ENGINE_SPECIFIC_CONTEXT
+        ).build();
 
         Map<String, KNNMethod> methodMap = ImmutableMap.of(methodName1, knnMethod1);
         TestAbstractKNNLibrary testAbstractKNNLibrary1 = new TestAbstractKNNLibrary(methodMap, "");
@@ -44,7 +47,11 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
 
         // Invalid - method validation
         String methodName2 = "test-method-2";
-        KNNMethod knnMethod2 = new KNNMethod(MethodComponent.Builder.builder(methodName2).build(), Collections.emptySet()) {
+        KNNMethod knnMethod2 = new KNNMethod(
+            MethodComponent.Builder.builder(methodName2).build(),
+            Collections.emptySet(),
+            EMPTY_ENGINE_SPECIFIC_CONTEXT
+        ) {
             @Override
             public ValidationException validate(KNNMethodContext knnMethodContext) {
                 return new ValidationException();
@@ -68,8 +75,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         );
 
         TestAbstractKNNLibrary testAbstractKNNLibrary1 = new TestAbstractKNNLibrary(
-            Collections.emptyMap(),
-            Map.of(methodName1, context),
+            ImmutableMap.of(methodName1, KNNMethod.Builder.builder(MethodComponent.Builder.builder(methodName1).build(), context).build()),
             ""
         );
 
@@ -88,7 +94,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
             .setMapGenerator(((methodComponent1, methodComponentContext) -> generatedMap))
             .build();
-        KNNMethod knnMethod = KNNMethod.Builder.builder(methodComponent).build();
+        KNNMethod knnMethod = KNNMethod.Builder.builder(methodComponent, EMPTY_ENGINE_SPECIFIC_CONTEXT).build();
 
         TestAbstractKNNLibrary testAbstractKNNLibrary = new TestAbstractKNNLibrary(ImmutableMap.of(methodName, knnMethod), "");
 
@@ -113,15 +119,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
 
     private static class TestAbstractKNNLibrary extends AbstractKNNLibrary {
         public TestAbstractKNNLibrary(Map<String, KNNMethod> methods, String currentVersion) {
-            super(methods, Collections.emptyMap(), currentVersion);
-        }
-
-        public TestAbstractKNNLibrary(
-            Map<String, KNNMethod> methods,
-            Map<String, EngineSpecificMethodContext> engineSpecificMethodContextMap,
-            String currentVersion
-        ) {
-            super(methods, engineSpecificMethodContextMap, currentVersion);
+            super(methods, currentVersion);
         }
 
         @Override

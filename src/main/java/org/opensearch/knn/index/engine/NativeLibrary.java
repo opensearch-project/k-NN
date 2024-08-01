@@ -34,12 +34,11 @@ public abstract class NativeLibrary extends AbstractKNNLibrary {
      */
     public NativeLibrary(
         Map<String, KNNMethod> methods,
-        Map<String, EngineSpecificMethodContext> engineMethods,
         Map<SpaceType, Function<Float, Float>> scoreTranslation,
         String version,
         String extension
     ) {
-        super(methods, engineMethods, version);
+        super(methods, version);
         this.scoreTranslation = scoreTranslation;
         this.extension = extension;
         this.initialized = new AtomicBoolean(false);

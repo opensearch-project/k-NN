@@ -84,7 +84,9 @@ public class Lucene extends JVMLibrary {
                     METHOD_ENCODER_PARAMETER,
                     new Parameter.MethodComponentContextParameter(METHOD_ENCODER_PARAMETER, ENCODER_DEFAULT, HNSW_ENCODERS)
                 )
-                .build()
+                .build(),
+            new LuceneHNSWContext()
+
         ).addSpaces(SpaceType.UNDEFINED, SpaceType.L2, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT).build()
     );
 
@@ -107,7 +109,7 @@ public class Lucene extends JVMLibrary {
      * @param distanceTransform Map of space type to distance transformation function
      */
     Lucene(Map<String, KNNMethod> methods, String version, Map<SpaceType, Function<Float, Float>> distanceTransform) {
-        super(methods, Map.of(METHOD_HNSW, new LuceneHNSWContext()), version);
+        super(methods, version);
         this.distanceTransform = distanceTransform;
     }
 

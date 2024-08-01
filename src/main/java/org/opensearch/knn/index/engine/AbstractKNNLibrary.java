@@ -20,15 +20,14 @@ import java.util.Map;
 public abstract class AbstractKNNLibrary implements KNNLibrary {
 
     protected final Map<String, KNNMethod> methods;
-    protected final Map<String, EngineSpecificMethodContext> engineMethods;
     @Getter
     protected final String version;
 
     @Override
     public EngineSpecificMethodContext getMethodContext(String methodName) {
-        EngineSpecificMethodContext method = engineMethods.get(methodName);
-        validateMethodContextExists(methodName);
-        return method;
+        validateMethodExists(methodName);
+        KNNMethod method = methods.get(methodName);
+        return method.getEngineSpecificMethodContext();
     }
 
     @Override
@@ -63,18 +62,7 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
     private void validateMethodExists(String methodName) {
         KNNMethod method = methods.get(methodName);
         if (method == null) {
-            throwInvalidMethod(methodName);
+            throw new IllegalArgumentException(String.format("Invalid method name: %s", methodName));
         }
-    }
-
-    private void validateMethodContextExists(String methodName) {
-        EngineSpecificMethodContext method = engineMethods.get(methodName);
-        if (method == null) {
-            throwInvalidMethod(methodName);
-        }
-    }
-
-    private void throwInvalidMethod(String methodName) {
-        throw new IllegalArgumentException(String.format("Invalid method name: %s", methodName));
     }
 }

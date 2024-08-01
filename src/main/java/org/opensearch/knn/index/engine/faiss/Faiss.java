@@ -249,7 +249,8 @@ public class Faiss extends NativeLibrary {
                         methodComponentContext
                     ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build())
                 )
-                .build()
+                .build(),
+            new DefaultHnswContext()
         ).addSpaces(SpaceType.UNDEFINED, SpaceType.HAMMING, SpaceType.L2, SpaceType.INNER_PRODUCT).build(),
         METHOD_IVF,
         KNNMethod.Builder.builder(
@@ -307,7 +308,8 @@ public class Faiss extends NativeLibrary {
                     int centroids = (Integer) nlistObject;
                     return ((4L * centroids * dimension) / BYTES_PER_KILOBYTES) + 1;
                 })
-                .build()
+                .build(),
+            new DefaultIVFContext()
         ).addSpaces(SpaceType.UNDEFINED, SpaceType.L2, SpaceType.INNER_PRODUCT, SpaceType.HAMMING).build()
     );
 
@@ -334,13 +336,7 @@ public class Faiss extends NativeLibrary {
         String extension,
         Map<SpaceType, Function<Float, Float>> scoreTransform
     ) {
-        super(
-            methods,
-            Map.of(METHOD_HNSW, new DefaultHnswContext(), METHOD_IVF, new DefaultIVFContext()),
-            scoreTranslation,
-            currentVersion,
-            extension
-        );
+        super(methods, scoreTranslation, currentVersion, extension);
         this.scoreTransform = scoreTransform;
     }
 

@@ -23,7 +23,8 @@ import java.util.Set;
 
 /**
  * KNNMethod is used to define the structure of a method supported by a particular k-NN library. It is used to validate
- * the KNNMethodContext passed in by the user. It is also used to provide superficial string translations.
+ * the KNNMethodContext passed in by the user. It is also used to provide information needed to build an index and
+ * search it.
  */
 @AllArgsConstructor
 @Getter
@@ -31,6 +32,7 @@ public class KNNMethod {
 
     private final MethodComponent methodComponent;
     private final Set<SpaceType> spaces;
+    private final EngineSpecificMethodContext engineSpecificMethodContext;
 
     /**
      * Determines whether the provided space is supported for this method
@@ -152,8 +154,9 @@ public class KNNMethod {
      */
     public static class Builder {
 
-        private MethodComponent methodComponent;
-        private Set<SpaceType> spaces;
+        private final MethodComponent methodComponent;
+        private final Set<SpaceType> spaces;
+        private final EngineSpecificMethodContext engineSpecificMethodContext;
 
         /**
          * Method to get a Builder instance
@@ -161,13 +164,14 @@ public class KNNMethod {
          * @param methodComponent top level method component for the method
          * @return Builder instance
          */
-        public static Builder builder(MethodComponent methodComponent) {
-            return new Builder(methodComponent);
+        public static Builder builder(MethodComponent methodComponent, EngineSpecificMethodContext engineSpecificMethodContext) {
+            return new Builder(methodComponent, engineSpecificMethodContext);
         }
 
-        private Builder(MethodComponent methodComponent) {
+        private Builder(MethodComponent methodComponent, EngineSpecificMethodContext engineSpecificMethodContext) {
             this.methodComponent = methodComponent;
             this.spaces = new HashSet<>();
+            this.engineSpecificMethodContext = engineSpecificMethodContext;
         }
 
         /**
@@ -187,7 +191,7 @@ public class KNNMethod {
          * @return KNNMethod initialized from builder
          */
         public KNNMethod build() {
-            return new KNNMethod(methodComponent, spaces);
+            return new KNNMethod(methodComponent, spaces, engineSpecificMethodContext);
         }
     }
 }

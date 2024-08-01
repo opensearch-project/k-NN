@@ -58,7 +58,8 @@ public class Nmslib extends NativeLibrary {
                         v -> v > 0
                     )
                 )
-                .build()
+                .build(),
+            new DefaultHnswContext()
         ).addSpaces(SUPPORTED_SPACES.toArray(new SpaceType[0])).build()
     );
 
@@ -78,7 +79,7 @@ public class Nmslib extends NativeLibrary {
         String currentVersion,
         String extension
     ) {
-        super(methods, Map.of(METHOD_HNSW, new DefaultHnswContext()), scoreTranslation, currentVersion, extension);
+        super(methods, scoreTranslation, currentVersion, extension);
     }
 
     @Override
