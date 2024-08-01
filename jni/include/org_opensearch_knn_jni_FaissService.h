@@ -57,7 +57,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToBinaryIn
  */
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeIndex(JNIEnv * env, jclass cls,
                                                                             jlong indexAddress,
-                                                                            jstring indexPathJ, jint threadCount);
+                                                                            jstring indexPathJ);
 /*
  * Class:     org_opensearch_knn_jni_FaissService
  * Method:    writeBinaryIndex
@@ -65,7 +65,7 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeIndex(JNIEn
  */
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeBinaryIndex(JNIEnv * env, jclass cls,
                                                                             jlong indexAddress,
-                                                                            jstring indexPathJ, jint threadCount);
+                                                                            jstring indexPathJ);
 /*
  * Class:     org_opensearch_knn_jni_FaissService
  * Method:    createIndexFromTemplate

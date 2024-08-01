@@ -62,7 +62,7 @@ public:
      * @param indexPath path to write index
      * @param idMap memory address of the native index object
      */
-    virtual void writeIndex(int threadCount, std::string indexPath, jlong idMapAddress);
+    virtual void writeIndex(std::string indexPath, jlong idMapAddress);
     virtual ~IndexService() = default;
 protected:
     std::unique_ptr<FaissMethods> faissMethods;
@@ -118,7 +118,7 @@ public:
      * @param idMap a map of document id and vector id
      * @param parameters parameters to be applied to faiss index
      */
-    virtual void writeIndex(int threadCount, std::string indexPath, jlong idMapAddress) override;
+    virtual void writeIndex(std::string indexPath, jlong idMapAddress) override;
     virtual ~BinaryIndexService() = default;
 };
 

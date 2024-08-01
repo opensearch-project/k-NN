@@ -102,9 +102,8 @@ class FaissService {
      *
      * @param indexAddress address of native memory where index is stored
      * @param indexPath path to save index file to
-     * @param threadCount number of threads to use for insertion
      */
-    public static native void writeIndex(long indexAddress, String indexPath, int threadCount);
+    public static native void writeIndex(long indexAddress, String indexPath);
 
     /**
      * Writes a faiss index.
@@ -113,9 +112,8 @@ class FaissService {
      *
      * @param indexAddress address of native memory where index is stored
      * @param indexPath path to save index file to
-     * @param threadCount number of threads to use for insertion
      */
-    public static native void writeBinaryIndex(long indexAddress, String indexPath, int threadCount);
+    public static native void writeBinaryIndex(long indexAddress, String indexPath);
 
     /**
      * Create an index for the native library with a provided template index

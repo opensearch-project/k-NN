@@ -99,12 +99,12 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToBinaryIn
 
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeIndex(JNIEnv * env, jclass cls,
                                                                             jlong indexAddress,
-                                                                            jstring indexPathJ, jint threadCount)
+                                                                            jstring indexPathJ)
 {
     try {
         std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
         knn_jni::faiss_wrapper::IndexService indexService(std::move(faissMethods));
-        knn_jni::faiss_wrapper::WriteIndex(&jniUtil, env, indexPathJ, indexAddress, threadCount, &indexService);
+        knn_jni::faiss_wrapper::WriteIndex(&jniUtil, env, indexPathJ, indexAddress, &indexService);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
@@ -112,12 +112,12 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeIndex(JNIEn
 
 JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_writeBinaryIndex(JNIEnv * env, jclass cls,
                                                                             jlong indexAddress,
-                                                                            jstring indexPathJ, jint threadCount)
+                                                                            jstring indexPathJ)
 {
     try {
         std::unique_ptr<knn_jni::faiss_wrapper::FaissMethods> faissMethods(new knn_jni::faiss_wrapper::FaissMethods());
         knn_jni::faiss_wrapper::BinaryIndexService binaryIndexService(std::move(faissMethods));
-        knn_jni::faiss_wrapper::WriteIndex(&jniUtil, env, indexPathJ, indexAddress, threadCount, &binaryIndexService);
+        knn_jni::faiss_wrapper::WriteIndex(&jniUtil, env, indexPathJ, indexAddress, &binaryIndexService);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }

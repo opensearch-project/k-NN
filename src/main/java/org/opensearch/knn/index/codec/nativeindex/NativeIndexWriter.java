@@ -242,7 +242,7 @@ public abstract class NativeIndexWriter {
         // https://github.com/apache/lucene/blob/branch_9_0/lucene/core/src/java/org/apache/lucene/codecs/CodecUtil.java#L644-L647
         return (value & CRC32_CHECKSUM_SANITY) != 0;
     }
-    
+
     private void writeFooter(String indexPath, String engineFileName, SegmentWriteState state) throws IOException {
         // Opens the engine file that was created and appends a footer to it. The footer consists of
         // 1. A Footer magic number (int - 4 bytes)

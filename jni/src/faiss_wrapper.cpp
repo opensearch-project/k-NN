@@ -170,7 +170,7 @@ void knn_jni::faiss_wrapper::InsertToIndex(knn_jni::JNIUtilInterface * jniUtil, 
 }
 
 void knn_jni::faiss_wrapper::WriteIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env,
-                                         jstring indexPathJ, jlong index_ptr, jint threadCount, IndexService* indexService) {
+                                         jstring indexPathJ, jlong index_ptr, IndexService* indexService) {
 
     if (indexPathJ == nullptr) {
         throw std::runtime_error("Index path cannot be null");
@@ -180,7 +180,7 @@ void knn_jni::faiss_wrapper::WriteIndex(knn_jni::JNIUtilInterface * jniUtil, JNI
     std::string indexPathCpp(jniUtil->ConvertJavaStringToCppString(env, indexPathJ));
 
     // Create index
-    indexService->writeIndex(threadCount, indexPathCpp, index_ptr);
+    indexService->writeIndex(indexPathCpp, index_ptr);
 }
 
 void knn_jni::faiss_wrapper::CreateIndexFromTemplate(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ,

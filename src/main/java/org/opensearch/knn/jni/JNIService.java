@@ -91,12 +91,11 @@ public class JNIService {
      * @param parameters parameters to build index
      */
     public static void writeIndex(String indexPath, long indexAddress, KNNEngine knnEngine, Map<String, Object> parameters) {
-        int threadCount = (int) parameters.getOrDefault(KNNConstants.INDEX_THREAD_QTY, 0);
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
-                FaissService.writeBinaryIndex(indexAddress, indexPath, threadCount);
+                FaissService.writeBinaryIndex(indexAddress, indexPath);
             } else {
-                FaissService.writeIndex(indexAddress, indexPath, threadCount);
+                FaissService.writeIndex(indexAddress, indexPath);
             }
             return;
         }

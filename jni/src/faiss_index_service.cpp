@@ -141,14 +141,9 @@ void IndexService::insertToIndex(
 }
 
 void IndexService::writeIndex(
-        int threadCount,
         std::string indexPath,
         jlong idMapAddress
     ) {
-    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
-    if(threadCount != 0) {
-        omp_set_num_threads(threadCount);
-    }
     std::unique_ptr<faiss::IndexIDMap> idMap (reinterpret_cast<faiss::IndexIDMap *> (idMapAddress));
 
     try {
@@ -248,14 +243,9 @@ void BinaryIndexService::insertToIndex(
 }
 
 void BinaryIndexService::writeIndex(
-        int threadCount,
         std::string indexPath,
         jlong idMapAddress
     ) {
-    // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
-    if(threadCount != 0) {
-        omp_set_num_threads(threadCount);
-    }
 
     std::unique_ptr<faiss::IndexBinaryIDMap> idMap (reinterpret_cast<faiss::IndexBinaryIDMap *> (idMapAddress));
 
