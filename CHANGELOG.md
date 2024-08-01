@@ -25,3 +25,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Clean up parsing for query [#1824](https://github.com/opensearch-project/k-NN/pull/1824)
 * Refactor engine package structure [#1913](https://github.com/opensearch-project/k-NN/pull/1913)
 * Refactor method structure and definitions [#1920](https://github.com/opensearch-project/k-NN/pull/1920)
+* Refactor train index and create index from template APIs in JNI layer [#1918](https://github.com/opensearch-project/k-NN/pull/1918)

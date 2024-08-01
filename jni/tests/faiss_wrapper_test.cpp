@@ -703,12 +703,16 @@ TEST(FaissTrainIndexTest, BasicAssertions) {
     JNIEnv *jniEnv = nullptr;
     NiceMock<test_util::MockJNIUtil> mockJNIUtil;
 
+    // Create the index service
+    std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
+    IndexService indexService(std::move(faissMethods));
+
     // Perform training
     std::unique_ptr<std::vector<uint8_t>> trainedIndexSerialization(
             reinterpret_cast<std::vector<uint8_t> *>(
                     knn_jni::faiss_wrapper::TrainIndex(
                             &mockJNIUtil, jniEnv, (jobject) &parametersMap, dim,
-                            reinterpret_cast<jlong>(&trainingVectors))));
+                            reinterpret_cast<jlong>(&trainingVectors), &indexService)));
 
     std::unique_ptr<faiss::Index> trainedIndex(
             test_util::FaissLoadFromSerializedIndex(trainedIndexSerialization.get()));

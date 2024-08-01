@@ -94,14 +94,7 @@ namespace knn_jni {
         //
         // Return the serialized representation
         jbyteArray TrainIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject parametersJ, jint dimension,
-                              jlong trainVectorsPointerJ);
-
-        // Create an empty binary index defined by the values in the Java map, parametersJ. Train the index with
-        // the vector of floats located at trainVectorsPointerJ.
-        //
-        // Return the serialized representation
-        jbyteArray TrainBinaryIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jobject parametersJ, jint dimension,
-                         jlong trainVectorsPointerJ);
+                      jlong trainVectorsPointerJ, IndexService* indexService);
 
         /*
          * Perform a range search with filter against the index located in memory at indexPointerJ.

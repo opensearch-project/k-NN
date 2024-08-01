@@ -138,6 +138,37 @@ void IndexService::createIndexFromTemplate(
     faissMethods->writeIndex(idMap.get(), indexPath.c_str());
 }
 
+void IndexService::InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x) {
+    if (auto * indexIvf = dynamic_cast<faiss::IndexIVF*>(index)) {
+        if (indexIvf->quantizer_trains_alone == 2) {
+            InternalTrainIndex(indexIvf->quantizer, n, x);
+        }
+        indexIvf->make_direct_map();
+    }
+
+    if (!index->is_trained) {
+        index->train(n, x);
+    }
+}
+
+std::vector<uint8_t> IndexService::trainIndex(JNIUtilInterface* jniUtil, JNIEnv* env, faiss::MetricType metric, std::string& indexDescription, int dimension, int numVectors, float* trainingVectors, std::unordered_map<std::string, jobject>& parameters) {
+    // Create faiss index
+    std::unique_ptr<faiss::Index> index(faissMethods->indexFactory(dimension, indexDescription.c_str(), metric));
+
+    // Train index if needed
+    if (!index->is_trained) {
+        InternalTrainIndex(index.get(), numVectors, trainingVectors);
+    }
+
+    // Write index to a vector
+    faiss::VectorIOWriter vectorIoWriter;
+    faiss::write_index(index.get(), &vectorIoWriter);
+
+    return std::vector<uint8_t>(vectorIoWriter.data.begin(), vectorIoWriter.data.end());
+}
+
+
+
 BinaryIndexService::BinaryIndexService(std::unique_ptr<FaissMethods> faissMethods) : IndexService(std::move(faissMethods)) {}
 
 void BinaryIndexService::createIndex(
@@ -223,5 +254,35 @@ void BinaryIndexService::createIndexFromTemplate(
     faissMethods->writeIndexBinary(idMap.get(), indexPath.c_str());
 }
 
+void BinaryIndexService::InternalTrainIndex(faiss::IndexBinary * index, faiss::idx_t n, const float* x) {
+    if (auto * indexIvf = dynamic_cast<faiss::IndexBinaryIVF*>(index)) {
+        if (!indexIvf->is_trained) {
+            indexIvf->train(n, reinterpret_cast<const uint8_t*>(x));
+        }
+    }
+    if (!index->is_trained) {
+        index->train(n, reinterpret_cast<const uint8_t*>(x));
+    }
+}
+
+std::vector<uint8_t> BinaryIndexService::trainIndex(JNIUtilInterface* jniUtil, JNIEnv* env, faiss::MetricType metric, std::string& indexDescription, int dimension, int numVectors, float* trainingVectors, std::unordered_map<std::string, jobject>& parameters) {
+    // Convert Java parameters to C++ parameters
+    std::unique_ptr<faiss::IndexBinary> indexWriter;
+    indexWriter.reset(faiss::index_binary_factory(dimension, indexDescription.c_str()));
+
+    // Train the index if it is not already trained
+    if (!indexWriter->is_trained) {
+        InternalTrainIndex(indexWriter.get(), numVectors, trainingVectors);
+    }
+
+    // Serialize the trained index to a byte array
+    faiss::VectorIOWriter vectorIoWriter;
+    faiss::write_index_binary(indexWriter.get(), &vectorIoWriter);
+
+    // Convert the serialized data to a std::vector<uint8_t>
+    std::vector<uint8_t> trainedIndexData(vectorIoWriter.data.begin(), vectorIoWriter.data.end());
+
+    return trainedIndexData;
+}
 } // namespace faiss_wrapper
 } // namespace knn_jni

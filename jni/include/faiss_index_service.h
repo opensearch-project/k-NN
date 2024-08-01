@@ -88,6 +88,29 @@ public:
         std::unordered_map<std::string, jobject> parameters,
         std::vector<uint8_t> templateIndexData);
 
+    /**
+     * Train index
+     *
+     * @param index faiss index
+     * @param n number of vectors
+     * @param x memory address which is holding vector data
+     */
+    virtual void InternalTrainIndex(faiss::Index * index, faiss::idx_t n, const float* x);
+
+    /**
+     *
+     * @param jniUtil  jni util
+     * @param env jni environment
+     * @param metric space type for distance calculation
+     * @param indexDescription index description to be used by faiss index factory
+     * @param dimension dimension of vectors
+     * @param numVectors number of vectors
+     * @param trainingVectors memory address which is holding vector data
+     * @param parameters parameters to be applied to faiss index
+     * @return vector containing the trained index data
+     */
+    virtual std::vector<uint8_t> trainIndex(JNIUtilInterface* jniUtil, JNIEnv* env, faiss::MetricType metric, std::string& indexDescription, int dimension, int numVectors, float* trainingVectors, std::unordered_map<std::string, jobject>& parameters);
+
     virtual ~IndexService() = default;
 protected:
     std::unique_ptr<FaissMethods> faissMethods;
@@ -101,7 +124,7 @@ class BinaryIndexService : public IndexService {
 public:
     //TODO Remove dependency on JNIUtilInterface and JNIEnv
     //TODO Reduce the number of parameters
-    BinaryIndexService(std::unique_ptr<FaissMethods> faissMethods);
+    explicit BinaryIndexService(std::unique_ptr<FaissMethods> faissMethods);
 
     /**
      * Create binary index
@@ -118,7 +141,7 @@ public:
      * @param indexPath path to write index
      * @param parameters parameters to be applied to faiss index
      */
-    virtual void createIndex(
+    void createIndex(
         knn_jni::JNIUtilInterface * jniUtil,
         JNIEnv * env,
         faiss::MetricType metric,
@@ -145,7 +168,7 @@ public:
      * @param parameters parameters to be applied to faiss index
      * @param templateIndexData vector containing the template index data
      */
-    virtual void createIndexFromTemplate(
+    void createIndexFromTemplate(
         knn_jni::JNIUtilInterface * jniUtil,
         JNIEnv * env,
         int dim,
@@ -154,9 +177,34 @@ public:
         std::vector<int64_t> ids,
         std::string indexPath,
         std::unordered_map<std::string, jobject> parameters,
-        std::vector<uint8_t> templateIndexData);
+        std::vector<uint8_t> templateIndexData) override;
 
-    virtual ~BinaryIndexService() = default;
+    /**
+     * Train binary index
+     *
+     * @param index faiss index
+     * @param n number of vectors
+     * @param x memory address which is holding vector data
+     */
+    void InternalTrainIndex(faiss::IndexBinary * index, faiss::idx_t n, const float* x);
+
+ /**
+  * Train binary index
+  *
+  * @param jniUtil  jni util
+  * @param env jni environment
+  * @param metric space type for distance calculation
+  * @param indexDescription index description to be used by faiss index factory
+  * @param dimension dimension of vectors
+  * @param numVectors number of vectors
+  * @param trainingVectors memory address which is holding vector data
+  * @param parameters parameters to be applied to faiss index
+  * @return vector containing the trained index data
+  */
+    std::vector<uint8_t> trainIndex(JNIUtilInterface* jniUtil, JNIEnv* env, faiss::MetricType metric, std::string& indexDescription, int dimension, int numVectors, float* trainingVectors, std::unordered_map<std::string, jobject>& parameters) override;
+
+
+    ~BinaryIndexService() override = default;
 };
 
 }
