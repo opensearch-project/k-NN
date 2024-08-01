@@ -10,26 +10,19 @@ import com.google.common.collect.Maps;
 import lombok.Builder;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CodecUtil;
-import org.apache.lucene.codecs.DocValuesProducer;
-import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexOptions;
-import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentWriteState;
-import org.apache.lucene.index.SortedDocValues;
-import org.apache.lucene.index.SortedNumericDocValues;
-import org.apache.lucene.index.SortedSetDocValues;
-import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.index.VectorEncoding;
+import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.store.ChecksumIndexInput;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
-import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.StringHelper;
 import org.apache.lucene.util.Version;
 import java.util.Set;
@@ -37,19 +30,15 @@ import java.util.Set;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.jni.JNIService;
 
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.carrotsearch.randomizedtesting.RandomizedTest.randomFloat;
 import static org.junit.Assert.assertTrue;
 import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
@@ -198,126 +187,6 @@ public class KNNCodecTestUtil {
         }
     }
 
-    public static abstract class VectorDocValues extends BinaryDocValues {
-
-        final int count;
-        final int dimension;
-        int current;
-        KNNVectorSerializer knnVectorSerializer;
-
-        public VectorDocValues(int count, int dimension) {
-            this.count = count;
-            this.dimension = dimension;
-            this.current = -1;
-            this.knnVectorSerializer = KNNVectorSerializerFactory.getDefaultSerializer();
-        }
-
-        @Override
-        public boolean advanceExact(int target) throws IOException {
-            return false;
-        }
-
-        @Override
-        public int docID() {
-            if (this.current > this.count) {
-                return BinaryDocValues.NO_MORE_DOCS;
-            }
-            return this.current;
-        }
-
-        @Override
-        public int nextDoc() throws IOException {
-            return advance(current + 1);
-        }
-
-        @Override
-        public int advance(int target) throws IOException {
-            current = target;
-            if (current >= count) {
-                current = NO_MORE_DOCS;
-            }
-            return current;
-        }
-
-        @Override
-        public long cost() {
-            return 0;
-        }
-    }
-
-    public static class ConstantVectorBinaryDocValues extends VectorDocValues {
-
-        private final BytesRef value;
-
-        public ConstantVectorBinaryDocValues(int count, int dimension, float value) {
-            super(count, dimension);
-            float[] array = new float[dimension];
-            Arrays.fill(array, value);
-            this.value = new BytesRef(knnVectorSerializer.floatToByteArray(array));
-        }
-
-        @Override
-        public BytesRef binaryValue() throws IOException {
-            return value;
-        }
-    }
-
-    public static class RandomVectorBinaryDocValues extends VectorDocValues {
-
-        public RandomVectorBinaryDocValues(int count, int dimension) {
-            super(count, dimension);
-        }
-
-        @Override
-        public BytesRef binaryValue() throws IOException {
-            return new BytesRef(knnVectorSerializer.floatToByteArray(getRandomVector(dimension)));
-        }
-    }
-
-    public static class RandomVectorDocValuesProducer extends DocValuesProducer {
-
-        final RandomVectorBinaryDocValues randomBinaryDocValues;
-
-        public RandomVectorDocValuesProducer(int count, int dimension) {
-            this.randomBinaryDocValues = new RandomVectorBinaryDocValues(count, dimension);
-        }
-
-        @Override
-        public NumericDocValues getNumeric(FieldInfo field) {
-            return null;
-        }
-
-        @Override
-        public BinaryDocValues getBinary(FieldInfo field) throws IOException {
-            return randomBinaryDocValues;
-        }
-
-        @Override
-        public SortedDocValues getSorted(FieldInfo field) {
-            return null;
-        }
-
-        @Override
-        public SortedNumericDocValues getSortedNumeric(FieldInfo field) {
-            return null;
-        }
-
-        @Override
-        public SortedSetDocValues getSortedSet(FieldInfo field) {
-            return null;
-        }
-
-        @Override
-        public void checkIntegrity() {
-
-        }
-
-        @Override
-        public void close() throws IOException {
-
-        }
-    }
-
     public static void assertFileInCorrectLocation(SegmentWriteState state, String expectedFile) throws IOException {
         assertTrue(Set.of(state.directory.listAll()).contains(expectedFile));
     }
@@ -376,22 +245,6 @@ public class KNNCodecTestUtil {
         KNNQueryResult[] results = JNIService.queryBinaryIndex(indexPtr, queryVector, k, null, knnEngine, null, 0, null);
         assertTrue(results.length > 0);
         JNIService.free(indexPtr, knnEngine);
-    }
-
-    public static float[][] getRandomVectors(int count, int dimension) {
-        float[][] data = new float[count][dimension];
-        for (int i = 0; i < count; i++) {
-            data[i] = getRandomVector(dimension);
-        }
-        return data;
-    }
-
-    public static float[] getRandomVector(int dimension) {
-        float[] data = new float[dimension];
-        for (int i = 0; i < dimension; i++) {
-            data[i] = randomFloat();
-        }
-        return data;
     }
 
     @Builder(builderMethodName = "segmentInfoBuilder")

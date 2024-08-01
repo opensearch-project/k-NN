@@ -10,7 +10,7 @@ import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.DocIDMerger;
 import org.apache.lucene.index.MergeState;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.codec.KNNCodecTestUtil;
+import org.opensearch.knn.index.vectorvalues.TestVectorValues;
 import org.opensearch.knn.index.codec.util.BinaryDocValuesSub;
 
 import java.io.IOException;
@@ -30,7 +30,7 @@ public class KNN80BinaryDocValuesTests extends KNNTestCase {
             public int get(int docID) {
                 return expectedDoc;
             }
-        }, new KNNCodecTestUtil.ConstantVectorBinaryDocValues(10, 128, 1.0f));
+        }, new TestVectorValues.ConstantVectorBinaryDocValues(10, 128, 1.0f));
 
         DocIDMerger<BinaryDocValuesSub> docIDMerger = DocIDMerger.of(ImmutableList.of(sub), false);
         KNN80BinaryDocValues knn80BinaryDocValues = new KNN80BinaryDocValues(docIDMerger);
@@ -53,7 +53,7 @@ public class KNN80BinaryDocValuesTests extends KNNTestCase {
     }
 
     public void testBinaryValue() throws IOException {
-        BinaryDocValues binaryDocValues = new KNNCodecTestUtil.ConstantVectorBinaryDocValues(10, 128, 1.0f);
+        BinaryDocValues binaryDocValues = new TestVectorValues.ConstantVectorBinaryDocValues(10, 128, 1.0f);
         BinaryDocValuesSub sub = new BinaryDocValuesSub(new MergeState.DocMap() {
             @Override
             public int get(int docID) {

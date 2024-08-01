@@ -40,12 +40,12 @@ public class NativeEngineFieldVectorsWriterTests extends KNNCodecTestCase {
         byteWriter.addValue(1, new byte[] { 1, 2 });
     }
 
+    @SuppressWarnings("unchecked")
     public void testAddValue_ForDifferentInputs_thenSuccess() {
         final FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
-        final NativeEngineFieldVectorsWriter<float[]> floatWriter = new NativeEngineFieldVectorsWriter<>(
-            fieldInfo,
-            InfoStream.getDefault()
-        );
+        Mockito.when(fieldInfo.getVectorEncoding()).thenReturn(VectorEncoding.FLOAT32);
+        final NativeEngineFieldVectorsWriter<float[]> floatWriter = (NativeEngineFieldVectorsWriter<float[]>) NativeEngineFieldVectorsWriter
+            .create(fieldInfo, InfoStream.getDefault());
         final float[] vec1 = new float[] { 1.0f, 2.0f };
         final float[] vec2 = new float[] { 2.0f, 2.0f };
         floatWriter.addValue(1, vec1);
@@ -53,9 +53,11 @@ public class NativeEngineFieldVectorsWriterTests extends KNNCodecTestCase {
 
         Assert.assertEquals(vec1, floatWriter.getVectors().get(1));
         Assert.assertEquals(vec2, floatWriter.getVectors().get(2));
-        Mockito.verify(fieldInfo, Mockito.never()).getVectorEncoding();
+        Mockito.verify(fieldInfo).getVectorEncoding();
 
-        final NativeEngineFieldVectorsWriter<byte[]> byteWriter = new NativeEngineFieldVectorsWriter<>(fieldInfo, InfoStream.getDefault());
+        Mockito.when(fieldInfo.getVectorEncoding()).thenReturn(VectorEncoding.BYTE);
+        final NativeEngineFieldVectorsWriter<byte[]> byteWriter = (NativeEngineFieldVectorsWriter<byte[]>) NativeEngineFieldVectorsWriter
+            .create(fieldInfo, InfoStream.getDefault());
         final byte[] bvec1 = new byte[] { 1, 2 };
         final byte[] bvec2 = new byte[] { 2, 2 };
         byteWriter.addValue(1, bvec1);
@@ -63,34 +65,36 @@ public class NativeEngineFieldVectorsWriterTests extends KNNCodecTestCase {
 
         Assert.assertEquals(bvec1, byteWriter.getVectors().get(1));
         Assert.assertEquals(bvec2, byteWriter.getVectors().get(2));
-        Mockito.verify(fieldInfo, Mockito.never()).getVectorEncoding();
+        Mockito.verify(fieldInfo, Mockito.times(2)).getVectorEncoding();
     }
 
+    @SuppressWarnings("unchecked")
     public void testCopyValue_whenValidInput_thenException() {
         final FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
-        final NativeEngineFieldVectorsWriter<float[]> floatWriter = new NativeEngineFieldVectorsWriter<>(
-            fieldInfo,
-            InfoStream.getDefault()
-        );
+        Mockito.when(fieldInfo.getVectorEncoding()).thenReturn(VectorEncoding.FLOAT32);
+        final NativeEngineFieldVectorsWriter<float[]> floatWriter = (NativeEngineFieldVectorsWriter<float[]>) NativeEngineFieldVectorsWriter
+            .create(fieldInfo, InfoStream.getDefault());
         expectThrows(UnsupportedOperationException.class, () -> floatWriter.copyValue(new float[3]));
 
-        final NativeEngineFieldVectorsWriter<byte[]> byteWriter = new NativeEngineFieldVectorsWriter<>(fieldInfo, InfoStream.getDefault());
+        Mockito.when(fieldInfo.getVectorEncoding()).thenReturn(VectorEncoding.BYTE);
+        final NativeEngineFieldVectorsWriter<byte[]> byteWriter = (NativeEngineFieldVectorsWriter<byte[]>) NativeEngineFieldVectorsWriter
+            .create(fieldInfo, InfoStream.getDefault());
         expectThrows(UnsupportedOperationException.class, () -> byteWriter.copyValue(new byte[3]));
     }
 
+    @SuppressWarnings("unchecked")
     public void testRamByteUsed_whenValidInput_thenSuccess() {
         final FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
         Mockito.when(fieldInfo.getVectorEncoding()).thenReturn(VectorEncoding.FLOAT32);
         Mockito.when(fieldInfo.getVectorDimension()).thenReturn(2);
-        final NativeEngineFieldVectorsWriter<float[]> floatWriter = new NativeEngineFieldVectorsWriter<>(
-            fieldInfo,
-            InfoStream.getDefault()
-        );
+        final NativeEngineFieldVectorsWriter<float[]> floatWriter = (NativeEngineFieldVectorsWriter<float[]>) NativeEngineFieldVectorsWriter
+            .create(fieldInfo, InfoStream.getDefault());
         // testing for value > 0 as we don't have a concrete way to find out expected bytes. This can OS dependent too.
         Assert.assertTrue(floatWriter.ramBytesUsed() > 0);
 
         Mockito.when(fieldInfo.getVectorEncoding()).thenReturn(VectorEncoding.BYTE);
-        final NativeEngineFieldVectorsWriter<byte[]> byteWriter = new NativeEngineFieldVectorsWriter<>(fieldInfo, InfoStream.getDefault());
+        final NativeEngineFieldVectorsWriter<byte[]> byteWriter = (NativeEngineFieldVectorsWriter<byte[]>) NativeEngineFieldVectorsWriter
+            .create(fieldInfo, InfoStream.getDefault());
         // testing for value > 0 as we don't have a concrete way to find out expected bytes. This can OS dependent too.
         Assert.assertTrue(byteWriter.ramBytesUsed() > 0);
 
