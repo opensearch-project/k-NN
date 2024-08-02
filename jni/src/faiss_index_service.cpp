@@ -93,8 +93,7 @@ jlong IndexService::initIndex(
      */
 
     // Check to see if the current index is HNSW
-    faiss::IndexHNSW * hnsw = dynamic_cast<faiss::IndexHNSW *>(idMap->index);
-
+    faiss::IndexHNSWFlat * hnsw = dynamic_cast<faiss::IndexHNSWFlat *>(idMap->index);
     if(hnsw != NULL) {
         // Check to see if the HNSW storage is IndexFlat
         faiss::IndexFlat * storage = dynamic_cast<faiss::IndexFlat *>(hnsw->storage);
@@ -102,6 +101,16 @@ jlong IndexService::initIndex(
             // Allocate enough memory for all of the vectors we plan on inserting
             // We do this to avoid unnecessary memory allocations during insert
             storage->codes.reserve(dim * numVectors * 4);
+        }
+    }
+    faiss::IndexHNSWSQ * hnswSq = dynamic_cast<faiss::IndexHNSWSQ *>(idMap->index);
+    if(hnswSq != NULL) {
+        // Check to see if the HNSW storage is IndexFlat
+        faiss::IndexFlat * storage = dynamic_cast<faiss::IndexFlat *>(hnswSq->storage);
+        if(storage != NULL) {
+            // Allocate enough memory for all of the vectors we plan on inserting
+            // We do this to avoid unnecessary memory allocations during insert
+            storage->codes.reserve(dim * numVectors * 2);
         }
     }
     indexWriter.release();
