@@ -77,8 +77,8 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToIndex(JN
         knn_jni::faiss_wrapper::InsertToIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexAddress, threadCount, &indexService);
         delete reinterpret_cast<std::vector<float>*>(vectorsAddressJ);
     } catch (...) {
+        // NOTE: ADDING DELETE STATEMENT HERE CAUSES A CRASH!
         jniUtil.CatchCppExceptionAndThrowJava(env);
-        delete reinterpret_cast<std::vector<float>*>(vectorsAddressJ);
     }
 }
 
@@ -92,8 +92,8 @@ JNIEXPORT void JNICALL Java_org_opensearch_knn_jni_FaissService_insertToBinaryIn
         knn_jni::faiss_wrapper::InsertToIndex(&jniUtil, env, idsJ, vectorsAddressJ, dimJ, indexAddress, threadCount, &binaryIndexService);
         delete reinterpret_cast<std::vector<uint8_t>*>(vectorsAddressJ);
     } catch (...) {
+        // NOTE: ADDING DELETE STATEMENT HERE CAUSES A CRASH!
         jniUtil.CatchCppExceptionAndThrowJava(env);
-        delete reinterpret_cast<std::vector<uint8_t>*>(vectorsAddressJ);
     }
 }
 
