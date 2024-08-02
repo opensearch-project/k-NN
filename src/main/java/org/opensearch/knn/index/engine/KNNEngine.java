@@ -146,11 +146,6 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public EngineSpecificMethodContext getMethodContext(String methodName) {
-        return knnLibrary.getMethodContext(methodName);
-    }
-
-    @Override
     public float score(float rawScore, SpaceType spaceType) {
         return knnLibrary.score(rawScore, spaceType);
     }
@@ -181,8 +176,13 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public Map<String, Object> getMethodAsMap(KNNMethodContext knnMethodContext) {
-        return knnLibrary.getMethodAsMap(knnMethodContext);
+    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodContext knnMethodContext) {
+        return knnLibrary.getKNNLibraryIndexingContext(knnMethodContext);
+    }
+
+    @Override
+    public KNNLibrarySearchContext getKNNLibrarySearchContext(String methodName) {
+        return knnLibrary.getKNNLibrarySearchContext(methodName);
     }
 
     @Override
