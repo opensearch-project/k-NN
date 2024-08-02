@@ -62,7 +62,7 @@ void createIndexIteratively(
         }
         knn_jni::faiss_wrapper::InsertToIndex(JNIUtil, jniEnv, reinterpret_cast<jintArray>(&insertIds), (jlong)&insertVecs, dim, index_ptr, 0, indexService);
     }
-    knn_jni::faiss_wrapper::WriteIndex(JNIUtil, jniEnv, (jstring)&indexPath, index_ptr, 0, indexService);
+    knn_jni::faiss_wrapper::WriteIndex(JNIUtil, jniEnv, (jstring)&indexPath, index_ptr, indexService);
 }
 
 void createBinaryIndexIteratively(
@@ -93,7 +93,7 @@ void createBinaryIndexIteratively(
         }
         knn_jni::faiss_wrapper::InsertToIndex(JNIUtil, jniEnv, reinterpret_cast<jintArray>(&insertIds), (jlong)&insertVecs, dim, index_ptr, 0, indexService);
     }
-    knn_jni::faiss_wrapper::WriteIndex(JNIUtil, jniEnv, (jstring)&indexPath, index_ptr, 0, indexService);
+    knn_jni::faiss_wrapper::WriteIndex(JNIUtil, jniEnv, (jstring)&indexPath, index_ptr, indexService);
 }
 
 TEST(FaissCreateIndexTest, BasicAssertions) {
@@ -132,7 +132,7 @@ TEST(FaissCreateIndexTest, BasicAssertions) {
         .Times(1);
     EXPECT_CALL(mockIndexService, insertToIndex(dim, numIds / insertions, 0, _, _, _))
         .Times(insertions);
-    EXPECT_CALL(mockIndexService, writeIndex(0, indexPath, _))
+    EXPECT_CALL(mockIndexService, writeIndex(indexPath, _))
         .Times(1);
 
     createIndexIteratively(&mockJNIUtil, jniEnv, ids, vectors, dim, indexPath, parametersMap, &mockIndexService, insertions);
@@ -174,7 +174,7 @@ TEST(FaissCreateBinaryIndexTest, BasicAssertions) {
         .Times(1);
     EXPECT_CALL(mockIndexService, insertToIndex(dim, numIds / insertions, 0, _, _, _))
         .Times(insertions);
-    EXPECT_CALL(mockIndexService, writeIndex(0, indexPath, _))
+    EXPECT_CALL(mockIndexService, writeIndex(indexPath, _))
         .Times(1);
 
     // This method calls delete vectors at the end

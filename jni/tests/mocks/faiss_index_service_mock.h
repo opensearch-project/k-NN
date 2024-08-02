@@ -52,7 +52,6 @@ public:
         void,
         writeIndex,
         (
-            int threadCount,
             std::string indexPath,
             long indexPtr
         ),
