@@ -72,8 +72,6 @@ TEST(CommonsTests, BasicAssertions) {
     }
     // Check that freeing vector data works
     knn_jni::commons::freeVectorData(memoryAddress);
-    // Check to see if calling twice gives an error
-    knn_jni::commons::freeVectorData(memoryAddress);
 }
 
 TEST(CommonTests, GetIntegerMethodParam) {
