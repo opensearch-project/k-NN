@@ -9,8 +9,6 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.training.VectorSpaceInfo;
 
-import java.util.Map;
-
 /**
  * KNNMethod defines the structure of a method supported by a particular k-NN library. It is used to validate
  * the KNNMethodContext passed in by the user, where the KNNMethodContext provides the configuration that the user may
@@ -61,17 +59,17 @@ public interface KNNMethod {
     int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension);
 
     /**
-     * Parse knnMethodContext into a map that the library can use to configure the index
+     * Parse knnMethodContext into context that the library can use to build the index
      *
-     * @param knnMethodContext from which to generate map
-     * @return KNNMethod as a map
+     * @param knnMethodContext to generate the context for
+     * @return KNNLibraryIndexBuildContext
      */
-    Map<String, Object> getAsMap(KNNMethodContext knnMethodContext);
+    KNNLibraryIndexBuildContext getKNNLibraryIndexBuildContext(KNNMethodContext knnMethodContext);
 
     /**
-     * Get the method context for a particular method
+     * Get the search context for a particular method
      *
-     * @return EngineSpecificMethodContext for the method
+     * @return KNNLibrarySearchContext
      */
-    EngineSpecificMethodContext getEngineSpecificMethodContext();
+    KNNLibrarySearchContext getKNNLibrarySearchContext();
 }

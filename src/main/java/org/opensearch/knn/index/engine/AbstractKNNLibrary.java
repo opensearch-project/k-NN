@@ -24,10 +24,18 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
     protected final String version;
 
     @Override
-    public EngineSpecificMethodContext getMethodContext(String methodName) {
+    public KNNLibrarySearchContext getKNNLibrarySearchContext(String methodName) {
         validateMethodExists(methodName);
         KNNMethod method = methods.get(methodName);
-        return method.getEngineSpecificMethodContext();
+        return method.getKNNLibrarySearchContext();
+    }
+
+    @Override
+    public KNNLibraryIndexBuildContext getKNNLibraryIndexBuildContext(KNNMethodContext knnMethodContext) {
+        String method = knnMethodContext.getMethodComponentContext().getName();
+        validateMethodExists(method);
+        KNNMethod knnMethod = methods.get(method);
+        return knnMethod.getKNNLibraryIndexBuildContext(knnMethodContext);
     }
 
     @Override
@@ -49,14 +57,6 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
         String methodName = knnMethodContext.getMethodComponentContext().getName();
         validateMethodExists(methodName);
         return methods.get(methodName).isTrainingRequired(knnMethodContext);
-    }
-
-    @Override
-    public Map<String, Object> getMethodAsMap(KNNMethodContext knnMethodContext) {
-        String method = knnMethodContext.getMethodComponentContext().getName();
-        validateMethodExists(method);
-        KNNMethod knnMethod = methods.get(method);
-        return knnMethod.getAsMap(knnMethodContext);
     }
 
     private void validateMethodExists(String methodName) {

@@ -37,7 +37,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         }
     };
     private final static String VALID_METHOD_NAME = "test-method-2";
-    private final static EngineSpecificMethodContext VALID_METHOD_CONTEXT = ctx -> ImmutableMap.of(
+    private final static KNNLibrarySearchContext VALID_METHOD_CONTEXT = ctx -> ImmutableMap.of(
         "myparameter",
         new Parameter.BooleanParameter("myparameter", null, value -> true)
     );
@@ -75,15 +75,15 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
 
     public void testEngineSpecificMethods() {
         QueryContext engineSpecificMethodContext = new QueryContext(VectorQueryType.K);
-        assertNotNull(TEST_LIBRARY.getMethodContext(VALID_METHOD_NAME));
+        assertNotNull(TEST_LIBRARY.getKNNLibrarySearchContext(VALID_METHOD_NAME));
         assertTrue(
-            TEST_LIBRARY.getMethodContext(VALID_METHOD_NAME)
+            TEST_LIBRARY.getKNNLibrarySearchContext(VALID_METHOD_NAME)
                 .supportedMethodParameters(engineSpecificMethodContext)
                 .containsKey("myparameter")
         );
     }
 
-    public void testGetMethodAsMap() {
+    public void testGetKNNLibraryIndexBuildContext() {
         // Check that map is expected
         Map<String, Object> expectedMap = new HashMap<>(VALID_EXPECTED_MAP);
         expectedMap.put(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
@@ -92,7 +92,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
             SpaceType.DEFAULT,
             new MethodComponentContext(VALID_METHOD_NAME, Collections.emptyMap())
         );
-        assertEquals(expectedMap, TEST_LIBRARY.getMethodAsMap(knnMethodContext));
+        assertEquals(expectedMap, TEST_LIBRARY.getKNNLibraryIndexBuildContext(knnMethodContext).getLibraryParameters());
 
         // Check when invalid method is passed in
         KNNMethodContext invalidKnnMethodContext = new KNNMethodContext(
@@ -100,7 +100,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
             SpaceType.DEFAULT,
             new MethodComponentContext("invalid", Collections.emptyMap())
         );
-        expectThrows(IllegalArgumentException.class, () -> TEST_LIBRARY.getMethodAsMap(invalidKnnMethodContext));
+        expectThrows(IllegalArgumentException.class, () -> TEST_LIBRARY.getKNNLibraryIndexBuildContext(invalidKnnMethodContext));
     }
 
     private static class TestAbstractKNNLibrary extends AbstractKNNLibrary {

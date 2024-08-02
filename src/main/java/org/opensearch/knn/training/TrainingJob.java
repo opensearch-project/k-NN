@@ -182,7 +182,10 @@ public class TrainingJob implements Runnable {
                 throw new RuntimeException("Unable to load training data into memory: allocation is already closed");
             }
             setVersionInKnnMethodContext();
-            Map<String, Object> trainParameters = model.getModelMetadata().getKnnEngine().getMethodAsMap(knnMethodContext);
+            Map<String, Object> trainParameters = model.getModelMetadata()
+                .getKnnEngine()
+                .getKNNLibraryIndexBuildContext(knnMethodContext)
+                .getLibraryParameters();
             trainParameters.put(
                 KNNConstants.INDEX_THREAD_QTY,
                 KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY)

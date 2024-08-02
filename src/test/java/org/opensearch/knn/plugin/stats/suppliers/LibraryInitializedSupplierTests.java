@@ -12,14 +12,13 @@
 package org.opensearch.knn.plugin.stats.suppliers;
 
 import org.opensearch.common.ValidationException;
-import org.opensearch.knn.index.engine.EngineSpecificMethodContext;
+import org.opensearch.knn.index.engine.KNNLibraryIndexBuildContext;
+import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNLibrary;
 import org.opensearch.knn.training.VectorSpaceInfo;
 import org.opensearch.test.OpenSearchTestCase;
-
-import java.util.Map;
 
 public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
 
@@ -55,7 +54,7 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
         }
 
         @Override
-        public EngineSpecificMethodContext getMethodContext(String methodName) {
+        public KNNLibrarySearchContext getKNNLibrarySearchContext(String methodName) {
             return null;
         }
 
@@ -95,7 +94,7 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
         }
 
         @Override
-        public Map<String, Object> getMethodAsMap(KNNMethodContext knnMethodContext) {
+        public KNNLibraryIndexBuildContext getKNNLibraryIndexBuildContext(KNNMethodContext knnMethodContext) {
             return null;
         }
 

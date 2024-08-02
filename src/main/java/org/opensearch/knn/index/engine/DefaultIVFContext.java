@@ -11,7 +11,7 @@ import org.opensearch.knn.index.query.request.MethodParameter;
 
 import java.util.Map;
 
-public final class DefaultIVFContext implements EngineSpecificMethodContext {
+public final class DefaultIVFContext implements KNNLibrarySearchContext {
 
     private final Map<String, Parameter<?>> supportedMethodParameters = ImmutableMap.<String, Parameter<?>>builder()
         .put(MethodParameter.NPROBE.getName(), new Parameter.IntegerParameter(MethodParameter.NPROBE.getName(), null, value -> true))

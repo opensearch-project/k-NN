@@ -27,7 +27,7 @@ public abstract class AbstractKNNMethod implements KNNMethod {
 
     protected final MethodComponent methodComponent;
     protected final Set<SpaceType> spaces;
-    protected final EngineSpecificMethodContext engineSpecificMethodContext;
+    protected final KNNLibrarySearchContext knnLibrarySearchContext;
 
     @Override
     public boolean isSpaceTypeSupported(SpaceType space) {
@@ -106,14 +106,14 @@ public abstract class AbstractKNNMethod implements KNNMethod {
     }
 
     @Override
-    public Map<String, Object> getAsMap(KNNMethodContext knnMethodContext) {
+    public KNNLibraryIndexBuildContext getKNNLibraryIndexBuildContext(KNNMethodContext knnMethodContext) {
         Map<String, Object> parameterMap = new HashMap<>(methodComponent.getAsMap(knnMethodContext.getMethodComponentContext()));
         parameterMap.put(KNNConstants.SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
-        return parameterMap;
+        return KNNLibraryIndexBuildContextImpl.builder().parameters(parameterMap).build();
     }
 
     @Override
-    public EngineSpecificMethodContext getEngineSpecificMethodContext() {
-        return engineSpecificMethodContext;
+    public KNNLibrarySearchContext getKNNLibrarySearchContext() {
+        return knnLibrarySearchContext;
     }
 }

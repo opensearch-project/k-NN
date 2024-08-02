@@ -14,7 +14,7 @@ import java.util.Map;
 /**
  * Default HNSW context for all engines. Have a different implementation if engine context differs.
  */
-public final class DefaultHnswContext implements EngineSpecificMethodContext {
+public final class DefaultHnswContext implements KNNLibrarySearchContext {
 
     private final Map<String, Parameter<?>> supportedMethodParameters = ImmutableMap.<String, Parameter<?>>builder()
         .put(MethodParameter.EF_SEARCH.getName(), new Parameter.IntegerParameter(MethodParameter.EF_SEARCH.getName(), null, value -> true))

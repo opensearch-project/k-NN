@@ -208,7 +208,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
 
-        String parameterString = XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)).toString();
+        String parameterString = XContentFactory.jsonBuilder()
+            .map(knnEngine.getKNNLibraryIndexBuildContext(knnMethodContext).getLibraryParameters())
+            .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
             KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
@@ -328,7 +330,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         );
         knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 
-        String parameterString = XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)).toString();
+        String parameterString = XContentFactory.jsonBuilder()
+            .map(knnEngine.getKNNLibraryIndexBuildContext(knnMethodContext).getLibraryParameters())
+            .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
             KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
@@ -393,7 +397,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         );
         knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 
-        String parameterString = XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)).toString();
+        String parameterString = XContentFactory.jsonBuilder()
+            .map(knnEngine.getKNNLibraryIndexBuildContext(knnMethodContext).getLibraryParameters())
+            .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
             KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)

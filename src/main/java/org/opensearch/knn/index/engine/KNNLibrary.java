@@ -11,7 +11,6 @@ import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 /**
  * KNNLibrary is an interface that helps the plugin communicate with k-NN libraries
@@ -40,13 +39,6 @@ public interface KNNLibrary {
      * @return compound extension
      */
     String getCompoundExtension();
-
-    /**
-     * Gets metadata related to methods supported by the library
-     * @param methodName
-     * @return
-     */
-    EngineSpecificMethodContext getMethodContext(String methodName);
 
     /**
      * Generate the Lucene score from the rawScore returned by the library. With k-NN, often times the library
@@ -116,12 +108,20 @@ public interface KNNLibrary {
     int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension);
 
     /**
-     * Generate method as map that can be used to configure the knn index from the jni
+     * Get the context from the library needed to build the index.
      *
-     * @param knnMethodContext to generate parameter map from
+     * @param knnMethodContext to get build context for
      * @return parameter map
      */
-    Map<String, Object> getMethodAsMap(KNNMethodContext knnMethodContext);
+    KNNLibraryIndexBuildContext getKNNLibraryIndexBuildContext(KNNMethodContext knnMethodContext);
+
+    /**
+     * Gets metadata related to methods supported by the library
+     *
+     * @param methodName name of method
+     * @return KNNLibrarySearchContext
+     */
+    KNNLibrarySearchContext getKNNLibrarySearchContext(String methodName);
 
     /**
      * Getter for initialized

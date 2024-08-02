@@ -25,11 +25,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 public class AbstractKNNMethodTests extends KNNTestCase {
 
     private static class TestKNNMethod extends AbstractKNNMethod {
-        public TestKNNMethod(
-            MethodComponent methodComponent,
-            Set<SpaceType> spaces,
-            EngineSpecificMethodContext engineSpecificMethodContext
-        ) {
+        public TestKNNMethod(MethodComponent methodComponent, Set<SpaceType> spaces, KNNLibrarySearchContext engineSpecificMethodContext) {
             super(methodComponent, spaces, engineSpecificMethodContext);
         }
     }
@@ -143,7 +139,7 @@ public class AbstractKNNMethodTests extends KNNTestCase {
         assertNull(knnMethod.validateWithData(knnMethodContext3, testVectorSpaceInfo));
     }
 
-    public void testGetAsMap() {
+    public void testGetKNNLibraryIndexBuildContext() {
         SpaceType spaceType = SpaceType.DEFAULT;
         String methodName = "test-method";
         Map<String, Object> generatedMap = ImmutableMap.of("test-key", "test-value");
@@ -158,18 +154,20 @@ public class AbstractKNNMethodTests extends KNNTestCase {
 
         assertEquals(
             expectedMap,
-            knnMethod.getAsMap(new KNNMethodContext(KNNEngine.DEFAULT, spaceType, new MethodComponentContext(methodName, generatedMap)))
+            knnMethod.getKNNLibraryIndexBuildContext(
+                new KNNMethodContext(KNNEngine.DEFAULT, spaceType, new MethodComponentContext(methodName, generatedMap))
+            ).getLibraryParameters()
         );
     }
 
-    public void testGetEngineSpecificMethodContext() {
+    public void testGetKNNLibrarySearchContext() {
         String methodName = "test-method";
-        EngineSpecificMethodContext engineSpecificMethodContext = new DefaultHnswContext();
+        KNNLibrarySearchContext knnLibrarySearchContext = new DefaultHnswContext();
         KNNMethod knnMethod = new TestKNNMethod(
             MethodComponent.Builder.builder(methodName).build(),
             Set.of(SpaceType.L2),
-            engineSpecificMethodContext
+            knnLibrarySearchContext
         );
-        assertEquals(engineSpecificMethodContext, knnMethod.getEngineSpecificMethodContext());
+        assertEquals(knnLibrarySearchContext, knnMethod.getKNNLibrarySearchContext());
     }
 }
