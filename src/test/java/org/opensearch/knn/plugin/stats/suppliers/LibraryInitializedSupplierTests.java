@@ -12,7 +12,7 @@
 package org.opensearch.knn.plugin.stats.suppliers;
 
 import org.opensearch.common.ValidationException;
-import org.opensearch.knn.index.engine.KNNLibraryIndexBuildContext;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
@@ -94,7 +94,7 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
         }
 
         @Override
-        public KNNLibraryIndexBuildContext getKNNLibraryIndexBuildContext(KNNMethodContext knnMethodContext) {
+        public KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodContext knnMethodContext) {
             return null;
         }
 

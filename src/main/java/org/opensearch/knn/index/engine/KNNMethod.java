@@ -62,9 +62,9 @@ public interface KNNMethod {
      * Parse knnMethodContext into context that the library can use to build the index
      *
      * @param knnMethodContext to generate the context for
-     * @return KNNLibraryIndexBuildContext
+     * @return KNNLibraryIndexingContext
      */
-    KNNLibraryIndexBuildContext getKNNLibraryIndexBuildContext(KNNMethodContext knnMethodContext);
+    KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodContext knnMethodContext);
 
     /**
      * Get the search context for a particular method

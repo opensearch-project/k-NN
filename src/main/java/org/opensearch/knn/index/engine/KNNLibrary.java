@@ -113,7 +113,7 @@ public interface KNNLibrary {
      * @param knnMethodContext to get build context for
      * @return parameter map
      */
-    KNNLibraryIndexBuildContext getKNNLibraryIndexBuildContext(KNNMethodContext knnMethodContext);
+    KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodContext knnMethodContext);
 
     /**
      * Gets metadata related to methods supported by the library

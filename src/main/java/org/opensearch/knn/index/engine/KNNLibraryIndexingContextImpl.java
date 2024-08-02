@@ -10,10 +10,10 @@ import lombok.Builder;
 import java.util.Map;
 
 /**
- * Simple implementation of {@link KNNLibraryIndexBuildContext}
+ * Simple implementation of {@link KNNLibraryIndexingContext}
  */
 @Builder
-public class KNNLibraryIndexBuildContextImpl implements KNNLibraryIndexBuildContext {
+public class KNNLibraryIndexingContextImpl implements KNNLibraryIndexingContext {
 
     private Map<String, Object> parameters;
 

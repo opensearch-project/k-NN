@@ -139,7 +139,7 @@ public class AbstractKNNMethodTests extends KNNTestCase {
         assertNull(knnMethod.validateWithData(knnMethodContext3, testVectorSpaceInfo));
     }
 
-    public void testGetKNNLibraryIndexBuildContext() {
+    public void testGetKNNLibraryIndexingContext() {
         SpaceType spaceType = SpaceType.DEFAULT;
         String methodName = "test-method";
         Map<String, Object> generatedMap = ImmutableMap.of("test-key", "test-value");
@@ -154,7 +154,7 @@ public class AbstractKNNMethodTests extends KNNTestCase {
 
         assertEquals(
             expectedMap,
-            knnMethod.getKNNLibraryIndexBuildContext(
+            knnMethod.getKNNLibraryIndexingContext(
                 new KNNMethodContext(KNNEngine.DEFAULT, spaceType, new MethodComponentContext(methodName, generatedMap))
             ).getLibraryParameters()
         );
@@ -162,7 +162,7 @@ public class AbstractKNNMethodTests extends KNNTestCase {
 
     public void testGetKNNLibrarySearchContext() {
         String methodName = "test-method";
-        KNNLibrarySearchContext knnLibrarySearchContext = new DefaultHnswContext();
+        KNNLibrarySearchContext knnLibrarySearchContext = new DefaultHnswSearchContext();
         KNNMethod knnMethod = new TestKNNMethod(
             MethodComponent.Builder.builder(methodName).build(),
             Set.of(SpaceType.L2),

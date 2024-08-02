@@ -184,7 +184,7 @@ public class TrainingJob implements Runnable {
             setVersionInKnnMethodContext();
             Map<String, Object> trainParameters = model.getModelMetadata()
                 .getKnnEngine()
-                .getKNNLibraryIndexBuildContext(knnMethodContext)
+                .getKNNLibraryIndexingContext(knnMethodContext)
                 .getLibraryParameters();
             trainParameters.put(
                 KNNConstants.INDEX_THREAD_QTY,

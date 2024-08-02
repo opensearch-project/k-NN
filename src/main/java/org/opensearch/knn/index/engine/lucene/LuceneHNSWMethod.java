@@ -49,7 +49,7 @@ public class LuceneHNSWMethod extends AbstractKNNMethod {
      * @see AbstractKNNMethod
      */
     public LuceneHNSWMethod() {
-        super(initMethodComponent(), Set.copyOf(SUPPORTED_SPACES), new LuceneHNSWContext());
+        super(initMethodComponent(), Set.copyOf(SUPPORTED_SPACES), new LuceneHNSWSearchContext());
     }
 
     private static MethodComponent initMethodComponent() {

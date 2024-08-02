@@ -106,10 +106,10 @@ public abstract class AbstractKNNMethod implements KNNMethod {
     }
 
     @Override
-    public KNNLibraryIndexBuildContext getKNNLibraryIndexBuildContext(KNNMethodContext knnMethodContext) {
+    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodContext knnMethodContext) {
         Map<String, Object> parameterMap = new HashMap<>(methodComponent.getAsMap(knnMethodContext.getMethodComponentContext()));
         parameterMap.put(KNNConstants.SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
-        return KNNLibraryIndexBuildContextImpl.builder().parameters(parameterMap).build();
+        return KNNLibraryIndexingContextImpl.builder().parameters(parameterMap).build();
     }
 
     @Override

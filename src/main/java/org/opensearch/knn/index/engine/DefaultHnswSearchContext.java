@@ -11,14 +11,17 @@ import org.opensearch.knn.index.query.request.MethodParameter;
 
 import java.util.Map;
 
-public final class DefaultIVFContext implements KNNLibrarySearchContext {
+/**
+ * Default HNSW context for all engines. Have a different implementation if engine context differs.
+ */
+public final class DefaultHnswSearchContext implements KNNLibrarySearchContext {
 
     private final Map<String, Parameter<?>> supportedMethodParameters = ImmutableMap.<String, Parameter<?>>builder()
-        .put(MethodParameter.NPROBE.getName(), new Parameter.IntegerParameter(MethodParameter.NPROBE.getName(), null, value -> true))
+        .put(MethodParameter.EF_SEARCH.getName(), new Parameter.IntegerParameter(MethodParameter.EF_SEARCH.getName(), null, value -> true))
         .build();
 
     @Override
-    public Map<String, Parameter<?>> supportedMethodParameters(QueryContext context) {
+    public Map<String, Parameter<?>> supportedMethodParameters(QueryContext ctx) {
         return supportedMethodParameters;
     }
 }

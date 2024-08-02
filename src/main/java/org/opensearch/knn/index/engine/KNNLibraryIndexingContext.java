@@ -11,7 +11,7 @@ import java.util.Map;
 /**
  * Context a library gives to build one of its indices
  */
-public interface KNNLibraryIndexBuildContext {
+public interface KNNLibraryIndexingContext {
     /**
      * Get map of parameters that get passed to the library to build the index
      *
@@ -19,5 +19,5 @@ public interface KNNLibraryIndexBuildContext {
      */
     Map<String, Object> getLibraryParameters();
 
-    KNNLibraryIndexBuildContext EMPTY = Collections::emptyMap;
+    KNNLibraryIndexingContext EMPTY = Collections::emptyMap;
 }

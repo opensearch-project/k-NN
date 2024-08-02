@@ -14,7 +14,7 @@ import org.opensearch.knn.index.query.request.MethodParameter;
 import java.util.Collections;
 import java.util.Map;
 
-public class LuceneHNSWContext implements KNNLibrarySearchContext {
+public class LuceneHNSWSearchContext implements KNNLibrarySearchContext {
 
     private final Map<String, Parameter<?>> supportedMethodParameters = ImmutableMap.<String, Parameter<?>>builder()
         .put(MethodParameter.EF_SEARCH.getName(), new Parameter.IntegerParameter(MethodParameter.EF_SEARCH.getName(), null, value -> true))

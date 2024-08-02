@@ -31,11 +31,11 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
     }
 
     @Override
-    public KNNLibraryIndexBuildContext getKNNLibraryIndexBuildContext(KNNMethodContext knnMethodContext) {
+    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodContext knnMethodContext) {
         String method = knnMethodContext.getMethodComponentContext().getName();
         validateMethodExists(method);
         KNNMethod knnMethod = methods.get(method);
-        return knnMethod.getKNNLibraryIndexBuildContext(knnMethodContext);
+        return knnMethod.getKNNLibraryIndexingContext(knnMethodContext);
     }
 
     @Override

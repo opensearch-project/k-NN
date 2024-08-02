@@ -209,7 +209,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         );
 
         String parameterString = XContentFactory.jsonBuilder()
-            .map(knnEngine.getKNNLibraryIndexBuildContext(knnMethodContext).getLibraryParameters())
+            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters())
             .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
@@ -331,7 +331,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 
         String parameterString = XContentFactory.jsonBuilder()
-            .map(knnEngine.getKNNLibraryIndexBuildContext(knnMethodContext).getLibraryParameters())
+            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters())
             .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
@@ -398,7 +398,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 
         String parameterString = XContentFactory.jsonBuilder()
-            .map(knnEngine.getKNNLibraryIndexBuildContext(knnMethodContext).getLibraryParameters())
+            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters())
             .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {

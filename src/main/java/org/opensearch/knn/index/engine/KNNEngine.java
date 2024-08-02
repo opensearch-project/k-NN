@@ -176,8 +176,8 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public KNNLibraryIndexBuildContext getKNNLibraryIndexBuildContext(KNNMethodContext knnMethodContext) {
-        return knnLibrary.getKNNLibraryIndexBuildContext(knnMethodContext);
+    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodContext knnMethodContext) {
+        return knnLibrary.getKNNLibraryIndexingContext(knnMethodContext);
     }
 
     @Override
