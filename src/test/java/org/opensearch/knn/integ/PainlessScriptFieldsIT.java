@@ -34,12 +34,12 @@ public final class PainlessScriptFieldsIT extends KNNRestTestCase {
 
     private static final String NUMERIC_INDEX_FIELD_NAME = "price";
 
-    private void buildTestIndex(Map<String, Float[]> knnDocuments) throws Exception {
+    private void buildTestIndex(final Map<String, Float[]> knnDocuments) throws Exception {
         List<MappingProperty> properties = buildMappingProperties();
         buildTestIndex(knnDocuments, properties);
     }
 
-    private void buildTestIndex(Map<String, Float[]> knnDocuments, List<MappingProperty> properties) throws Exception {
+    private void buildTestIndex(final Map<String, Float[]> knnDocuments, final List<MappingProperty> properties) throws Exception {
         createKnnIndex(INDEX_NAME, createMapping(properties));
         for (Map.Entry<String, Float[]> data : knnDocuments.entrySet()) {
             addKnnDoc(INDEX_NAME, data.getKey(), FIELD_NAME, data.getValue());
@@ -68,8 +68,8 @@ public final class PainlessScriptFieldsIT extends KNNRestTestCase {
      */
     private List<MappingProperty> buildMappingProperties() {
         List<MappingProperty> properties = new ArrayList<>();
-        properties.add(new MappingProperty(FIELD_NAME, KNNVectorFieldMapper.CONTENT_TYPE).dimension("2"));
-        properties.add(new MappingProperty(NUMERIC_INDEX_FIELD_NAME, "integer"));
+        properties.add(MappingProperty.builder().name(FIELD_NAME).type(KNNVectorFieldMapper.CONTENT_TYPE).dimension("2").build());
+        properties.add(MappingProperty.builder().name(NUMERIC_INDEX_FIELD_NAME).type("integer").build());
         return properties;
     }
 

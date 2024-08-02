@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.integ;
 
+import lombok.Builder;
+import lombok.Getter;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -19,7 +21,7 @@ public final class PainlessScriptHelper {
     /**
      * Utility to create a Index Mapping with multiple fields
      */
-    public static String createMapping(List<MappingProperty> properties) throws IOException {
+    public static String createMapping(final List<MappingProperty> properties) throws IOException {
         Objects.requireNonNull(properties);
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject().startObject("properties");
         for (MappingProperty property : properties) {
@@ -44,53 +46,13 @@ public final class PainlessScriptHelper {
         return xContentBuilder.toString();
     }
 
+    @Getter
+    @Builder
     final static class MappingProperty {
-
         private final String name;
         private final String type;
         private String dimension;
-
         private KNNMethodContext knnMethodContext;
         private Boolean docValues;
-
-        MappingProperty(String name, String type) {
-            this.name = name;
-            this.type = type;
-        }
-
-        MappingProperty dimension(String dimension) {
-            this.dimension = dimension;
-            return this;
-        }
-
-        MappingProperty knnMethodContext(KNNMethodContext knnMethodContext) {
-            this.knnMethodContext = knnMethodContext;
-            return this;
-        }
-
-        MappingProperty docValues(boolean docValues) {
-            this.docValues = docValues;
-            return this;
-        }
-
-        KNNMethodContext getKnnMethodContext() {
-            return knnMethodContext;
-        }
-
-        String getDimension() {
-            return dimension;
-        }
-
-        String getName() {
-            return name;
-        }
-
-        String getType() {
-            return type;
-        }
-
-        Boolean getDocValues() {
-            return docValues;
-        }
     }
 }

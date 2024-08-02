@@ -116,8 +116,8 @@ public final class PainlessScriptScoreIT extends KNNRestTestCase {
      */
     private List<MappingProperty> buildMappingProperties() {
         List<MappingProperty> properties = new ArrayList<>();
-        properties.add(new MappingProperty(FIELD_NAME, KNNVectorFieldMapper.CONTENT_TYPE).dimension("2"));
-        properties.add(new MappingProperty(NUMERIC_INDEX_FIELD_NAME, "integer"));
+        properties.add(MappingProperty.builder().name(FIELD_NAME).type(KNNVectorFieldMapper.CONTENT_TYPE).dimension("2").build());
+        properties.add(MappingProperty.builder().name(NUMERIC_INDEX_FIELD_NAME).type("integer").build());
         return properties;
     }
 
@@ -536,9 +536,13 @@ public final class PainlessScriptScoreIT extends KNNRestTestCase {
             new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
         );
         properties.add(
-            new MappingProperty(FIELD_NAME, KNNVectorFieldMapper.CONTENT_TYPE).dimension("2")
+            MappingProperty.builder()
+                .name(FIELD_NAME)
+                .type(KNNVectorFieldMapper.CONTENT_TYPE)
+                .dimension("2")
                 .knnMethodContext(knnMethodContext)
                 .docValues(randomBoolean())
+                .build()
         );
 
         String source = String.format("1/(1 + l2Squared([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
