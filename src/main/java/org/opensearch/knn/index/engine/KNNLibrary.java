@@ -42,15 +42,6 @@ public interface KNNLibrary {
     String getCompoundExtension();
 
     /**
-     * Gets a particular KNN method that the library supports. This should throw an exception if the method is not
-     * supported by the library.
-     *
-     * @param methodName name of the method to be looked up
-     * @return KNNMethod in the library corresponding to the method name
-     */
-    KNNMethod getMethod(String methodName);
-
-    /**
      * Gets metadata related to methods supported by the library
      * @param methodName
      * @return

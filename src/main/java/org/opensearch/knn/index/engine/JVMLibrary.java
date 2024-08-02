@@ -20,8 +20,8 @@ public abstract class JVMLibrary extends AbstractKNNLibrary {
      * @param methods Map of k-NN methods that the library supports
      * @param version String representing version of library
      */
-    public JVMLibrary(Map<String, KNNMethod> methods, Map<String, EngineSpecificMethodContext> engineMethodMetadataMap, String version) {
-        super(methods, engineMethodMetadataMap, version);
+    public JVMLibrary(Map<String, KNNMethod> methods, String version) {
+        super(methods, version);
     }
 
     @Override

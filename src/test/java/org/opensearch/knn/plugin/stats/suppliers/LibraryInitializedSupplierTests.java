@@ -13,7 +13,6 @@ package org.opensearch.knn.plugin.stats.suppliers;
 
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.engine.EngineSpecificMethodContext;
-import org.opensearch.knn.index.engine.KNNMethod;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNLibrary;
@@ -52,11 +51,6 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
 
         @Override
         public String getCompoundExtension() {
-            return null;
-        }
-
-        @Override
-        public KNNMethod getMethod(String methodName) {
             return null;
         }
 
