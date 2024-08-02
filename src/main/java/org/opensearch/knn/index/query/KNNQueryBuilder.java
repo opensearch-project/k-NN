@@ -32,7 +32,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
-import org.opensearch.knn.index.engine.EngineSpecificMethodContext;
+import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
@@ -373,7 +373,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
 
         final String method = methodComponentContext != null ? methodComponentContext.getName() : null;
         if (StringUtils.isNotBlank(method)) {
-            final EngineSpecificMethodContext engineSpecificMethodContext = knnEngine.getMethodContext(method);
+            final KNNLibrarySearchContext engineSpecificMethodContext = knnEngine.getKNNLibrarySearchContext(method);
             QueryContext queryContext = new QueryContext(vectorQueryType);
             ValidationException validationException = validateParameters(
                 engineSpecificMethodContext.supportedMethodParameters(queryContext),
