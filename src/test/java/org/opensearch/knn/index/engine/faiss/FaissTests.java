@@ -234,7 +234,7 @@ public class FaissTests extends KNNTestCase {
         expectedMap.put(NAME, methodName);
         expectedMap.put(INDEX_DESCRIPTION_PARAMETER, methodDescription + value1);
 
-        Map<String, Object> methodAsMap = Faiss.MethodAsMapBuilder.builder(methodDescription, methodComponent, methodComponentContext)
+        Map<String, Object> methodAsMap = MethodAsMapBuilder.builder(methodDescription, methodComponent, methodComponentContext)
             .addParameter(parameter1, "", "")
             .build();
 

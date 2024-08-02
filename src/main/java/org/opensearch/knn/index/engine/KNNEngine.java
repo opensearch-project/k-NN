@@ -146,11 +146,6 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public KNNMethod getMethod(String methodName) {
-        return knnLibrary.getMethod(methodName);
-    }
-
-    @Override
     public EngineSpecificMethodContext getMethodContext(String methodName) {
         return knnLibrary.getMethodContext(methodName);
     }

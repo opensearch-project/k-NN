@@ -12,6 +12,7 @@ import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.engine.EngineSpecificMethodContext;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.core.common.bytes.BytesReference;
@@ -30,6 +31,8 @@ import static org.mockito.Mockito.when;
  * Base class for integration tests for KNN plugin. Contains several methods for testing KNN ES functionality.
  */
 public class KNNTestCase extends OpenSearchTestCase {
+
+    protected static final EngineSpecificMethodContext EMPTY_ENGINE_SPECIFIC_CONTEXT = ctx -> Map.of();
 
     @Mock
     protected ClusterService clusterService;
