@@ -61,7 +61,7 @@ public class NativeLibraryTests extends KNNTestCase {
             String currentVersion,
             String extension
         ) {
-            super(methods, Collections.emptyMap(), scoreTranslation, currentVersion, extension);
+            super(methods, scoreTranslation, currentVersion, extension);
         }
 
         @Override

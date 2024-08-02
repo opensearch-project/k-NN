@@ -6,51 +6,25 @@
 package org.opensearch.knn.index.engine.nmslib;
 
 import com.google.common.collect.ImmutableMap;
-import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.DefaultHnswContext;
 import org.opensearch.knn.index.engine.KNNMethod;
-import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.NativeLibrary;
-import org.opensearch.knn.index.engine.Parameter;
 
 import java.util.Collections;
 import java.util.Map;
 import java.util.function.Function;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
-import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 
 /**
  * Implements NativeLibrary for the nmslib native library
  */
 public class Nmslib extends NativeLibrary {
-
     // Extension to be used for Nmslib files. It is ".hnsw" and not ".nmslib" for legacy purposes.
     public final static String EXTENSION = ".hnsw";
-
     final static String CURRENT_VERSION = "2011";
 
-    final static Map<String, KNNMethod> METHODS = ImmutableMap.of(
-        METHOD_HNSW,
-        KNNMethod.Builder.builder(
-            MethodComponent.Builder.builder(METHOD_HNSW)
-                .addParameter(
-                    METHOD_PARAMETER_M,
-                    new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0)
-                )
-                .addParameter(
-                    METHOD_PARAMETER_EF_CONSTRUCTION,
-                    new Parameter.IntegerParameter(
-                        METHOD_PARAMETER_EF_CONSTRUCTION,
-                        KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
-                        v -> v > 0
-                    )
-                )
-                .build()
-        ).addSpaces(SpaceType.UNDEFINED, SpaceType.L2, SpaceType.L1, SpaceType.LINF, SpaceType.COSINESIMIL, SpaceType.INNER_PRODUCT).build()
-    );
+    final static Map<String, KNNMethod> METHODS = ImmutableMap.of(METHOD_HNSW, new NmslibHNSWMethod());
 
     public final static Nmslib INSTANCE = new Nmslib(METHODS, Collections.emptyMap(), CURRENT_VERSION, EXTENSION);
 
@@ -68,7 +42,7 @@ public class Nmslib extends NativeLibrary {
         String currentVersion,
         String extension
     ) {
-        super(methods, Map.of(METHOD_HNSW, new DefaultHnswContext()), scoreTranslation, currentVersion, extension);
+        super(methods, scoreTranslation, currentVersion, extension);
     }
 
     @Override

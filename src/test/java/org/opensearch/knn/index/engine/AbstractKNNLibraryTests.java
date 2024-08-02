@@ -18,125 +18,94 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.NAME;
 
 public class AbstractKNNLibraryTests extends KNNTestCase {
 
+    private final static String CURRENT_VERSION = "test-version";
+    private final static String INVALID_METHOD_THROWS_VALIDATION_NAME = "test-method-1";
+    private final static KNNMethod INVALID_METHOD_THROWS_VALIDATION = new AbstractKNNMethod(
+        MethodComponent.Builder.builder(INVALID_METHOD_THROWS_VALIDATION_NAME).build(),
+        Set.of(SpaceType.DEFAULT),
+        new DefaultHnswContext()
+    ) {
+        @Override
+        public ValidationException validate(KNNMethodContext knnMethodContext) {
+            return new ValidationException();
+        }
+    };
+    private final static String VALID_METHOD_NAME = "test-method-2";
+    private final static EngineSpecificMethodContext VALID_METHOD_CONTEXT = ctx -> ImmutableMap.of(
+        "myparameter",
+        new Parameter.BooleanParameter("myparameter", null, value -> true)
+    );
+    private final static Map<String, Object> VALID_EXPECTED_MAP = ImmutableMap.of("test-key", "test-param");
+    private final static KNNMethod VALID_METHOD = new AbstractKNNMethod(
+        MethodComponent.Builder.builder(VALID_METHOD_NAME)
+            .setMapGenerator((methodComponent, methodComponentContext) -> VALID_EXPECTED_MAP)
+            .build(),
+        Set.of(SpaceType.DEFAULT),
+        VALID_METHOD_CONTEXT
+    ) {
+    };
+    private final static AbstractKNNLibrary TEST_LIBRARY = new TestAbstractKNNLibrary(
+        ImmutableMap.of(INVALID_METHOD_THROWS_VALIDATION_NAME, INVALID_METHOD_THROWS_VALIDATION, VALID_METHOD_NAME, VALID_METHOD),
+        CURRENT_VERSION
+    );
+
     public void testGetVersion() {
-        String testVersion = "test-version";
-        TestAbstractKNNLibrary testAbstractKNNLibrary = new TestAbstractKNNLibrary(Collections.emptyMap(), testVersion);
-        assertEquals(testVersion, testAbstractKNNLibrary.getVersion());
-    }
-
-    public void testGetMethod() {
-        String methodName1 = "test-method-1";
-        KNNMethod knnMethod1 = KNNMethod.Builder.builder(MethodComponent.Builder.builder(methodName1).build()).build();
-
-        String methodName2 = "test-method-2";
-        KNNMethod knnMethod2 = KNNMethod.Builder.builder(MethodComponent.Builder.builder(methodName2).build()).build();
-
-        Map<String, KNNMethod> knnMethodMap = ImmutableMap.of(methodName1, knnMethod1, methodName2, knnMethod2);
-
-        TestAbstractKNNLibrary testAbstractKNNLibrary = new TestAbstractKNNLibrary(knnMethodMap, "");
-        assertEquals(knnMethod1, testAbstractKNNLibrary.getMethod(methodName1));
-        assertEquals(knnMethod2, testAbstractKNNLibrary.getMethod(methodName2));
-        expectThrows(IllegalArgumentException.class, () -> testAbstractKNNLibrary.getMethod("invalid"));
+        assertEquals(CURRENT_VERSION, TEST_LIBRARY.getVersion());
     }
 
     public void testValidateMethod() throws IOException {
         // Invalid - method not supported
-        String methodName1 = "test-method-1";
-        KNNMethod knnMethod1 = KNNMethod.Builder.builder(MethodComponent.Builder.builder(methodName1).build()).build();
-
-        Map<String, KNNMethod> methodMap = ImmutableMap.of(methodName1, knnMethod1);
-        TestAbstractKNNLibrary testAbstractKNNLibrary1 = new TestAbstractKNNLibrary(methodMap, "");
-
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject().field(NAME, "invalid").endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext1 = KNNMethodContext.parse(in);
-        expectThrows(IllegalArgumentException.class, () -> testAbstractKNNLibrary1.validateMethod(knnMethodContext1));
+        expectThrows(IllegalArgumentException.class, () -> TEST_LIBRARY.validateMethod(knnMethodContext1));
 
         // Invalid - method validation
-        String methodName2 = "test-method-2";
-        KNNMethod knnMethod2 = new KNNMethod(MethodComponent.Builder.builder(methodName2).build(), Collections.emptySet()) {
-            @Override
-            public ValidationException validate(KNNMethodContext knnMethodContext) {
-                return new ValidationException();
-            }
-        };
-
-        methodMap = ImmutableMap.of(methodName2, knnMethod2);
-        TestAbstractKNNLibrary testAbstractKNNLibrary2 = new TestAbstractKNNLibrary(methodMap, "");
-        xContentBuilder = XContentFactory.jsonBuilder().startObject().field(NAME, methodName2).endObject();
+        xContentBuilder = XContentFactory.jsonBuilder().startObject().field(NAME, INVALID_METHOD_THROWS_VALIDATION_NAME).endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext2 = KNNMethodContext.parse(in);
-        assertNotNull(testAbstractKNNLibrary2.validateMethod(knnMethodContext2));
+        assertNotNull(TEST_LIBRARY.validateMethod(knnMethodContext2));
     }
 
     public void testEngineSpecificMethods() {
-        String methodName1 = "test-method-1";
         QueryContext engineSpecificMethodContext = new QueryContext(VectorQueryType.K);
-        EngineSpecificMethodContext context = ctx -> ImmutableMap.of(
-            "myparameter",
-            new Parameter.BooleanParameter("myparameter", null, value -> true)
-        );
-
-        TestAbstractKNNLibrary testAbstractKNNLibrary1 = new TestAbstractKNNLibrary(
-            Collections.emptyMap(),
-            Map.of(methodName1, context),
-            ""
-        );
-
-        assertNotNull(testAbstractKNNLibrary1.getMethodContext(methodName1));
+        assertNotNull(TEST_LIBRARY.getMethodContext(VALID_METHOD_NAME));
         assertTrue(
-            testAbstractKNNLibrary1.getMethodContext(methodName1)
+            TEST_LIBRARY.getMethodContext(VALID_METHOD_NAME)
                 .supportedMethodParameters(engineSpecificMethodContext)
                 .containsKey("myparameter")
         );
     }
 
     public void testGetMethodAsMap() {
-        String methodName = "test-method-1";
-        SpaceType spaceType = SpaceType.DEFAULT;
-        Map<String, Object> generatedMap = ImmutableMap.of("test-key", "test-param");
-        MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
-            .setMapGenerator(((methodComponent1, methodComponentContext) -> generatedMap))
-            .build();
-        KNNMethod knnMethod = KNNMethod.Builder.builder(methodComponent).build();
-
-        TestAbstractKNNLibrary testAbstractKNNLibrary = new TestAbstractKNNLibrary(ImmutableMap.of(methodName, knnMethod), "");
-
         // Check that map is expected
-        Map<String, Object> expectedMap = new HashMap<>(generatedMap);
-        expectedMap.put(KNNConstants.SPACE_TYPE, spaceType.getValue());
+        Map<String, Object> expectedMap = new HashMap<>(VALID_EXPECTED_MAP);
+        expectedMap.put(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.DEFAULT,
-            spaceType,
-            new MethodComponentContext(methodName, Collections.emptyMap())
+            SpaceType.DEFAULT,
+            new MethodComponentContext(VALID_METHOD_NAME, Collections.emptyMap())
         );
-        assertEquals(expectedMap, testAbstractKNNLibrary.getMethodAsMap(knnMethodContext));
+        assertEquals(expectedMap, TEST_LIBRARY.getMethodAsMap(knnMethodContext));
 
         // Check when invalid method is passed in
         KNNMethodContext invalidKnnMethodContext = new KNNMethodContext(
             KNNEngine.DEFAULT,
-            spaceType,
+            SpaceType.DEFAULT,
             new MethodComponentContext("invalid", Collections.emptyMap())
         );
-        expectThrows(IllegalArgumentException.class, () -> testAbstractKNNLibrary.getMethodAsMap(invalidKnnMethodContext));
+        expectThrows(IllegalArgumentException.class, () -> TEST_LIBRARY.getMethodAsMap(invalidKnnMethodContext));
     }
 
     private static class TestAbstractKNNLibrary extends AbstractKNNLibrary {
         public TestAbstractKNNLibrary(Map<String, KNNMethod> methods, String currentVersion) {
-            super(methods, Collections.emptyMap(), currentVersion);
-        }
-
-        public TestAbstractKNNLibrary(
-            Map<String, KNNMethod> methods,
-            Map<String, EngineSpecificMethodContext> engineSpecificMethodContextMap,
-            String currentVersion
-        ) {
-            super(methods, engineSpecificMethodContextMap, currentVersion);
+            super(methods, currentVersion);
         }
 
         @Override
