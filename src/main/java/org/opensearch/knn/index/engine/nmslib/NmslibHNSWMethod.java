@@ -8,7 +8,7 @@ package org.opensearch.knn.index.engine.nmslib;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
-import org.opensearch.knn.index.engine.DefaultHnswContext;
+import org.opensearch.knn.index.engine.DefaultHnswSearchContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.Parameter;
 
@@ -39,7 +39,7 @@ public class NmslibHNSWMethod extends AbstractKNNMethod {
      * @see AbstractKNNMethod
      */
     public NmslibHNSWMethod() {
-        super(initMethodComponent(), Set.copyOf(SUPPORTED_SPACES), new DefaultHnswContext());
+        super(initMethodComponent(), Set.copyOf(SUPPORTED_SPACES), new DefaultHnswSearchContext());
     }
 
     private static MethodComponent initMethodComponent() {

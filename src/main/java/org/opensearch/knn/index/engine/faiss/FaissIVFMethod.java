@@ -8,7 +8,7 @@ package org.opensearch.knn.index.engine.faiss;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
-import org.opensearch.knn.index.engine.DefaultIVFContext;
+import org.opensearch.knn.index.engine.DefaultIVFSearchContext;
 import org.opensearch.knn.index.engine.Encoder;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -55,7 +55,7 @@ public class FaissIVFMethod extends AbstractKNNMethod {
      * @see AbstractKNNMethod
      */
     public FaissIVFMethod() {
-        super(initMethodComponent(), Set.copyOf(SUPPORTED_SPACES), new DefaultIVFContext());
+        super(initMethodComponent(), Set.copyOf(SUPPORTED_SPACES), new DefaultIVFSearchContext());
     }
 
     private static MethodComponent initMethodComponent() {
