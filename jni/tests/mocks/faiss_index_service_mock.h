@@ -39,6 +39,22 @@ public:
             StringToJObjectMap parameters
         ),
         (override));
+
+    MOCK_METHOD(
+        void,
+        createIndexFromTemplate,
+        (
+            knn_jni::JNIUtilInterface * jniUtil,
+            JNIEnv * env,
+            int dim,
+            int numIds,
+            int64_t vectorsAddress,
+            std::vector<int64_t> ids,
+            std::string indexPath,
+            StringToJObjectMap parameters,
+            std::vector<uint8_t> templateIndexData
+        ),
+        (override));
 };
 
 #endif  // OPENSEARCH_KNN_FAISS_INDEX_SERVICE_MOCK_H

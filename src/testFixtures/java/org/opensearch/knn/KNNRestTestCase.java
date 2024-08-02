@@ -1621,6 +1621,9 @@ public class KNNRestTestCase extends ODFERestTestCase {
 
         Response trainResponse = trainModel(modelId, trainingIndexName, trainingFieldName, dimension, method, modelDescription);
 
+        // sleep to allow training to complete
+        Thread.sleep(5 * 1000);
+
         assertEquals(RestStatus.OK, RestStatus.fromCode(trainResponse.getStatusLine().getStatusCode()));
     }
 

@@ -15,6 +15,8 @@
 #include "mocks/faiss_index_mock.h"
 #include "test_util.h"
 #include <vector>
+#include <faiss/index_factory.h>
+
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "commons.h"
@@ -131,4 +133,130 @@ TEST(CreateBinaryIndexTest, BasicAssertions) {
         ids,
         indexPath,
         parametersMap);
+}
+
+std::vector<uint8_t> createSampleTemplateIndexData(int dim) {
+    // Create a sample FAISS index
+    faiss::Index* index = faiss::index_factory(dim, "Flat", faiss::METRIC_L2);
+    faiss::VectorIOWriter vectorIoWriter;
+    faiss::write_index(index, &vectorIoWriter);
+    delete index;
+
+    // Copy the data from the VectorIOWriter to a vector<uint8_t>
+    std::vector<uint8_t> templateIndexData(vectorIoWriter.data.begin(), vectorIoWriter.data.end());
+    return templateIndexData;
+}
+
+std::vector<uint8_t> createSampleBinaryTemplateIndexData(int dim) {
+    // Create a sample FAISS binary index
+    faiss::IndexBinary* index = faiss::index_binary_factory(dim, "BIVF4096,Flat");
+    faiss::VectorIOWriter vectorIoWriter;
+    faiss::write_index_binary(index, &vectorIoWriter);
+    delete index;
+
+    // Copy the data from the VectorIOWriter to a vector<uint8_t>
+    std::vector<uint8_t> templateIndexData(vectorIoWriter.data.begin(), vectorIoWriter.data.end());
+    return templateIndexData;
+}
+
+TEST(CreateIndexFromTemplateTest, BasicAssertions) {
+    // Define the data
+    faiss::idx_t numIds = 100;
+    std::vector<faiss::idx_t> ids;
+    std::vector<float> vectors;
+    int dim = 2;
+    vectors.reserve(dim * numIds);
+    for (int64_t i = 0; i < numIds; ++i) {
+        ids.push_back(i);
+        for (int j = 0; j < dim; ++j) {
+            vectors.push_back(test_util::RandomFloat(-500.0, 500.0));
+        }
+    }
+
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    std::vector<uint8_t> templateIndexData = createSampleTemplateIndexData(dim);
+    std::unordered_map<std::string, jobject> parametersMap;
+
+    // Set up jni
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    // Setup faiss method mock
+    MockIndex* mockIndex = new MockIndex();
+    EXPECT_CALL(*mockIndex, add(numIds, vectors.data()))
+        .Times(1);
+
+    faiss::IndexIDMap* indexIdMap = new faiss::IndexIDMap(mockIndex);
+    std::unique_ptr<MockFaissMethods> mockFaissMethods(new MockFaissMethods());
+    EXPECT_CALL(*mockFaissMethods, readIndex(_, 0))
+        .WillOnce(Return(indexIdMap->index));
+    EXPECT_CALL(*mockFaissMethods, indexIdMap(indexIdMap->index))
+        .WillOnce(Return(indexIdMap));
+    EXPECT_CALL(*mockFaissMethods, writeIndex(indexIdMap, ::testing::StrEq(indexPath.c_str())))
+        .Times(1);
+
+    // Create the index
+    knn_jni::faiss_wrapper::IndexService indexService(std::move(mockFaissMethods));
+    indexService.createIndexFromTemplate(
+        &mockJNIUtil,
+        jniEnv,
+        dim,
+        numIds,
+        (int64_t) &vectors,
+        ids,
+        indexPath,
+        parametersMap,
+        templateIndexData);
+}
+
+TEST(CreateBinaryIndexFromTemplateTest, BasicAssertions) {
+    // Define the data
+    faiss::idx_t numIds = 200;
+    std::vector<faiss::idx_t> ids;
+    std::vector<uint8_t> vectors;
+    int dim = 128;
+    vectors.reserve(numIds);
+    for (int64_t i = 0; i < numIds; ++i) {
+        ids.push_back(i);
+        for (int j = 0; j < dim / 8; ++j) {
+            vectors.push_back(test_util::RandomInt(0, 255));
+        }
+    }
+
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    std::vector<uint8_t> templateIndexData = createSampleBinaryTemplateIndexData(dim);
+    std::unordered_map<std::string, jobject> parametersMap;
+
+    // Set up jni
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    // Setup faiss method mock
+    // This object is handled by unique_ptr inside indexService.createIndexFromTemplate()
+    MockIndexBinary* mockIndex = new MockIndexBinary();
+    EXPECT_CALL(*mockIndex, add(numIds, vectors.data()))
+        .Times(1);
+
+    faiss::IndexBinaryIDMap* indexIdMap = new faiss::IndexBinaryIDMap(mockIndex);
+    std::unique_ptr<MockFaissMethods> mockFaissMethods(new MockFaissMethods());
+
+    EXPECT_CALL(*mockFaissMethods, readIndexBinary(_, 0))
+        .WillOnce(Return(mockIndex));
+    EXPECT_CALL(*mockFaissMethods, indexBinaryIdMap(mockIndex))
+        .WillOnce(Return(indexIdMap));
+    EXPECT_CALL(*mockFaissMethods, writeIndexBinary(indexIdMap, ::testing::StrEq(indexPath.c_str())))
+        .Times(1);
+
+    // Create the index
+    knn_jni::faiss_wrapper::BinaryIndexService indexService(std::move(mockFaissMethods));
+    indexService.createIndexFromTemplate(
+        &mockJNIUtil,
+        jniEnv,
+        dim,
+        numIds,
+        (int64_t) &vectors,
+        ids,
+        indexPath,
+        parametersMap,
+        templateIndexData);
 }
