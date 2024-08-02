@@ -137,20 +137,19 @@ public class KNNCodecTestCase extends KNNTestCase {
         Document doc = new Document();
         doc.add(vectorField);
         writer.addDocument(doc);
-        writer.close();
+        // ensuring the refresh happens, to create the segment and hnsw file
+        writer.flush();
 
         /**
          * Add doc with field "my_vector"
          */
-        IndexWriterConfig iwc1 = newIndexWriterConfig();
-        iwc1.setMergeScheduler(new SerialMergeScheduler());
-        iwc1.setCodec(ACTUAL_CODEC);
-        writer = new RandomIndexWriter(random(), dir, iwc1);
         float[] array1 = { 6.0f, 14.0f };
         VectorField vectorField1 = new VectorField("my_vector", array1, sampleFieldType);
         Document doc1 = new Document();
         doc1.add(vectorField1);
         writer.addDocument(doc1);
+        // ensuring the refresh happens, to create the segment and hnsw file
+        writer.flush();
         IndexReader reader = writer.getReader();
         writer.close();
         ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
@@ -158,7 +157,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         List<String> hnswfiles = Arrays.stream(dir.listAll()).filter(x -> x.contains("hnsw")).collect(Collectors.toList());
 
         // there should be 2 hnsw index files created. one for test_vector and one for my_vector
-        assertEquals(hnswfiles.size(), 2);
+        assertEquals(2, hnswfiles.size());
         assertEquals(hnswfiles.stream().filter(x -> x.contains("test_vector")).collect(Collectors.toList()).size(), 1);
         assertEquals(hnswfiles.stream().filter(x -> x.contains("my_vector")).collect(Collectors.toList()).size(), 1);
 
