@@ -57,6 +57,23 @@ void SetExtraParameters(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env,
 
 IndexService::IndexService(std::unique_ptr<FaissMethods> faissMethods) : faissMethods(std::move(faissMethods)) {}
 
+void IndexService::allocIndex(faiss::Index * index, int dim, int numVectors) {
+    if(auto * indexHNSWFlat = dynamic_cast<faiss::IndexHNSWFlat *>(index)) {
+        auto * indexFlatCodes = dynamic_cast<faiss::IndexFlatCodes *>(indexHNSWFlat->storage);
+        indexFlatCodes->codes.reserve(dim * numVectors * 4);
+        return;
+    }
+    if(auto * indexHNSWSQ = dynamic_cast<faiss::IndexHNSWSQ *>(index)) {
+        auto * indexFlatCodes = dynamic_cast<faiss::IndexFlatCodes *>(indexHNSWSQ->storage);
+        indexFlatCodes->codes.reserve(dim * numVectors * 2);
+        return;
+    }
+    if(auto * indexFlat = dynamic_cast<faiss::IndexFlat *>(index)) {
+        indexFlat->codes.reserve(dim * numVectors * 4);
+        return;
+    }
+}
+
 jlong IndexService::initIndex(
         knn_jni::JNIUtilInterface * jniUtil,
         JNIEnv * env,
@@ -167,6 +184,18 @@ void IndexService::writeIndex(
 }
 
 BinaryIndexService::BinaryIndexService(std::unique_ptr<FaissMethods> faissMethods) : IndexService(std::move(faissMethods)) {}
+
+void BinaryIndexService::allocIndex(faiss::Index * index, int dim, int numVectors) {
+    if(auto * indexBinaryHNSW = dynamic_cast<faiss::IndexBinaryHNSW *>(index)) {
+        auto * indexBinaryFlat = dynamic_cast<faiss::IndexBinaryFlat *>(indexBinaryHNSW->storage);
+        indexBinaryFlat->xb.reserve(dim * numVectors * 4);
+        return;
+    }
+    if(auto * indexBinaryFlat = dynamic_cast<faiss::IndexBinaryFlat *>(index)) {
+        indexBinaryFlat->xb.reserve(dim * numVectors * 4);
+        return;
+    }
+}
 
 jlong BinaryIndexService::initIndex(
         knn_jni::JNIUtilInterface * jniUtil,
