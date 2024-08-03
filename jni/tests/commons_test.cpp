@@ -70,6 +70,8 @@ TEST(CommonsTests, BasicAssertions) {
             currentIndex++;
         }
     }
+    // Check that freeing vector data works
+    knn_jni::commons::freeVectorData(memoryAddress);
 }
 
 TEST(CommonTests, GetIntegerMethodParam) {
