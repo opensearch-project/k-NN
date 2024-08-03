@@ -28,3 +28,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 * Refactor engine package structure [#1913](https://github.com/opensearch-project/k-NN/pull/1913)
 * Refactor method structure and definitions [#1920](https://github.com/opensearch-project/k-NN/pull/1920)
 * Generalize lib interface to return context objects [#1925](https://github.com/opensearch-project/k-NN/pull/1925)
+* Quantization Framework For Disk Optimized Vector Search and Implementation of Binary 1Bit and multibit quantizer[#1889](https://github.com/opensearch-project/k-NN/issues/1889)
