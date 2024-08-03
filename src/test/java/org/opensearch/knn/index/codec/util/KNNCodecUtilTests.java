@@ -36,23 +36,20 @@ public class KNNCodecUtilTests extends TestCase {
         when(binaryDocValues.binaryValue()).thenReturn(bytesRef);
 
         VectorTransfer vectorTransfer = mock(VectorTransfer.class);
-        when(vectorTransfer.getSerializationMode(any(BytesRef.class))).thenReturn(SerializationMode.COLLECTIONS_OF_BYTES);
         when(vectorTransfer.getVectorAddress()).thenReturn(vectorAddress);
         when(vectorTransfer.getDimension()).thenReturn(dimension);
 
         // Run
-        KNNCodecUtil.Pair pair = KNNCodecUtil.getPair(binaryDocValues, vectorTransfer);
+        KNNCodecUtil.VectorBatch batch = KNNCodecUtil.getVectorBatch(binaryDocValues, vectorTransfer, false);
 
         // Verify
         verify(vectorTransfer).init(liveDocCount);
-        verify(vectorTransfer).getSerializationMode(any(BytesRef.class));
         verify(vectorTransfer).transfer(any(BytesRef.class));
         verify(vectorTransfer).close();
 
-        assertTrue(Arrays.equals(docId, pair.docs));
-        assertEquals(vectorAddress, pair.getVectorAddress());
-        assertEquals(dimension, pair.getDimension());
-        assertEquals(SerializationMode.COLLECTIONS_OF_BYTES, pair.serializationMode);
+        assertTrue(Arrays.equals(docId, batch.docs));
+        assertEquals(vectorAddress, batch.getVectorAddress());
+        assertEquals(dimension, batch.getDimension());
     }
 
     public void testCalculateArraySize() {

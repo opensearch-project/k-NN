@@ -13,16 +13,98 @@ package org.opensearch.knn.jni;
 
 import org.apache.commons.lang.ArrayUtils;
 import org.opensearch.common.Nullable;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.engine.KNNEngine;
 
+import java.util.Locale;
 import java.util.Map;
 
 /**
  * Service to distribute requests to the proper engine jni service
  */
 public class JNIService {
+    /**
+     * Initialize an index for the native library. Takes in numDocs to
+     * allocate the correct amount of memory.
+     *
+     * @param numDocs number of documents to be added
+     * @param dim dimension of the vector to be indexed
+     * @param parameters parameters to build index
+     * @param knnEngine knn engine
+     * @return address of the index in memory
+     */
+    public static long initIndexFromScratch(long numDocs, int dim, Map<String, Object> parameters, KNNEngine knnEngine) {
+        if (KNNEngine.FAISS == knnEngine) {
+            if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
+                return FaissService.initBinaryIndex(numDocs, dim, parameters);
+            } else {
+                return FaissService.initIndex(numDocs, dim, parameters);
+            }
+        }
+
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "initIndexFromScratch not supported for provided engine : %s", knnEngine.getName())
+        );
+    }
+
+    /**
+     * Inserts to a faiss index.
+     *
+     * @param docs ids of documents
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dimension dimension of the vector to be indexed
+     * @param parameters parameters to build index
+     * @param indexAddress address of native memory where index is stored
+     * @param knnEngine knn engine
+     */
+    public static void insertToIndex(
+        int[] docs,
+        long vectorsAddress,
+        int dimension,
+        Map<String, Object> parameters,
+        long indexAddress,
+        KNNEngine knnEngine
+    ) {
+        int threadCount = (int) parameters.getOrDefault(KNNConstants.INDEX_THREAD_QTY, 0);
+        if (KNNEngine.FAISS == knnEngine) {
+            if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
+                FaissService.insertToBinaryIndex(docs, vectorsAddress, dimension, indexAddress, threadCount);
+            } else {
+                FaissService.insertToIndex(docs, vectorsAddress, dimension, indexAddress, threadCount);
+            }
+            return;
+        }
+
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "insertToIndex not supported for provided engine : %s", knnEngine.getName())
+        );
+    }
+
+    /**
+     * Writes a faiss index to disk.
+     *
+     * @param indexPath path to save index to
+     * @param indexAddress address of native memory where index is stored
+     * @param knnEngine knn engine
+     * @param parameters parameters to build index
+     */
+    public static void writeIndex(String indexPath, long indexAddress, KNNEngine knnEngine, Map<String, Object> parameters) {
+        if (KNNEngine.FAISS == knnEngine) {
+            if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
+                FaissService.writeBinaryIndex(indexAddress, indexPath);
+            } else {
+                FaissService.writeIndex(indexAddress, indexPath);
+            }
+            return;
+        }
+
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "writeIndex not supported for provided engine : %s", knnEngine.getName())
+        );
+    }
+
     /**
      * Create an index for the native library. The memory occupied by the vectorsAddress will be freed up during the
      * function call. So Java layer doesn't need to free up the memory. This is not an ideal behavior because Java layer
@@ -50,16 +132,9 @@ public class JNIService {
             return;
         }
 
-        if (KNNEngine.FAISS == knnEngine) {
-            if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
-                FaissService.createBinaryIndex(ids, vectorsAddress, dim, indexPath, parameters);
-            } else {
-                FaissService.createIndex(ids, vectorsAddress, dim, indexPath, parameters);
-            }
-            return;
-        }
-
-        throw new IllegalArgumentException(String.format("CreateIndex not supported for provided engine : %s", knnEngine.getName()));
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "CreateIndex not supported for provided engine : %s", knnEngine.getName())
+        );
     }
 
     /**
@@ -93,7 +168,7 @@ public class JNIService {
         }
 
         throw new IllegalArgumentException(
-            String.format("CreateIndexFromTemplate not supported for provided engine : %s", knnEngine.getName())
+            String.format(Locale.ROOT, "CreateIndexFromTemplate not supported for provided engine : %s", knnEngine.getName())
         );
     }
 
@@ -118,7 +193,9 @@ public class JNIService {
             }
         }
 
-        throw new IllegalArgumentException(String.format("LoadIndex not supported for provided engine : %s", knnEngine.getName()));
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "LoadIndex not supported for provided engine : %s", knnEngine.getName())
+        );
     }
 
     /**
@@ -150,7 +227,7 @@ public class JNIService {
             return FaissService.initSharedIndexState(indexAddr);
         }
         throw new IllegalArgumentException(
-            String.format("InitSharedIndexState not supported for provided engine : %s", knnEngine.getName())
+            String.format(Locale.ROOT, "InitSharedIndexState not supported for provided engine : %s", knnEngine.getName())
         );
     }
 
@@ -168,7 +245,7 @@ public class JNIService {
         }
 
         throw new IllegalArgumentException(
-            String.format("SetSharedIndexState not supported for provided engine : %s", knnEngine.getName())
+            String.format(Locale.ROOT, "SetSharedIndexState not supported for provided engine : %s", knnEngine.getName())
         );
     }
 
@@ -216,7 +293,9 @@ public class JNIService {
             }
             return FaissService.queryIndex(indexPointer, queryVector, k, methodParameters, parentIds);
         }
-        throw new IllegalArgumentException(String.format("QueryIndex not supported for provided engine : %s", knnEngine.getName()));
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "QueryIndex not supported for provided engine : %s", knnEngine.getName())
+        );
     }
 
     /**
@@ -252,7 +331,9 @@ public class JNIService {
                 parentIds
             );
         }
-        throw new IllegalArgumentException(String.format("QueryBinaryIndex not supported for provided engine : %s", knnEngine.getName()));
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "QueryBinaryIndex not supported for provided engine : %s", knnEngine.getName())
+        );
     }
 
     /**
@@ -283,7 +364,7 @@ public class JNIService {
             return;
         }
 
-        throw new IllegalArgumentException(String.format("Free not supported for provided engine : %s", knnEngine.getName()));
+        throw new IllegalArgumentException(String.format(Locale.ROOT, "Free not supported for provided engine : %s", knnEngine.getName()));
     }
 
     /**
@@ -298,7 +379,7 @@ public class JNIService {
             return;
         }
         throw new IllegalArgumentException(
-            String.format("FreeSharedIndexState not supported for provided engine : %s", knnEngine.getName())
+            String.format(Locale.ROOT, "FreeSharedIndexState not supported for provided engine : %s", knnEngine.getName())
         );
     }
 
@@ -319,7 +400,9 @@ public class JNIService {
             return FaissService.trainIndex(indexParameters, dimension, trainVectorsPointer);
         }
 
-        throw new IllegalArgumentException(String.format("TrainIndex not supported for provided engine : %s", knnEngine.getName()));
+        throw new IllegalArgumentException(
+            String.format(Locale.ROOT, "TrainIndex not supported for provided engine : %s", knnEngine.getName())
+        );
     }
 
     /**
@@ -377,6 +460,6 @@ public class JNIService {
             }
             return FaissService.rangeSearchIndex(indexPointer, queryVector, radius, methodParameters, indexMaxResultWindow, parentIds);
         }
-        throw new IllegalArgumentException("RadiusQueryIndex not supported for provided engine");
+        throw new IllegalArgumentException(String.format(Locale.ROOT, "RadiusQueryIndex not supported for provided engine"));
     }
 }
