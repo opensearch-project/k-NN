@@ -51,4 +51,11 @@ public abstract class VectorTransfer {
      * @return serialization mode
      */
     abstract public SerializationMode getSerializationMode(final BytesRef bytesRef);
+
+    /**
+     * Get number of documents not transferred
+     *
+     * @return number of documents not transferred
+     */
+    abstract public int numPendingDocs();
 }

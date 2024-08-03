@@ -24,7 +24,7 @@ public class KNNCodecUtil {
     public static final int FLOAT_BYTE_SIZE = 4;
 
     @AllArgsConstructor
-    public static final class Pair {
+    public static final class VectorBatch {
         public int[] docs;
         @Getter
         @Setter
@@ -32,33 +32,48 @@ public class KNNCodecUtil {
         @Getter
         @Setter
         private int dimension;
-        public SerializationMode serializationMode;
+        public boolean finished;
     }
 
     /**
      * Extract docIds and vectors from binary doc values.
-     *
-     * @param values Binary doc values
-     * @param vectorTransfer Utility to make transfer
-     * @return KNNCodecUtil.Pair representing doc ids and corresponding vectors
-     * @throws IOException thrown when unable to get binary of vectors
-     */
-    public static KNNCodecUtil.Pair getPair(final BinaryDocValues values, final VectorTransfer vectorTransfer) throws IOException {
+    *
+    * @param values Binary doc values
+    * @param vectorTransfer Utility to make transfer
+    * @return KNNCodecUtil.Pair representing doc ids and corresponding vectors
+    * @throws IOException thrown when unable to get binary of vectors
+    */
+    public static KNNCodecUtil.VectorBatch getVectorBatch(
+        final BinaryDocValues values,
+        final VectorTransfer vectorTransfer,
+        boolean iterative
+    ) throws IOException {
         List<Integer> docIdList = new ArrayList<>();
-        SerializationMode serializationMode = SerializationMode.COLLECTION_OF_FLOATS;
-        vectorTransfer.init(getTotalLiveDocsCount(values));
+        if (iterative) {
+            // Initializing with a value of zero means to only allocate as much memory on JNI as
+            // we have inserted for vectors in java side
+            vectorTransfer.init(0);
+        } else {
+            vectorTransfer.init(getTotalLiveDocsCount(values));
+        }
         for (int doc = values.nextDoc(); doc != DocIdSetIterator.NO_MORE_DOCS; doc = values.nextDoc()) {
             BytesRef bytesref = values.binaryValue();
-            serializationMode = vectorTransfer.getSerializationMode(bytesref);
             vectorTransfer.transfer(bytesref);
             docIdList.add(doc);
+            // Semi-hacky way to check if the streaming limit has been reached
+            if (iterative && vectorTransfer.numPendingDocs() == 0) {
+                break;
+            }
         }
         vectorTransfer.close();
-        return new KNNCodecUtil.Pair(
+
+        boolean finished = values.docID() == DocIdSetIterator.NO_MORE_DOCS;
+
+        return new KNNCodecUtil.VectorBatch(
             docIdList.stream().mapToInt(Integer::intValue).toArray(),
             vectorTransfer.getVectorAddress(),
             vectorTransfer.getDimension(),
-            serializationMode
+            finished
         );
     }
 

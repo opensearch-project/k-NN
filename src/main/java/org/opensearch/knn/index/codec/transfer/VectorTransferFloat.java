@@ -64,8 +64,17 @@ public class VectorTransferFloat extends VectorTransfer {
         return KNNVectorSerializerFactory.getSerializerModeFromBytesRef(bytesRef);
     }
 
+    @Override
+    public int numPendingDocs() {
+        return vectorList.size();
+    }
+
     private void transfer() {
-        vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
+        if (totalLiveDocs != 0) {
+            vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), totalLiveDocs * dimension);
+        } else {
+            vectorAddress = JNICommons.storeVectorData(vectorAddress, vectorList.toArray(new float[][] {}), vectorList.size() * dimension);
+        }
         vectorList.clear();
     }
 }
