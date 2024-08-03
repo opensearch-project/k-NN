@@ -5,18 +5,18 @@
 
 package org.opensearch.knn.quantization.quantizer;
 
-import org.opensearch.knn.quantization.models.quantizationOutput.BinaryQuantizationOutput;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
-import org.opensearch.knn.quantization.models.quantizationParams.SQParams;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.requests.TrainingRequest;
 import org.opensearch.knn.quantization.sampler.Sampler;
+import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
-import org.opensearch.knn.quantization.util.BitPacker;
-import org.opensearch.knn.quantization.util.QuantizerHelper;
 
-import java.util.Collections;
+import java.io.IOException;
+import java.util.BitSet;
 
 /**
  * OneBitScalarQuantizer is responsible for quantizing vectors using a single bit per dimension.
@@ -37,7 +37,7 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
      * Constructs a OneBitScalarQuantizer with a default sampling size of 25000.
      */
     public OneBitScalarQuantizer() {
-        this(DEFAULT_SAMPLE_SIZE, SamplingFactory.getSampler(SamplingFactory.SamplerType.RESERVOIR));
+        this(DEFAULT_SAMPLE_SIZE, SamplingFactory.getSampler(SamplerType.RESERVOIR));
     }
 
     /**
@@ -49,7 +49,6 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
 
         this.samplingSize = samplingSize;
         this.sampler = sampler;
-        ;
     }
 
     /**
@@ -61,10 +60,9 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
      */
     @Override
     public QuantizationState train(final TrainingRequest<float[]> trainingRequest) {
-        SQParams params = QuantizerHelper.validateAndExtractParams(trainingRequest);
-        int[] sampledIndices = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
-        float[] mean = QuantizerHelper.calculateMean(trainingRequest, sampledIndices);
-        return new OneBitScalarQuantizationState(params, mean);
+        BitSet sampledDocIds = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
+        float[] meanThresholds = QuantizerHelper.calculateMeanThresholds(trainingRequest, sampledDocIds);
+        return new OneBitScalarQuantizationState(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT), meanThresholds);
     }
 
     /**
@@ -73,10 +71,11 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
      *
      * @param vector the vector to quantize.
      * @param state  the quantization state containing the means for each dimension.
+     * @param output the QuantizationOutput object to store the quantized representation of the vector.
      * @return a BinaryQuantizationOutput containing the quantized data.
      */
     @Override
-    public QuantizationOutput<byte[]> quantize(final float[] vector, final QuantizationState state) {
+    public void quantize(final float[] vector, final QuantizationState state, final QuantizationOutput<byte[]> output) throws IOException {
         if (vector == null) {
             throw new IllegalArgumentException("Vector to quantize must not be null.");
         }
@@ -86,11 +85,19 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
         if (thresholds == null || thresholds.length != vector.length) {
             throw new IllegalArgumentException("Thresholds must not be null and must match the dimension of the vector.");
         }
-        byte[] quantizedVector = new byte[vector.length];
+        // Directly pack bits without intermediate array
+        int byteLength = (vector.length + 7) >> 3; // Calculate byte length needed
+        byte[] packedBits = new byte[byteLength];
+
         for (int i = 0; i < vector.length; i++) {
-            quantizedVector[i] = (byte) (vector[i] > thresholds[i] ? 1 : 0);
+            if (vector[i] > thresholds[i]) {
+                int byteIndex = i >> 3; // Equivalent to i / 8
+                int bitIndex = 7 - (i & 7); // Equivalent to 7 - (i % 8)
+                packedBits[byteIndex] |= (1 << bitIndex); // Set the bit
+            }
         }
-        return new BinaryQuantizationOutput(BitPacker.packBits(Collections.singletonList(quantizedVector)));
+
+        output.updateQuantizedVector(packedBits);
     }
 
     /**

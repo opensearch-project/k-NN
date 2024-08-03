@@ -9,7 +9,7 @@ import org.opensearch.knn.KNNTestCase;
 
 public class SamplingFactoryTests extends KNNTestCase {
     public void testGetSampler_withReservoir() {
-        Sampler sampler = SamplingFactory.getSampler(SamplingFactory.SamplerType.RESERVOIR);
+        Sampler sampler = SamplingFactory.getSampler(SamplerType.RESERVOIR);
         assertTrue(sampler instanceof ReservoirSampler);
     }
 

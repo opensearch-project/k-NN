@@ -5,10 +5,10 @@
 
 package org.opensearch.knn.quantization.sampler;
 
-import java.util.Arrays;
-import java.util.Random;
+import lombok.NoArgsConstructor;
+
+import java.util.BitSet;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.IntStream;
 
 /**
  * ReservoirSampler implements the Sampler interface and provides a method for sampling
@@ -16,33 +16,23 @@ import java.util.stream.IntStream;
  * This algorithm is particularly useful for randomly sampling a subset of data from a larger set
  * when the total size of the dataset is unknown or very large.
  */
+@NoArgsConstructor
 final class ReservoirSampler implements Sampler {
-
-    private final Random random;
-
     /**
-     * Constructs a ReservoirSampler with a new Random instance.
+     * Singleton instance holder.
      */
-    public ReservoirSampler() {
-        this(ThreadLocalRandom.current());
-    }
+    private static ReservoirSampler instance;
 
     /**
-     * Constructs a ReservoirSampler with a specified random seed for reproducibility.
+     * Provides the singleton instance of ReservoirSampler.
      *
-     * @param seed the seed for the random number generator.
+     * @return the singleton instance of ReservoirSampler.
      */
-    public ReservoirSampler(final long seed) {
-        this(new Random(seed));
-    }
-
-    /**
-     * Constructs a ReservoirSampler with a specified Random instance.
-     *
-     * @param random the Random instance for generating random numbers.
-     */
-    public ReservoirSampler(final Random random) {
-        this.random = random;
+    public static synchronized ReservoirSampler getInstance() {
+        if (instance == null) {
+            instance = new ReservoirSampler();
+        }
+        return instance;
     }
 
     /**
@@ -55,9 +45,11 @@ final class ReservoirSampler implements Sampler {
      * @return an array of sampled indices.
      */
     @Override
-    public int[] sample(final int totalNumberOfVectors, final int sampleSize) {
+    public BitSet sample(final int totalNumberOfVectors, final int sampleSize) {
         if (totalNumberOfVectors <= sampleSize) {
-            return IntStream.range(0, totalNumberOfVectors).toArray();
+            BitSet bitSet = new BitSet(totalNumberOfVectors);
+            bitSet.set(0, totalNumberOfVectors);
+            return bitSet;
         }
         return reservoirSampleIndices(totalNumberOfVectors, sampleSize);
     }
@@ -67,19 +59,30 @@ final class ReservoirSampler implements Sampler {
      * This method ensures that each index in the range [0, numVectors) has an equal probability
      * of being included in the sample.
      *
+     * Reservoir sampling is particularly useful for selecting a random sample from a large or unknown-sized dataset.
+     * For more information on the algorithm, see the following link:
+     * <a href="https://en.wikipedia.org/wiki/Reservoir_sampling">Reservoir Sampling - Wikipedia</a>
+     *
      * @param numVectors the total number of vectors.
      * @param sampleSize the number of indices to sample.
-     * @return an array of sampled indices.
+     * @return a BitSet representing the sampled indices.
      */
-    private int[] reservoirSampleIndices(final int numVectors, final int sampleSize) {
-        int[] indices = IntStream.range(0, sampleSize).toArray();
+    private BitSet reservoirSampleIndices(final int numVectors, final int sampleSize) {
+        int[] indices = new int[sampleSize];
+        for (int i = 0; i < sampleSize; i++) {
+            indices[i] = i;
+        }
         for (int i = sampleSize; i < numVectors; i++) {
-            int j = random.nextInt(i + 1);
+            int j = ThreadLocalRandom.current().nextInt(i + 1);
             if (j < sampleSize) {
                 indices[j] = i;
             }
         }
-        Arrays.sort(indices);
-        return indices;
+        // Using BitSet to track the presence of indices
+        BitSet bitSet = new BitSet(numVectors);
+        for (int i = 0; i < sampleSize; i++) {
+            bitSet.set(indices[i]);
+        }
+        return bitSet;
     }
 }

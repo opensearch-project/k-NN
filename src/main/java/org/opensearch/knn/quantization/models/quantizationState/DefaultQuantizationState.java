@@ -5,28 +5,27 @@
 
 package org.opensearch.knn.quantization.models.quantizationState;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import org.opensearch.Version;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
-import org.opensearch.knn.quantization.models.quantizationParams.SQParams;
-import org.opensearch.knn.quantization.util.QuantizationStateSerializer;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 
 import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
 
 /**
  * DefaultQuantizationState is used as a fallback state when no training is required or if training fails.
  * It can be utilized by any quantizer to represent a default state.
  */
+@Getter
+@NoArgsConstructor // No-argument constructor for deserialization
+@AllArgsConstructor
 public class DefaultQuantizationState implements QuantizationState {
-
-    private final QuantizationParams params;
-
-    /**
-     * Constructs a DefaultQuantizationState with the given quantization parameters.
-     *
-     * @param params the quantization parameters.
-     */
-    public DefaultQuantizationState(final QuantizationParams params) {
-        this.params = params;
-    }
+    private QuantizationParams params;
+    private static final long serialVersionUID = 1L; // Version ID for serialization
 
     /**
      * Returns the quantization parameters associated with this state.
@@ -60,7 +59,34 @@ public class DefaultQuantizationState implements QuantizationState {
     public static DefaultQuantizationState fromByteArray(final byte[] bytes) throws IOException, ClassNotFoundException {
         return (DefaultQuantizationState) QuantizationStateSerializer.deserialize(
             bytes,
-            (parentParams, specificData) -> new DefaultQuantizationState((SQParams) parentParams)
+            new DefaultQuantizationState(),
+            (parentParams, specificData) -> new DefaultQuantizationState((ScalarQuantizationParams) parentParams)
         );
+    }
+
+    /**
+     * Writes the object to the output stream.
+     * This method is part of the Externalizable interface and is used to serialize the object.
+     *
+     * @param out the output stream to write the object to.
+     * @throws IOException if an I/O error occurs.
+     */
+    @Override
+    public void writeExternal(ObjectOutput out) throws IOException {
+        out.writeInt(Version.CURRENT.id); // Write the version
+        out.writeObject(params);
+    }
+
+    /**
+     * Reads the object from the input stream.
+     * This method is part of the Externalizable interface and is used to deserialize the object.
+     *
+     * @param in the input stream to read the object from.
+     * @throws IOException if an I/O error occurs.
+     * @throws ClassNotFoundException if the class of the serialized object cannot be found.
+     */
+    @Override
+    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+        this.params = (QuantizationParams) in.readObject();
     }
 }

@@ -7,14 +7,14 @@ package org.opensearch.knn.quantization.models.quantizationState;
 
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 
+import java.io.Externalizable;
 import java.io.IOException;
-import java.io.Serializable;
 
 /**
  * QuantizationState interface represents the state of a quantization process, including the parameters used.
  * This interface provides methods for serializing and deserializing the state.
  */
-public interface QuantizationState extends Serializable {
+public interface QuantizationState extends Externalizable {
     /**
      * Returns the quantization parameters associated with this state.
      *

@@ -5,9 +5,7 @@
 
 package org.opensearch.knn.quantization.models.quantizationParams;
 
-import org.opensearch.knn.quantization.enums.QuantizationType;
-
-import java.io.Serializable;
+import java.io.Externalizable;
 
 /**
  * Interface for quantization parameters.
@@ -16,17 +14,7 @@ import java.io.Serializable;
  * Implementations of this interface are expected to provide specific configurations
  * for various quantization strategies.
  */
-public interface QuantizationParams extends Serializable {
-
-    /**
-     * Gets the quantization type associated with the parameters.
-     * The quantization type defines the overall strategy or method used
-     * for quantization, such as VALUE_QUANTIZATION or SPACE_QUANTIZATION.
-     *
-     * @return the {@link QuantizationType} indicating the quantization method.
-     */
-    QuantizationType getQuantizationType();
-
+public interface QuantizationParams extends Externalizable {
     /**
      * Provides a unique identifier for the quantization parameters.
      * This identifier is typically a combination of the quantization type

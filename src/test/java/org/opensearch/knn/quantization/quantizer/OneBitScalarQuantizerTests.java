@@ -7,22 +7,27 @@ package org.opensearch.knn.quantization.quantizer;
 
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
-import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
-import org.opensearch.knn.quantization.models.quantizationParams.SQParams;
+import org.opensearch.knn.quantization.models.quantizationOutput.BinaryQuantizationOutput;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.requests.TrainingRequest;
 import org.opensearch.knn.quantization.sampler.Sampler;
+import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
-import org.opensearch.knn.quantization.util.QuantizerHelper;
+
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectOutput;
+import java.util.BitSet;
 
 public class OneBitScalarQuantizerTests extends KNNTestCase {
 
     public void testTrain_withTrainingRequired() {
         float[][] vectors = { { 1.0f, 2.0f, 3.0f }, { 4.0f, 5.0f, 6.0f }, { 7.0f, 8.0f, 9.0f } };
 
-        SQParams params = new SQParams(ScalarQuantizationType.ONE_BIT);
-        TrainingRequest<float[]> originalRequest = new TrainingRequest<float[]>(params, vectors.length) {
+        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        TrainingRequest<float[]> originalRequest = new TrainingRequest<float[]>(vectors.length) {
             @Override
             public float[] getVectorByDocId(int docId) {
                 return vectors[docId];
@@ -32,88 +37,107 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
         QuantizationState state = quantizer.train(originalRequest);
 
         assertTrue(state instanceof OneBitScalarQuantizationState);
-        float[] mean = ((OneBitScalarQuantizationState) state).getMeanThresholds();
-        assertArrayEquals(new float[] { 4.0f, 5.0f, 6.0f }, mean, 0.001f);
+        float[] meanThresholds = ((OneBitScalarQuantizationState) state).getMeanThresholds();
+        assertArrayEquals(new float[] { 4.0f, 5.0f, 6.0f }, meanThresholds, 0.001f);
     }
 
-    public void testQuantize_withState() {
+    public void testQuantize_withState() throws IOException {
         float[] vector = { 3.0f, 6.0f, 9.0f };
         float[] thresholds = { 4.0f, 5.0f, 6.0f };
-        OneBitScalarQuantizationState state = new OneBitScalarQuantizationState(new SQParams(ScalarQuantizationType.ONE_BIT), thresholds);
+        OneBitScalarQuantizationState state = new OneBitScalarQuantizationState(
+            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+            thresholds
+        );
 
         OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
-        QuantizationOutput<byte[]> output = quantizer.quantize(vector, state);
+        BinaryQuantizationOutput output = new BinaryQuantizationOutput();
+        quantizer.quantize(vector, state, output);
 
         assertNotNull(output);
         byte[] expectedPackedBits = new byte[] { 0b01100000 };  // or 96 in decimal
         assertArrayEquals(expectedPackedBits, output.getQuantizedVector());
     }
 
-    public void testQuantize_withNullVector() {
+    public void testQuantize_withNullVector() throws IOException {
         OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
         OneBitScalarQuantizationState state = new OneBitScalarQuantizationState(
-            new SQParams(ScalarQuantizationType.ONE_BIT),
+            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
             new float[] { 0.0f }
         );
-        expectThrows(IllegalArgumentException.class, () -> quantizer.quantize(null, state));
+        BinaryQuantizationOutput output = new BinaryQuantizationOutput();
+        expectThrows(IllegalArgumentException.class, () -> quantizer.quantize(null, state, output));
     }
 
-    public void testQuantize_withInvalidState() {
+    public void testQuantize_withInvalidState() throws IOException {
         OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
         float[] vector = { 1.0f, 2.0f, 3.0f };
         QuantizationState invalidState = new QuantizationState() {
             @Override
-            public SQParams getQuantizationParams() {
-                return new SQParams(ScalarQuantizationType.ONE_BIT);
+            public ScalarQuantizationParams getQuantizationParams() {
+                return new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
             }
 
             @Override
             public byte[] toByteArray() {
                 return new byte[0];
             }
+
+            @Override
+            public void writeExternal(ObjectOutput out) throws IOException {
+                // no-op
+            }
+
+            @Override
+            public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+                // no-op
+            }
         };
-        expectThrows(IllegalArgumentException.class, () -> quantizer.quantize(vector, invalidState));
+        BinaryQuantizationOutput output = new BinaryQuantizationOutput();
+        expectThrows(IllegalArgumentException.class, () -> quantizer.quantize(vector, invalidState, output));
     }
 
-    public void testQuantize_withMismatchedDimensions() {
+    public void testQuantize_withMismatchedDimensions() throws IOException {
         OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
         float[] vector = { 1.0f, 2.0f, 3.0f };
         float[] thresholds = { 4.0f, 5.0f };
-        OneBitScalarQuantizationState state = new OneBitScalarQuantizationState(new SQParams(ScalarQuantizationType.ONE_BIT), thresholds);
-
-        expectThrows(IllegalArgumentException.class, () -> quantizer.quantize(vector, state));
+        OneBitScalarQuantizationState state = new OneBitScalarQuantizationState(
+            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+            thresholds
+        );
+        BinaryQuantizationOutput output = new BinaryQuantizationOutput();
+        expectThrows(IllegalArgumentException.class, () -> quantizer.quantize(vector, state, output));
     }
 
     public void testCalculateMean() {
         float[][] vectors = { { 1.0f, 2.0f, 3.0f }, { 4.0f, 5.0f, 6.0f }, { 7.0f, 8.0f, 9.0f } };
 
-        SQParams params = new SQParams(ScalarQuantizationType.ONE_BIT);
-        TrainingRequest<float[]> samplingRequest = new TrainingRequest<float[]>(params, vectors.length) {
+        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        TrainingRequest<float[]> samplingRequest = new TrainingRequest<float[]>(vectors.length) {
             @Override
             public float[] getVectorByDocId(int docId) {
                 return vectors[docId];
             }
         };
 
-        Sampler sampler = SamplingFactory.getSampler(SamplingFactory.SamplerType.RESERVOIR);
-        int[] sampledIndices = sampler.sample(vectors.length, 3);
-        float[] mean = QuantizerHelper.calculateMean(samplingRequest, sampledIndices);
-        assertArrayEquals(new float[] { 4.0f, 5.0f, 6.0f }, mean, 0.001f);
+        Sampler sampler = SamplingFactory.getSampler(SamplerType.RESERVOIR);
+        BitSet sampledIndices = sampler.sample(vectors.length, 3);
+        float[] meanThresholds = QuantizerHelper.calculateMeanThresholds(samplingRequest, sampledIndices);
+        assertArrayEquals(new float[] { 4.0f, 5.0f, 6.0f }, meanThresholds, 0.001f);
     }
 
     public void testCalculateMean_withNullVector() {
         float[][] vectors = { { 1.0f, 2.0f, 3.0f }, null, { 7.0f, 8.0f, 9.0f } };
 
-        SQParams params = new SQParams(ScalarQuantizationType.ONE_BIT);
-        TrainingRequest<float[]> samplingRequest = new TrainingRequest<float[]>(params, vectors.length) {
+        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        TrainingRequest<float[]> samplingRequest = new TrainingRequest<float[]>(vectors.length) {
             @Override
             public float[] getVectorByDocId(int docId) {
                 return vectors[docId];
             }
         };
 
-        Sampler sampler = SamplingFactory.getSampler(SamplingFactory.SamplerType.RESERVOIR);
-        int[] sampledIndices = sampler.sample(vectors.length, 3);
-        expectThrows(IllegalArgumentException.class, () -> QuantizerHelper.calculateMean(samplingRequest, sampledIndices));
+        Sampler sampler = SamplingFactory.getSampler(SamplerType.RESERVOIR);
+        BitSet sampledIndices = sampler.sample(vectors.length, 3);
+        expectThrows(IllegalArgumentException.class, () -> QuantizerHelper.calculateMeanThresholds(samplingRequest, sampledIndices));
     }
 }

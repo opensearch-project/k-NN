@@ -5,9 +5,10 @@
 
 package org.opensearch.knn.quantization.factory;
 
-import org.opensearch.knn.quantization.enums.QuantizationType;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
-import org.opensearch.knn.quantization.models.quantizationParams.SQParams;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.quantizer.MultiBitScalarQuantizer;
 import org.opensearch.knn.quantization.quantizer.OneBitScalarQuantizer;
 
@@ -15,10 +16,8 @@ import org.opensearch.knn.quantization.quantizer.OneBitScalarQuantizer;
  * The QuantizerRegistrar class is responsible for registering default quantizers.
  * This class ensures that the registration happens only once in a thread-safe manner.
  */
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 final class QuantizerRegistrar {
-
-    // Private constructor to prevent instantiation
-    private QuantizerRegistrar() {}
 
     /**
      * Registers default quantizers if not already registered.
@@ -27,22 +26,21 @@ final class QuantizerRegistrar {
      * even in a multi-threaded environment.
      * </p>
      */
-    public static synchronized void registerDefaultQuantizers() {
+    static synchronized void registerDefaultQuantizers() {
         // Register OneBitScalarQuantizer for SQParams with VALUE_QUANTIZATION and SQTypes.ONE_BIT
-        QuantizerRegistry.register(SQParams.class, QuantizationType.VALUE, ScalarQuantizationType.ONE_BIT, OneBitScalarQuantizer::new);
+        QuantizerRegistry.register(
+            ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.ONE_BIT),
+            new OneBitScalarQuantizer()
+        );
         // Register MultiBitScalarQuantizer for SQParams with VALUE_QUANTIZATION with bit per co-ordinate = 2
         QuantizerRegistry.register(
-            SQParams.class,
-            QuantizationType.VALUE,
-            ScalarQuantizationType.TWO_BIT,
-            () -> new MultiBitScalarQuantizer(2)
+            ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.TWO_BIT),
+            new MultiBitScalarQuantizer(2)
         );
         // Register MultiBitScalarQuantizer for SQParams with VALUE_QUANTIZATION with bit per co-ordinate = 4
         QuantizerRegistry.register(
-            SQParams.class,
-            QuantizationType.VALUE,
-            ScalarQuantizationType.FOUR_BIT,
-            () -> new MultiBitScalarQuantizer(4)
+            ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.FOUR_BIT),
+            new MultiBitScalarQuantizer(4)
         );
     }
 }

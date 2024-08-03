@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.quantization.models.quantizationOutput;
 
+import java.io.IOException;
+
 /**
  * The QuantizationOutput interface defines the contract for quantization output data.
  *
@@ -17,4 +19,12 @@ public interface QuantizationOutput<T> {
      * @return the quantized data.
      */
     T getQuantizedVector();
+
+    /**
+     * Updates the quantized vector with new data.
+     *
+     * @param newQuantizedVector the new quantized vector data.
+     * @throws IOException if an I/O error occurs during the update.
+     */
+    void updateQuantizedVector(T newQuantizedVector) throws IOException;
 }

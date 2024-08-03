@@ -5,6 +5,8 @@
 
 package org.opensearch.knn.quantization.factory;
 
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 import org.opensearch.knn.quantization.quantizer.Quantizer;
 
@@ -15,11 +17,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * based on the provided {@link QuantizationParams}. It uses a registry to look up the
  * appropriate quantizer implementation for the given quantization parameters.
  */
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class QuantizerFactory {
     private static final AtomicBoolean isRegistered = new AtomicBoolean(false);
-
-    // Private constructor to prevent instantiation
-    private QuantizerFactory() {}
 
     /**
      * Ensures that default quantizers are registered.

@@ -1,15 +1,14 @@
 /*
  * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
  */
 
-package org.opensearch.knn.quantization.util;
+package org.opensearch.knn.quantization.quantizer;
 
-import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
-import org.opensearch.knn.quantization.models.quantizationParams.SQParams;
 import org.opensearch.knn.quantization.models.requests.TrainingRequest;
 import lombok.experimental.UtilityClass;
+
+import java.util.BitSet;
 
 /**
  * Utility class providing common methods for quantizer operations, such as parameter validation and
@@ -17,24 +16,7 @@ import lombok.experimental.UtilityClass;
  * consistent handling of training requests and sampled indices.
  */
 @UtilityClass
-public class QuantizerHelper {
-
-    /**
-     * Validates the provided training request to ensure it contains non-null quantization parameters.
-     * Extracts and returns the SQParams from the training request.
-     *
-     * @param trainingRequest the training request to validate and extract parameters from.
-     * @return the extracted SQParams.
-     * @throws IllegalArgumentException if the SQParams are null.
-     */
-    public static SQParams validateAndExtractParams(TrainingRequest<?> trainingRequest) {
-        QuantizationParams params = trainingRequest.getParams();
-        if (params == null || !(params instanceof SQParams)) {
-            throw new IllegalArgumentException("Quantization parameters must not be null and must be of type SQParams.");
-        }
-        return (SQParams) params;
-    }
-
+class QuantizerHelper {
     /**
      * Calculates the mean vector from a set of sampled vectors.
      *
@@ -49,13 +31,13 @@ public class QuantizerHelper {
      * @throws IllegalArgumentException If any of the vectors at the sampled indices are null.
      * @throws IllegalStateException If the mean array is unexpectedly null after processing the vectors.
      */
-    public static float[] calculateMean(TrainingRequest<float[]> samplingRequest, int[] sampledIndices) {
-        int totalSamples = sampledIndices.length;
+    static float[] calculateMeanThresholds(TrainingRequest<float[]> samplingRequest, BitSet sampledIndices) {
+        int totalSamples = sampledIndices.cardinality();
         float[] mean = null;
-        for (int index : sampledIndices) {
-            float[] vector = samplingRequest.getVectorByDocId(index);
+        for (int docId = sampledIndices.nextSetBit(0); docId >= 0; docId = sampledIndices.nextSetBit(docId + 1)) {
+            float[] vector = samplingRequest.getVectorByDocId(docId);
             if (vector == null) {
-                throw new IllegalArgumentException("Vector at sampled index " + index + " is null.");
+                throw new IllegalArgumentException("Vector at sampled index " + docId + " is null.");
             }
             if (mean == null) {
                 mean = new float[vector.length];
@@ -81,20 +63,20 @@ public class QuantizerHelper {
      * @param meanArray      the array to store the sum and then the mean of each dimension.
      * @param stdDevArray  the array to store the sum of squares and then the standard deviation of each dimension.
      */
-    public static void calculateSumMeanAndStdDev(
+    static void calculateSumMeanAndStdDev(
         TrainingRequest<float[]> trainingRequest,
-        int[] sampledIndices,
+        BitSet sampledIndices,
         float[] meanArray,
         float[] stdDevArray
     ) {
-        int totalSamples = sampledIndices.length;
+        int totalSamples = sampledIndices.cardinality();
         int dimension = meanArray.length;
 
         // Single pass to calculate sum and sum of squares
-        for (int index : sampledIndices) {
-            float[] vector = trainingRequest.getVectorByDocId(index);
+        for (int docId = sampledIndices.nextSetBit(0); docId >= 0; docId = sampledIndices.nextSetBit(docId + 1)) {
+            float[] vector = trainingRequest.getVectorByDocId(docId);
             if (vector == null) {
-                throw new IllegalArgumentException("Vector at sampled index " + index + " is null.");
+                throw new IllegalArgumentException("Vector at sampled index " + docId + " is null.");
             }
             for (int j = 0; j < dimension; j++) {
                 meanArray[j] += vector[j];

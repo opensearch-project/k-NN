@@ -1,13 +1,10 @@
-/*
- * Copyright OpenSearch Contributors
- * SPDX-License-Identifier: Apache-2.0
- */
-
 package org.opensearch.knn.quantization.quantizer;
 
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.requests.TrainingRequest;
+
+import java.io.IOException;
 
 /**
  * The Quantizer interface defines the methods required for training and quantizing vectors
@@ -34,7 +31,7 @@ public interface Quantizer<T, R> {
      *
      * @param vector the vector to quantize.
      * @param state  the quantization state containing parameters for quantization.
-     * @return a QuantizationOutput containing the quantized representation of the vector.
+     * @param output the QuantizationOutput object to store the quantized representation of the vector.
      */
-    QuantizationOutput<R> quantize(T vector, QuantizationState state);
+    void quantize(T vector, QuantizationState state, QuantizationOutput<R> output) throws IOException;
 }

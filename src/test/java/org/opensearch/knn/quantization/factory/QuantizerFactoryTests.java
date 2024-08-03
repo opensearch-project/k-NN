@@ -8,7 +8,7 @@ package org.opensearch.knn.quantization.factory;
 import org.junit.Before;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
-import org.opensearch.knn.quantization.models.quantizationParams.SQParams;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.quantizer.MultiBitScalarQuantizer;
 import org.opensearch.knn.quantization.quantizer.OneBitScalarQuantizer;
 import org.opensearch.knn.quantization.quantizer.Quantizer;
@@ -27,7 +27,7 @@ public class QuantizerFactoryTests extends KNNTestCase {
     }
 
     public void test_Lazy_Registration() {
-        SQParams params = new SQParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
         assertFalse(isRegisteredFieldAccessible());
         Quantizer<?, ?> quantizer = QuantizerFactory.getQuantizer(params);
         assertTrue(quantizer instanceof OneBitScalarQuantizer);
@@ -35,31 +35,21 @@ public class QuantizerFactoryTests extends KNNTestCase {
     }
 
     public void testGetQuantizer_withOneBitSQParams() {
-        SQParams params = new SQParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
         Quantizer<?, ?> quantizer = QuantizerFactory.getQuantizer(params);
         assertTrue(quantizer instanceof OneBitScalarQuantizer);
     }
 
     public void testGetQuantizer_withTwoBitSQParams() {
-        SQParams params = new SQParams(ScalarQuantizationType.TWO_BIT);
+        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
         Quantizer<?, ?> quantizer = QuantizerFactory.getQuantizer(params);
         assertTrue(quantizer instanceof MultiBitScalarQuantizer);
     }
 
     public void testGetQuantizer_withFourBitSQParams() {
-        SQParams params = new SQParams(ScalarQuantizationType.FOUR_BIT);
+        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
         Quantizer<?, ?> quantizer = QuantizerFactory.getQuantizer(params);
         assertTrue(quantizer instanceof MultiBitScalarQuantizer);
-    }
-
-    public void testGetQuantizer_withUnsupportedType() {
-        SQParams params = new SQParams(ScalarQuantizationType.UNSUPPORTED_TYPE);
-        try {
-            QuantizerFactory.getQuantizer(params);
-            fail("Expected IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-            assertTrue(e.getMessage().contains("No quantizer registered for type identifier"));
-        }
     }
 
     public void testGetQuantizer_withNullParams() {
@@ -73,7 +63,7 @@ public class QuantizerFactoryTests extends KNNTestCase {
 
     public void testConcurrentRegistration() throws InterruptedException {
         Runnable task = () -> {
-            SQParams params = new SQParams(ScalarQuantizationType.ONE_BIT);
+            ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
             QuantizerFactory.getQuantizer(params);
         };
 

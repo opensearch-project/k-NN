@@ -6,19 +6,18 @@
 
 package org.opensearch.knn.quantization.quantizer;
 
-import org.opensearch.knn.quantization.models.quantizationOutput.BinaryQuantizationOutput;
+import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
-import org.opensearch.knn.quantization.models.quantizationParams.SQParams;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.MultiBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.requests.TrainingRequest;
 import org.opensearch.knn.quantization.sampler.Sampler;
+import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
-import org.opensearch.knn.quantization.util.BitPacker;
-import org.opensearch.knn.quantization.util.QuantizerHelper;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.io.IOException;
+import java.util.BitSet;
 
 /**
  * MultiBitScalarQuantizer is responsible for quantizing vectors into multi-bit representations per dimension.
@@ -41,7 +40,7 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
      * @param bitsPerCoordinate the number of bits used per coordinate for quantization.
      */
     public MultiBitScalarQuantizer(final int bitsPerCoordinate) {
-        this(bitsPerCoordinate, DEFAULT_SAMPLE_SIZE, SamplingFactory.getSampler(SamplingFactory.SamplerType.RESERVOIR));
+        this(bitsPerCoordinate, DEFAULT_SAMPLE_SIZE, SamplingFactory.getSampler(SamplerType.RESERVOIR));
     }
 
     /**
@@ -70,15 +69,16 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
      */
     @Override
     public QuantizationState train(final TrainingRequest<float[]> trainingRequest) {
-        SQParams params = QuantizerHelper.validateAndExtractParams(trainingRequest);
-        int[] sampledIndices = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
-
-        int dimension = trainingRequest.getVectorByDocId(sampledIndices[0]).length;
+        BitSet sampledIndices = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
+        int dimension = trainingRequest.getVectorByDocId(sampledIndices.nextSetBit(0)).length;
         float[] meanArray = new float[dimension];
         float[] stdDevArray = new float[dimension];
         // Calculate sum, mean, and standard deviation in one pass
         QuantizerHelper.calculateSumMeanAndStdDev(trainingRequest, sampledIndices, meanArray, stdDevArray);
         float[][] thresholds = calculateThresholds(meanArray, stdDevArray, dimension);
+        ScalarQuantizationParams params = (bitsPerCoordinate == 2)
+            ? new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT)
+            : new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
         return new MultiBitScalarQuantizationState(params, thresholds);
     }
 
@@ -88,10 +88,11 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
      *
      * @param vector the vector to quantize.
      * @param state  the quantization state containing threshold information.
-     * @return a BinaryQuantizationOutput containing the quantized data.
+     * @param output the QuantizationOutput object to store the quantized representation of the vector.
+     * @throws IOException if an I/O error occurs during quantization.
      */
     @Override
-    public QuantizationOutput<byte[]> quantize(final float[] vector, final QuantizationState state) {
+    public void quantize(final float[] vector, final QuantizationState state, final QuantizationOutput<byte[]> output) throws IOException {
         if (vector == null) {
             throw new IllegalArgumentException("Vector to quantize must not be null.");
         }
@@ -101,17 +102,22 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
         if (thresholds == null || thresholds[0].length != vector.length) {
             throw new IllegalArgumentException("Thresholds must not be null and must match the dimension of the vector.");
         }
-
-        List<byte[]> bitArrays = new ArrayList<>();
+        // Directly pack bits without intermediate array
+        int totalBits = bitsPerCoordinate * vector.length;
+        int byteLength = (totalBits + 7) >> 3; // Calculate byte length needed
+        byte[] packedBits = new byte[byteLength];
         for (int i = 0; i < bitsPerCoordinate; i++) {
-            byte[] bitArray = new byte[vector.length];
             for (int j = 0; j < vector.length; j++) {
-                bitArray[j] = (byte) (vector[j] > thresholds[i][j] ? 1 : 0);
+                if (vector[j] > thresholds[i][j]) {
+                    int bitPosition = i * vector.length + j;
+                    int byteIndex = bitPosition >> 3; // Equivalent to bitPosition / 8
+                    int bitIndex = 7 - (bitPosition & 7); // Equivalent to 7 - (bitPosition % 8)
+                    packedBits[byteIndex] |= (1 << bitIndex); // Set the bit
+                }
             }
-            bitArrays.add(bitArray);
         }
 
-        return new BinaryQuantizationOutput(BitPacker.packBits(bitArrays));
+        output.updateQuantizedVector(packedBits);
     }
 
     /**
@@ -144,5 +150,14 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
         if (!(state instanceof MultiBitScalarQuantizationState)) {
             throw new IllegalArgumentException("Quantization state must be of type MultiBitScalarQuantizationState.");
         }
+    }
+
+    /**
+     * Returns the number of bits per coordinate used by this quantizer.
+     *
+     * @return the number of bits per coordinate.
+     */
+    public int getBitsPerCoordinate() {
+        return bitsPerCoordinate;
     }
 }

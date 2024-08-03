@@ -5,46 +5,33 @@
 
 package org.opensearch.knn.quantization.factory;
 
-import org.opensearch.knn.quantization.enums.QuantizationType;
-import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 import org.opensearch.knn.quantization.models.quantizationParams.QuantizationParams;
 import org.opensearch.knn.quantization.quantizer.Quantizer;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
 
 /**
  * The QuantizerRegistry class is responsible for managing the registration and retrieval
  * of quantizer instances. Quantizers are registered with specific quantization parameters
  * and type identifiers, allowing for efficient lookup and instantiation.
  */
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 final class QuantizerRegistry {
-
-    // Private constructor to prevent instantiation
-    private QuantizerRegistry() {}
-
     // ConcurrentHashMap for thread-safe access
-    private static final Map<String, Supplier<? extends Quantizer<?, ?>>> registry = new ConcurrentHashMap<>();
+    private static final Map<String, Quantizer<?, ?>> registry = new ConcurrentHashMap<>();
 
     /**
      * Registers a quantizer with the registry.
      *
-     * @param paramClass        the class of the quantization parameters
-     * @param quantizationType  the quantization type (e.g., VALUE_QUANTIZATION)
-     * @param sqType            the specific quantization subtype (e.g., ONE_BIT, TWO_BIT)
-     * @param quantizerSupplier a supplier that provides instances of the quantizer
-     * @param <P>               the type of quantization parameters
+     * @param paramIdentifier the unique identifier for the quantization parameters
+     * @param quantizer       an instance of the quantizer
      */
-    public static <P extends QuantizationParams> void register(
-        final Class<P> paramClass,
-        final QuantizationType quantizationType,
-        final ScalarQuantizationType sqType,
-        final Supplier<? extends Quantizer<?, ?>> quantizerSupplier
-    ) {
-        String identifier = createIdentifier(quantizationType, sqType);
+    static void register(final String paramIdentifier, final Quantizer<?, ?> quantizer) {
         // Ensure that the quantizer for this identifier is registered only once
-        registry.computeIfAbsent(identifier, key -> quantizerSupplier);
+        registry.putIfAbsent(paramIdentifier, quantizer);
     }
 
     /**
@@ -56,27 +43,14 @@ final class QuantizerRegistry {
      * @return an instance of {@link Quantizer} corresponding to the provided parameters
      * @throws IllegalArgumentException if no quantizer is registered for the given parameters
      */
-    public static <P extends QuantizationParams, Q> Quantizer<P, Q> getQuantizer(final P params) {
+    static <P extends QuantizationParams, Q> Quantizer<P, Q> getQuantizer(final P params) {
         String identifier = params.getTypeIdentifier();
-        Supplier<? extends Quantizer<?, ?>> supplier = registry.get(identifier);
-        if (supplier == null) {
-            throw new IllegalArgumentException(
-                "No quantizer registered for type identifier: " + identifier + ". Available quantizers: " + registry.keySet()
-            );
+        Quantizer<?, ?> quantizer = registry.get(identifier);
+        if (quantizer == null) {
+            throw new IllegalArgumentException("No quantizer registered for type identifier: " + identifier);
         }
         @SuppressWarnings("unchecked")
-        Quantizer<P, Q> quantizer = (Quantizer<P, Q>) supplier.get();
-        return quantizer;
-    }
-
-    /**
-     * Creates a unique identifier for the quantizer based on the quantization type and specific quantization subtype.
-     *
-     * @param quantizationType the quantization type
-     * @param sqType           the specific quantization subtype
-     * @return a string identifier
-     */
-    private static String createIdentifier(final QuantizationType quantizationType, final ScalarQuantizationType sqType) {
-        return quantizationType.name() + "_" + sqType.name();
+        Quantizer<P, Q> typedQuantizer = (Quantizer<P, Q>) quantizer;
+        return typedQuantizer;
     }
 }
