@@ -15,7 +15,6 @@ import org.opensearch.knn.quantization.models.quantizationParams.QuantizationPar
 public abstract class TrainingRequest<T> {
     private final QuantizationParams params;
     private final int totalNumberOfVectors;
-    private int[] sampledIndices;
 
     /**
      * Constructs a TrainingRequest with the given parameters and total number of vectors.
@@ -44,24 +43,6 @@ public abstract class TrainingRequest<T> {
      */
     public int getTotalNumberOfVectors() {
         return totalNumberOfVectors;
-    }
-
-    /**
-     * Sets the sampled indices for this training request.
-     *
-     * @param sampledIndices the sampled indices.
-     */
-    public void setSampledIndices(int[] sampledIndices) {
-        this.sampledIndices = sampledIndices;
-    }
-
-    /**
-     * Returns the sampled indices for this training request.
-     *
-     * @return the sampled indices.
-     */
-    public int[] getSampledIndices() {
-        return sampledIndices;
     }
 
     /**

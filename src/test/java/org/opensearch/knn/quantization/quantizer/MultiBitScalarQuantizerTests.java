@@ -21,10 +21,8 @@ public class MultiBitScalarQuantizerTests extends KNNTestCase {
             { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f },
             { 1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f, 7.5f, 8.5f } };
         MultiBitScalarQuantizer twoBitQuantizer = new MultiBitScalarQuantizer(2);
-        int[] sampledIndices = { 0, 1, 2 };
         SQParams params = new SQParams(ScalarQuantizationType.TWO_BIT);
         TrainingRequest<float[]> request = new MockTrainingRequest(params, vectors);
-        request.setSampledIndices(sampledIndices);
         QuantizationState state = twoBitQuantizer.train(request);
 
         assertTrue(state instanceof MultiBitScalarQuantizationState);
@@ -39,10 +37,8 @@ public class MultiBitScalarQuantizerTests extends KNNTestCase {
             { 0.5f, 1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f, 7.5f },
             { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f },
             { 1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f, 7.5f, 8.5f } };
-        int[] sampledIndices = { 0, 1, 2 };
         SQParams params = new SQParams(ScalarQuantizationType.FOUR_BIT);
         TrainingRequest<float[]> request = new MockTrainingRequest(params, vectors);
-        request.setSampledIndices(sampledIndices);
         QuantizationState state = fourBitQuantizer.train(request);
 
         assertTrue(state instanceof MultiBitScalarQuantizationState);
