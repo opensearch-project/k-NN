@@ -50,32 +50,70 @@ class FaissService {
     }
 
     /**
-     * Create an index for the native library The memory occupied by the vectorsAddress will be freed up during the
-     * function call. So Java layer doesn't need to free up the memory. This is not an ideal behavior because Java layer
-     * created the memory address and that should only free up the memory. We are tracking the proper fix for this on this
-     * <a href="https://github.com/opensearch-project/k-NN/issues/1600">issue</a>
+     * Initialize an index for the native library. Takes in numDocs to
+     * allocate the correct amount of memory.
      *
-     * @param ids array of ids mapping to the data passed in
-     * @param vectorsAddress address of native memory where vectors are stored
+     * @param numDocs number of documents to be added
      * @param dim dimension of the vector to be indexed
-     * @param indexPath path to save index file to
      * @param parameters parameters to build index
      */
-    public static native void createIndex(int[] ids, long vectorsAddress, int dim, String indexPath, Map<String, Object> parameters);
+    public static native long initIndex(long numDocs, int dim, Map<String, Object> parameters);
 
     /**
-     * Create a binary index for the native library The memory occupied by the vectorsAddress will be freed up during the
-     * function call. So Java layer doesn't need to free up the memory. This is not an ideal behavior because Java layer
-     * created the memory address and that should only free up the memory. We are tracking the proper fix for this on this
-     * <a href="https://github.com/opensearch-project/k-NN/issues/1600">issue</a>
+     * Initialize an index for the native library. Takes in numDocs to
+     * allocate the correct amount of memory.
      *
-     * @param ids array of ids mapping to the data passed in
-     * @param vectorsAddress address of native memory where vectors are stored
+     * @param numDocs number of documents to be added
      * @param dim dimension of the vector to be indexed
-     * @param indexPath path to save index file to
      * @param parameters parameters to build index
      */
-    public static native void createBinaryIndex(int[] ids, long vectorsAddress, int dim, String indexPath, Map<String, Object> parameters);
+    public static native long initBinaryIndex(long numDocs, int dim, Map<String, Object> parameters);
+
+    /**
+     * Inserts to a faiss index. The memory occupied by the vectorsAddress will be freed up during the
+     * function call. So Java layer doesn't need to free up the memory. This is not an ideal behavior because Java layer
+     * created the memory address and that should only free up the memory.
+     *
+     * @param ids ids of documents
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim dimension of the vector to be indexed
+     * @param indexAddress address of native memory where index is stored
+     * @param threadCount number of threads to use for insertion
+     */
+    public static native void insertToIndex(int[] ids, long vectorsAddress, int dim, long indexAddress, int threadCount);
+
+    /**
+     * Inserts to a faiss index. The memory occupied by the vectorsAddress will be freed up during the
+     * function call. So Java layer doesn't need to free up the memory. This is not an ideal behavior because Java layer
+     * created the memory address and that should only free up the memory.
+     *
+     * @param ids ids of documents
+     * @param vectorsAddress address of native memory where vectors are stored
+     * @param dim dimension of the vector to be indexed
+     * @param indexAddress address of native memory where index is stored
+     * @param threadCount number of threads to use for insertion
+     */
+    public static native void insertToBinaryIndex(int[] ids, long vectorsAddress, int dim, long indexAddress, int threadCount);
+
+    /**
+     * Writes a faiss index.
+     *
+     * NOTE: This will always free the index. Do not call free after this.
+     *
+     * @param indexAddress address of native memory where index is stored
+     * @param indexPath path to save index file to
+     */
+    public static native void writeIndex(long indexAddress, String indexPath);
+
+    /**
+     * Writes a faiss index.
+     *
+     * NOTE: This will always free the index. Do not call free after this.
+     *
+     * @param indexAddress address of native memory where index is stored
+     * @param indexPath path to save index file to
+     */
+    public static native void writeBinaryIndex(long indexAddress, String indexPath);
 
     /**
      * Create an index for the native library with a provided template index

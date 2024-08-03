@@ -241,7 +241,7 @@ public class KNNCodecTestUtil {
 
         @Override
         public long cost() {
-            return 0;
+            return this.count;
         }
     }
 

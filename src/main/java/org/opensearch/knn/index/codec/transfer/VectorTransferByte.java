@@ -60,9 +60,26 @@ public class VectorTransferByte extends VectorTransfer {
         return SerializationMode.COLLECTIONS_OF_BYTES;
     }
 
+    @Override
+    public int numPendingDocs() {
+        return vectorList.size();
+    }
+
     private void transfer() {
         int lengthOfVector = dimension / 8;
-        vectorAddress = JNICommons.storeByteVectorData(vectorAddress, vectorList.toArray(new byte[][] {}), totalLiveDocs * lengthOfVector);
+        if (totalLiveDocs != 0) {
+            vectorAddress = JNICommons.storeByteVectorData(
+                vectorAddress,
+                vectorList.toArray(new byte[][] {}),
+                totalLiveDocs * lengthOfVector
+            );
+        } else {
+            vectorAddress = JNICommons.storeByteVectorData(
+                vectorAddress,
+                vectorList.toArray(new byte[][] {}),
+                vectorList.size() * lengthOfVector
+            );
+        }
         vectorList.clear();
     }
 }
