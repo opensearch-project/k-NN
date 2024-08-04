@@ -362,12 +362,16 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
     private VectorTransfer getVectorTransfer(VectorDataType vectorDataType, KNNEngine knnEngine) {
         long memoryLimit = KNNSettings.getVectorStreamingMemoryLimit().getBytes();
-        if (VectorDataType.BINARY == vectorDataType) {
-            return new VectorTransferBinary(memoryLimit);
+        switch (vectorDataType) {
+            case BINARY:
+                return new VectorTransferBinary(memoryLimit);
+            case BYTE:
+                if (KNNEngine.FAISS == knnEngine) {
+                    return new VectorTransferByte(memoryLimit);
+                }
+                return new VectorTransferFloat(memoryLimit);
+            default:
+                return new VectorTransferFloat(memoryLimit);
         }
-        if (VectorDataType.BYTE == vectorDataType && KNNEngine.FAISS == knnEngine) {
-            return new VectorTransferByte(memoryLimit);
-        }
-        return new VectorTransferFloat(memoryLimit);
     }
 }

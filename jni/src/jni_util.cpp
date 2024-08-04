@@ -309,6 +309,7 @@ void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToSignedByteVector(JNIEnv
         this->HasExceptionInStack(env, "Unable to get object array element");
 
         if (dim != env->GetArrayLength(vectorArray)) {
+            env->DeleteLocalRef(array2dJ);
             throw std::runtime_error("Dimension of vectors is inconsistent");
         }
 

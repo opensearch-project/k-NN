@@ -144,6 +144,27 @@ public:
         std::unordered_map<std::string, jobject> parameters
     ) override;
     virtual ~ByteIndexService() = default;
+
+private:
+    virtual std::unique_ptr <faiss::Index> validate(
+            knn_jni::JNIUtilInterface *jniUtil,
+            JNIEnv *env,
+            int vectorSize,
+            faiss::MetricType metric,
+            std::string indexDescription,
+            int dim,
+            int numIds,
+            int threadCount,
+            std::unordered_map <std::string, jobject> parameters
+    );
+
+    virtual void addVectorsToIndex(
+            std::unique_ptr <faiss::Index> indexWriter,
+            std::vector <int8_t> *inputVectors,
+            int dim,
+            std::vector <int64_t> ids,
+            std::string indexPath
+    );
 };
 
 }
