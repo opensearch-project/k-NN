@@ -94,6 +94,9 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
                     LUCENE_SQ_BITS,
                     knnScalarQuantizedVectorsFormatParams.getBits()
                 );
+                if (scalarQuantizedVectorsFormatSupplier == null) {
+                    throw new IllegalStateException("Scalar Quantization is not supported.");
+                }
                 return scalarQuantizedVectorsFormatSupplier.apply(knnScalarQuantizedVectorsFormatParams);
             }
 
@@ -109,11 +112,6 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             knnVectorsFormatParams.getBeamWidth()
         );
         return vectorsFormatSupplier.apply(knnVectorsFormatParams);
-    }
-
-    @Override
-    public int getMaxDimensions(String fieldName) {
-        return getKnnVectorsFormatForField(fieldName).getMaxDimensions(fieldName);
     }
 
     private boolean isKnnVectorFieldType(final String field) {

@@ -13,6 +13,7 @@ import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNVectorAsArraySerializer;
+import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Arrays;
 import java.util.List;
@@ -25,6 +26,7 @@ public class FilteredIdsKNNIteratorTests extends KNNTestCase {
     @SneakyThrows
     public void testNextDoc_whenCalled_IterateAllDocs() {
         final SpaceType spaceType = SpaceType.L2;
+        final KNNEngine knnEngine = KNNEngine.FAISS;
         final float[] queryVector = { 1.0f, 2.0f, 3.0f };
         final int[] filterIds = { 1, 2, 3 };
         final List<float[]> dataVectors = Arrays.asList(
@@ -49,7 +51,7 @@ public class FilteredIdsKNNIteratorTests extends KNNTestCase {
         }
 
         // Execute and verify
-        FilteredIdsKNNIterator iterator = new FilteredIdsKNNIterator(filterBitSet, queryVector, values, spaceType);
+        FilteredIdsKNNIterator iterator = new FilteredIdsKNNIterator(filterBitSet, queryVector, values, spaceType, knnEngine);
         for (int i = 0; i < filterIds.length; i++) {
             assertEquals(filterIds[i], iterator.nextDoc());
             assertEquals(expectedScores.get(i), (Float) iterator.score());

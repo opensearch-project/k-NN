@@ -42,14 +42,14 @@ public class IndexUtil {
 
     public static final String MODEL_NODE_ASSIGNMENT_KEY = KNNConstants.MODEL_NODE_ASSIGNMENT;
     public static final String MODEL_METHOD_COMPONENT_CONTEXT_KEY = KNNConstants.MODEL_METHOD_COMPONENT_CONTEXT;
-
+    private static final Version VERSION_TO_BE_CONTRLLED_BY_FEATURE_FLAG = Version.V_2_11_1;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_LUCENE_HNSW_FILTER = Version.V_2_4_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_IGNORE_UNMAPPED = Version.V_2_11_0;
-    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_NODE_ASSIGNMENT = Version.V_2_12_0;
-    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_METHOD_COMPONENT_CONTEXT = Version.V_2_13_0;
-    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_RADIAL_SEARCH = Version.V_2_14_0;
-    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_METHOD_PARAMETERS = Version.V_2_16_0;
-    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VECTOR_DATA_TYPE = Version.V_2_16_0;
+    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_NODE_ASSIGNMENT = Version.V_2_11_0;
+    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_METHOD_COMPONENT_CONTEXT = Version.V_2_11_0;
+    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_RADIAL_SEARCH = Version.V_2_11_0;
+    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_METHOD_PARAMETERS = Version.V_2_11_0;
+    private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VECTOR_DATA_TYPE = Version.V_2_11_0;
     // public so neural search can access it
     public static final Map<String, Version> minimalRequiredVersionMap = initializeMinimalRequiredVersionMap();
 
@@ -281,10 +281,28 @@ public class IndexUtil {
         return Collections.unmodifiableMap(loadParameters);
     }
 
+    // Placeholder for feature flag
+    private static boolean enableNewFeature(Version version) {
+        boolean featureFlag = true;
+        if (featureFlag == false) {
+            return false;
+        }
+
+        if (version == null) {
+            return KNNClusterUtil.instance().getClusterMinVersion().onOrAfter(VERSION_TO_BE_CONTRLLED_BY_FEATURE_FLAG);
+        } else {
+            return version.onOrAfter(VERSION_TO_BE_CONTRLLED_BY_FEATURE_FLAG);
+        }
+    }
+
     public static boolean isClusterOnOrAfterMinRequiredVersion(String key) {
         Version minimalRequiredVersion = minimalRequiredVersionMap.get(key);
         if (minimalRequiredVersion == null) {
             return false;
+        }
+
+        if (minimalRequiredVersion == VERSION_TO_BE_CONTRLLED_BY_FEATURE_FLAG) {
+            return enableNewFeature(null);
         }
         return KNNClusterUtil.instance().getClusterMinVersion().onOrAfter(minimalRequiredVersion);
     }
@@ -293,6 +311,10 @@ public class IndexUtil {
         Version minimalRequiredVersion = minimalRequiredVersionMap.get(key);
         if (minimalRequiredVersion == null) {
             return false;
+        }
+
+        if (minimalRequiredVersion == VERSION_TO_BE_CONTRLLED_BY_FEATURE_FLAG) {
+            return enableNewFeature(version);
         }
         return version.onOrAfter(minimalRequiredVersion);
     }

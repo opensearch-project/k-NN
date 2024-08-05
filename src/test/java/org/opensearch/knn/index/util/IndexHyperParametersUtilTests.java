@@ -24,8 +24,6 @@ public class IndexHyperParametersUtilTests extends TestCase {
     }
 
     public void testGetHNSWEFConstructionValue_withDifferentValues_thenSuccess() {
-        Assert.assertEquals(512, IndexHyperParametersUtil.getHNSWEFConstructionValue(Version.V_2_11_0));
-        Assert.assertEquals(512, IndexHyperParametersUtil.getHNSWEFConstructionValue(Version.V_2_3_0));
         Assert.assertEquals(
             KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION.intValue(),
             IndexHyperParametersUtil.getHNSWEFConstructionValue(Version.CURRENT)
@@ -34,8 +32,6 @@ public class IndexHyperParametersUtilTests extends TestCase {
     }
 
     public void testGetHNSWEFSearchValue_withDifferentValues_thenSuccess() {
-        Assert.assertEquals(512, IndexHyperParametersUtil.getHNSWEFConstructionValue(Version.V_2_11_0));
-        Assert.assertEquals(512, IndexHyperParametersUtil.getHNSWEFConstructionValue(Version.V_2_3_0));
         Assert.assertEquals(
             KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH.intValue(),
             IndexHyperParametersUtil.getHNSWEFConstructionValue(Version.CURRENT)

@@ -192,8 +192,7 @@ public class KNNCodecTestUtil {
                 vectorDimension,
                 VectorEncoding.FLOAT32,
                 vectorSimilarityFunction,
-                softDeletes,
-                isParentField
+                softDeletes
             );
         }
     }
@@ -402,7 +401,6 @@ public class KNNCodecTestUtil {
             Version.LATEST,
             segmentName,
             docsInSegment,
-            false,
             false,
             codec,
             Collections.emptyMap(),

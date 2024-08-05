@@ -5,21 +5,37 @@
 
 package org.opensearch.knn.plugin.script;
 
-import java.math.BigInteger;
-import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.lucene.util.Constants;
 import org.apache.lucene.util.VectorUtil;
 import org.opensearch.knn.index.KNNVectorScriptDocValues;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.util.BitUtil;
+
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.math.BigInteger;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
+import static org.opensearch.knn.index.util.BitUtil.NATIVE_BYTE_ORDER;
 
 public class KNNScoringUtil {
     private static Logger logger = LogManager.getLogger(KNNScoringUtil.class);
+
+    /**
+     * For xorBitCount we stride over the values as either 64-bits (long) or 32-bits (int) at a time.
+     * On ARM Long::bitCount is not vectorized, and therefore produces less than optimal code, when
+     * compared to Integer::bitCount. While Long::bitCount is optimal on x64. See
+     * https://bugs.openjdk.org/browse/JDK-8336000
+     */
+    static final boolean XOR_BIT_COUNT_STRIDE_AS_INT = Constants.OS_ARCH.equals("aarch64");
+
+    public static final VarHandle VH_NATIVE_LONG = MethodHandles.byteArrayViewVarHandle(long[].class, NATIVE_BYTE_ORDER);
 
     /**
      * checks both query vector and input vector has equal dimension
@@ -201,7 +217,51 @@ public class KNNScoringUtil {
      */
     public static float calculateHammingBit(byte[] queryVector, byte[] inputVector) {
         requireEqualDimension(queryVector, inputVector);
-        return VectorUtil.xorBitCount(queryVector, inputVector);
+        return xorBitCount(queryVector, inputVector);
+    }
+
+    /**
+     * XOR bit count computed over signed bytes.
+     *
+     * @param a bytes containing a vector
+     * @param b bytes containing another vector, of the same dimension
+     * @return the value of the XOR bit count of the two vectors
+     */
+    public static int xorBitCount(byte[] a, byte[] b) {
+        if (a.length != b.length) {
+            throw new IllegalArgumentException("vector dimensions differ: " + a.length + "!=" + b.length);
+        }
+        if (XOR_BIT_COUNT_STRIDE_AS_INT) {
+            return xorBitCountInt(a, b);
+        } else {
+            return xorBitCountLong(a, b);
+        }
+    }
+
+    /** XOR bit count striding over 4 bytes at a time. */
+    static int xorBitCountInt(byte[] a, byte[] b) {
+        int distance = 0, i = 0;
+        for (final int upperBound = a.length & -Integer.BYTES; i < upperBound; i += Integer.BYTES) {
+            distance += Integer.bitCount((int) BitUtil.VH_NATIVE_INT.get(a, i) ^ (int) BitUtil.VH_NATIVE_INT.get(b, i));
+        }
+        // tail:
+        for (; i < a.length; i++) {
+            distance += Integer.bitCount((a[i] ^ b[i]) & 0xFF);
+        }
+        return distance;
+    }
+
+    /** XOR bit count striding over 8 bytes at a time. */
+    static int xorBitCountLong(byte[] a, byte[] b) {
+        int distance = 0, i = 0;
+        for (final int upperBound = a.length & -Long.BYTES; i < upperBound; i += Long.BYTES) {
+            distance += Long.bitCount((long) VH_NATIVE_LONG.get(a, i) ^ (long) VH_NATIVE_LONG.get(b, i));
+        }
+        // tail:
+        for (; i < a.length; i++) {
+            distance += Integer.bitCount((a[i] ^ b[i]) & 0xFF);
+        }
+        return distance;
     }
 
     /**

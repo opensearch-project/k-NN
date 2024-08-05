@@ -61,30 +61,6 @@ public class NestedSearchIT extends KNNRestTestCase {
     }
 
     @SneakyThrows
-    public void testNestedSearchWithLucene_whenKIsTwo_thenReturnTwoResults() {
-        createKnnIndex(2, KNNEngine.LUCENE.getName());
-
-        int totalDocCount = 15;
-        for (int i = 0; i < totalDocCount; i++) {
-            String doc = NestedKnnDocBuilder.create(FIELD_NAME_NESTED)
-                .addVectors(FIELD_NAME_VECTOR, new Float[] { (float) i, (float) i }, new Float[] { (float) i, (float) i })
-                .build();
-            addKnnDoc(INDEX_NAME, String.valueOf(i), doc);
-        }
-
-        refreshIndex(INDEX_NAME);
-        forceMergeKnnIndex(INDEX_NAME);
-
-        Float[] queryVector = { 14f, 14f };
-        Response response = queryNestedField(INDEX_NAME, 2, queryVector);
-        String entity = EntityUtils.toString(response.getEntity());
-        assertEquals(2, parseHits(entity));
-        assertEquals(2, parseTotalSearchHits(entity));
-        assertEquals("14", parseIds(entity).get(0));
-        assertEquals("13", parseIds(entity).get(1));
-    }
-
-    @SneakyThrows
     public void testNestedSearchWithFaiss_whenKIsTwo_thenReturnTwoResults() {
         createKnnIndex(2, KNNEngine.FAISS.getName());
 

@@ -16,15 +16,9 @@ import static org.opensearch.knn.index.KNNVectorSimilarityFunction.COSINE;
 import static org.opensearch.knn.index.KNNVectorSimilarityFunction.DOT_PRODUCT;
 import static org.opensearch.knn.index.KNNVectorSimilarityFunction.EUCLIDEAN;
 import static org.opensearch.knn.index.KNNVectorSimilarityFunction.HAMMING;
-import static org.opensearch.knn.index.KNNVectorSimilarityFunction.MAXIMUM_INNER_PRODUCT;
 
 public class KNNVectorSimilarityFunctionTests extends TestCase {
-    private static final Set<KNNVectorSimilarityFunction> FUNCTION_SET_BACKED_BY_LUCENE = Set.of(
-        EUCLIDEAN,
-        DOT_PRODUCT,
-        COSINE,
-        MAXIMUM_INNER_PRODUCT
-    );
+    private static final Set<KNNVectorSimilarityFunction> FUNCTION_SET_BACKED_BY_LUCENE = Set.of(EUCLIDEAN, DOT_PRODUCT, COSINE);
 
     public void testFunctions_whenBackedByLucene_thenSameAsLucene() {
         float[] f1 = new float[] { 1.5f, 2.5f, 3.5f, 4.5f, 5.5f };

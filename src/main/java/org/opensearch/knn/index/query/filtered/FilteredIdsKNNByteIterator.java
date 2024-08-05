@@ -11,6 +11,7 @@ import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -28,6 +29,7 @@ public class FilteredIdsKNNByteIterator implements KNNIterator {
     protected final byte[] queryVector;
     protected final BinaryDocValues binaryDocValues;
     protected final SpaceType spaceType;
+    protected final KNNEngine knnEngine;
     protected float currentScore = Float.NEGATIVE_INFINITY;
     protected int docId;
 
@@ -35,13 +37,15 @@ public class FilteredIdsKNNByteIterator implements KNNIterator {
         final BitSet filterIdsBitSet,
         final byte[] queryVector,
         final BinaryDocValues binaryDocValues,
-        final SpaceType spaceType
+        final SpaceType spaceType,
+        final KNNEngine knnEngine
     ) {
         this.filterIdsBitSet = filterIdsBitSet;
         this.bitSetIterator = new BitSetIterator(filterIdsBitSet, filterIdsBitSet.length());
         this.queryVector = queryVector;
         this.binaryDocValues = binaryDocValues;
         this.spaceType = spaceType;
+        this.knnEngine = knnEngine;
         this.docId = bitSetIterator.nextDoc();
     }
 

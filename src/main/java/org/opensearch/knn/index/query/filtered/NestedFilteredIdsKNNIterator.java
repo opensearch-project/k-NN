@@ -9,6 +9,7 @@ import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.util.KNNEngine;
 
 import java.io.IOException;
 
@@ -24,9 +25,10 @@ public class NestedFilteredIdsKNNIterator extends FilteredIdsKNNIterator {
         final float[] queryVector,
         final BinaryDocValues values,
         final SpaceType spaceType,
+        final KNNEngine knnEngine,
         final BitSet parentBitSet
     ) {
-        super(filterIdsArray, queryVector, values, spaceType);
+        super(filterIdsArray, queryVector, values, spaceType, knnEngine);
         this.parentBitSet = parentBitSet;
     }
 

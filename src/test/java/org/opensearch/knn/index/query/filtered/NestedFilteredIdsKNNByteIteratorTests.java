@@ -13,6 +13,7 @@ import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Arrays;
 import java.util.List;
@@ -25,6 +26,7 @@ public class NestedFilteredIdsKNNByteIteratorTests extends TestCase {
     @SneakyThrows
     public void testNextDoc_whenIterate_ReturnBestChildDocsPerParent() {
         final SpaceType spaceType = SpaceType.HAMMING;
+        final KNNEngine knnEngine = KNNEngine.FAISS;
         final byte[] queryVector = { 1, 2, 3 };
         final int[] filterIds = { 0, 2, 3 };
         // Parent id for 0 -> 1
@@ -52,6 +54,7 @@ public class NestedFilteredIdsKNNByteIteratorTests extends TestCase {
             queryVector,
             values,
             spaceType,
+            knnEngine,
             parentBitSet
         );
         assertEquals(filterIds[0], iterator.nextDoc());

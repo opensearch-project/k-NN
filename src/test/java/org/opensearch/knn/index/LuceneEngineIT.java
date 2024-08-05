@@ -10,7 +10,6 @@ import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
 import org.apache.commons.lang.math.RandomUtils;
 import org.apache.http.util.EntityUtils;
-import org.apache.lucene.util.VectorUtil;
 import org.junit.After;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
@@ -37,7 +36,6 @@ import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_DEFAULT_BITS;
-import static org.opensearch.knn.common.KNNConstants.MAXIMUM_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
@@ -339,142 +337,6 @@ public class LuceneEngineIT extends KNNRestTestCase {
         assertArrayEquals(knnResultsBeforeIndexClosure.toArray(), knnResultsAfterIndexClosure.toArray());
     }
 
-    public void testRadiusSearch_usingDistanceThreshold_usingL2Metrics_usingFloatType() throws Exception {
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
-        for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
-            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
-        }
-
-        final float distance = 3.5f;
-        final int[] expectedResults = { 2, 3, 2 };
-
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.L2, expectedResults, null, null, null);
-    }
-
-    public void testRadiusSearch_usingScoreThreshold_usingL2Metrics_usingFloatType() throws Exception {
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
-        for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
-            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
-        }
-
-        final float score = 0.23f;
-        final int[] expectedResults = { 2, 3, 2 };
-
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.L2, expectedResults, null, null, null);
-    }
-
-    public void testRadiusSearch_usingDistanceThreshold_usingCosineMetrics_usingFloatType() throws Exception {
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.COSINESIMIL, VectorDataType.FLOAT);
-        for (int j = 0; j < TEST_COSINESIMIL_INDEX_VECTORS.length; j++) {
-            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_COSINESIMIL_INDEX_VECTORS[j]);
-        }
-
-        final float distance = 0.03f;
-        final int[] expectedResults = { 1, 1, 1 };
-
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.COSINESIMIL, expectedResults, null, null, null);
-    }
-
-    public void testRadiusSearch_usingScoreThreshold_usingCosineMetrics_usingFloatType() throws Exception {
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.COSINESIMIL, VectorDataType.FLOAT);
-        for (int j = 0; j < TEST_COSINESIMIL_INDEX_VECTORS.length; j++) {
-            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_COSINESIMIL_INDEX_VECTORS[j]);
-        }
-
-        final float score = 0.97f;
-        final int[] expectedResults = { 1, 1, 1 };
-
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.COSINESIMIL, expectedResults, null, null, null);
-    }
-
-    public void testRadiusSearch_usingScoreThreshold_usingInnerProductMetrics_usingFloatType() throws Exception {
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.INNER_PRODUCT, VectorDataType.FLOAT);
-        for (int j = 0; j < TEST_INNER_PRODUCT_INDEX_VECTORS.length; j++) {
-            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INNER_PRODUCT_INDEX_VECTORS[j]);
-        }
-
-        final float score = 2f;
-        final int[] expectedResults = { 1, 1, 1 };
-
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.INNER_PRODUCT, expectedResults, null, null, null);
-    }
-
-    public void testRadiusSearch_usingDistanceThreshold_usingL2Metrics_usingByteType() throws Exception {
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.BYTE);
-        for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
-            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
-        }
-
-        final float distance = 3.5f;
-        final int[] expectedResults = { 2, 2, 2 };
-
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.L2, expectedResults, null, null, null);
-    }
-
-    public void testRadiusSearch_usingScoreThreshold_usingL2Metrics_usingByteType() throws Exception {
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.BYTE);
-        for (int j = 0; j < TEST_INDEX_VECTORS.length; j++) {
-            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_INDEX_VECTORS[j]);
-        }
-
-        final float score = 0.23f;
-        final int[] expectedResults = { 2, 2, 2 };
-
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.L2, expectedResults, null, null, null);
-    }
-
-    public void testRadiusSearch_usingDistanceThreshold_usingCosineMetrics_usingByteType() throws Exception {
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.COSINESIMIL, VectorDataType.BYTE);
-        for (int j = 0; j < TEST_COSINESIMIL_INDEX_VECTORS.length; j++) {
-            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_COSINESIMIL_INDEX_VECTORS[j]);
-        }
-
-        final float distance = 0.05f;
-        final int[] expectedResults = { 2, 2, 2 };
-
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.COSINESIMIL, expectedResults, null, null, null);
-    }
-
-    public void testRadiusSearch_usingScoreThreshold_usingCosineMetrics_usingByteType() throws Exception {
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.COSINESIMIL, VectorDataType.BYTE);
-        for (int j = 0; j < TEST_COSINESIMIL_INDEX_VECTORS.length; j++) {
-            addKnnDoc(INDEX_NAME, Integer.toString(j + 1), FIELD_NAME, TEST_COSINESIMIL_INDEX_VECTORS[j]);
-        }
-
-        final float score = 0.97f;
-        final int[] expectedResults = { 2, 2, 2 };
-
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.COSINESIMIL, expectedResults, null, null, null);
-    }
-
-    public void testRadiusSearch_usingDistanceThreshold_withFilter_usingL2Metrics_usingFloatType() throws Exception {
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.L2, VectorDataType.FLOAT);
-        addKnnDocWithAttributes(DOC_ID, new float[] { 6.0f, 7.9f, 3.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
-        addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.2f, 2.1f, 4.8f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
-        addKnnDocWithAttributes(DOC_ID_3, new float[] { 4.1f, 5.0f, 7.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
-
-        refreshIndex(INDEX_NAME);
-
-        final float distance = 45.0f;
-        final int[] expectedResults = { 1, 1, 1 };
-
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, distance, null, SpaceType.L2, expectedResults, COLOR_FIELD_NAME, "red", null);
-    }
-
-    public void testRadiusSearch_usingScoreThreshold_withFilter_usingCosineMetrics_usingFloatType() throws Exception {
-        createKnnIndexMappingWithLuceneEngine(DIMENSION, SpaceType.COSINESIMIL, VectorDataType.FLOAT);
-        addKnnDocWithAttributes(DOC_ID, new float[] { 6.0f, 7.9f, 3.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
-        addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.2f, 2.1f, 4.8f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
-        addKnnDocWithAttributes(DOC_ID_3, new float[] { 4.1f, 5.0f, 7.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
-
-        refreshIndex(INDEX_NAME);
-
-        final float score = 0.02f;
-        final int[] expectedResults = { 1, 1, 1 };
-
-        validateRadiusSearchResults(TEST_QUERY_VECTORS, null, score, SpaceType.COSINESIMIL, expectedResults, COLOR_FIELD_NAME, "red", null);
-    }
-
     @SneakyThrows
     public void testSQ_withInvalidParams_thenThrowException() {
 
@@ -515,117 +377,6 @@ public class LuceneEngineIT extends KNNRestTestCase {
                 MINIMUM_CONFIDENCE_INTERVAL
             )
         );
-    }
-
-    @SneakyThrows
-    public void testAddDocWithSQEncoder() {
-        createKnnIndexMappingWithLuceneEngineAndSQEncoder(
-            DIMENSION,
-            SpaceType.L2,
-            VectorDataType.FLOAT,
-            LUCENE_SQ_DEFAULT_BITS,
-            MAXIMUM_CONFIDENCE_INTERVAL
-        );
-        Float[] vector = new Float[] { 2.0f, 4.5f, 6.5f };
-        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
-
-        refreshIndex(INDEX_NAME);
-        assertEquals(1, getDocCount(INDEX_NAME));
-    }
-
-    @SneakyThrows
-    public void testUpdateDocWithSQEncoder() {
-        createKnnIndexMappingWithLuceneEngineAndSQEncoder(
-            DIMENSION,
-            SpaceType.INNER_PRODUCT,
-            VectorDataType.FLOAT,
-            LUCENE_SQ_DEFAULT_BITS,
-            MAXIMUM_CONFIDENCE_INTERVAL
-        );
-        Float[] vector = { 6.0f, 6.0f, 7.0f };
-        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
-
-        Float[] updatedVector = { 8.0f, 8.0f, 8.0f };
-        updateKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, updatedVector);
-
-        refreshIndex(INDEX_NAME);
-        assertEquals(1, getDocCount(INDEX_NAME));
-    }
-
-    @SneakyThrows
-    public void testDeleteDocWithSQEncoder() {
-        createKnnIndexMappingWithLuceneEngineAndSQEncoder(
-            DIMENSION,
-            SpaceType.INNER_PRODUCT,
-            VectorDataType.FLOAT,
-            LUCENE_SQ_DEFAULT_BITS,
-            MAXIMUM_CONFIDENCE_INTERVAL
-        );
-        Float[] vector = { 6.0f, 6.0f, 7.0f };
-        addKnnDoc(INDEX_NAME, DOC_ID, FIELD_NAME, vector);
-
-        deleteKnnDoc(INDEX_NAME, DOC_ID);
-
-        refreshIndex(INDEX_NAME);
-        assertEquals(0, getDocCount(INDEX_NAME));
-    }
-
-    @SneakyThrows
-    public void testIndexingAndQueryingWithSQEncoder() {
-        createKnnIndexMappingWithLuceneEngineAndSQEncoder(
-            DIMENSION,
-            SpaceType.INNER_PRODUCT,
-            VectorDataType.FLOAT,
-            LUCENE_SQ_DEFAULT_BITS,
-            MAXIMUM_CONFIDENCE_INTERVAL
-        );
-
-        int numDocs = 10;
-        for (int i = 0; i < numDocs; i++) {
-            float[] indexVector = new float[DIMENSION];
-            Arrays.fill(indexVector, (float) i);
-            addKnnDocWithAttributes(INDEX_NAME, Integer.toString(i), FIELD_NAME, indexVector, ImmutableMap.of("rating", String.valueOf(i)));
-        }
-
-        // Assert that all docs are ingested
-        refreshAllNonSystemIndices();
-        assertEquals(numDocs, getDocCount(INDEX_NAME));
-
-        float[] queryVector = new float[DIMENSION];
-        Arrays.fill(queryVector, (float) numDocs);
-        int k = 10;
-
-        Response searchResponse = searchKNNIndex(INDEX_NAME, new KNNQueryBuilder(FIELD_NAME, queryVector, k), k);
-        List<KNNResult> results = parseSearchResponse(EntityUtils.toString(searchResponse.getEntity()), FIELD_NAME);
-        assertEquals(k, results.size());
-        for (int i = 0; i < k; i++) {
-            assertEquals(numDocs - i - 1, Integer.parseInt(results.get(i).getDocId()));
-        }
-    }
-
-    public void testQueryWithFilterUsingSQEncoder() throws Exception {
-        createKnnIndexMappingWithLuceneEngineAndSQEncoder(
-            DIMENSION,
-            SpaceType.INNER_PRODUCT,
-            VectorDataType.FLOAT,
-            LUCENE_SQ_DEFAULT_BITS,
-            MAXIMUM_CONFIDENCE_INTERVAL
-        );
-
-        addKnnDocWithAttributes(
-            DOC_ID,
-            new float[] { 6.0f, 7.9f, 3.1f },
-            ImmutableMap.of(COLOR_FIELD_NAME, "red", TASTE_FIELD_NAME, "sweet")
-        );
-        addKnnDocWithAttributes(DOC_ID_2, new float[] { 3.2f, 2.1f, 4.8f }, ImmutableMap.of(COLOR_FIELD_NAME, "green"));
-        addKnnDocWithAttributes(DOC_ID_3, new float[] { 4.1f, 5.0f, 7.1f }, ImmutableMap.of(COLOR_FIELD_NAME, "red"));
-
-        refreshIndex(INDEX_NAME);
-
-        final float[] searchVector = { 6.0f, 6.0f, 4.1f };
-        List<String> expectedDocIdsKGreaterThanFilterResult = Arrays.asList(DOC_ID, DOC_ID_3);
-        List<String> expectedDocIdsKLimitsFilterResult = Arrays.asList(DOC_ID);
-        validateQueryResultsWithFilters(searchVector, 5, 1, expectedDocIdsKGreaterThanFilterResult, expectedDocIdsKLimitsFilterResult);
     }
 
     private void createKnnIndexMappingWithLuceneEngineAndSQEncoder(
@@ -770,55 +521,6 @@ public class LuceneEngineIT extends KNNRestTestCase {
                 .collect(Collectors.toList())
                 .containsAll(expectedDocIdsKLimitsFilterResult)
         );
-    }
-
-    @SneakyThrows
-    public void test_whenUsingIP_thenSuccess() {
-        XContentBuilder builder = XContentFactory.jsonBuilder()
-            .startObject()
-            .startObject("properties")
-            .startObject(FIELD_NAME)
-            .field("type", "knn_vector")
-            .field("dimension", 2)
-            .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, KNNEngine.LUCENE.getMethod(KNNConstants.METHOD_HNSW).getMethodComponent().getName())
-            .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.INNER_PRODUCT.getValue())
-            .field(KNNConstants.KNN_ENGINE, KNNEngine.LUCENE)
-            .endObject()
-            .endObject()
-            .endObject()
-            .endObject();
-        final String mapping = builder.toString();
-        createKnnIndex(INDEX_NAME, mapping);
-
-        final List<Float[]> dataVectors = Arrays.asList(new Float[] { -2.0f, 2.0f }, new Float[] { 2.0f, -2.0f });
-        final List<String> ids = Arrays.asList(DOC_ID, DOC_ID_2);
-
-        // Ingest all the documents
-        for (int i = 0; i < dataVectors.size(); i++) {
-            addKnnDoc(INDEX_NAME, ids.get(i), FIELD_NAME, dataVectors.get(i));
-        }
-        refreshIndex(INDEX_NAME);
-
-        float[] queryVector = new float[] { -2.0f, 2.0f };
-        int k = 2;
-        final Response response = searchKNNIndex(
-            INDEX_NAME,
-            new KNNQueryBuilder(FIELD_NAME, queryVector, k, QueryBuilders.matchAllQuery()),
-            k
-        );
-        final String responseBody = EntityUtils.toString(response.getEntity());
-        final List<Float> knnResults = parseSearchResponseScore(responseBody, FIELD_NAME);
-
-        // Check that the expected scores are returned
-        final List<Float> expectedScores = Arrays.asList(
-            VectorUtil.scaleMaxInnerProductScore(8.0f),
-            VectorUtil.scaleMaxInnerProductScore(-8.0f)
-        );
-        assertEquals(expectedScores.size(), knnResults.size());
-        for (int i = 0; i < expectedScores.size(); i++) {
-            assertEquals(expectedScores.get(i), knnResults.get(i), 0.0000001);
-        }
     }
 
     @SneakyThrows

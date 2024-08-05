@@ -6,7 +6,6 @@
 package org.opensearch.knn.index.query;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.lucene.search.FloatVectorSimilarityQuery;
 import org.apache.lucene.search.KnnFloatVectorQuery;
 import org.apache.lucene.search.MatchNoDocsQuery;
 import org.apache.lucene.search.Query;
@@ -512,61 +511,6 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertEquals(knnQueryBuilder.vector(), query.getQueryVector());
     }
 
-    public void testDoToQuery_whenNormal_whenDoRadiusSearch_whenDistanceThreshold_thenSucceed() {
-        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
-            .fieldName(FIELD_NAME)
-            .vector(queryVector)
-            .maxDistance(MAX_DISTANCE)
-            .build();
-        Index dummyIndex = new Index("dummy", "dummy");
-        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
-        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
-        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
-        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        MethodComponentContext methodComponentContext = new MethodComponentContext(
-            org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
-            ImmutableMap.of()
-        );
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
-        FloatVectorSimilarityQuery query = (FloatVectorSimilarityQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
-        float resultSimilarity = KNNEngine.LUCENE.distanceToRadialThreshold(MAX_DISTANCE, SpaceType.L2);
-
-        assertTrue(query.toString().contains("resultSimilarity=" + resultSimilarity));
-        assertTrue(
-            query.toString()
-                .contains(
-                    "traversalSimilarity="
-                        + org.opensearch.knn.common.KNNConstants.DEFAULT_LUCENE_RADIAL_SEARCH_TRAVERSAL_SIMILARITY_RATIO * resultSimilarity
-                )
-        );
-    }
-
-    public void testDoToQuery_whenNormal_whenDoRadiusSearch_whenScoreThreshold_thenSucceed() {
-        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-
-        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(queryVector).minScore(MIN_SCORE).build();
-
-        Index dummyIndex = new Index("dummy", "dummy");
-        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
-        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
-        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
-        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        MethodComponentContext methodComponentContext = new MethodComponentContext(
-            org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
-            ImmutableMap.of()
-        );
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
-        FloatVectorSimilarityQuery query = (FloatVectorSimilarityQuery) knnQueryBuilder.doToQuery(mockQueryShardContext);
-        assertTrue(query.toString().contains("resultSimilarity=" + 0.5f));
-    }
-
     public void testDoToQuery_whenDoRadiusSearch_whenPassNegativeDistance_whenSupportedSpaceType_thenSucceed() {
         float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
         float negativeDistance = -1.0f;
@@ -799,60 +743,6 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         // Then
         assertNotNull(query);
         assertTrue(query.getClass().isAssignableFrom(KnnFloatVectorQuery.class));
-    }
-
-    public void testDoToQuery_whenDoRadiusSearch_whenDistanceThreshold_whenFilter_thenSucceed() {
-        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-
-        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
-            .fieldName(FIELD_NAME)
-            .vector(queryVector)
-            .maxDistance(MAX_DISTANCE)
-            .filter(TERM_QUERY)
-            .build();
-
-        Index dummyIndex = new Index("dummy", "dummy");
-        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
-        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
-        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
-        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        MethodComponentContext methodComponentContext = new MethodComponentContext(
-            org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
-            ImmutableMap.of()
-        );
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
-        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        Query query = knnQueryBuilder.doToQuery(mockQueryShardContext);
-        assertNotNull(query);
-        assertTrue(query.getClass().isAssignableFrom(FloatVectorSimilarityQuery.class));
-    }
-
-    public void testDoToQuery_whenDoRadiusSearch_whenScoreThreshold_whenFilter_thenSucceed() {
-        float[] queryVector = { 1.0f, 2.0f, 3.0f, 4.0f };
-        KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
-            .fieldName(FIELD_NAME)
-            .vector(queryVector)
-            .maxDistance(MAX_DISTANCE)
-            .filter(TERM_QUERY)
-            .build();
-        Index dummyIndex = new Index("dummy", "dummy");
-        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
-        KNNVectorFieldMapper.KNNVectorFieldType mockKNNVectorField = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
-        when(mockQueryShardContext.index()).thenReturn(dummyIndex);
-        when(mockKNNVectorField.getDimension()).thenReturn(4);
-        when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
-        MethodComponentContext methodComponentContext = new MethodComponentContext(
-            org.opensearch.knn.common.KNNConstants.METHOD_HNSW,
-            ImmutableMap.of()
-        );
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.LUCENE, SpaceType.L2, methodComponentContext);
-        when(mockKNNVectorField.getKnnMethodContext()).thenReturn(knnMethodContext);
-        when(mockQueryShardContext.fieldMapper(anyString())).thenReturn(mockKNNVectorField);
-        Query query = knnQueryBuilder.doToQuery(mockQueryShardContext);
-        assertNotNull(query);
-        assertTrue(query.getClass().isAssignableFrom(FloatVectorSimilarityQuery.class));
     }
 
     public void testDoToQuery_WhenknnQueryWithFilterAndFaissEngine_thenSuccess() {
@@ -1115,8 +1005,6 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         assertSerialization(Version.CURRENT, Optional.empty(), K, null, null, null);
         assertSerialization(Version.CURRENT, Optional.empty(), K, Map.of("ef_search", EF_SEARCH), null, null);
         assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), K, Map.of("ef_search", EF_SEARCH), null, null);
-        assertSerialization(Version.V_2_3_0, Optional.empty(), K, Map.of("ef_search", EF_SEARCH), null, null);
-        assertSerialization(Version.V_2_3_0, Optional.empty(), K, null, null, null);
 
         // For distance threshold search
         assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, MAX_DISTANCE);
@@ -1181,12 +1069,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
     }
 
     private void assertMethodParameters(Version version, Map<String, ?> expectedMethodParameters, Map<String, ?> actualMethodParameters) {
-        if (!version.onOrAfter(Version.V_2_16_0)) {
-            assertNull(actualMethodParameters);
-        } else if (expectedMethodParameters != null) {
-            if (version.onOrAfter(Version.V_2_16_0)) {
-                assertEquals(expectedMethodParameters.get("ef_search"), actualMethodParameters.get("ef_search"));
-            }
+        if (expectedMethodParameters != null) {
+            assertEquals(expectedMethodParameters.get("ef_search"), actualMethodParameters.get("ef_search"));
         }
     }
 

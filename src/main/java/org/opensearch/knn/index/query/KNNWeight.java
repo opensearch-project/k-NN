@@ -398,24 +398,27 @@ public class KNNWeight extends Weight {
         final FieldInfo fieldInfo = reader.getFieldInfos().fieldInfo(knnQuery.getField());
         final BinaryDocValues values = DocValues.getBinary(leafReaderContext.reader(), fieldInfo.getName());
         final SpaceType spaceType = getSpaceType(fieldInfo);
+        final KNNEngine engine = getKNNEngine(fieldInfo);
         if (VectorDataType.BINARY == knnQuery.getVectorDataType()) {
             return knnQuery.getParentsFilter() == null
-                ? new FilteredIdsKNNByteIterator(filterIdsBitSet, knnQuery.getByteQueryVector(), values, spaceType)
+                ? new FilteredIdsKNNByteIterator(filterIdsBitSet, knnQuery.getByteQueryVector(), values, spaceType, engine)
                 : new NestedFilteredIdsKNNByteIterator(
                     filterIdsBitSet,
                     knnQuery.getByteQueryVector(),
                     values,
                     spaceType,
+                    engine,
                     knnQuery.getParentsFilter().getBitSet(leafReaderContext)
                 );
         } else {
             return knnQuery.getParentsFilter() == null
-                ? new FilteredIdsKNNIterator(filterIdsBitSet, knnQuery.getQueryVector(), values, spaceType)
+                ? new FilteredIdsKNNIterator(filterIdsBitSet, knnQuery.getQueryVector(), values, spaceType, engine)
                 : new NestedFilteredIdsKNNIterator(
                     filterIdsBitSet,
                     knnQuery.getQueryVector(),
                     values,
                     spaceType,
+                    engine,
                     knnQuery.getParentsFilter().getBitSet(leafReaderContext)
                 );
         }
@@ -456,6 +459,31 @@ public class KNNWeight extends Weight {
         throw new IllegalArgumentException(
             String.format(Locale.ROOT, "Unable to find the Space Type from Field Info attribute for field %s", fieldInfo.getName())
         );
+    }
+
+    /**
+     * Returns the K-NN engine if it is present in the FieldInfo otherwise return the default KNNEngine which is
+     * {@link KNNEngine#NMSLIB}
+     *
+     * @param fieldInfo {@link FieldInfo}
+     * @return KNNEngine
+     */
+    private KNNEngine getKNNEngine(final FieldInfo fieldInfo) {
+        // Check if a modelId exists. If so, the space type and engine will need to be picked up from the model's
+        // metadata.
+        final String modelId = fieldInfo.getAttribute(MODEL_ID);
+        if (modelId != null) {
+            final ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+            if (modelMetadata == null) {
+                throw new RuntimeException("Model \"" + modelId + "\" does not exist.");
+            }
+
+            return modelMetadata.getKnnEngine();
+        } else {
+            // if KNNEngine is not found, we use Nmslib Engine because that is the default Engine.
+            final String engineName = fieldInfo.attributes().getOrDefault(KNN_ENGINE, KNNEngine.DEFAULT.getName());
+            return KNNEngine.getEngine(engineName);
+        }
     }
 
     private boolean canDoExactSearch(final int filterIdsCount) {

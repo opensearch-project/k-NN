@@ -15,7 +15,7 @@ public enum KNNVectorSimilarityFunction {
     EUCLIDEAN(VectorSimilarityFunction.EUCLIDEAN),
     DOT_PRODUCT(VectorSimilarityFunction.DOT_PRODUCT),
     COSINE(VectorSimilarityFunction.COSINE),
-    MAXIMUM_INNER_PRODUCT(VectorSimilarityFunction.MAXIMUM_INNER_PRODUCT),
+    MAXIMUM_INNER_PRODUCT(VectorSimilarityFunction.DOT_PRODUCT),
     HAMMING(null) {
         @Override
         public float compare(float[] v1, float[] v2) {
@@ -49,5 +49,16 @@ public enum KNNVectorSimilarityFunction {
 
     public float compare(byte[] var1, byte[] var2) {
         return vectorSimilarityFunction.compare(var1, var2);
+    }
+
+    /**
+     * @param vectorDotProductSimilarity the raw similarity between two vectors
+     * @return A scaled score preventing negative scores for maximum-inner-product
+     */
+    public static float scaleMaxInnerProductScore(float vectorDotProductSimilarity) {
+        if (vectorDotProductSimilarity < 0) {
+            return 1 / (1 + -1 * vectorDotProductSimilarity);
+        }
+        return vectorDotProductSimilarity + 1;
     }
 }

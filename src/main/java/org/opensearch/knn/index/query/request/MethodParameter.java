@@ -20,6 +20,7 @@ import org.opensearch.core.ParseField;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.opensearch.Version.V_2_11_0;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.EF_SEARCH_FIELD;
@@ -33,7 +34,7 @@ import static org.opensearch.knn.index.query.KNNQueryBuilder.NPROBE_FIELD;
 @RequiredArgsConstructor
 public enum MethodParameter {
 
-    EF_SEARCH(METHOD_PARAMETER_EF_SEARCH, Version.V_2_16_0, EF_SEARCH_FIELD) {
+    EF_SEARCH(METHOD_PARAMETER_EF_SEARCH, V_2_11_0, EF_SEARCH_FIELD) {
         @Override
         public Integer parse(Object value) {
             return parseInteger(value, METHOD_PARAMETER_EF_SEARCH);
@@ -52,7 +53,7 @@ public enum MethodParameter {
         }
     },
 
-    NPROBE(METHOD_PARAMETER_NPROBES, Version.V_2_16_0, NPROBE_FIELD) {
+    NPROBE(METHOD_PARAMETER_NPROBES, V_2_11_0, NPROBE_FIELD) {
         @Override
         public Integer parse(Object value) {
             return parseInteger(value, METHOD_PARAMETER_EF_SEARCH);

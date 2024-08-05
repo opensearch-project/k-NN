@@ -39,12 +39,10 @@ import static org.opensearch.knn.TestUtils.VECTOR_TYPE;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
-import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NLIST;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.MODEL_INDEX_NAME;
 import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
@@ -429,95 +427,6 @@ public class RestKNNStatsHandlerIT extends KNNRestTestCase {
         boolean faissField = (Boolean) nodeStats0.get(StatNames.FAISS_LOADED.getName());
 
         assertTrue(faissField);
-    }
-
-    public void testRadialSearchStats_thenSucceed() throws Exception {
-        createKnnIndex(INDEX_NAME, createKnnIndexMapping(FIELD_NAME, 2, METHOD_HNSW, LUCENE_NAME));
-        Float[] vector = { 6.0f, 6.0f };
-        addKnnDoc(INDEX_NAME, "1", FIELD_NAME, vector);
-
-        // First search: radial search by min score
-        XContentBuilder queryBuilderMinScore = XContentFactory.jsonBuilder().startObject().startObject("query");
-        queryBuilderMinScore.startObject("knn");
-        queryBuilderMinScore.startObject(FIELD_NAME);
-        queryBuilderMinScore.field("vector", vector);
-        queryBuilderMinScore.field(MIN_SCORE, 0.95f);
-        queryBuilderMinScore.endObject();
-        queryBuilderMinScore.endObject();
-        queryBuilderMinScore.endObject().endObject();
-
-        Integer minScoreStatBeforeMinScoreSearch = getStatCount(StatNames.MIN_SCORE_QUERY_REQUESTS.getName());
-        searchKNNIndex(INDEX_NAME, queryBuilderMinScore, 1);
-        Integer minScoreStatAfterMinScoreSearch = getStatCount(StatNames.MIN_SCORE_QUERY_REQUESTS.getName());
-
-        assertEquals(1, minScoreStatAfterMinScoreSearch - minScoreStatBeforeMinScoreSearch);
-
-        // Second search: radial search by min score with filter
-        XContentBuilder queryBuilderMinScoreWithFilter = XContentFactory.jsonBuilder().startObject().startObject("query");
-        queryBuilderMinScoreWithFilter.startObject("knn");
-        queryBuilderMinScoreWithFilter.startObject(FIELD_NAME);
-        queryBuilderMinScoreWithFilter.field("vector", vector);
-        queryBuilderMinScoreWithFilter.field(MIN_SCORE, 0.95f);
-        queryBuilderMinScoreWithFilter.field("filter", QueryBuilders.termQuery("_id", "1"));
-        queryBuilderMinScoreWithFilter.endObject();
-        queryBuilderMinScoreWithFilter.endObject();
-        queryBuilderMinScoreWithFilter.endObject().endObject();
-
-        Integer minScoreWithFilterStatBeforeMinScoreWithFilterSearch = getStatCount(
-            StatNames.MIN_SCORE_QUERY_WITH_FILTER_REQUESTS.getName()
-        );
-        Integer minScoreStatBeforeMinScoreWithFilterSearch = getStatCount(StatNames.MIN_SCORE_QUERY_REQUESTS.getName());
-        searchKNNIndex(INDEX_NAME, queryBuilderMinScoreWithFilter, 1);
-        Integer minScoreWithFilterStatAfterMinScoreWithFilterSearch = getStatCount(
-            StatNames.MIN_SCORE_QUERY_WITH_FILTER_REQUESTS.getName()
-        );
-        Integer minScoreStatAfterMinScoreWithFilterSearch = getStatCount(StatNames.MIN_SCORE_QUERY_REQUESTS.getName());
-
-        assertEquals(1, minScoreWithFilterStatAfterMinScoreWithFilterSearch - minScoreWithFilterStatBeforeMinScoreWithFilterSearch);
-        assertEquals(1, minScoreStatAfterMinScoreWithFilterSearch - minScoreStatBeforeMinScoreWithFilterSearch);
-
-        // Third search: radial search by max distance
-        XContentBuilder queryBuilderMaxDistance = XContentFactory.jsonBuilder().startObject().startObject("query");
-        queryBuilderMaxDistance.startObject("knn");
-        queryBuilderMaxDistance.startObject(FIELD_NAME);
-        queryBuilderMaxDistance.field("vector", vector);
-        queryBuilderMaxDistance.field(MAX_DISTANCE, 100f);
-        queryBuilderMaxDistance.endObject();
-        queryBuilderMaxDistance.endObject();
-        queryBuilderMaxDistance.endObject().endObject();
-
-        Integer maxDistanceStatBeforeMaxDistanceSearch = getStatCount(StatNames.MAX_DISTANCE_QUERY_REQUESTS.getName());
-        searchKNNIndex(INDEX_NAME, queryBuilderMaxDistance, 0);
-        Integer maxDistanceStatAfterMaxDistanceSearch = getStatCount(StatNames.MAX_DISTANCE_QUERY_REQUESTS.getName());
-
-        assertEquals(1, maxDistanceStatAfterMaxDistanceSearch - maxDistanceStatBeforeMaxDistanceSearch);
-
-        // Fourth search: radial search by max distance with filter
-        XContentBuilder queryBuilderMaxDistanceWithFilter = XContentFactory.jsonBuilder().startObject().startObject("query");
-        queryBuilderMaxDistanceWithFilter.startObject("knn");
-        queryBuilderMaxDistanceWithFilter.startObject(FIELD_NAME);
-        queryBuilderMaxDistanceWithFilter.field("vector", vector);
-        queryBuilderMaxDistanceWithFilter.field(MAX_DISTANCE, 100f);
-        queryBuilderMaxDistanceWithFilter.field("filter", QueryBuilders.termQuery("_id", "1"));
-        queryBuilderMaxDistanceWithFilter.endObject();
-        queryBuilderMaxDistanceWithFilter.endObject();
-        queryBuilderMaxDistanceWithFilter.endObject().endObject();
-
-        Integer maxDistanceWithFilterStatBeforeMaxDistanceWithFilterSearch = getStatCount(
-            StatNames.MAX_DISTANCE_QUERY_WITH_FILTER_REQUESTS.getName()
-        );
-        Integer maxDistanceStatBeforeMaxDistanceWithFilterSearch = getStatCount(StatNames.MAX_DISTANCE_QUERY_REQUESTS.getName());
-        searchKNNIndex(INDEX_NAME, queryBuilderMaxDistanceWithFilter, 0);
-        Integer maxDistanceWithFilterStatAfterMaxDistanceWithFilterSearch = getStatCount(
-            StatNames.MAX_DISTANCE_QUERY_WITH_FILTER_REQUESTS.getName()
-        );
-        Integer maxDistanceStatAfterMaxDistanceWithFilterSearch = getStatCount(StatNames.MAX_DISTANCE_QUERY_REQUESTS.getName());
-
-        assertEquals(
-            1,
-            maxDistanceWithFilterStatAfterMaxDistanceWithFilterSearch - maxDistanceWithFilterStatBeforeMaxDistanceWithFilterSearch
-        );
-        assertEquals(1, maxDistanceStatAfterMaxDistanceWithFilterSearch - maxDistanceStatBeforeMaxDistanceWithFilterSearch);
     }
 
     public void trainKnnModel(String modelId, String trainingIndexName, String trainingFieldName, int dimension, String description)

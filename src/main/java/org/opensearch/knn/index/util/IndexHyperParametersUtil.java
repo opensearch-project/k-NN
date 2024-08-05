@@ -25,10 +25,6 @@ import org.opensearch.knn.index.KNNSettings;
 @Log4j2
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class IndexHyperParametersUtil {
-
-    private static final int INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION_OLD_VALUE = 512;
-    private static final int INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH_OLD_VALUE = 512;
-
     /**
      * Returns the default value of EF Construction that should be used for the input index version. After version 2.12.0
      * of Opensearch we are have reduced the value of ef_construction in favor of better build times.
@@ -37,14 +33,6 @@ public class IndexHyperParametersUtil {
      * @return default value of EF Construction that should be used for the input index version.
      */
     public static int getHNSWEFConstructionValue(@NonNull final Version indexVersion) {
-        if (indexVersion.before(Version.V_2_12_0)) {
-            log.debug(
-                "Picking up old values of ef_construction : index version : {}, value: {}",
-                indexVersion,
-                INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION_OLD_VALUE
-            );
-            return INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION_OLD_VALUE;
-        }
         log.debug(
             "Picking up new values of ef_construction : index version : {}, value: {}",
             indexVersion,
@@ -61,14 +49,6 @@ public class IndexHyperParametersUtil {
      * @return default value of EF Search that should be used for the input index version.
      */
     public static int getHNSWEFSearchValue(@NonNull final Version indexVersion) {
-        if (indexVersion.before(Version.V_2_12_0)) {
-            log.debug(
-                "Picking up old values of ef_search : index version : {}, value: {}",
-                indexVersion,
-                INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH_OLD_VALUE
-            );
-            return INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH_OLD_VALUE;
-        }
         log.debug(
             "Picking up new values of ef_search : index version : {}, value: {}",
             indexVersion,

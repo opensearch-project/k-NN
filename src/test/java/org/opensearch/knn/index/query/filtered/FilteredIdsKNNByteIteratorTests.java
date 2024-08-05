@@ -12,6 +12,7 @@ import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.util.KNNEngine;
 
 import java.util.Arrays;
 import java.util.List;
@@ -24,6 +25,7 @@ public class FilteredIdsKNNByteIteratorTests extends TestCase {
     @SneakyThrows
     public void testNextDoc_whenCalled_IterateAllDocs() {
         final SpaceType spaceType = SpaceType.HAMMING;
+        final KNNEngine knnEngine = KNNEngine.FAISS;
         final byte[] queryVector = { 1, 2, 3 };
         final int[] filterIds = { 1, 2, 3 };
         final List<byte[]> dataVectors = Arrays.asList(new byte[] { 11, 12, 13 }, new byte[] { 14, 15, 16 }, new byte[] { 17, 18, 19 });
@@ -42,7 +44,7 @@ public class FilteredIdsKNNByteIteratorTests extends TestCase {
         }
 
         // Execute and verify
-        FilteredIdsKNNByteIterator iterator = new FilteredIdsKNNByteIterator(filterBitSet, queryVector, values, spaceType);
+        FilteredIdsKNNByteIterator iterator = new FilteredIdsKNNByteIterator(filterBitSet, queryVector, values, spaceType, knnEngine);
         for (int i = 0; i < filterIds.length; i++) {
             assertEquals(filterIds[i], iterator.nextDoc());
             assertEquals(expectedScores.get(i), (Float) iterator.score());
