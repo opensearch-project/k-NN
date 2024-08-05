@@ -7,10 +7,8 @@ package org.opensearch.knn.integ;
 
 import lombok.SneakyThrows;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
@@ -20,15 +18,13 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
-import org.opensearch.core.xcontent.XContentBuilder;
-import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.knn.integ.PainlessScriptHelper.MappingProperty;
 import org.opensearch.script.Script;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -36,43 +32,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+import static org.opensearch.knn.integ.PainlessScriptHelper.createMapping;
 
-public class PainlessScriptIT extends KNNRestTestCase {
+public final class PainlessScriptScoreIT extends KNNRestTestCase {
 
     public static final int AGGREGATION_FIELD_NAME_MIN_LENGTH = 2;
     public static final int AGGREGATION_FIELD_NAME_MAX_LENGTH = 5;
     private static final String NUMERIC_INDEX_FIELD_NAME = "price";
-
-    /**
-     * Utility to create a Index Mapping with multiple fields
-     */
-    protected String createMapping(List<MappingProperty> properties) throws IOException {
-        Objects.requireNonNull(properties);
-        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject().startObject("properties");
-        for (MappingProperty property : properties) {
-            XContentBuilder builder = xContentBuilder.startObject(property.getName()).field("type", property.getType());
-            if (property.getDimension() != null) {
-                builder.field("dimension", property.getDimension());
-            }
-
-            if (property.getDocValues() != null) {
-                builder.field("doc_values", property.getDocValues());
-            }
-
-            if (property.getKnnMethodContext() != null) {
-                builder.startObject(KNNConstants.KNN_METHOD);
-                property.getKnnMethodContext().toXContent(builder, ToXContent.EMPTY_PARAMS);
-                builder.endObject();
-            }
-
-            builder.endObject();
-        }
-        xContentBuilder.endObject().endObject();
-        return xContentBuilder.toString();
-    }
 
     /*
      creates KnnIndex based on properties, we add single non-knn vector documents to verify whether actions
@@ -148,8 +116,8 @@ public class PainlessScriptIT extends KNNRestTestCase {
      */
     private List<MappingProperty> buildMappingProperties() {
         List<MappingProperty> properties = new ArrayList<>();
-        properties.add(new MappingProperty(FIELD_NAME, KNNVectorFieldMapper.CONTENT_TYPE).dimension("2"));
-        properties.add(new MappingProperty(NUMERIC_INDEX_FIELD_NAME, "integer"));
+        properties.add(MappingProperty.builder().name(FIELD_NAME).type(KNNVectorFieldMapper.CONTENT_TYPE).dimension("2").build());
+        properties.add(MappingProperty.builder().name(NUMERIC_INDEX_FIELD_NAME).type("integer").build());
         return properties;
     }
 
@@ -568,9 +536,13 @@ public class PainlessScriptIT extends KNNRestTestCase {
             new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
         );
         properties.add(
-            new MappingProperty(FIELD_NAME, KNNVectorFieldMapper.CONTENT_TYPE).dimension("2")
+            MappingProperty.builder()
+                .name(FIELD_NAME)
+                .type(KNNVectorFieldMapper.CONTENT_TYPE)
+                .dimension("2")
                 .knnMethodContext(knnMethodContext)
                 .docValues(randomBoolean())
+                .build()
         );
 
         String source = String.format("1/(1 + l2Squared([1.0f, 1.0f], doc['%s']))", FIELD_NAME);
@@ -669,56 +641,6 @@ public class PainlessScriptIT extends KNNRestTestCase {
             return client().performRequest(request);
         } finally {
             deleteKNNIndex(INDEX_NAME);
-        }
-    }
-
-    static class MappingProperty {
-
-        private final String name;
-        private final String type;
-        private String dimension;
-
-        private KNNMethodContext knnMethodContext;
-        private Boolean docValues;
-
-        MappingProperty(String name, String type) {
-            this.name = name;
-            this.type = type;
-        }
-
-        MappingProperty dimension(String dimension) {
-            this.dimension = dimension;
-            return this;
-        }
-
-        MappingProperty knnMethodContext(KNNMethodContext knnMethodContext) {
-            this.knnMethodContext = knnMethodContext;
-            return this;
-        }
-
-        MappingProperty docValues(boolean docValues) {
-            this.docValues = docValues;
-            return this;
-        }
-
-        KNNMethodContext getKnnMethodContext() {
-            return knnMethodContext;
-        }
-
-        String getDimension() {
-            return dimension;
-        }
-
-        String getName() {
-            return name;
-        }
-
-        String getType() {
-            return type;
-        }
-
-        Boolean getDocValues() {
-            return docValues;
         }
     }
 }
