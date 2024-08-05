@@ -7,9 +7,9 @@ package org.opensearch.knn.plugin.script;
 
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.util.List;
 
@@ -18,9 +18,9 @@ import static org.mockito.Mockito.when;
 
 public class KNNScoringSpaceFactoryTests extends KNNTestCase {
     public void testValidSpaces() {
-        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldType.class);
         when(knnVectorFieldType.getDimension()).thenReturn(3);
-        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldTypeBinary = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        KNNVectorFieldType knnVectorFieldTypeBinary = mock(KNNVectorFieldType.class);
         when(knnVectorFieldTypeBinary.getDimension()).thenReturn(24);
         when(knnVectorFieldTypeBinary.getVectorDataType()).thenReturn(VectorDataType.BINARY);
         NumberFieldMapper.NumberFieldType numberFieldType = new NumberFieldMapper.NumberFieldType(
@@ -65,9 +65,9 @@ public class KNNScoringSpaceFactoryTests extends KNNTestCase {
 
     public void testInvalidSpace() {
         List<Float> floatQueryObject = List.of(1.0f, 1.0f, 1.0f);
-        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldType.class);
         when(knnVectorFieldType.getDimension()).thenReturn(3);
-        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldTypeBinary = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        KNNVectorFieldType knnVectorFieldTypeBinary = mock(KNNVectorFieldType.class);
         when(knnVectorFieldTypeBinary.getDimension()).thenReturn(24);
         when(knnVectorFieldTypeBinary.getVectorDataType()).thenReturn(VectorDataType.BINARY);
 

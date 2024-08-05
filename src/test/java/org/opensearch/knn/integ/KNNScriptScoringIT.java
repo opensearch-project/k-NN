@@ -30,8 +30,8 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.plugin.script.KNNScoringSpace;
 import org.opensearch.knn.plugin.script.KNNScoringSpaceFactory;
@@ -735,7 +735,7 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     private BiFunction<float[], float[], Float> getScoreFunction(SpaceType spaceType, float[] queryVector) {
-        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
+        KNNVectorFieldType knnVectorFieldType = new KNNVectorFieldType(
             FIELD_NAME,
             Collections.emptyMap(),
             SpaceType.HAMMING == spaceType ? queryVector.length * 8 : queryVector.length,
