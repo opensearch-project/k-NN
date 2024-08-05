@@ -23,9 +23,22 @@ public abstract class KNNVectorValues<T> {
 
     protected final KNNVectorValuesIterator vectorValuesIterator;
     protected int dimension;
+    protected long bytesPerVector;
 
     protected KNNVectorValues(final KNNVectorValuesIterator vectorValuesIterator) {
         this.vectorValuesIterator = vectorValuesIterator;
+    }
+
+    /**
+     * Iterates the values once only if docIds is not at start position
+     * Also populates dimension and bytesPerVector in the process
+     * @throws IOException
+     */
+    public void init() throws IOException {
+        if (docId() == -1) {
+            nextDoc();
+            getVector();
+        }
     }
 
     /**
@@ -38,12 +51,32 @@ public abstract class KNNVectorValues<T> {
     public abstract T getVector() throws IOException;
 
     /**
+     * Intended to return a vector reference either after deep copy of the vector obtained from {@code getVector}
+     * or return the vector itself
+     *
+     * This decision to clone depends on the vector returned based on the type of iterator
+     *
+     * @return T an array of byte[], float[] Or a deep copy of it
+     * @throws IOException
+     */
+    public abstract T conditionalCloneVector() throws IOException;
+
+    /**
      * Dimension of vector is returned. Do call getVector function first before calling this function otherwise you will get 0 value.
      * @return int
      */
     public int dimension() {
         assert docId() != -1 && dimension != 0 : "Cannot get dimension before we retrieve a vector from KNNVectorValues";
         return dimension;
+    }
+
+    /**
+     * Size of a vector in bytes is returned. Do call getVector function first before calling this function otherwise you will get 0 value.
+     * @return int
+     */
+    public long bytesPerVector() {
+        assert docId() != -1 && bytesPerVector != 0 : "Cannot get bytesPerVector before we retrieve a vector from KNNVectorValues";
+        return bytesPerVector;
     }
 
     /**
@@ -81,5 +114,4 @@ public abstract class KNNVectorValues<T> {
     public int nextDoc() throws IOException {
         return vectorValuesIterator.nextDoc();
     }
-
 }

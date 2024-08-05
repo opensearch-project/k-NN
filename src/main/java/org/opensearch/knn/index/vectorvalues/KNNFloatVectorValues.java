@@ -10,6 +10,7 @@ import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FloatVectorValues;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * Concrete implementation of {@link KNNVectorValues} that returns float[] as vector and provides an abstraction over
@@ -24,6 +25,16 @@ public class KNNFloatVectorValues extends KNNVectorValues<float[]> {
     public float[] getVector() throws IOException {
         final float[] vector = VectorValueExtractorStrategy.extractFloatVector(vectorValuesIterator);
         this.dimension = vector.length;
+        this.bytesPerVector = vector.length * 4L;
+        return vector;
+    }
+
+    @Override
+    public float[] conditionalCloneVector() throws IOException {
+        float[] vector = getVector();
+        if (vectorValuesIterator.getDocIdSetIterator() instanceof FloatVectorValues) {
+            return Arrays.copyOf(vector, vector.length);
+        }
         return vector;
     }
 }

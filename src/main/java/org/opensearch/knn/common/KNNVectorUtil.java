@@ -5,9 +5,11 @@
 
 package org.opensearch.knn.common;
 
-import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.Objects;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class KNNVectorUtil {
@@ -41,5 +43,23 @@ public class KNNVectorUtil {
             }
         }
         return true;
+    }
+
+    /**
+     * Creates an int overflow safe arraylist. If there is an overflow it will create a list with default initial size
+     *
+     * Default size of array list is 10 and increases 1.5x. The method assigns a contiguous block of memory when the
+     * user knows the memory needed. This avoids continuous internal resizing of arraylist
+     *
+     * @param initialCapacity size to allocate
+     * @return an arrayList of size initialCapacity or default size
+     */
+    public static <T> ArrayList<T> intOverflowSafeArrayList(long initialCapacity) {
+        try {
+            return new ArrayList<>(Math.toIntExact(initialCapacity));
+        } catch (Exception exception) {
+            // No-op
+        }
+        return new ArrayList<>();
     }
 }

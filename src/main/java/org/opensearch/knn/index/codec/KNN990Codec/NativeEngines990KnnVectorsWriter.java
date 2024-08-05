@@ -12,23 +12,33 @@
 package org.opensearch.knn.index.codec.KNN990Codec;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnFieldVectorsWriter;
 import org.apache.lucene.codecs.KnnVectorsWriter;
 import org.apache.lucene.codecs.hnsw.FlatVectorsWriter;
+import org.apache.lucene.index.ByteVectorValues;
 import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.Sorter;
 import org.apache.lucene.util.IOUtils;
 import org.apache.lucene.util.RamUsageEstimator;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataType;
+
 /**
  * A KNNVectorsWriter class for writing the vector data strcutures and flat vectors for Native Engines.
  */
+@Log4j2
 @RequiredArgsConstructor
 public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     private static final long SHALLOW_SIZE = RamUsageEstimator.shallowSizeOfInstance(NativeEngines990KnnVectorsWriter.class);
@@ -46,8 +56,6 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     @Override
     public KnnFieldVectorsWriter<?> addField(final FieldInfo fieldInfo) throws IOException {
         final NativeEngineFieldVectorsWriter<?> newField = NativeEngineFieldVectorsWriter.create(fieldInfo, segmentWriteState.infoStream);
-        // TODO: we can build the graph here too iteratively. but right now I am skipping that as we need iterative
-        // graph build support on the JNI layer.
         fields.add(newField);
         return flatVectorsWriter.addField(fieldInfo, newField);
     }
@@ -62,14 +70,42 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     public void flush(int maxDoc, final Sorter.DocMap sortMap) throws IOException {
         // simply write data in the flat file
         flatVectorsWriter.flush(maxDoc, sortMap);
-        // TODO: add code for creating Vector datastructures during lucene flush operation
+        for (final NativeEngineFieldVectorsWriter<?> field : fields) {
+            final VectorDataType vectorDataType = extractVectorDataType(field.getFieldInfo());
+            final KNNVectorValues<?> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
+                vectorDataType,
+                field.getDocsWithField(),
+                field.getVectors()
+            );
+
+            // TODO: Extract quantization state here
+            NativeIndexWriter.getWriter(field.getFieldInfo(), segmentWriteState).flushIndex(knnVectorValues);
+        }
     }
 
     @Override
     public void mergeOneField(final FieldInfo fieldInfo, final MergeState mergeState) throws IOException {
         // This will ensure that we are merging the FlatIndex during force merge.
         flatVectorsWriter.mergeOneField(fieldInfo, mergeState);
-        // TODO: add code for creating Vector datastructures during merge operation
+
+        // For merge, pick values from flat vector and reindex again. This will use the flush operation to create graphs
+        final VectorDataType vectorDataType = extractVectorDataType(fieldInfo);
+        final KNNVectorValues<?> knnVectorValues;
+        switch (fieldInfo.getVectorEncoding()) {
+            case FLOAT32:
+                final FloatVectorValues mergedFloats = MergedVectorValues.mergeFloatVectorValues(fieldInfo, mergeState);
+                knnVectorValues = KNNVectorValuesFactory.getVectorValues(vectorDataType, mergedFloats);
+                break;
+            case BYTE:
+                final ByteVectorValues mergedBytes = MergedVectorValues.mergeByteVectorValues(fieldInfo, mergeState);
+                knnVectorValues = KNNVectorValuesFactory.getVectorValues(vectorDataType, mergedBytes);
+                break;
+            default:
+                throw new IllegalStateException("Unsupported vector encoding [" + fieldInfo.getVectorEncoding() + "]");
+        }
+
+        // TODO: Extract Quantization state here
+        NativeIndexWriter.getWriter(fieldInfo, segmentWriteState).mergeIndex(knnVectorValues);
     }
 
     /**
