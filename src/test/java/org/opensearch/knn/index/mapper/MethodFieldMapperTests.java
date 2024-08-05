@@ -15,7 +15,7 @@ import java.util.Collections;
 
 public class MethodFieldMapperTests extends TestCase {
     public void testMethodFieldMapper_whenVectorDataTypeIsGiven_thenSetItInFieldType() {
-        KNNVectorFieldMapper.KNNVectorFieldType mappedFieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
+        KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             "testField",
             Collections.emptyMap(),
             1,

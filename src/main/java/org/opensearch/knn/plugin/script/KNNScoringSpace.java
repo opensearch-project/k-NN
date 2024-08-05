@@ -11,8 +11,8 @@ import org.apache.lucene.search.IndexSearcher;
 import org.opensearch.index.mapper.MappedFieldType;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.KNNWeight;
 import org.opensearch.script.ScoreScript;
 import org.opensearch.search.lookup.SearchLookup;
@@ -67,11 +67,7 @@ public interface KNNScoringSpace {
             final String spaceName,
             final Set<VectorDataType> supportingVectorDataTypes
         ) {
-            KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = toKNNVectorFieldType(
-                fieldType,
-                spaceName,
-                supportingVectorDataTypes
-            );
+            KNNVectorFieldType knnVectorFieldType = toKNNVectorFieldType(fieldType, spaceName, supportingVectorDataTypes);
             this.processedQuery = getProcessedQuery(query, knnVectorFieldType);
             this.scoringMethod = getScoringMethod(this.processedQuery);
         }
@@ -86,7 +82,7 @@ public interface KNNScoringSpace {
             return new KNNScoreScript.KNNVectorType(params, this.processedQuery, field, this.scoringMethod, lookup, ctx, searcher);
         }
 
-        private KNNVectorFieldMapper.KNNVectorFieldType toKNNVectorFieldType(
+        private KNNVectorFieldType toKNNVectorFieldType(
             final MappedFieldType fieldType,
             final String spaceName,
             final Set<VectorDataType> supportingVectorDataTypes
@@ -97,7 +93,7 @@ public interface KNNScoringSpace {
                 );
             }
 
-            KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldMapper.KNNVectorFieldType) fieldType;
+            KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldType) fieldType;
             VectorDataType vectorDataType = knnVectorFieldType.getVectorDataType() == null
                 ? VectorDataType.FLOAT
                 : knnVectorFieldType.getVectorDataType();
@@ -116,7 +112,7 @@ public interface KNNScoringSpace {
             return knnVectorFieldType;
         }
 
-        protected float[] getProcessedQuery(final Object query, final KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType) {
+        protected float[] getProcessedQuery(final Object query, final KNNVectorFieldType knnVectorFieldType) {
             return parseToFloatArray(
                 query,
                 KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldType),
