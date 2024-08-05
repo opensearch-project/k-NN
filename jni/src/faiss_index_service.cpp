@@ -161,11 +161,11 @@ BinaryIndexService::BinaryIndexService(std::unique_ptr<FaissMethods> faissMethod
 void BinaryIndexService::allocIndex(faiss::Index * index, size_t dim, size_t numVectors) {
     if(auto * indexBinaryHNSW = dynamic_cast<faiss::IndexBinaryHNSW *>(index)) {
         auto * indexBinaryFlat = dynamic_cast<faiss::IndexBinaryFlat *>(indexBinaryHNSW->storage);
-        indexBinaryFlat->xb.reserve(dim * numVectors * 4);
+        indexBinaryFlat->xb.reserve(dim * numVectors / 8);
         return;
     }
     if(auto * indexBinaryFlat = dynamic_cast<faiss::IndexBinaryFlat *>(index)) {
-        indexBinaryFlat->xb.reserve(dim * numVectors * 4);
+        indexBinaryFlat->xb.reserve(dim * numVectors / 8);
         return;
     }
 }
