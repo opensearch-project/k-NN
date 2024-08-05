@@ -5,6 +5,30 @@
 
 package org.opensearch.knn.index.codec.nativeindex;
 
+import lombok.AllArgsConstructor;
+import lombok.extern.log4j.Log4j2;
+import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.SegmentWriteState;
+import org.apache.lucene.store.ChecksumIndexInput;
+import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.store.FilterDirectory;
+import org.opensearch.common.xcontent.XContentHelper;
+import org.opensearch.core.common.bytes.BytesArray;
+import org.opensearch.core.xcontent.DeprecationHandler;
+import org.opensearch.core.xcontent.MediaTypeRegistry;
+import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.util.IndexUtil;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.indices.Model;
+import org.opensearch.knn.indices.ModelCache;
+import org.opensearch.knn.plugin.stats.KNNGraphValue;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -12,66 +36,29 @@ import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.lucene.codecs.DocValuesProducer;
-import org.apache.lucene.index.BinaryDocValues;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.SegmentWriteState;
-import org.apache.lucene.store.ChecksumIndexInput;
-import org.apache.lucene.store.FSDirectory;
-import org.apache.lucene.store.FilterDirectory;
-import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.codec.transfer.VectorTransfer;
-import org.opensearch.knn.index.codec.transfer.VectorTransferByte;
-import org.opensearch.knn.index.codec.transfer.VectorTransferFloat;
-import org.opensearch.knn.index.codec.util.KNNCodecUtil;
-import org.opensearch.knn.index.util.KNNEngine;
-import org.opensearch.knn.indices.ModelCache;
-import org.opensearch.knn.plugin.stats.KNNGraphValue;
-
-import lombok.Builder;
-import lombok.NonNull;
-import lombok.Value;
-import lombok.extern.log4j.Log4j2;
-
 import static org.apache.lucene.codecs.CodecUtil.FOOTER_MAGIC;
+import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
+import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
+import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
 /**
- * Abstract class to build the KNN index and write it to disk
+ * Writes KNN Index for a field in a segment. This is intended to be used for native engines
  */
+@AllArgsConstructor
 @Log4j2
-public abstract class NativeIndexWriter {
+public class NativeIndexWriter {
     private static final Long CRC32_CHECKSUM_SANITY = 0xFFFFFFFF00000000L;
 
-    /**
-     * Class that holds info about vectors
-     */
-    @Builder
-    @Value
-    protected static class NativeVectorInfo {
-        private VectorDataType vectorDataType;
-        private int dimension;
-    }
-
-    /**
-     * Class that holds info about the native index
-     */
-    @Builder
-    @Value
-    protected static class NativeIndexInfo {
-        private FieldInfo fieldInfo;
-        private KNNEngine knnEngine;
-        private int numDocs;
-        private long arraySize;
-        private Map<String, Object> parameters;
-        private NativeVectorInfo vectorInfo;
-        private String indexPath;
-    }
+    private final SegmentWriteState state;
+    private final FieldInfo fieldInfo;
+    private final NativeIndexBuildStrategy indexBuilder;
+    // TODO: Add quantization state as a member variable
 
     /**
      * Gets the correct writer type from fieldInfo
@@ -79,42 +66,55 @@ public abstract class NativeIndexWriter {
      * @param fieldInfo
      * @return correct NativeIndexWriter to make index specified in fieldInfo
      */
-    public static NativeIndexWriter getWriter(FieldInfo fieldInfo) {
-        final KNNEngine knnEngine = getKNNEngine(fieldInfo);
-        boolean fromScratch = !fieldInfo.attributes().containsKey(MODEL_ID);
-        boolean iterative = fromScratch && KNNEngine.FAISS == knnEngine;
-        if (fromScratch && iterative) {
-            return new NativeIndexWriterScratchIter();
-        } else if (fromScratch) {
-            return new NativeIndexWriterScratch();
-        } else {
-            return new NativeIndexWriterTemplate();
+    public static NativeIndexWriter getWriter(final FieldInfo fieldInfo, SegmentWriteState state) {
+        // TODO: Fetch the quantization state here and pass it to NativeIndexWriter
+
+        final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
+        boolean isTemplate = fieldInfo.attributes().containsKey(MODEL_ID);
+        boolean iterative = !isTemplate && KNNEngine.FAISS == knnEngine;
+        if (iterative) {
+            return new NativeIndexWriter(state, fieldInfo, MemOptimizedNativeIndexBuildStrategy.getInstance());
         }
+        return new NativeIndexWriter(state, fieldInfo, VectorTransferIndexBuildStrategy.getInstance());
     }
 
     /**
-     * Method for creating a KNN index in the specified native library
+     * flushes the index
      *
-     * @param fieldInfo
-     * @param valuesProducer
-     * @param state
-     * @param isMerge
-     * @param isRefresh
+     * @param knnVectorValues
      * @throws IOException
      */
-    public void createKNNIndex(
-        FieldInfo fieldInfo,
-        DocValuesProducer valuesProducer,
-        SegmentWriteState state,
-        boolean isMerge,
-        boolean isRefresh
-    ) throws IOException {
-        BinaryDocValues values = valuesProducer.getBinary(fieldInfo);
-        if (KNNCodecUtil.getTotalLiveDocsCount(values) == 0) {
-            log.debug("No live docs for field " + fieldInfo.name);
+    public void flushIndex(final KNNVectorValues<?> knnVectorValues) throws IOException {
+        knnVectorValues.init();
+        buildAndWriteIndex(knnVectorValues);
+        recordRefreshStats();
+    }
+
+    /**
+     * Merges kNN index
+     * @param knnVectorValues
+     * @throws IOException
+     */
+    public void mergeIndex(final KNNVectorValues<?> knnVectorValues) throws IOException {
+        knnVectorValues.init();
+        if (knnVectorValues.docId() == NO_MORE_DOCS) {
+            // This is in place so we do not add metrics
             return;
         }
-        final KNNEngine knnEngine = getKNNEngine(fieldInfo);
+
+        long arraySize = knnVectorValues.bytesPerVector();
+        startMergeStats(knnVectorValues.dimension(), arraySize);
+        buildAndWriteIndex(knnVectorValues);
+        endMergeStats(knnVectorValues.dimension(), arraySize);
+    }
+
+    private void buildAndWriteIndex(final KNNVectorValues<?> knnVectorValues) throws IOException {
+        if (knnVectorValues.totalLiveDocs() == 0) {
+            log.warn("No live docs for field " + fieldInfo.name);
+            return;
+        }
+
+        final KNNEngine knnEngine = extractKNNEngine(fieldInfo);
         final String engineFileName = buildEngineFileName(
             state.segmentInfo.name,
             knnEngine.getVersion(),
@@ -125,95 +125,102 @@ public abstract class NativeIndexWriter {
             ((FSDirectory) (FilterDirectory.unwrap(state.directory))).getDirectory().toString(),
             engineFileName
         ).toString();
-
         state.directory.createOutput(engineFileName, state.context).close();
-        NativeIndexInfo indexInfo = getIndexInfo(fieldInfo, valuesProducer, indexPath);
-        if (isMerge) {
-            startMergeStats(indexInfo.numDocs, indexInfo.arraySize);
-        }
-        if (isRefresh) {
-            recordRefreshStats();
-        }
-        createIndex(indexInfo, values);
-        if (isMerge) {
-            endMergeStats(indexInfo.numDocs, indexInfo.arraySize);
-        }
+
+        final BuildIndexParams nativeIndexParams = indexParams(fieldInfo, indexPath, knnEngine);
+        indexBuilder.buildAndWriteIndex(nativeIndexParams, knnVectorValues);
         writeFooter(indexPath, engineFileName, state);
     }
 
-    /**
-     * Method that makes a native index given the parameters from indexInfo
-     * @param indexInfo
-     * @param values
-     * @throws IOException
-     */
-    protected abstract void createIndex(NativeIndexInfo indexInfo, BinaryDocValues values) throws IOException;
-
-    /**
-     * Method that generates extra index parameters to be passed to the native library
-     * @param fieldInfo
-     * @param knnEngine
-     * @return extra index parameters to be passed to the native library
-     * @throws IOException
-     */
-    protected abstract Map<String, Object> getParameters(FieldInfo fieldInfo, KNNEngine knnEngine) throws IOException;
-
-    /**
-     * Method that gets the native vector info
-     * @param fieldInfo
-     * @param valuesProducer
-     * @return native vector info
-     * @throws IOException
-     */
-    protected abstract NativeVectorInfo getVectorInfo(FieldInfo fieldInfo, DocValuesProducer valuesProducer) throws IOException;
-
-    protected VectorTransfer getVectorTransfer(VectorDataType vectorDataType) {
-        if (VectorDataType.BINARY == vectorDataType) {
-            return new VectorTransferByte(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
+    // The logic for building parameters need to be cleaned up. There are various cases handled here
+    // Currently it falls under two categories - with model and without model. Without model is further divided based on vector data type
+    // TODO: Refactor this so its scalable. Possibly move it out of this class
+    private BuildIndexParams indexParams(FieldInfo fieldInfo, String indexPath, KNNEngine knnEngine) throws IOException {
+        final Map<String, Object> parameters;
+        final VectorDataType vectorDataType;
+        if (fieldInfo.attributes().containsKey(MODEL_ID)) {
+            Model model = getModel(fieldInfo);
+            vectorDataType = model.getModelMetadata().getVectorDataType();
+            parameters = getTemplateParameters(fieldInfo, model);
+        } else {
+            vectorDataType = VectorDataType.get(
+                fieldInfo.attributes().getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
+            );
+            parameters = getParameters(fieldInfo, vectorDataType, knnEngine);
         }
-        return new VectorTransferFloat(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
-    }
 
-    /**
-     * Method that gets the native index info from a given field
-     * @param fieldInfo
-     * @param valuesProducer
-     * @param indexPath
-     * @return native index info
-     * @throws IOException
-     */
-    private NativeIndexInfo getIndexInfo(FieldInfo fieldInfo, DocValuesProducer valuesProducer, String indexPath) throws IOException {
-        int numDocs = (int) KNNCodecUtil.getTotalLiveDocsCount(valuesProducer.getBinary(fieldInfo));
-        NativeVectorInfo vectorInfo = getVectorInfo(fieldInfo, valuesProducer);
-        KNNEngine knnEngine = getKNNEngine(fieldInfo);
-        NativeIndexInfo indexInfo = NativeIndexInfo.builder()
-            .fieldInfo(fieldInfo)
-            .knnEngine(getKNNEngine(fieldInfo))
-            .numDocs((int) numDocs)
-            .vectorInfo(vectorInfo)
-            .arraySize(numDocs * getBytesPerVector(vectorInfo))
-            .parameters(getParameters(fieldInfo, knnEngine))
+        return BuildIndexParams.builder()
+            .parameters(parameters)
+            .vectorDataType(vectorDataType)
+            .knnEngine(knnEngine)
             .indexPath(indexPath)
             .build();
-        return indexInfo;
     }
 
-    private long getBytesPerVector(NativeVectorInfo vectorInfo) {
-        if (vectorInfo.vectorDataType == VectorDataType.BINARY) {
-            return vectorInfo.dimension / 8;
+    private Map<String, Object> getParameters(FieldInfo fieldInfo, VectorDataType vectorDataType, KNNEngine knnEngine) throws IOException {
+        Map<String, Object> parameters = new HashMap<>();
+        Map<String, String> fieldAttributes = fieldInfo.attributes();
+        String parametersString = fieldAttributes.get(KNNConstants.PARAMETERS);
+
+        // parametersString will be null when legacy mapper is used
+        if (parametersString == null) {
+            parameters.put(KNNConstants.SPACE_TYPE, fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue()));
+
+            String efConstruction = fieldAttributes.get(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION);
+            Map<String, Object> algoParams = new HashMap<>();
+            if (efConstruction != null) {
+                algoParams.put(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, Integer.parseInt(efConstruction));
+            }
+
+            String m = fieldAttributes.get(KNNConstants.HNSW_ALGO_M);
+            if (m != null) {
+                algoParams.put(KNNConstants.METHOD_PARAMETER_M, Integer.parseInt(m));
+            }
+            parameters.put(PARAMETERS, algoParams);
         } else {
-            return vectorInfo.dimension * 4;
+            parameters.putAll(
+                XContentHelper.createParser(
+                    NamedXContentRegistry.EMPTY,
+                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                    new BytesArray(parametersString),
+                    MediaTypeRegistry.getDefaultMediaType()
+                ).map()
+            );
         }
+
+        parameters.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
+        // Update index description of Faiss for binary data type
+        if (KNNEngine.FAISS == knnEngine
+            && VectorDataType.BINARY.getValue().equals(vectorDataType.getValue())
+            && parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER) != null) {
+            parameters.put(
+                KNNConstants.INDEX_DESCRIPTION_PARAMETER,
+                FAISS_BINARY_INDEX_DESCRIPTION_PREFIX + parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString()
+            );
+        }
+
+        // Used to determine how many threads to use when indexing
+        parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
+
+        return parameters;
     }
 
-    private static KNNEngine getKNNEngine(@NonNull FieldInfo field) {
-        final String modelId = field.attributes().get(MODEL_ID);
-        if (modelId != null) {
-            var model = ModelCache.getInstance().get(modelId);
-            return model.getModelMetadata().getKnnEngine();
+    private Map<String, Object> getTemplateParameters(FieldInfo fieldInfo, Model model) throws IOException {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
+        parameters.put(KNNConstants.MODEL_ID, fieldInfo.attributes().get(MODEL_ID));
+        parameters.put(KNNConstants.MODEL_BLOB_PARAMETER, model.getModelBlob());
+        IndexUtil.updateVectorDataTypeToParameters(parameters, model.getModelMetadata().getVectorDataType());
+        return parameters;
+    }
+
+    private Model getModel(FieldInfo fieldInfo) {
+        String modelId = fieldInfo.attributes().get(MODEL_ID);
+        Model model = ModelCache.getInstance().get(modelId);
+        if (model.getModelBlob() == null) {
+            throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
         }
-        final String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
-        return KNNEngine.getEngine(engineName);
+        return model;
     }
 
     private void startMergeStats(int numDocs, long arraySize) {

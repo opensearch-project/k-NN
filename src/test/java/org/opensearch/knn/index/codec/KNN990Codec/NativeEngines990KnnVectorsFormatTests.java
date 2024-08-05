@@ -46,6 +46,7 @@ import org.opensearch.common.lucene.Lucene;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.KNNEngine;
 
@@ -99,10 +100,13 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         byte[] byteVector = { 6, 14 };
 
         addFieldToIndex(
-            new KnnFloatVectorField(FLOAT_VECTOR_FIELD, floatVector, createVectorField(3, VectorEncoding.FLOAT32)),
+            new KnnFloatVectorField(FLOAT_VECTOR_FIELD, floatVector, createVectorField(3, VectorEncoding.FLOAT32, VectorDataType.FLOAT)),
             indexWriter
         );
-        addFieldToIndex(new KnnByteVectorField(BYTE_VECTOR_FIELD, byteVector, createVectorField(2, VectorEncoding.BYTE)), indexWriter);
+        addFieldToIndex(
+            new KnnByteVectorField(BYTE_VECTOR_FIELD, byteVector, createVectorField(2, VectorEncoding.BYTE, VectorDataType.BYTE)),
+            indexWriter
+        );
         final IndexReader indexReader = indexWriter.getReader();
         // ensuring segments are created
         indexWriter.flush();
@@ -187,17 +191,19 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         indexWriter.addDocument(doc1);
     }
 
-    private FieldType createVectorField(int dimension, VectorEncoding vectorEncoding) {
+    private FieldType createVectorField(int dimension, VectorEncoding vectorEncoding, VectorDataType vectorDataType) {
         FieldType nativeVectorField = new FieldType();
         // TODO: Replace this with the default field which will be created in mapper for Native Engines with KNNVectorsFormat
         nativeVectorField.setTokenized(false);
         nativeVectorField.setIndexOptions(IndexOptions.NONE);
         nativeVectorField.putAttribute(KNNVectorFieldMapper.KNN_FIELD, "true");
         nativeVectorField.putAttribute(KNNConstants.KNN_METHOD, KNNConstants.METHOD_HNSW);
-        nativeVectorField.putAttribute(KNNConstants.KNN_ENGINE, KNNEngine.NMSLIB.getName());
+        nativeVectorField.putAttribute(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName());
         nativeVectorField.putAttribute(KNNConstants.SPACE_TYPE, SpaceType.L2.getValue());
         nativeVectorField.putAttribute(KNNConstants.HNSW_ALGO_M, "32");
         nativeVectorField.putAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, "512");
+        nativeVectorField.putAttribute(KNNConstants.VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
+        nativeVectorField.putAttribute(KNNConstants.PARAMETERS, "{ \"index_description\":\"HNSW16,Flat\", \"spaceType\": \"l2\"}");
         nativeVectorField.setVectorAttributes(
             dimension,
             vectorEncoding,

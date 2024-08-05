@@ -11,9 +11,14 @@
 
 package org.opensearch.knn.indices;
 
+import lombok.experimental.UtilityClass;
+
+import java.util.Locale;
+
 /**
  * A utility class for models.
  */
+@UtilityClass
 public class ModelUtil {
 
     public static void blockCommasInModelDescription(String description) {
@@ -31,6 +36,23 @@ public class ModelUtil {
             return false;
         }
         return modelMetadata.getState().equals(ModelState.CREATED);
+    }
+
+    /**
+     * Fetches the model metadata for a modelId
+     * @param modelId model id
+     * @return {@link ModelMetadata}
+     */
+    public static ModelMetadata getModelMetadata(final String modelId) {
+        if (modelId == null || modelId.isEmpty()) {
+            return null;
+        }
+        Model model = ModelCache.getInstance().get(modelId);
+        ModelMetadata modelMetadata = model.getModelMetadata();
+        if (!ModelUtil.isModelCreated(modelMetadata)) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Model ID '%s' is not created.", modelId));
+        }
+        return modelMetadata;
     }
 
 }

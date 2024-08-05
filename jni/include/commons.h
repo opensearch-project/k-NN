@@ -19,12 +19,19 @@ namespace knn_jni {
          * For subsequent calls you can pass the same memoryAddress. If the data cannot be stored in the memory location
          * will throw Exception.
          *
+         * append tells the method to keep appending to the existing vector. Passing the value as false will clear the vector
+         * without reallocating new memory. This helps with reducing memory frangmentation and overhead of allocating
+         * and deallocating when the memory address needs to be reused.
+         *
+         * CAUTION: The behavior is undefined if the memory address is deallocated and the method is called
+         *
          * @param memoryAddress The address of the memory location where data will be stored.
          * @param data 2D float array containing data to be stored in native memory.
          * @param initialCapacity The initial capacity of the memory location.
+         * @param append whether to append or start from index 0 when called subsequently with the same address
          * @return memory address of std::vector<float> where the data is stored.
          */
-        jlong storeVectorData(knn_jni::JNIUtilInterface *, JNIEnv *, jlong , jobjectArray, jlong);
+        jlong storeVectorData(knn_jni::JNIUtilInterface *, JNIEnv *, jlong , jobjectArray, jlong, jboolean);
 
         /**
          * This is utility function that can be used to store data in native memory. This function will allocate memory for
@@ -33,12 +40,18 @@ namespace knn_jni {
          * For subsequent calls you can pass the same memoryAddress. If the data cannot be stored in the memory location
          * will throw Exception.
          *
+         *  append tells the method to keep appending to the existing vector. Passing the value as false will clear the vector
+         * without reallocating new memory. This helps with reducing memory frangmentation and overhead of allocating
+         * and deallocating when the memory address needs to be reused.
+         *
+         * CAUTION: The behavior is undefined if the memory address is deallocated and the method is called
+         *
          * @param memoryAddress The address of the memory location where data will be stored.
          * @param data 2D byte array containing data to be stored in native memory.
          * @param initialCapacity The initial capacity of the memory location.
          * @return memory address of std::vector<uint8_t> where the data is stored.
          */
-        jlong storeByteVectorData(knn_jni::JNIUtilInterface *, JNIEnv *, jlong , jobjectArray, jlong);
+        jlong storeByteVectorData(knn_jni::JNIUtilInterface *, JNIEnv *, jlong , jobjectArray, jlong, jboolean);
 
         /**
          * Free up the memory allocated for the data stored in memory address. This function should be used with the memory
