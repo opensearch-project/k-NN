@@ -5,11 +5,12 @@
 
 package org.opensearch.knn.index.codec.KNN80Codec;
 
-import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.StopWatch;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.indices.ModelCache;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.codecs.DocValuesConsumer;
@@ -20,12 +21,12 @@ import org.apache.lucene.index.MergeState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.opensearch.knn.index.codec.nativeindex.NativeIndexWriter;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.plugin.stats.KNNGraphValue;
 
 import java.io.IOException;
 
-import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.FieldInfoExtractor.extractKNNEngine;
+import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataType;
 
 /**
  * This class writes the KNN docvalues to the segments
@@ -49,7 +50,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer {
         if (isKNNBinaryFieldRequired(field)) {
             StopWatch stopWatch = new StopWatch();
             stopWatch.start();
-            addKNNBinaryField(field, valuesProducer, false, true);
+            addKNNBinaryField(field, valuesProducer, false);
             stopWatch.stop();
             long time_in_millis = stopWatch.totalTime().millis();
             KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.set(KNNGraphValue.REFRESH_TOTAL_TIME_IN_MILLIS.getValue() + time_in_millis);
@@ -58,25 +59,21 @@ class KNN80DocValuesConsumer extends DocValuesConsumer {
     }
 
     private boolean isKNNBinaryFieldRequired(FieldInfo field) {
-        final KNNEngine knnEngine = getKNNEngine(field);
+        final KNNEngine knnEngine = extractKNNEngine(field);
         log.debug(String.format("Read engine [%s] for field [%s]", knnEngine.getName(), field.getName()));
         return field.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)
             && KNNEngine.getEnginesThatCreateCustomSegmentFiles().stream().anyMatch(engine -> engine == knnEngine);
     }
 
-    private KNNEngine getKNNEngine(@NonNull FieldInfo field) {
-        final String modelId = field.attributes().get(MODEL_ID);
-        if (modelId != null) {
-            var model = ModelCache.getInstance().get(modelId);
-            return model.getModelMetadata().getKnnEngine();
-        }
-        final String engineName = field.attributes().getOrDefault(KNNConstants.KNN_ENGINE, KNNEngine.DEFAULT.getName());
-        return KNNEngine.getEngine(engineName);
-    }
+    public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) throws IOException {
+        final VectorDataType vectorDataType = extractVectorDataType(field);
+        final KNNVectorValues<?> knnVectorValues = KNNVectorValuesFactory.getVectorValues(vectorDataType, valuesProducer.getBinary(field));
 
-    public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge, boolean isRefresh)
-        throws IOException {
-        NativeIndexWriter.getWriter(field).createKNNIndex(field, valuesProducer, state, isMerge, isRefresh);
+        if (isMerge) {
+            NativeIndexWriter.getWriter(field, state).mergeIndex(knnVectorValues);
+        } else {
+            NativeIndexWriter.getWriter(field, state).flushIndex(knnVectorValues);
+        }
     }
 
     /**
@@ -95,7 +92,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer {
                 if (type == DocValuesType.BINARY && fieldInfo.attributes().containsKey(KNNVectorFieldMapper.KNN_FIELD)) {
                     StopWatch stopWatch = new StopWatch();
                     stopWatch.start();
-                    addKNNBinaryField(fieldInfo, new KNN80DocValuesReader(mergeState), true, false);
+                    addKNNBinaryField(fieldInfo, new KNN80DocValuesReader(mergeState), true);
                     stopWatch.stop();
                     long time_in_millis = stopWatch.totalTime().millis();
                     KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.set(KNNGraphValue.MERGE_TOTAL_TIME_IN_MILLIS.getValue() + time_in_millis);

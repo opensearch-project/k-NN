@@ -11,6 +11,7 @@ import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.ByteVectorValues;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * Concrete implementation of {@link KNNVectorValues} that returns byte[] as vector where binary vector is stored and
@@ -25,17 +26,17 @@ public class KNNBinaryVectorValues extends KNNVectorValues<byte[]> {
     @Override
     public byte[] getVector() throws IOException {
         final byte[] vector = VectorValueExtractorStrategy.extractBinaryVector(vectorValuesIterator);
-        this.dimension = vector.length;
+        this.dimension = vector.length * Byte.SIZE;
+        this.bytesPerVector = vector.length;
         return vector;
     }
 
-    /**
-     * Binary Vector values gets stored as byte[], hence for dimension of the binary vector we have to multiply the
-     * byte[] size with {@link Byte#SIZE}
-     * @return int
-     */
     @Override
-    public int dimension() {
-        return super.dimension() * Byte.SIZE;
+    public byte[] conditionalCloneVector() throws IOException {
+        byte[] vector = getVector();
+        if (vectorValuesIterator.getDocIdSetIterator() instanceof ByteVectorValues) {
+            return Arrays.copyOf(vector, vector.length);
+        }
+        return vector;
     }
 }
