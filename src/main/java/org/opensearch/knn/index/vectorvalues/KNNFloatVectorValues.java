@@ -35,7 +35,6 @@ public class KNNFloatVectorValues extends KNNVectorValues<float[]> {
         if (vectorValuesIterator.getDocIdSetIterator() instanceof FloatVectorValues) {
             return Arrays.copyOf(vector, vector.length);
         }
-
         return vector;
     }
 }
