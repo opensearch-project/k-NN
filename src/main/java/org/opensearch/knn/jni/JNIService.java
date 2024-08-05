@@ -14,9 +14,9 @@ package org.opensearch.knn.jni;
 import org.apache.commons.lang.ArrayUtils;
 import org.opensearch.common.Nullable;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.util.IndexUtil;
-import org.opensearch.knn.index.query.KNNQueryResult;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.KNNQueryResult;
+import org.opensearch.knn.index.util.IndexUtil;
 
 import java.util.Locale;
 import java.util.Map;
@@ -29,10 +29,10 @@ public class JNIService {
      * Initialize an index for the native library. Takes in numDocs to
      * allocate the correct amount of memory.
      *
-     * @param numDocs number of documents to be added
-     * @param dim dimension of the vector to be indexed
+     * @param numDocs    number of documents to be added
+     * @param dim        dimension of the vector to be indexed
      * @param parameters parameters to build index
-     * @param knnEngine knn engine
+     * @param knnEngine  knn engine
      * @return address of the index in memory
      */
     public static long initIndexFromScratch(long numDocs, int dim, Map<String, Object> parameters, KNNEngine knnEngine) {
@@ -52,12 +52,12 @@ public class JNIService {
     /**
      * Inserts to a faiss index.
      *
-     * @param docs ids of documents
+     * @param docs           ids of documents
      * @param vectorsAddress address of native memory where vectors are stored
-     * @param dimension dimension of the vector to be indexed
-     * @param parameters parameters to build index
-     * @param indexAddress address of native memory where index is stored
-     * @param knnEngine knn engine
+     * @param dimension      dimension of the vector to be indexed
+     * @param parameters     parameters to build index
+     * @param indexAddress   address of native memory where index is stored
+     * @param knnEngine      knn engine
      */
     public static void insertToIndex(
         int[] docs,
@@ -85,10 +85,10 @@ public class JNIService {
     /**
      * Writes a faiss index to disk.
      *
-     * @param indexPath path to save index to
+     * @param indexPath    path to save index to
      * @param indexAddress address of native memory where index is stored
-     * @param knnEngine knn engine
-     * @param parameters parameters to build index
+     * @param knnEngine    knn engine
+     * @param parameters   parameters to build index
      */
     public static void writeIndex(String indexPath, long indexAddress, KNNEngine knnEngine, Map<String, Object> parameters) {
         if (KNNEngine.FAISS == knnEngine) {
@@ -111,12 +111,12 @@ public class JNIService {
      * created the memory address and that should only free up the memory. We are tracking the proper fix for this on this
      * <a href="https://github.com/opensearch-project/k-NN/issues/1600">issue</a>
      *
-     * @param ids        array of ids mapping to the data passed in
+     * @param ids            array of ids mapping to the data passed in
      * @param vectorsAddress address of native memory where vectors are stored
-     * @param dim        dimension of the vector to be indexed
-     * @param indexPath  path to save index file to
-     * @param parameters parameters to build index
-     * @param knnEngine  engine to build index for
+     * @param dim            dimension of the vector to be indexed
+     * @param indexPath      path to save index file to
+     * @param parameters     parameters to build index
+     * @param knnEngine      engine to build index for
      */
     public static void createIndex(
         int[] ids,
@@ -140,13 +140,13 @@ public class JNIService {
     /**
      * Create an index for the native library with a provided template index
      *
-     * @param ids           array of ids mapping to the data passed in
+     * @param ids            array of ids mapping to the data passed in
      * @param vectorsAddress address of native memory where vectors are stored
-     * @param dim           dimension of vectors to be indexed
-     * @param indexPath     path to save index file to
-     * @param templateIndex empty template index
-     * @param parameters    parameters to build index
-     * @param knnEngine     engine to build index for
+     * @param dim            dimension of vectors to be indexed
+     * @param indexPath      path to save index file to
+     * @param templateIndex  empty template index
+     * @param parameters     parameters to build index
+     * @param knnEngine      engine to build index for
      */
     public static void createIndexFromTemplate(
         int[] ids,
@@ -252,13 +252,13 @@ public class JNIService {
     /**
      * Query an index
      *
-     * @param indexPointer      pointer to index in memory
-     * @param queryVector       vector to be used for query
-     * @param k                 neighbors to be returned
-     * @param methodParameters  method parameter
-     * @param knnEngine         engine to query index
-     * @param filteredIds       array of ints on which should be used for search.
-     * @param filterIdsType     how to filter ids: Batch or BitMap
+     * @param indexPointer     pointer to index in memory
+     * @param queryVector      vector to be used for query
+     * @param k                neighbors to be returned
+     * @param methodParameters method parameter
+     * @param knnEngine        engine to query index
+     * @param filteredIds      array of ints on which should be used for search.
+     * @param filterIdsType    how to filter ids: Batch or BitMap
      * @return KNNQueryResult array of k neighbors
      */
     public static KNNQueryResult[] queryIndex(
@@ -301,13 +301,13 @@ public class JNIService {
     /**
      * Query a binary index
      *
-     * @param indexPointer      pointer to index in memory
-     * @param queryVector       vector to be used for query
-     * @param k                 neighbors to be returned
-     * @param methodParameters  method parameter
-     * @param knnEngine         engine to query index
-     * @param filteredIds       array of ints on which should be used for search.
-     * @param filterIdsType     how to filter ids: Batch or BitMap
+     * @param indexPointer     pointer to index in memory
+     * @param queryVector      vector to be used for query
+     * @param k                neighbors to be returned
+     * @param methodParameters method parameter
+     * @param knnEngine        engine to query index
+     * @param filteredIds      array of ints on which should be used for search.
+     * @param filterIdsType    how to filter ids: Batch or BitMap
      * @return KNNQueryResult array of k neighbors
      */
     public static KNNQueryResult[] queryBinaryIndex(
@@ -407,12 +407,12 @@ public class JNIService {
 
     /**
      * <p>
-     *  The function is deprecated. Use {@link JNICommons#storeVectorData(long, float[][], long)}
+     * The function is deprecated. Use {@link JNICommons#storeVectorData(long, float[][], long, boolean)}
      * </p>
      * Transfer vectors from Java to native
      *
      * @param vectorsPointer pointer to vectors in native memory. Should be 0 to create vector as well
-     * @param trainingData data to be transferred
+     * @param trainingData   data to be transferred
      * @return pointer to native memory location of training data
      */
     @Deprecated(since = "2.14.0", forRemoval = true)
@@ -423,15 +423,15 @@ public class JNIService {
     /**
      * Range search index for a given query vector
      *
-     * @param indexPointer pointer to index in memory
-     * @param queryVector vector to be used for query
-     * @param radius search within radius threshold
-     * @param methodParameters parameters to be used when loading index
-     * @param knnEngine engine to query index
+     * @param indexPointer         pointer to index in memory
+     * @param queryVector          vector to be used for query
+     * @param radius               search within radius threshold
+     * @param methodParameters     parameters to be used when loading index
+     * @param knnEngine            engine to query index
      * @param indexMaxResultWindow maximum number of results to return
-     * @param filteredIds list of doc ids to include in the query result
-     * @param filterIdsType how to filter ids: Batch or BitMap
-     * @param parentIds parent ids of the vectors
+     * @param filteredIds          list of doc ids to include in the query result
+     * @param filterIdsType        how to filter ids: Batch or BitMap
+     * @param parentIds            parent ids of the vectors
      * @return KNNQueryResult array of neighbors within radius
      */
     public static KNNQueryResult[] radiusQueryIndex(

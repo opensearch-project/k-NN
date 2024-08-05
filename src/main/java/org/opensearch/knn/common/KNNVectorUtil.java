@@ -5,9 +5,11 @@
 
 package org.opensearch.knn.common;
 
-import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
+import java.util.Objects;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class KNNVectorUtil {
@@ -41,5 +43,21 @@ public class KNNVectorUtil {
             }
         }
         return true;
+    }
+
+    /**
+     * Converts an integer List to and array
+     * @param integerList
+     * @return null if list is null or empty, int[] otherwise
+     */
+    public static int[] intListToArray(final List<Integer> integerList) {
+        if (integerList == null || integerList.isEmpty()) {
+            return null;
+        }
+        int[] intArray = new int[integerList.size()];
+        for (int i = 0; i < integerList.size(); i++) {
+            intArray[i] = integerList.get(i);
+        }
+        return intArray;
     }
 }

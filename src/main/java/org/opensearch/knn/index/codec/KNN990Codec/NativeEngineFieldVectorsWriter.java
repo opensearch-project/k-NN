@@ -30,6 +30,7 @@ import java.util.Map;
  */
 class NativeEngineFieldVectorsWriter<T> extends KnnFieldVectorsWriter<T> {
     private static final long SHALLOW_SIZE = RamUsageEstimator.shallowSizeOfInstance(NativeEngineFieldVectorsWriter.class);
+    @Getter
     private final FieldInfo fieldInfo;
     /**
      * We are using a map here instead of list, because for sampler interface for quantization we have to advance the iterator
@@ -77,6 +78,8 @@ class NativeEngineFieldVectorsWriter<T> extends KnnFieldVectorsWriter<T> {
                     + "\" appears more than once in this document (only one value is allowed per field)"
             );
         }
+        // TODO: we can build the graph here too iteratively. but right now I am skipping that as we need iterative
+        // graph build support on the JNI layer.
         assert docID > lastDocID;
         vectors.put(docID, vectorValue);
         docsWithField.add(docID);

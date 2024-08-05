@@ -83,7 +83,7 @@ jlong IndexService::initIndex(
         std::unordered_map<std::string, jobject> parameters
     ) {
     // Create index using Faiss factory method
-    std::unique_ptr<faiss::Index> indexWriter(faissMethods->indexFactory(dim, indexDescription.c_str(), metric));
+    std::unique_ptr<faiss::Index> index(faissMethods->indexFactory(dim, indexDescription.c_str(), metric));
 
     // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
     if(threadCount != 0) {
@@ -91,17 +91,22 @@ jlong IndexService::initIndex(
     }
 
     // Add extra parameters that cant be configured with the index factory
-    SetExtraParameters<faiss::Index, faiss::IndexIVF, faiss::IndexHNSW>(jniUtil, env, parameters, indexWriter.get());
+    SetExtraParameters<faiss::Index, faiss::IndexIVF, faiss::IndexHNSW>(jniUtil, env, parameters, index.get());
 
     // Check that the index does not need to be trained
-    if(!indexWriter->is_trained) {
+    if(!index->is_trained) {
         throw std::runtime_error("Index is not trained");
     }
 
-    std::unique_ptr<faiss::IndexIDMap> idMap (faissMethods->indexIdMap(indexWriter.get()));
+    std::unique_ptr<faiss::IndexIDMap> idMap (faissMethods->indexIdMap(index.get()));
+    //Makes sure the index is deleted when the destructor is called
+    idMap->own_fields = true;
 
     allocIndex(dynamic_cast<faiss::Index *>(idMap->index), dim, numVectors);
-    indexWriter.release();
+
+    //Release the ownership so as to make sure not delete the underlying index that is created. The index is needed later
+    //in insert and write operations
+    index.release();
     return reinterpret_cast<jlong>(idMap.release());
 }
 
@@ -147,11 +152,8 @@ void IndexService::writeIndex(
         // Write the index to disk
         faissMethods->writeIndex(idMap.get(), indexPath.c_str());
     } catch(std::exception &e) {
-        delete idMap->index;
         throw std::runtime_error("Failed to write index to disk");
     }
-    // Free the memory used by the index
-    delete idMap->index;
 }
 
 BinaryIndexService::BinaryIndexService(std::unique_ptr<FaissMethods> faissMethods) : IndexService(std::move(faissMethods)) {}
@@ -175,25 +177,29 @@ jlong BinaryIndexService::initIndex(
         std::unordered_map<std::string, jobject> parameters
     ) {
     // Create index using Faiss factory method
-    std::unique_ptr<faiss::IndexBinary> indexWriter(faissMethods->indexBinaryFactory(dim, indexDescription.c_str()));
-
+    std::unique_ptr<faiss::IndexBinary> index(faissMethods->indexBinaryFactory(dim, indexDescription.c_str()));
     // Set thread count if it is passed in as a parameter. Setting this variable will only impact the current thread
     if(threadCount != 0) {
         omp_set_num_threads(threadCount);
     }
 
     // Add extra parameters that cant be configured with the index factory
-    SetExtraParameters<faiss::IndexBinary, faiss::IndexBinaryIVF, faiss::IndexBinaryHNSW>(jniUtil, env, parameters, indexWriter.get());
+    SetExtraParameters<faiss::IndexBinary, faiss::IndexBinaryIVF, faiss::IndexBinaryHNSW>(jniUtil, env, parameters, index.get());
 
     // Check that the index does not need to be trained
-    if(!indexWriter->is_trained) {
+    if(!index->is_trained) {
         throw std::runtime_error("Index is not trained");
     }
 
-    std::unique_ptr<faiss::IndexBinaryIDMap> idMap(faissMethods->indexBinaryIdMap(indexWriter.get()));
+    std::unique_ptr<faiss::IndexBinaryIDMap> idMap(faissMethods->indexBinaryIdMap(index.get()));
+    //Makes sure the index is deleted when the destructor is called
+    idMap->own_fields = true;
 
     allocIndex(dynamic_cast<faiss::Index *>(idMap->index), dim, numVectors);
-    indexWriter.release();
+
+    //Release the ownership so as to make sure not delete the underlying index that is created. The index is needed later
+    //in insert and write operations
+    index.release();
     return reinterpret_cast<jlong>(idMap.release());
 }
 
@@ -240,12 +246,8 @@ void BinaryIndexService::writeIndex(
         // Write the index to disk
         faissMethods->writeIndexBinary(idMap.get(), indexPath.c_str());
     } catch(std::exception &e) {
-        delete idMap->index;
         throw std::runtime_error("Failed to write index to disk");
     }
-
-    // Free the memory used by the index
-    delete idMap->index;
 }
 
 } // namespace faiss_wrapper
