@@ -1058,7 +1058,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
         );
 
-        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
+        KNNVectorFieldType knnVectorFieldType = new KNNVectorFieldType(
             TEST_FIELD_NAME,
             Collections.emptyMap(),
             TEST_DIMENSION,
