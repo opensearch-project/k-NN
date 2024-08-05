@@ -303,6 +303,31 @@ public class KNNRestTestCase extends ODFERestTestCase {
         return knnSearchResponses;
     }
 
+    protected List<KNNResult> parseSearchResponseScriptFields(final String responseBody, final String scriptFieldName) throws IOException {
+        @SuppressWarnings("unchecked")
+        List<Object> hits = (List<Object>) ((Map<String, Object>) createParser(
+            MediaTypeRegistry.getDefaultMediaType().xContent(),
+            responseBody
+        ).map().get("hits")).get("hits");
+
+        @SuppressWarnings("unchecked")
+        List<KNNResult> knnSearchResponses = hits.stream().map(hit -> {
+            @SuppressWarnings("unchecked")
+            final float[] vector = Floats.toArray(
+                Arrays.stream(
+                    ((ArrayList<Float>) ((Map<String, Object>) ((Map<String, Object>) hit).get("fields")).get(scriptFieldName)).toArray()
+                ).map(Object::toString).map(Float::valueOf).collect(Collectors.toList())
+            );
+            return new KNNResult(
+                (String) ((Map<String, Object>) hit).get("_id"),
+                vector,
+                ((Double) ((Map<String, Object>) hit).get("_score")).floatValue()
+            );
+        }).collect(Collectors.toList());
+
+        return knnSearchResponses;
+    }
+
     /**
      * Parse the response of Aggregation to extract the value
      */
@@ -998,6 +1023,37 @@ public class KNNRestTestCase extends ODFERestTestCase {
         builder.endObject();
         String endpoint = String.format(Locale.getDefault(), "/%s/_search?size=0&filter_path=aggregations", INDEX_NAME);
         Request request = new Request("POST", endpoint);
+        request.setJsonEntity(builder.toString());
+        return request;
+    }
+
+    protected Request constructScriptFieldsContextSearchRequest(
+        final String indexName,
+        final String fieldName,
+        final Map<String, Object> scriptParams,
+        final String language,
+        final String source,
+        final int size,
+        final Map<String, Object> searchParams
+    ) throws Exception {
+        Script script = buildScript(source, language, scriptParams);
+        XContentBuilder builder = XContentFactory.jsonBuilder().startObject().field("size", size).startObject("query");
+        builder.startObject("match_all");
+        builder.endObject();
+        builder.endObject();
+        builder.startObject("script_fields");
+        builder.startObject(fieldName);
+        builder.field("script", script);
+        builder.endObject();
+        builder.endObject();
+        builder.endObject();
+        URIBuilder uriBuilder = new URIBuilder("/" + indexName + "/_search");
+        if (Objects.nonNull(searchParams)) {
+            for (Map.Entry<String, Object> entry : searchParams.entrySet()) {
+                uriBuilder.addParameter(entry.getKey(), entry.getValue().toString());
+            }
+        }
+        Request request = new Request("POST", uriBuilder.toString());
         request.setJsonEntity(builder.toString());
         return request;
     }
