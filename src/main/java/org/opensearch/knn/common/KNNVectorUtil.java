@@ -45,7 +45,7 @@ public class KNNVectorUtil {
         return true;
     }
 
-    /*
+    /**
      * Converts an integer List to and array
      * @param integerList
      * @return null if list is null or empty, int[] otherwise

@@ -6,10 +6,7 @@
 package org.opensearch.knn.index.codec.nativeindex;
 
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
-import org.opensearch.knn.index.codec.transfer.OffHeapByteVectorTransfer;
-import org.opensearch.knn.index.codec.transfer.OffHeapFloatVectorTransfer;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
@@ -24,6 +21,7 @@ import java.util.Map;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.opensearch.knn.common.KNNVectorUtil.intListToArray;
+import static org.opensearch.knn.index.codec.transfer.OffHeapVectorTransferFactory.getVectorTransfer;
 
 /**
  * Iteratively builds the index.
@@ -107,18 +105,6 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
 
         } catch (Exception exception) {
             throw new RuntimeException("Failed to build index", exception);
-        }
-    }
-
-    private <T> OffHeapVectorTransfer<T> getVectorTransfer(final VectorDataType vectorDataType, final int transferLimit) {
-        switch (vectorDataType) {
-            case FLOAT:
-                return (OffHeapVectorTransfer<T>) new OffHeapFloatVectorTransfer(transferLimit);
-            case BINARY:
-            case BYTE:
-                return (OffHeapVectorTransfer<T>) new OffHeapByteVectorTransfer(transferLimit);
-            default:
-                throw new IllegalArgumentException("Unsupported vector data type: " + vectorDataType);
         }
     }
 }

@@ -19,6 +19,25 @@ import java.util.Map;
 public class KNNVectorValuesTests extends KNNTestCase {
 
     @SneakyThrows
+    public void testInit() {
+        // Give
+        final List<float[]> floatArray = List.of(new float[] { 1, 2 }, new float[] { 2, 3 });
+        final int dimension = floatArray.get(0).length;
+        final TestVectorValues.PreDefinedFloatVectorValues randomVectorValues = new TestVectorValues.PreDefinedFloatVectorValues(
+            floatArray
+        );
+        final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
+
+        // When
+        knnVectorValues.init();
+
+        // Then
+        assertFalse(knnVectorValues.docId() == -1);
+        assertArrayEquals(floatArray.get(0), knnVectorValues.getVector(), 0.001f);
+        assertEquals(dimension, knnVectorValues.dimension);
+    }
+
+    @SneakyThrows
     public void testFloatVectorValues_whenValidInput_thenSuccess() {
         final List<float[]> floatArray = List.of(new float[] { 1, 2 }, new float[] { 2, 3 });
         final int dimension = floatArray.get(0).length;
@@ -26,7 +45,7 @@ public class KNNVectorValuesTests extends KNNTestCase {
             floatArray
         );
         final KNNVectorValues<float[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.FLOAT, randomVectorValues);
-        new CompareVectorValues<float[]>().validateVectorValues(knnVectorValues, floatArray, dimension, true);
+        new CompareVectorValues<float[]>().validateVectorValues(knnVectorValues, floatArray, 8, dimension, true);
 
         final DocsWithFieldSet docsWithFieldSet = getDocIdSetIterator(floatArray.size());
 
@@ -36,7 +55,7 @@ public class KNNVectorValuesTests extends KNNTestCase {
             docsWithFieldSet,
             vectorsMap
         );
-        new CompareVectorValues<float[]>().validateVectorValues(knnVectorValuesForFieldWriter, floatArray, dimension, false);
+        new CompareVectorValues<float[]>().validateVectorValues(knnVectorValuesForFieldWriter, floatArray, 8, dimension, false);
 
         final TestVectorValues.PredefinedFloatVectorBinaryDocValues preDefinedFloatVectorValues =
             new TestVectorValues.PredefinedFloatVectorBinaryDocValues(floatArray);
@@ -44,7 +63,7 @@ public class KNNVectorValuesTests extends KNNTestCase {
             VectorDataType.FLOAT,
             preDefinedFloatVectorValues
         );
-        new CompareVectorValues<float[]>().validateVectorValues(knnFloatVectorValuesBinaryDocValues, floatArray, dimension, false);
+        new CompareVectorValues<float[]>().validateVectorValues(knnFloatVectorValuesBinaryDocValues, floatArray, 8, dimension, false);
     }
 
     @SneakyThrows
@@ -53,7 +72,7 @@ public class KNNVectorValuesTests extends KNNTestCase {
         final int dimension = byteArray.get(0).length;
         final TestVectorValues.PreDefinedByteVectorValues randomVectorValues = new TestVectorValues.PreDefinedByteVectorValues(byteArray);
         final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.BYTE, randomVectorValues);
-        new CompareVectorValues<byte[]>().validateVectorValues(knnVectorValues, byteArray, dimension, true);
+        new CompareVectorValues<byte[]>().validateVectorValues(knnVectorValues, byteArray, 2, dimension, true);
 
         final DocsWithFieldSet docsWithFieldSet = getDocIdSetIterator(byteArray.size());
         final Map<Integer, byte[]> vectorsMap = Map.of(0, byteArray.get(0), 1, byteArray.get(1));
@@ -62,7 +81,7 @@ public class KNNVectorValuesTests extends KNNTestCase {
             docsWithFieldSet,
             vectorsMap
         );
-        new CompareVectorValues<byte[]>().validateVectorValues(knnVectorValuesForFieldWriter, byteArray, dimension, false);
+        new CompareVectorValues<byte[]>().validateVectorValues(knnVectorValuesForFieldWriter, byteArray, 2, dimension, false);
 
         final TestVectorValues.PredefinedByteVectorBinaryDocValues preDefinedByteVectorValues =
             new TestVectorValues.PredefinedByteVectorBinaryDocValues(byteArray);
@@ -70,7 +89,7 @@ public class KNNVectorValuesTests extends KNNTestCase {
             VectorDataType.BYTE,
             preDefinedByteVectorValues
         );
-        new CompareVectorValues<byte[]>().validateVectorValues(knnBinaryVectorValuesBinaryDocValues, byteArray, dimension, false);
+        new CompareVectorValues<byte[]>().validateVectorValues(knnBinaryVectorValuesBinaryDocValues, byteArray, 2, dimension, false);
     }
 
     @SneakyThrows
@@ -81,7 +100,7 @@ public class KNNVectorValuesTests extends KNNTestCase {
             byteArray
         );
         final KNNVectorValues<byte[]> knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.BINARY, randomVectorValues);
-        new CompareVectorValues<byte[]>().validateVectorValues(knnVectorValues, byteArray, dimension, true);
+        new CompareVectorValues<byte[]>().validateVectorValues(knnVectorValues, byteArray, 3, dimension, true);
 
         final DocsWithFieldSet docsWithFieldSet = getDocIdSetIterator(byteArray.size());
         final Map<Integer, byte[]> vectorsMap = Map.of(0, byteArray.get(0), 1, byteArray.get(1));
@@ -90,7 +109,7 @@ public class KNNVectorValuesTests extends KNNTestCase {
             docsWithFieldSet,
             vectorsMap
         );
-        new CompareVectorValues<byte[]>().validateVectorValues(knnVectorValuesForFieldWriter, byteArray, dimension, false);
+        new CompareVectorValues<byte[]>().validateVectorValues(knnVectorValuesForFieldWriter, byteArray, 3, dimension, false);
 
         final TestVectorValues.PredefinedByteVectorBinaryDocValues preDefinedByteVectorValues =
             new TestVectorValues.PredefinedByteVectorBinaryDocValues(byteArray);
@@ -98,7 +117,7 @@ public class KNNVectorValuesTests extends KNNTestCase {
             VectorDataType.BINARY,
             preDefinedByteVectorValues
         );
-        new CompareVectorValues<byte[]>().validateVectorValues(knnBinaryVectorValuesBinaryDocValues, byteArray, dimension, false);
+        new CompareVectorValues<byte[]>().validateVectorValues(knnBinaryVectorValuesBinaryDocValues, byteArray, 3, dimension, false);
     }
 
     public void testDocIdsIteratorValues_whenInvalidDisi_thenThrowException() {
@@ -117,28 +136,38 @@ public class KNNVectorValuesTests extends KNNTestCase {
     }
 
     private class CompareVectorValues<T> {
-        void validateVectorValues(KNNVectorValues<T> vectorValues, List<T> vectors, int dimension, boolean validateAddress)
-            throws IOException {
-            Assert.assertEquals(vectorValues.totalLiveDocs(), vectors.size());
+        void validateVectorValues(
+            KNNVectorValues<T> vectorValues,
+            List<T> vectors,
+            int bytesPerVector,
+            int dimension,
+            boolean validateAddress
+        ) throws IOException {
+            assertEquals(vectorValues.totalLiveDocs(), vectors.size());
             int docId, i = 0;
             T oldActual = null;
             int oldDocId = -1;
             final KNNVectorValuesIterator iterator = vectorValues.vectorValuesIterator;
             for (docId = iterator.nextDoc(); docId != DocIdSetIterator.NO_MORE_DOCS && i < vectors.size(); docId = iterator.nextDoc()) {
                 T actual = vectorValues.getVector();
+                T clone = vectorValues.conditionalCloneVector();
                 T expected = vectors.get(i);
-                Assert.assertNotEquals(oldDocId, docId);
-                Assert.assertEquals(dimension, vectorValues.dimension());
+                assertNotEquals(oldDocId, docId);
+                assertEquals(dimension, vectorValues.dimension());
                 // this will check if reference is correct for the vectors. This is mainly required because for
                 // VectorValues of Lucene when reading vectors put the vector at same reference
                 if (oldActual != null && validateAddress) {
-                    Assert.assertSame(actual, oldActual);
+                    assertSame(actual, oldActual);
+                    assertNotSame(clone, oldActual);
                 }
+
                 oldActual = actual;
                 // this will do the deep equals
-                Assert.assertArrayEquals(new Object[] { actual }, new Object[] { expected });
+                assertArrayEquals(new Object[] { actual }, new Object[] { expected });
+                assertArrayEquals(new Object[] { clone }, new Object[] { expected });
                 i++;
             }
+            assertEquals(bytesPerVector, vectorValues.bytesPerVector);
         }
     }
 
