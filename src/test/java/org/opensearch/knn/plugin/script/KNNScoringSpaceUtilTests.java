@@ -7,9 +7,9 @@ package org.opensearch.knn.plugin.script;
 
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.index.mapper.BinaryFieldMapper;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -32,7 +32,7 @@ public class KNNScoringSpaceUtilTests extends KNNTestCase {
             KNNScoringSpaceUtil.isBinaryFieldType(new NumberFieldMapper.NumberFieldType("field", NumberFieldMapper.NumberType.INTEGER))
         );
 
-        assertTrue(KNNScoringSpaceUtil.isKNNVectorFieldType(mock(KNNVectorFieldMapper.KNNVectorFieldType.class)));
+        assertTrue(KNNScoringSpaceUtil.isKNNVectorFieldType(mock(KNNVectorFieldType.class)));
         assertFalse(KNNScoringSpaceUtil.isKNNVectorFieldType(new BinaryFieldMapper.BinaryFieldType("test")));
     }
 
@@ -62,7 +62,7 @@ public class KNNScoringSpaceUtilTests extends KNNTestCase {
         float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
         List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
 
-        KNNVectorFieldMapper.KNNVectorFieldType fieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        KNNVectorFieldType fieldType = mock(KNNVectorFieldType.class);
 
         when(fieldType.getDimension()).thenReturn(3);
         assertArrayEquals(arrayFloat, KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject, 3, VectorDataType.FLOAT), 0.1f);
@@ -77,13 +77,13 @@ public class KNNScoringSpaceUtilTests extends KNNTestCase {
     }
 
     public void testIsBinaryVectorDataType_whenBinary_thenReturnTrue() {
-        KNNVectorFieldMapper.KNNVectorFieldType fieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        KNNVectorFieldType fieldType = mock(KNNVectorFieldType.class);
         when(fieldType.getVectorDataType()).thenReturn(VectorDataType.BINARY);
         assertTrue(KNNScoringSpaceUtil.isBinaryVectorDataType(fieldType));
     }
 
     public void testIsBinaryVectorDataType_whenNonBinary_thenReturnFalse() {
-        KNNVectorFieldMapper.KNNVectorFieldType fieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        KNNVectorFieldType fieldType = mock(KNNVectorFieldType.class);
         when(fieldType.getVectorDataType()).thenReturn(randomInt() % 2 == 0 ? VectorDataType.FLOAT : VectorDataType.BYTE);
         assertFalse(KNNScoringSpaceUtil.isBinaryVectorDataType(fieldType));
     }

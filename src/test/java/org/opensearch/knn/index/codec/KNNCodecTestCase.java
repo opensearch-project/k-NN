@@ -25,6 +25,7 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.KNNQueryFactory;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.query.KNNQuery;
@@ -308,18 +309,8 @@ public class KNNCodecTestCase extends KNNTestCase {
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256))
         );
-        final KNNVectorFieldMapper.KNNVectorFieldType mappedFieldType1 = new KNNVectorFieldMapper.KNNVectorFieldType(
-            FIELD_NAME_ONE,
-            Map.of(),
-            3,
-            knnMethodContext
-        );
-        final KNNVectorFieldMapper.KNNVectorFieldType mappedFieldType2 = new KNNVectorFieldMapper.KNNVectorFieldType(
-            FIELD_NAME_TWO,
-            Map.of(),
-            2,
-            knnMethodContext
-        );
+        final KNNVectorFieldType mappedFieldType1 = new KNNVectorFieldType(FIELD_NAME_ONE, Map.of(), 3, knnMethodContext);
+        final KNNVectorFieldType mappedFieldType2 = new KNNVectorFieldType(FIELD_NAME_TWO, Map.of(), 2, knnMethodContext);
         when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(mappedFieldType1);
         when(mapperService.fieldType(eq(FIELD_NAME_TWO))).thenReturn(mappedFieldType2);
 

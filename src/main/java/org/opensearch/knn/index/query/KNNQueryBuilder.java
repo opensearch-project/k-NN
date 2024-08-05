@@ -24,13 +24,13 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.engine.model.QueryContext;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorQueryType;
-import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.query.parser.KNNQueryBuilderParser;
 import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -338,11 +338,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             return new MatchNoDocsQuery();
         }
 
-        if (!(mappedFieldType instanceof KNNVectorFieldMapper.KNNVectorFieldType)) {
+        if (!(mappedFieldType instanceof KNNVectorFieldType)) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Field '%s' is not knn_vector type.", this.fieldName));
         }
 
-        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldMapper.KNNVectorFieldType) mappedFieldType;
+        KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldType) mappedFieldType;
         int fieldDimension = knnVectorFieldType.getDimension();
         KNNMethodContext knnMethodContext = knnVectorFieldType.getKnnMethodContext();
         MethodComponentContext methodComponentContext = null;
@@ -492,7 +492,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         throw new IllegalArgumentException(String.format(Locale.ROOT, "[%s] requires k or distance or score to be set", NAME));
     }
 
-    private ModelMetadata getModelMetadataForField(KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
+    private ModelMetadata getModelMetadataForField(KNNVectorFieldType knnVectorField) {
         String modelId = knnVectorField.getModelId();
 
         if (modelId == null) {
