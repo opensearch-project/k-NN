@@ -6,50 +6,62 @@
 package org.opensearch.knn.index.codec.nativeindex;
 
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
-import org.opensearch.knn.index.codec.transfer.OffHeapByteQuantizedVectorTransfer;
+import org.opensearch.knn.index.codec.transfer.OffHeapByteVectorTransfer;
 import org.opensearch.knn.index.codec.transfer.OffHeapFloatVectorTransfer;
-import org.opensearch.knn.index.codec.transfer.VectorTransfer;
-import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
+import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.jni.JNIService;
 
 import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
+import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNVectorUtil.intListToArray;
 
 /**
- * Transfers all vectors to offheap and then builds an index
+ * Transfers all vectors to off heap and then builds an index
  */
-final class VectorTransferIndexBuildStrategy implements NativeIndexBuildStrategy {
+final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
 
-    private static VectorTransferIndexBuildStrategy INSTANCE = new VectorTransferIndexBuildStrategy();
+    private static DefaultIndexBuildStrategy INSTANCE = new DefaultIndexBuildStrategy();
 
-    public static VectorTransferIndexBuildStrategy getInstance() {
+    public static DefaultIndexBuildStrategy getInstance() {
         return INSTANCE;
     }
 
-    private VectorTransferIndexBuildStrategy() {}
+    private DefaultIndexBuildStrategy() {}
 
     public void buildAndWriteIndex(final BuildIndexParams indexInfo, final KNNVectorValues<?> knnVectorValues) throws IOException {
-        // iterating it once to be safe
-        knnVectorValues.init();
-        try (final VectorTransfer vectorTransfer = getVectorTransfer(indexInfo.getVectorDataType(), knnVectorValues)) {
-            vectorTransfer.transferBatch();
-            assert !vectorTransfer.hasNext();
+        knnVectorValues.init(); // to get bytesPerVector
+        int transferLimit = (int) Math.max(1, KNNSettings.getVectorStreamingMemoryLimit().getBytes() / knnVectorValues.bytesPerVector());
+        try (final OffHeapVectorTransfer vectorTransfer = getVectorTransfer(indexInfo.getVectorDataType(), transferLimit)) {
+
+            final List<Integer> tranferredDocIds = new ArrayList<>();
+            while (knnVectorValues.docId() != NO_MORE_DOCS) {
+                // append is true here so off heap memory buffer isn't overwritten
+                vectorTransfer.transfer(knnVectorValues.conditionalCloneVector(), true);
+                tranferredDocIds.add(knnVectorValues.docId());
+                knnVectorValues.nextDoc();
+            }
+            vectorTransfer.flush(true);
 
             final Map<String, Object> params = indexInfo.getParameters();
+            long vectorAddress = vectorTransfer.getVectorAddress();
             // Currently this is if else as there are only two cases, with more cases this will have to be made
             // more maintainable
             if (params.containsKey(MODEL_ID)) {
                 AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
                     JNIService.createIndexFromTemplate(
-                        vectorTransfer.getTransferredDocsIds(),
-                        vectorTransfer.getVectorAddress(),
+                        intListToArray(tranferredDocIds),
+                        vectorAddress,
                         knnVectorValues.dimension(),
                         indexInfo.getIndexPath(),
                         (byte[]) params.get(KNNConstants.MODEL_BLOB_PARAMETER),
@@ -61,8 +73,8 @@ final class VectorTransferIndexBuildStrategy implements NativeIndexBuildStrategy
             } else {
                 AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
                     JNIService.createIndex(
-                        vectorTransfer.getTransferredDocsIds(),
-                        vectorTransfer.getVectorAddress(),
+                        intListToArray(tranferredDocIds),
+                        vectorAddress,
                         knnVectorValues.dimension(),
                         indexInfo.getIndexPath(),
                         indexInfo.getParameters(),
@@ -77,13 +89,13 @@ final class VectorTransferIndexBuildStrategy implements NativeIndexBuildStrategy
         }
     }
 
-    private VectorTransfer getVectorTransfer(VectorDataType vectorDataType, KNNVectorValues<?> knnVectorValues) throws IOException {
+    private <T> OffHeapVectorTransfer<T> getVectorTransfer(VectorDataType vectorDataType, int transferLimit) throws IOException {
         switch (vectorDataType) {
             case FLOAT:
-                return new OffHeapFloatVectorTransfer((KNNFloatVectorValues) knnVectorValues, knnVectorValues.totalLiveDocs());
+                return (OffHeapVectorTransfer<T>) new OffHeapFloatVectorTransfer(transferLimit);
             case BINARY:
             case BYTE:
-                return new OffHeapByteQuantizedVectorTransfer<>((KNNVectorValues<byte[]>) knnVectorValues, knnVectorValues.totalLiveDocs());
+                return (OffHeapVectorTransfer<T>) new OffHeapByteVectorTransfer(transferLimit);
             default:
                 throw new IllegalArgumentException("Unsupported vector data type: " + vectorDataType);
         }
