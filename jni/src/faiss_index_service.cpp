@@ -57,6 +57,23 @@ void SetExtraParameters(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env,
 
 IndexService::IndexService(std::unique_ptr<FaissMethods> faissMethods) : faissMethods(std::move(faissMethods)) {}
 
+void IndexService::allocIndex(faiss::Index * index, size_t dim, size_t numVectors) {
+    if(auto * indexHNSWFlat = dynamic_cast<faiss::IndexHNSWFlat *>(index)) {
+        auto * indexFlatCodes = dynamic_cast<faiss::IndexFlatCodes *>(indexHNSWFlat->storage);
+        indexFlatCodes->codes.reserve(dim * numVectors * 4);
+        return;
+    }
+    if(auto * indexHNSWSQ = dynamic_cast<faiss::IndexHNSWSQ *>(index)) {
+        auto * indexFlatCodes = dynamic_cast<faiss::IndexFlatCodes *>(indexHNSWSQ->storage);
+        indexFlatCodes->codes.reserve(dim * numVectors * 2);
+        return;
+    }
+    if(auto * indexFlat = dynamic_cast<faiss::IndexFlat *>(index)) {
+        indexFlat->codes.reserve(dim * numVectors * 4);
+        return;
+    }
+}
+
 jlong IndexService::initIndex(
         knn_jni::JNIUtilInterface * jniUtil,
         JNIEnv * env,
@@ -83,36 +100,9 @@ jlong IndexService::initIndex(
         throw std::runtime_error("Index is not trained");
     }
 
-    // Add vectors
     std::unique_ptr<faiss::IndexIDMap> idMap (faissMethods->indexIdMap(indexWriter.get()));
 
-    /*
-     * NOTE: The process of memory allocation is currently only implemented for HNSW.
-     * This technique of checking the types of the index and subindices should be generalized into
-     * another function.
-     */
-
-    // Check to see if the current index is HNSW
-    faiss::IndexHNSWFlat * hnsw = dynamic_cast<faiss::IndexHNSWFlat *>(idMap->index);
-    if(hnsw != NULL) {
-        // Check to see if the HNSW storage is IndexFlat
-        faiss::IndexFlat * storage = dynamic_cast<faiss::IndexFlat *>(hnsw->storage);
-        if(storage != NULL) {
-            // Allocate enough memory for all of the vectors we plan on inserting
-            // We do this to avoid unnecessary memory allocations during insert
-            storage->codes.reserve(dim * numVectors * 4);
-        }
-    }
-    faiss::IndexHNSWSQ * hnswSq = dynamic_cast<faiss::IndexHNSWSQ *>(idMap->index);
-    if(hnswSq != NULL) {
-        // Check to see if the HNSW storage is IndexFlat
-        faiss::IndexFlat * storage = dynamic_cast<faiss::IndexFlat *>(hnswSq->storage);
-        if(storage != NULL) {
-            // Allocate enough memory for all of the vectors we plan on inserting
-            // We do this to avoid unnecessary memory allocations during insert
-            storage->codes.reserve(dim * numVectors * 2);
-        }
-    }
+    allocIndex(dynamic_cast<faiss::Index *>(idMap.get()), dim, numVectors);
     indexWriter.release();
     return reinterpret_cast<jlong>(idMap.release());
 }
@@ -168,6 +158,18 @@ void IndexService::writeIndex(
 
 BinaryIndexService::BinaryIndexService(std::unique_ptr<FaissMethods> faissMethods) : IndexService(std::move(faissMethods)) {}
 
+void BinaryIndexService::allocIndex(faiss::Index * index, size_t dim, size_t numVectors) {
+    if(auto * indexBinaryHNSW = dynamic_cast<faiss::IndexBinaryHNSW *>(index)) {
+        auto * indexBinaryFlat = dynamic_cast<faiss::IndexBinaryFlat *>(indexBinaryHNSW->storage);
+        indexBinaryFlat->xb.reserve(dim * numVectors / 8);
+        return;
+    }
+    if(auto * indexBinaryFlat = dynamic_cast<faiss::IndexBinaryFlat *>(index)) {
+        indexBinaryFlat->xb.reserve(dim * numVectors / 8);
+        return;
+    }
+}
+
 jlong BinaryIndexService::initIndex(
         knn_jni::JNIUtilInterface * jniUtil,
         JNIEnv * env,
@@ -194,27 +196,9 @@ jlong BinaryIndexService::initIndex(
         throw std::runtime_error("Index is not trained");
     }
 
-    // Add vectors
     std::unique_ptr<faiss::IndexBinaryIDMap> idMap(faissMethods->indexBinaryIdMap(indexWriter.get()));
 
-    /*
-     * NOTE: The process of memory allocation is currently only implemented for HNSW.
-     * This technique of checking the types of the index and subindices should be generalized into
-     * another function.
-     */
-
-    // Check to see if the current index is BinaryHNSW
-    faiss::IndexBinaryHNSW * hnsw = dynamic_cast<faiss::IndexBinaryHNSW *>(idMap->index);
-
-    if(hnsw != NULL) {
-        // Check to see if the HNSW storage is IndexBinaryFlat
-        faiss::IndexBinaryFlat * storage = dynamic_cast<faiss::IndexBinaryFlat *>(hnsw->storage);
-        if(storage != NULL) {
-            // Allocate enough memory for all of the vectors we plan on inserting
-            // We do this to avoid unnecessary memory allocations during insert
-            storage->xb.reserve(dim / 8 * numVectors);
-        }
-    }
+    allocIndex(dynamic_cast<faiss::Index *>(idMap.get()), dim, numVectors);
     indexWriter.release();
     return reinterpret_cast<jlong>(idMap.release());
 }
