@@ -60,7 +60,7 @@ IndexService::IndexService(std::unique_ptr<FaissMethods> faissMethods) : faissMe
 
 void IndexService::allocIndex(faiss::Index * index, size_t dim, size_t numVectors) {
     if(auto * indexHNSWSQ = dynamic_cast<faiss::IndexHNSWSQ *>(index)) {
-        if(auto * indexFlat = dynamic_cast<faiss::IndexFlat *>(indexHNSW->storage)) {
+        if(auto * indexFlat = dynamic_cast<faiss::IndexFlat *>(indexHNSWSQ->storage)) {
             indexFlat->codes.reserve(dim * numVectors * 2);
         }
         return;
