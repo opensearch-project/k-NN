@@ -163,10 +163,6 @@ void BinaryIndexService::allocIndex(faiss::Index * index, size_t dim, size_t num
         indexBinaryFlat->xb.reserve(dim * numVectors / 8);
         return;
     }
-    if(auto * indexBinaryFlat = dynamic_cast<faiss::IndexBinaryFlat *>(index)) {
-        indexBinaryFlat->xb.reserve(dim * numVectors / 8);
-        return;
-    }
 }
 
 jlong BinaryIndexService::initIndex(
