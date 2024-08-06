@@ -312,6 +312,7 @@ public class KNNWeight extends Weight {
         FilterIdsSelector.FilterIdsSelectorType filterType = filterIdsSelector.getFilterType();
         // Now that we have the allocation, we need to readLock it
         indexAllocation.readLock();
+        indexAllocation.incRef();
         try {
             if (indexAllocation.isClosed()) {
                 throw new RuntimeException("Index has already been closed");
@@ -361,6 +362,7 @@ public class KNNWeight extends Weight {
             throw new RuntimeException(e);
         } finally {
             indexAllocation.readUnlock();
+            indexAllocation.decRef();
         }
 
         /*
