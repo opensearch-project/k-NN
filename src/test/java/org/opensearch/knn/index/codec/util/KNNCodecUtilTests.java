@@ -9,6 +9,7 @@ import junit.framework.TestCase;
 import lombok.SneakyThrows;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.transfer.VectorTransfer;
 
 import java.util.Arrays;
@@ -58,16 +59,16 @@ public class KNNCodecUtilTests extends TestCase {
         int numVectors = 4;
         int vectorLength = 10;
 
-        // Array
-        SerializationMode serializationMode = SerializationMode.ARRAY;
-        assertEquals(160, calculateArraySize(numVectors, vectorLength, serializationMode));
+        // Float data type
+        VectorDataType vectorDataType = VectorDataType.FLOAT;
+        assertEquals(160, calculateArraySize(numVectors, vectorLength, vectorDataType));
 
-        // Collection of floats
-        serializationMode = SerializationMode.COLLECTION_OF_FLOATS;
-        assertEquals(160, calculateArraySize(numVectors, vectorLength, serializationMode));
+        // Byte data type
+        vectorDataType = VectorDataType.BYTE;
+        assertEquals(40, calculateArraySize(numVectors, vectorLength, vectorDataType));
 
-        // Collection of bytes
-        serializationMode = SerializationMode.COLLECTIONS_OF_BYTES;
-        assertEquals(40, calculateArraySize(numVectors, vectorLength, serializationMode));
+        // Binary data type
+        vectorDataType = VectorDataType.BINARY;
+        assertEquals(40, calculateArraySize(numVectors, vectorLength, vectorDataType));
     }
 }

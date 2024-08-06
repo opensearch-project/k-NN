@@ -11,6 +11,7 @@ import lombok.Setter;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80BinaryDocValues;
 import org.opensearch.knn.index.codec.transfer.VectorTransfer;
 
@@ -65,14 +66,14 @@ public class KNNCodecUtil {
      * This method provides a rough estimate of the number of bytes used for storing an array with the given parameters.
      * @param numVectors number of vectors in the array
      * @param vectorLength the length of each vector
-     * @param serializationMode serialization mode
+     * @param vectorDataType type of data stored in each vector
      * @return rough estimate of number of bytes used to store an array with the given parameters
      */
-    public static long calculateArraySize(int numVectors, int vectorLength, SerializationMode serializationMode) {
-        if (serializationMode == SerializationMode.COLLECTIONS_OF_BYTES) {
-            return numVectors * vectorLength;
-        } else {
+    public static long calculateArraySize(int numVectors, int vectorLength, VectorDataType vectorDataType) {
+        if (vectorDataType == VectorDataType.FLOAT) {
             return numVectors * vectorLength * FLOAT_BYTE_SIZE;
+        } else {
+            return numVectors * vectorLength;
         }
     }
 
