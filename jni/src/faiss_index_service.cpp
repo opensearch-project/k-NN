@@ -23,7 +23,6 @@
 #include <vector>
 #include <memory>
 #include <type_traits>
-#include <iostream>
 
 namespace knn_jni {
 namespace faiss_wrapper {
