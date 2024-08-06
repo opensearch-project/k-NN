@@ -15,13 +15,15 @@ import org.apache.lucene.search.join.DiversifyingChildrenByteKnnVectorQuery;
 import org.apache.lucene.search.join.DiversifyingChildrenFloatKnnVectorQuery;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
 
 import java.util.Locale;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.isKnnQueryRewriteEnabled;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 
 /**
@@ -98,9 +100,10 @@ public class KNNQueryFactory extends BaseQueryFactory {
                 methodParameters
             );
 
+            KNNQuery knnQuery = null;
             switch (vectorDataType) {
                 case BINARY:
-                    return KNNQuery.builder()
+                    knnQuery = KNNQuery.builder()
                         .field(fieldName)
                         .byteQueryVector(byteVector)
                         .indexName(indexName)
@@ -110,8 +113,9 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .filterQuery(validatedFilterQuery)
                         .vectorDataType(vectorDataType)
                         .build();
+                    break;
                 default:
-                    return KNNQuery.builder()
+                    knnQuery = KNNQuery.builder()
                         .field(fieldName)
                         .queryVector(vector)
                         .indexName(indexName)
@@ -122,6 +126,7 @@ public class KNNQueryFactory extends BaseQueryFactory {
                         .vectorDataType(vectorDataType)
                         .build();
             }
+            return isKnnQueryRewriteEnabled() ? new NativeEngineKnnVectorQuery(knnQuery) : knnQuery;
         }
 
         Integer requestEfSearch = null;

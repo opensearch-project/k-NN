@@ -15,7 +15,7 @@ import com.google.common.collect.ImmutableList;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.mapper.NumberFieldMapper;
-import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.indices.ModelUtil;

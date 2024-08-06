@@ -12,7 +12,7 @@
 package org.opensearch.knn.index.codec.params;
 
 import junit.framework.TestCase;
-import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.util.HashMap;
 import java.util.Map;

@@ -9,7 +9,7 @@ import org.apache.lucene.codecs.lucene99.Lucene99HnswScalarQuantizedVectorsForma
 import org.apache.lucene.codecs.lucene99.Lucene99HnswVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.BasePerFieldKnnVectorsFormat;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Optional;
 

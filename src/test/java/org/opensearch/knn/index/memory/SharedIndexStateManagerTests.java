@@ -15,7 +15,7 @@ import org.junit.BeforeClass;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.jni.JNIService;
 
 import static org.mockito.Mockito.mockStatic;

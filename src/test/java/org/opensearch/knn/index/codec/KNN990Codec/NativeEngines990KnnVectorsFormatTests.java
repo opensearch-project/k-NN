@@ -47,7 +47,7 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
 import java.util.Arrays;

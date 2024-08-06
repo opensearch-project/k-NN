@@ -27,14 +27,14 @@ import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -1058,7 +1058,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
         );
 
-        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
+        KNNVectorFieldType knnVectorFieldType = new KNNVectorFieldType(
             TEST_FIELD_NAME,
             Collections.emptyMap(),
             TEST_DIMENSION,

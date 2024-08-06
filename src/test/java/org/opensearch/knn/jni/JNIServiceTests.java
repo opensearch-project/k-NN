@@ -21,12 +21,13 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.nmslib.NmslibHNSWMethod;
 import org.opensearch.knn.index.query.KNNQueryResult;
-import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
 import java.net.URL;
@@ -265,7 +266,7 @@ public class JNIServiceTests extends KNNTestCase {
 
     public void testCreateIndex_nmslib_valid() throws IOException {
 
-        for (SpaceType spaceType : KNNEngine.NMSLIB.getMethod(KNNConstants.METHOD_HNSW).getSpaces()) {
+        for (SpaceType spaceType : NmslibHNSWMethod.SUPPORTED_SPACES) {
             if (SpaceType.UNDEFINED == spaceType) {
                 continue;
             }
@@ -610,7 +611,7 @@ public class JNIServiceTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        Map<String, Object> parameters = KNNEngine.FAISS.getMethodAsMap(knnMethodContext);
+        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
 
         byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
 
@@ -814,7 +815,7 @@ public class JNIServiceTests extends KNNTestCase {
     public void testQueryIndex_nmslib_valid() throws IOException {
 
         int k = 50;
-        for (SpaceType spaceType : KNNEngine.NMSLIB.getMethod(KNNConstants.METHOD_HNSW).getSpaces()) {
+        for (SpaceType spaceType : NmslibHNSWMethod.SUPPORTED_SPACES) {
             if (SpaceType.UNDEFINED == spaceType) {
                 continue;
             }
@@ -1130,7 +1131,7 @@ public class JNIServiceTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        Map<String, Object> parameters = KNNEngine.FAISS.getMethodAsMap(knnMethodContext);
+        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
 
         byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
 
@@ -1161,7 +1162,7 @@ public class JNIServiceTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        Map<String, Object> parameters = KNNEngine.FAISS.getMethodAsMap(knnMethodContext);
+        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
 
         byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
 
@@ -1189,7 +1190,7 @@ public class JNIServiceTests extends KNNTestCase {
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
         knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
-        Map<String, Object> parameters = KNNEngine.FAISS.getMethodAsMap(knnMethodContext);
+        Map<String, Object> parameters = KNNEngine.FAISS.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
 
         byte[] faissIndex = JNIService.trainIndex(parameters, 128, trainPointer, KNNEngine.FAISS);
 
@@ -1236,7 +1237,11 @@ public class JNIServiceTests extends KNNTestCase {
             )
         );
 
-        String description = knnMethodContext.getKnnEngine().getMethodAsMap(knnMethodContext).get(INDEX_DESCRIPTION_PARAMETER).toString();
+        String description = knnMethodContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodContext)
+            .getLibraryParameters()
+            .get(INDEX_DESCRIPTION_PARAMETER)
+            .toString();
         assertEquals("IVF16,PQ16x8", description);
 
         Map<String, Object> parameters = ImmutableMap.of(
@@ -1374,7 +1379,11 @@ public class JNIServiceTests extends KNNTestCase {
             )
         );
 
-        String description = knnMethodContext.getKnnEngine().getMethodAsMap(knnMethodContext).get(INDEX_DESCRIPTION_PARAMETER).toString();
+        String description = knnMethodContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodContext)
+            .getLibraryParameters()
+            .get(INDEX_DESCRIPTION_PARAMETER)
+            .toString();
         Map<String, Object> parameters = ImmutableMap.of(
             INDEX_DESCRIPTION_PARAMETER,
             description,

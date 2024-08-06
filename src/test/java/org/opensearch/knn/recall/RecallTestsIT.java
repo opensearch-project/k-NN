@@ -19,7 +19,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.List;
 import java.util.Map;

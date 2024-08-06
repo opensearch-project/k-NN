@@ -15,12 +15,12 @@ import org.apache.lucene.document.StoredField;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNMethodContext;
-import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -60,14 +60,14 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
     }
 
     public void testGetExpectedVectorLengthSuccess() {
-        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldType.class);
         when(knnVectorFieldType.getDimension()).thenReturn(3);
 
-        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldTypeBinary = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        KNNVectorFieldType knnVectorFieldTypeBinary = mock(KNNVectorFieldType.class);
         when(knnVectorFieldTypeBinary.getDimension()).thenReturn(8);
         when(knnVectorFieldTypeBinary.getVectorDataType()).thenReturn(VectorDataType.BINARY);
 
-        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldTypeModelBased = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        KNNVectorFieldType knnVectorFieldTypeModelBased = mock(KNNVectorFieldType.class);
         when(knnVectorFieldTypeModelBased.getDimension()).thenReturn(-1);
         String modelId = "test-model";
         when(knnVectorFieldTypeModelBased.getModelId()).thenReturn(modelId);
@@ -86,7 +86,7 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
     }
 
     public void testGetExpectedVectorLengthFailure() {
-        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldTypeModelBased = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        KNNVectorFieldType knnVectorFieldTypeModelBased = mock(KNNVectorFieldType.class);
         when(knnVectorFieldTypeModelBased.getDimension()).thenReturn(-1);
         String modelId = "test-model";
         when(knnVectorFieldTypeModelBased.getModelId()).thenReturn(modelId);

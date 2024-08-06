@@ -29,7 +29,7 @@ import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 import org.opensearch.core.rest.RestStatus;
 
@@ -64,9 +64,6 @@ public class OpenSearchIT extends KNNRestTestCase {
         KNNEngine knnEngine2 = KNNEngine.FAISS;
         String fieldName1 = "test-field-1";
         String fieldName2 = "test-field-2";
-
-        KNNMethod method1 = knnEngine1.getMethod(KNNConstants.METHOD_HNSW);
-        KNNMethod method2 = knnEngine2.getMethod(KNNConstants.METHOD_HNSW);
         SpaceType spaceType1 = SpaceType.COSINESIMIL;
         SpaceType spaceType2 = SpaceType.L2;
 
@@ -84,7 +81,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, method1.getMethodComponent().getName())
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType1.getValue())
             .field(KNNConstants.KNN_ENGINE, knnEngine1.getName())
             .startObject(KNNConstants.PARAMETERS)
@@ -97,7 +94,7 @@ public class OpenSearchIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, method2.getMethodComponent().getName())
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType2.getValue())
             .field(KNNConstants.KNN_ENGINE, knnEngine2.getName())
             .startObject(KNNConstants.PARAMETERS)

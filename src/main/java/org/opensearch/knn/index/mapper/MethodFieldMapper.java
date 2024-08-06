@@ -8,10 +8,11 @@ package org.opensearch.knn.index.mapper;
 import org.apache.lucene.document.FieldType;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.xcontent.XContentFactory;
-import org.opensearch.knn.index.KNNMethodContext;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
+import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
@@ -58,10 +59,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
 
         try {
-            this.fieldType.putAttribute(
-                PARAMETERS,
-                XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)).toString()
-            );
+            Map<String, Object> libParams = knnEngine.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
+            this.fieldType.putAttribute(PARAMETERS, XContentFactory.jsonBuilder().map(libParams).toString());
         } catch (IOException ioe) {
             throw new RuntimeException(String.format("Unable to create KNNVectorFieldMapper: %s", ioe));
         }

@@ -16,11 +16,11 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.IndexUtil;
+import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
@@ -34,7 +34,7 @@ import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Objects;
 
-import static org.opensearch.knn.index.util.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
+import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
 /**
  * Encapsulates all information required to generate and train a model.
@@ -182,7 +182,10 @@ public class TrainingJob implements Runnable {
                 throw new RuntimeException("Unable to load training data into memory: allocation is already closed");
             }
             setVersionInKnnMethodContext();
-            Map<String, Object> trainParameters = model.getModelMetadata().getKnnEngine().getMethodAsMap(knnMethodContext);
+            Map<String, Object> trainParameters = model.getModelMetadata()
+                .getKnnEngine()
+                .getKNNLibraryIndexingContext(knnMethodContext)
+                .getLibraryParameters();
             trainParameters.put(
                 KNNConstants.INDEX_THREAD_QTY,
                 KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY)

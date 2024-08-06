@@ -18,10 +18,10 @@ import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
-import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
@@ -236,7 +236,7 @@ public class KNNVectorFieldMapperUtil {
      * @param knnVectorFieldType knn vector field type
      * @return expected vector length
      */
-    public static int getExpectedVectorLength(final KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType) {
+    public static int getExpectedVectorLength(final KNNVectorFieldType knnVectorFieldType) {
         int expectedDimensions = knnVectorFieldType.getDimension();
         if (isModelBasedIndex(expectedDimensions)) {
             ModelMetadata modelMetadata = getModelMetadataForField(knnVectorFieldType);
@@ -255,7 +255,7 @@ public class KNNVectorFieldMapperUtil {
      * @param knnVectorField knn vector field
      * @return the model metadata from knnVectorField
      */
-    private static ModelMetadata getModelMetadataForField(final KNNVectorFieldMapper.KNNVectorFieldType knnVectorField) {
+    private static ModelMetadata getModelMetadataForField(final KNNVectorFieldType knnVectorField) {
         String modelId = knnVectorField.getModelId();
 
         if (modelId == null) {

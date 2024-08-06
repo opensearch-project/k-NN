@@ -20,10 +20,9 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNMethod;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -56,7 +55,6 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
 
     public void testHNSWSQFP16_onUpgradeWhenIndexedAndQueried_thenSucceed() throws Exception {
         if (!isRunningAgainstOldCluster()) {
-            KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
             SpaceType[] spaceTypes = { SpaceType.L2, SpaceType.INNER_PRODUCT };
             Random random = new Random();
             SpaceType spaceType = spaceTypes[random.nextInt(spaceTypes.length)];
@@ -97,7 +95,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
                 .field("type", "knn_vector")
                 .field("dimension", DIMENSION)
                 .startObject(KNNConstants.KNN_METHOD)
-                .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+                .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
                 .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
                 .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
                 .startObject(KNNConstants.PARAMETERS)
@@ -133,8 +131,6 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
 
     public void testHNSWSQFP16_onUpgradeWhenClipToFp16isTrueAndIndexedWithOutOfFP16Range_thenSucceed() throws Exception {
         if (!isRunningAgainstOldCluster()) {
-            KNNMethod hnswMethod = KNNEngine.FAISS.getMethod(KNNConstants.METHOD_HNSW);
-            new Random();
 
             List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
             List<Integer> efConstructionValues = ImmutableList.of(16, 32, 64, 128);
@@ -175,7 +171,7 @@ public class FaissSQIT extends AbstractRestartUpgradeTestCase {
                 .field("type", "knn_vector")
                 .field("dimension", dimension)
                 .startObject(KNNConstants.KNN_METHOD)
-                .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+                .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
                 .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2.getValue())
                 .field(KNNConstants.KNN_ENGINE, KNNEngine.FAISS.getName())
                 .startObject(PARAMETERS)

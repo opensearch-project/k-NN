@@ -12,8 +12,8 @@ import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
-import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.util.Optional;
 import java.util.function.Function;
@@ -66,7 +66,7 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             );
             return defaultFormatSupplier.get();
         }
-        var type = (KNNVectorFieldMapper.KNNVectorFieldType) mapperService.orElseThrow(
+        var type = (KNNVectorFieldType) mapperService.orElseThrow(
             () -> new IllegalStateException(
                 String.format("Cannot read field type for field [%s] because mapper service is not available", field)
             )
@@ -117,6 +117,6 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     }
 
     private boolean isKnnVectorFieldType(final String field) {
-        return mapperService.isPresent() && mapperService.get().fieldType(field) instanceof KNNVectorFieldMapper.KNNVectorFieldType;
+        return mapperService.isPresent() && mapperService.get().fieldType(field) instanceof KNNVectorFieldType;
     }
 }

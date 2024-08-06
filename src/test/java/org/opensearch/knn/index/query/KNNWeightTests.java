@@ -38,14 +38,14 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNNCodecVersion;
 import org.opensearch.knn.index.codec.util.KNNVectorAsArraySerializer;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -350,7 +350,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
 
         final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
-        assertNull(knnScorer);
+        assertEquals(KNNScorer.emptyScorer(knnWeight), knnScorer);
     }
 
     @SneakyThrows
@@ -394,7 +394,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
 
         final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
-        assertNull(knnScorer);
+        assertEquals(KNNScorer.emptyScorer(knnWeight), knnScorer);
     }
 
     @SneakyThrows

@@ -54,7 +54,7 @@ class NativeEngineFieldVectorsWriter<T> extends KnnFieldVectorsWriter<T> {
         throw new IllegalStateException("Unsupported Vector encoding : " + fieldInfo.getVectorEncoding());
     }
 
-    NativeEngineFieldVectorsWriter(final FieldInfo fieldInfo, final InfoStream infoStream) {
+    private NativeEngineFieldVectorsWriter(final FieldInfo fieldInfo, final InfoStream infoStream) {
         this.fieldInfo = fieldInfo;
         this.infoStream = infoStream;
         vectors = new HashMap<>();

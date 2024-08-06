@@ -4,16 +4,36 @@ on:
     branches:
       - "*"
       - "feature/**"
+    paths:
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'src/**'
+      - 'build-tools/**'
+      - 'buildSrc/**'
+      - 'gradle/**'
+      - 'jni/**'
+      - 'qa/**'
+      - '.github/workflows/backwards_compatibility_tests_workflow.yml'
   pull_request:
     branches:
       - "*"
       - "feature/**"
+    paths:
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'src/**'
+      - 'build-tools/**'
+      - 'buildSrc/**'
+      - 'gradle/**'
+      - 'jni/**'
+      - 'qa/**'
+      - '.github/workflows/backwards_compatibility_tests_workflow.yml'
 
 jobs:
   Restart-Upgrade-BWCTests-k-NN:
     strategy:
       matrix:
-        java: [ 11, 17 ]
+        java: [ 21 ]
         os: [ubuntu-latest]
         bwc_version : [ "2.0.1", "2.1.0", "2.2.1", "2.3.0", "2.4.1", "2.5.0", "2.6.0", "2.7.0", "2.8.0", "2.9.0", "2.10.0", "2.11.0", "2.12.0", "2.13.0", "2.14.0", "2.15.0", "2.16.0-SNAPSHOT"]
         opensearch_version : [ "3.0.0-SNAPSHOT" ]
@@ -92,7 +112,7 @@ jobs:
   Rolling-Upgrade-BWCTests-k-NN:
     strategy:
       matrix:
-        java: [ 11, 17 ]
+        java: [ 21 ]
         os: [ubuntu-latest]
         bwc_version: [ "2.16.0-SNAPSHOT" ]
         opensearch_version: [ "3.0.0-SNAPSHOT" ]

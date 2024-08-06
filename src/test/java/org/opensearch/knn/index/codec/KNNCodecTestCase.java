@@ -19,12 +19,13 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.KNNMethodContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.MethodComponentContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.query.KNNQueryFactory;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.query.KNNQuery;
@@ -42,7 +43,7 @@ import org.apache.lucene.store.Directory;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.indices.ModelDao;
@@ -137,20 +138,19 @@ public class KNNCodecTestCase extends KNNTestCase {
         Document doc = new Document();
         doc.add(vectorField);
         writer.addDocument(doc);
-        writer.close();
+        // ensuring the refresh happens, to create the segment and hnsw file
+        writer.flush();
 
         /**
          * Add doc with field "my_vector"
          */
-        IndexWriterConfig iwc1 = newIndexWriterConfig();
-        iwc1.setMergeScheduler(new SerialMergeScheduler());
-        iwc1.setCodec(ACTUAL_CODEC);
-        writer = new RandomIndexWriter(random(), dir, iwc1);
         float[] array1 = { 6.0f, 14.0f };
         VectorField vectorField1 = new VectorField("my_vector", array1, sampleFieldType);
         Document doc1 = new Document();
         doc1.add(vectorField1);
         writer.addDocument(doc1);
+        // ensuring the refresh happens, to create the segment and hnsw file
+        writer.flush();
         IndexReader reader = writer.getReader();
         writer.close();
         ResourceWatcherService resourceWatcherService = createDisabledResourceWatcherService();
@@ -158,7 +158,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         List<String> hnswfiles = Arrays.stream(dir.listAll()).filter(x -> x.contains("hnsw")).collect(Collectors.toList());
 
         // there should be 2 hnsw index files created. one for test_vector and one for my_vector
-        assertEquals(hnswfiles.size(), 2);
+        assertEquals(2, hnswfiles.size());
         assertEquals(hnswfiles.stream().filter(x -> x.contains("test_vector")).collect(Collectors.toList()).size(), 1);
         assertEquals(hnswfiles.stream().filter(x -> x.contains("my_vector")).collect(Collectors.toList()).size(), 1);
 
@@ -309,18 +309,8 @@ public class KNNCodecTestCase extends KNNTestCase {
             SpaceType.L2,
             new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256))
         );
-        final KNNVectorFieldMapper.KNNVectorFieldType mappedFieldType1 = new KNNVectorFieldMapper.KNNVectorFieldType(
-            FIELD_NAME_ONE,
-            Map.of(),
-            3,
-            knnMethodContext
-        );
-        final KNNVectorFieldMapper.KNNVectorFieldType mappedFieldType2 = new KNNVectorFieldMapper.KNNVectorFieldType(
-            FIELD_NAME_TWO,
-            Map.of(),
-            2,
-            knnMethodContext
-        );
+        final KNNVectorFieldType mappedFieldType1 = new KNNVectorFieldType(FIELD_NAME_ONE, Map.of(), 3, knnMethodContext);
+        final KNNVectorFieldType mappedFieldType2 = new KNNVectorFieldType(FIELD_NAME_TWO, Map.of(), 2, knnMethodContext);
         when(mapperService.fieldType(eq(FIELD_NAME_ONE))).thenReturn(mappedFieldType1);
         when(mapperService.fieldType(eq(FIELD_NAME_TWO))).thenReturn(mappedFieldType2);
 

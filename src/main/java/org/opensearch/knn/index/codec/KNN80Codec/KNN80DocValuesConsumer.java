@@ -14,7 +14,7 @@ import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.knn.index.IndexUtil;
+import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.transfer.VectorTransfer;
@@ -23,7 +23,7 @@ import org.opensearch.knn.index.codec.transfer.VectorTransferFloat;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.Model;
 import org.opensearch.knn.indices.ModelCache;
 import org.opensearch.knn.plugin.stats.KNNCounter;
@@ -60,7 +60,7 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.calculateArraySize;
-import static org.opensearch.knn.index.util.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
+import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
 /**
  * This class writes the KNN docvalues to the segments

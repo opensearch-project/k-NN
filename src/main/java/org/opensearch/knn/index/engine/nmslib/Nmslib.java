@@ -1,0 +1,56 @@
+/*
+ * Copyright OpenSearch Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package org.opensearch.knn.index.engine.nmslib;
+
+import com.google.common.collect.ImmutableMap;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.KNNMethod;
+import org.opensearch.knn.index.engine.NativeLibrary;
+
+import java.util.Collections;
+import java.util.Map;
+import java.util.function.Function;
+
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
+
+/**
+ * Implements NativeLibrary for the nmslib native library
+ */
+public class Nmslib extends NativeLibrary {
+    // Extension to be used for Nmslib files. It is ".hnsw" and not ".nmslib" for legacy purposes.
+    public final static String EXTENSION = ".hnsw";
+    final static String CURRENT_VERSION = "2011";
+
+    final static Map<String, KNNMethod> METHODS = ImmutableMap.of(METHOD_HNSW, new NmslibHNSWMethod());
+
+    public final static Nmslib INSTANCE = new Nmslib(METHODS, Collections.emptyMap(), CURRENT_VERSION, EXTENSION);
+
+    /**
+     * Constructor for Nmslib
+     *
+     * @param methods Set of methods the native library supports
+     * @param scoreTranslation Map of translation of space type to scores returned by the library
+     * @param currentVersion String representation of current version of the library
+     * @param extension String representing the extension that library files should use
+     */
+    private Nmslib(
+        Map<String, KNNMethod> methods,
+        Map<SpaceType, Function<Float, Float>> scoreTranslation,
+        String currentVersion,
+        String extension
+    ) {
+        super(methods, scoreTranslation, currentVersion, extension);
+    }
+
+    @Override
+    public Float distanceToRadialThreshold(Float distance, SpaceType spaceType) {
+        return distance;
+    }
+
+    public Float scoreToRadialThreshold(Float score, SpaceType spaceType) {
+        return score;
+    }
+}

@@ -26,7 +26,7 @@ import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
-import org.opensearch.knn.index.util.KNNEngine;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.io.IOException;
@@ -57,7 +57,6 @@ public class NmslibIT extends KNNRestTestCase {
         String indexName = "test-index-1";
         String fieldName = "test-field-1";
         Integer dimension = testData.indexData.vectors[0].length;
-        KNNMethod hnswMethod = KNNEngine.NMSLIB.getMethod(KNNConstants.METHOD_HNSW);
         SpaceType spaceType = SpaceType.L1;
 
         // Create an index
@@ -68,7 +67,7 @@ public class NmslibIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.NMSLIB.getName())
             .startObject(KNNConstants.PARAMETERS)
@@ -126,8 +125,6 @@ public class NmslibIT extends KNNRestTestCase {
     public void testEndToEnd() throws Exception {
         String indexName = "test-index-1";
         String fieldName = "test-field-1";
-
-        KNNMethod hnswMethod = KNNEngine.NMSLIB.getMethod(KNNConstants.METHOD_HNSW);
         SpaceType spaceType = SpaceType.L1;
 
         List<Integer> mValues = ImmutableList.of(16, 32, 64, 128);
@@ -143,7 +140,7 @@ public class NmslibIT extends KNNRestTestCase {
             .field("type", "knn_vector")
             .field("dimension", dimension)
             .startObject(KNNConstants.KNN_METHOD)
-            .field(KNNConstants.NAME, hnswMethod.getMethodComponent().getName())
+            .field(KNNConstants.NAME, KNNConstants.METHOD_HNSW)
             .field(KNNConstants.METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
             .field(KNNConstants.KNN_ENGINE, KNNEngine.NMSLIB.getName())
             .startObject(KNNConstants.PARAMETERS)
