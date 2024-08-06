@@ -5,12 +5,15 @@
 
 package org.opensearch.knn.index.codec.util;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.core.common.Strings;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80BinaryDocValues;
 import org.opensearch.knn.index.codec.transfer.VectorTransfer;
 
@@ -111,8 +114,45 @@ public class KNNCodecUtil {
         return String.format("%s_", segmentName);
     }
 
+    /**
+     * Build a suffix of file name with provided field name and custom extension.
+     * In case where the given field name contains invalid characters for the file name, it will escape them to '.'.
+     * Note that, field name MUST NOT contain '.' in it.
+     * <p>
+     * Ex:
+     * With 'my_vector' as field name and '.hnswc' as an extension -> _0_2011_my_vector.hnswc
+     * With 'my vector' (blank) as field name and '.hnswc' as an extension -> _0_2011_my.vector.hnswc
+     * With 'my/vector' (it has '/') as field name and '.hnswc' as an extension -> _0_2011_my.vector.hnswc
+     *
+     * @param fieldName : Vector field name
+     * @param extension : File extension.
+     * @return File suffix containing a field name that escaped with invalid characters.
+     */
     public static String buildEngineFileSuffix(String fieldName, String extension) {
-        return String.format("_%s%s", fieldName, extension);
+        return String.format("_%s%s", escapeInvalidFileNameCharsInFieldName(fieldName), extension);
+    }
+
+    /**
+     * In case of compound file, extension would be {engine-extension} + 'c' otherwise just be {engine-extension}
+     * Ex: _0_2011_my_vector.hnswc, where engine-extension is 'hnsw'.
+     */
+    public static String buildCompoundFile(String extension, boolean isCompoundFile) {
+        if (isCompoundFile) {
+            return extension + KNNConstants.COMPOUND_EXTENSION;
+        } else {
+            return extension;
+        }
+    }
+
+    @VisibleForTesting
+    static String escapeInvalidFileNameCharsInFieldName(final String fieldName) {
+        char[] characters = fieldName.toCharArray();
+        for (int i = 0; i < characters.length; ++i) {
+            if (Strings.INVALID_FILENAME_CHARS.contains(characters[i])) {
+                characters[i] = '.';
+            }
+        }
+        return new String(characters);
     }
 
     public static long getTotalLiveDocsCount(final BinaryDocValues binaryDocValues) {

@@ -38,6 +38,7 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -1169,6 +1170,61 @@ public class KNNWeightTests extends KNNTestCase {
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
+    }
+
+    @SneakyThrows
+    public void testWhenFieldNameHasInvalidCharsForFileName() {
+        // Create a query
+        final String fieldNameHavingBlank = "target field";
+        final KNNQuery query = KNNQuery.builder()
+            .field(fieldNameHavingBlank)
+            .queryVector(QUERY_VECTOR)
+            .k(K)
+            .indexName(INDEX_NAME)
+            .methodParameters(HNSW_METHOD_PARAMETERS)
+            .build();
+
+        // Create KNN wieght.
+        final KNNWeight knnWeight = new KNNWeight(query, 1.0f);
+
+        // Prepare mock segment file
+        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+        final SegmentReader reader = mock(SegmentReader.class);
+        when(leafReaderContext.reader()).thenReturn(reader);
+
+        // Set up directory
+        final FSDirectory directory = mock(FSDirectory.class);
+        when(reader.directory()).thenReturn(directory);
+
+        // Set up segment info
+        final SegmentInfo segmentInfo = new SegmentInfo(
+            directory,
+            Version.LATEST,
+            Version.LATEST,
+            SEGMENT_NAME,
+            100,
+            true,
+            false,
+            KNNCodecVersion.current().getDefaultCodecDelegate(),
+            Map.of(),
+            new byte[StringHelper.ID_LENGTH],
+            Map.of(),
+            Sort.RELEVANCE
+        );
+
+        // Set up segment commit info
+        final String engineFile = KNNCodecUtil.buildEngineFileName("_0", "2011", fieldNameHavingBlank, ".faissc");
+        // Internally, Lucene removes the first '_' from its file name. Hence, expected returned file name would be without leading '_'.
+        final String expectedFileName = engineFile.substring(1);
+        final Set<String> segmentFiles = Set.of(engineFile);
+        segmentInfo.setFiles(segmentFiles);
+        final SegmentCommitInfo segmentCommitInfo = new SegmentCommitInfo(segmentInfo, 0, 0, 0, 0, 0, new byte[StringHelper.ID_LENGTH]);
+        when(reader.getSegmentInfo()).thenReturn(segmentCommitInfo);
+
+        // Test `getEngineFiles`
+        List<String> engineFiles = knnWeight.getEngineFiles(reader, KNNEngine.FAISS.getExtension());
+        assertFalse(engineFiles.isEmpty());
+        assertEquals(engineFiles.get(0), expectedFileName);
     }
 
     private SegmentReader getMockedSegmentReader() {

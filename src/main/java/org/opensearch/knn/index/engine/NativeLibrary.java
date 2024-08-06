@@ -6,8 +6,8 @@
 package org.opensearch.knn.index.engine;
 
 import lombok.Getter;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 
 import java.util.Map;
 import java.util.Objects;
@@ -46,7 +46,7 @@ public abstract class NativeLibrary extends AbstractKNNLibrary {
 
     @Override
     public String getCompoundExtension() {
-        return getExtension() + KNNConstants.COMPOUND_EXTENSION;
+        return KNNCodecUtil.buildCompoundFile(getExtension(), true);
     }
 
     @Override

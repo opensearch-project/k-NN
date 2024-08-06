@@ -52,4 +52,27 @@ public class KNNCodecUtilTests extends TestCase {
         assertEquals(dimension, pair.getDimension());
         assertEquals(SerializationMode.COLLECTIONS_OF_BYTES, pair.serializationMode);
     }
+
+    public void testBuildEngineFileSuffix() {
+        // With a normal field name.
+        assertEquals("_field_name_foo.ext", KNNCodecUtil.buildEngineFileSuffix("field_name_foo", ".ext"));
+
+        // When invalid characters for a filename are included in field name,
+        // we should make them escape with '.'.
+        assertEquals("_field.name.foo.ext", KNNCodecUtil.buildEngineFileSuffix("field\\name\\foo", ".ext"));
+        assertEquals("_field.name.foo.ext", KNNCodecUtil.buildEngineFileSuffix("field/name/foo", ".ext"));
+        assertEquals("_field.name.foo.ext", KNNCodecUtil.buildEngineFileSuffix("field*name*foo", ".ext"));
+        assertEquals("_field.name.foo.ext", KNNCodecUtil.buildEngineFileSuffix("field?name?foo", ".ext"));
+        assertEquals("_field.name.foo.ext", KNNCodecUtil.buildEngineFileSuffix("field\"name\"foo", ".ext"));
+        assertEquals("_field.name.foo.ext", KNNCodecUtil.buildEngineFileSuffix("field<name<foo", ".ext"));
+        assertEquals("_field.name.foo.ext", KNNCodecUtil.buildEngineFileSuffix("field>name>foo", ".ext"));
+        assertEquals("_field.name.foo.ext", KNNCodecUtil.buildEngineFileSuffix("field|name|foo", ".ext"));
+        assertEquals("_field.name.foo.ext", KNNCodecUtil.buildEngineFileSuffix("field name foo", ".ext"));
+        assertEquals("_field.name.foo.ext", KNNCodecUtil.buildEngineFileSuffix("field,name,foo", ".ext"));
+    }
+
+    public void testCompoundEngileFile() {
+        assertEquals("filename.extc", KNNCodecUtil.buildCompoundFile("filename.ext", true));
+        assertEquals("filename.ext", KNNCodecUtil.buildCompoundFile("filename.ext", false));
+    }
 }

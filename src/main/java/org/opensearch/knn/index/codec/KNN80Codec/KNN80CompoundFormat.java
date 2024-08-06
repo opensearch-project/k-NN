@@ -6,12 +6,12 @@
 package org.opensearch.knn.index.codec.KNN80Codec;
 
 import org.apache.lucene.backward_codecs.lucene50.Lucene50CompoundFormat;
-import org.opensearch.knn.common.KNNConstants;
 import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
+import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
@@ -63,7 +63,7 @@ public class KNN80CompoundFormat extends CompoundFormat {
 
         if (!engineFiles.isEmpty()) {
             for (String engineFile : engineFiles) {
-                String engineCompoundFile = engineFile + KNNConstants.COMPOUND_EXTENSION;
+                String engineCompoundFile = KNNCodecUtil.buildCompoundFile(engineFile, true);
                 dir.copyFrom(dir, engineFile, engineCompoundFile, context);
             }
             segmentFiles.removeAll(engineFiles);

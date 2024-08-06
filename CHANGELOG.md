@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Bug Fixes
 * Corrected search logic for scenario with non-existent fields in filter [#1874](https://github.com/opensearch-project/k-NN/pull/1874)
 * Add script_fields context to KNNAllowlist [#1917] (https://github.com/opensearch-project/k-NN/pull/1917)
+* Fix KNN module to avoid invalid characters to be included as a part of file name. [#1934] (https://github.com/opensearch-project/k-NN/pull/1934)
 ### Infrastructure
 ### Documentation
 ### Maintenance

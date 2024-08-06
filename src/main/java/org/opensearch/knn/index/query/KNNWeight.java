@@ -33,6 +33,7 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
@@ -339,14 +340,9 @@ public class KNNWeight extends Weight {
 
     @VisibleForTesting
     List<String> getEngineFiles(SegmentReader reader, String extension) throws IOException {
-        /*
-         * In case of compound file, extension would be <engine-extension> + c otherwise <engine-extension>
-         */
-        String engineExtension = reader.getSegmentInfo().info.getUseCompoundFile()
-            ? extension + KNNConstants.COMPOUND_EXTENSION
-            : extension;
-        String engineSuffix = knnQuery.getField() + engineExtension;
-        String underLineEngineSuffix = "_" + engineSuffix;
+        final String engineExtension = KNNCodecUtil.buildCompoundFile(extension, reader.getSegmentInfo().info.getUseCompoundFile());
+        final String underLineEngineSuffix = KNNCodecUtil.buildEngineFileSuffix(knnQuery.getField(), engineExtension);
+
         List<String> engineFiles = reader.getSegmentInfo()
             .files()
             .stream()
