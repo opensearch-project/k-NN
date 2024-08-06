@@ -23,6 +23,7 @@
 #include <vector>
 #include <memory>
 #include <type_traits>
+#include <iostream>
 
 namespace knn_jni {
 namespace faiss_wrapper {
@@ -58,20 +59,22 @@ void SetExtraParameters(knn_jni::JNIUtilInterface * jniUtil, JNIEnv *env,
 IndexService::IndexService(std::unique_ptr<FaissMethods> faissMethods) : faissMethods(std::move(faissMethods)) {}
 
 void IndexService::allocIndex(faiss::Index * index, size_t dim, size_t numVectors) {
-    if(auto * indexHNSWFlat = dynamic_cast<faiss::IndexHNSWFlat *>(index)) {
-        auto * indexFlatCodes = dynamic_cast<faiss::IndexFlatCodes *>(indexHNSWFlat->storage);
-        indexFlatCodes->codes.reserve(dim * numVectors * 4);
-        return;
-    }
     if(auto * indexHNSWSQ = dynamic_cast<faiss::IndexHNSWSQ *>(index)) {
-        auto * indexFlatCodes = dynamic_cast<faiss::IndexFlatCodes *>(indexHNSWSQ->storage);
+        std::cout << "HNSWSQ" << std::endl;
+        auto * indexFlatCodes = dynamic_cast<faiss::IndexFlat *>(indexHNSWSQ->storage);
         indexFlatCodes->codes.reserve(dim * numVectors * 2);
         return;
     }
-    if(auto * indexFlat = dynamic_cast<faiss::IndexFlat *>(index)) {
-        indexFlat->codes.reserve(dim * numVectors * 4);
+    if(auto * indexHNSW = dynamic_cast<faiss::IndexHNSW *>(index)) {
+        std::cout << "HNSWFlat" << std::endl;
+        if(auto * indexFlatCodes = dynamic_cast<faiss::IndexFlatL2 *>(indexHNSW->storage)) {
+            indexFlatCodes->codes.reserve(dim * numVectors * 4);
+        } else if(auto * indexFlatCodes = dynamic_cast<faiss::IndexFlatIP *>(indexHNSW->storage)) {
+            indexFlatCodes->codes.reserve(dim * numVectors * 4);
+        }
         return;
     }
+    std::cout << "None" << std::endl;
 }
 
 jlong IndexService::initIndex(
@@ -102,7 +105,7 @@ jlong IndexService::initIndex(
 
     std::unique_ptr<faiss::IndexIDMap> idMap (faissMethods->indexIdMap(indexWriter.get()));
 
-    allocIndex(dynamic_cast<faiss::Index *>(idMap.get()), dim, numVectors);
+    allocIndex(dynamic_cast<faiss::Index *>(idMap->index), dim, numVectors);
     indexWriter.release();
     return reinterpret_cast<jlong>(idMap.release());
 }
@@ -198,7 +201,7 @@ jlong BinaryIndexService::initIndex(
 
     std::unique_ptr<faiss::IndexBinaryIDMap> idMap(faissMethods->indexBinaryIdMap(indexWriter.get()));
 
-    allocIndex(dynamic_cast<faiss::Index *>(idMap.get()), dim, numVectors);
+    allocIndex(dynamic_cast<faiss::Index *>(idMap->index), dim, numVectors);
     indexWriter.release();
     return reinterpret_cast<jlong>(idMap.release());
 }
