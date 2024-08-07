@@ -60,8 +60,10 @@ IndexService::IndexService(std::unique_ptr<FaissMethods> faissMethods) : faissMe
 
 void IndexService::allocIndex(faiss::Index * index, size_t dim, size_t numVectors) {
     if(auto * indexHNSWSQ = dynamic_cast<faiss::IndexHNSWSQ *>(index)) {
-        if(auto * indexFlat = dynamic_cast<faiss::IndexFlat *>(indexHNSWSQ->storage)) {
+        std::cout << "Allocating SQ index" << std::endl;
+        if(auto * indexFlat = dynamic_cast<faiss::IndexScalarQuantizer *>(indexHNSWSQ->storage)) {
             indexFlat->codes.reserve(dim * numVectors * 2);
+            std::cout << "Allocated SQ index" << std::endl;
         }
         return;
     }
