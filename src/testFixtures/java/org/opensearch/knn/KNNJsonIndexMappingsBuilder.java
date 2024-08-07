@@ -102,9 +102,17 @@ public class KNNJsonIndexMappingsBuilder {
         @Builder
         public static class Parameters {
             private Encoder encoder;
+            private Integer efConstruction;
+            private Integer efSearch;
 
             private void addTo(final XContentBuilder xContentBuilder) throws IOException {
                 xContentBuilder.startObject("parameters");
+                if (efConstruction != null) {
+                    xContentBuilder.field("ef_construction", efConstruction);
+                }
+                if (efSearch != null) {
+                    xContentBuilder.field("ef_search", efSearch);
+                }
                 addEncoder(xContentBuilder);
                 xContentBuilder.endObject();
             }
