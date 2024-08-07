@@ -14,6 +14,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
@@ -23,6 +25,7 @@ import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.ValidationException;
 import org.opensearch.common.xcontent.support.XContentMapValues;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.core.xcontent.XContentParser;
@@ -212,6 +215,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         @Override
         public KNNVectorFieldMapper build(BuilderContext context) {
+            validateFullFieldName(context);
+
             // Originally, a user would use index settings to set the spaceType, efConstruction and m hnsw
             // parameters. Upon further review, it makes sense to set these parameters in the mapping of a
             // particular field. However, because users migrating from older versions will still use the index
@@ -415,6 +420,32 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 throw new IllegalArgumentException("Dimension should be multiply of 8 for binary vector data type");
             }
             return knnEngine;
+        }
+
+        /**
+         * Validate whether provided full field name contain any invalid characters for physical file name.
+         * At the moment, we use a field name as a part of file name while we throw an exception
+         * if a physical file name contains any invalid characters when creating snapshot.
+         * To prevent from this happening, we restrict vector field name and make sure generated file to have a valid name.
+         *
+         * @param context : Builder context to have field name info.
+         */
+        private void validateFullFieldName(final BuilderContext context) {
+            final String fullFieldName = buildFullName(context);
+            for (char ch : fullFieldName.toCharArray()) {
+                if (Strings.INVALID_FILENAME_CHARS.contains(ch)) {
+                    throw new IllegalArgumentException(
+                        String.format(
+                            Locale.ROOT,
+                            "Vector field name must not include invalid characters of %s. "
+                                + "Provided field name=[%s] had a disallowed character [%c]",
+                            Strings.INVALID_FILENAME_CHARS.stream().map(c -> "'" + c + "'").collect(Collectors.toList()),
+                            fullFieldName,
+                            ch
+                        )
+                    );
+                }
+            }
         }
     }
 
