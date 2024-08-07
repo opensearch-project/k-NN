@@ -64,8 +64,6 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
         // if attributes contains KNN_FIELD bug do not contain KNN_ENGINE,
         // this could be Lucene Engine or Train Model. using delegate
         KNNEngine knnEngine = getKNNEngine(field);
-        System.out.println("ENGINE:" + knnEngine.getName());
-        System.out.println("FIELD:" + field.getName());
         switch (knnEngine) {
             case FAISS:
             case NMSLIB:
