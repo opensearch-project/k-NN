@@ -61,16 +61,19 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
 
     public void testGetExpectedVectorLengthSuccess() {
         KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldType.class);
-        when(knnVectorFieldType.getDimension()).thenReturn(3);
-
+        when(knnVectorFieldType.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 3));
         KNNVectorFieldType knnVectorFieldTypeBinary = mock(KNNVectorFieldType.class);
-        when(knnVectorFieldTypeBinary.getDimension()).thenReturn(8);
+        when(knnVectorFieldTypeBinary.getKnnMappingConfig()).thenReturn(
+            getMappingConfigForMethodMapping(getDefaultBinaryKNNMethodContext(), 8)
+        );
         when(knnVectorFieldTypeBinary.getVectorDataType()).thenReturn(VectorDataType.BINARY);
 
         KNNVectorFieldType knnVectorFieldTypeModelBased = mock(KNNVectorFieldType.class);
-        when(knnVectorFieldTypeModelBased.getDimension()).thenReturn(-1);
+        when(knnVectorFieldTypeModelBased.getKnnMappingConfig()).thenReturn(
+            getMappingConfigForMethodMapping(getDefaultBinaryKNNMethodContext(), 8)
+        );
         String modelId = "test-model";
-        when(knnVectorFieldTypeModelBased.getModelId()).thenReturn(modelId);
+        when(knnVectorFieldTypeModelBased.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId));
 
         ModelDao modelDao = mock(ModelDao.class);
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
@@ -87,9 +90,8 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
 
     public void testGetExpectedVectorLengthFailure() {
         KNNVectorFieldType knnVectorFieldTypeModelBased = mock(KNNVectorFieldType.class);
-        when(knnVectorFieldTypeModelBased.getDimension()).thenReturn(-1);
         String modelId = "test-model";
-        when(knnVectorFieldTypeModelBased.getModelId()).thenReturn(modelId);
+        when(knnVectorFieldTypeModelBased.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId));
 
         ModelDao modelDao = mock(ModelDao.class);
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
@@ -103,20 +105,6 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
             () -> KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeModelBased)
         );
         assertEquals(String.format("Model ID '%s' is not created.", modelId), e.getMessage());
-
-        when(knnVectorFieldTypeModelBased.getModelId()).thenReturn(null);
-        KNNMethodContext knnMethodContext = mock(KNNMethodContext.class);
-        MethodComponentContext methodComponentContext = mock(MethodComponentContext.class);
-        String fieldName = "test-field";
-        when(methodComponentContext.getName()).thenReturn(fieldName);
-        when(knnMethodContext.getMethodComponentContext()).thenReturn(methodComponentContext);
-        when(knnVectorFieldTypeModelBased.getKnnMethodContext()).thenReturn(knnMethodContext);
-
-        e = expectThrows(
-            IllegalArgumentException.class,
-            () -> KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeModelBased)
-        );
-        assertEquals(String.format("Field '%s' does not have model.", fieldName), e.getMessage());
     }
 
     public void testValidateVectorDataType_whenBinaryFaissHNSW_thenValid() {

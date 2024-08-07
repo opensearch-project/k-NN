@@ -21,7 +21,6 @@ import org.opensearch.knn.index.codec.transfer.VectorTransfer;
 import org.opensearch.knn.index.codec.transfer.VectorTransferByte;
 import org.opensearch.knn.index.codec.transfer.VectorTransferFloat;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.Model;
@@ -57,7 +56,6 @@ import java.util.Map;
 
 import static org.apache.lucene.codecs.CodecUtil.FOOTER_MAGIC;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
-import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.calculateArraySize;
 import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
@@ -214,35 +212,21 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
 
     private void createKNNIndexFromScratch(FieldInfo fieldInfo, KNNCodecUtil.Pair pair, KNNEngine knnEngine, String indexPath)
         throws IOException {
-        Map<String, Object> parameters = new HashMap<>();
         Map<String, String> fieldAttributes = fieldInfo.attributes();
         String parametersString = fieldAttributes.get(KNNConstants.PARAMETERS);
-
-        // parametersString will be null when legacy mapper is used
         if (parametersString == null) {
-            parameters.put(KNNConstants.SPACE_TYPE, fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue()));
-
-            String efConstruction = fieldAttributes.get(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION);
-            Map<String, Object> algoParams = new HashMap<>();
-            if (efConstruction != null) {
-                algoParams.put(KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION, Integer.parseInt(efConstruction));
-            }
-
-            String m = fieldAttributes.get(KNNConstants.HNSW_ALGO_M);
-            if (m != null) {
-                algoParams.put(KNNConstants.METHOD_PARAMETER_M, Integer.parseInt(m));
-            }
-            parameters.put(PARAMETERS, algoParams);
-        } else {
-            parameters.putAll(
-                XContentHelper.createParser(
-                    NamedXContentRegistry.EMPTY,
-                    DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
-                    new BytesArray(parametersString),
-                    MediaTypeRegistry.getDefaultMediaType()
-                ).map()
+            throw new IllegalStateException(
+                "Parameter string is not set when creating a KNN index. We should not enter this state. It is likely a bug with respect to removal of Legacy field mapper."
             );
         }
+        Map<String, Object> parameters = new HashMap<>(
+            XContentHelper.createParser(
+                NamedXContentRegistry.EMPTY,
+                DeprecationHandler.THROW_UNSUPPORTED_OPERATION,
+                new BytesArray(parametersString),
+                MediaTypeRegistry.getDefaultMediaType()
+            ).map()
+        );
 
         // Update index description of Faiss for binary data type
         if (KNNEngine.FAISS == knnEngine

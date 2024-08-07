@@ -7,12 +7,18 @@ package org.opensearch.knn;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.Version;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.core.common.bytes.BytesReference;
@@ -20,12 +26,15 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentHelper;
 import org.opensearch.test.OpenSearchTestCase;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 
 /**
  * Base class for integration tests for KNN plugin. Contains several methods for testing KNN ES functionality.
@@ -90,5 +99,52 @@ public class KNNTestCase extends OpenSearchTestCase {
 
     public Map<String, Object> xContentBuilderToMap(XContentBuilder xContentBuilder) {
         return XContentHelper.convertToMap(BytesReference.bytes(xContentBuilder), true, xContentBuilder.contentType()).v2();
+    }
+
+    public static KNNMethodContext getDefaultKNNMethodContext() {
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
+        KNNMethodContext defaultInstance = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponentContext);
+        methodComponentContext.setIndexVersion(Version.CURRENT);
+        return defaultInstance;
+    }
+
+    public static KNNMethodContext getDefaultBinaryKNNMethodContext() {
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
+        KNNMethodContext defaultInstance = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT_BINARY, methodComponentContext);
+        methodComponentContext.setIndexVersion(Version.CURRENT);
+        return defaultInstance;
+    }
+
+    public static KNNMappingConfig getMappingConfigForMethodMapping(KNNMethodContext knnMethodContext, int dimension) {
+        return new KNNMappingConfig() {
+            @Override
+            public Optional<KNNMethodContext> getKnnMethodContext() {
+                return Optional.of(knnMethodContext);
+            }
+
+            @Override
+            public Optional<Integer> getDimension() {
+                return Optional.of(dimension);
+            }
+        };
+    }
+
+    public static KNNMappingConfig getMappingConfigForFlatMapping(int dimension) {
+
+        return new KNNMappingConfig() {
+            @Override
+            public Optional<Integer> getDimension() {
+                return Optional.of(dimension);
+            }
+        };
+    }
+
+    public static KNNMappingConfig getMappingConfigForModelMapping(String modelId) {
+        return new KNNMappingConfig() {
+            @Override
+            public Optional<String> getModelId() {
+                return Optional.of(modelId);
+            }
+        };
     }
 }
