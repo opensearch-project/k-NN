@@ -72,8 +72,12 @@ public class KNNCodecUtil {
     public static long calculateArraySize(int numVectors, int vectorLength, VectorDataType vectorDataType) {
         if (vectorDataType == VectorDataType.FLOAT) {
             return numVectors * vectorLength * FLOAT_BYTE_SIZE;
-        } else {
+        } else if (vectorDataType == VectorDataType.BINARY || vectorDataType == VectorDataType.BYTE) {
             return numVectors * vectorLength;
+        } else {
+            throw new IllegalArgumentException(
+                "Float, binary, and byte are the only supported vector data types for array size calculation."
+            );
         }
     }
 
