@@ -416,13 +416,11 @@ public class IndexUtil {
     /**
      * Tell if it is byte index or not
      *
-     * @param knnEngine knn engine associated with an index
      * @param parameters parameters associated with an index
      * @return true if it is binary index
      */
-    public static boolean isByteIndex(KNNEngine knnEngine, Map<String, Object> parameters) {
-        return KNNEngine.FAISS == knnEngine
-            && parameters.get(VECTOR_DATA_TYPE_FIELD) != null
+    public static boolean isByteIndex(Map<String, Object> parameters) {
+        return parameters.get(VECTOR_DATA_TYPE_FIELD) != null
             && parameters.get(VECTOR_DATA_TYPE_FIELD).toString().equals(VectorDataType.BYTE.getValue());
     }
 }

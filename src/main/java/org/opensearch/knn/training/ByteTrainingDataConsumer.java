@@ -39,7 +39,7 @@ public class ByteTrainingDataConsumer extends TrainingDataConsumer {
     @Override
     public void accept(List<?> byteVectors) {
         long memoryAddress = trainingDataAllocation.getMemoryAddress();
-        memoryAddress = JNICommons.storeByteVectorData(memoryAddress, byteVectors.toArray(new byte[0][0]), byteVectors.size());
+        memoryAddress = JNICommons.storeBinaryVectorData(memoryAddress, byteVectors.toArray(new byte[0][0]), byteVectors.size());
         trainingDataAllocation.setMemoryAddress(memoryAddress);
     }
 

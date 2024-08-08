@@ -116,7 +116,7 @@ public class NativeMemoryAllocationTests extends KNNTestCase {
             KNNConstants.VECTOR_DATA_TYPE_FIELD,
             VectorDataType.BINARY.getValue()
         );
-        long vectorMemoryAddress = JNICommons.storeByteVectorData(0, vectors, numVectors * dataLength);
+        long vectorMemoryAddress = JNICommons.storeBinaryVectorData(0, vectors, numVectors * dataLength);
         JNIService.createIndex(ids, vectorMemoryAddress, dimension, path, parameters, knnEngine);
 
         // Load index into memory

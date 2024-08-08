@@ -261,7 +261,7 @@ void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToFloatVector(JNIEnv *env
     env->DeleteLocalRef(array2dJ);
 }
 
-void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToByteVector(JNIEnv *env, jobjectArray array2dJ,
+void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToBinaryVector(JNIEnv *env, jobjectArray array2dJ,
                                                                      int dim, std::vector<uint8_t> *vect) {
 
     if (array2dJ == nullptr) {
@@ -294,7 +294,7 @@ void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToByteVector(JNIEnv *env,
     env->DeleteLocalRef(array2dJ);
 }
 
-void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToSignedByteVector(JNIEnv *env, jobjectArray array2dJ,
+void knn_jni::JNIUtil::Convert2dJavaObjectArrayAndStoreToByteVector(JNIEnv *env, jobjectArray array2dJ,
                                                                      int dim, std::vector<int8_t> *vect) {
 
     if (array2dJ == nullptr) {

@@ -34,11 +34,11 @@ namespace knn_jni {
          * will throw Exception.
          *
          * @param memoryAddress The address of the memory location where data will be stored.
-         * @param data 2D byte array containing data to be stored in native memory.
+         * @param data 2D byte array containing binary data to be stored in native memory.
          * @param initialCapacity The initial capacity of the memory location.
          * @return memory address of std::vector<uint8_t> where the data is stored.
          */
-        jlong storeByteVectorData(knn_jni::JNIUtilInterface *, JNIEnv *, jlong , jobjectArray, jlong);
+        jlong storeBinaryVectorData(knn_jni::JNIUtilInterface *, JNIEnv *, jlong , jobjectArray, jlong);
 
         /**
          * Free up the memory allocated for the data stored in memory address. This function should be used with the memory
@@ -56,19 +56,11 @@ namespace knn_jni {
         * will throw Exception.
         *
         * @param memoryAddress The address of the memory location where data will be stored.
-        * @param data 2D byte array containing data to be stored in native memory.
+        * @param data 2D byte array containing int8 data to be stored in native memory.
         * @param initialCapacity The initial capacity of the memory location.
         * @return memory address of std::vector<int8_t> where the data is stored.
         */
-        jlong storeSignedByteVectorData(knn_jni::JNIUtilInterface *, JNIEnv *, jlong , jobjectArray, jlong);
-
-        /**
-         * Free up the memory allocated for the data stored in memory address. This function should be used with the memory
-         * address returned by {@link JNICommons#storeByteVectorData(long, byte[][], long, long)}
-         *
-         * @param memoryAddress address to be freed.
-         */
-        void freeSignedByteVectorData(jlong);
+        jlong storeByteVectorData(knn_jni::JNIUtilInterface *, JNIEnv *, jlong , jobjectArray, jlong);
 
         /**
          * Free up the memory allocated for the data stored in memory address. This function should be used with the memory
@@ -77,6 +69,14 @@ namespace knn_jni {
          * @param memoryAddress address to be freed.
          */
         void freeByteVectorData(jlong);
+
+        /**
+         * Free up the memory allocated for the data stored in memory address. This function should be used with the memory
+         * address returned by {@link JNICommons#storeBinaryVectorData(long, byte[][], long, long)}
+         *
+         * @param memoryAddress address to be freed.
+         */
+        void freeBinaryVectorData(jlong);
 
         /**
          * Extracts query time efSearch from method parameters

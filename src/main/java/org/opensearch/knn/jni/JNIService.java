@@ -53,7 +53,7 @@ public class JNIService {
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
                 FaissService.createBinaryIndex(ids, vectorsAddress, dim, indexPath, parameters);
-            } else if (IndexUtil.isByteIndex(knnEngine, parameters)) {
+            } else if (IndexUtil.isByteIndex(parameters)) {
                 FaissService.createByteIndex(ids, vectorsAddress, dim, indexPath, parameters);
             } else {
                 FaissService.createIndex(ids, vectorsAddress, dim, indexPath, parameters);

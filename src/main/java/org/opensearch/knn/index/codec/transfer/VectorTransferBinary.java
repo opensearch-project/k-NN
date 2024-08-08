@@ -62,7 +62,11 @@ public class VectorTransferBinary extends VectorTransfer {
 
     private void transfer() {
         int lengthOfVector = dimension / 8;
-        vectorAddress = JNICommons.storeByteVectorData(vectorAddress, vectorList.toArray(new byte[][] {}), totalLiveDocs * lengthOfVector);
+        vectorAddress = JNICommons.storeBinaryVectorData(
+            vectorAddress,
+            vectorList.toArray(new byte[][] {}),
+            totalLiveDocs * lengthOfVector
+        );
         vectorList.clear();
     }
 }

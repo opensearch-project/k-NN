@@ -103,7 +103,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
             KNNConstants.VECTOR_DATA_TYPE_FIELD,
             VectorDataType.BINARY.getValue()
         );
-        long memoryAddress = JNICommons.storeByteVectorData(0, vectors, numVectors);
+        long memoryAddress = JNICommons.storeBinaryVectorData(0, vectors, numVectors);
         JNIService.createIndex(ids, memoryAddress, dimension, path, parameters, knnEngine);
 
         // Setup mock resource manager

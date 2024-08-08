@@ -51,13 +51,13 @@ test_util::MockJNIUtil::MockJNIUtil() {
                         (*reinterpret_cast<std::vector<std::vector<float>> *>(array2dJ)))
                     for (auto item : v) data->push_back(item);
             });
-    ON_CALL(*this, Convert2dJavaObjectArrayAndStoreToByteVector)
+    ON_CALL(*this, Convert2dJavaObjectArrayAndStoreToBinaryVector)
             .WillByDefault([this](JNIEnv *env, jobjectArray array2dJ, int dim, std::vector<uint8_t>* data) {
                 for (const auto &v :
                         (*reinterpret_cast<std::vector<std::vector<uint8_t>> *>(array2dJ)))
                     for (auto item : v) data->push_back(item);
             });
-    ON_CALL(*this, Convert2dJavaObjectArrayAndStoreToSignedByteVector)
+    ON_CALL(*this, Convert2dJavaObjectArrayAndStoreToByteVector)
                 .WillByDefault([this](JNIEnv *env, jobjectArray array2dJ, int dim, std::vector<int8_t>* data) {
                     for (const auto &v :
                             (*reinterpret_cast<std::vector<std::vector<int8_t>> *>(array2dJ)))

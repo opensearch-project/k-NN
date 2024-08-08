@@ -140,14 +140,14 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                 throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
             }
             VectorDataType vectorDataType = model.getModelMetadata().getVectorDataType();
-            pair = KNNCodecUtil.getPair(values, getVectorTransfer(vectorDataType, knnEngine));
+            pair = KNNCodecUtil.getPair(values, getVectorTransfer(vectorDataType));
             indexCreator = () -> createKNNIndexFromTemplate(model, pair, knnEngine, indexPath);
         } else {
             // get vector data type from field attributes or provide default value
             VectorDataType vectorDataType = VectorDataType.get(
                 fieldAttributes.getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
             );
-            pair = KNNCodecUtil.getPair(values, getVectorTransfer(vectorDataType, knnEngine));
+            pair = KNNCodecUtil.getPair(values, getVectorTransfer(vectorDataType));
             indexCreator = () -> createKNNIndexFromScratch(field, pair, knnEngine, indexPath);
         }
 
@@ -360,16 +360,13 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         return (value & CRC32_CHECKSUM_SANITY) != 0;
     }
 
-    private VectorTransfer getVectorTransfer(VectorDataType vectorDataType, KNNEngine knnEngine) {
+    private VectorTransfer getVectorTransfer(VectorDataType vectorDataType) {
         long memoryLimit = KNNSettings.getVectorStreamingMemoryLimit().getBytes();
         switch (vectorDataType) {
             case BINARY:
                 return new VectorTransferBinary(memoryLimit);
             case BYTE:
-                if (KNNEngine.FAISS == knnEngine) {
-                    return new VectorTransferByte(memoryLimit);
-                }
-                return new VectorTransferFloat(memoryLimit);
+                return new VectorTransferByte(memoryLimit);
             default:
                 return new VectorTransferFloat(memoryLimit);
         }
