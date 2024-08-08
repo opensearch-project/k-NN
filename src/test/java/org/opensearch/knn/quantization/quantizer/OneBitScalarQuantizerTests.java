@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.quantization.quantizer;
 
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationOutput.BinaryQuantizationOutput;
@@ -17,8 +18,6 @@ import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
 
 import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
 import java.util.BitSet;
 
 public class OneBitScalarQuantizerTests extends KNNTestCase {
@@ -83,13 +82,8 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
             }
 
             @Override
-            public void writeExternal(ObjectOutput out) throws IOException {
-                // no-op
-            }
-
-            @Override
-            public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-                // no-op
+            public void writeTo(StreamOutput out) throws IOException {
+                // Empty implementation for test
             }
         };
         BinaryQuantizationOutput output = new BinaryQuantizationOutput();

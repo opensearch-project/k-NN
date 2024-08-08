@@ -102,21 +102,7 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
         if (thresholds == null || thresholds[0].length != vector.length) {
             throw new IllegalArgumentException("Thresholds must not be null and must match the dimension of the vector.");
         }
-        // Directly pack bits without intermediate array
-        int totalBits = bitsPerCoordinate * vector.length;
-        int byteLength = (totalBits + 7) >> 3; // Calculate byte length needed
-        byte[] packedBits = new byte[byteLength];
-        for (int i = 0; i < bitsPerCoordinate; i++) {
-            for (int j = 0; j < vector.length; j++) {
-                if (vector[j] > thresholds[i][j]) {
-                    int bitPosition = i * vector.length + j;
-                    int byteIndex = bitPosition >> 3; // Equivalent to bitPosition / 8
-                    int bitIndex = 7 - (bitPosition & 7); // Equivalent to 7 - (bitPosition % 8)
-                    packedBits[byteIndex] |= (1 << bitIndex); // Set the bit
-                }
-            }
-        }
-
+        byte[] packedBits = BitPacker.packBits(vector, thresholds, bitsPerCoordinate);
         output.updateQuantizedVector(packedBits);
     }
 

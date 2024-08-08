@@ -5,11 +5,8 @@
 
 package org.opensearch.knn.quantization.models.quantizationOutput;
 
-import lombok.NoArgsConstructor;
 import lombok.Getter;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import lombok.NoArgsConstructor;
 
 /**
  * The BinaryQuantizationOutput class represents the output of a quantization process in binary format.
@@ -18,23 +15,27 @@ import java.io.IOException;
 @NoArgsConstructor
 public class BinaryQuantizationOutput implements QuantizationOutput<byte[]> {
     @Getter
-    private final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+    private byte[] quantizedVector;
 
     /**
      * Updates the quantized vector with a new byte array.
      *
      * @param newQuantizedVector the new quantized vector represented as a byte array.
      */
-    public void updateQuantizedVector(final byte[] newQuantizedVector) throws IOException {
+    public void updateQuantizedVector(final byte[] newQuantizedVector) {
         if (newQuantizedVector == null || newQuantizedVector.length == 0) {
             throw new IllegalArgumentException("Quantized vector cannot be null or empty");
         }
-        byteArrayOutputStream.reset();
-        byteArrayOutputStream.write(newQuantizedVector);
+        this.quantizedVector = newQuantizedVector;
     }
 
+    /**
+     * Returns the quantized vector.
+     *
+     * @return the quantized vector byte array.
+     */
     @Override
     public byte[] getQuantizedVector() {
-        return byteArrayOutputStream.toByteArray();
+        return quantizedVector;
     }
 }

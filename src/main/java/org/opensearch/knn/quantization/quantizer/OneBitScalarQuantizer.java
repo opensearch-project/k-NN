@@ -85,18 +85,8 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
         if (thresholds == null || thresholds.length != vector.length) {
             throw new IllegalArgumentException("Thresholds must not be null and must match the dimension of the vector.");
         }
-        // Directly pack bits without intermediate array
-        int byteLength = (vector.length + 7) >> 3; // Calculate byte length needed
-        byte[] packedBits = new byte[byteLength];
-
-        for (int i = 0; i < vector.length; i++) {
-            if (vector[i] > thresholds[i]) {
-                int byteIndex = i >> 3; // Equivalent to i / 8
-                int bitIndex = 7 - (i & 7); // Equivalent to 7 - (i % 8)
-                packedBits[byteIndex] |= (1 << bitIndex); // Set the bit
-            }
-        }
-
+        // Use BitPackingUtil to pack bits for one-bit quantization
+        byte[] packedBits = BitPacker.packBits(vector, thresholds);
         output.updateQuantizedVector(packedBits);
     }
 

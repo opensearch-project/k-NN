@@ -9,12 +9,11 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.opensearch.Version;
+import org.opensearch.core.common.io.stream.StreamInput;
+import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
-import org.opensearch.knn.quantization.util.VersionContext;
 
 import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
 
 /**
  * MultiBitScalarQuantizationState represents the state of multi-bit scalar quantization,
@@ -50,37 +49,31 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
     }
 
     /**
-     * This method is responsible for writing the state of the OneBitScalarQuantizationState object to an external output.
+     * This method is responsible for writing the state of the MultiBitScalarQuantizationState object to an external output.
      * It includes versioning information to ensure compatibility between different versions of the serialized object.
-     *
-     * <p>Versioning is managed using the {@link VersionContext} class. This allows other classes that are serialized
-     * as part of the state to access the version information and implement version-specific logic if needed.</p>
-     *
-     * <p>The {@link VersionContext#setVersion(int)} method sets the version information in a thread-local variable,
-     * ensuring that the version is available to all classes involved in the serialization process within the current thread context.</p>
      *
      * <pre>
      * {@code
      * // Example usage in the writeExternal method:
-     * VersionContext.setVersion(version);
      * out.writeInt(version); // Write the version
-     * quantizationParams.writeExternal(out);
-     * out.writeInt(meanThresholds.length);
-     * for (float mean : meanThresholds) {
-     *     out.writeFloat(mean);
+     * quantizationParams.writeTo(out);
+     * out.writeInt(thresholds.length);
+     * out.writeInt(thresholds[0].length);
+     * for (float[] row : thresholds) {
+     *     for (float value : row) {
+     *         out.writeFloat(value);
+     *     }
      * }
      * }
      * </pre>
      *
-     * @param out the ObjectOutput to write the object to.
+     * @param out the StreamOutput to write the object to.
      * @throws IOException if an I/O error occurs during serialization.
      */
     @Override
-    public void writeExternal(ObjectOutput out) throws IOException {
-        int version = Version.CURRENT.id;
-        VersionContext.setVersion(version);
-        out.writeInt(version); // Write the version
-        quantizationParams.writeExternal(out);
+    public void writeTo(StreamOutput out) throws IOException {
+        out.writeInt(Version.CURRENT.id); // Write the version
+        quantizationParams.writeTo(out);
         out.writeInt(thresholds.length);
         out.writeInt(thresholds[0].length);
         for (float[] row : thresholds) {
@@ -91,40 +84,32 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
     }
 
     /**
-     * This method is responsible for reading the state of the OneBitScalarQuantizationState object from an external input.
+     * This method is responsible for reading the state of the MultiBitScalarQuantizationState object from an external input.
      * It includes versioning information to ensure compatibility between different versions of the serialized object.
-     *
-     * <p>The version information is read first, and then it is set using the {@link VersionContext#setVersion(int)} method.
-     * This makes the version information available to all classes involved in the deserialization process within the current thread context.</p>
-     *
-     * <p>Classes that are part of the deserialization process can retrieve the version information using the
-     * {@link VersionContext#getVersion()} method and implement version-specific logic accordingly.</p>
      *
      * <pre>
      * {@code
      * // Example usage in the readExternal method:
      * int version = in.readInt(); // Read the version
-     * VersionContext.setVersion(version);
-     * quantizationParams = new ScalarQuantizationParams();
-     * quantizationParams.readExternal(in); // Use readExternal of SQParams
-     * int length = in.readInt();
-     * meanThresholds = new float[length];
-     * for (int i = 0; i < length; i++) {
-     *     meanThresholds[i] = in.readFloat();
+     * quantizationParams = new ScalarQuantizationParams(in, version);
+     * int rows = in.readInt();
+     * int cols = in.readInt();
+     * thresholds = new float[rows][cols];
+     * for (int i = 0; i < rows; i++) {
+     *     for (int j = 0; j < cols; j++) {
+     *         thresholds[i][j] = in.readFloat();
+     *     }
      * }
      * }
      * </pre>
      *
-     * @param in the ObjectInput to read the object from.
+     * @param in the StreamInput to read the object from.
      * @throws IOException if an I/O error occurs during deserialization.
      * @throws ClassNotFoundException if the class of the serialized object cannot be found.
      */
-    @Override
-    public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
+    public MultiBitScalarQuantizationState(StreamInput in) throws IOException {
         int version = in.readInt(); // Read the version
-        VersionContext.setVersion(version);
-        quantizationParams = new ScalarQuantizationParams();
-        quantizationParams.readExternal(in); // Use readExternal of SQParams
+        this.quantizationParams = new ScalarQuantizationParams(in, version);
         int rows = in.readInt();
         int cols = in.readInt();
         thresholds = new float[rows][cols];
@@ -133,7 +118,6 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
                 thresholds[i][j] = in.readFloat();
             }
         }
-        VersionContext.clear(); // Clear the version after use
     }
 
     /**
@@ -155,7 +139,7 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
      */
     @Override
     public byte[] toByteArray() throws IOException {
-        return QuantizationStateSerializer.serialize(this, thresholds);
+        return QuantizationStateSerializer.serialize(this);
     }
 
     /**
@@ -175,16 +159,8 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
      * @param bytes the byte array containing the serialized state.
      * @return the deserialized MultiBitScalarQuantizationState object.
      * @throws IOException if an I/O error occurs during deserialization.
-     * @throws ClassNotFoundException if the class of a serialized object cannot be found.
      */
-    public static MultiBitScalarQuantizationState fromByteArray(final byte[] bytes) throws IOException, ClassNotFoundException {
-        return (MultiBitScalarQuantizationState) QuantizationStateSerializer.deserialize(
-            bytes,
-            new MultiBitScalarQuantizationState(),
-            (parentParams, thresholds) -> new MultiBitScalarQuantizationState(
-                (ScalarQuantizationParams) parentParams,
-                (float[][]) thresholds
-            )
-        );
+    public static MultiBitScalarQuantizationState fromByteArray(final byte[] bytes) throws IOException {
+        return (MultiBitScalarQuantizationState) QuantizationStateSerializer.deserialize(bytes, MultiBitScalarQuantizationState::new);
     }
 }
