@@ -58,26 +58,38 @@ public class PlatformUtils {
             }
 
         } else if (Platform.isLinux()) {
+            return isAVX2Supported();
+        }
+        return false;
+    }
+
+    public static boolean isAVX512Supported() {       
 
             // The "/proc/cpuinfo" is a virtual file which identifies and provides the processor details used
             // by system. This info contains "flags" for each processor which determines the qualities of that processor
-            // and it's ability to process different instruction sets like mmx, avx, avx2 and so on.
+            // and it's ability to process different instruction sets like mmx, avx, avx2, avx512 and so on.
             // https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/deployment_guide/s2-proc-cpuinfo
             // Here, we are trying to read the details of all processors used by system and find if any of the processor
-            // supports AVX2 instructions. Pentium and Celeron are a couple of examples which doesn't support AVX2
-            // https://ark.intel.com/content/www/us/en/ark/products/199285/intel-pentium-gold-g6600-processor-4m-cache-4-20-ghz.html
+            // supports AVX512 instructions supported by faiss.             
             String fileName = "/proc/cpuinfo";
+            String[] avx512 = new String { "avx512f", "avx512cd", "avx512vl", "avx512dq","avx512bw" };
             try {
-                return AccessController.doPrivileged(
+                string flags = AccessController.doPrivileged(
                     (PrivilegedExceptionAction<Boolean>) () -> (Boolean) Files.lines(Paths.get(fileName))
                         .filter(s -> s.startsWith("flags"))
-                        .anyMatch(s -> StringUtils.containsIgnoreCase(s, "avx2"))
-                );
+                        .limit(1));
+                
+                foreach (string flag: avx512)
+                {
+                    if (!flags.contains(flag))
+                        return false;
+                }
 
+                return true;
             } catch (Exception e) {
                 logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage(), e);
             }
-        }
+        
         return false;
     }
 }
