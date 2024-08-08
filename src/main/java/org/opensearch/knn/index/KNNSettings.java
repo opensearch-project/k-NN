@@ -9,15 +9,15 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.opensearch.OpenSearchParseException;
-import org.opensearch.cluster.metadata.IndexMetadata;
-import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
 import org.opensearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
 import org.opensearch.client.Client;
+import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.common.unit.ByteSizeUnit;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.index.IndexModule;
@@ -28,20 +28,22 @@ import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
 
 import java.security.InvalidParameterException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.opensearch.common.settings.Setting.Property.Dynamic;
 import static org.opensearch.common.settings.Setting.Property.IndexScope;
 import static org.opensearch.common.settings.Setting.Property.NodeScope;
 import static org.opensearch.common.unit.MemorySizeValue.parseBytesSizeValueOrHeapRatio;
 import static org.opensearch.core.common.unit.ByteSizeValue.parseBytesSizeValue;
+import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.getFeatureFlags;
 
 /**
  * This class defines
@@ -289,6 +291,9 @@ public class KNNSettings {
         }
     };
 
+    private final static Map<String, Setting<?>> FEATURE_FLAGS = getFeatureFlags().stream()
+        .collect(toUnmodifiableMap(Setting::getKey, Function.identity()));
+
     private ClusterService clusterService;
     private Client client;
 
@@ -326,7 +331,7 @@ public class KNNSettings {
             );
 
             NativeMemoryCacheManager.getInstance().rebuildCache(builder.build());
-        }, new ArrayList<>(dynamicCacheSettings.values()));
+        }, Stream.concat(dynamicCacheSettings.values().stream(), FEATURE_FLAGS.values().stream()).collect(Collectors.toUnmodifiableList()));
     }
 
     /**
@@ -344,6 +349,10 @@ public class KNNSettings {
     private Setting<?> getSetting(String key) {
         if (dynamicCacheSettings.containsKey(key)) {
             return dynamicCacheSettings.get(key);
+        }
+
+        if (FEATURE_FLAGS.containsKey(key)) {
+            return FEATURE_FLAGS.get(key);
         }
 
         if (KNN_CIRCUIT_BREAKER_TRIGGERED.equals(key)) {
@@ -390,7 +399,8 @@ public class KNNSettings {
             KNN_FAISS_AVX2_DISABLED_SETTING,
             KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING
         );
-        return Stream.concat(settings.stream(), dynamicCacheSettings.values().stream()).collect(Collectors.toList());
+        return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
+            .collect(Collectors.toList());
     }
 
     public static boolean isKNNPluginEnabled() {
