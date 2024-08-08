@@ -65,6 +65,7 @@ public:
     virtual void writeIndex(std::string indexPath, jlong idMapAddress);
     virtual ~IndexService() = default;
 protected:
+    virtual void allocIndex(faiss::Index * index, size_t dim, size_t numVectors);
     std::unique_ptr<FaissMethods> faissMethods;
 };
 
@@ -120,6 +121,8 @@ public:
      */
     virtual void writeIndex(std::string indexPath, jlong idMapAddress) override;
     virtual ~BinaryIndexService() = default;
+protected:
+    virtual void allocIndex(faiss::Index * index, size_t dim, size_t numVectors) override;
 };
 
 }
