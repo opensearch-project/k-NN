@@ -43,4 +43,20 @@ public enum ScalarQuantizationType {
     ScalarQuantizationType(int id) {
         this.id = id;
     }
+
+    /**
+     * Returns the ScalarQuantizationType associated with the given ID.
+     *
+     * @param id the ID of the quantization type.
+     * @return the corresponding ScalarQuantizationType.
+     * @throws IllegalArgumentException if the ID does not correspond to any ScalarQuantizationType.
+     */
+    public static ScalarQuantizationType fromId(int id) {
+        for (ScalarQuantizationType type : ScalarQuantizationType.values()) {
+            if (type.getId() == id) {
+                return type;
+            }
+        }
+        throw new IllegalArgumentException("Unknown ScalarQuantizationType ID: " + id);
+    }
 }

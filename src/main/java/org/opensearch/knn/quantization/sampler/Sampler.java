@@ -23,5 +23,5 @@ public interface Sampler {
      * @return an array of integers representing the indices of the sampled vectors.
      * @throws IllegalArgumentException if the sample size is greater than the total number of vectors.
      */
-    BitSet sample(int totalNumberOfVectors, int sampleSize);
+    int[] sample(int totalNumberOfVectors, int sampleSize);
 }

@@ -16,7 +16,6 @@ import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
 
 import java.io.IOException;
-import java.util.BitSet;
 
 /**
  * OneBitScalarQuantizer is responsible for quantizing vectors using a single bit per dimension.
@@ -60,10 +59,11 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
      */
     @Override
     public QuantizationState train(final TrainingRequest<float[]> trainingRequest) {
-        BitSet sampledDocIds = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
+        int[] sampledDocIds = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
         float[] meanThresholds = QuantizerHelper.calculateMeanThresholds(trainingRequest, sampledDocIds);
         return new OneBitScalarQuantizationState(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT), meanThresholds);
     }
+
 
     /**
      * Quantizes the provided vector using the given quantization state.
@@ -85,19 +85,9 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
         if (thresholds == null || thresholds.length != vector.length) {
             throw new IllegalArgumentException("Thresholds must not be null and must match the dimension of the vector.");
         }
-        // Directly pack bits without intermediate array
-        int byteLength = (vector.length + 7) >> 3; // Calculate byte length needed
-        byte[] packedBits = new byte[byteLength];
-
-        for (int i = 0; i < vector.length; i++) {
-            if (vector[i] > thresholds[i]) {
-                int byteIndex = i >> 3; // Equivalent to i / 8
-                int bitIndex = 7 - (i & 7); // Equivalent to 7 - (i % 8)
-                packedBits[byteIndex] |= (1 << bitIndex); // Set the bit
-            }
-        }
-
-        output.updateQuantizedVector(packedBits);
+        // Prepare and get the writable array
+        byte[] writableArray = output.prepareAndGetWritableQuantizedVector(1, vector.length);
+        BitPacker.quantizeAndPackBits(vector, thresholds, writableArray);
     }
 
     /**

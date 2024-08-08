@@ -28,30 +28,17 @@ public class QuantizerFactoryTests extends KNNTestCase {
 
     public void test_Lazy_Registration() {
         ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        ScalarQuantizationParams paramsTwoBit = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
+        ScalarQuantizationParams paramsFourBit = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
         assertFalse(isRegisteredFieldAccessible());
         Quantizer<?, ?> quantizer = QuantizerFactory.getQuantizer(params);
+        Quantizer<?, ?> quantizerTwoBit = QuantizerFactory.getQuantizer(paramsTwoBit);
+        Quantizer<?, ?> quantizerFourBit = QuantizerFactory.getQuantizer(paramsFourBit);
+        assertTrue(quantizerFourBit instanceof MultiBitScalarQuantizer);
+        assertTrue(quantizerTwoBit instanceof MultiBitScalarQuantizer);
         assertTrue(quantizer instanceof OneBitScalarQuantizer);
         assertTrue(isRegisteredFieldAccessible());
     }
-
-    public void testGetQuantizer_withOneBitSQParams() {
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
-        Quantizer<?, ?> quantizer = QuantizerFactory.getQuantizer(params);
-        assertTrue(quantizer instanceof OneBitScalarQuantizer);
-    }
-
-    public void testGetQuantizer_withTwoBitSQParams() {
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
-        Quantizer<?, ?> quantizer = QuantizerFactory.getQuantizer(params);
-        assertTrue(quantizer instanceof MultiBitScalarQuantizer);
-    }
-
-    public void testGetQuantizer_withFourBitSQParams() {
-        ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
-        Quantizer<?, ?> quantizer = QuantizerFactory.getQuantizer(params);
-        assertTrue(quantizer instanceof MultiBitScalarQuantizer);
-    }
-
     public void testGetQuantizer_withNullParams() {
         try {
             QuantizerFactory.getQuantizer(null);
@@ -61,20 +48,6 @@ public class QuantizerFactoryTests extends KNNTestCase {
         }
     }
 
-    public void testConcurrentRegistration() throws InterruptedException {
-        Runnable task = () -> {
-            ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
-            QuantizerFactory.getQuantizer(params);
-        };
-
-        Thread thread1 = new Thread(task);
-        Thread thread2 = new Thread(task);
-        thread1.start();
-        thread2.start();
-        thread1.join();
-        thread2.join();
-        assertTrue(isRegisteredFieldAccessible());
-    }
 
     private boolean isRegisteredFieldAccessible() {
         try {

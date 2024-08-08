@@ -7,8 +7,10 @@ package org.opensearch.knn.quantization.sampler;
 
 import lombok.NoArgsConstructor;
 
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
 
 /**
  * ReservoirSampler implements the Sampler interface and provides a method for sampling
@@ -45,11 +47,9 @@ final class ReservoirSampler implements Sampler {
      * @return an array of sampled indices.
      */
     @Override
-    public BitSet sample(final int totalNumberOfVectors, final int sampleSize) {
+    public int[] sample(final int totalNumberOfVectors, final int sampleSize) {
         if (totalNumberOfVectors <= sampleSize) {
-            BitSet bitSet = new BitSet(totalNumberOfVectors);
-            bitSet.set(0, totalNumberOfVectors);
-            return bitSet;
+            return IntStream.range(0, totalNumberOfVectors).toArray();
         }
         return reservoirSampleIndices(totalNumberOfVectors, sampleSize);
     }
@@ -65,24 +65,27 @@ final class ReservoirSampler implements Sampler {
      *
      * @param numVectors the total number of vectors.
      * @param sampleSize the number of indices to sample.
-     * @return a BitSet representing the sampled indices.
+     * @return an array of sampled indices.
      */
-    private BitSet reservoirSampleIndices(final int numVectors, final int sampleSize) {
+    private int[] reservoirSampleIndices(final int numVectors, final int sampleSize) {
         int[] indices = new int[sampleSize];
+
+        // Initialize the reservoir with the first sampleSize elements
         for (int i = 0; i < sampleSize; i++) {
             indices[i] = i;
         }
+
+        // Replace elements with gradually decreasing probability
         for (int i = sampleSize; i < numVectors; i++) {
             int j = ThreadLocalRandom.current().nextInt(i + 1);
             if (j < sampleSize) {
                 indices[j] = i;
             }
         }
-        // Using BitSet to track the presence of indices
-        BitSet bitSet = new BitSet(numVectors);
-        for (int i = 0; i < sampleSize; i++) {
-            bitSet.set(indices[i]);
-        }
-        return bitSet;
+
+        // Sort the sampled indices
+        Arrays.sort(indices);
+
+        return indices;
     }
 }

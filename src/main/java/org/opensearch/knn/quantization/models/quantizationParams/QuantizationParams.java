@@ -5,7 +5,7 @@
 
 package org.opensearch.knn.quantization.models.quantizationParams;
 
-import java.io.Externalizable;
+import org.opensearch.core.common.io.stream.Writeable;
 
 /**
  * Interface for quantization parameters.
@@ -14,7 +14,7 @@ import java.io.Externalizable;
  * Implementations of this interface are expected to provide specific configurations
  * for various quantization strategies.
  */
-public interface QuantizationParams extends Externalizable {
+public interface QuantizationParams extends Writeable {
     /**
      * Provides a unique identifier for the quantization parameters.
      * This identifier is typically a combination of the quantization type

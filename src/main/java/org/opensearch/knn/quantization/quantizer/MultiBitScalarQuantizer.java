@@ -17,11 +17,50 @@ import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
 
 import java.io.IOException;
-import java.util.BitSet;
 
 /**
  * MultiBitScalarQuantizer is responsible for quantizing vectors into multi-bit representations per dimension.
- * It supports multiple bits per coordinate, allowing for finer granularity in quantization.
+ * Unlike the OneBitScalarQuantizer, which uses a single bit per dimension to represent whether a value is above
+ * or below a mean threshold, the MultiBitScalarQuantizer allows for multiple bits per dimension, enabling more
+ * granular and precise quantization.
+ *
+ * <p>
+ * In a OneBitScalarQuantizer, each dimension of a vector is compared to a single threshold (the mean), and a single
+ * bit is used to indicate whether the value is above or below that threshold. This results in a very coarse
+ * representation where each dimension is either "on" or "off."
+ * </p>
+ *
+ * <p>
+ * The MultiBitScalarQuantizer, on the other hand, uses multiple thresholds per dimension. For example, in a 2-bit
+ * quantization scheme, three thresholds are used to divide each dimension into four possible regions. Each region
+ * is represented by a unique 2-bit value. This allows for a much finer representation of the data, capturing more
+ * nuances in the variation of each dimension.
+ * </p>
+ *
+ * <p>
+ * The thresholds in MultiBitScalarQuantizer are calculated based on the mean and standard deviation of the sampled
+ * vectors for each dimension. Here's how it works:
+ * </p>
+ *
+ * <ul>
+ *     <li>First, the mean and standard deviation are computed for each dimension across the sampled vectors.</li>
+ *     <li>For each bit used in the quantization (e.g., 2 bits per coordinate), the thresholds are calculated
+ *         using a linear combination of the mean and the standard deviation. The combination coefficients are
+ *         determined by the number of bits, allowing the thresholds to split the data into equal probability regions.
+ *     </li>
+ *     <li>For example, in a 2-bit quantization (which divides data into four regions), the thresholds might be
+ *         set at points corresponding to -1 standard deviation, 0 standard deviations (mean), and +1 standard deviation.
+ *         This ensures that the data is evenly split into four regions, each represented by a 2-bit value.
+ *     </li>
+ * </ul>
+ *
+ * <p>
+ * The number of bits per coordinate is determined by the type of scalar quantization being applied, such as 2-bit
+ * or 4-bit quantization. The increased number of bits per coordinate in MultiBitScalarQuantizer allows for better
+ * preservation of information during the quantization process, making it more suitable for tasks where precision
+ * is crucial. However, this comes at the cost of increased storage and computational complexity compared to the
+ * simpler OneBitScalarQuantizer.
+ * </p>
  */
 public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
     private final int bitsPerCoordinate; // Number of bits used to quantize each dimension
@@ -69,18 +108,19 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
      */
     @Override
     public QuantizationState train(final TrainingRequest<float[]> trainingRequest) {
-        BitSet sampledIndices = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
-        int dimension = trainingRequest.getVectorByDocId(sampledIndices.nextSetBit(0)).length;
+        int[] sampledIndices = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
+        int dimension = trainingRequest.getVectorByDocId(sampledIndices[0]).length;
         float[] meanArray = new float[dimension];
         float[] stdDevArray = new float[dimension];
         // Calculate sum, mean, and standard deviation in one pass
-        QuantizerHelper.calculateSumMeanAndStdDev(trainingRequest, sampledIndices, meanArray, stdDevArray);
+        QuantizerHelper.calculateMeanAndStdDev(trainingRequest, sampledIndices, meanArray, stdDevArray);
         float[][] thresholds = calculateThresholds(meanArray, stdDevArray, dimension);
         ScalarQuantizationParams params = (bitsPerCoordinate == 2)
-            ? new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT)
-            : new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
+                ? new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT)
+                : new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
         return new MultiBitScalarQuantizationState(params, thresholds);
     }
+
 
     /**
      * Quantizes the provided vector using the provided quantization state, producing a quantized output.
@@ -102,22 +142,9 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
         if (thresholds == null || thresholds[0].length != vector.length) {
             throw new IllegalArgumentException("Thresholds must not be null and must match the dimension of the vector.");
         }
-        // Directly pack bits without intermediate array
-        int totalBits = bitsPerCoordinate * vector.length;
-        int byteLength = (totalBits + 7) >> 3; // Calculate byte length needed
-        byte[] packedBits = new byte[byteLength];
-        for (int i = 0; i < bitsPerCoordinate; i++) {
-            for (int j = 0; j < vector.length; j++) {
-                if (vector[j] > thresholds[i][j]) {
-                    int bitPosition = i * vector.length + j;
-                    int byteIndex = bitPosition >> 3; // Equivalent to bitPosition / 8
-                    int bitIndex = 7 - (bitPosition & 7); // Equivalent to 7 - (bitPosition % 8)
-                    packedBits[byteIndex] |= (1 << bitIndex); // Set the bit
-                }
-            }
-        }
-
-        output.updateQuantizedVector(packedBits);
+        // Prepare and get the writable array
+        byte[] writableArray = output.prepareAndGetWritableQuantizedVector(bitsPerCoordinate, vector.length);
+        BitPacker.quantizeAndPackBits(vector, thresholds, bitsPerCoordinate, writableArray);
     }
 
     /**

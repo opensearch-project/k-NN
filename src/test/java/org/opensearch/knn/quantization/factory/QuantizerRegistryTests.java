@@ -69,4 +69,16 @@ public class QuantizerRegistryTests extends KNNTestCase {
         Quantizer<?, ?> secondFourBitQuantizer = QuantizerRegistry.getQuantizer(fourBitParams);
         assertSame(firstFourBitQuantizer, secondFourBitQuantizer);
     }
+
+    public void testRegisterQuantizerThrowsExceptionWhenAlreadyRegistered() {
+        ScalarQuantizationParams oneBitParams = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+
+        // Attempt to register the same quantizer again should throw an exception
+        assertThrows(IllegalArgumentException.class, () -> {
+            QuantizerRegistry.register(
+                    ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.ONE_BIT),
+                    new OneBitScalarQuantizer()
+            );
+        });
+    }
 }

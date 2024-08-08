@@ -20,7 +20,7 @@ import org.opensearch.knn.quantization.quantizer.OneBitScalarQuantizer;
 final class QuantizerRegistrar {
 
     /**
-     * Registers default quantizers if not already registered.
+     * Registers default quantizers
      * <p>
      * This method is synchronized to ensure that registration occurs only once,
      * even in a multi-threaded environment.

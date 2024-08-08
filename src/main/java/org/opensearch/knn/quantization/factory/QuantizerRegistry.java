@@ -30,8 +30,11 @@ final class QuantizerRegistry {
      * @param quantizer       an instance of the quantizer
      */
     static void register(final String paramIdentifier, final Quantizer<?, ?> quantizer) {
-        // Ensure that the quantizer for this identifier is registered only once
-        registry.putIfAbsent(paramIdentifier, quantizer);
+        // Check if the quantizer is already registered for the given identifier
+        if (registry.putIfAbsent(paramIdentifier, quantizer) != null) {
+            // Throw an exception if a quantizer is already registered
+            throw new IllegalArgumentException("Quantizer already registered for identifier: " + paramIdentifier);
+        }
     }
 
     /**

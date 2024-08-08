@@ -21,10 +21,10 @@ public interface QuantizationOutput<T> {
     T getQuantizedVector();
 
     /**
-     * Updates the quantized vector with new data.
+     * Prepares and returns the writable quantized vector for direct modification.
      *
-     * @param newQuantizedVector the new quantized vector data.
-     * @throws IOException if an I/O error occurs during the update.
+     * @param params the parameters needed for preparing the quantized vector.
+     * @return the prepared and writable quantized vector.
      */
-    void updateQuantizedVector(T newQuantizedVector) throws IOException;
+    T prepareAndGetWritableQuantizedVector(Object... params);
 }
