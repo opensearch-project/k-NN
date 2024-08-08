@@ -412,4 +412,15 @@ public class IndexUtil {
         }
         return Collections.unmodifiableMap(versionMap);
     }
+
+    /**
+     * Tell if it is byte index or not
+     *
+     * @param parameters parameters associated with an index
+     * @return true if it is binary index
+     */
+    public static boolean isByteIndex(Map<String, Object> parameters) {
+        return parameters.get(VECTOR_DATA_TYPE_FIELD) != null
+            && parameters.get(VECTOR_DATA_TYPE_FIELD).toString().equals(VectorDataType.BYTE.getValue());
+    }
 }

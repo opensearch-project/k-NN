@@ -138,7 +138,6 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
     }
 
     public void testValidateVectorDataType_whenByteNonLucene_thenException() {
-        validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_HNSW, VectorDataType.BYTE, "only supported");
         validateValidateVectorDataType(KNNEngine.NMSLIB, KNNConstants.METHOD_IVF, VectorDataType.BYTE, "only supported");
     }
 

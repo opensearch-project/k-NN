@@ -113,6 +113,47 @@ TEST(FaissCreateBinaryIndexTest, BasicAssertions) {
             (jobject)&parametersMap, &mockIndexService);
 }
 
+TEST(FaissCreateByteIndexTest, BasicAssertions) {
+    // Define the data
+    faiss::idx_t numIds = 1200;
+    std::vector<faiss::idx_t> ids;
+    std::vector<int8_t> vectors;
+    int dim = 8;
+    vectors.reserve(numIds);
+    for (int64_t i = 0; i < numIds; ++i) {
+        ids.push_back(i);
+        for (int j = 0; j < dim; ++j) {
+            vectors.push_back(test_util::RandomInt(-128, 127));
+        }
+    }
+
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    std::string spaceType = knn_jni::L2;
+    std::string indexDescription = "HNSW16,SQ8_direct_signed";
+
+    std::unordered_map<std::string, jobject> parametersMap;
+    parametersMap[knn_jni::SPACE_TYPE] = (jobject)&spaceType;
+    parametersMap[knn_jni::INDEX_DESCRIPTION] = (jobject)&indexDescription;
+    std::unordered_map<std::string, jobject> subParametersMap;
+    parametersMap[knn_jni::PARAMETERS] = (jobject)&subParametersMap;
+
+    // Set up jni
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    // Create the index
+    std::unique_ptr<FaissMethods> faissMethods(new FaissMethods());
+    NiceMock<MockIndexService> mockIndexService(std::move(faissMethods));
+    EXPECT_CALL(mockIndexService, createIndex(_, _, faiss::METRIC_L2, indexDescription, dim, (int)numIds, 0, (int64_t)&vectors, ids, indexPath, subParametersMap))
+        .Times(1);
+
+    // This method calls delete vectors at the end
+    knn_jni::faiss_wrapper::CreateIndex(
+            &mockJNIUtil, jniEnv, reinterpret_cast<jintArray>(&ids),
+            (jlong) &vectors, dim , (jstring)&indexPath,
+            (jobject)&parametersMap, &mockIndexService);
+}
+
 TEST(FaissCreateIndexFromTemplateTest, BasicAssertions) {
     // Define the data
     faiss::idx_t numIds = 100;

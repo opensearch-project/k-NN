@@ -18,6 +18,7 @@ import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.transfer.VectorTransfer;
+import org.opensearch.knn.index.codec.transfer.VectorTransferBinary;
 import org.opensearch.knn.index.codec.transfer.VectorTransferByte;
 import org.opensearch.knn.index.codec.transfer.VectorTransferFloat;
 import org.opensearch.knn.jni.JNIService;
@@ -361,9 +362,14 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
     }
 
     private VectorTransfer getVectorTransfer(VectorDataType vectorDataType) {
-        if (VectorDataType.BINARY == vectorDataType) {
-            return new VectorTransferByte(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
+        long memoryLimit = KNNSettings.getVectorStreamingMemoryLimit().getBytes();
+        switch (vectorDataType) {
+            case BINARY:
+                return new VectorTransferBinary(memoryLimit);
+            case BYTE:
+                return new VectorTransferByte(memoryLimit);
+            default:
+                return new VectorTransferFloat(memoryLimit);
         }
-        return new VectorTransferFloat(KNNSettings.getVectorStreamingMemoryLimit().getBytes());
     }
 }

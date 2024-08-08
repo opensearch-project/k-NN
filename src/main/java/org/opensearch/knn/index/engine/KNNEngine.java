@@ -35,6 +35,7 @@ public enum KNNEngine implements KNNLibrary {
     private static final Set<KNNEngine> CUSTOM_SEGMENT_FILE_ENGINES = ImmutableSet.of(KNNEngine.NMSLIB, KNNEngine.FAISS);
     private static final Set<KNNEngine> ENGINES_SUPPORTING_FILTERS = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
     public static final Set<KNNEngine> ENGINES_SUPPORTING_RADIAL_SEARCH = ImmutableSet.of(KNNEngine.LUCENE, KNNEngine.FAISS);
+    public static final Set<KNNEngine> ENGINES_SUPPORTING_BYTE_VECTOR = ImmutableSet.of(KNNEngine.FAISS, KNNEngine.LUCENE);
 
     private static Map<KNNEngine, Integer> MAX_DIMENSIONS_BY_ENGINE = Map.of(
         KNNEngine.NMSLIB,
