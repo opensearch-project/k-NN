@@ -9,6 +9,7 @@ import junit.framework.TestCase;
 import lombok.SneakyThrows;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.transfer.VectorTransfer;
 
 import java.util.Arrays;
@@ -18,6 +19,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.opensearch.knn.index.codec.util.KNNCodecUtil.calculateArraySize;
 
 public class KNNCodecUtilTests extends TestCase {
     @SneakyThrows
@@ -51,5 +53,22 @@ public class KNNCodecUtilTests extends TestCase {
         assertEquals(vectorAddress, pair.getVectorAddress());
         assertEquals(dimension, pair.getDimension());
         assertEquals(SerializationMode.COLLECTIONS_OF_BYTES, pair.serializationMode);
+    }
+
+    public void testCalculateArraySize() {
+        int numVectors = 4;
+        int vectorLength = 10;
+
+        // Float data type
+        VectorDataType vectorDataType = VectorDataType.FLOAT;
+        assertEquals(160, calculateArraySize(numVectors, vectorLength, vectorDataType));
+
+        // Byte data type
+        vectorDataType = VectorDataType.BYTE;
+        assertEquals(40, calculateArraySize(numVectors, vectorLength, vectorDataType));
+
+        // Binary data type
+        vectorDataType = VectorDataType.BINARY;
+        assertEquals(40, calculateArraySize(numVectors, vectorLength, vectorDataType));
     }
 }
