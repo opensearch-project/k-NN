@@ -11,6 +11,7 @@ import lombok.Setter;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80BinaryDocValues;
 import org.opensearch.knn.index.codec.transfer.VectorTransfer;
 
@@ -21,12 +22,6 @@ import java.util.List;
 public class KNNCodecUtil {
     // Floats are 4 bytes in size
     public static final int FLOAT_BYTE_SIZE = 4;
-    // References to objects are 4 bytes in size
-    public static final int JAVA_REFERENCE_SIZE = 4;
-    // Each array in Java has a header that is 12 bytes
-    public static final int JAVA_ARRAY_HEADER_SIZE = 12;
-    // Java rounds each array size up to multiples of 8 bytes
-    public static final int JAVA_ROUNDING_NUMBER = 8;
 
     @AllArgsConstructor
     public static final class Pair {
@@ -67,39 +62,22 @@ public class KNNCodecUtil {
         );
     }
 
-    public static long calculateArraySize(int numVectors, int vectorLength, SerializationMode serializationMode) {
-        if (serializationMode == SerializationMode.ARRAY) {
-            int vectorSize = vectorLength * FLOAT_BYTE_SIZE + JAVA_ARRAY_HEADER_SIZE;
-            if (vectorSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorSize += vectorSize % JAVA_ROUNDING_NUMBER;
-            }
-            int vectorsSize = numVectors * (vectorSize + JAVA_REFERENCE_SIZE) + JAVA_ARRAY_HEADER_SIZE;
-            if (vectorsSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorsSize += vectorsSize % JAVA_ROUNDING_NUMBER;
-            }
-            return vectorsSize;
-        } else if (serializationMode == SerializationMode.COLLECTION_OF_FLOATS) {
-            int vectorSize = vectorLength * FLOAT_BYTE_SIZE;
-            if (vectorSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorSize += vectorSize % JAVA_ROUNDING_NUMBER;
-            }
-            int vectorsSize = numVectors * (vectorSize + JAVA_REFERENCE_SIZE);
-            if (vectorsSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorsSize += vectorsSize % JAVA_ROUNDING_NUMBER;
-            }
-            return vectorsSize;
-        } else if (serializationMode == SerializationMode.COLLECTIONS_OF_BYTES) {
-            int vectorSize = vectorLength;
-            if (vectorSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorSize += vectorSize % JAVA_ROUNDING_NUMBER;
-            }
-            int vectorsSize = numVectors * (vectorSize + JAVA_REFERENCE_SIZE);
-            if (vectorsSize % JAVA_ROUNDING_NUMBER != 0) {
-                vectorsSize += vectorsSize % JAVA_ROUNDING_NUMBER;
-            }
-            return vectorsSize;
+    /**
+     * This method provides a rough estimate of the number of bytes used for storing an array with the given parameters.
+     * @param numVectors number of vectors in the array
+     * @param vectorLength the length of each vector
+     * @param vectorDataType type of data stored in each vector
+     * @return rough estimate of number of bytes used to store an array with the given parameters
+     */
+    public static long calculateArraySize(int numVectors, int vectorLength, VectorDataType vectorDataType) {
+        if (vectorDataType == VectorDataType.FLOAT) {
+            return numVectors * vectorLength * FLOAT_BYTE_SIZE;
+        } else if (vectorDataType == VectorDataType.BINARY || vectorDataType == VectorDataType.BYTE) {
+            return numVectors * vectorLength;
         } else {
-            throw new IllegalStateException("Unreachable code");
+            throw new IllegalArgumentException(
+                "Float, binary, and byte are the only supported vector data types for array size calculation."
+            );
         }
     }
 

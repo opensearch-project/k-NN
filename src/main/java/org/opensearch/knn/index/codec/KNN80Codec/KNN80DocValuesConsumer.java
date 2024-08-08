@@ -129,6 +129,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         NativeIndexCreator indexCreator;
         KNNCodecUtil.Pair pair;
         Map<String, String> fieldAttributes = field.attributes();
+        VectorDataType vectorDataType;
 
         if (fieldAttributes.containsKey(MODEL_ID)) {
             String modelId = fieldAttributes.get(MODEL_ID);
@@ -136,12 +137,12 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             if (model.getModelBlob() == null) {
                 throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
             }
-            VectorDataType vectorDataType = model.getModelMetadata().getVectorDataType();
+            vectorDataType = model.getModelMetadata().getVectorDataType();
             pair = KNNCodecUtil.getPair(values, getVectorTransfer(vectorDataType));
             indexCreator = () -> createKNNIndexFromTemplate(model, pair, knnEngine, indexPath);
         } else {
             // get vector data type from field attributes or provide default value
-            VectorDataType vectorDataType = VectorDataType.get(
+            vectorDataType = VectorDataType.get(
                 fieldAttributes.getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
             );
             pair = KNNCodecUtil.getPair(values, getVectorTransfer(vectorDataType));
@@ -154,7 +155,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             return;
         }
 
-        long arraySize = calculateArraySize(pair.docs.length, pair.getDimension(), pair.serializationMode);
+        long arraySize = calculateArraySize(pair.docs.length, pair.getDimension(), vectorDataType);
 
         if (isMerge) {
             KNNGraphValue.MERGE_CURRENT_OPERATIONS.increment();
