@@ -34,7 +34,5 @@ public interface KNNMappingConfig {
      *
      * @return the dimension of the index; for model based indices, it will be null
      */
-    default Optional<Integer> getDimension() {
-        return Optional.empty();
-    }
+    int getDimension();
 }

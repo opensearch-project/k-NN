@@ -58,8 +58,8 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             }
 
             @Override
-            public Optional<Integer> getDimension() {
-                return Optional.of(dimension);
+            public int getDimension() {
+                return dimension;
             }
         });
 
@@ -87,20 +87,19 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             .getKnnVectorSimilarityFunction()
             .getVectorSimilarityFunction();
 
-        final int dimension = knnMappingConfig.getDimension().orElseThrow(() -> new IllegalArgumentException("Dimension is missing"));
-        if (dimension > KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE)) {
+        if (knnMappingConfig.getDimension() > KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE)) {
             throw new IllegalArgumentException(
                 String.format(
                     Locale.ROOT,
                     "Dimension value cannot be greater than [%s] but got [%s] for vector [%s]",
                     KNNEngine.getMaxDimensionByEngine(KNNEngine.LUCENE),
-                    dimension,
+                    knnMappingConfig.getDimension(),
                     input.getName()
                 )
             );
         }
 
-        this.fieldType = vectorDataType.createKnnVectorFieldType(dimension, vectorSimilarityFunction);
+        this.fieldType = vectorDataType.createKnnVectorFieldType(knnMappingConfig.getDimension(), vectorSimilarityFunction);
 
         if (this.hasDocValues) {
             this.vectorFieldType = buildDocValuesFieldType(knnMethodContext.getKnnEngine());

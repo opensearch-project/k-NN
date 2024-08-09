@@ -66,6 +66,15 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
             public Optional<String> getModelId() {
                 return Optional.of(modelId);
             }
+
+            @Override
+            public int getDimension() {
+                ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
+                if (!ModelUtil.isModelCreated(modelMetadata)) {
+                    throw new IllegalStateException(String.format("Model ID '%s' is not created.", modelId));
+                }
+                return modelMetadata.getDimension();
+            }
         });
         return new ModelFieldMapper(
             simpleName,

@@ -30,9 +30,6 @@ import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
-import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelUtil;
 
 import java.util.Arrays;
 import java.util.Locale;
@@ -65,16 +62,6 @@ import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVectorVal
 @Log4j2
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class KNNVectorFieldMapperUtil {
-
-    private static ModelDao modelDao;
-
-    /**
-     * Initializes static instance variables
-     * @param modelDao ModelDao object
-     */
-    public static void initialize(final ModelDao modelDao) {
-        KNNVectorFieldMapperUtil.modelDao = modelDao;
-    }
 
     /**
      * Validate the float vector value and throw exception if it is not a number or not in the finite range
@@ -227,34 +214,8 @@ public class KNNVectorFieldMapperUtil {
      * @return expected vector length
      */
     public static int getExpectedVectorLength(final KNNVectorFieldType knnVectorFieldType) {
-        int expectedDimensions = knnVectorFieldType.getKnnMappingConfig()
-            .getDimension()
-            .orElseGet(
-                () -> getDimensionFromModelId(
-                    knnVectorFieldType.getKnnMappingConfig()
-                        .getModelId()
-                        .orElseThrow(
-                            () -> new IllegalStateException(
-                                "Unable to look up dimension because its not accessible from the KNNVectorFieldType"
-                            )
-                        )
-                )
-            );
+        int expectedDimensions = knnVectorFieldType.getKnnMappingConfig().getDimension();
         return VectorDataType.BINARY == knnVectorFieldType.getVectorDataType() ? expectedDimensions / 8 : expectedDimensions;
-    }
-
-    /**
-     * Returns the model metadata for a specified knn vector field
-     *
-     * @param modelId ID of model
-     * @return the model metadata from knnVectorField
-     */
-    private static int getDimensionFromModelId(String modelId) {
-        ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
-        if (!ModelUtil.isModelCreated(modelMetadata)) {
-            throw new IllegalArgumentException(String.format("Model ID '%s' is not created.", modelId));
-        }
-        return modelMetadata.getDimension();
     }
 
     /**

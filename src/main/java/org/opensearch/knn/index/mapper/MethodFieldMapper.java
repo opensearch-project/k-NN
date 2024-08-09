@@ -59,8 +59,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             }
 
             @Override
-            public Optional<Integer> getDimension() {
-                return Optional.of(dimension);
+            public int getDimension() {
+                return dimension;
             }
         });
         return new MethodFieldMapper(
@@ -104,10 +104,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             .orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
         this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
 
-        this.fieldType.putAttribute(
-            DIMENSION,
-            String.valueOf(annConfig.getDimension().orElseThrow(() -> new IllegalArgumentException("Dimension cannot be empty")))
-        );
+        this.fieldType.putAttribute(DIMENSION, String.valueOf(annConfig.getDimension()));
         this.fieldType.putAttribute(SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
         this.fieldType.putAttribute(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
 

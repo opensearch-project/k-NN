@@ -11,7 +11,6 @@ import org.opensearch.common.Explicit;
 import org.opensearch.knn.index.VectorDataType;
 
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * Mapper used when you dont want to build an underlying KNN struct - you just want to
@@ -34,12 +33,7 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
         boolean hasDocValues,
         Version indexCreatedVersion
     ) {
-        final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(fullname, metaValue, vectorDataType, new KNNMappingConfig() {
-            @Override
-            public Optional<Integer> getDimension() {
-                return Optional.of(dimension);
-            }
-        });
+        final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(fullname, metaValue, vectorDataType, () -> dimension);
         return new FlatVectorFieldMapper(
             simpleName,
             mappedFieldType,

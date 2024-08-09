@@ -21,9 +21,6 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.indices.ModelMetadata;
-import org.opensearch.knn.indices.ModelState;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -73,38 +70,10 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
             getMappingConfigForMethodMapping(getDefaultBinaryKNNMethodContext(), 8)
         );
         String modelId = "test-model";
-        when(knnVectorFieldTypeModelBased.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId));
-
-        ModelDao modelDao = mock(ModelDao.class);
-        ModelMetadata modelMetadata = mock(ModelMetadata.class);
-        when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
-        when(modelMetadata.getDimension()).thenReturn(4);
-        when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
-
-        KNNVectorFieldMapperUtil.initialize(modelDao);
-
+        when(knnVectorFieldTypeModelBased.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId, 4));
         assertEquals(3, KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldType));
         assertEquals(1, KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeBinary));
         assertEquals(4, KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeModelBased));
-    }
-
-    public void testGetExpectedVectorLengthFailure() {
-        KNNVectorFieldType knnVectorFieldTypeModelBased = mock(KNNVectorFieldType.class);
-        String modelId = "test-model";
-        when(knnVectorFieldTypeModelBased.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId));
-
-        ModelDao modelDao = mock(ModelDao.class);
-        ModelMetadata modelMetadata = mock(ModelMetadata.class);
-        when(modelMetadata.getState()).thenReturn(ModelState.TRAINING);
-        when(modelDao.getMetadata(modelId)).thenReturn(modelMetadata);
-
-        KNNVectorFieldMapperUtil.initialize(modelDao);
-
-        IllegalArgumentException e = expectThrows(
-            IllegalArgumentException.class,
-            () -> KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeModelBased)
-        );
-        assertEquals(String.format("Model ID '%s' is not created.", modelId), e.getMessage());
     }
 
     public void testValidateVectorDataType_whenBinaryFaissHNSW_thenValid() {

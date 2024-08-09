@@ -345,16 +345,11 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldType) mappedFieldType;
         KNNMappingConfig knnMappingConfig = knnVectorFieldType.getKnnMappingConfig();
         final AtomicReference<QueryConfigFromMapping> queryConfigFromMapping = new AtomicReference<>();
+        int fieldDimension = knnMappingConfig.getDimension();
         knnMappingConfig.getKnnMethodContext()
             .ifPresentOrElse(
                 knnMethodContext -> queryConfigFromMapping.set(
                     new QueryConfigFromMapping(
-                        knnMappingConfig.getDimension()
-                            .orElseThrow(
-                                () -> new IllegalStateException(
-                                    String.format(Locale.ROOT, "Field '%s' does not have dimension set when it should.", this.fieldName)
-                                )
-                            ),
                         knnMethodContext.getKnnEngine(),
                         knnMethodContext.getMethodComponentContext(),
                         knnMethodContext.getSpaceType(),
@@ -365,7 +360,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                     ModelMetadata modelMetadata = getModelMetadataForField(modelId);
                     queryConfigFromMapping.set(
                         new QueryConfigFromMapping(
-                            modelMetadata.getDimension(),
                             modelMetadata.getKnnEngine(),
                             modelMetadata.getMethodComponentContext(),
                             modelMetadata.getSpaceType(),
@@ -380,7 +374,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                     }
                 )
             );
-        int fieldDimension = queryConfigFromMapping.get().getFieldDimension();
         KNNEngine knnEngine = queryConfigFromMapping.get().getKnnEngine();
         MethodComponentContext methodComponentContext = queryConfigFromMapping.get().getMethodComponentContext();
         SpaceType spaceType = queryConfigFromMapping.get().getSpaceType();
@@ -585,7 +578,6 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     @Getter
     @AllArgsConstructor
     private static class QueryConfigFromMapping {
-        private final int fieldDimension;
         private final KNNEngine knnEngine;
         private final MethodComponentContext methodComponentContext;
         private final SpaceType spaceType;

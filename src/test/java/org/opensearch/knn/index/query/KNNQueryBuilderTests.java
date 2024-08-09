@@ -612,11 +612,10 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         // Dimension is -1. In this case, model metadata will need to provide dimension
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         String modelId = "test-model-id";
-        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId));
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId, 4));
 
         // Mock the modelDao to return mocked modelMetadata
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
-        when(modelMetadata.getDimension()).thenReturn(4);
         when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         when(modelMetadata.getSpaceType()).thenReturn(SpaceType.COSINESIMIL);
         when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
@@ -650,10 +649,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         String modelId = "test-model-id";
-        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId));
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId, 4));
 
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
-        when(modelMetadata.getDimension()).thenReturn(4);
         when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         when(modelMetadata.getSpaceType()).thenReturn(SpaceType.L2);
         when(modelMetadata.getState()).thenReturn(ModelState.CREATED);
@@ -685,10 +683,9 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         when(mockQueryShardContext.index()).thenReturn(dummyIndex);
         when(mockKNNVectorField.getVectorDataType()).thenReturn(VectorDataType.FLOAT);
         String modelId = "test-model-id";
-        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId));
+        when(mockKNNVectorField.getKnnMappingConfig()).thenReturn(getMappingConfigForModelMapping(modelId, 4));
 
         ModelMetadata modelMetadata = mock(ModelMetadata.class);
-        when(modelMetadata.getDimension()).thenReturn(4);
         when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
         when(modelMetadata.getSpaceType()).thenReturn(SpaceType.L2);
         when(modelMetadata.getState()).thenReturn(ModelState.CREATED);

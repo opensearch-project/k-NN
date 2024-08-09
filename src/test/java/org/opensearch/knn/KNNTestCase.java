@@ -123,27 +123,26 @@ public class KNNTestCase extends OpenSearchTestCase {
             }
 
             @Override
-            public Optional<Integer> getDimension() {
-                return Optional.of(dimension);
+            public int getDimension() {
+                return dimension;
             }
         };
     }
 
     public static KNNMappingConfig getMappingConfigForFlatMapping(int dimension) {
-
-        return new KNNMappingConfig() {
-            @Override
-            public Optional<Integer> getDimension() {
-                return Optional.of(dimension);
-            }
-        };
+        return () -> dimension;
     }
 
-    public static KNNMappingConfig getMappingConfigForModelMapping(String modelId) {
+    public static KNNMappingConfig getMappingConfigForModelMapping(String modelId, int dimension) {
         return new KNNMappingConfig() {
             @Override
             public Optional<String> getModelId() {
                 return Optional.of(modelId);
+            }
+
+            @Override
+            public int getDimension() {
+                return dimension;
             }
         };
     }

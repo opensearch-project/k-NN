@@ -77,25 +77,37 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
         protected final Parameter<Boolean> stored = Parameter.storeParam(m -> toType(m).stored, false);
         protected final Parameter<Boolean> hasDocValues = Parameter.docValuesParam(m -> toType(m).hasDocValues, true);
-        protected final Parameter<Integer> dimension = new Parameter<>(KNNConstants.DIMENSION, false, () -> -1, (n, c, o) -> {
-            if (o == null) {
-                throw new IllegalArgumentException("Dimension cannot be null");
+        protected final Parameter<Integer> dimension = new Parameter<>(
+            KNNConstants.DIMENSION,
+            false,
+            () -> UNSET_MODEL_DIMENSION_IDENTIFIER,
+            (n, c, o) -> {
+                if (o == null) {
+                    throw new IllegalArgumentException("Dimension cannot be null");
+                }
+                int value;
+                try {
+                    value = XContentMapValues.nodeIntegerValue(o);
+                } catch (Exception exception) {
+                    throw new IllegalArgumentException(
+                        String.format(Locale.ROOT, "Unable to parse [dimension] from provided value [%s] for vector [%s]", o, name)
+                    );
+                }
+                if (value <= 0) {
+                    throw new IllegalArgumentException(
+                        String.format(Locale.ROOT, "Dimension value must be greater than 0 for vector: %s", name)
+                    );
+                }
+                return value;
+            },
+            m -> {
+                KNNMappingConfig knnMappingConfig = toType(m).fieldType().getKnnMappingConfig();
+                if (knnMappingConfig.getModelId().isPresent()) {
+                    return UNSET_MODEL_DIMENSION_IDENTIFIER;
+                }
+                return knnMappingConfig.getDimension();
             }
-            int value;
-            try {
-                value = XContentMapValues.nodeIntegerValue(o);
-            } catch (Exception exception) {
-                throw new IllegalArgumentException(
-                    String.format(Locale.ROOT, "Unable to parse [dimension] from provided value [%s] for vector [%s]", o, name)
-                );
-            }
-            if (value <= 0) {
-                throw new IllegalArgumentException(
-                    String.format(Locale.ROOT, "Dimension value must be greater than 0 for vector: %s", name)
-                );
-            }
-            return value;
-        }, m -> toType(m).fieldType().getKnnMappingConfig().getDimension().orElse(UNSET_MODEL_DIMENSION_IDENTIFIER));
+        );
 
         /**
          * data_type which defines the datatype of the vector values. This is an optional parameter and
@@ -482,11 +494,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     @Override
     protected void parseCreateField(ParseContext context) throws IOException {
-        parseCreateField(
-            context,
-            fieldType().getKnnMappingConfig().getDimension().orElseThrow(() -> new IllegalArgumentException("Dimension is not set")),
-            fieldType().getVectorDataType()
-        );
+        parseCreateField(context, fieldType().getKnnMappingConfig().getDimension(), fieldType().getVectorDataType());
     }
 
     /**
