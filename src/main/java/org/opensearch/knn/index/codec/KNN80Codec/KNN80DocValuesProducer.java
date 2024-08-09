@@ -32,9 +32,11 @@ import org.opensearch.knn.indices.ModelCache;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
@@ -46,31 +48,33 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
     private final SegmentReadState state;
     private final DocValuesProducer delegate;
     private final NativeMemoryCacheManager nativeMemoryCacheManager;
-    private final ConcurrentHashMap<String, String> indexPathMap;
+    private final Map<String, String> indexPathMap = new HashMap();
 
     public KNN80DocValuesProducer(DocValuesProducer delegate, SegmentReadState state) {
         this.delegate = delegate;
         this.state = state;
         this.nativeMemoryCacheManager = NativeMemoryCacheManager.getInstance();
-        this.indexPathMap = new ConcurrentHashMap<>();
+
+        Directory directory = state.directory;
+        // directory would be CompoundDirectory, we need get directory firstly and then unwrap
+        if (state.directory instanceof KNN80CompoundDirectory) {
+            directory = ((KNN80CompoundDirectory) state.directory).getDir();
+        }
+        String directoryPath = ((FSDirectory) FilterDirectory.unwrap(directory)).getDirectory().toString();
+        for (FieldInfo field : state.fieldInfos) {
+            if (!field.attributes().containsKey(KNN_FIELD)) {
+                continue;
+            }
+            KNNEngine knnEngine = getKNNEngine(field);
+            List<String> engineFiles = getEngineFiles(knnEngine.getExtension(), field.name);
+            Path indexPath = PathUtils.get(directoryPath, engineFiles.get(0));
+            indexPathMap.putIfAbsent(field.getName(), indexPath.toString());
+        }
     }
+
     @Override
     public BinaryDocValues getBinary(FieldInfo field) throws IOException {
-
-        if (!field.attributes().containsKey(KNN_FIELD)) {
-            return delegate.getBinary(field);
-        }
-
-        // if attributes contains KNN_FIELD bug do not contain KNN_ENGINE,
-        // this could be Lucene Engine or Train Model. using delegate
-        KNNEngine knnEngine = getKNNEngine(field);
-        switch (knnEngine) {
-            case FAISS:
-            case NMSLIB:
-                return getNativeEngineBinary(field, knnEngine);
-            default:
-                return delegate.getBinary(field);
-        }
+        return delegate.getBinary(field);
     }
 
     @Override
@@ -98,30 +102,20 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
         delegate.checkIntegrity();
     }
 
-    public BinaryDocValues getNativeEngineBinary(FieldInfo field, KNNEngine knnEngine) throws IOException {
-        Directory directory = state.directory;
-        //directory would be CompoundDirectory, we need get directory firstly and then unwrap
-        if (state.directory instanceof KNN80CompoundDirectory) {
-            directory = ((KNN80CompoundDirectory) state.directory).getDir();
-        }
-        String directoryPath = ((FSDirectory) FilterDirectory.unwrap(directory)).getDirectory().toString();
-        List<String> engineFiles = getEngineFiles(knnEngine.getExtension(), field.name);
-        Path indexPath = PathUtils.get(directoryPath, engineFiles.get(0));
-
-        indexPathMap.putIfAbsent(field.getName(), indexPath.toString());
-        return delegate.getBinary(field);
-    }
-
     @Override
     public void close() {
         try {
             delegate.close();
-            for(String path : indexPathMap.values()) {
+            for (String path : indexPathMap.values()) {
                 nativeMemoryCacheManager.invalidate(path);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public final List<String> getOpenedIndexPath() {
+        return new ArrayList<>(indexPathMap.values());
     }
 
     /**
@@ -137,7 +131,7 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
             return KNNEngine.LUCENE;
         }
         final String engineName = field.attributes().get(KNNConstants.KNN_ENGINE);
-        if(engineName == null) {
+        if (engineName == null) {
             return KNNEngine.LUCENE;
         }
         return KNNEngine.getEngine(engineName);
@@ -147,18 +141,15 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
         /*
          * In case of compound file, extension would be <engine-extension> + c otherwise <engine-extension>
          */
-        String engineExtension = state.segmentInfo.getUseCompoundFile()
-                ? extension + KNNConstants.COMPOUND_EXTENSION
-                : extension;
+        String engineExtension = state.segmentInfo.getUseCompoundFile() ? extension + KNNConstants.COMPOUND_EXTENSION : extension;
         String engineSuffix = fieldName + engineExtension;
         String underLineEngineSuffix = "_" + engineSuffix;
 
-        List<String> engineFiles = state.segmentInfo
-                .files()
-                .stream()
-                .filter(fileName -> fileName.endsWith(underLineEngineSuffix))
-                .sorted(Comparator.comparingInt(String::length))
-                .collect(Collectors.toList());
+        List<String> engineFiles = state.segmentInfo.files()
+            .stream()
+            .filter(fileName -> fileName.endsWith(underLineEngineSuffix))
+            .sorted(Comparator.comparingInt(String::length))
+            .collect(Collectors.toList());
         return engineFiles;
     }
 }

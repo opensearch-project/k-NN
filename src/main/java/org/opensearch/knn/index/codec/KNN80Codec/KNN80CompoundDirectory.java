@@ -20,6 +20,7 @@ public class KNN80CompoundDirectory extends CompoundDirectory {
     private CompoundDirectory delegate;
     @Getter
     private Directory dir;
+
     public KNN80CompoundDirectory(CompoundDirectory delegate, Directory dir) {
         this.delegate = delegate;
         this.dir = dir;
