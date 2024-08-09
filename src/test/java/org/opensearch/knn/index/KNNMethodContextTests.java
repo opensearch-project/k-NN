@@ -94,7 +94,7 @@ public class KNNMethodContextTests extends KNNTestCase {
      */
     public void testValidate() {
         // Check valid default - this should not throw any exception
-        assertNull(KNNMethodContext.getDefault().validate());
+        assertNull(getDefaultKNNMethodContext().validate());
 
         // Check a valid nmslib method
         MethodComponentContext hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());

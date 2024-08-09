@@ -19,9 +19,11 @@ import static org.mockito.Mockito.when;
 public class KNNScoringSpaceFactoryTests extends KNNTestCase {
     public void testValidSpaces() {
         KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldType.class);
-        when(knnVectorFieldType.getDimension()).thenReturn(3);
+        when(knnVectorFieldType.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 3));
         KNNVectorFieldType knnVectorFieldTypeBinary = mock(KNNVectorFieldType.class);
-        when(knnVectorFieldTypeBinary.getDimension()).thenReturn(24);
+        when(knnVectorFieldTypeBinary.getKnnMappingConfig()).thenReturn(
+            getMappingConfigForMethodMapping(getDefaultBinaryKNNMethodContext(), 24)
+        );
         when(knnVectorFieldTypeBinary.getVectorDataType()).thenReturn(VectorDataType.BINARY);
         NumberFieldMapper.NumberFieldType numberFieldType = new NumberFieldMapper.NumberFieldType(
             "field",
@@ -66,9 +68,11 @@ public class KNNScoringSpaceFactoryTests extends KNNTestCase {
     public void testInvalidSpace() {
         List<Float> floatQueryObject = List.of(1.0f, 1.0f, 1.0f);
         KNNVectorFieldType knnVectorFieldType = mock(KNNVectorFieldType.class);
-        when(knnVectorFieldType.getDimension()).thenReturn(3);
+        when(knnVectorFieldType.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 3));
         KNNVectorFieldType knnVectorFieldTypeBinary = mock(KNNVectorFieldType.class);
-        when(knnVectorFieldTypeBinary.getDimension()).thenReturn(24);
+        when(knnVectorFieldTypeBinary.getKnnMappingConfig()).thenReturn(
+            getMappingConfigForMethodMapping(getDefaultBinaryKNNMethodContext(), 24)
+        );
         when(knnVectorFieldTypeBinary.getVectorDataType()).thenReturn(VectorDataType.BINARY);
 
         // Verify

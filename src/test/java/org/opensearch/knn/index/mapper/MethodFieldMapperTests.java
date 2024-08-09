@@ -5,33 +5,35 @@
 
 package org.opensearch.knn.index.mapper;
 
-import junit.framework.TestCase;
+import org.opensearch.Version;
 import org.opensearch.index.mapper.FieldMapper;
-import org.opensearch.knn.index.engine.KNNMethodContext;
-import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 
 import java.util.Collections;
 
-public class MethodFieldMapperTests extends TestCase {
-    public void testMethodFieldMapper_whenVectorDataTypeIsGiven_thenSetItInFieldType() {
-        KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
-            "testField",
-            Collections.emptyMap(),
-            1,
-            VectorDataType.BINARY,
-            SpaceType.HAMMING
+public class MethodFieldMapperTests extends KNNTestCase {
+    public void testMethodFieldMapper_whenVectorDataTypeAndContextMismatch_thenThrow() {
+        // Expect that we cannot create the mapper with an invalid field type
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
+        expectThrows(
+            IllegalArgumentException.class,
+            () -> MethodFieldMapper.createFieldMapper(
+                "testField",
+                "simpleName",
+                Collections.emptyMap(),
+                VectorDataType.BINARY,
+                1,
+                knnMethodContext,
+                knnMethodContext,
+                null,
+                new FieldMapper.CopyTo.Builder().build(),
+                KNNVectorFieldMapper.Defaults.IGNORE_MALFORMED,
+                true,
+                true,
+                Version.CURRENT
+            )
         );
-        MethodFieldMapper mappers = new MethodFieldMapper(
-            "simpleName",
-            mappedFieldType,
-            null,
-            new FieldMapper.CopyTo.Builder().build(),
-            KNNVectorFieldMapper.Defaults.IGNORE_MALFORMED,
-            true,
-            true,
-            KNNMethodContext.getDefault()
-        );
-        assertEquals(VectorDataType.BINARY, mappers.fieldType().vectorDataType);
     }
 }

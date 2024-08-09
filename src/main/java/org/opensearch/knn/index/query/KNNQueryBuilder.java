@@ -24,9 +24,9 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.engine.model.QueryContext;
+import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.index.util.IndexUtil;
-import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -43,6 +43,7 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.opensearch.knn.common.KNNConstants.MAX_DISTANCE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
@@ -341,36 +342,47 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (!(mappedFieldType instanceof KNNVectorFieldType)) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Field '%s' is not knn_vector type.", this.fieldName));
         }
-
         KNNVectorFieldType knnVectorFieldType = (KNNVectorFieldType) mappedFieldType;
-        int fieldDimension = knnVectorFieldType.getDimension();
-        KNNMethodContext knnMethodContext = knnVectorFieldType.getKnnMethodContext();
-        MethodComponentContext methodComponentContext = null;
-        KNNEngine knnEngine = KNNEngine.DEFAULT;
-        VectorDataType vectorDataType = knnVectorFieldType.getVectorDataType();
-        SpaceType spaceType = knnVectorFieldType.getSpaceType();
+        KNNMappingConfig knnMappingConfig = knnVectorFieldType.getKnnMappingConfig();
+        final AtomicReference<QueryConfigFromMapping> queryConfigFromMapping = new AtomicReference<>();
+        int fieldDimension = knnMappingConfig.getDimension();
+        knnMappingConfig.getKnnMethodContext()
+            .ifPresentOrElse(
+                knnMethodContext -> queryConfigFromMapping.set(
+                    new QueryConfigFromMapping(
+                        knnMethodContext.getKnnEngine(),
+                        knnMethodContext.getMethodComponentContext(),
+                        knnMethodContext.getSpaceType(),
+                        knnVectorFieldType.getVectorDataType()
+                    )
+                ),
+                () -> knnMappingConfig.getModelId().ifPresentOrElse(modelId -> {
+                    ModelMetadata modelMetadata = getModelMetadataForField(modelId);
+                    queryConfigFromMapping.set(
+                        new QueryConfigFromMapping(
+                            modelMetadata.getKnnEngine(),
+                            modelMetadata.getMethodComponentContext(),
+                            modelMetadata.getSpaceType(),
+                            modelMetadata.getVectorDataType()
+                        )
+                    );
+                },
+                    () -> {
+                        throw new IllegalArgumentException(
+                            String.format(Locale.ROOT, "Field '%s' is not built for ANN search.", this.fieldName)
+                        );
+                    }
+                )
+            );
+        KNNEngine knnEngine = queryConfigFromMapping.get().getKnnEngine();
+        MethodComponentContext methodComponentContext = queryConfigFromMapping.get().getMethodComponentContext();
+        SpaceType spaceType = queryConfigFromMapping.get().getSpaceType();
+        VectorDataType vectorDataType = queryConfigFromMapping.get().getVectorDataType();
+
         VectorQueryType vectorQueryType = getVectorQueryType(k, maxDistance, minScore);
         updateQueryStats(vectorQueryType);
 
-        if (fieldDimension == -1) {
-            if (spaceType != null) {
-                throw new IllegalStateException("Space type should be null when the field uses a model");
-            }
-            // If dimension is not set, the field uses a model and the information needs to be retrieved from there
-            ModelMetadata modelMetadata = getModelMetadataForField(knnVectorFieldType);
-            fieldDimension = modelMetadata.getDimension();
-            knnEngine = modelMetadata.getKnnEngine();
-            spaceType = modelMetadata.getSpaceType();
-            methodComponentContext = modelMetadata.getMethodComponentContext();
-            vectorDataType = modelMetadata.getVectorDataType();
-
-        } else if (knnMethodContext != null) {
-            // If the dimension is set but the knnMethodContext is not then the field is using the legacy mapping
-            knnEngine = knnMethodContext.getKnnEngine();
-            spaceType = knnMethodContext.getSpaceType();
-            methodComponentContext = knnMethodContext.getMethodComponentContext();
-        }
-
+        // This could be null in the case of when a model did not have serialized methodComponent information
         final String method = methodComponentContext != null ? methodComponentContext.getName() : null;
         if (StringUtils.isNotBlank(method)) {
             final KNNLibrarySearchContext engineSpecificMethodContext = knnEngine.getKNNLibrarySearchContext(method);
@@ -492,13 +504,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         throw new IllegalArgumentException(String.format(Locale.ROOT, "[%s] requires k or distance or score to be set", NAME));
     }
 
-    private ModelMetadata getModelMetadataForField(KNNVectorFieldType knnVectorField) {
-        String modelId = knnVectorField.getModelId();
-
-        if (modelId == null) {
-            throw new IllegalArgumentException(String.format(Locale.ROOT, "Field '%s' does not have model.", this.fieldName));
-        }
-
+    private ModelMetadata getModelMetadataForField(String modelId) {
         ModelMetadata modelMetadata = modelDao.getMetadata(modelId);
         if (!ModelUtil.isModelCreated(modelMetadata)) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Model ID '%s' is not created.", modelId));
@@ -567,5 +573,14 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             filter = filter.rewrite(queryShardContext);
         }
         return super.doRewrite(queryShardContext);
+    }
+
+    @Getter
+    @AllArgsConstructor
+    private static class QueryConfigFromMapping {
+        private final KNNEngine knnEngine;
+        private final MethodComponentContext methodComponentContext;
+        private final SpaceType spaceType;
+        private final VectorDataType vectorDataType;
     }
 }
