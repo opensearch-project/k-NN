@@ -33,7 +33,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        KNNMethodContext knnMethodContext
+        KNNMethodContext knnMethodContext,
+        boolean isIndexKNN
     ) {
 
         super(
@@ -44,7 +45,8 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             ignoreMalformed,
             stored,
             hasDocValues,
-            knnMethodContext.getMethodComponentContext().getIndexVersion()
+            knnMethodContext.getMethodComponentContext().getIndexVersion(),
+            isIndexKNN
         );
 
         this.knnMethod = knnMethodContext;
@@ -62,7 +64,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             Map<String, Object> libParams = knnEngine.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
             this.fieldType.putAttribute(PARAMETERS, XContentFactory.jsonBuilder().map(libParams).toString());
         } catch (IOException ioe) {
-            throw new RuntimeException(String.format("Unable to create KNNVectorFieldMapper: %s", ioe));
+            throw new RuntimeException(String.format("Unable to create KNNVectorFieldMapper: %s", ioe), ioe);
         }
 
         this.fieldType.freeze();

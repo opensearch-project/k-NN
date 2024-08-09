@@ -17,7 +17,9 @@ import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.util.BytesRef;
+import org.opensearch.Version;
 import org.opensearch.index.mapper.ParametrizedFieldMapper;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
@@ -243,6 +245,22 @@ public class KNNVectorFieldMapperUtil {
             expectedDimensions = modelMetadata.getDimension();
         }
         return VectorDataType.BINARY == knnVectorFieldType.getVectorDataType() ? expectedDimensions / 8 : expectedDimensions;
+    }
+
+    /**
+     * We will use LuceneKNNVectorsFormat when these below condition satisfy:
+     * <ol>
+     *  <li>Index is created with Version of opensearch >= 2.17</li>
+     *  <li>index.knn setting is marked as true</li>
+     *  <li>Cluster setting is enabled to use Lucene KNNVectors format. This condition is temporary condition and will be
+     * removed before release.</li>
+     * </ol>
+     * @param indexCreatedVersion {@link Version}
+     * @param isIndexKNN boolean
+     * @return true if vector field should use KNNVectorsFormat
+     */
+    static boolean useLuceneKNNVectorsFormat(final Version indexCreatedVersion, final boolean isIndexKNN) {
+        return indexCreatedVersion.onOrAfter(Version.V_2_17_0) && isIndexKNN == true && KNNSettings.getIsLuceneVectorFormatEnabled();
     }
 
     private static boolean isModelBasedIndex(int expectedDimensions) {

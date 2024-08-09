@@ -14,7 +14,7 @@ import lombok.NonNull;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.KnnByteVectorField;
-import org.apache.lucene.document.KnnVectorField;
+import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.opensearch.common.Explicit;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -44,7 +44,8 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             input.getIgnoreMalformed(),
             input.isStored(),
             input.isHasDocValues(),
-            input.getKnnMethodContext().getMethodComponentContext().getIndexVersion()
+            input.getKnnMethodContext().getMethodComponentContext().getIndexVersion(),
+            input.isIndexKNN()
         );
 
         vectorDataType = input.getVectorDataType();
@@ -76,9 +77,9 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     }
 
     @Override
-    protected List<Field> getFieldsForFloatVector(final float[] array, final FieldType fieldType) {
+    protected List<Field> getFieldsForFloatVector(final float[] array) {
         final List<Field> fieldsToBeAdded = new ArrayList<>();
-        fieldsToBeAdded.add(new KnnVectorField(name(), array, fieldType));
+        fieldsToBeAdded.add(new KnnFloatVectorField(name(), array, fieldType));
 
         if (hasDocValues && vectorFieldType != null) {
             fieldsToBeAdded.add(new VectorField(name(), array, vectorFieldType));
@@ -91,7 +92,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     }
 
     @Override
-    protected List<Field> getFieldsForByteVector(final byte[] array, final FieldType fieldType) {
+    protected List<Field> getFieldsForByteVector(final byte[] array) {
         final List<Field> fieldsToBeAdded = new ArrayList<>();
         fieldsToBeAdded.add(new KnnByteVectorField(name(), array, fieldType));
 
@@ -129,5 +130,6 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         VectorDataType vectorDataType;
         @NonNull
         KNNMethodContext knnMethodContext;
+        boolean isIndexKNN;
     }
 }
