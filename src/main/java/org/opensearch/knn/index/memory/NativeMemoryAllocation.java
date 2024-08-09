@@ -13,6 +13,7 @@ package org.opensearch.knn.index.memory;
 
 import lombok.Getter;
 import org.apache.lucene.index.LeafReaderContext;
+import org.opensearch.common.concurrent.RefCountedReleasable;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.query.KNNWeight;
@@ -81,6 +82,26 @@ public interface NativeMemoryAllocation {
     int getSizeInKB();
 
     /**
+     * Increments the refCount of this instance.
+     *
+     * @see #decRef
+     * @throws IllegalStateException iff the reference counter can not be incremented.
+     */
+    default void incRef() {}
+
+    /**
+     * Decreases the refCount of this  instance. If the refCount drops to 0, then this
+     * instance is considered as closed and should not be used anymore.
+     *
+     * @see #incRef
+     *
+     * @return returns {@code true} if the ref count dropped to 0 as a result of calling this method
+     */
+    default boolean decRef() {
+        return true;
+    }
+
+    /**
      * Represents native indices loaded into memory. Because these indices are backed by files, they should be
      * freed when file is deleted.
      */
@@ -101,6 +122,7 @@ public interface NativeMemoryAllocation {
         private final SharedIndexState sharedIndexState;
         @Getter
         private final boolean isBinaryIndex;
+        private final RefCountedReleasable<IndexAllocation> refCounted;
 
         /**
          * Constructor
@@ -159,15 +181,22 @@ public interface NativeMemoryAllocation {
             this.watcherHandle = watcherHandle;
             this.sharedIndexState = sharedIndexState;
             this.isBinaryIndex = isBinaryIndex;
+            this.refCounted = new RefCountedReleasable<>("IndexAllocation-Reference", this, this::closeInternal);
         }
 
-        @Override
-        public void close() {
+        public void closeInternal() {
             executor.execute(() -> {
                 writeLock();
                 cleanup();
                 writeUnlock();
             });
+        }
+
+        @Override
+        public void close() {
+            if (!closed && refCounted.refCount() > 0) {
+                refCounted.close();
+            }
         }
 
         private void cleanup() {
@@ -232,6 +261,16 @@ public interface NativeMemoryAllocation {
         @Override
         public int getSizeInKB() {
             return size;
+        }
+
+        @Override
+        public void incRef() {
+            refCounted.incRef();
+        }
+
+        @Override
+        public boolean decRef() {
+            return refCounted.decRef();
         }
     }
 
