@@ -30,7 +30,8 @@ public class MethodFieldMapperTests extends TestCase {
             KNNVectorFieldMapper.Defaults.IGNORE_MALFORMED,
             true,
             true,
-            KNNMethodContext.getDefault()
+            KNNMethodContext.getDefault(),
+            true
         );
         assertEquals(VectorDataType.BINARY, mappers.fieldType().vectorDataType);
     }
