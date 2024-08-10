@@ -48,7 +48,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
 
     public void testStreams() throws IOException {
         String modelId = "test-model-id";
-        KNNMethodContext knnMethodContext = KNNMethodContext.getDefault();
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
         int dimension = 10;
         String trainingIndex = "test-training-index";
         String trainingField = "test-training-field";
@@ -105,7 +105,7 @@ public class TrainingModelRequestTests extends KNNTestCase {
 
     public void testGetters() {
         String modelId = "test-model-id";
-        KNNMethodContext knnMethodContext = KNNMethodContext.getDefault();
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
         int dimension = 10;
         String trainingIndex = "test-training-index";
         String trainingField = "test-training-field";

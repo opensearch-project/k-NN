@@ -64,7 +64,7 @@ public class KNNScoringSpaceUtilTests extends KNNTestCase {
 
         KNNVectorFieldType fieldType = mock(KNNVectorFieldType.class);
 
-        when(fieldType.getDimension()).thenReturn(3);
+        when(fieldType.getKnnMappingConfig()).thenReturn(getMappingConfigForMethodMapping(getDefaultKNNMethodContext(), 3));
         assertArrayEquals(arrayFloat, KNNScoringSpaceUtil.parseToFloatArray(arrayListQueryObject, 3, VectorDataType.FLOAT), 0.1f);
 
         expectThrows(
