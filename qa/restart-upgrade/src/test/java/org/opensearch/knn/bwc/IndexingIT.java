@@ -53,6 +53,21 @@ public class IndexingIT extends AbstractRestartUpgradeTestCase {
         }
     }
 
+    // Ensure that when segments created with old mapping are forcemerged in new cluster, they
+    // succeed
+    public void testKNNIndexDefaultLegacyFieldMappingForceMerge() throws Exception {
+        waitForClusterHealthGreen(NODES_BWC_CLUSTER);
+
+        if (isRunningAgainstOldCluster()) {
+            createKnnIndex(testIndex, getKNNDefaultIndexSettings(), createKnnIndexMapping(TEST_FIELD, DIMENSIONS));
+            addKNNDocs(testIndex, TEST_FIELD, DIMENSIONS, DOC_ID, 100);
+            // Flush to ensure that index is not re-indexed when node comes back up
+            flush(testIndex, true);
+        } else {
+            forceMergeKnnIndex(testIndex);
+        }
+    }
+
     // Custom Legacy Field Mapping
     // space_type : "linf", engine : "nmslib", m : 2, ef_construction : 2
     public void testKNNIndexCustomLegacyFieldMapping() throws Exception {
