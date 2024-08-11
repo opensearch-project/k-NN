@@ -6,9 +6,12 @@
 package org.opensearch.knn.index.mapper;
 
 import org.apache.lucene.document.FieldType;
+import org.apache.lucene.index.DocValuesType;
+import org.apache.lucene.index.VectorEncoding;
 import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -99,6 +102,7 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             indexVerision,
             originalKNNMethodContext
         );
+        this.useLuceneBasedVectorField = KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(indexCreatedVersion);
         KNNMappingConfig annConfig = mappedFieldType.getKnnMappingConfig();
         KNNMethodContext knnMethodContext = annConfig.getKnnMethodContext()
             .orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
@@ -116,6 +120,22 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             this.fieldType.putAttribute(PARAMETERS, XContentFactory.jsonBuilder().map(libParams).toString());
         } catch (IOException ioe) {
             throw new RuntimeException(String.format("Unable to create KNNVectorFieldMapper: %s", ioe));
+        }
+
+        if (useLuceneBasedVectorField) {
+            int adjustedDimension = mappedFieldType.vectorDataType == VectorDataType.BINARY
+                ? annConfig.getDimension() / 8
+                : annConfig.getDimension();
+            final VectorEncoding encoding = mappedFieldType.vectorDataType == VectorDataType.FLOAT
+                ? VectorEncoding.FLOAT32
+                : VectorEncoding.BYTE;
+            fieldType.setVectorAttributes(
+                adjustedDimension,
+                encoding,
+                SpaceType.DEFAULT.getKnnVectorSimilarityFunction().getVectorSimilarityFunction()
+            );
+        } else {
+            fieldType.setDocValuesType(DocValuesType.BINARY);
         }
 
         this.fieldType.freeze();
