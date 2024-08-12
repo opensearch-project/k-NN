@@ -70,7 +70,6 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
      *
      * @param in the StreamInput to read the object from.
      * @throws IOException if an I/O error occurs during deserialization.
-     * @throws ClassNotFoundException if the class of the serialized object cannot be found.
      */
     public MultiBitScalarQuantizationState(StreamInput in) throws IOException {
         int version = in.readVInt(); // Read the version

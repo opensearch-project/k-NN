@@ -18,7 +18,6 @@ import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
 
 import java.io.IOException;
-import java.util.BitSet;
 
 public class OneBitScalarQuantizerTests extends KNNTestCase {
 

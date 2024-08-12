@@ -350,7 +350,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
 
         final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
-        assertNull(knnScorer);
+        assertEquals(KNNScorer.emptyScorer(knnWeight), knnScorer);
     }
 
     @SneakyThrows
@@ -394,7 +394,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
 
         final Scorer knnScorer = knnWeight.scorer(leafReaderContext);
-        assertNull(knnScorer);
+        assertEquals(KNNScorer.emptyScorer(knnWeight), knnScorer);
     }
 
     @SneakyThrows

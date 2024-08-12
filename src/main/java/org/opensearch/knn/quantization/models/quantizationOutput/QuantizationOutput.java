@@ -5,8 +5,6 @@
 
 package org.opensearch.knn.quantization.models.quantizationOutput;
 
-import java.io.IOException;
-
 /**
  * The QuantizationOutput interface defines the contract for quantization output data.
  *

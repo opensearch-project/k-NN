@@ -15,8 +15,6 @@ import org.opensearch.knn.quantization.sampler.Sampler;
 import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
 
-import java.io.IOException;
-
 /**
  * OneBitScalarQuantizer is responsible for quantizing vectors using a single bit per dimension.
  * It computes the mean of each dimension during training and then uses these means as thresholds
@@ -64,7 +62,6 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
         return new OneBitScalarQuantizationState(new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT), meanThresholds);
     }
 
-
     /**
      * Quantizes the provided vector using the given quantization state.
      * It compares each dimension of the vector against the corresponding mean (threshold) to determine the quantized value.
@@ -72,10 +69,9 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
      * @param vector the vector to quantize.
      * @param state  the quantization state containing the means for each dimension.
      * @param output the QuantizationOutput object to store the quantized representation of the vector.
-     * @return a BinaryQuantizationOutput containing the quantized data.
      */
     @Override
-    public void quantize(final float[] vector, final QuantizationState state, final QuantizationOutput<byte[]> output) throws IOException {
+    public void quantize(final float[] vector, final QuantizationState state, final QuantizationOutput<byte[]> output) {
         if (vector == null) {
             throw new IllegalArgumentException("Vector to quantize must not be null.");
         }

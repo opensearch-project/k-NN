@@ -8,7 +8,6 @@ package org.opensearch.knn.quantization.sampler;
 import lombok.NoArgsConstructor;
 
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 

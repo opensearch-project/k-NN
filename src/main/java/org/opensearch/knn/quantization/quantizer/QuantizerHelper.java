@@ -8,8 +8,6 @@ package org.opensearch.knn.quantization.quantizer;
 import org.opensearch.knn.quantization.models.requests.TrainingRequest;
 import lombok.experimental.UtilityClass;
 
-import java.util.BitSet;
-
 /**
  * Utility class providing common methods for quantizer operations, such as parameter validation and
  * extraction. This class is designed to be used with various quantizer implementations that require
@@ -59,10 +57,10 @@ class QuantizerHelper {
      * @param stdDevArray  the array to store the sum of squares and then the standard deviation of each dimension.
      */
     static void calculateMeanAndStdDev(
-            TrainingRequest<float[]> trainingRequest,
-            int[] sampledIndices,
-            float[] meanArray,
-            float[] stdDevArray
+        TrainingRequest<float[]> trainingRequest,
+        int[] sampledIndices,
+        float[] meanArray,
+        float[] stdDevArray
     ) {
         int totalSamples = sampledIndices.length;
         int dimension = meanArray.length;

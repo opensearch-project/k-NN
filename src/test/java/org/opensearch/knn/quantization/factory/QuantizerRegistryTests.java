@@ -76,8 +76,8 @@ public class QuantizerRegistryTests extends KNNTestCase {
         // Attempt to register the same quantizer again should throw an exception
         assertThrows(IllegalArgumentException.class, () -> {
             QuantizerRegistry.register(
-                    ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.ONE_BIT),
-                    new OneBitScalarQuantizer()
+                ScalarQuantizationParams.generateTypeIdentifier(ScalarQuantizationType.ONE_BIT),
+                new OneBitScalarQuantizer()
             );
         });
     }

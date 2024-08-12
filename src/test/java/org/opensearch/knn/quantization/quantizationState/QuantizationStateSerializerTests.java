@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.quantization.quantizationState;
 
-import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;

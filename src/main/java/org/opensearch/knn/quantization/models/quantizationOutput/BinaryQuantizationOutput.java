@@ -22,25 +22,15 @@ public class BinaryQuantizationOutput implements QuantizationOutput<byte[]> {
     /**
      * Prepares the quantized vector array based on the provided parameters and returns it for direct modification.
      * This method ensures that the internal byte array is appropriately sized and cleared before being used.
-     *
-     * <p>
      * The method accepts two parameters:
      * <ul>
      *     <li><b>bitsPerCoordinate:</b> The number of bits used per coordinate. This determines the granularity of the quantization.</li>
      *     <li><b>vectorLength:</b> The length of the original vector that needs to be quantized. This helps in calculating the required byte array size.</li>
      * </ul>
-     * </p>
-     *
-     * <p>
      * If the existing quantized vector is either null or not the same size as the required byte array,
      * a new byte array is allocated. Otherwise, the existing array is cleared (i.e., all bytes are set to zero).
-     * </p>
-     *
-     * <p>
      * This method is designed to be used in conjunction with a bit-packing utility that writes quantized values directly
      * into the returned byte array.
-     * </p>
-     *
      * @param params an array of parameters, where the first parameter is the number of bits per coordinate (int),
      *               and the second parameter is the length of the vector (int).
      * @return the prepared and writable quantized vector as a byte array.
@@ -64,7 +54,6 @@ public class BinaryQuantizationOutput implements QuantizationOutput<byte[]> {
 
         return this.quantizedVector;
     }
-
 
     /**
      * Returns the quantized vector.

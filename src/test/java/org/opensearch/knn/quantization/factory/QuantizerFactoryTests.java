@@ -39,6 +39,7 @@ public class QuantizerFactoryTests extends KNNTestCase {
         assertTrue(quantizer instanceof OneBitScalarQuantizer);
         assertTrue(isRegisteredFieldAccessible());
     }
+
     public void testGetQuantizer_withNullParams() {
         try {
             QuantizerFactory.getQuantizer(null);
@@ -47,7 +48,6 @@ public class QuantizerFactoryTests extends KNNTestCase {
             assertEquals("Quantization parameters must not be null.", e.getMessage());
         }
     }
-
 
     private boolean isRegisteredFieldAccessible() {
         try {

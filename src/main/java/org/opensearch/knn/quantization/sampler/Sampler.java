@@ -5,8 +5,6 @@
 
 package org.opensearch.knn.quantization.sampler;
 
-import java.util.BitSet;
-
 /**
  * The Sampler interface defines the contract for sampling strategies
  * used in various quantization processes. Implementations of this

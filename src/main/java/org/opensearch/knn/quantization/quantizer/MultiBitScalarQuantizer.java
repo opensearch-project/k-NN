@@ -16,8 +16,6 @@ import org.opensearch.knn.quantization.sampler.Sampler;
 import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
 
-import java.io.IOException;
-
 /**
  * MultiBitScalarQuantizer is responsible for quantizing vectors into multi-bit representations per dimension.
  * Unlike the OneBitScalarQuantizer, which uses a single bit per dimension to represent whether a value is above
@@ -116,11 +114,10 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
         QuantizerHelper.calculateMeanAndStdDev(trainingRequest, sampledIndices, meanArray, stdDevArray);
         float[][] thresholds = calculateThresholds(meanArray, stdDevArray, dimension);
         ScalarQuantizationParams params = (bitsPerCoordinate == 2)
-                ? new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT)
-                : new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
+            ? new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT)
+            : new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
         return new MultiBitScalarQuantizationState(params, thresholds);
     }
-
 
     /**
      * Quantizes the provided vector using the provided quantization state, producing a quantized output.
@@ -129,10 +126,9 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
      * @param vector the vector to quantize.
      * @param state  the quantization state containing threshold information.
      * @param output the QuantizationOutput object to store the quantized representation of the vector.
-     * @throws IOException if an I/O error occurs during quantization.
      */
     @Override
-    public void quantize(final float[] vector, final QuantizationState state, final QuantizationOutput<byte[]> output) throws IOException {
+    public void quantize(final float[] vector, final QuantizationState state, final QuantizationOutput<byte[]> output) {
         if (vector == null) {
             throw new IllegalArgumentException("Vector to quantize must not be null.");
         }

@@ -30,10 +30,6 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
      *
      * Example:
      * If we have a vector [1.2, 3.4, 5.6] and mean thresholds [2.0, 3.0, 4.0],
-     * the quantization process will be:
-     * - 1.2 < 2.0, so the first bit is 0
-     * - 3.4 > 3.0, so the second bit is 1
-     * - 5.6 > 4.0, so the third bit is 1
      * The quantized vector will be [0, 1, 1].
      */
     private float[] meanThresholds;
@@ -61,7 +57,6 @@ public final class OneBitScalarQuantizationState implements QuantizationState {
      * It includes versioning information to ensure compatibility between different versions of the serialized object.
      * @param in the StreamInput to read the object from.
      * @throws IOException if an I/O error occurs during deserialization.
-     * @throws ClassNotFoundException if the class of the serialized object cannot be found.
      */
     public OneBitScalarQuantizationState(StreamInput in) throws IOException {
         int version = in.readVInt(); // Read the version
