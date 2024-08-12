@@ -82,6 +82,12 @@ public class KNNSettings {
     public static final String MODEL_CACHE_SIZE_LIMIT = "knn.model.cache.size.limit";
     public static final String ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD = "index.knn.advanced.filtered_exact_search_threshold";
     public static final String KNN_FAISS_AVX2_DISABLED = "knn.faiss.avx2.disabled";
+    /**
+     * TODO: This setting is only added to ensure that main branch of k_NN plugin doesn't break till other parts of the
+     * code is getting ready. Will remove this setting once all changes related to integration of KNNVectorsFormat is added
+     * for native engines.
+     */
+    public static final String KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED = "knn.use.format.enabled";
     public static final String KNN_FAISS_AVX512_DISABLED = "knn.faiss.avx512.disabled";
 
     /**
@@ -257,6 +263,17 @@ public class KNNSettings {
         NodeScope
     );
 
+    /**
+     * TODO: This setting is only added to ensure that main branch of k_NN plugin doesn't break till other parts of the
+     * code is getting ready. Will remove this setting once all changes related to integration of KNNVectorsFormat is added
+     * for native engines.
+     */
+    public static final Setting<Boolean> KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED_SETTING = Setting.boolSetting(
+        KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED,
+        false,
+        NodeScope
+    );
+
     public static final Setting<Boolean> KNN_FAISS_AVX512_DISABLED_SETTING = Setting.boolSetting(
         KNN_FAISS_AVX512_DISABLED,
         KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE,
@@ -391,6 +408,10 @@ public class KNNSettings {
             return KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING;
         }
 
+        if (KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED.equals(key)) {
+            return KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -410,6 +431,7 @@ public class KNNSettings {
             ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_SETTING,
             KNN_FAISS_AVX2_DISABLED_SETTING,
             KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING,
+            KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED_SETTING,
             KNN_FAISS_AVX512_DISABLED_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
@@ -470,6 +492,15 @@ public class KNNSettings {
             .index(indexName)
             .getSettings()
             .getAsInt(ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD, ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE);
+    }
+
+    /**
+     * TODO: This setting is only added to ensure that main branch of k_NN plugin doesn't break till other parts of the
+     * code is getting ready. Will remove this setting once all changes related to integration of KNNVectorsFormat is added
+     * for native engines.
+     */
+    public static boolean getIsLuceneVectorFormatEnabled() {
+        return KNNSettings.state().getSettingValue(KNNSettings.KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED);
     }
 
     public void initialize(Client client, ClusterService clusterService) {

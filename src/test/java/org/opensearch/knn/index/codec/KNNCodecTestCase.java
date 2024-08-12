@@ -8,7 +8,9 @@ package org.opensearch.knn.index.codec;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
+import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.document.KnnVectorField;
+import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.NoMergePolicy;
 import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Query;
@@ -89,8 +91,6 @@ import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTIN
  * Test used for testing Codecs
  */
 public class KNNCodecTestCase extends KNNTestCase {
-
-    private static final Codec ACTUAL_CODEC = KNNCodecVersion.current().getDefaultKnnCodecSupplier().get();
     private static final FieldType sampleFieldType;
     static {
         KNNMethodContext knnMethodContext = new KNNMethodContext(
@@ -109,6 +109,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         }
 
         sampleFieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
+        sampleFieldType.setDocValuesType(DocValuesType.BINARY);
         sampleFieldType.putAttribute(KNNVectorFieldMapper.KNN_FIELD, "true");
         sampleFieldType.putAttribute(KNNConstants.KNN_ENGINE, knnMethodContext.getKnnEngine().getName());
         sampleFieldType.putAttribute(KNNConstants.SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
@@ -259,6 +260,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         iwc.setCodec(codec);
 
         FieldType fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
+        fieldType.setDocValuesType(DocValuesType.BINARY);
         fieldType.putAttribute(KNNConstants.MODEL_ID, modelId);
         fieldType.freeze();
 
@@ -356,9 +358,9 @@ public class KNNCodecTestCase extends KNNTestCase {
         /**
          * Add doc with field "test_vector_one"
          */
-        final FieldType luceneFieldType = KnnVectorField.createFieldType(3, VectorSimilarityFunction.EUCLIDEAN);
+        final FieldType luceneFieldType = KnnFloatVectorField.createFieldType(3, VectorSimilarityFunction.EUCLIDEAN);
         float[] array = { 1.0f, 3.0f, 4.0f };
-        KnnVectorField vectorField = new KnnVectorField(FIELD_NAME_ONE, array, luceneFieldType);
+        KnnFloatVectorField vectorField = new KnnFloatVectorField(FIELD_NAME_ONE, array, luceneFieldType);
         RandomIndexWriter writer = new RandomIndexWriter(random(), dir, iwc);
         Document doc = new Document();
         doc.add(vectorField);
