@@ -238,6 +238,22 @@ public class KNNVectorFieldMapperUtil {
         }
     }
 
+    /**
+     * Prerequisite: Index should a knn index which is validated via index settings index.knn setting. This function
+     * assumes that caller has already validated that index is a KNN index.
+     * We will use LuceneKNNVectorsFormat when these below condition satisfy:
+     * <ol>
+     *  <li>Index is created with Version of opensearch >= 2.17</li>
+     *  <li>Cluster setting is enabled to use Lucene KNNVectors format. This condition is temporary condition and will be
+     * removed before release.</li>
+     * </ol>
+     * @param indexCreatedVersion {@link Version}
+     * @return true if vector field should use KNNVectorsFormat
+     */
+    static boolean useLuceneKNNVectorsFormat(final Version indexCreatedVersion) {
+        return indexCreatedVersion.onOrAfter(Version.V_2_17_0) && KNNSettings.getIsLuceneVectorFormatEnabled();
+    }
+
     private static SpaceType getSpaceType(final Settings indexSettings, final VectorDataType vectorDataType) {
         String spaceType = indexSettings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey());
         if (spaceType == null) {
