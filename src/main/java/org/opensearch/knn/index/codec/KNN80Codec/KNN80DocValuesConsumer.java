@@ -14,6 +14,7 @@ import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.core.xcontent.MediaTypeRegistry;
 import org.opensearch.core.xcontent.DeprecationHandler;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
@@ -21,7 +22,6 @@ import org.opensearch.knn.index.codec.transfer.VectorTransfer;
 import org.opensearch.knn.index.codec.transfer.VectorTransferByte;
 import org.opensearch.knn.index.codec.transfer.VectorTransferFloat;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.Model;
@@ -131,6 +131,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         NativeIndexCreator indexCreator;
         KNNCodecUtil.Pair pair;
         Map<String, String> fieldAttributes = field.attributes();
+        VectorDataType vectorDataType;
 
         if (fieldAttributes.containsKey(MODEL_ID)) {
             String modelId = fieldAttributes.get(MODEL_ID);
@@ -138,12 +139,12 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             if (model.getModelBlob() == null) {
                 throw new RuntimeException(String.format("There is no trained model with id \"%s\"", modelId));
             }
-            VectorDataType vectorDataType = model.getModelMetadata().getVectorDataType();
+            vectorDataType = model.getModelMetadata().getVectorDataType();
             pair = KNNCodecUtil.getPair(values, getVectorTransfer(vectorDataType));
             indexCreator = () -> createKNNIndexFromTemplate(model, pair, knnEngine, indexPath);
         } else {
             // get vector data type from field attributes or provide default value
-            VectorDataType vectorDataType = VectorDataType.get(
+            vectorDataType = VectorDataType.get(
                 fieldAttributes.getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue())
             );
             pair = KNNCodecUtil.getPair(values, getVectorTransfer(vectorDataType));
@@ -156,7 +157,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             return;
         }
 
-        long arraySize = calculateArraySize(pair.docs.length, pair.getDimension(), pair.serializationMode);
+        long arraySize = calculateArraySize(pair.docs.length, pair.getDimension(), vectorDataType);
 
         if (isMerge) {
             KNNGraphValue.MERGE_CURRENT_OPERATIONS.increment();
@@ -215,8 +216,7 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
         throws IOException {
         Map<String, Object> parameters = new HashMap<>();
         Map<String, String> fieldAttributes = fieldInfo.attributes();
-        String parametersString = fieldAttributes.get(KNNConstants.PARAMETERS);
-
+        String parametersString = fieldAttributes.get(PARAMETERS);
         // parametersString will be null when legacy mapper is used
         if (parametersString == null) {
             parameters.put(KNNConstants.SPACE_TYPE, fieldAttributes.getOrDefault(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue()));
