@@ -1183,7 +1183,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
             // IllegalArgumentException should be thrown.
             Exception e = assertThrows(IllegalArgumentException.class, () -> {
-                new KNNVectorFieldMapper.Builder(invalidVectorFieldName, null, CURRENT).build(builderContext);
+                new KNNVectorFieldMapper.Builder(invalidVectorFieldName, null, CURRENT, null).build(builderContext);
             });
             assertTrue(e.getMessage(), e.getMessage().contains("Vector field name must not include"));
         }
