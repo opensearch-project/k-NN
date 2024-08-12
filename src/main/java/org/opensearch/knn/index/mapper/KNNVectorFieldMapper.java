@@ -16,7 +16,8 @@ import java.util.function.Supplier;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
-import org.apache.lucene.index.DocValuesType;
+import org.apache.lucene.document.KnnByteVectorField;
+import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.IndexOptions;
 import org.opensearch.Version;
 import org.opensearch.common.Explicit;
@@ -456,6 +457,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected boolean hasDocValues;
     protected VectorDataType vectorDataType;
     protected ModelDao modelDao;
+    protected boolean useLuceneBasedVectorField;
 
     // We need to ensure that the original KNNMethodContext as parsed is stored to initialize the
     // Builder for serialization. So, we need to store it here. This is mainly to ensure that the legacy field mapper
@@ -497,16 +499,29 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         parseCreateField(context, fieldType().getKnnMappingConfig().getDimension(), fieldType().getVectorDataType());
     }
 
+    private Field createVectorField(float[] vectorValue) {
+        if (useLuceneBasedVectorField) {
+            return new KnnFloatVectorField(name(), vectorValue, fieldType);
+        }
+        return new VectorField(name(), vectorValue, fieldType);
+    }
+
+    private Field createVectorField(byte[] vectorValue) {
+        if (useLuceneBasedVectorField) {
+            return new KnnByteVectorField(name(), vectorValue, fieldType);
+        }
+        return new VectorField(name(), vectorValue, fieldType);
+    }
+
     /**
      * Function returns a list of fields to be indexed when the vector is float type.
      *
      * @param array array of floats
-     * @param fieldType {@link FieldType}
      * @return {@link List} of {@link Field}
      */
-    protected List<Field> getFieldsForFloatVector(final float[] array, final FieldType fieldType) {
+    protected List<Field> getFieldsForFloatVector(final float[] array) {
         final List<Field> fields = new ArrayList<>();
-        fields.add(new VectorField(name(), array, fieldType));
+        fields.add(createVectorField(array));
         if (this.stored) {
             fields.add(createStoredFieldForFloatVector(name(), array));
         }
@@ -517,12 +532,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
      * Function returns a list of fields to be indexed when the vector is byte type.
      *
      * @param array array of bytes
-     * @param fieldType {@link FieldType}
      * @return {@link List} of {@link Field}
      */
-    protected List<Field> getFieldsForByteVector(final byte[] array, final FieldType fieldType) {
+    protected List<Field> getFieldsForByteVector(final byte[] array) {
         final List<Field> fields = new ArrayList<>();
-        fields.add(new VectorField(name(), array, fieldType));
+        fields.add(createVectorField(array));
         if (this.stored) {
             fields.add(createStoredFieldForByteVector(name(), array));
         }
@@ -561,24 +575,14 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
     protected void parseCreateField(ParseContext context, int dimension, VectorDataType vectorDataType) throws IOException {
         validatePreparse();
 
-        if (VectorDataType.BINARY == vectorDataType) {
+        if (VectorDataType.BINARY == vectorDataType || VectorDataType.BYTE == vectorDataType) {
             Optional<byte[]> bytesArrayOptional = getBytesFromContext(context, dimension, vectorDataType);
-
             if (bytesArrayOptional.isEmpty()) {
                 return;
             }
             final byte[] array = bytesArrayOptional.get();
             getVectorValidator().validateVector(array);
-            context.doc().addAll(getFieldsForByteVector(array, fieldType));
-        } else if (VectorDataType.BYTE == vectorDataType) {
-            Optional<byte[]> bytesArrayOptional = getBytesFromContext(context, dimension, vectorDataType);
-
-            if (bytesArrayOptional.isEmpty()) {
-                return;
-            }
-            final byte[] array = bytesArrayOptional.get();
-            getVectorValidator().validateVector(array);
-            context.doc().addAll(getFieldsForByteVector(array, fieldType));
+            context.doc().addAll(getFieldsForByteVector(array));
         } else if (VectorDataType.FLOAT == vectorDataType) {
             Optional<float[]> floatsArrayOptional = getFloatsFromContext(context, dimension);
 
@@ -587,7 +591,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             }
             final float[] array = floatsArrayOptional.get();
             getVectorValidator().validateVector(array);
-            context.doc().addAll(getFieldsForFloatVector(array, fieldType));
+            context.doc().addAll(getFieldsForFloatVector(array));
         } else {
             throw new IllegalArgumentException(
                 String.format(Locale.ROOT, "Cannot parse context for unsupported values provided for field [%s]", VECTOR_DATA_TYPE_FIELD)
@@ -714,7 +718,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         static {
             FIELD_TYPE.setTokenized(false);
             FIELD_TYPE.setIndexOptions(IndexOptions.NONE);
-            FIELD_TYPE.setDocValuesType(DocValuesType.BINARY);
             FIELD_TYPE.putAttribute(KNN_FIELD, "true"); // This attribute helps to determine knn field type
             FIELD_TYPE.freeze();
         }

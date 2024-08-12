@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.mapper;
 
 import org.apache.lucene.document.FieldType;
+import org.apache.lucene.index.DocValuesType;
 import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.knn.index.VectorDataType;
@@ -57,8 +58,11 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
         Version indexCreatedVersion
     ) {
         super(simpleName, mappedFieldType, multiFields, copyTo, ignoreMalformed, stored, hasDocValues, indexCreatedVersion, null);
+        // setting it explicitly false here to ensure that when flatmapper is used Lucene based Vector field is not created.
+        this.useLuceneBasedVectorField = false;
         this.perDimensionValidator = selectPerDimensionValidator(vectorDataType);
         this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
+        this.fieldType.setDocValuesType(DocValuesType.BINARY);
         this.fieldType.freeze();
     }
 
