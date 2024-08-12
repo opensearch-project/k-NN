@@ -6,9 +6,12 @@
 package org.opensearch.knn.index.mapper;
 
 import org.apache.lucene.document.FieldType;
+import org.apache.lucene.index.DocValuesType;
+import org.apache.lucene.index.VectorEncoding;
 import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
+import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.indices.ModelDao;
@@ -102,7 +105,7 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
 
         this.fieldType = new FieldType(KNNVectorFieldMapper.Defaults.FIELD_TYPE);
         this.fieldType.putAttribute(MODEL_ID, modelId);
-        this.fieldType.freeze();
+        this.useLuceneBasedVectorField = KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(this.indexCreatedVersion);
     }
 
     @Override
@@ -193,6 +196,21 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
     protected void parseCreateField(ParseContext context) throws IOException {
         validatePreparse();
         ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
+        if (useLuceneBasedVectorField) {
+            int adjustedDimension = modelMetadata.getVectorDataType() == VectorDataType.BINARY
+                ? modelMetadata.getDimension()
+                : modelMetadata.getDimension() / 8;
+            final VectorEncoding encoding = modelMetadata.getVectorDataType() == VectorDataType.FLOAT
+                ? VectorEncoding.FLOAT32
+                : VectorEncoding.BYTE;
+            fieldType.setVectorAttributes(
+                adjustedDimension,
+                encoding,
+                SpaceType.DEFAULT.getKnnVectorSimilarityFunction().getVectorSimilarityFunction()
+            );
+        } else {
+            fieldType.setDocValuesType(DocValuesType.BINARY);
+        }
         parseCreateField(context, modelMetadata.getDimension(), modelMetadata.getVectorDataType());
     }
 

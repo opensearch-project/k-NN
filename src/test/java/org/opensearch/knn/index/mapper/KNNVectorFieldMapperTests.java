@@ -7,11 +7,14 @@ package org.opensearch.knn.index.mapper;
 
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
+import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.KnnByteVectorField;
+import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.document.KnnVectorField;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.util.BytesRef;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.Explicit;
@@ -27,14 +30,14 @@ import org.opensearch.index.mapper.Mapper;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -79,6 +82,7 @@ import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPE
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.clipVectorValueToFP16Range;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFP16VectorValue;
 
+@Log4j2
 public class KNNVectorFieldMapperTests extends KNNTestCase {
 
     private static final String TEST_FIELD_NAME = "test-field-name";
@@ -740,6 +744,112 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     }
 
     @SneakyThrows
+    public void testMethodFieldMapperParseCreateField_validInput_thenDifferentFieldTypes() {
+        MockedStatic<KNNVectorFieldMapperUtil> utilMockedStatic = Mockito.mockStatic(KNNVectorFieldMapperUtil.class);
+        for (VectorDataType dataType : VectorDataType.values()) {
+            log.info("Vector Data Type is : {}", dataType);
+            int dimension = dataType == VectorDataType.BINARY ? TEST_DIMENSION * 8 : TEST_DIMENSION;
+            final MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
+            methodComponentContext.setIndexVersion(CURRENT);
+            SpaceType spaceType = VectorDataType.BINARY == dataType ? SpaceType.DEFAULT_BINARY : SpaceType.INNER_PRODUCT;
+            final KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, spaceType, methodComponentContext);
+
+            ParseContext.Document document = new ParseContext.Document();
+            ContentPath contentPath = new ContentPath();
+            ParseContext parseContext = mock(ParseContext.class);
+            when(parseContext.doc()).thenReturn(document);
+            when(parseContext.path()).thenReturn(contentPath);
+
+            utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Mockito.any())).thenReturn(true);
+            MethodFieldMapper methodFieldMapper = Mockito.spy(
+                MethodFieldMapper.createFieldMapper(
+                    TEST_FIELD_NAME,
+                    TEST_FIELD_NAME,
+                    Collections.emptyMap(),
+                    dataType,
+                    dimension,
+                    knnMethodContext,
+                    knnMethodContext,
+                    FieldMapper.MultiFields.empty(),
+                    FieldMapper.CopyTo.empty(),
+                    new Explicit<>(true, true),
+                    false,
+                    false,
+                    CURRENT
+                )
+            );
+
+            if (dataType == VectorDataType.BINARY) {
+                doReturn(Optional.of(TEST_BYTE_VECTOR)).when(methodFieldMapper)
+                    .getBytesFromContext(parseContext, TEST_DIMENSION * 8, dataType);
+            } else if (dataType == VectorDataType.BYTE) {
+                doReturn(Optional.of(TEST_BYTE_VECTOR)).when(methodFieldMapper).getBytesFromContext(parseContext, TEST_DIMENSION, dataType);
+            } else {
+                doReturn(Optional.of(TEST_VECTOR)).when(methodFieldMapper).getFloatsFromContext(parseContext, TEST_DIMENSION);
+            }
+
+            methodFieldMapper.parseCreateField(parseContext, dimension, dataType);
+
+            List<IndexableField> fields = document.getFields();
+            assertEquals(1, fields.size());
+            IndexableField field1 = fields.get(0);
+            if (dataType == VectorDataType.FLOAT) {
+                assertTrue(field1 instanceof KnnFloatVectorField);
+                assertEquals(field1.fieldType().vectorEncoding(), VectorEncoding.FLOAT32);
+            } else {
+                assertTrue(field1 instanceof KnnByteVectorField);
+                assertEquals(field1.fieldType().vectorEncoding(), VectorEncoding.BYTE);
+            }
+
+            assertEquals(field1.fieldType().vectorDimension(), TEST_DIMENSION);
+            assertEquals(
+                field1.fieldType().vectorSimilarityFunction(),
+                SpaceType.DEFAULT.getKnnVectorSimilarityFunction().getVectorSimilarityFunction()
+            );
+
+            utilMockedStatic.when(() -> KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Mockito.any())).thenReturn(false);
+
+            document = new ParseContext.Document();
+            contentPath = new ContentPath();
+            when(parseContext.doc()).thenReturn(document);
+            when(parseContext.path()).thenReturn(contentPath);
+            methodFieldMapper = Mockito.spy(
+                MethodFieldMapper.createFieldMapper(
+                    TEST_FIELD_NAME,
+                    TEST_FIELD_NAME,
+                    Collections.emptyMap(),
+                    dataType,
+                    dimension,
+                    knnMethodContext,
+                    knnMethodContext,
+                    FieldMapper.MultiFields.empty(),
+                    FieldMapper.CopyTo.empty(),
+                    new Explicit<>(true, true),
+                    false,
+                    false,
+                    CURRENT
+                )
+            );
+
+            if (dataType == VectorDataType.FLOAT) {
+                doReturn(Optional.of(TEST_VECTOR)).when(methodFieldMapper).getFloatsFromContext(parseContext, TEST_DIMENSION);
+            } else {
+                doReturn(Optional.of(TEST_BYTE_VECTOR)).when(methodFieldMapper)
+                    .getBytesFromContext(parseContext, dataType == VectorDataType.BINARY ? TEST_DIMENSION * 8 : TEST_DIMENSION, dataType);
+            }
+
+            methodFieldMapper.parseCreateField(parseContext, dimension, dataType);
+            fields = document.getFields();
+            assertEquals(1, fields.size());
+            field1 = fields.get(0);
+            assertTrue(field1 instanceof VectorField);
+        }
+        // making sure to close the static mock to ensure that for tests running on this thread are not impacted by
+        // this mocking
+        utilMockedStatic.close();
+    }
+
+    @SneakyThrows
     public void testLuceneFieldMapper_parseCreateField_docValues_withFloats() {
         // Create a lucene field mapper that creates a binary doc values field as well as KnnVectorField
         LuceneFieldMapper.CreateLuceneFieldMapperInput.CreateLuceneFieldMapperInputBuilder inputBuilder =
@@ -765,22 +875,22 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         doNothing().when(luceneFieldMapper).validatePreparse();
         luceneFieldMapper.parseCreateField(parseContext, TEST_DIMENSION, VectorDataType.FLOAT);
 
-        // Document should have 2 fields: one for VectorField (binary doc values) and one for KnnVectorField
+        // Document should have 2 fields: one for VectorField (binary doc values) and one for KnnFloatVectorField
         List<IndexableField> fields = document.getFields();
         assertEquals(2, fields.size());
         IndexableField field1 = fields.get(0);
         IndexableField field2 = fields.get(1);
 
         VectorField vectorField;
-        KnnVectorField knnVectorField;
+        KnnFloatVectorField knnVectorField;
         if (field1 instanceof VectorField) {
             assertTrue(field2 instanceof KnnVectorField);
             vectorField = (VectorField) field1;
-            knnVectorField = (KnnVectorField) field2;
+            knnVectorField = (KnnFloatVectorField) field2;
         } else {
-            assertTrue(field1 instanceof KnnVectorField);
+            assertTrue(field1 instanceof KnnFloatVectorField);
             assertTrue(field2 instanceof VectorField);
-            knnVectorField = (KnnVectorField) field1;
+            knnVectorField = (KnnFloatVectorField) field1;
             vectorField = (VectorField) field2;
         }
 
@@ -821,8 +931,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         fields = document.getFields();
         assertEquals(1, fields.size());
         IndexableField field = fields.get(0);
-        assertTrue(field instanceof KnnVectorField);
-        knnVectorField = (KnnVectorField) field;
+        assertTrue(field instanceof KnnFloatVectorField);
+        knnVectorField = (KnnFloatVectorField) field;
         assertArrayEquals(TEST_VECTOR, knnVectorField.vectorValue(), 0.001f);
     }
 
