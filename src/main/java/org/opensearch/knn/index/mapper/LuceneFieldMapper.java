@@ -24,6 +24,7 @@ import org.opensearch.common.Explicit;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
@@ -107,8 +108,11 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             this.vectorFieldType = null;
         }
 
-        initValidatorsAndProcessors(knnMethodContext);
-        knnMethodContext.getSpaceType().validateVectorDataType(vectorDataType);
+        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodContext);
+        this.perDimensionProcessor = knnLibraryIndexingContext.getPerDimensionProcessor();
+        this.perDimensionValidator = knnLibraryIndexingContext.getPerDimensionValidator();
+        this.vectorValidator = knnLibraryIndexingContext.getVectorValidator();
     }
 
     @Override
@@ -139,21 +143,6 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             fieldsToBeAdded.add(createStoredFieldForByteVector(name(), array));
         }
         return fieldsToBeAdded;
-    }
-
-    private void initValidatorsAndProcessors(KNNMethodContext knnMethodContext) {
-        this.vectorValidator = new SpaceVectorValidator(knnMethodContext.getSpaceType());
-        this.perDimensionProcessor = PerDimensionProcessor.NOOP_PROCESSOR;
-        if (VectorDataType.BINARY == vectorDataType) {
-            this.perDimensionValidator = PerDimensionValidator.DEFAULT_BIT_VALIDATOR;
-            return;
-        }
-
-        if (VectorDataType.BYTE == vectorDataType) {
-            this.perDimensionValidator = PerDimensionValidator.DEFAULT_BYTE_VALIDATOR;
-            return;
-        }
-        this.perDimensionValidator = PerDimensionValidator.DEFAULT_FLOAT_VALIDATOR;
     }
 
     @Override

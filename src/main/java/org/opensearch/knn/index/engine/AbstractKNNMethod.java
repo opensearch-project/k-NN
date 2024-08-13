@@ -9,6 +9,11 @@ import lombok.AllArgsConstructor;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.mapper.PerDimensionProcessor;
+import org.opensearch.knn.index.mapper.PerDimensionValidator;
+import org.opensearch.knn.index.mapper.SpaceVectorValidator;
+import org.opensearch.knn.index.mapper.VectorValidator;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -75,11 +80,41 @@ public abstract class AbstractKNNMethod implements KNNMethod {
         return methodComponent.estimateOverheadInKB(knnMethodContext.getMethodComponentContext(), dimension);
     }
 
+    protected PerDimensionValidator doGetPerDimensionValidator(KNNMethodContext knnMethodContext) {
+        VectorDataType vectorDataType = knnMethodContext.getKnnMethodConfigContext()
+            .getVectorDataType()
+            .orElseThrow(
+                () -> new IllegalStateException("Vector data type needs to be set on KNNMethodConfigContext in order to get the processor")
+            );
+
+        if (VectorDataType.BINARY == vectorDataType) {
+            return PerDimensionValidator.DEFAULT_BIT_VALIDATOR;
+        }
+
+        if (VectorDataType.BYTE == vectorDataType) {
+            return PerDimensionValidator.DEFAULT_BYTE_VALIDATOR;
+        }
+        return PerDimensionValidator.DEFAULT_FLOAT_VALIDATOR;
+    }
+
+    protected VectorValidator doGetVectorValidator(KNNMethodContext knnMethodContext) {
+        return new SpaceVectorValidator(knnMethodContext.getSpaceType());
+    }
+
+    protected PerDimensionProcessor doGetPerDimensionProcessor(KNNMethodContext knnMethodContext) {
+        return PerDimensionProcessor.NOOP_PROCESSOR;
+    }
+
     @Override
     public KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodContext knnMethodContext) {
         Map<String, Object> parameterMap = new HashMap<>(methodComponent.getAsMap(knnMethodContext.getMethodComponentContext()));
         parameterMap.put(KNNConstants.SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
-        return KNNLibraryIndexingContextImpl.builder().parameters(parameterMap).build();
+        return KNNLibraryIndexingContextImpl.builder()
+            .parameters(parameterMap)
+            .vectorValidator(doGetVectorValidator(knnMethodContext))
+            .perDimensionValidator(doGetPerDimensionValidator(knnMethodContext))
+            .perDimensionProcessor(doGetPerDimensionProcessor(knnMethodContext))
+            .build();
     }
 
     @Override

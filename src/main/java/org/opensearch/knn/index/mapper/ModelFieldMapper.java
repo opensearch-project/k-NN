@@ -13,7 +13,9 @@ import org.opensearch.common.Explicit;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
+import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
@@ -22,10 +24,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.isFaissSQClipToFP16RangeEnabled;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.isFaissSQfp16;
 
 /**
  * Field mapper for model in mapping
@@ -130,66 +129,30 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         if (vectorValidator != null) {
             return;
         }
-        ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
-        vectorValidator = new SpaceVectorValidator(modelMetadata.getSpaceType());
+        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelDao, modelId);
+        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodContext);
+        vectorValidator = knnLibraryIndexingContext.getVectorValidator();
     }
 
     private void initPerDimensionValidator() {
         if (perDimensionValidator != null) {
             return;
         }
-        ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
-        MethodComponentContext methodComponentContext = modelMetadata.getMethodComponentContext();
-        VectorDataType dataType = modelMetadata.getVectorDataType();
-
-        if (VectorDataType.BINARY == dataType) {
-            perDimensionValidator = PerDimensionValidator.DEFAULT_BIT_VALIDATOR;
-            return;
-        }
-
-        if (VectorDataType.BYTE == dataType) {
-            perDimensionValidator = PerDimensionValidator.DEFAULT_BYTE_VALIDATOR;
-            return;
-        }
-
-        if (!isFaissSQfp16(methodComponentContext)) {
-            perDimensionValidator = PerDimensionValidator.DEFAULT_FLOAT_VALIDATOR;
-            return;
-        }
-
-        perDimensionValidator = PerDimensionValidator.DEFAULT_FP16_VALIDATOR;
+        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelDao, modelId);
+        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodContext);
+        perDimensionValidator = knnLibraryIndexingContext.getPerDimensionValidator();
     }
 
     private void initPerDimensionProcessor() {
         if (perDimensionProcessor != null) {
             return;
         }
-        ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
-        MethodComponentContext methodComponentContext = modelMetadata.getMethodComponentContext();
-        VectorDataType dataType = modelMetadata.getVectorDataType();
-
-        if (VectorDataType.BINARY == dataType) {
-            perDimensionProcessor = PerDimensionProcessor.NOOP_PROCESSOR;
-            return;
-        }
-
-        if (VectorDataType.BYTE == dataType) {
-            perDimensionProcessor = PerDimensionProcessor.NOOP_PROCESSOR;
-            return;
-        }
-
-        if (!isFaissSQfp16(methodComponentContext)) {
-            perDimensionProcessor = PerDimensionProcessor.NOOP_PROCESSOR;
-            return;
-        }
-
-        if (!isFaissSQClipToFP16RangeEnabled(
-            (MethodComponentContext) methodComponentContext.getParameters().get(METHOD_ENCODER_PARAMETER)
-        )) {
-            perDimensionProcessor = PerDimensionProcessor.NOOP_PROCESSOR;
-            return;
-        }
-        perDimensionProcessor = PerDimensionProcessor.CLIP_TO_FP16_PROCESSOR;
+        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelDao, modelId);
+        KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
+            .getKNNLibraryIndexingContext(knnMethodContext);
+        perDimensionProcessor = knnLibraryIndexingContext.getPerDimensionProcessor();
     }
 
     @Override
@@ -212,6 +175,19 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
             fieldType.setDocValuesType(DocValuesType.BINARY);
         }
         parseCreateField(context, modelMetadata.getDimension(), modelMetadata.getVectorDataType());
+    }
+
+    private static KNNMethodContext getKNNMethodContextFromModelMetadata(ModelDao modelDao, String modelId) {
+        ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
+        return new KNNMethodContext(
+            modelMetadata.getKnnEngine(),
+            modelMetadata.getSpaceType(),
+            modelMetadata.getMethodComponentContext(),
+            KNNMethodConfigContext.builder()
+                .vectorDataType(modelMetadata.getVectorDataType())
+                .dimension(modelMetadata.getDimension())
+                .build()
+        );
     }
 
     private static ModelMetadata getModelMetadata(ModelDao modelDao, String modelId) {

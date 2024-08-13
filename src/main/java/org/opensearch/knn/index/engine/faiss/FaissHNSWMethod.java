@@ -33,7 +33,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 /**
  * Faiss HNSW method implementation
  */
-public class FaissHNSWMethod extends AbstractKNNMethod {
+public class FaissHNSWMethod extends AbstractFaissMethod {
 
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.BINARY);
 

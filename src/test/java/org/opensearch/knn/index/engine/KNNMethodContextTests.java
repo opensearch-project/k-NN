@@ -542,16 +542,6 @@ public class KNNMethodContextTests extends KNNTestCase {
         );
     }
 
-    public void testValidateVectorDataType_whenBinaryFaissIVF_thenException() {
-        validateValidateVectorDataType(
-            KNNEngine.FAISS,
-            KNNConstants.METHOD_IVF,
-            VectorDataType.BINARY,
-            SpaceType.HAMMING,
-            "UnsupportedMethod"
-        );
-    }
-
     public void testValidateVectorDataType_whenByteLucene_thenValid() {
         validateValidateVectorDataType(KNNEngine.LUCENE, KNNConstants.METHOD_HNSW, VectorDataType.BYTE, SpaceType.L2, null);
     }

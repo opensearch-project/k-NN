@@ -207,7 +207,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             knnEngine,
             spaceType,
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512)),
-            KNNMethodConfigContext.builder().build()
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).build()
         );
 
         String parameterString = XContentFactory.jsonBuilder()
@@ -273,7 +273,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             knnEngine,
             spaceType,
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512)),
-            KNNMethodConfigContext.builder().build()
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).build()
         );
         knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 
@@ -341,7 +341,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             knnEngine,
             spaceType,
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512)),
-            KNNMethodConfigContext.builder().build()
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.BINARY).build()
         );
         knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 

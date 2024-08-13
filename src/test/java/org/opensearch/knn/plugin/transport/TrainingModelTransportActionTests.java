@@ -65,6 +65,7 @@ public class TrainingModelTransportActionTests extends KNNSingleNodeTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
+        knnMethodContext.getKnnMethodConfigContext().setVectorDataType(VectorDataType.FLOAT);
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
             modelId,

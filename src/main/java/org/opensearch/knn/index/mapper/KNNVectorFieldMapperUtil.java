@@ -33,25 +33,15 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 
 import java.util.Arrays;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 
-import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
-import static org.opensearch.knn.common.KNNConstants.FP16_MAX_VALUE;
-import static org.opensearch.knn.common.KNNConstants.FP16_MIN_VALUE;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_M;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVectorValue;
 
 /**
  * Utility class for KNNVectorFieldMapper
@@ -59,42 +49,6 @@ import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVectorVal
 @Log4j2
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class KNNVectorFieldMapperUtil {
-
-    /**
-     * Validate the float vector value and throw exception if it is not a number or not in the finite range
-     * or is not within the FP16 range of [-65504 to 65504].
-     *
-     * @param value float vector value
-     */
-    public static void validateFP16VectorValue(float value) {
-        validateFloatVectorValue(value);
-        if (value < FP16_MIN_VALUE || value > FP16_MAX_VALUE) {
-            throw new IllegalArgumentException(
-                String.format(
-                    Locale.ROOT,
-                    "encoder name is set as [%s] and type is set as [%s] in index mapping. But, KNN vector values are not within in the FP16 range [%f, %f]",
-                    ENCODER_SQ,
-                    FAISS_SQ_ENCODER_FP16,
-                    FP16_MIN_VALUE,
-                    FP16_MAX_VALUE
-                )
-            );
-        }
-    }
-
-    /**
-     * Validate the float vector value and if it is outside FP16 range,
-     * then it will be clipped to FP16 range of [-65504 to 65504].
-     *
-     * @param value  float vector value
-     * @return  vector value clipped to FP16 range
-     */
-    public static float clipVectorValueToFP16Range(float value) {
-        validateFloatVectorValue(value);
-        if (value < FP16_MIN_VALUE) return FP16_MIN_VALUE;
-        if (value > FP16_MAX_VALUE) return FP16_MAX_VALUE;
-        return value;
-    }
 
     /**
      * @param knnEngine  KNNEngine
@@ -239,70 +193,6 @@ public class KNNVectorFieldMapperUtil {
             return defaultEFConstructionValue;
         }
         return Integer.parseInt(efConstruction);
-    }
-
-    /**
-     * Verify mapping and return true if it is a "faiss" Index using "sq" encoder of type "fp16"
-     *
-     * @param methodComponentContext MethodComponentContext
-     * @return true if it is a "faiss" Index using "sq" encoder of type "fp16"
-     */
-    static boolean isFaissSQfp16(MethodComponentContext methodComponentContext) {
-        if (Objects.isNull(methodComponentContext)) {
-            return false;
-        }
-
-        if (methodComponentContext.getParameters().size() == 0) {
-            return false;
-        }
-
-        Map<String, Object> methodComponentParams = methodComponentContext.getParameters();
-
-        // The method component parameters should have an encoder
-        if (!methodComponentParams.containsKey(METHOD_ENCODER_PARAMETER)) {
-            return false;
-        }
-
-        // Validate if the object is of type MethodComponentContext before casting it later
-        if (!(methodComponentParams.get(METHOD_ENCODER_PARAMETER) instanceof MethodComponentContext)) {
-            return false;
-        }
-
-        MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) methodComponentParams.get(METHOD_ENCODER_PARAMETER);
-
-        // returns true if encoder name is "sq" and type is "fp16"
-        return ENCODER_SQ.equals(encoderMethodComponentContext.getName())
-            && FAISS_SQ_ENCODER_FP16.equals(
-                encoderMethodComponentContext.getParameters().getOrDefault(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
-            );
-
-    }
-
-    /**
-     * Verify mapping and return the value of "clip" parameter(default false) for a "faiss" Index
-     * using "sq" encoder of type "fp16".
-     *
-     * @param methodComponentContext MethodComponentContext
-     * @return boolean value of "clip" parameter
-     */
-    static boolean isFaissSQClipToFP16RangeEnabled(MethodComponentContext methodComponentContext) {
-        if (Objects.nonNull(methodComponentContext)) {
-            return (boolean) methodComponentContext.getParameters().getOrDefault(FAISS_SQ_CLIP, false);
-        }
-        return false;
-    }
-
-    /**
-     * Extract MethodComponentContext from KNNMethodContext
-     *
-     * @param knnMethodContext KNNMethodContext
-     * @return MethodComponentContext
-     */
-    static MethodComponentContext getMethodComponentContext(KNNMethodContext knnMethodContext) {
-        if (Objects.isNull(knnMethodContext)) {
-            return null;
-        }
-        return knnMethodContext.getMethodComponentContext();
     }
 
     static KNNMethodContext createKNNMethodContextFromLegacy(Mapper.BuilderContext context, Version indexCreatedVersion) {

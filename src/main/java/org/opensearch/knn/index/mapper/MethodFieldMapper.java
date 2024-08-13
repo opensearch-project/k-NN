@@ -14,8 +14,8 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
-import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.io.IOException;
 import java.util.Map;
@@ -23,22 +23,18 @@ import java.util.Optional;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.getMethodComponentContext;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.isFaissSQClipToFP16RangeEnabled;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.isFaissSQfp16;
 
 /**
  * Field mapper for method definition in mapping
  */
 public class MethodFieldMapper extends KNNVectorFieldMapper {
 
-    private PerDimensionProcessor perDimensionProcessor;
-    private PerDimensionValidator perDimensionValidator;
-    private VectorValidator vectorValidator;
+    private final PerDimensionProcessor perDimensionProcessor;
+    private final PerDimensionValidator perDimensionValidator;
+    private final VectorValidator vectorValidator;
 
     public static MethodFieldMapper createFieldMapper(
         String fullname,
@@ -115,9 +111,12 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         KNNEngine knnEngine = knnMethodContext.getKnnEngine();
         this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
 
+        KNNLibraryIndexingContext knnLibraryIndexingContext = knnEngine.getKNNLibraryIndexingContext(knnMethodContext);
         try {
-            Map<String, Object> libParams = knnEngine.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
-            this.fieldType.putAttribute(PARAMETERS, XContentFactory.jsonBuilder().map(libParams).toString());
+            this.fieldType.putAttribute(
+                PARAMETERS,
+                XContentFactory.jsonBuilder().map(knnLibraryIndexingContext.getLibraryParameters()).toString()
+            );
         } catch (IOException ioe) {
             throw new RuntimeException(String.format("Unable to create KNNVectorFieldMapper: %s", ioe));
         }
@@ -139,43 +138,9 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         }
 
         this.fieldType.freeze();
-        initValidatorsAndProcessors(knnMethodContext);
-        knnMethodContext.getSpaceType().validateVectorDataType(vectorDataType);
-    }
-
-    private void initValidatorsAndProcessors(KNNMethodContext knnMethodContext) {
-        this.vectorValidator = new SpaceVectorValidator(knnMethodContext.getSpaceType());
-
-        if (VectorDataType.BINARY == vectorDataType) {
-            this.perDimensionValidator = PerDimensionValidator.DEFAULT_BIT_VALIDATOR;
-            this.perDimensionProcessor = PerDimensionProcessor.NOOP_PROCESSOR;
-            return;
-        }
-
-        if (VectorDataType.BYTE == vectorDataType) {
-            this.perDimensionValidator = PerDimensionValidator.DEFAULT_BYTE_VALIDATOR;
-            this.perDimensionProcessor = PerDimensionProcessor.NOOP_PROCESSOR;
-            return;
-        }
-
-        MethodComponentContext methodComponentContext = getMethodComponentContext(knnMethodContext);
-        if (!isFaissSQfp16(methodComponentContext)) {
-            // Normal float and byte processor
-            this.perDimensionValidator = PerDimensionValidator.DEFAULT_FLOAT_VALIDATOR;
-            this.perDimensionProcessor = PerDimensionProcessor.NOOP_PROCESSOR;
-            return;
-        }
-
-        this.perDimensionValidator = PerDimensionValidator.DEFAULT_FP16_VALIDATOR;
-
-        if (!isFaissSQClipToFP16RangeEnabled(
-            (MethodComponentContext) methodComponentContext.getParameters().get(METHOD_ENCODER_PARAMETER)
-        )) {
-            this.perDimensionProcessor = PerDimensionProcessor.NOOP_PROCESSOR;
-            return;
-        }
-
-        this.perDimensionProcessor = PerDimensionProcessor.CLIP_TO_FP16_PROCESSOR;
+        this.perDimensionProcessor = knnLibraryIndexingContext.getPerDimensionProcessor();
+        this.perDimensionValidator = knnLibraryIndexingContext.getPerDimensionValidator();
+        this.vectorValidator = knnLibraryIndexingContext.getVectorValidator();
     }
 
     @Override

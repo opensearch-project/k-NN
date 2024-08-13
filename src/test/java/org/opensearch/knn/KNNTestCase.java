@@ -14,6 +14,7 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
@@ -108,7 +109,7 @@ public class KNNTestCase extends OpenSearchTestCase {
             KNNEngine.DEFAULT,
             SpaceType.DEFAULT,
             methodComponentContext,
-            KNNMethodConfigContext.builder().build()
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build()
         );
         methodComponentContext.setIndexVersion(Version.CURRENT);
         return defaultInstance;
@@ -120,7 +121,7 @@ public class KNNTestCase extends OpenSearchTestCase {
             KNNEngine.DEFAULT,
             SpaceType.DEFAULT_BINARY,
             methodComponentContext,
-            KNNMethodConfigContext.builder().build()
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.BINARY).versionCreated(Version.CURRENT).build()
         );
         methodComponentContext.setIndexVersion(Version.CURRENT);
         return defaultInstance;

@@ -111,6 +111,9 @@ public class TrainingModelRequest extends ActionRequest {
         } else {
             this.vectorDataType = VectorDataType.DEFAULT;
         }
+        this.knnMethodContext.getKnnMethodConfigContext().setVectorDataType(this.vectorDataType);
+        this.knnMethodContext.getKnnMethodConfigContext().setVersionCreated(in.getVersion());
+        this.knnMethodContext.getKnnMethodConfigContext().setDimension(dimension);
     }
 
     /**

@@ -11,6 +11,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -158,7 +159,7 @@ public class AbstractKNNMethodTests extends KNNTestCase {
                     KNNEngine.DEFAULT,
                     spaceType,
                     new MethodComponentContext(methodName, generatedMap),
-                    KNNMethodConfigContext.builder().build()
+                    KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).build()
                 )
             ).getLibraryParameters()
         );

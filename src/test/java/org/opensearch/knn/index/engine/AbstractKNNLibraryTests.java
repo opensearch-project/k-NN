@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.engine;
 
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -91,7 +92,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
             KNNEngine.DEFAULT,
             SpaceType.DEFAULT,
             new MethodComponentContext(VALID_METHOD_NAME, Collections.emptyMap()),
-            KNNMethodConfigContext.builder().build()
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build()
         );
         assertEquals(expectedMap, TEST_LIBRARY.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters());
 

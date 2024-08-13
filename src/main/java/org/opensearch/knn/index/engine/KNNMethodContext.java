@@ -197,7 +197,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         equalsBuilder.append(knnEngine, other.knnEngine);
         equalsBuilder.append(spaceType, other.spaceType);
         equalsBuilder.append(methodComponentContext, other.methodComponentContext);
-        equalsBuilder.append(knnMethodConfigContext, other.knnMethodConfigContext);
+        // equalsBuilder.append(knnMethodConfigContext, other.knnMethodConfigContext);
 
         return equalsBuilder.isEquals();
     }
@@ -207,7 +207,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         return new HashCodeBuilder().append(knnEngine)
             .append(spaceType)
             .append(methodComponentContext)
-            .append(knnMethodConfigContext)
+            // .append(knnMethodConfigContext)
             .toHashCode();
     }
 

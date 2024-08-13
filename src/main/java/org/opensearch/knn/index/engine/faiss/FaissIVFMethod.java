@@ -36,9 +36,9 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_LI
 /**
  * Faiss ivf implementation
  */
-public class FaissIVFMethod extends AbstractKNNMethod {
+public class FaissIVFMethod extends AbstractFaissMethod {
 
-    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.BINARY);
 
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
         SpaceType.UNDEFINED,

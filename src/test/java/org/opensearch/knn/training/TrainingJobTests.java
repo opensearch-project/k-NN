@@ -89,6 +89,9 @@ public class TrainingJobTests extends KNNTestCase {
         when(knnMethodContext.getKnnEngine()).thenReturn(knnEngine);
         when(knnMethodContext.getSpaceType()).thenReturn(spaceType);
         when(knnMethodContext.getMethodComponentContext()).thenReturn(methodComponentContext);
+        when(knnMethodContext.getKnnMethodConfigContext()).thenReturn(
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).build()
+        );
 
         String modelID = "test-model-id";
         TrainingJob trainingJob = new TrainingJob(
@@ -135,7 +138,7 @@ public class TrainingJobTests extends KNNTestCase {
             knnEngine,
             SpaceType.INNER_PRODUCT,
             new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)),
-            KNNMethodConfigContext.builder().build()
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).build()
         );
 
         // Set up training data

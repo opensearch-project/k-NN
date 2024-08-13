@@ -98,7 +98,7 @@ public class KNNCodecTestCase extends KNNTestCase {
             KNNEngine.DEFAULT,
             SpaceType.DEFAULT,
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512)),
-            KNNMethodConfigContext.builder().build()
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.DEFAULT).build()
         );
         knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
         String parameterString;
