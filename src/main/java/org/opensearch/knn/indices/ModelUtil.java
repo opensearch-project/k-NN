@@ -15,9 +15,14 @@ import org.apache.commons.lang.StringUtils;
 
 import java.util.Locale;
 
+import lombok.experimental.UtilityClass;
+
+import java.util.Locale;
+
 /**
  * A utility class for models.
  */
+@UtilityClass
 public class ModelUtil {
 
     public static void blockCommasInModelDescription(String description) {
@@ -48,7 +53,7 @@ public class ModelUtil {
         }
         final Model model = ModelCache.getInstance().get(modelId);
         final ModelMetadata modelMetadata = model.getModelMetadata();
-        if (ModelUtil.isModelCreated(modelMetadata) == false) {
+        if (!ModelUtil.isModelCreated(modelMetadata)) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Model ID '%s' is not created.", modelId));
         }
         return modelMetadata;

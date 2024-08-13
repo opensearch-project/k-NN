@@ -19,7 +19,9 @@ import java.io.FileReader;
 import java.io.IOException;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.codec.util.SerializationMode;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.jni.JNICommons;
+import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.util.Collections;
@@ -397,11 +399,11 @@ public class TestUtils {
         }
 
         public long loadDataToMemoryAddress() {
-            return JNICommons.storeVectorData(0, indexData.vectors, (long) indexData.vectors.length * indexData.vectors[0].length);
+            return JNICommons.storeVectorData(0, indexData.vectors, (long) indexData.vectors.length * indexData.vectors[0].length, true);
         }
 
         public long loadBinaryDataToMemoryAddress() {
-            return JNICommons.storeByteVectorData(0, indexBinaryData, (long) indexBinaryData.length * indexBinaryData[0].length);
+            return JNICommons.storeByteVectorData(0, indexBinaryData, (long) indexBinaryData.length * indexBinaryData[0].length, true);
         }
 
         @AllArgsConstructor
@@ -412,6 +414,17 @@ public class TestUtils {
             private int dimension;
             public SerializationMode serializationMode;
             public float[][] vectors;
+        }
+    }
+
+    public static void createIndex(int[] ids, long address, int dimension, String name, Map<String, Object> parameters, KNNEngine engine) {
+        if (engine != KNNEngine.FAISS) {
+            JNIService.createIndex(ids, address, dimension, name, parameters, engine);
+        } else {
+            // We can initialize numDocs as 0, this will just not reserve anything.
+            long indexAddress = JNIService.initIndexFromScratch(0, dimension, parameters, engine);
+            JNIService.insertToIndex(ids, address, dimension, parameters, indexAddress, engine);
+            JNIService.writeIndex(name, indexAddress, engine, parameters);
         }
     }
 }

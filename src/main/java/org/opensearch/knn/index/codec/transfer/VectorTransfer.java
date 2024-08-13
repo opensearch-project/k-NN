@@ -5,50 +5,37 @@
 
 package org.opensearch.knn.index.codec.transfer;
 
-import lombok.Data;
-import org.apache.lucene.util.BytesRef;
-import org.opensearch.knn.index.codec.util.SerializationMode;
+import java.io.Closeable;
+import java.io.IOException;
 
 /**
- * Abstract class to transfer vector value from Java to native memory
+ * An interface to transfer vectors from one memory location to another
+ * Class is Closeable to be able to release memory once done
  */
-@Data
-public abstract class VectorTransfer {
-    protected final long vectorsStreamingMemoryLimit;
-    protected long totalLiveDocs;
-    protected long vectorsPerTransfer;
-    protected long vectorAddress;
-    protected int dimension;
-
-    public VectorTransfer(final long vectorsStreamingMemoryLimit) {
-        this.vectorsStreamingMemoryLimit = vectorsStreamingMemoryLimit;
-        this.vectorsPerTransfer = Integer.MIN_VALUE;
-    }
+public interface VectorTransfer extends Closeable {
 
     /**
-     * Initialize the transfer
-     *
-     * @param totalLiveDocs total number of vectors to be transferred
+     * Transfer a batch of vectors from one location to another
+     * The batch size here is intended to be constant for multiple transfers so should be encapsulated in the
+     * implementation. A new batch size should require another instance
+     * @throws IOException
      */
-    abstract public void init(final long totalLiveDocs);
+    void transferBatch() throws IOException;
 
     /**
-     * Transfer a single vector
-     *
-     * @param bytesRef a vector in bytes format
+     * Indicates if there are more vectors to transfer
+     * @return
      */
-    abstract public void transfer(final BytesRef bytesRef);
+    boolean hasNext();
 
     /**
-     * Close the transfer
+     * Gives the docIds for transfered vectors
+     * @return
      */
-    abstract public void close();
+    int[] getTransferredDocsIds();
 
     /**
-     * Get serialization mode of given byte stream
-     *
-     * @param bytesRef bytes of a vector
-     * @return serialization mode
+     * @return the memory address of the vectors transferred
      */
-    abstract public SerializationMode getSerializationMode(final BytesRef bytesRef);
+    long getVectorAddress();
 }

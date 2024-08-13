@@ -23,8 +23,8 @@ class MockIndexService : public IndexService {
 public:
     MockIndexService(std::unique_ptr<FaissMethods> faissMethods) : IndexService(std::move(faissMethods)) {};
     MOCK_METHOD(
-        void,
-        createIndex,
+        long,
+        initIndex,
         (
             knn_jni::JNIUtilInterface * jniUtil,
             JNIEnv * env,
@@ -33,10 +33,27 @@ public:
             int dim,
             int numIds,
             int threadCount,
-            int64_t vectorsAddress,
-            std::vector<int64_t> ids,
-            std::string indexPath,
             StringToJObjectMap parameters
+        ),
+        (override));
+    MOCK_METHOD(
+        void,
+        insertToIndex,
+        (
+            int dim,
+            int numIds,
+            int threadCount,
+            int64_t vectorsAddress,
+            std::vector<int64_t> & ids,
+            long indexPtr
+        ),
+        (override));
+    MOCK_METHOD(
+        void,
+        writeIndex,
+        (
+            std::string indexPath,
+            long indexPtr
         ),
         (override));
 };
