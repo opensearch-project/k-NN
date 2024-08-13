@@ -20,6 +20,7 @@ import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
@@ -134,7 +135,12 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
         final String expectedErrMsg
     ) {
         MethodComponentContext methodComponentContext = new MethodComponentContext(methodName, Collections.emptyMap());
-        KNNMethodContext methodContext = new KNNMethodContext(knnEngine, SpaceType.UNDEFINED, methodComponentContext);
+        KNNMethodContext methodContext = new KNNMethodContext(
+            knnEngine,
+            SpaceType.UNDEFINED,
+            methodComponentContext,
+            KNNMethodConfigContext.builder().build()
+        );
         if (expectedErrMsg == null) {
             KNNVectorFieldMapperUtil.validateVectorDataType(methodContext, vectorDataType);
         } else {

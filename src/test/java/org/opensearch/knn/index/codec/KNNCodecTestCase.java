@@ -23,6 +23,7 @@ import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -96,7 +97,8 @@ public class KNNCodecTestCase extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.DEFAULT,
             SpaceType.DEFAULT,
-            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
+            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512)),
+            KNNMethodConfigContext.builder().build()
         );
         knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
         String parameterString;
@@ -328,7 +330,8 @@ public class KNNCodecTestCase extends KNNTestCase {
         final KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.LUCENE,
             SpaceType.L2,
-            new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256))
+            new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256)),
+            KNNMethodConfigContext.builder().build()
         );
 
         final KNNVectorFieldType mappedFieldType1 = new KNNVectorFieldType(

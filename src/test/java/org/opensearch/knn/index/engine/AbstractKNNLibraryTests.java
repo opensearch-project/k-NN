@@ -90,7 +90,8 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.DEFAULT,
             SpaceType.DEFAULT,
-            new MethodComponentContext(VALID_METHOD_NAME, Collections.emptyMap())
+            new MethodComponentContext(VALID_METHOD_NAME, Collections.emptyMap()),
+            KNNMethodConfigContext.builder().build()
         );
         assertEquals(expectedMap, TEST_LIBRARY.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters());
 
@@ -98,7 +99,8 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         KNNMethodContext invalidKnnMethodContext = new KNNMethodContext(
             KNNEngine.DEFAULT,
             SpaceType.DEFAULT,
-            new MethodComponentContext("invalid", Collections.emptyMap())
+            new MethodComponentContext("invalid", Collections.emptyMap()),
+            KNNMethodConfigContext.builder().build()
         );
         expectThrows(IllegalArgumentException.class, () -> TEST_LIBRARY.getKNNLibraryIndexingContext(invalidKnnMethodContext));
     }

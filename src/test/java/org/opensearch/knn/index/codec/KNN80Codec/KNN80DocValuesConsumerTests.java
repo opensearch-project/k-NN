@@ -25,6 +25,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.vectorvalues.TestVectorValues;
@@ -205,7 +206,8 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             spaceType,
-            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
+            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512)),
+            KNNMethodConfigContext.builder().build()
         );
 
         String parameterString = XContentFactory.jsonBuilder()
@@ -270,7 +272,8 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             spaceType,
-            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
+            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512)),
+            KNNMethodConfigContext.builder().build()
         );
         knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 
@@ -337,7 +340,8 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             spaceType,
-            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
+            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512)),
+            KNNMethodConfigContext.builder().build()
         );
         knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 

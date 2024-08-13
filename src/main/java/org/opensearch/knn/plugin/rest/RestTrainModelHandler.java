@@ -12,6 +12,7 @@
 package org.opensearch.knn.plugin.rest;
 
 import com.google.common.collect.ImmutableList;
+import org.opensearch.Version;
 import org.opensearch.client.node.NodeClient;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.mapper.NumberFieldMapper;
@@ -135,6 +136,11 @@ public class RestTrainModelHandler extends BaseRestHandler {
             vectorDataType = VectorDataType.DEFAULT;
         }
 
+        if (knnMethodContext != null) {
+            knnMethodContext.getKnnMethodConfigContext().setVectorDataType(vectorDataType);
+            knnMethodContext.getKnnMethodConfigContext().setDimension(dimension);
+            knnMethodContext.getKnnMethodConfigContext().setVersionCreated(Version.CURRENT);
+        }
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
             modelId,
             knnMethodContext,

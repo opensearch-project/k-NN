@@ -15,6 +15,7 @@ import com.google.common.collect.ImmutableMap;
 import org.opensearch.Version;
 import org.opensearch.cluster.node.DiscoveryNode;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
@@ -133,7 +134,8 @@ public class TrainingJobTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             SpaceType.INNER_PRODUCT,
-            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)),
+            KNNMethodConfigContext.builder().build()
         );
 
         // Set up training data
@@ -228,7 +230,8 @@ public class TrainingJobTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             SpaceType.INNER_PRODUCT,
-            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)),
+            KNNMethodConfigContext.builder().build()
         );
 
         // Setup model manager
@@ -290,7 +293,8 @@ public class TrainingJobTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             SpaceType.INNER_PRODUCT,
-            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)),
+            KNNMethodConfigContext.builder().build()
         );
 
         // Setup model manager
@@ -358,7 +362,8 @@ public class TrainingJobTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             SpaceType.INNER_PRODUCT,
-            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)),
+            KNNMethodConfigContext.builder().build()
         );
 
         String tdataKey = "t-data-key";
@@ -423,7 +428,8 @@ public class TrainingJobTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             SpaceType.INNER_PRODUCT,
-            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)),
+            KNNMethodConfigContext.builder().build()
         );
 
         // Set up training data

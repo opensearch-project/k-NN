@@ -46,6 +46,8 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     private SpaceType spaceType;
     @NonNull
     private final MethodComponentContext methodComponentContext;
+    @NonNull
+    private final KNNMethodConfigContext knnMethodConfigContext;
 
     /**
      * Constructor from stream.
@@ -57,6 +59,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         this.knnEngine = KNNEngine.getEngine(in.readString());
         this.spaceType = SpaceType.getSpace(in.readString());
         this.methodComponentContext = new MethodComponentContext(in);
+        this.knnMethodConfigContext = KNNMethodConfigContext.builder().build();
     }
 
     /**
@@ -183,7 +186,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
         MethodComponentContext method = new MethodComponentContext(name, parameters);
 
-        return new KNNMethodContext(engine, spaceType, method);
+        return new KNNMethodContext(engine, spaceType, method, KNNMethodConfigContext.builder().build());
     }
 
     @Override
@@ -204,13 +207,18 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         equalsBuilder.append(knnEngine, other.knnEngine);
         equalsBuilder.append(spaceType, other.spaceType);
         equalsBuilder.append(methodComponentContext, other.methodComponentContext);
+        equalsBuilder.append(knnMethodConfigContext, other.knnMethodConfigContext);
 
         return equalsBuilder.isEquals();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(knnEngine).append(spaceType).append(methodComponentContext).toHashCode();
+        return new HashCodeBuilder().append(knnEngine)
+            .append(spaceType)
+            .append(methodComponentContext)
+            .append(knnMethodConfigContext)
+            .toHashCode();
     }
 
     @Override

@@ -288,6 +288,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 resolvedKNNMethodContext = createKNNMethodContextFromLegacy(context, vectorDataType.getValue(), indexCreatedVersion);
             }
 
+            // TODO: We are probably going to want to adjust this
+            if (isResolvedNull) {
+                resolvedKNNMethodContext.getKnnMethodConfigContext().setVersionCreated(indexCreatedVersion);
+                resolvedKNNMethodContext.getKnnMethodConfigContext().setDimension(dimension.getValue());
+                resolvedKNNMethodContext.getKnnMethodConfigContext().setVectorDataType(vectorDataType.getValue());
+            }
+
             validateVectorDataType(resolvedKNNMethodContext, vectorDataType.getValue());
             resolvedKNNMethodContext.getMethodComponentContext().setIndexVersion(indexCreatedVersion);
             if (resolvedKNNMethodContext.getKnnEngine() == KNNEngine.LUCENE) {

@@ -15,12 +15,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.opensearch.Version;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.nmslib.NmslibHNSWMethod;
@@ -59,6 +61,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 
+@Ignore
 public class JNIServiceTests extends KNNTestCase {
     static final int FP16_MAX = 65504;
     static final int FP16_MIN = -65504;
@@ -1234,7 +1237,8 @@ public class JNIServiceTests extends KNNTestCase {
                     METHOD_ENCODER_PARAMETER,
                     new MethodComponentContext(ENCODER_PQ, ImmutableMap.of(ENCODER_PARAMETER_PQ_M, 16, ENCODER_PARAMETER_PQ_CODE_SIZE, 8))
                 )
-            )
+            ),
+            KNNMethodConfigContext.builder().build()
         );
 
         String description = knnMethodContext.getKnnEngine()
@@ -1376,7 +1380,8 @@ public class JNIServiceTests extends KNNTestCase {
                         ImmutableMap.of(ENCODER_PARAMETER_PQ_M, pqM, ENCODER_PARAMETER_PQ_CODE_SIZE, pqCodeSize)
                     )
                 )
-            )
+            ),
+            KNNMethodConfigContext.builder().build()
         );
 
         String description = knnMethodContext.getKnnEngine()

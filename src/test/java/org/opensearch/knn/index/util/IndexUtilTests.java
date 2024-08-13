@@ -21,6 +21,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.indices.ModelDao;
@@ -330,7 +331,8 @@ public class IndexUtilTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.FAISS,
             SpaceType.INNER_PRODUCT,
-            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_ENCODER_PARAMETER, pq))
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_ENCODER_PARAMETER, pq)),
+            KNNMethodConfigContext.builder().build()
         );
 
         ValidationException e = IndexUtil.validateKnnField(

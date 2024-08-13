@@ -37,6 +37,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.indices.ModelDao;
@@ -141,7 +142,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 new MethodComponentContext(
                     METHOD_HNSW,
                     ImmutableMap.of(METHOD_PARAMETER_M, m, METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
-                )
+                ),
+                KNNMethodConfigContext.builder().build()
             )
         );
 
@@ -753,7 +755,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             final MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
             methodComponentContext.setIndexVersion(CURRENT);
             SpaceType spaceType = VectorDataType.BINARY == dataType ? SpaceType.DEFAULT_BINARY : SpaceType.INNER_PRODUCT;
-            final KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, spaceType, methodComponentContext);
+            final KNNMethodContext knnMethodContext = new KNNMethodContext(
+                KNNEngine.FAISS,
+                spaceType,
+                methodComponentContext,
+                KNNMethodConfigContext.builder().build()
+            );
 
             ParseContext.Document document = new ParseContext.Document();
             ContentPath contentPath = new ContentPath();
@@ -911,7 +918,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.LUCENE,
             SpaceType.DEFAULT,
-            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
+            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap()),
+            KNNMethodConfigContext.builder().build()
         );
         luceneFieldMapper = Mockito.spy(
             LuceneFieldMapper.createFieldMapper(
@@ -1096,7 +1104,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
 
         builder.knnMethodContext.setValue(
-            new KNNMethodContext(knnEngine, spaceType, new MethodComponentContext(method, Collections.emptyMap()))
+            new KNNMethodContext(
+                knnEngine,
+                spaceType,
+                new MethodComponentContext(method, Collections.emptyMap()),
+                KNNMethodConfigContext.builder().build()
+            )
         );
         builder.vectorDataType.setValue(VectorDataType.BINARY);
         builder.dimension.setValue(dimension);
@@ -1131,7 +1144,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                 new MethodComponentContext(
                     METHOD_HNSW,
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Collections.emptyMap()))
-                )
+                ),
+                KNNMethodConfigContext.builder().build()
             )
         );
         builder.vectorDataType.setValue(VectorDataType.BINARY);

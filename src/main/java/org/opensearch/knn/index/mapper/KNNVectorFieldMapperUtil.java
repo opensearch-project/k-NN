@@ -24,6 +24,7 @@ import org.opensearch.index.mapper.Mapper;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KnnCircuitBreakerException;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
@@ -395,7 +396,8 @@ public class KNNVectorFieldMapperUtil {
                     METHOD_PARAMETER_EF_CONSTRUCTION,
                     KNNVectorFieldMapperUtil.getEfConstruction(context.indexSettings(), indexCreatedVersion)
                 )
-            )
+            ),
+            KNNMethodConfigContext.builder().build()
         );
     }
 }

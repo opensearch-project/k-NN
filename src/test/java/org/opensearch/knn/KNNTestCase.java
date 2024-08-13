@@ -16,6 +16,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
@@ -103,14 +104,24 @@ public class KNNTestCase extends OpenSearchTestCase {
 
     public static KNNMethodContext getDefaultKNNMethodContext() {
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        KNNMethodContext defaultInstance = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponentContext);
+        KNNMethodContext defaultInstance = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            SpaceType.DEFAULT,
+            methodComponentContext,
+            KNNMethodConfigContext.builder().build()
+        );
         methodComponentContext.setIndexVersion(Version.CURRENT);
         return defaultInstance;
     }
 
     public static KNNMethodContext getDefaultBinaryKNNMethodContext() {
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        KNNMethodContext defaultInstance = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT_BINARY, methodComponentContext);
+        KNNMethodContext defaultInstance = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            SpaceType.DEFAULT_BINARY,
+            methodComponentContext,
+            KNNMethodConfigContext.builder().build()
+        );
         methodComponentContext.setIndexVersion(Version.CURRENT);
         return defaultInstance;
     }

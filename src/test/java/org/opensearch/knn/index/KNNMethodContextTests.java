@@ -19,6 +19,7 @@ import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.mapper.MapperParsingException;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 
@@ -52,7 +53,12 @@ public class KNNMethodContextTests extends KNNTestCase {
 
         MethodComponentContext originalMethodComponent = new MethodComponentContext(name, parameters);
 
-        KNNMethodContext original = new KNNMethodContext(knnEngine, spaceType, originalMethodComponent);
+        KNNMethodContext original = new KNNMethodContext(
+            knnEngine,
+            spaceType,
+            originalMethodComponent,
+            KNNMethodConfigContext.builder().build()
+        );
 
         BytesStreamOutput streamOutput = new BytesStreamOutput();
         original.writeTo(streamOutput);
@@ -67,7 +73,12 @@ public class KNNMethodContextTests extends KNNTestCase {
      */
     public void testGetMethodComponent() {
         MethodComponentContext methodComponent = new MethodComponentContext("test-method", Collections.emptyMap());
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponent);
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            SpaceType.DEFAULT,
+            methodComponent,
+            KNNMethodConfigContext.builder().build()
+        );
         assertEquals(methodComponent, knnMethodContext.getMethodComponentContext());
     }
 
@@ -76,7 +87,12 @@ public class KNNMethodContextTests extends KNNTestCase {
      */
     public void testGetEngine() {
         MethodComponentContext methodComponent = new MethodComponentContext("test-method", Collections.emptyMap());
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponent);
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            SpaceType.DEFAULT,
+            methodComponent,
+            KNNMethodConfigContext.builder().build()
+        );
         assertEquals(KNNEngine.DEFAULT, knnMethodContext.getKnnEngine());
     }
 
@@ -85,7 +101,12 @@ public class KNNMethodContextTests extends KNNTestCase {
      */
     public void testGetSpaceType() {
         MethodComponentContext methodComponent = new MethodComponentContext("test-method", Collections.emptyMap());
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.L1, methodComponent);
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            SpaceType.L1,
+            methodComponent,
+            KNNMethodConfigContext.builder().build()
+        );
         assertEquals(SpaceType.L1, knnMethodContext.getSpaceType());
     }
 
@@ -98,17 +119,32 @@ public class KNNMethodContextTests extends KNNTestCase {
 
         // Check a valid nmslib method
         MethodComponentContext hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, hnswMethod);
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.NMSLIB,
+            SpaceType.L2,
+            hnswMethod,
+            KNNMethodConfigContext.builder().build()
+        );
         assertNull(knnMethodContext.validate());
 
         // Check invalid parameter nmslib
         hnswMethod = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of("invalid", 111));
-        KNNMethodContext knnMethodContext1 = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, hnswMethod);
+        KNNMethodContext knnMethodContext1 = new KNNMethodContext(
+            KNNEngine.NMSLIB,
+            SpaceType.L2,
+            hnswMethod,
+            KNNMethodConfigContext.builder().build()
+        );
         assertNotNull(knnMethodContext1.validate());
 
         // Check invalid method nmslib
         MethodComponentContext invalidMethod = new MethodComponentContext("invalid", Collections.emptyMap());
-        KNNMethodContext knnMethodContext2 = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, invalidMethod);
+        KNNMethodContext knnMethodContext2 = new KNNMethodContext(
+            KNNEngine.NMSLIB,
+            SpaceType.L2,
+            invalidMethod,
+            KNNMethodConfigContext.builder().build()
+        );
         expectThrows(IllegalArgumentException.class, knnMethodContext2::validate);
     }
 
@@ -119,34 +155,44 @@ public class KNNMethodContextTests extends KNNTestCase {
 
         // Check for NMSLIB
         MethodComponentContext hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, hnswMethod);
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.NMSLIB,
+            SpaceType.L2,
+            hnswMethod,
+            KNNMethodConfigContext.builder().build()
+        );
         assertFalse(knnMethodContext.isTrainingRequired());
 
         // Check for FAISS not required
         hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, hnswMethod);
+        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, hnswMethod, KNNMethodConfigContext.builder().build());
         assertFalse(knnMethodContext.isTrainingRequired());
 
         // Check FAISS required
         MethodComponentContext pq = new MethodComponentContext(ENCODER_PQ, Collections.emptyMap());
 
         MethodComponentContext hnswMethodPq = new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_ENCODER_PARAMETER, pq));
-        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, hnswMethodPq);
+        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, hnswMethodPq, KNNMethodConfigContext.builder().build());
         assertTrue(knnMethodContext.isTrainingRequired());
 
         MethodComponentContext ivfMethod = new MethodComponentContext(METHOD_IVF, Collections.emptyMap());
-        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, ivfMethod);
+        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, ivfMethod, KNNMethodConfigContext.builder().build());
         assertTrue(knnMethodContext.isTrainingRequired());
 
         MethodComponentContext ivfMethodPq = new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_ENCODER_PARAMETER, pq));
-        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, ivfMethodPq);
+        knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, ivfMethodPq, KNNMethodConfigContext.builder().build());
         assertTrue(knnMethodContext.isTrainingRequired());
     }
 
     public void testEstimateOverheadInKB_whenMethodIsHNSWFlatNmslib_thenSizeIsExpectedValue() {
         // For HNSW no encoding we expect 0
         MethodComponentContext hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.NMSLIB, SpaceType.L2, hnswMethod);
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.NMSLIB,
+            SpaceType.L2,
+            hnswMethod,
+            KNNMethodConfigContext.builder().build()
+        );
         assertEquals(0, knnMethodContext.estimateOverheadInKB(1000));
 
     }
@@ -154,7 +200,12 @@ public class KNNMethodContextTests extends KNNTestCase {
     public void testEstimateOverheadInKB_whenMethodIsHNSWFlatFaiss_thenSizeIsExpectedValue() {
         // For HNSW no encoding we expect 0
         MethodComponentContext hnswMethod = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.INNER_PRODUCT, hnswMethod);
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.INNER_PRODUCT,
+            hnswMethod,
+            KNNMethodConfigContext.builder().build()
+        );
         assertEquals(0, knnMethodContext.estimateOverheadInKB(168));
 
     }
@@ -172,7 +223,12 @@ public class KNNMethodContextTests extends KNNTestCase {
             METHOD_HNSW,
             ImmutableMap.of(METHOD_ENCODER_PARAMETER, pqMethodContext)
         );
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, hnswMethodPq);
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            hnswMethodPq,
+            KNNMethodConfigContext.builder().build()
+        );
         assertEquals(expectedHnswPq, knnMethodContext.estimateOverheadInKB(dimension));
     }
 
@@ -183,7 +239,12 @@ public class KNNMethodContextTests extends KNNTestCase {
         int expectedIvf = 4 * nlists * dimension / BYTES_PER_KILOBYTES + 1;
 
         MethodComponentContext ivfMethod = new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists));
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, ivfMethod);
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            ivfMethod,
+            KNNMethodConfigContext.builder().build()
+        );
         assertEquals(expectedIvf, knnMethodContext.estimateOverheadInKB(dimension));
     }
 
@@ -206,7 +267,12 @@ public class KNNMethodContextTests extends KNNTestCase {
             METHOD_IVF,
             ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists, METHOD_ENCODER_PARAMETER, pqMethodContext)
         );
-        KNNMethodContext knnMethodContext = new KNNMethodContext(KNNEngine.FAISS, SpaceType.L2, ivfMethodPq);
+        KNNMethodContext knnMethodContext = new KNNMethodContext(
+            KNNEngine.FAISS,
+            SpaceType.L2,
+            ivfMethodPq,
+            KNNMethodConfigContext.builder().build()
+        );
         assertEquals(expectedIvfPq, knnMethodContext.estimateOverheadInKB(dimension));
     }
 
@@ -375,11 +441,36 @@ public class KNNMethodContextTests extends KNNTestCase {
         MethodComponentContext methodComponentContext1 = new MethodComponentContext(name1, parameters1);
         MethodComponentContext methodComponentContext2 = new MethodComponentContext(name2, parameters1);
 
-        KNNMethodContext methodContext1 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType1, methodComponentContext1);
-        KNNMethodContext methodContext2 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType1, methodComponentContext1);
-        KNNMethodContext methodContext3 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType1, methodComponentContext2);
-        KNNMethodContext methodContext4 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType2, methodComponentContext1);
-        KNNMethodContext methodContext5 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType2, methodComponentContext2);
+        KNNMethodContext methodContext1 = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            spaceType1,
+            methodComponentContext1,
+            KNNMethodConfigContext.builder().build()
+        );
+        KNNMethodContext methodContext2 = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            spaceType1,
+            methodComponentContext1,
+            KNNMethodConfigContext.builder().build()
+        );
+        KNNMethodContext methodContext3 = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            spaceType1,
+            methodComponentContext2,
+            KNNMethodConfigContext.builder().build()
+        );
+        KNNMethodContext methodContext4 = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            spaceType2,
+            methodComponentContext1,
+            KNNMethodConfigContext.builder().build()
+        );
+        KNNMethodContext methodContext5 = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            spaceType2,
+            methodComponentContext2,
+            KNNMethodConfigContext.builder().build()
+        );
 
         assertNotEquals(methodContext1, null);
         assertEquals(methodContext1, methodContext1);
@@ -399,11 +490,36 @@ public class KNNMethodContextTests extends KNNTestCase {
         MethodComponentContext methodComponentContext1 = new MethodComponentContext(name1, parameters1);
         MethodComponentContext methodComponentContext2 = new MethodComponentContext(name2, parameters1);
 
-        KNNMethodContext methodContext1 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType1, methodComponentContext1);
-        KNNMethodContext methodContext2 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType1, methodComponentContext1);
-        KNNMethodContext methodContext3 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType1, methodComponentContext2);
-        KNNMethodContext methodContext4 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType2, methodComponentContext1);
-        KNNMethodContext methodContext5 = new KNNMethodContext(KNNEngine.DEFAULT, spaceType2, methodComponentContext2);
+        KNNMethodContext methodContext1 = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            spaceType1,
+            methodComponentContext1,
+            KNNMethodConfigContext.builder().build()
+        );
+        KNNMethodContext methodContext2 = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            spaceType1,
+            methodComponentContext1,
+            KNNMethodConfigContext.builder().build()
+        );
+        KNNMethodContext methodContext3 = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            spaceType1,
+            methodComponentContext2,
+            KNNMethodConfigContext.builder().build()
+        );
+        KNNMethodContext methodContext4 = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            spaceType2,
+            methodComponentContext1,
+            KNNMethodConfigContext.builder().build()
+        );
+        KNNMethodContext methodContext5 = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            spaceType2,
+            methodComponentContext2,
+            KNNMethodConfigContext.builder().build()
+        );
 
         assertEquals(methodContext1.hashCode(), methodContext1.hashCode());
         assertEquals(methodContext1.hashCode(), methodContext2.hashCode());
