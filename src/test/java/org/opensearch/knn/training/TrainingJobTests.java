@@ -138,7 +138,7 @@ public class TrainingJobTests extends KNNTestCase {
             knnEngine,
             SpaceType.INNER_PRODUCT,
             new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)),
-            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).build()
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build()
         );
 
         // Set up training data

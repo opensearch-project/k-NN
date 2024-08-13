@@ -11,6 +11,7 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -54,7 +55,7 @@ public class FaissTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
+        knnMethodContext.getKnnMethodConfigContext().setVersionCreated(Version.CURRENT);
         knnMethodContext.getKnnMethodConfigContext().setVectorDataType(VectorDataType.FLOAT);
 
         Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
@@ -84,7 +85,7 @@ public class FaissTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
+        knnMethodContext.getKnnMethodConfigContext().setVersionCreated(Version.CURRENT);
         knnMethodContext.getKnnMethodConfigContext().setVectorDataType(VectorDataType.FLOAT);
 
         Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
@@ -114,7 +115,7 @@ public class FaissTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
+        knnMethodContext.getKnnMethodConfigContext().setVersionCreated(Version.CURRENT);
         knnMethodContext.getKnnMethodConfigContext().setVectorDataType(VectorDataType.FLOAT);
 
         Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
@@ -137,7 +138,7 @@ public class FaissTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
+        knnMethodContext.getKnnMethodConfigContext().setVersionCreated(Version.CURRENT);
         knnMethodContext.getKnnMethodConfigContext().setVectorDataType(VectorDataType.FLOAT);
 
         Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
@@ -169,7 +170,7 @@ public class FaissTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
+        knnMethodContext.getKnnMethodConfigContext().setVersionCreated(Version.CURRENT);
         knnMethodContext.getKnnMethodConfigContext().setVectorDataType(VectorDataType.FLOAT);
 
         Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
@@ -199,7 +200,7 @@ public class FaissTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
+        knnMethodContext.getKnnMethodConfigContext().setVersionCreated(Version.CURRENT);
         knnMethodContext.getKnnMethodConfigContext().setVectorDataType(VectorDataType.FLOAT);
 
         Map<String, Object> map = Faiss.INSTANCE.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters();
@@ -244,9 +245,12 @@ public class FaissTests extends KNNTestCase {
         expectedMap.put(NAME, methodName);
         expectedMap.put(INDEX_DESCRIPTION_PARAMETER, methodDescription + value1);
 
-        Map<String, Object> methodAsMap = MethodAsMapBuilder.builder(methodDescription, methodComponent, methodComponentContext)
-            .addParameter(parameter1, "", "")
-            .build();
+        Map<String, Object> methodAsMap = MethodAsMapBuilder.builder(
+            methodDescription,
+            methodComponent,
+            methodComponentContext,
+            KNNMethodConfigContext.builder().versionCreated(Version.CURRENT).build()
+        ).addParameter(parameter1, "", "").build();
 
         assertEquals(expectedMap, methodAsMap);
     }

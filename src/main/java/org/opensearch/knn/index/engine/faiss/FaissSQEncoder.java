@@ -35,10 +35,11 @@ public class FaissSQEncoder implements Encoder {
         )
         .addParameter(FAISS_SQ_CLIP, new Parameter.BooleanParameter(FAISS_SQ_CLIP, false, (v, context) -> Objects.nonNull(v)))
         .setMapGenerator(
-            ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+            ((methodComponent, methodComponentContext, knnMethodConfigContext) -> MethodAsMapBuilder.builder(
                 FAISS_SQ_DESCRIPTION,
                 methodComponent,
-                methodComponentContext
+                methodComponentContext,
+                knnMethodConfigContext
             ).addParameter(FAISS_SQ_TYPE, "", "").build())
         )
         .build();

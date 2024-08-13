@@ -84,10 +84,11 @@ public class FaissIVFMethod extends AbstractFaissMethod {
             .addParameter(METHOD_ENCODER_PARAMETER, initEncoderParameter())
             .setRequiresTraining(true)
             .setMapGenerator(
-                ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+                ((methodComponent, methodComponentContext, knnMethodConfigContext) -> MethodAsMapBuilder.builder(
                     FAISS_IVF_DESCRIPTION,
                     methodComponent,
-                    methodComponentContext
+                    methodComponentContext,
+                    knnMethodConfigContext
                 ).addParameter(METHOD_PARAMETER_NLIST, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build())
             )
             .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {

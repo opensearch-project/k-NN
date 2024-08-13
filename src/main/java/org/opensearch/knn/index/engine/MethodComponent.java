@@ -18,7 +18,6 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.BiFunction;
 
 import static org.opensearch.knn.index.engine.validation.ParameterValidator.validateParameters;
 
@@ -31,7 +30,7 @@ public class MethodComponent {
     private final String name;
     @Getter
     private final Map<String, Parameter<?>> parameters;
-    private final BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
+    private final TriFunction<MethodComponent, MethodComponentContext, KNNMethodConfigContext, Map<String, Object>> mapGenerator;
     private final TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
     private final boolean requiresTraining;
     private final Set<VectorDataType> supportedVectorDataTypes;
@@ -56,14 +55,17 @@ public class MethodComponent {
      * @param methodComponentContext from which to generate map
      * @return Method component as a map
      */
-    public Map<String, Object> getAsMap(MethodComponentContext methodComponentContext) {
+    public Map<String, Object> getAsMap(MethodComponentContext methodComponentContext, KNNMethodConfigContext knnMethodConfigContext) {
         if (mapGenerator == null) {
             Map<String, Object> parameterMap = new HashMap<>();
             parameterMap.put(KNNConstants.NAME, methodComponentContext.getName());
-            parameterMap.put(KNNConstants.PARAMETERS, getParameterMapWithDefaultsAdded(methodComponentContext, this));
+            parameterMap.put(
+                KNNConstants.PARAMETERS,
+                getParameterMapWithDefaultsAdded(methodComponentContext, this, knnMethodConfigContext)
+            );
             return parameterMap;
         }
-        return mapGenerator.apply(this, methodComponentContext);
+        return mapGenerator.apply(this, methodComponentContext, knnMethodConfigContext);
     }
 
     /**
@@ -208,7 +210,7 @@ public class MethodComponent {
 
         private final String name;
         private final Map<String, Parameter<?>> parameters;
-        private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
+        private TriFunction<MethodComponent, MethodComponentContext, KNNMethodConfigContext, Map<String, Object>> mapGenerator;
         private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
         private boolean requiresTraining;
         private final Set<VectorDataType> supportedDataTypes;
@@ -249,7 +251,9 @@ public class MethodComponent {
          * @param mapGenerator function to parse a MethodComponentContext as a map
          * @return this builder
          */
-        public Builder setMapGenerator(BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator) {
+        public Builder setMapGenerator(
+            TriFunction<MethodComponent, MethodComponentContext, KNNMethodConfigContext, Map<String, Object>> mapGenerator
+        ) {
             this.mapGenerator = mapGenerator;
             return this;
         }
@@ -305,11 +309,13 @@ public class MethodComponent {
      */
     public static Map<String, Object> getParameterMapWithDefaultsAdded(
         MethodComponentContext methodComponentContext,
-        MethodComponent methodComponent
+        MethodComponent methodComponent,
+        KNNMethodConfigContext knnMethodConfigContext
     ) {
         Map<String, Object> parametersWithDefaultsMap = new HashMap<>();
         Map<String, Object> userProvidedParametersMap = methodComponentContext.getParameters();
-        Version indexCreationVersion = methodComponentContext.getIndexVersion();
+        Version indexCreationVersion = knnMethodConfigContext.getVersionCreated()
+            .orElseThrow(() -> new IllegalStateException("Version must be set"));
         for (Parameter<?> parameter : methodComponent.getParameters().values()) {
             if (methodComponentContext.getParameters().containsKey(parameter.getName())) {
                 parametersWithDefaultsMap.put(parameter.getName(), userProvidedParametersMap.get(parameter.getName()));

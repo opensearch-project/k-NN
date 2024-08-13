@@ -7,6 +7,7 @@ package org.opensearch.knn.index.engine.faiss;
 
 import lombok.AllArgsConstructor;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
@@ -29,6 +30,7 @@ class MethodAsMapBuilder {
     String indexDescription;
     MethodComponent methodComponent;
     Map<String, Object> methodAsMap;
+    KNNMethodConfigContext knnMethodConfigContext;
 
     /**
      * Add a parameter that will be used in the index description for the given method component
@@ -55,7 +57,7 @@ class MethodAsMapBuilder {
                 subMethodComponentContext.getName()
             );
 
-            Map<String, Object> subMethodAsMap = subMethodComponent.getAsMap(subMethodComponentContext);
+            Map<String, Object> subMethodAsMap = subMethodComponent.getAsMap(subMethodComponentContext, knnMethodConfigContext);
             indexDescription += subMethodAsMap.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER);
             subMethodAsMap.remove(KNNConstants.INDEX_DESCRIPTION_PARAMETER);
 
@@ -85,11 +87,15 @@ class MethodAsMapBuilder {
     static MethodAsMapBuilder builder(
         String baseDescription,
         MethodComponent methodComponent,
-        MethodComponentContext methodComponentContext
+        MethodComponentContext methodComponentContext,
+        KNNMethodConfigContext knnMethodConfigContext
     ) {
         Map<String, Object> initialMap = new HashMap<>();
         initialMap.put(NAME, methodComponent.getName());
-        initialMap.put(PARAMETERS, MethodComponent.getParameterMapWithDefaultsAdded(methodComponentContext, methodComponent));
-        return new MethodAsMapBuilder(baseDescription, methodComponent, initialMap);
+        initialMap.put(
+            PARAMETERS,
+            MethodComponent.getParameterMapWithDefaultsAdded(methodComponentContext, methodComponent, knnMethodConfigContext)
+        );
+        return new MethodAsMapBuilder(baseDescription, methodComponent, initialMap, knnMethodConfigContext);
     }
 }

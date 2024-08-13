@@ -144,7 +144,7 @@ public class AbstractKNNMethodTests extends KNNTestCase {
         String methodName = "test-method";
         Map<String, Object> generatedMap = ImmutableMap.of("test-key", "test-value");
         MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
-            .setMapGenerator(((methodComponent1, methodComponentContext) -> methodComponentContext.getParameters()))
+            .setMapGenerator(((methodComponent1, methodComponentContext, knnMethodConfigContext) -> methodComponentContext.getParameters()))
             .build();
 
         KNNMethod knnMethod = new TestKNNMethod(methodComponent, Set.of(SpaceType.L2), EMPTY_ENGINE_SPECIFIC_CONTEXT);

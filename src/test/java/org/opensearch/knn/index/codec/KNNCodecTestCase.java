@@ -16,7 +16,6 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
-import org.opensearch.Version;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -98,9 +97,8 @@ public class KNNCodecTestCase extends KNNTestCase {
             KNNEngine.DEFAULT,
             SpaceType.DEFAULT,
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512)),
-            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.DEFAULT).build()
+            KNNMethodConfigContext.builder().versionCreated(CURRENT).vectorDataType(VectorDataType.DEFAULT).build()
         );
-        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
         String parameterString;
         try {
             parameterString = XContentFactory.jsonBuilder()

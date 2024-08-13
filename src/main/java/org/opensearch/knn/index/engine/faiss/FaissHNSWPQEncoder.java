@@ -52,10 +52,11 @@ public class FaissHNSWPQEncoder implements Encoder {
         )
         .setRequiresTraining(true)
         .setMapGenerator(
-            ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+            ((methodComponent, methodComponentContext, knnMethodConfigContext) -> MethodAsMapBuilder.builder(
                 FAISS_PQ_DESCRIPTION,
                 methodComponent,
-                methodComponentContext
+                methodComponentContext,
+                knnMethodConfigContext
             ).addParameter(ENCODER_PARAMETER_PQ_M, "", "").build())
         )
         .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {

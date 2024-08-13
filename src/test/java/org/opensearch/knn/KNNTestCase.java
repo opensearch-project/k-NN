@@ -111,7 +111,6 @@ public class KNNTestCase extends OpenSearchTestCase {
             methodComponentContext,
             KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build()
         );
-        methodComponentContext.setIndexVersion(Version.CURRENT);
         return defaultInstance;
     }
 
@@ -123,7 +122,6 @@ public class KNNTestCase extends OpenSearchTestCase {
             methodComponentContext,
             KNNMethodConfigContext.builder().vectorDataType(VectorDataType.BINARY).versionCreated(Version.CURRENT).build()
         );
-        methodComponentContext.setIndexVersion(Version.CURRENT);
         return defaultInstance;
     }
 

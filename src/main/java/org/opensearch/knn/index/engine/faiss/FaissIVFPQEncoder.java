@@ -52,10 +52,11 @@ public class FaissIVFPQEncoder implements Encoder {
         )
         .setRequiresTraining(true)
         .setMapGenerator(
-            ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+            ((methodComponent, methodComponentContext, knnMethodConfigContext) -> MethodAsMapBuilder.builder(
                 FAISS_PQ_DESCRIPTION,
                 methodComponent,
-                methodComponentContext
+                methodComponentContext,
+                knnMethodConfigContext
             ).addParameter(ENCODER_PARAMETER_PQ_M, "", "").addParameter(ENCODER_PARAMETER_PQ_CODE_SIZE, "x", "").build())
         )
         .setOverheadInKBEstimator((methodComponent, methodComponentContext, dimension) -> {

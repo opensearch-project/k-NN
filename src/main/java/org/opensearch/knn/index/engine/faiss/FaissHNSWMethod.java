@@ -84,10 +84,11 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
             )
             .addParameter(METHOD_ENCODER_PARAMETER, initEncoderParameter())
             .setMapGenerator(
-                ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
+                ((methodComponent, methodComponentContext, knnMethodConfigContext) -> MethodAsMapBuilder.builder(
                     FAISS_HNSW_DESCRIPTION,
                     methodComponent,
-                    methodComponentContext
+                    methodComponentContext,
+                    knnMethodConfigContext
                 ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build())
             )
             .build();

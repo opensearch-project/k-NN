@@ -748,13 +748,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             log.info("Vector Data Type is : {}", dataType);
             int dimension = dataType == VectorDataType.BINARY ? TEST_DIMENSION * 8 : TEST_DIMENSION;
             final MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-            methodComponentContext.setIndexVersion(CURRENT);
             SpaceType spaceType = VectorDataType.BINARY == dataType ? SpaceType.DEFAULT_BINARY : SpaceType.INNER_PRODUCT;
             final KNNMethodContext knnMethodContext = new KNNMethodContext(
                 KNNEngine.FAISS,
                 spaceType,
                 methodComponentContext,
-                KNNMethodConfigContext.builder().vectorDataType(dataType).build()
+                KNNMethodConfigContext.builder().vectorDataType(dataType).versionCreated(CURRENT).build()
             );
 
             ParseContext.Document document = new ParseContext.Document();
@@ -911,7 +910,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         inputBuilder.hasDocValues(false);
 
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        methodComponentContext.setIndexVersion(CURRENT);
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.LUCENE,
             SpaceType.DEFAULT,

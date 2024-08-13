@@ -281,7 +281,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 resolvedKNNMethodContext.getKnnMethodConfigContext().setVersionCreated(indexCreatedVersion);
                 resolvedKNNMethodContext.getKnnMethodConfigContext().setDimension(dimension.getValue());
                 resolvedKNNMethodContext.getKnnMethodConfigContext().setVectorDataType(vectorDataType.getValue());
-                resolvedKNNMethodContext.getMethodComponentContext().setIndexVersion(indexCreatedVersion);
 
                 // Need to revalidate once the dynamic config properties are set
                 ValidationException validationException = resolvedKNNMethodContext.validate();

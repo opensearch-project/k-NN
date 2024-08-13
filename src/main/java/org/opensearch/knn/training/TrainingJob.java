@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.training;
 
+import lombok.Getter;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -47,9 +48,11 @@ public class TrainingJob implements Runnable {
     private final NativeMemoryCacheManager nativeMemoryCacheManager;
     private final NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext;
     private final NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext;
+    @Getter
     private final Model model;
 
-    private String modelId;
+    @Getter
+    private final String modelId;
 
     /**
      * Constructor.
@@ -95,24 +98,6 @@ public class TrainingJob implements Runnable {
             null,
             this.modelId
         );
-    }
-
-    /**
-     * Getter for model id.
-     *
-     * @return modelId
-     */
-    public String getModelId() {
-        return modelId;
-    }
-
-    /**
-     * Getter for model
-     *
-     * @return model
-     */
-    public Model getModel() {
-        return model;
     }
 
     @Override
@@ -181,7 +166,6 @@ public class TrainingJob implements Runnable {
             if (trainingDataAllocation.isClosed()) {
                 throw new RuntimeException("Unable to load training data into memory: allocation is already closed");
             }
-            setVersionInKnnMethodContext();
             Map<String, Object> trainParameters = model.getModelMetadata()
                 .getKnnEngine()
                 .getKNNLibraryIndexingContext(knnMethodContext)
@@ -226,11 +210,5 @@ public class TrainingJob implements Runnable {
             nativeMemoryCacheManager.invalidate(trainingDataEntryContext.getKey());
             nativeMemoryCacheManager.invalidate(modelAnonymousEntryContext.getKey());
         }
-    }
-
-    private void setVersionInKnnMethodContext() {
-        // We are picking up the node version here. For more details why we did this please check below conversation
-        // Ref: https://github.com/opensearch-project/k-NN/pull/1353#discussion_r1434428542
-        knnMethodContext.getMethodComponentContext().setIndexVersion(trainingDataEntryContext.getClusterService().localNode().getVersion());
     }
 }
