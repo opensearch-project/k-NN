@@ -5,9 +5,11 @@
 
 package org.opensearch.knn.common;
 
-import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.Objects;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class KNNVectorUtil {
@@ -41,5 +43,19 @@ public class KNNVectorUtil {
             }
         }
         return true;
+    }
+
+    /**
+     * Creates an int overflow safe arraylist. If there is an overflow it will create a list with default initial size
+     * @param batchSize size to allocate
+     * @return an arrayList
+     */
+    public static <T> ArrayList<T> createArrayList(long batchSize) {
+        try {
+            return new ArrayList<>(Math.toIntExact(batchSize));
+        } catch (Exception exception) {
+            // No-op
+        }
+        return new ArrayList<>();
     }
 }
