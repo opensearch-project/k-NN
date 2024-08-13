@@ -23,7 +23,6 @@ import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.indices.ModelDao;
-import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.io.IOException;
 
@@ -290,12 +289,6 @@ public class TrainingModelRequest extends ActionRequest {
 
         // Confirm that the passed in knnMethodContext is valid and requires training
         ValidationException validationException = this.knnMethodContext.validate();
-        if (validationException != null) {
-            exception = new ActionRequestValidationException();
-            exception.addValidationErrors(validationException.validationErrors());
-        }
-
-        validationException = this.knnMethodContext.validateWithData(new VectorSpaceInfo(dimension));
         if (validationException != null) {
             exception = new ActionRequestValidationException();
             exception.addValidationErrors(validationException.validationErrors());

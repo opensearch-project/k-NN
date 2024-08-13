@@ -5,8 +5,10 @@
 
 package org.opensearch.knn.index.engine.faiss;
 
+import com.google.common.collect.ImmutableSet;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
 import org.opensearch.knn.index.engine.DefaultIVFSearchContext;
 import org.opensearch.knn.index.engine.Encoder;
@@ -36,6 +38,8 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES_LI
  */
 public class FaissIVFMethod extends AbstractKNNMethod {
 
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
+
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
         SpaceType.UNDEFINED,
         SpaceType.L2,
@@ -60,12 +64,13 @@ public class FaissIVFMethod extends AbstractKNNMethod {
 
     private static MethodComponent initMethodComponent() {
         return MethodComponent.Builder.builder(METHOD_IVF)
+            .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
             .addParameter(
                 METHOD_PARAMETER_NPROBES,
                 new Parameter.IntegerParameter(
                     METHOD_PARAMETER_NPROBES,
                     METHOD_PARAMETER_NPROBES_DEFAULT,
-                    v -> v > 0 && v < METHOD_PARAMETER_NPROBES_LIMIT
+                    (v, context) -> v > 0 && v < METHOD_PARAMETER_NPROBES_LIMIT
                 )
             )
             .addParameter(
@@ -73,7 +78,7 @@ public class FaissIVFMethod extends AbstractKNNMethod {
                 new Parameter.IntegerParameter(
                     METHOD_PARAMETER_NLIST,
                     METHOD_PARAMETER_NLIST_DEFAULT,
-                    v -> v > 0 && v < METHOD_PARAMETER_NLIST_LIMIT
+                    (v, context) -> v > 0 && v < METHOD_PARAMETER_NLIST_LIMIT
                 )
             )
             .addParameter(METHOD_ENCODER_PARAMETER, initEncoderParameter())

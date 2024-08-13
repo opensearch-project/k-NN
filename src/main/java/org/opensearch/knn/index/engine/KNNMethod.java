@@ -7,7 +7,6 @@ package org.opensearch.knn.index.engine;
 
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.training.VectorSpaceInfo;
 
 /**
  * KNNMethod defines the structure of a method supported by a particular k-NN library. It is used to validate
@@ -31,15 +30,6 @@ public interface KNNMethod {
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
     ValidationException validate(KNNMethodContext knnMethodContext);
-
-    /**
-     * Validate that the configured KNNMethodContext is valid for this method, using additional data not present in the method context
-     *
-     * @param knnMethodContext to be validated
-     * @param vectorSpaceInfo additional data not present in the method context
-     * @return ValidationException produced by validation errors; null if no validations errors.
-     */
-    ValidationException validateWithData(KNNMethodContext knnMethodContext, VectorSpaceInfo vectorSpaceInfo);
 
     /**
      * returns whether training is required or not

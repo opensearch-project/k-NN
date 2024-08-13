@@ -11,7 +11,6 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -102,8 +101,6 @@ public class AbstractKNNMethodTests extends KNNTestCase {
             EMPTY_ENGINE_SPECIFIC_CONTEXT
         );
 
-        VectorSpaceInfo testVectorSpaceInfo = new VectorSpaceInfo(4);
-
         // Invalid space
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
@@ -112,7 +109,8 @@ public class AbstractKNNMethodTests extends KNNTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext1 = KNNMethodContext.parse(in);
-        assertNotNull(knnMethod.validateWithData(knnMethodContext1, testVectorSpaceInfo));
+        knnMethodContext1.getKnnMethodConfigContext().setDimension(4);
+        assertNotNull(knnMethod.validate(knnMethodContext1));
 
         // Invalid methodComponent
         xContentBuilder = XContentFactory.jsonBuilder()
@@ -125,8 +123,8 @@ public class AbstractKNNMethodTests extends KNNTestCase {
             .endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext2 = KNNMethodContext.parse(in);
-
-        assertNotNull(knnMethod.validateWithData(knnMethodContext2, testVectorSpaceInfo));
+        knnMethodContext2.getKnnMethodConfigContext().setDimension(4);
+        assertNotNull(knnMethod.validate(knnMethodContext2));
 
         // Valid everything
         xContentBuilder = XContentFactory.jsonBuilder()
@@ -136,7 +134,8 @@ public class AbstractKNNMethodTests extends KNNTestCase {
             .endObject();
         in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext3 = KNNMethodContext.parse(in);
-        assertNull(knnMethod.validateWithData(knnMethodContext3, testVectorSpaceInfo));
+        knnMethodContext3.getKnnMethodConfigContext().setDimension(4);
+        assertNull(knnMethod.validate(knnMethodContext3));
     }
 
     public void testGetKNNLibraryIndexingContext() {

@@ -9,7 +9,6 @@ import lombok.AllArgsConstructor;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,38 +48,9 @@ public abstract class AbstractKNNMethod implements KNNMethod {
             );
         }
 
-        ValidationException methodValidation = methodComponent.validate(knnMethodContext.getMethodComponentContext());
-        if (methodValidation != null) {
-            errorMessages.addAll(methodValidation.validationErrors());
-        }
-
-        if (errorMessages.isEmpty()) {
-            return null;
-        }
-
-        ValidationException validationException = new ValidationException();
-        validationException.addValidationErrors(errorMessages);
-        return validationException;
-    }
-
-    @Override
-    public ValidationException validateWithData(KNNMethodContext knnMethodContext, VectorSpaceInfo vectorSpaceInfo) {
-        List<String> errorMessages = new ArrayList<>();
-        if (!isSpaceTypeSupported(knnMethodContext.getSpaceType())) {
-            errorMessages.add(
-                String.format(
-                    Locale.ROOT,
-                    "\"%s\" with \"%s\" configuration does not support space type: " + "\"%s\".",
-                    this.methodComponent.getName(),
-                    knnMethodContext.getKnnEngine().getName().toLowerCase(Locale.ROOT),
-                    knnMethodContext.getSpaceType().getValue()
-                )
-            );
-        }
-
-        ValidationException methodValidation = methodComponent.validateWithData(
+        ValidationException methodValidation = methodComponent.validate(
             knnMethodContext.getMethodComponentContext(),
-            vectorSpaceInfo
+            knnMethodContext.getKnnMethodConfigContext()
         );
         if (methodValidation != null) {
             errorMessages.addAll(methodValidation.validationErrors());

@@ -11,7 +11,6 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
-import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.util.List;
 import java.util.Map;
@@ -163,11 +162,6 @@ public enum KNNEngine implements KNNLibrary {
     @Override
     public ValidationException validateMethod(KNNMethodContext knnMethodContext) {
         return knnLibrary.validateMethod(knnMethodContext);
-    }
-
-    @Override
-    public ValidationException validateMethodWithData(KNNMethodContext knnMethodContext, VectorSpaceInfo vectorSpaceInfo) {
-        return knnLibrary.validateMethodWithData(knnMethodContext, vectorSpaceInfo);
     }
 
     @Override

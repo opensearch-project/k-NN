@@ -72,4 +72,6 @@ public final class KNNMethodConfigContext {
     public int hashCode() {
         return new HashCodeBuilder().append(vectorDataType).append(dimension).append(versionCreated).toHashCode();
     }
+
+    public static final KNNMethodConfigContext EMPTY = KNNMethodConfigContext.builder().build();
 }

@@ -33,7 +33,7 @@ public class MethodComponentTests extends KNNTestCase {
         String name = "test";
         String paramKey = "key";
         MethodComponent methodComponent = MethodComponent.Builder.builder(name)
-            .addParameter(paramKey, new Parameter.IntegerParameter(paramKey, 1, v -> v > 0))
+            .addParameter(paramKey, new Parameter.IntegerParameter(paramKey, 1, (v, context) -> v > 0))
             .build();
         assertEquals(1, methodComponent.getParameters().size());
         assertTrue(methodComponent.getParameters().containsKey(paramKey));
@@ -56,7 +56,7 @@ public class MethodComponentTests extends KNNTestCase {
         MethodComponentContext componentContext1 = MethodComponentContext.parse(in);
 
         MethodComponent methodComponent1 = MethodComponent.Builder.builder(methodName).build();
-        assertNotNull(methodComponent1.validate(componentContext1));
+        assertNotNull(methodComponent1.validate(componentContext1, KNNMethodConfigContext.EMPTY));
 
         // Invalid parameter type
         xContentBuilder = XContentFactory.jsonBuilder()
@@ -70,9 +70,9 @@ public class MethodComponentTests extends KNNTestCase {
         MethodComponentContext componentContext2 = MethodComponentContext.parse(in);
 
         MethodComponent methodComponent2 = MethodComponent.Builder.builder(methodName)
-            .addParameter("valid", new Parameter.IntegerParameter("valid", 1, v -> v > 0))
+            .addParameter("valid", new Parameter.IntegerParameter("valid", 1, (v, context) -> v > 0))
             .build();
-        assertNotNull(methodComponent2.validate(componentContext2));
+        assertNotNull(methodComponent2.validate(componentContext2, KNNMethodConfigContext.EMPTY));
 
         // valid configuration
         xContentBuilder = XContentFactory.jsonBuilder()
@@ -87,10 +87,10 @@ public class MethodComponentTests extends KNNTestCase {
         MethodComponentContext componentContext3 = MethodComponentContext.parse(in);
 
         MethodComponent methodComponent3 = MethodComponent.Builder.builder(methodName)
-            .addParameter("valid1", new Parameter.IntegerParameter("valid1", 1, v -> v > 0))
-            .addParameter("valid2", new Parameter.IntegerParameter("valid2", 1, v -> v > 0))
+            .addParameter("valid1", new Parameter.IntegerParameter("valid1", 1, (v, context) -> v > 0))
+            .addParameter("valid2", new Parameter.IntegerParameter("valid2", 1, (v, context) -> v > 0))
             .build();
-        assertNull(methodComponent3.validate(componentContext3));
+        assertNull(methodComponent3.validate(componentContext3, KNNMethodConfigContext.EMPTY));
 
         // valid configuration - empty parameters
         xContentBuilder = XContentFactory.jsonBuilder().startObject().field(NAME, methodName).endObject();
@@ -98,10 +98,10 @@ public class MethodComponentTests extends KNNTestCase {
         MethodComponentContext componentContext4 = MethodComponentContext.parse(in);
 
         MethodComponent methodComponent4 = MethodComponent.Builder.builder(methodName)
-            .addParameter("valid1", new Parameter.IntegerParameter("valid1", 1, v -> v > 0))
-            .addParameter("valid2", new Parameter.IntegerParameter("valid2", 1, v -> v > 0))
+            .addParameter("valid1", new Parameter.IntegerParameter("valid1", 1, (v, context) -> v > 0))
+            .addParameter("valid2", new Parameter.IntegerParameter("valid2", 1, (v, context) -> v > 0))
             .build();
-        assertNull(methodComponent4.validate(componentContext4));
+        assertNull(methodComponent4.validate(componentContext4, KNNMethodConfigContext.EMPTY));
     }
 
     @SuppressWarnings("unchecked")
@@ -113,8 +113,8 @@ public class MethodComponentTests extends KNNTestCase {
         int default2 = 5;
 
         MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
-            .addParameter(parameterName1, new Parameter.IntegerParameter(parameterName1, default1, v -> v > 0))
-            .addParameter(parameterName2, new Parameter.IntegerParameter(parameterName2, default2, v -> v > 0))
+            .addParameter(parameterName1, new Parameter.IntegerParameter(parameterName1, default1, (v, context) -> v > 0))
+            .addParameter(parameterName2, new Parameter.IntegerParameter(parameterName2, default2, (v, context) -> v > 0))
             .build();
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
@@ -143,8 +143,8 @@ public class MethodComponentTests extends KNNTestCase {
         String methodName = "test-method";
         Map<String, Object> generatedMap = ImmutableMap.of("test-key", "test-value");
         MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
-            .addParameter("valid1", new Parameter.IntegerParameter("valid1", 1, v -> v > 0))
-            .addParameter("valid2", new Parameter.IntegerParameter("valid2", 1, v -> v > 0))
+            .addParameter("valid1", new Parameter.IntegerParameter("valid1", 1, (v, context) -> v > 0))
+            .addParameter("valid2", new Parameter.IntegerParameter("valid2", 1, (v, context) -> v > 0))
             .setMapGenerator((methodComponent1, methodComponentContext) -> generatedMap)
             .build();
 
@@ -163,7 +163,7 @@ public class MethodComponentTests extends KNNTestCase {
         assertEquals(0, methodComponent.getParameters().size());
         assertEquals(name, methodComponent.getName());
 
-        builder.addParameter("test", new Parameter.IntegerParameter("test", 1, v -> v > 0));
+        builder.addParameter("test", new Parameter.IntegerParameter("test", 1, (v, context) -> v > 0));
         methodComponent = builder.build();
 
         assertEquals(1, methodComponent.getParameters().size());

@@ -38,16 +38,13 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.ModelDao;
 
 import static org.opensearch.knn.common.KNNConstants.DEFAULT_VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.common.KNNConstants.ENCODER_FLAT;
 import static org.opensearch.knn.common.KNNConstants.KNN_METHOD;
-import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.common.KNNValidationUtil.validateVectorDimension;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createKNNMethodContextFromLegacy;
@@ -55,7 +52,6 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createSto
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForFloatVector;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateIfCircuitBreakerIsNotTriggered;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateIfKNNPluginEnabled;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateVectorDataType;
 import static org.opensearch.knn.index.mapper.ModelFieldMapper.UNSET_MODEL_DIMENSION_IDENTIFIER;
 
 /**
@@ -272,31 +268,28 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 );
             }
 
-            // See resolvedKNNMethodContext definition for explanation
             if (isResolvedNull) {
-                resolvedKNNMethodContext = this.knnMethodContext.getValue();
+                // If the knnMethodContext is null at this point, that means user built the index with the legacy k-NN
+                // settings to specify algo params. We need to convert this here to a KNNMethodContext so that we can
+                // properly configure the rest of the index
+                // See resolvedKNNMethodContext definition for more explanation
+                resolvedKNNMethodContext = this.knnMethodContext.getValue() != null
+                    ? this.knnMethodContext.getValue()
+                    : createKNNMethodContextFromLegacy(context, indexCreatedVersion);
+                // TODO: We should remove this and set it based on the KNNMethodContext
                 setDefaultSpaceType(resolvedKNNMethodContext, vectorDataType.getValue());
-                validateSpaceType(resolvedKNNMethodContext, vectorDataType.getValue());
-                validateDimensions(resolvedKNNMethodContext, vectorDataType.getValue());
-                validateEncoder(resolvedKNNMethodContext, vectorDataType.getValue());
-            }
-
-            // If the knnMethodContext is null at this point, that means user built the index with the legacy k-NN
-            // settings to specify algo params. We need to convert this here to a KNNMethodContext so that we can
-            // properly configure the rest of the index
-            if (resolvedKNNMethodContext == null) {
-                resolvedKNNMethodContext = createKNNMethodContextFromLegacy(context, vectorDataType.getValue(), indexCreatedVersion);
-            }
-
-            // TODO: We are probably going to want to adjust this
-            if (isResolvedNull) {
                 resolvedKNNMethodContext.getKnnMethodConfigContext().setVersionCreated(indexCreatedVersion);
                 resolvedKNNMethodContext.getKnnMethodConfigContext().setDimension(dimension.getValue());
                 resolvedKNNMethodContext.getKnnMethodConfigContext().setVectorDataType(vectorDataType.getValue());
+                resolvedKNNMethodContext.getMethodComponentContext().setIndexVersion(indexCreatedVersion);
+
+                // Need to revalidate once the dynamic config properties are set
+                ValidationException validationException = resolvedKNNMethodContext.validate();
+                if (validationException != null) {
+                    throw validationException;
+                }
             }
 
-            validateVectorDataType(resolvedKNNMethodContext, vectorDataType.getValue());
-            resolvedKNNMethodContext.getMethodComponentContext().setIndexVersion(indexCreatedVersion);
             if (resolvedKNNMethodContext.getKnnEngine() == KNNEngine.LUCENE) {
                 log.debug(String.format(Locale.ROOT, "Use [LuceneFieldMapper] mapper for field [%s]", name));
                 LuceneFieldMapper.CreateLuceneFieldMapperInput createLuceneFieldMapperInput = LuceneFieldMapper.CreateLuceneFieldMapperInput
@@ -338,49 +331,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             );
         }
 
-        private void validateEncoder(final KNNMethodContext knnMethodContext, final VectorDataType vectorDataType) {
-            if (knnMethodContext == null) {
-                return;
-            }
-
-            if (VectorDataType.FLOAT == vectorDataType) {
-                return;
-            }
-
-            if (knnMethodContext.getMethodComponentContext() == null) {
-                return;
-            }
-
-            if (knnMethodContext.getMethodComponentContext().getParameters() == null) {
-                return;
-            }
-
-            if (knnMethodContext.getMethodComponentContext().getParameters().get(METHOD_ENCODER_PARAMETER) == null) {
-                return;
-            }
-
-            if (knnMethodContext.getMethodComponentContext()
-                .getParameters()
-                .get(METHOD_ENCODER_PARAMETER) instanceof MethodComponentContext == false) {
-                return;
-            }
-
-            MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) knnMethodContext.getMethodComponentContext()
-                .getParameters()
-                .get(METHOD_ENCODER_PARAMETER);
-
-            if (ENCODER_FLAT.equals(encoderMethodComponentContext.getName()) == false) {
-                throw new IllegalArgumentException(
-                    String.format(
-                        Locale.ROOT,
-                        "%s data type does not support %s encoder",
-                        vectorDataType.getValue(),
-                        encoderMethodComponentContext.getName()
-                    )
-                );
-            }
-        }
-
         private void setDefaultSpaceType(final KNNMethodContext knnMethodContext, final VectorDataType vectorDataType) {
             if (knnMethodContext == null) {
                 return;
@@ -393,37 +343,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     knnMethodContext.setSpaceType(SpaceType.DEFAULT);
                 }
             }
-        }
-
-        private void validateSpaceType(final KNNMethodContext knnMethodContext, final VectorDataType vectorDataType) {
-            if (knnMethodContext == null) {
-                return;
-            }
-
-            knnMethodContext.getSpaceType().validateVectorDataType(vectorDataType);
-        }
-
-        private KNNEngine validateDimensions(final KNNMethodContext knnMethodContext, final VectorDataType dataType) {
-            final KNNEngine knnEngine;
-            if (knnMethodContext != null) {
-                knnEngine = knnMethodContext.getKnnEngine();
-            } else {
-                knnEngine = KNNEngine.DEFAULT;
-            }
-            if (dimension.getValue() > KNNEngine.getMaxDimensionByEngine(knnEngine)) {
-                throw new IllegalArgumentException(
-                    String.format(
-                        Locale.ROOT,
-                        "Dimension value cannot be greater than %s for vector: %s",
-                        KNNEngine.getMaxDimensionByEngine(knnEngine),
-                        name
-                    )
-                );
-            }
-            if (VectorDataType.BINARY == dataType && dimension.getValue() % 8 != 0) {
-                throw new IllegalArgumentException("Dimension should be multiply of 8 for binary vector data type");
-            }
-            return knnEngine;
         }
 
         /**

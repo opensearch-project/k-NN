@@ -39,7 +39,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
     private final static String VALID_METHOD_NAME = "test-method-2";
     private final static KNNLibrarySearchContext VALID_METHOD_CONTEXT = ctx -> ImmutableMap.of(
         "myparameter",
-        new Parameter.BooleanParameter("myparameter", null, value -> true)
+        new Parameter.BooleanParameter("myparameter", null, (v, context) -> true)
     );
     private final static Map<String, Object> VALID_EXPECTED_MAP = ImmutableMap.of("test-key", "test-param");
     private final static KNNMethod VALID_METHOD = new AbstractKNNMethod(
@@ -64,7 +64,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject().field(NAME, "invalid").endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext1 = KNNMethodContext.parse(in);
-        expectThrows(IllegalArgumentException.class, () -> TEST_LIBRARY.validateMethod(knnMethodContext1));
+        assertNotNull(TEST_LIBRARY.validateMethod(knnMethodContext1));
 
         // Invalid - method validation
         xContentBuilder = XContentFactory.jsonBuilder().startObject().field(NAME, INVALID_METHOD_THROWS_VALIDATION_NAME).endObject();

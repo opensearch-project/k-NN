@@ -136,11 +136,9 @@ public class RestTrainModelHandler extends BaseRestHandler {
             vectorDataType = VectorDataType.DEFAULT;
         }
 
-        if (knnMethodContext != null) {
-            knnMethodContext.getKnnMethodConfigContext().setVectorDataType(vectorDataType);
-            knnMethodContext.getKnnMethodConfigContext().setDimension(dimension);
-            knnMethodContext.getKnnMethodConfigContext().setVersionCreated(Version.CURRENT);
-        }
+        knnMethodContext.getKnnMethodConfigContext().setVectorDataType(vectorDataType);
+        knnMethodContext.getKnnMethodConfigContext().setDimension(dimension);
+        knnMethodContext.getKnnMethodConfigContext().setVersionCreated(Version.CURRENT);
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
             modelId,
             knnMethodContext,

@@ -10,14 +10,15 @@ import org.opensearch.Version;
 import org.opensearch.common.TriFunction;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
-import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
-import java.util.List;
-import java.util.ArrayList;
 
 import static org.opensearch.knn.index.engine.validation.ParameterValidator.validateParameters;
 
@@ -27,12 +28,13 @@ import static org.opensearch.knn.index.engine.validation.ParameterValidator.vali
 public class MethodComponent {
 
     @Getter
-    private String name;
+    private final String name;
     @Getter
-    private Map<String, Parameter<?>> parameters;
-    private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
-    private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
-    final private boolean requiresTraining;
+    private final Map<String, Parameter<?>> parameters;
+    private final BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
+    private final TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
+    private final boolean requiresTraining;
+    private final Set<VectorDataType> supportedVectorDataTypes;
 
     /**
      * Constructor
@@ -45,6 +47,7 @@ public class MethodComponent {
         this.mapGenerator = builder.mapGenerator;
         this.overheadInKBEstimator = builder.overheadInKBEstimator;
         this.requiresTraining = builder.requiresTraining;
+        this.supportedVectorDataTypes = builder.supportedDataTypes;
     }
 
     /**
@@ -67,47 +70,33 @@ public class MethodComponent {
      * Validate that the methodComponentContext is a valid configuration for this methodComponent
      *
      * @param methodComponentContext to be validated
+     * @param knnMethodConfigContext context for the method configuration
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    public ValidationException validate(MethodComponentContext methodComponentContext) {
+    public ValidationException validate(MethodComponentContext methodComponentContext, KNNMethodConfigContext knnMethodConfigContext) {
         Map<String, Object> providedParameters = methodComponentContext.getParameters();
-        return validateParameters(parameters, providedParameters);
-    }
 
-    /**
-     * Validate that the methodComponentContext is a valid configuration for this methodComponent, using additional data not present in the method component context
-     *
-     * @param methodComponentContext to be validated
-     * @param vectorSpaceInfo additional data not present in the method component context
-     * @return ValidationException produced by validation errors; null if no validations errors.
-     */
-    public ValidationException validateWithData(MethodComponentContext methodComponentContext, VectorSpaceInfo vectorSpaceInfo) {
-        Map<String, Object> providedParameters = methodComponentContext.getParameters();
-        List<String> errorMessages = new ArrayList<>();
-
-        if (providedParameters == null) {
-            return null;
+        ValidationException validationException = null;
+        if (knnMethodConfigContext.getVectorDataType().isPresent()
+            && !supportedVectorDataTypes.contains(knnMethodConfigContext.getVectorDataType().get())) {
+            validationException = new ValidationException();
+            validationException.addValidationError(
+                String.format(
+                    Locale.ROOT,
+                    "Method \"%s\" is not supported for vector data type \"%s\".",
+                    name,
+                    knnMethodConfigContext.getVectorDataType().get()
+                )
+            );
         }
 
-        ValidationException parameterValidation;
-        for (Map.Entry<String, Object> parameter : providedParameters.entrySet()) {
-            if (!parameters.containsKey(parameter.getKey())) {
-                errorMessages.add(String.format("Invalid parameter for method \"%s\".", getName()));
-                continue;
-            }
+        ValidationException methodValidationException = validateParameters(parameters, providedParameters, knnMethodConfigContext);
 
-            parameterValidation = parameters.get(parameter.getKey()).validateWithData(parameter.getValue(), vectorSpaceInfo);
-            if (parameterValidation != null) {
-                errorMessages.addAll(parameterValidation.validationErrors());
-            }
+        if (methodValidationException != null) {
+            validationException = validationException == null ? new ValidationException() : validationException;
+            validationException.addValidationErrors(methodValidationException.validationErrors());
         }
 
-        if (errorMessages.isEmpty()) {
-            return null;
-        }
-
-        ValidationException validationException = new ValidationException();
-        validationException.addValidationErrors(errorMessages);
         return validationException;
     }
 
@@ -217,11 +206,12 @@ public class MethodComponent {
      */
     public static class Builder {
 
-        private String name;
-        private Map<String, Parameter<?>> parameters;
+        private final String name;
+        private final Map<String, Parameter<?>> parameters;
         private BiFunction<MethodComponent, MethodComponentContext, Map<String, Object>> mapGenerator;
         private TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator;
         private boolean requiresTraining;
+        private final Set<VectorDataType> supportedDataTypes;
 
         /**
          * Method to get a Builder instance
@@ -230,7 +220,7 @@ public class MethodComponent {
          * @return Builder instance
          */
         public static Builder builder(String name) {
-            return new MethodComponent.Builder(name);
+            return new Builder(name);
         }
 
         private Builder(String name) {
@@ -238,6 +228,7 @@ public class MethodComponent {
             this.parameters = new HashMap<>();
             this.mapGenerator = null;
             this.overheadInKBEstimator = (mc, mcc, d) -> 0L;
+            this.supportedDataTypes = new HashSet<>();
         }
 
         /**
@@ -281,6 +272,17 @@ public class MethodComponent {
          */
         public Builder setOverheadInKBEstimator(TriFunction<MethodComponent, MethodComponentContext, Integer, Long> overheadInKBEstimator) {
             this.overheadInKBEstimator = overheadInKBEstimator;
+            return this;
+        }
+
+        /**
+         * Adds supported data types to the method component
+         *
+         * @param dataTypeSet supported data types
+         * @return Builder instance
+         */
+        public Builder addSupportedDataTypes(Set<VectorDataType> dataTypeSet) {
+            supportedDataTypes.addAll(dataTypeSet);
             return this;
         }
 

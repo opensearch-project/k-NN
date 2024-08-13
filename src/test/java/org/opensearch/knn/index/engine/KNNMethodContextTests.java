@@ -1,27 +1,20 @@
 /*
+ * Copyright OpenSearch Contributors
  * SPDX-License-Identifier: Apache-2.0
- *
- * The OpenSearch Contributors require contributions made to
- * this file be licensed under the Apache-2.0 license or a
- * compatible open source license.
- *
- * Modifications Copyright OpenSearch Contributors. See
- * GitHub history for details.
  */
 
-package org.opensearch.knn.index;
+package org.opensearch.knn.index.engine;
 
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import com.google.common.collect.ImmutableMap;
 import org.opensearch.core.xcontent.ToXContent;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.mapper.MapperParsingException;
-import org.opensearch.knn.index.engine.KNNMethodConfigContext;
-import org.opensearch.knn.index.engine.KNNMethodContext;
-import org.opensearch.knn.index.engine.MethodComponentContext;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -145,7 +138,7 @@ public class KNNMethodContextTests extends KNNTestCase {
             invalidMethod,
             KNNMethodConfigContext.builder().build()
         );
-        expectThrows(IllegalArgumentException.class, knnMethodContext2::validate);
+        assertNotNull(knnMethodContext2.validate());
     }
 
     /**
@@ -527,4 +520,72 @@ public class KNNMethodContextTests extends KNNTestCase {
         assertNotEquals(methodContext1.hashCode(), methodContext4.hashCode());
         assertNotEquals(methodContext1.hashCode(), methodContext5.hashCode());
     }
+
+    public void testValidateVectorDataType_whenBinaryFaissHNSW_thenValid() {
+        validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_HNSW, VectorDataType.BINARY, SpaceType.HAMMING, null);
+    }
+
+    public void testValidateVectorDataType_whenBinaryNonFaiss_thenException() {
+        validateValidateVectorDataType(
+            KNNEngine.LUCENE,
+            KNNConstants.METHOD_HNSW,
+            VectorDataType.BINARY,
+            SpaceType.HAMMING,
+            "UnsupportedMethod"
+        );
+        validateValidateVectorDataType(
+            KNNEngine.NMSLIB,
+            KNNConstants.METHOD_HNSW,
+            VectorDataType.BINARY,
+            SpaceType.HAMMING,
+            "UnsupportedMethod"
+        );
+    }
+
+    public void testValidateVectorDataType_whenBinaryFaissIVF_thenException() {
+        validateValidateVectorDataType(
+            KNNEngine.FAISS,
+            KNNConstants.METHOD_IVF,
+            VectorDataType.BINARY,
+            SpaceType.HAMMING,
+            "UnsupportedMethod"
+        );
+    }
+
+    public void testValidateVectorDataType_whenByteLucene_thenValid() {
+        validateValidateVectorDataType(KNNEngine.LUCENE, KNNConstants.METHOD_HNSW, VectorDataType.BYTE, SpaceType.L2, null);
+    }
+
+    public void testValidateVectorDataType_whenByteNonLucene_thenException() {
+        validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_HNSW, VectorDataType.BYTE, SpaceType.L2, "UnsupportedMethod");
+        validateValidateVectorDataType(KNNEngine.NMSLIB, KNNConstants.METHOD_IVF, VectorDataType.BYTE, SpaceType.L2, "UnsupportedMethod");
+    }
+
+    public void testValidateVectorDataType_whenFloat_thenValid() {
+        validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_HNSW, VectorDataType.FLOAT, SpaceType.L2, null);
+        validateValidateVectorDataType(KNNEngine.LUCENE, KNNConstants.METHOD_HNSW, VectorDataType.FLOAT, SpaceType.L2, null);
+        validateValidateVectorDataType(KNNEngine.NMSLIB, KNNConstants.METHOD_HNSW, VectorDataType.FLOAT, SpaceType.L2, null);
+    }
+
+    private void validateValidateVectorDataType(
+        final KNNEngine knnEngine,
+        final String methodName,
+        final VectorDataType vectorDataType,
+        final SpaceType spaceType,
+        final String expectedErrMsg
+    ) {
+        MethodComponentContext methodComponentContext = new MethodComponentContext(methodName, Collections.emptyMap());
+        KNNMethodContext methodContext = new KNNMethodContext(
+            knnEngine,
+            spaceType,
+            methodComponentContext,
+            KNNMethodConfigContext.builder().vectorDataType(vectorDataType).build()
+        );
+        if (expectedErrMsg == null) {
+            assertNull(methodContext.validate());
+        } else {
+            assertNotNull(methodContext.validate());
+        }
+    }
+
 }

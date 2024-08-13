@@ -210,9 +210,9 @@ public class FaissTests extends KNNTestCase {
         String parameter3 = "test-parameter-3";
         Integer defaultValue3 = 3;
         MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
-            .addParameter(parameter1, new Parameter.IntegerParameter(parameter1, defaultValue1, value -> value > 0))
-            .addParameter(parameter2, new Parameter.IntegerParameter(parameter2, defaultValue2, value -> value > 0))
-            .addParameter(parameter3, new Parameter.IntegerParameter(parameter3, defaultValue3, value -> value > 0))
+            .addParameter(parameter1, new Parameter.IntegerParameter(parameter1, defaultValue1, (value, context) -> value > 0))
+            .addParameter(parameter2, new Parameter.IntegerParameter(parameter2, defaultValue2, (value, context) -> value > 0))
+            .addParameter(parameter3, new Parameter.IntegerParameter(parameter3, defaultValue3, (value, context) -> value > 0))
             .build();
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()

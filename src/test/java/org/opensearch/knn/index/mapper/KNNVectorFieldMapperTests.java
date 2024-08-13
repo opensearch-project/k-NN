@@ -339,7 +339,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             IllegalArgumentException.class,
             () -> builderOverMaxDimension.build(new Mapper.BuilderContext(settings, new ContentPath()))
         );
-        assertEquals("Dimension value cannot be greater than 16000 for vector: test-field-name", ex.getMessage());
+        assertTrue(ex.getMessage().contains("Dimension value cannot be greater than 16000 for vector with engine: lucene"));
 
         XContentBuilder xContentBuilderInvalidDimension = XContentFactory.jsonBuilder()
             .startObject()
@@ -1081,13 +1081,13 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             if (SpaceType.UNDEFINED == spaceType || SpaceType.HAMMING == spaceType) {
                 continue;
             }
-            testBuilderWithBinaryDataType(KNNEngine.FAISS, spaceType, METHOD_HNSW, 8, "is not supported");
+            testBuilderWithBinaryDataType(KNNEngine.FAISS, spaceType, METHOD_HNSW, 8, "is not supported with");
         }
     }
 
     public void testBuilder_whenBinaryNonFaiss_thenException() {
-        testBuilderWithBinaryDataType(KNNEngine.LUCENE, SpaceType.UNDEFINED, METHOD_HNSW, 8, "is only supported for");
-        testBuilderWithBinaryDataType(KNNEngine.NMSLIB, SpaceType.UNDEFINED, METHOD_HNSW, 8, "is only supported for");
+        testBuilderWithBinaryDataType(KNNEngine.LUCENE, SpaceType.UNDEFINED, METHOD_HNSW, 8, "is not supported for vector data type");
+        testBuilderWithBinaryDataType(KNNEngine.NMSLIB, SpaceType.UNDEFINED, METHOD_HNSW, 8, "is not supported for vector data type");
     }
 
     private void testBuilderWithBinaryDataType(
@@ -1145,7 +1145,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     METHOD_HNSW,
                     Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Collections.emptyMap()))
                 ),
-                KNNMethodConfigContext.builder().build()
+                KNNMethodConfigContext.builder().vectorDataType(VectorDataType.BINARY).build()
             )
         );
         builder.vectorDataType.setValue(VectorDataType.BINARY);
@@ -1153,7 +1153,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         Exception ex = expectThrows(Exception.class, () -> builder.build(builderContext));
-        assertTrue(ex.getMessage(), ex.getMessage().contains("data type does not support"));
+        assertTrue(ex.getMessage(), ex.getMessage().contains("parameter validation failed for MethodComponentContext parameter [encoder]"));
     }
 
     public void testBuilder_whenBinaryWithLegacyKNNDisabled_thenValid() {
@@ -1183,7 +1183,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
 
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         Exception ex = expectThrows(Exception.class, () -> builder.build(builderContext));
-        assertTrue(ex.getMessage(), ex.getMessage().contains("is not supported for"));
+        assertTrue(ex.getMessage(), ex.getMessage().contains("is not supported with"));
     }
 
     public void testBuild_whenInvalidCharsInFieldName_thenThrowException() {
