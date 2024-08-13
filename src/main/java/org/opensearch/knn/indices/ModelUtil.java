@@ -11,6 +11,10 @@
 
 package org.opensearch.knn.indices;
 
+import org.apache.commons.lang.StringUtils;
+
+import java.util.Locale;
+
 /**
  * A utility class for models.
  */
@@ -31,6 +35,23 @@ public class ModelUtil {
             return false;
         }
         return modelMetadata.getState().equals(ModelState.CREATED);
+    }
+
+    /**
+     * Gets Model Metadata from a given model id.
+     * @param modelId {@link String}
+     * @return {@link ModelMetadata}
+     */
+    public static ModelMetadata getModelMetadata(final String modelId) {
+        if (StringUtils.isEmpty(modelId)) {
+            return null;
+        }
+        final Model model = ModelCache.getInstance().get(modelId);
+        final ModelMetadata modelMetadata = model.getModelMetadata();
+        if (ModelUtil.isModelCreated(modelMetadata) == false) {
+            throw new IllegalArgumentException(String.format(Locale.ROOT, "Model ID '%s' is not created.", modelId));
+        }
+        return modelMetadata;
     }
 
 }
