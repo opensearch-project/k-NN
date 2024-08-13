@@ -26,18 +26,16 @@ import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.store.FilterDirectory;
 import org.opensearch.common.io.PathUtils;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.codec.util.KNNCodecUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
-import org.opensearch.knn.indices.ModelCache;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapper.KNN_FIELD;
@@ -65,8 +63,12 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
             if (!field.attributes().containsKey(KNN_FIELD)) {
                 continue;
             }
-            KNNEngine knnEngine = getKNNEngine(field);
-            List<String> engineFiles = getEngineFiles(knnEngine.getExtension(), field.name);
+            // Only Native Engine put into indexPathMap
+            KNNEngine knnEngine = getNativeKNNEngine(field);
+            if (knnEngine == null) {
+                continue;
+            }
+            List<String> engineFiles = KNNCodecUtil.getEngineFiles(knnEngine.getExtension(), field.name, state.segmentInfo);
             Path indexPath = PathUtils.get(directoryPath, engineFiles.get(0));
             indexPathMap.putIfAbsent(field.getName(), indexPath.toString());
         }
@@ -121,35 +123,23 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
     /**
      * Get KNNEngine From FieldInfo
      * @param field which field we need produce from engine
-     * @return if and only if Native Engine we return specific engine, else return Lucene Engine
+     * @return if and only if Native Engine we return specific engine, else return null
      */
-    private KNNEngine getKNNEngine(@NonNull FieldInfo field) {
+    private KNNEngine getNativeKNNEngine(@NonNull FieldInfo field) {
 
         final String modelId = field.attributes().get(MODEL_ID);
         if (modelId != null) {
-            var model = ModelCache.getInstance().get(modelId);
-            return KNNEngine.LUCENE;
+            return null;
         }
+        // Lucene Engine would not set attributes
         final String engineName = field.attributes().get(KNNConstants.KNN_ENGINE);
         if (engineName == null) {
-            return KNNEngine.LUCENE;
+            return null;
         }
-        return KNNEngine.getEngine(engineName);
-    }
-
-    List<String> getEngineFiles(String extension, String fieldName) {
-        /*
-         * In case of compound file, extension would be <engine-extension> + c otherwise <engine-extension>
-         */
-        String engineExtension = state.segmentInfo.getUseCompoundFile() ? extension + KNNConstants.COMPOUND_EXTENSION : extension;
-        String engineSuffix = fieldName + engineExtension;
-        String underLineEngineSuffix = "_" + engineSuffix;
-
-        List<String> engineFiles = state.segmentInfo.files()
-            .stream()
-            .filter(fileName -> fileName.endsWith(underLineEngineSuffix))
-            .sorted(Comparator.comparingInt(String::length))
-            .collect(Collectors.toList());
-        return engineFiles;
+        KNNEngine engine = KNNEngine.getEngine(engineName);
+        if (engine == KNNEngine.FAISS || engine == KNNEngine.NMSLIB) {
+            return engine;
+        }
+        return null;
     }
 }

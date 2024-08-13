@@ -10,6 +10,7 @@ import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
+import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.io.IOException;
 import java.util.Set;
@@ -43,6 +44,9 @@ public class KNN80CompoundDirectory extends CompoundDirectory {
 
     @Override
     public IndexInput openInput(String name, IOContext context) throws IOException {
+        if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().stream().anyMatch(engine -> name.endsWith(engine.getCompoundExtension()))) {
+            return dir.openInput(name, context);
+        }
         return delegate.openInput(name, context);
     }
 

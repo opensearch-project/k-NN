@@ -6,8 +6,14 @@
 package org.opensearch.knn.index.codec.util;
 
 import org.apache.lucene.index.BinaryDocValues;
+import org.apache.lucene.index.SegmentInfo;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN80Codec.KNN80BinaryDocValues;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class KNNCodecUtil {
     // Floats are 4 bytes in size
@@ -52,5 +58,21 @@ public class KNNCodecUtil {
             totalLiveDocs = binaryDocValues.cost();
         }
         return totalLiveDocs;
+    }
+
+    public static List<String> getEngineFiles(String extension, String fieldName, SegmentInfo segmentInfo) {
+        /*
+         * In case of compound file, extension would be <engine-extension> + c otherwise <engine-extension>
+         */
+        String engineExtension = segmentInfo.getUseCompoundFile() ? extension + KNNConstants.COMPOUND_EXTENSION : extension;
+        String engineSuffix = fieldName + engineExtension;
+        String underLineEngineSuffix = "_" + engineSuffix;
+
+        List<String> engineFiles = segmentInfo.files()
+            .stream()
+            .filter(fileName -> fileName.endsWith(underLineEngineSuffix))
+            .sorted(Comparator.comparingInt(String::length))
+            .collect(Collectors.toList());
+        return engineFiles;
     }
 }

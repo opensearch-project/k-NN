@@ -9,7 +9,6 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.DocValuesFormat;
 import org.apache.lucene.codecs.DocValuesProducer;
-import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
@@ -111,17 +110,13 @@ public class KNN80DocValuesProducerTests extends KNNTestCase {
 
         DocValuesFormat docValuesFormat = codec.docValuesFormat();
         assertTrue(docValuesFormat instanceof KNN80DocValuesFormat);
-        ;
         DocValuesProducer producer = docValuesFormat.fieldsProducer(state);
         assertTrue(producer instanceof KNN80DocValuesProducer);
-        BinaryDocValues binaryDocValues = producer.getBinary(fieldInfos.fieldInfo(fieldName1));
         int pathSize = ((KNN80DocValuesProducer) producer).getOpenedIndexPath().size();
         assertEquals(pathSize, 1);
 
         String path = ((KNN80DocValuesProducer) producer).getOpenedIndexPath().get(0);
         assertTrue(path.contains(segmentFiles.get(0)));
-        System.out.println("path:" + path);
-        System.out.println("===>Size:" + ((KNN80DocValuesProducer) producer).getOpenedIndexPath().size());
     }
 
 }
