@@ -64,18 +64,9 @@ TEST(CreateIndexTest, BasicAssertions) {
 
     // Create the index
     knn_jni::faiss_wrapper::IndexService indexService(std::move(mockFaissMethods));
-    indexService.createIndex(
-        &mockJNIUtil,
-        jniEnv,
-        metricType,
-        indexDescription,
-        dim,
-        numIds,
-        threadCount,
-        (int64_t) &vectors,
-        ids,
-        indexPath,
-        parametersMap);
+    long indexAddress = indexService.initIndex(&mockJNIUtil, jniEnv, metricType, indexDescription, dim, numIds, threadCount, parametersMap);
+    indexService.insertToIndex(dim, numIds, threadCount, (int64_t) &vectors, ids, indexAddress);
+    indexService.writeIndex(indexPath, indexAddress);
 }
 
 TEST(CreateBinaryIndexTest, BasicAssertions) {
@@ -119,16 +110,7 @@ TEST(CreateBinaryIndexTest, BasicAssertions) {
 
     // Create the index
     knn_jni::faiss_wrapper::BinaryIndexService indexService(std::move(mockFaissMethods));
-    indexService.createIndex(
-        &mockJNIUtil,
-        jniEnv,
-        metricType,
-        indexDescription,
-        dim,
-        numIds,
-        threadCount,
-        (int64_t) &vectors,
-        ids,
-        indexPath,
-        parametersMap);
+    long indexAddress = indexService.initIndex(&mockJNIUtil, jniEnv, metricType, indexDescription, dim, numIds, threadCount, parametersMap);
+    indexService.insertToIndex(dim, numIds, threadCount, (int64_t) &vectors, ids, indexAddress);
+    indexService.writeIndex(indexPath, indexAddress);
 }

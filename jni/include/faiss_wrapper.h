@@ -18,10 +18,11 @@
 
 namespace knn_jni {
     namespace faiss_wrapper {
-        // Create an index with ids and vectors. The configuration is defined by values in the Java map, parametersJ.
-        // The index is serialized to indexPathJ.
-        void CreateIndex(knn_jni::JNIUtilInterface * jniUtil, JNIEnv * env, jintArray idsJ, jlong vectorsAddressJ, jint dimJ,
-                         jstring indexPathJ, jobject parametersJ, IndexService* indexService);
+        jlong InitIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jlong numDocs, jint dimJ, jobject parametersJ, IndexService *indexService);
+
+        void InsertToIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jintArray idsJ, jlong vectorsAddressJ, jint dimJ, jlong indexAddr, jint threadCount, IndexService *indexService);
+
+        void WriteIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, jstring indexPathJ, jlong indexAddr, IndexService *indexService);
 
         // Create an index with ids and vectors. Instead of creating a new index, this function creates the index
         // based off of the template index passed in. The index is serialized to indexPathJ.

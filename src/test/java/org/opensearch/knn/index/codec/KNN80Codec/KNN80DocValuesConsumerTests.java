@@ -104,7 +104,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(delegate, null) {
 
             @Override
-            public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge, boolean isRefresh) {
+            public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) {
                 called[0] = true;
             }
         };
@@ -141,7 +141,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(delegate, state) {
 
             @Override
-            public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge, boolean isRefresh) {
+            public void addKNNBinaryField(FieldInfo field, DocValuesProducer valuesProducer, boolean isMerge) {
                 called[0] = true;
             }
         };
@@ -159,7 +159,6 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             128
         );
         Long initialGraphIndexRequests = KNNCounter.GRAPH_INDEX_REQUESTS.getCount();
-        Long initialRefreshOperations = KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue();
         Long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
         Long initialMergeSize = KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue();
         Long initialMergeDocs = KNNGraphValue.MERGE_TOTAL_DOCS.getValue();
@@ -177,9 +176,8 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
         FieldInfo fieldInfo = KNNCodecTestUtil.FieldInfoBuilder.builder("test-field").build();
-        knn80DocValuesConsumer.addKNNBinaryField(fieldInfo, randomVectorDocValuesProducer, true, true);
+        knn80DocValuesConsumer.addKNNBinaryField(fieldInfo, randomVectorDocValuesProducer, true);
         assertEquals(initialGraphIndexRequests, KNNCounter.GRAPH_INDEX_REQUESTS.getCount());
-        assertEquals(initialRefreshOperations, KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
         assertEquals(initialMergeOperations, KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
         assertEquals(initialMergeSize, KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
         assertEquals(initialMergeDocs, KNNGraphValue.MERGE_TOTAL_DOCS.getValue());
@@ -223,7 +221,6 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
         SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
 
-        long initialRefreshOperations = KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue();
         long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
 
         // Add documents to the field
@@ -232,7 +229,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             docsInSegment,
             dimension
         );
-        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true, true);
+        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true);
 
         // The document should be created in the correct location
         String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
@@ -245,7 +242,60 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertLoadableByEngine(null, state, expectedFile, knnEngine, spaceType, dimension);
 
         // The graph creation statistics should be updated
-        assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
+        assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
+        assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_DOCS.getValue());
+        assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
+    }
+
+    public void testAddKNNBinaryField_fromScratch_nmslibLegacy() throws IOException {
+        // Set information about the segment and the fields
+        String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
+        int docsInSegment = 100;
+        String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
+
+        KNNEngine knnEngine = KNNEngine.NMSLIB;
+        SpaceType spaceType = SpaceType.COSINESIMIL;
+        int dimension = 16;
+
+        SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
+            .directory(directory)
+            .segmentName(segmentName)
+            .docsInSegment(docsInSegment)
+            .codec(codec)
+            .build();
+
+        FieldInfo[] fieldInfoArray = new FieldInfo[] {
+            KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
+                .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
+                .addAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, "512")
+                .addAttribute(KNNConstants.HNSW_ALGO_M, "16")
+                .addAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue())
+                .build() };
+
+        FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
+        SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
+
+        long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
+
+        // Add documents to the field
+        KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
+        TestVectorValues.RandomVectorDocValuesProducer randomVectorDocValuesProducer = new TestVectorValues.RandomVectorDocValuesProducer(
+            docsInSegment,
+            dimension
+        );
+        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true);
+
+        // The document should be created in the correct location
+        String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
+        assertFileInCorrectLocation(state, expectedFile);
+
+        // The footer should be valid
+        assertValidFooter(state.directory, expectedFile);
+
+        // The document should be readable by nmslib
+        assertLoadableByEngine(null, state, expectedFile, knnEngine, spaceType, dimension);
+
+        // The graph creation statistics should be updated
         assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
         assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_DOCS.getValue());
         assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
@@ -290,7 +340,6 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
 
         long initialRefreshOperations = KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue();
-        long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
 
         // Add documents to the field
         KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
@@ -298,7 +347,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             docsInSegment,
             dimension
         );
-        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true, true);
+        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, false);
 
         // The document should be created in the correct location
         String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
@@ -312,9 +361,6 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
 
         // The graph creation statistics should be updated
         assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
-        assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
-        assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_DOCS.getValue());
-        assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
     }
 
     public void testAddKNNBinaryField_whenFaissBinary_thenAdded() throws IOException {
@@ -357,7 +403,6 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
         SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
 
-        long initialRefreshOperations = KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue();
         long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
 
         // Add documents to the field
@@ -366,7 +411,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             docsInSegment,
             dimension
         );
-        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true, true);
+        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true);
 
         // The document should be created in the correct location
         String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
@@ -379,7 +424,6 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertBinaryIndexLoadableByEngine(state, expectedFile, knnEngine, spaceType, dimension, dataType);
 
         // The graph creation statistics should be updated
-        assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
         assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
         assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_DOCS.getValue());
         assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
@@ -456,7 +500,6 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
         SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
 
-        long initialRefreshOperations = KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue();
         long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
 
         // Add documents to the field
@@ -465,7 +508,7 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             docsInSegment,
             dimension
         );
-        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true, true);
+        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true);
 
         // The document should be created in the correct location
         String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
@@ -478,7 +521,6 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         assertLoadableByEngine(HNSW_METHODPARAMETERS, state, expectedFile, knnEngine, spaceType, dimension);
 
         // The graph creation statistics should be updated
-        assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
         assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
         assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_DOCS.getValue());
         assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
@@ -550,6 +592,6 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         knn80DocValuesConsumer.addBinaryField(fieldInfo, docValuesProducer);
 
         verify(delegate, times(1)).addBinaryField(fieldInfo, docValuesProducer);
-        verify(knn80DocValuesConsumer, never()).addKNNBinaryField(any(), any(), eq(false), eq(true));
+        verify(knn80DocValuesConsumer, never()).addKNNBinaryField(any(), any(), eq(false));
     }
 }
