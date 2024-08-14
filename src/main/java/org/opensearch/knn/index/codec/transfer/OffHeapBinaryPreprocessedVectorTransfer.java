@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.codec.transfer;
 
-import org.apache.commons.lang.StringUtils;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
@@ -13,16 +12,21 @@ import java.util.List;
 
 /**
  * Transfer quantized binary vectors to off heap memory
- * The reason this is different from {@link OffHeapByteQuantizedVectorTransfer} is because of allocation and deallocation
+ * The reason this is different from {@link OffHeapBytePreprocessedVectorTransfer} is because of allocation and deallocation
  * of memory on JNI layer. Use this if unsigned int is needed on JNI layer
  */
-public final class OffHeapBinaryQuantizedVectorTransfer<T> extends OffHeapQuantizedVectorTransfer<T, byte[]> {
+public final class OffHeapBinaryPreprocessedVectorTransfer<T> extends OffHeapPreprocessedVectorTransfer<T, byte[]> {
 
-    public OffHeapBinaryQuantizedVectorTransfer(KNNVectorValues<T> vectorValues, Long batchSize) {
-        super(vectorValues, batchSize, (vector, state) -> (byte[]) vector, StringUtils.EMPTY, DEFAULT_COMPRESSION_FACTOR);
+    public OffHeapBinaryPreprocessedVectorTransfer(KNNVectorValues<T> vectorValues, Long batchSize) {
+        super(vectorValues, batchSize);
     }
 
-    public OffHeapBinaryQuantizedVectorTransfer(KNNVectorValues<T> vectorValues) {
+    @Override
+    protected int computeTransferLimit(byte[] vector) {
+        return (int) this.streamingLimit / vector.length;
+    }
+
+    public OffHeapBinaryPreprocessedVectorTransfer(KNNVectorValues<T> vectorValues) {
         this(vectorValues, null);
     }
 

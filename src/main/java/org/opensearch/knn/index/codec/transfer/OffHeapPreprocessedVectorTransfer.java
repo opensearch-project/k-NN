@@ -7,11 +7,11 @@ package org.opensearch.knn.index.codec.transfer;
 
 import lombok.Getter;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.codec.transfer.preprocess.PreprocessVectorTransfer;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.function.BiFunction;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 import static org.opensearch.knn.common.KNNVectorUtil.intOverflowSafeArrayList;
@@ -30,7 +30,7 @@ import static org.opensearch.knn.common.KNNVectorUtil.intOverflowSafeArrayList;
  * @param <T>  byte[] or float[]
  * @param <V>  byte[] or float[]
  */
-abstract class OffHeapQuantizedVectorTransfer<T, V> implements VectorTransfer {
+abstract class OffHeapPreprocessedVectorTransfer<T, V> implements VectorTransfer {
 
     protected static final int DEFAULT_COMPRESSION_FACTOR = 1;
 
@@ -38,37 +38,27 @@ abstract class OffHeapQuantizedVectorTransfer<T, V> implements VectorTransfer {
     private long vectorAddress;
     @Getter
     private int[] transferredDocsIds;
-    private final int transferLimit;
+    protected final long streamingLimit;
 
     // Keeping this as a member variable as this should not be changed considering the vector address is reused between batches
-    protected long batchSize;
+    protected Long batchSize;
 
     private final List<V> vectorsToTransfer;
     private final List<Integer> transferredDocIdsList;
 
     private final KNNVectorValues<T> vectorValues;
 
-    // TODO: Replace with actual quantization parameters
-    private final BiFunction<T, String, V> quantizer;
-    private final String quantizationState;
+    PreprocessVectorTransfer<T, V> preprocessVector;
 
-    public OffHeapQuantizedVectorTransfer(
+    public OffHeapPreprocessedVectorTransfer(
         final KNNVectorValues<T> vectorValues,
-        final Long batchSize,
-        final BiFunction<T, String, V> quantizer,
-        final String quantizationState,
-        final int compressionFactor
+        final Long batchSize
     ) {
         assert vectorValues.docId() != -1 : "vectorValues docId must be set, iterate it once for vector transfer to succeed";
         assert vectorValues.docId() != NO_MORE_DOCS : "vectorValues already iterated, Nothing to transfer";
 
-        this.quantizer = quantizer;
-        this.quantizationState = quantizationState;
-        this.transferLimit = (int) Math.max(
-            1,
-            (int) KNNSettings.getVectorStreamingMemoryLimit().getBytes() / (vectorValues.bytesPerVector() / compressionFactor)
-        );
-        this.batchSize = batchSize == null ? transferLimit : batchSize;
+        this.streamingLimit = KNNSettings.getVectorStreamingMemoryLimit().getBytes();
+        this.batchSize = batchSize;
         this.vectorsToTransfer = intOverflowSafeArrayList(this.batchSize);
         this.transferredDocIdsList = intOverflowSafeArrayList(this.batchSize);
         this.vectorValues = vectorValues;
@@ -88,12 +78,21 @@ abstract class OffHeapQuantizedVectorTransfer<T, V> implements VectorTransfer {
         int totalDocsTransferred = 0;
         boolean freshBatch = true;
 
+        //Iterate once per batch to compute transferLimit based on streaming limit and determine the batch size
+        V vector = preprocessVector.apply(vectorValues.conditionalCloneVector());
+        vectorsToTransfer.add(vector);
+        transferredDocIdsList.add(totalDocsTransferred);
+        vectorValues.nextDoc();
+
+        int transferLimit = Math.max(1, computeTransferLimit(vector));
+        long batchSize = this.batchSize == null ? transferLimit : this.batchSize;
+
         // TODO: Create non-final QuantizationOutput once here and then reuse the output
         while (vectorValues.docId() != NO_MORE_DOCS && totalDocsTransferred < batchSize) {
-            V quantizedVector = quantizer.apply(vectorValues.conditionalCloneVector(), quantizationState);
+            V processedVector = preprocessVector.apply(vectorValues.conditionalCloneVector());
 
             transferredDocIdsList.add(vectorValues.docId());
-            vectorsToTransfer.add(quantizedVector);
+            vectorsToTransfer.add(processedVector);
             if (vectorsToTransfer.size() == transferLimit) {
                 vectorAddress = transfer(vectorsToTransfer, !freshBatch);
                 vectorsToTransfer.clear();
@@ -115,6 +114,8 @@ abstract class OffHeapQuantizedVectorTransfer<T, V> implements VectorTransfer {
         }
         transferredDocIdsList.clear();
     }
+
+    protected abstract int computeTransferLimit(V vector);
 
     @Override
     public boolean hasNext() {

@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.codec.transfer;
 
-import org.apache.commons.lang.StringUtils;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.jni.JNICommons;
 
@@ -15,14 +14,19 @@ import java.util.List;
 /**
  * Transfer float vectors to off heap memory.
  */
-public final class OffHeapFloatVectorTransfer extends OffHeapQuantizedVectorTransfer<float[], float[]> {
+public final class OffHeapFloatVectorTransfer extends OffHeapPreprocessedVectorTransfer<float[], float[]> {
 
     public OffHeapFloatVectorTransfer(KNNFloatVectorValues vectorValues, Long batchSize) throws IOException {
-        super(vectorValues, batchSize, (vector, state) -> vector, StringUtils.EMPTY, DEFAULT_COMPRESSION_FACTOR);
+        super(vectorValues, batchSize);
     }
 
     public OffHeapFloatVectorTransfer(KNNFloatVectorValues vectorValues) throws IOException {
         this(vectorValues, null);
+    }
+
+    @Override
+    protected int computeTransferLimit(float[] vector) {
+        return (int) this.streamingLimit / (vector.length * 4);
     }
 
     @Override

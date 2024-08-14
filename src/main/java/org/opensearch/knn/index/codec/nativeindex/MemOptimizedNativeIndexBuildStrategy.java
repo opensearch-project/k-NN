@@ -7,7 +7,7 @@ package org.opensearch.knn.index.codec.nativeindex;
 
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
-import org.opensearch.knn.index.codec.transfer.OffHeapByteQuantizedVectorTransfer;
+import org.opensearch.knn.index.codec.transfer.OffHeapBytePreprocessedVectorTransfer;
 import org.opensearch.knn.index.codec.transfer.OffHeapFloatVectorTransfer;
 import org.opensearch.knn.index.codec.transfer.VectorTransfer;
 import org.opensearch.knn.index.engine.KNNEngine;
@@ -49,6 +49,8 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
             )
         );
 
+        //TODO: create quantizer, quantization output and extract quantization state here and pass it vector transfer
+        // as preprocessor
         try (final VectorTransfer vectorTransfer = getVectorTransfer(indexInfo.getVectorDataType(), knnVectorValues)) {
 
             while (vectorTransfer.hasNext()) {
@@ -81,7 +83,7 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
                 return new OffHeapFloatVectorTransfer((KNNFloatVectorValues) knnVectorValues);
             case BINARY:
             case BYTE:
-                return new OffHeapByteQuantizedVectorTransfer<>((KNNVectorValues<byte[]>) knnVectorValues);
+                return new OffHeapBytePreprocessedVectorTransfer<>((KNNVectorValues<byte[]>) knnVectorValues);
             default:
                 throw new IllegalArgumentException("Unsupported vector data type: " + vectorDataType);
         }

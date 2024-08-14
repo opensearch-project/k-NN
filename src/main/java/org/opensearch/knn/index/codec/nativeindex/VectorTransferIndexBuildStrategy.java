@@ -8,7 +8,7 @@ package org.opensearch.knn.index.codec.nativeindex;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
-import org.opensearch.knn.index.codec.transfer.OffHeapByteQuantizedVectorTransfer;
+import org.opensearch.knn.index.codec.transfer.OffHeapBytePreprocessedVectorTransfer;
 import org.opensearch.knn.index.codec.transfer.OffHeapFloatVectorTransfer;
 import org.opensearch.knn.index.codec.transfer.VectorTransfer;
 import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
@@ -83,7 +83,7 @@ final class VectorTransferIndexBuildStrategy implements NativeIndexBuildStrategy
                 return new OffHeapFloatVectorTransfer((KNNFloatVectorValues) knnVectorValues, knnVectorValues.totalLiveDocs());
             case BINARY:
             case BYTE:
-                return new OffHeapByteQuantizedVectorTransfer<>((KNNVectorValues<byte[]>) knnVectorValues, knnVectorValues.totalLiveDocs());
+                return new OffHeapBytePreprocessedVectorTransfer<>((KNNVectorValues<byte[]>) knnVectorValues, knnVectorValues.totalLiveDocs());
             default:
                 throw new IllegalArgumentException("Unsupported vector data type: " + vectorDataType);
         }
