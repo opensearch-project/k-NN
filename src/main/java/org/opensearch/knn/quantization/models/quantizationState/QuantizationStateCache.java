@@ -9,6 +9,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * A cache that contains quantization states
+ */
 public class QuantizationStateCache {
 
     private final ConcurrentHashMap<String, QuantizationState> cache = new ConcurrentHashMap<>();
@@ -17,6 +20,10 @@ public class QuantizationStateCache {
 
     private QuantizationStateCache() {}
 
+    /**
+     * Gets the static instance of the cache
+     * @return QuantizationStateCache
+     */
     public static QuantizationStateCache getInstance() {
         if (instance == null) {
             instance = new QuantizationStateCache();
@@ -24,10 +31,20 @@ public class QuantizationStateCache {
         return instance;
     }
 
+    /**
+     * Gets the quantization state for a given field name
+     * @param fieldName field name
+     * @return quantization state
+     */
     public QuantizationState getQuantizationState(String fieldName) {
         return cache.get(fieldName);
     }
 
+    /**
+     * Adds a quantization state to the cache
+     * @param fieldName field name
+     * @param quantizationState quantization state
+     */
     public void addQuantizationState(String fieldName, QuantizationState quantizationState) {
         lock.lock();
         try {
@@ -37,6 +54,10 @@ public class QuantizationStateCache {
         }
     }
 
+    /**
+     * Removes the quantization state associated with a given field name
+     * @param fieldName field name
+     */
     public void evict(String fieldName) {
         lock.lock();
         try {
@@ -46,6 +67,9 @@ public class QuantizationStateCache {
         }
     }
 
+    /**
+     * Clears the cache
+     */
     public void clear() {
         cache.clear();
     }
