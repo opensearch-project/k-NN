@@ -12,44 +12,168 @@ import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuan
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import static org.opensearch.knn.quantization.enums.ScalarQuantizationType.ONE_BIT;
 
 public class QuantizationStateCacheTests extends KNNTestCase {
+
     @SneakyThrows
-    public void testQuantizationStateCache() {
-        String fieldName1 = "test-field-1";
-        String fieldName2 = "test-field-2";
-        String fieldName3 = "test-field-3";
-        float[] floatArray1 = { 1.2f, 2.3f, 3.4f };
-        float[] floatArray2 = { 2.3f, 3.4f, 4.5f };
-        float[] floatArray3 = { 3.4f, 4.5f, 5.6f };
-        QuantizationState qs1 = new OneBitScalarQuantizationState(new ScalarQuantizationParams(ONE_BIT), floatArray1);
-        QuantizationState qs2 = new OneBitScalarQuantizationState(new ScalarQuantizationParams(ONE_BIT), floatArray2);
-        QuantizationState qs3 = new OneBitScalarQuantizationState(new ScalarQuantizationParams(ONE_BIT), floatArray3);
+    public void testSingleThreadedAddAndRetrieve() {
+        String fieldName = "singleThreadField";
+        QuantizationState state = new OneBitScalarQuantizationState(
+            new ScalarQuantizationParams(ONE_BIT),
+            new float[] { 1.2f, 2.3f, 3.4f }
+        );
+        QuantizationStateCache cache = QuantizationStateCache.getInstance();
 
-        // Add test quantization states
-        QuantizationStateCache.getInstance().addQuantizationState(fieldName1, qs1);
-        QuantizationStateCache.getInstance().addQuantizationState(fieldName2, qs2);
-        QuantizationStateCache.getInstance().addQuantizationState(fieldName3, qs3);
+        // Add state
+        cache.addQuantizationState(fieldName, state);
 
-        // Assert all states are present
-        assertEquals(qs1, QuantizationStateCache.getInstance().getQuantizationState(fieldName1));
-        assertEquals(qs2, QuantizationStateCache.getInstance().getQuantizationState(fieldName2));
-        assertEquals(qs3, QuantizationStateCache.getInstance().getQuantizationState(fieldName3));
+        QuantizationState retrievedState = cache.getQuantizationState(fieldName);
+        assertNotNull("State should be retrieved successfully", retrievedState);
+        assertSame("Retrieved state should be the same instance as the one added", state, retrievedState);
+    }
 
-        // Remove one state
-        QuantizationStateCache.getInstance().evict(fieldName1);
+    @SneakyThrows
+    public void testMultiThreadedAddAndRetrieve() {
+        int threadCount = 10;
+        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch latch = new CountDownLatch(threadCount);
+        String fieldName = "multiThreadField";
+        QuantizationState state = new OneBitScalarQuantizationState(
+            new ScalarQuantizationParams(ONE_BIT),
+            new float[] { 1.2f, 2.3f, 3.4f }
+        );
+        QuantizationStateCache cache = QuantizationStateCache.getInstance();
 
-        // Assert state has been removed, others are still present
-        assertNull(QuantizationStateCache.getInstance().getQuantizationState(fieldName1));
-        assertEquals(qs2, QuantizationStateCache.getInstance().getQuantizationState(fieldName2));
-        assertEquals(qs3, QuantizationStateCache.getInstance().getQuantizationState(fieldName3));
+        // Add state from multiple threads
+        for (int i = 0; i < threadCount; i++) {
+            executorService.submit(() -> {
+                try {
+                    cache.addQuantizationState(fieldName, state);
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
 
-        // Clear cache
-        QuantizationStateCache.getInstance().clear();
+        // Wait for all threads to finish
+        latch.await();
+        executorService.shutdown();
 
-        // Assert all states have been removed
-        assertNull(QuantizationStateCache.getInstance().getQuantizationState(fieldName2));
-        assertNull(QuantizationStateCache.getInstance().getQuantizationState(fieldName3));
+        QuantizationState retrievedState = cache.getQuantizationState(fieldName);
+        assertNotNull("State should be retrieved successfully", retrievedState);
+        assertSame("Retrieved state should be the same instance as the one added", state, retrievedState);
+    }
+
+    @SneakyThrows
+    public void testMultiThreadedEvict() {
+        int threadCount = 10;
+        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch latch = new CountDownLatch(threadCount);
+        String fieldName = "multiThreadEvictField";
+        QuantizationState state = new OneBitScalarQuantizationState(
+            new ScalarQuantizationParams(ONE_BIT),
+            new float[] { 1.2f, 2.3f, 3.4f }
+        );
+        QuantizationStateCache cache = QuantizationStateCache.getInstance();
+
+        cache.addQuantizationState(fieldName, state);
+
+        // Evict state from multiple threads
+        for (int i = 0; i < threadCount; i++) {
+            executorService.submit(() -> {
+                try {
+                    cache.evict(fieldName);
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+
+        // Wait for all threads to finish
+        latch.await();
+        executorService.shutdown();
+
+        QuantizationState retrievedState = cache.getQuantizationState(fieldName);
+        assertNull("State should be null", retrievedState);
+    }
+
+    @SneakyThrows
+    public void testConcurrentAddAndEvict() {
+        int threadCount = 10;
+        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch latch = new CountDownLatch(threadCount);
+        String fieldName = "concurrentAddEvictField";
+        QuantizationState state = new OneBitScalarQuantizationState(
+            new ScalarQuantizationParams(ONE_BIT),
+            new float[] { 1.2f, 2.3f, 3.4f }
+        );
+        QuantizationStateCache cache = QuantizationStateCache.getInstance();
+
+        // Concurrently add and evict state from multiple threads
+        for (int i = 0; i < threadCount; i++) {
+            if (i % 2 == 0) {
+                executorService.submit(() -> {
+                    try {
+                        cache.addQuantizationState(fieldName, state);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            } else {
+                executorService.submit(() -> {
+                    try {
+                        cache.evict(fieldName);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+
+        }
+
+        // Wait for all threads to finish
+        latch.await();
+        executorService.shutdown();
+
+        // Since operations are concurrent, we can't be sure of the final state, but we can assert that the cache handles it gracefully
+        QuantizationState retrievedState = cache.getQuantizationState(fieldName);
+        assertTrue("Final state should be either null or the added state", retrievedState == null || retrievedState == state);
+    }
+
+    @SneakyThrows
+    public void testMultipleThreadedCacheClear() {
+        int threadCount = 10;
+        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch latch = new CountDownLatch(threadCount);
+        String fieldName = "multiThreadField";
+        QuantizationState state = new OneBitScalarQuantizationState(
+            new ScalarQuantizationParams(ONE_BIT),
+            new float[] { 1.2f, 2.3f, 3.4f }
+        );
+        QuantizationStateCache cache = QuantizationStateCache.getInstance();
+        cache.addQuantizationState(fieldName, state);
+
+        // Clear cache from multiple threads
+        for (int i = 0; i < threadCount; i++) {
+            executorService.submit(() -> {
+                try {
+                    cache.clear();
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+
+        // Wait for all threads to finish
+        latch.await();
+        executorService.shutdown();
+
+        QuantizationState retrievedState = cache.getQuantizationState(fieldName);
+        assertNull("State should be null", retrievedState);
     }
 }
