@@ -5,7 +5,6 @@
 
 package org.opensearch.knn.index.mapper;
 
-import com.google.common.collect.ImmutableMap;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.KnnByteVectorField;
@@ -52,7 +51,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -112,39 +110,57 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertEquals(expectedParams, actualParams);
     }
 
-    public void testBuilder_build_fromKnnMethodContext() {
+    public void testTypeParser_build_fromKnnMethodContext() throws IOException {
         // Check that knnMethodContext takes precedent over both model and legacy
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT, null, null);
 
         SpaceType spaceType = SpaceType.COSINESIMIL;
-        int m = 17;
-        int efConstruction = 17;
+        int mRight = 17;
+        int mWrong = 71;
+
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, TEST_DIMENSION)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType)
+            .startObject(PARAMETERS)
+            .field(METHOD_PARAMETER_M, mRight)
+            .endObject()
+            .endObject()
+            .endObject();
 
         // Setup settings
         Settings settings = Settings.builder()
             .put(settings(CURRENT).build())
-            .put(KNNSettings.KNN_SPACE_TYPE, spaceType.getValue())
-            .put(KNNSettings.KNN_ALGO_PARAM_M, m)
-            .put(KNNSettings.KNN_ALGO_PARAM_EF_CONSTRUCTION, efConstruction)
+            .put(KNNSettings.KNN_ALGO_PARAM_M, mWrong)
             .put(KNN_INDEX, true)
             .build();
 
-        builder.knnMethodContext.setValue(
-            new KNNMethodContext(
-                KNNEngine.DEFAULT,
-                spaceType,
-                new MethodComponentContext(
-                    METHOD_HNSW,
-                    ImmutableMap.of(METHOD_PARAMETER_M, m, METHOD_PARAMETER_EF_CONSTRUCTION, efConstruction)
-                )
-            )
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            "test-field-name-1",
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext("test", settings)
         );
 
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
         assertTrue(knnVectorFieldMapper instanceof MethodFieldMapper);
         assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().isPresent());
+        assertEquals(spaceType, knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().get().getSpaceType());
+        assertEquals(
+            mRight,
+            knnVectorFieldMapper.fieldType()
+                .getKnnMappingConfig()
+                .getKnnMethodContext()
+                .get()
+                .getMethodComponentContext()
+                .getParameters()
+                .get(METHOD_PARAMETER_M)
+        );
         assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getModelId().isEmpty());
     }
 
@@ -189,15 +205,19 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertTrue(knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().isEmpty());
     }
 
-    public void testBuilder_build_fromLegacy() {
+    public void testBuilder_build_fromLegacy() throws IOException {
         // Check legacy is picked up if model context and method context are not set
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT, null, null);
-
         int m = 17;
         int efConstruction = 17;
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
 
-        // Setup settings
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 12)
+            .endObject();
+
         Settings settings = Settings.builder()
             .put(settings(CURRENT).build())
             .put(KNNSettings.KNN_ALGO_PARAM_M, m)
@@ -205,6 +225,13 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .put(KNN_INDEX, true)
             .build();
 
+        KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+            "test-field-name-1",
+            xContentBuilderToMap(xContentBuilder),
+            buildParserContext("test", settings)
+        );
+
+        // Setup settings
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
         assertTrue(knnVectorFieldMapper instanceof MethodFieldMapper);
@@ -323,15 +350,14 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .endObject()
             .endObject()
             .endObject();
-        KNNVectorFieldMapper.Builder builderOverMaxDimension = (KNNVectorFieldMapper.Builder) typeParser.parse(
-            fieldName,
-            xContentBuilderToMap(xContentBuilderOverMaxDimension),
-            buildParserContext(indexName, settings)
-        );
 
         IllegalArgumentException ex = expectThrows(
             IllegalArgumentException.class,
-            () -> builderOverMaxDimension.build(new Mapper.BuilderContext(settings, new ContentPath()))
+            () -> typeParser.parse(
+                fieldName,
+                xContentBuilderToMap(xContentBuilderOverMaxDimension),
+                buildParserContext(indexName, settings)
+            )
         );
         assertTrue(ex.getMessage().contains("Dimension value cannot be greater than 16000 for vector with engine: lucene"));
 
@@ -413,7 +439,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         String fieldName = "test-field-name";
         String indexName = "test-index-name";
 
-        Settings settings = Settings.builder().put(settings(CURRENT).build()).build();
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
 
         ModelDao modelDao = mock(ModelDao.class);
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
@@ -445,7 +471,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         String fieldName = "test-field-name";
         String indexName = "test-index-name";
 
-        Settings settings = Settings.builder().put(settings(CURRENT).build()).build();
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
 
         ModelDao modelDao = mock(ModelDao.class);
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
@@ -542,7 +568,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         String fieldName = "test-field-name";
         String indexName = "test-index-name";
 
-        Settings settings = Settings.builder().put(settings(CURRENT).build()).build();
+        Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
 
         ModelDao modelDao = mock(ModelDao.class);
         KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
@@ -1027,85 +1053,98 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertArrayEquals(TEST_BYTE_VECTOR, knnByteVectorField.vectorValue());
     }
 
-    public void testBuilder_whenBinaryFaissHNSW_thenValid() {
-        testBuilderWithBinaryDataType(KNNEngine.FAISS, SpaceType.UNDEFINED, METHOD_HNSW, 8, null);
+    public void testTypeParser_whenBinaryFaissHNSW_thenValid() throws IOException {
+        testTypeParserWithBinaryDataType(KNNEngine.FAISS, SpaceType.HAMMING, METHOD_HNSW, 8, null);
     }
 
-    public void testBuilder_whenBinaryWithInvalidDimension_thenException() {
-        testBuilderWithBinaryDataType(KNNEngine.FAISS, SpaceType.UNDEFINED, METHOD_HNSW, 4, "should be multiply of 8");
+    public void testTypeParser_whenBinaryWithInvalidDimension_thenException() throws IOException {
+        testTypeParserWithBinaryDataType(KNNEngine.FAISS, SpaceType.UNDEFINED, METHOD_HNSW, 4, "should be multiply of 8");
     }
 
-    public void testBuilder_whenBinaryFaissHNSWWithInvalidSpaceType_thenException() {
+    public void testTypeParser_whenBinaryFaissHNSWWithInvalidSpaceType_thenException() throws IOException {
         for (SpaceType spaceType : SpaceType.values()) {
             if (SpaceType.UNDEFINED == spaceType || SpaceType.HAMMING == spaceType) {
                 continue;
             }
-            testBuilderWithBinaryDataType(KNNEngine.FAISS, spaceType, METHOD_HNSW, 8, "is not supported with");
+            testTypeParserWithBinaryDataType(KNNEngine.FAISS, spaceType, METHOD_HNSW, 8, "is not supported with");
         }
     }
 
-    public void testBuilder_whenBinaryNonFaiss_thenException() {
-        testBuilderWithBinaryDataType(KNNEngine.LUCENE, SpaceType.UNDEFINED, METHOD_HNSW, 8, "is not supported for vector data type");
-        testBuilderWithBinaryDataType(KNNEngine.NMSLIB, SpaceType.UNDEFINED, METHOD_HNSW, 8, "is not supported for vector data type");
+    public void testTypeParser_whenBinaryNonFaiss_thenException() throws IOException {
+        testTypeParserWithBinaryDataType(KNNEngine.LUCENE, SpaceType.UNDEFINED, METHOD_HNSW, 8, "is not supported for vector data type");
+        testTypeParserWithBinaryDataType(KNNEngine.NMSLIB, SpaceType.UNDEFINED, METHOD_HNSW, 8, "is not supported for vector data type");
     }
 
-    private void testBuilderWithBinaryDataType(
+    private void testTypeParserWithBinaryDataType(
         KNNEngine knnEngine,
         SpaceType spaceType,
         String method,
         int dimension,
         String expectedErrMsg
-    ) {
+    ) throws IOException {
+        // Check legacy is picked up if model context and method context are not set
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT, null, null);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+        String fieldName = "test-field-name-1";
+        String indexName = "test-index";
 
         // Setup settings
         Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
 
-        builder.knnMethodContext.setValue(
-            new KNNMethodContext(knnEngine, spaceType, new MethodComponentContext(method, Collections.emptyMap()))
-        );
-        builder.vectorDataType.setValue(VectorDataType.BINARY);
-        builder.dimension.setValue(dimension);
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, spaceType.getValue())
+            .field(KNN_ENGINE, knnEngine.getName())
+            .endObject()
+            .endObject();
 
-        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         if (expectedErrMsg == null) {
-            KNNVectorFieldMapper knnVectorFieldMapper = builder.build(builderContext);
-            assertTrue(knnVectorFieldMapper instanceof MethodFieldMapper);
-            if (SpaceType.UNDEFINED == spaceType) {
-                assertEquals(
-                    SpaceType.HAMMING,
-                    knnVectorFieldMapper.fieldType().getKnnMappingConfig().getKnnMethodContext().get().getSpaceType()
-                );
-            }
+            KNNVectorFieldMapper.Builder builder = (KNNVectorFieldMapper.Builder) typeParser.parse(
+                fieldName,
+                xContentBuilderToMap(xContentBuilder),
+                buildParserContext(indexName, settings)
+            );
+
+            assertEquals(spaceType, builder.getResolvedKNNMethodContext().getSpaceType());
         } else {
-            Exception ex = expectThrows(Exception.class, () -> builder.build(builderContext));
+            Exception ex = expectThrows(Exception.class, () -> {
+                typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings));
+            });
             assertTrue(ex.getMessage(), ex.getMessage().contains(expectedErrMsg));
         }
     }
 
-    public void testBuilder_whenBinaryFaissHNSWWithSQ_thenException() {
+    public void testTypeParser_whenBinaryFaissHNSWWithSQ_thenException() throws IOException {
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT, null, null);
-
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
         // Setup settings
         Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
 
-        builder.knnMethodContext.setValue(
-            new KNNMethodContext(
-                KNNEngine.FAISS,
-                SpaceType.HAMMING,
-                new MethodComponentContext(
-                    METHOD_HNSW,
-                    Map.of(METHOD_ENCODER_PARAMETER, new MethodComponentContext(ENCODER_SQ, Collections.emptyMap()))
-                )
-            )
-        );
-        builder.vectorDataType.setValue(VectorDataType.BINARY);
-        builder.dimension.setValue(8);
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 8)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue())
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(KNN_ENGINE, KNNEngine.FAISS.getName())
+            .startObject(PARAMETERS)
+            .startObject(METHOD_ENCODER_PARAMETER)
+            .field(NAME, ENCODER_SQ)
+            .endObject()
+            .endObject()
+            .endObject()
+            .endObject();
 
-        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
-        Exception ex = expectThrows(Exception.class, () -> builder.build(builderContext));
+        Exception ex = expectThrows(
+            Exception.class,
+            () -> typeParser.parse("test", xContentBuilderToMap(xContentBuilder), buildParserContext("test", settings))
+        );
         assertTrue(ex.getMessage(), ex.getMessage().contains("parameter validation failed for MethodComponentContext parameter [encoder]"));
     }
 
@@ -1124,18 +1163,27 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertTrue(knnVectorFieldMapper instanceof FlatVectorFieldMapper);
     }
 
-    public void testBuilder_whenBinaryWithLegacyKNNEnabled_thenException() {
+    public void testTypeParser_whenBinaryWithLegacyKNNEnabled_thenException() throws IOException {
         // Check legacy is picked up if model context and method context are not set
         ModelDao modelDao = mock(ModelDao.class);
-        KNNVectorFieldMapper.Builder builder = new KNNVectorFieldMapper.Builder("test-field-name-1", modelDao, CURRENT, null, null);
-        builder.vectorDataType.setValue(VectorDataType.BINARY);
-        builder.dimension.setValue(8);
+        KNNVectorFieldMapper.TypeParser typeParser = new KNNVectorFieldMapper.TypeParser(() -> modelDao);
+        String fieldName = "test-field-name-1";
+        String indexName = "test-index";
 
         // Setup settings
         Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
 
-        Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
-        Exception ex = expectThrows(Exception.class, () -> builder.build(builderContext));
+        XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, 8)
+            .field(VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue())
+            .endObject();
+
+        Exception ex = expectThrows(Exception.class, () -> {
+            typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder), buildParserContext(indexName, settings));
+        });
+
         assertTrue(ex.getMessage(), ex.getMessage().contains("is not supported with"));
     }
 

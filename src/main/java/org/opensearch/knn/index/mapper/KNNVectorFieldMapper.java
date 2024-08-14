@@ -15,6 +15,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.document.Field;
@@ -181,6 +182,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         // So, what we do is pass in a "resolvedKNNMethodContext" that will either be null or be set via the merge builder
         // constructor. A similar approach was taken for https://github.com/opendistro-for-elasticsearch/k-NN/issues/288
         @Setter
+        @Getter
         private KNNMethodContext resolvedKNNMethodContext;
         @Setter
         private KNNMethodConfigContext knnMethodConfigContext;
@@ -369,6 +371,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
             if (builder.modelId.get() != null || builder.knnMethodContext.get() != null) {
                 throw new IllegalArgumentException("Cannot set modelId or method parameters when index.knn setting is false");
             }
+            validateDimensionSet(builder);
         }
 
         private void validateFromModel(KNNVectorFieldMapper.Builder builder) {
@@ -384,6 +387,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 if (validationException != null) {
                     throw validationException;
                 }
+            }
+            validateDimensionSet(builder);
+        }
+
+        private void validateDimensionSet(KNNVectorFieldMapper.Builder builder) {
+            if (builder.dimension.getValue() == UNSET_MODEL_DIMENSION_IDENTIFIER) {
+                throw new IllegalArgumentException(String.format(Locale.ROOT, "Dimension value missing for vector: %s", builder.name()));
             }
         }
 
