@@ -8,69 +8,61 @@ package org.opensearch.knn.quantization.models.quantizationState;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
 /**
- * A cache that contains quantization states
+ * A thread-safe singleton cache that contains quantization states.
  */
 public class QuantizationStateCache {
 
-    private final Cache<String, QuantizationState> cache = CacheBuilder.newBuilder().build();
-    private final Lock lock = new ReentrantLock();
-    private static QuantizationStateCache instance;
+    private static volatile QuantizationStateCache instance;
+    private final Cache<String, QuantizationState> cache;
 
-    private QuantizationStateCache() {}
+    private QuantizationStateCache() {
+        this.cache = CacheBuilder.newBuilder().build();
+    }
 
     /**
-     * Gets the static instance of the cache
+     * Gets the singleton instance of the cache.
      * @return QuantizationStateCache
      */
-    public synchronized static QuantizationStateCache getInstance() {
+    public static QuantizationStateCache getInstance() {
         if (instance == null) {
-            instance = new QuantizationStateCache();
+            synchronized (QuantizationStateCache.class) {
+                if (instance == null) {
+                    instance = new QuantizationStateCache();
+                }
+            }
         }
         return instance;
     }
 
     /**
-     * Gets the quantization state for a given field name
-     * @param fieldName field name
-     * @return quantization state
+     * Retrieves the quantization state associated with a given field name.
+     * @param fieldName The name of the field.
+     * @return The associated QuantizationState, or null if not present.
      */
     public QuantizationState getQuantizationState(String fieldName) {
         return cache.getIfPresent(fieldName);
     }
 
     /**
-     * Adds a quantization state to the cache
-     * @param fieldName field name
-     * @param quantizationState quantization state
+     * Adds or updates a quantization state in the cache.
+     * @param fieldName The name of the field.
+     * @param quantizationState The quantization state to store.
      */
-    public synchronized void addQuantizationState(String fieldName, QuantizationState quantizationState) {
-        lock.lock();
-        try {
-            cache.put(fieldName, quantizationState);
-        } finally {
-            lock.unlock();
-        }
+    public void addQuantizationState(String fieldName, QuantizationState quantizationState) {
+        cache.put(fieldName, quantizationState);
     }
 
     /**
-     * Removes the quantization state associated with a given field name
-     * @param fieldName field name
+     * Removes the quantization state associated with a given field name.
+     * @param fieldName The name of the field.
      */
     public void evict(String fieldName) {
-        lock.lock();
-        try {
-            cache.invalidate(fieldName);
-        } finally {
-            lock.unlock();
-        }
+        cache.invalidate(fieldName);
     }
 
     /**
-     * Clears the cache
+     * Clears all entries from the cache.
      */
     public void clear() {
         cache.invalidateAll();
