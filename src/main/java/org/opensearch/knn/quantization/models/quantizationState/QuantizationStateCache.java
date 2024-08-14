@@ -26,7 +26,7 @@ public class QuantizationStateCache {
      * Gets the static instance of the cache
      * @return QuantizationStateCache
      */
-    public static QuantizationStateCache getInstance() {
+    public synchronized static QuantizationStateCache getInstance() {
         if (instance == null) {
             instance = new QuantizationStateCache();
         }
