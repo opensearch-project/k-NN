@@ -114,6 +114,17 @@ public class KNNTestCase extends OpenSearchTestCase {
         return defaultInstance;
     }
 
+    public static KNNMethodContext getDefaultByteKNNMethodContext() {
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
+        KNNMethodContext defaultInstance = new KNNMethodContext(
+            KNNEngine.DEFAULT,
+            SpaceType.DEFAULT,
+            methodComponentContext,
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.BYTE).versionCreated(Version.CURRENT).build()
+        );
+        return defaultInstance;
+    }
+
     public static KNNMethodContext getDefaultBinaryKNNMethodContext() {
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
         KNNMethodContext defaultInstance = new KNNMethodContext(

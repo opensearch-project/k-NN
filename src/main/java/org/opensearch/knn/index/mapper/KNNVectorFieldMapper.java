@@ -299,14 +299,11 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     .ignoreMalformed(ignoreMalformed)
                     .stored(stored.getValue())
                     .hasDocValues(hasDocValues.getValue())
-                    .vectorDataType(vectorDataType.getValue())
-                    .indexVersion(indexCreatedVersion)
                     .originalKnnMethodContext(knnMethodContext.get())
                     .build();
                 return LuceneFieldMapper.createFieldMapper(
                     buildFullName(context),
                     metaValue,
-                    vectorDataType.getValue(),
                     dimension.getValue(),
                     resolvedKNNMethodContext,
                     createLuceneFieldMapperInput
@@ -317,7 +314,6 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 buildFullName(context),
                 name,
                 metaValue,
-                vectorDataType.getValue(),
                 dimension.getValue(),
                 resolvedKNNMethodContext,
                 knnMethodContext.get(),
@@ -325,8 +321,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 copyToBuilder,
                 ignoreMalformed,
                 stored.getValue(),
-                hasDocValues.getValue(),
-                indexCreatedVersion
+                hasDocValues.getValue()
             );
         }
 

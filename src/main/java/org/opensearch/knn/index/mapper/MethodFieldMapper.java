@@ -8,7 +8,6 @@ package org.opensearch.knn.index.mapper;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.index.VectorEncoding;
-import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.SpaceType;
@@ -40,7 +39,6 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         String fullname,
         String simpleName,
         Map<String, String> metaValue,
-        VectorDataType vectorDataType,
         Integer dimension,
         KNNMethodContext knnMethodContext,
         KNNMethodContext originalKNNMethodContext,
@@ -48,20 +46,26 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         CopyTo copyTo,
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
-        boolean hasDocValues,
-        Version indexCreatedVersion
+        boolean hasDocValues
     ) {
-        final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(fullname, metaValue, vectorDataType, new KNNMappingConfig() {
-            @Override
-            public Optional<KNNMethodContext> getKnnMethodContext() {
-                return Optional.of(knnMethodContext);
-            }
+        final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
+            fullname,
+            metaValue,
+            knnMethodContext.getKnnMethodConfigContext()
+                .getVectorDataType()
+                .orElseThrow(() -> new IllegalArgumentException("Vector data type cannot be empty")),
+            new KNNMappingConfig() {
+                @Override
+                public Optional<KNNMethodContext> getKnnMethodContext() {
+                    return Optional.of(knnMethodContext);
+                }
 
-            @Override
-            public int getDimension() {
-                return dimension;
+                @Override
+                public int getDimension() {
+                    return dimension;
+                }
             }
-        });
+        );
         return new MethodFieldMapper(
             simpleName,
             mappedFieldType,
@@ -70,7 +74,6 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             ignoreMalformed,
             stored,
             hasDocValues,
-            indexCreatedVersion,
             originalKNNMethodContext
         );
     }
@@ -83,7 +86,6 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
         boolean hasDocValues,
-        Version indexVerision,
         KNNMethodContext originalKNNMethodContext
     ) {
 
@@ -95,7 +97,11 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
             ignoreMalformed,
             stored,
             hasDocValues,
-            indexVerision,
+            mappedFieldType.knnMappingConfig.getKnnMethodContext()
+                .orElseThrow(() -> new IllegalArgumentException("Method context cannot be empty"))
+                .getKnnMethodConfigContext()
+                .getVersionCreated()
+                .orElseThrow(() -> new IllegalArgumentException("Method context cannot be empty")),
             originalKNNMethodContext
         );
         this.useLuceneBasedVectorField = KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(indexCreatedVersion);

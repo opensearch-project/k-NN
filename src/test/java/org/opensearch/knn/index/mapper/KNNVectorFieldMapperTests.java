@@ -768,7 +768,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     TEST_FIELD_NAME,
                     TEST_FIELD_NAME,
                     Collections.emptyMap(),
-                    dataType,
                     dimension,
                     knnMethodContext,
                     knnMethodContext,
@@ -776,8 +775,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     FieldMapper.CopyTo.empty(),
                     new Explicit<>(true, true),
                     false,
-                    false,
-                    CURRENT
+                    false
                 )
             );
 
@@ -820,7 +818,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     TEST_FIELD_NAME,
                     TEST_FIELD_NAME,
                     Collections.emptyMap(),
-                    dataType,
                     dimension,
                     knnMethodContext,
                     knnMethodContext,
@@ -828,8 +825,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
                     FieldMapper.CopyTo.empty(),
                     new Explicit<>(true, true),
                     false,
-                    false,
-                    CURRENT
+                    false
                 )
             );
 
@@ -855,7 +851,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
     public void testLuceneFieldMapper_parseCreateField_docValues_withFloats() {
         // Create a lucene field mapper that creates a binary doc values field as well as KnnVectorField
         LuceneFieldMapper.CreateLuceneFieldMapperInput.CreateLuceneFieldMapperInputBuilder inputBuilder =
-            createLuceneFieldMapperInputBuilder(VectorDataType.FLOAT);
+            createLuceneFieldMapperInputBuilder();
 
         ParseContext.Document document = new ParseContext.Document();
         ContentPath contentPath = new ContentPath();
@@ -867,7 +863,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             LuceneFieldMapper.createFieldMapper(
                 TEST_FIELD_NAME,
                 Collections.emptyMap(),
-                VectorDataType.FLOAT,
                 TEST_DIMENSION,
                 getDefaultKNNMethodContext(),
                 inputBuilder.build()
@@ -920,7 +915,6 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             LuceneFieldMapper.createFieldMapper(
                 TEST_FIELD_NAME,
                 Collections.emptyMap(),
-                VectorDataType.FLOAT,
                 TEST_DIMENSION,
                 knnMethodContext,
                 inputBuilder.build()
@@ -945,7 +939,7 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         // Create a lucene field mapper that creates a binary doc values field as well as KnnByteVectorField
 
         LuceneFieldMapper.CreateLuceneFieldMapperInput.CreateLuceneFieldMapperInputBuilder inputBuilder =
-            createLuceneFieldMapperInputBuilder(VectorDataType.BYTE);
+            createLuceneFieldMapperInputBuilder();
 
         ParseContext.Document document = new ParseContext.Document();
         ContentPath contentPath = new ContentPath();
@@ -957,9 +951,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             LuceneFieldMapper.createFieldMapper(
                 TEST_FIELD_NAME,
                 Collections.emptyMap(),
-                VectorDataType.BYTE,
                 TEST_DIMENSION,
-                getDefaultKNNMethodContext(),
+                getDefaultByteKNNMethodContext(),
                 inputBuilder.build()
             )
         );
@@ -1003,9 +996,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             LuceneFieldMapper.createFieldMapper(
                 TEST_FIELD_NAME,
                 Collections.emptyMap(),
-                VectorDataType.BYTE,
                 TEST_DIMENSION,
-                getDefaultKNNMethodContext(),
+                getDefaultByteKNNMethodContext(),
                 inputBuilder.build()
             )
         );
@@ -1159,16 +1151,12 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         }
     }
 
-    private LuceneFieldMapper.CreateLuceneFieldMapperInput.CreateLuceneFieldMapperInputBuilder createLuceneFieldMapperInputBuilder(
-        VectorDataType vectorDataType
-    ) {
+    private LuceneFieldMapper.CreateLuceneFieldMapperInput.CreateLuceneFieldMapperInputBuilder createLuceneFieldMapperInputBuilder() {
         return LuceneFieldMapper.CreateLuceneFieldMapperInput.builder()
             .name(TEST_FIELD_NAME)
             .multiFields(FieldMapper.MultiFields.empty())
             .copyTo(FieldMapper.CopyTo.empty())
             .hasDocValues(true)
-            .vectorDataType(vectorDataType)
-            .indexVersion(CURRENT)
             .ignoreMalformed(new Explicit<>(true, true))
             .originalKnnMethodContext(getDefaultKNNMethodContext());
     }
