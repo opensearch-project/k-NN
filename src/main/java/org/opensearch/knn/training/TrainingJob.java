@@ -18,7 +18,7 @@ import org.apache.logging.log4j.Logger;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
@@ -42,6 +42,7 @@ public class TrainingJob implements Runnable {
     public static Logger logger = LogManager.getLogger(TrainingJob.class);
 
     private final KNNMethodContext knnMethodContext;
+    private final KNNMethodConfigContext knnMethodConfigContext;
     private final NativeMemoryCacheManager nativeMemoryCacheManager;
     private final NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext;
     private final NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext;
@@ -59,7 +60,6 @@ public class TrainingJob implements Runnable {
      * @param nativeMemoryCacheManager Cache manager loads training data into native memory.
      * @param trainingDataEntryContext Training data configuration
      * @param modelAnonymousEntryContext Model allocation context
-     * @param dimension model's dimension
      * @param description user provided description of the model.
      */
     public TrainingJob(
@@ -68,14 +68,14 @@ public class TrainingJob implements Runnable {
         NativeMemoryCacheManager nativeMemoryCacheManager,
         NativeMemoryEntryContext.TrainingDataEntryContext trainingDataEntryContext,
         NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext,
-        int dimension,
+        KNNMethodConfigContext knnMethodConfigContext,
         String description,
-        String nodeAssignment,
-        VectorDataType vectorDataType
+        String nodeAssignment
     ) {
         // Generate random base64 string if one is not provided
         this.modelId = StringUtils.isNotBlank(modelId) ? modelId : UUIDs.randomBase64UUID();
         this.knnMethodContext = Objects.requireNonNull(knnMethodContext, "MethodContext cannot be null.");
+        this.knnMethodConfigContext = knnMethodConfigContext;
         this.nativeMemoryCacheManager = Objects.requireNonNull(nativeMemoryCacheManager, "NativeMemoryCacheManager cannot be null.");
         this.trainingDataEntryContext = Objects.requireNonNull(trainingDataEntryContext, "TrainingDataEntryContext cannot be null.");
         this.modelAnonymousEntryContext = Objects.requireNonNull(modelAnonymousEntryContext, "AnonymousEntryContext cannot be null.");
@@ -83,14 +83,14 @@ public class TrainingJob implements Runnable {
             new ModelMetadata(
                 knnMethodContext.getKnnEngine(),
                 knnMethodContext.getSpaceType(),
-                dimension,
+                knnMethodConfigContext.getDimension().orElseThrow(() -> new IllegalArgumentException("Dimension value missing")),
                 ModelState.TRAINING,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 description,
                 "",
                 nodeAssignment,
                 knnMethodContext.getMethodComponentContext(),
-                vectorDataType
+                knnMethodConfigContext.getVectorDataType().orElseThrow(() -> new IllegalArgumentException("VectorDatatype value missing"))
             ),
             null,
             this.modelId
@@ -165,7 +165,7 @@ public class TrainingJob implements Runnable {
             }
             Map<String, Object> trainParameters = model.getModelMetadata()
                 .getKnnEngine()
-                .getKNNLibraryIndexingContext(knnMethodContext)
+                .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
                 .getLibraryParameters();
             trainParameters.put(
                 KNNConstants.INDEX_THREAD_QTY,

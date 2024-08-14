@@ -93,16 +93,23 @@ import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTIN
 public class KNNCodecTestCase extends KNNTestCase {
     private static final FieldType sampleFieldType;
     static {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(CURRENT)
+            .vectorDataType(VectorDataType.DEFAULT)
+            .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.DEFAULT,
             SpaceType.DEFAULT,
-            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512)),
-            KNNMethodConfigContext.builder().versionCreated(CURRENT).vectorDataType(VectorDataType.DEFAULT).build()
+            new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
         String parameterString;
         try {
             parameterString = XContentFactory.jsonBuilder()
-                .map(knnMethodContext.getKnnEngine().getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters())
+                .map(
+                    knnMethodContext.getKnnEngine()
+                        .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+                        .getLibraryParameters()
+                )
                 .toString();
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -328,8 +335,7 @@ public class KNNCodecTestCase extends KNNTestCase {
         final KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.LUCENE,
             SpaceType.L2,
-            new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256)),
-            KNNMethodConfigContext.builder().build()
+            new MethodComponentContext(METHOD_HNSW, Map.of(HNSW_ALGO_M, 16, HNSW_ALGO_EF_CONSTRUCTION, 256))
         );
 
         final KNNVectorFieldType mappedFieldType1 = new KNNVectorFieldType(

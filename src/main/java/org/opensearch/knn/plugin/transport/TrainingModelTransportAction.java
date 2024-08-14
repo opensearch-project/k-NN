@@ -11,11 +11,13 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import org.opensearch.Version;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.support.ActionFilters;
 import org.opensearch.action.support.HandledTransportAction;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.inject.Inject;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
 import org.opensearch.knn.index.memory.NativeMemoryLoadStrategy;
@@ -57,7 +59,14 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
 
         // Allocation representing size model will occupy in memory during training
         NativeMemoryEntryContext.AnonymousEntryContext modelAnonymousEntryContext = new NativeMemoryEntryContext.AnonymousEntryContext(
-            request.getKnnMethodContext().estimateOverheadInKB(request.getDimension()),
+            request.getKnnMethodContext()
+                .estimateOverheadInKB(
+                    KNNMethodConfigContext.builder()
+                        .dimension(request.getDimension())
+                        .vectorDataType(request.getVectorDataType())
+                        .versionCreated(Version.CURRENT)
+                        .build()
+                ),
             NativeMemoryLoadStrategy.AnonymousLoadStrategy.getInstance()
         );
 
@@ -67,10 +76,9 @@ public class TrainingModelTransportAction extends HandledTransportAction<Trainin
             NativeMemoryCacheManager.getInstance(),
             trainingDataEntryContext,
             modelAnonymousEntryContext,
-            request.getDimension(),
+            request.getKnnMethodConfigContext(),
             request.getDescription(),
-            clusterService.localNode().getEphemeralId(),
-            request.getVectorDataType()
+            clusterService.localNode().getEphemeralId()
         );
 
         KNNCounter.TRAINING_REQUESTS.increment();

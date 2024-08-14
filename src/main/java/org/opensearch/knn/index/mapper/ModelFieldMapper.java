@@ -129,9 +129,11 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         if (vectorValidator != null) {
             return;
         }
-        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelDao, modelId);
+        ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
+        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelMetadata);
+        KNNMethodConfigContext knnMethodConfigContext = getKNNMethodConfigContextFromModelMetadata(modelMetadata);
         KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
-            .getKNNLibraryIndexingContext(knnMethodContext);
+            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
         vectorValidator = knnLibraryIndexingContext.getVectorValidator();
     }
 
@@ -139,9 +141,11 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         if (perDimensionValidator != null) {
             return;
         }
-        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelDao, modelId);
+        ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
+        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelMetadata);
+        KNNMethodConfigContext knnMethodConfigContext = getKNNMethodConfigContextFromModelMetadata(modelMetadata);
         KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
-            .getKNNLibraryIndexingContext(knnMethodContext);
+            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
         perDimensionValidator = knnLibraryIndexingContext.getPerDimensionValidator();
     }
 
@@ -149,9 +153,11 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         if (perDimensionProcessor != null) {
             return;
         }
-        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelDao, modelId);
+        ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
+        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelMetadata);
+        KNNMethodConfigContext knnMethodConfigContext = getKNNMethodConfigContextFromModelMetadata(modelMetadata);
         KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
-            .getKNNLibraryIndexingContext(knnMethodContext);
+            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
         perDimensionProcessor = knnLibraryIndexingContext.getPerDimensionProcessor();
     }
 
@@ -177,17 +183,15 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         parseCreateField(context, modelMetadata.getDimension(), modelMetadata.getVectorDataType());
     }
 
-    private static KNNMethodContext getKNNMethodContextFromModelMetadata(ModelDao modelDao, String modelId) {
-        ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
-        return new KNNMethodContext(
-            modelMetadata.getKnnEngine(),
-            modelMetadata.getSpaceType(),
-            modelMetadata.getMethodComponentContext(),
-            KNNMethodConfigContext.builder()
-                .vectorDataType(modelMetadata.getVectorDataType())
-                .dimension(modelMetadata.getDimension())
-                .build()
-        );
+    private static KNNMethodContext getKNNMethodContextFromModelMetadata(ModelMetadata modelMetadata) {
+        return new KNNMethodContext(modelMetadata.getKnnEngine(), modelMetadata.getSpaceType(), modelMetadata.getMethodComponentContext());
+    }
+
+    private static KNNMethodConfigContext getKNNMethodConfigContextFromModelMetadata(ModelMetadata modelMetadata) {
+        return KNNMethodConfigContext.builder()
+            .vectorDataType(modelMetadata.getVectorDataType())
+            .dimension(modelMetadata.getDimension())
+            .build();
     }
 
     private static ModelMetadata getModelMetadata(ModelDao modelDao, String modelId) {

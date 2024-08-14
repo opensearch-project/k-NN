@@ -11,6 +11,8 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import lombok.Getter;
+import org.opensearch.Version;
 import org.opensearch.action.ActionRequest;
 import org.opensearch.action.ActionRequestValidationException;
 import org.opensearch.cluster.metadata.IndexMetadata;
@@ -19,6 +21,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.VectorDataType;
@@ -29,6 +32,7 @@ import java.io.IOException;
 /**
  * Request to train and serialize a model
  */
+@Getter
 public class TrainingModelRequest extends ActionRequest {
 
     private static ClusterService clusterService;
@@ -36,16 +40,15 @@ public class TrainingModelRequest extends ActionRequest {
 
     private final String modelId;
     private final KNNMethodContext knnMethodContext;
+    private final KNNMethodConfigContext knnMethodConfigContext;
     private final int dimension;
     private final String trainingIndex;
     private final String trainingField;
     private final String preferredNodeId;
     private final String description;
     private final VectorDataType vectorDataType;
-
     private int maximumVectorCount;
     private int searchSize;
-
     private int trainingDataSizeInKB;
 
     /**
@@ -86,6 +89,11 @@ public class TrainingModelRequest extends ActionRequest {
         // Training data size in kilobytes. By default, this is invalid (it cant have negative kb). It eventually gets
         // calculated in transit. A user cannot set this value directly.
         this.trainingDataSizeInKB = -1;
+        this.knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(vectorDataType)
+            .dimension(dimension)
+            .versionCreated(Version.CURRENT)
+            .build();
     }
 
     /**
@@ -111,9 +119,11 @@ public class TrainingModelRequest extends ActionRequest {
         } else {
             this.vectorDataType = VectorDataType.DEFAULT;
         }
-        this.knnMethodContext.getKnnMethodConfigContext().setVectorDataType(this.vectorDataType);
-        this.knnMethodContext.getKnnMethodConfigContext().setVersionCreated(in.getVersion());
-        this.knnMethodContext.getKnnMethodConfigContext().setDimension(dimension);
+        this.knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(vectorDataType)
+            .dimension(dimension)
+            .versionCreated(in.getVersion())
+            .build();
     }
 
     /**
@@ -125,79 +135,6 @@ public class TrainingModelRequest extends ActionRequest {
     public static void initialize(ModelDao modelDao, ClusterService clusterService) {
         TrainingModelRequest.modelDao = modelDao;
         TrainingModelRequest.clusterService = clusterService;
-    }
-
-    /**
-     * Getter for modelId
-     *
-     * @return modelId
-     */
-    public String getModelId() {
-        return modelId;
-    }
-
-    /**
-     * Getter for knnMethodContext
-     *
-     * @return knnMethodContext
-     */
-    public KNNMethodContext getKnnMethodContext() {
-        return knnMethodContext;
-    }
-
-    /**
-     * Getter for dimension
-     *
-     * @return dimension
-     */
-    public int getDimension() {
-        return dimension;
-    }
-
-    /**
-     * Getter for trainingIndex
-     *
-     * @return trainingIndex
-     */
-    public String getTrainingIndex() {
-        return trainingIndex;
-    }
-
-    /**
-     * Getter for trainingField
-     *
-     * @return trainingField
-     */
-    public String getTrainingField() {
-        return trainingField;
-    }
-
-    /**
-     * Getter for preferredNodeId
-     *
-     * @return preferredNodeId
-     */
-    public String getPreferredNodeId() {
-        return preferredNodeId;
-    }
-
-    /**
-     * Getter description of the model
-     *
-     * @return description
-     */
-    public String getDescription() {
-        return description;
-    }
-
-    /**
-     * Getter for maximum vector count. This corresponds to the maximum number of vectors from the training index
-     * a user wants to use for training.
-     *
-     * @return maximumVectorCount
-     */
-    public int getMaximumVectorCount() {
-        return maximumVectorCount;
     }
 
     /**
@@ -215,20 +152,6 @@ public class TrainingModelRequest extends ActionRequest {
     }
 
     /**
-     * Getter for search size. This value corresponds to how many vectors are pulled from the training index per
-     * search request
-     *
-     * @return searchSize
-     */
-    public int getSearchSize() {
-        return searchSize;
-    }
-
-    public VectorDataType getVectorDataType() {
-        return vectorDataType;
-    }
-
-    /**
      * Setter for search size.
      *
      * @param searchSize to be set. Must be greater than 0 and less than 10,000
@@ -240,15 +163,6 @@ public class TrainingModelRequest extends ActionRequest {
             );
         }
         this.searchSize = searchSize;
-    }
-
-    /**
-     * Getter for training data size in kilobytes.
-     *
-     * @return trainingDataSizeInKB
-     */
-    public int getTrainingDataSizeInKB() {
-        return trainingDataSizeInKB;
     }
 
     /**
@@ -291,7 +205,7 @@ public class TrainingModelRequest extends ActionRequest {
         }
 
         // Confirm that the passed in knnMethodContext is valid and requires training
-        ValidationException validationException = this.knnMethodContext.validate();
+        ValidationException validationException = this.knnMethodContext.validate(knnMethodConfigContext);
         if (validationException != null) {
             exception = new ActionRequestValidationException();
             exception.addValidationErrors(validationException.validationErrors());

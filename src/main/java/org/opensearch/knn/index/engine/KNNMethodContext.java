@@ -45,8 +45,6 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     private SpaceType spaceType;
     @NonNull
     private final MethodComponentContext methodComponentContext;
-    @NonNull
-    private final KNNMethodConfigContext knnMethodConfigContext;
 
     /**
      * Constructor from stream.
@@ -58,17 +56,16 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         this.knnEngine = KNNEngine.getEngine(in.readString());
         this.spaceType = SpaceType.getSpace(in.readString());
         this.methodComponentContext = new MethodComponentContext(in);
-        this.knnMethodConfigContext = KNNMethodConfigContext.builder().build();
     }
 
     /**
-     * This method uses the knnEngine to validate that the method is compatible with the engine. Ensure that if
-     * the {@link KNNMethodConfigContext} is changed at all, this method is called again.
+     * This method uses the knnEngine to validate that the method is compatible with the engine.
      *
+     * @param knnMethodConfigContext context to validate against
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    public ValidationException validate() {
-        return knnEngine.validateMethod(this);
+    public ValidationException validate(KNNMethodConfigContext knnMethodConfigContext) {
+        return knnEngine.validateMethod(this, knnMethodConfigContext);
     }
 
     /**
@@ -83,11 +80,11 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     /**
      * This method estimates the overhead the knn method adds irrespective of the number of vectors
      *
-     * @param dimension dimension to make estimate with
+     * @param knnMethodConfigContext context to estimate overhead
      * @return size in Kilobytes
      */
-    public int estimateOverheadInKB(int dimension) {
-        return knnEngine.estimateOverheadInKB(this, dimension);
+    public int estimateOverheadInKB(KNNMethodConfigContext knnMethodConfigContext) {
+        return knnEngine.estimateOverheadInKB(this, knnMethodConfigContext);
     }
 
     /**
@@ -176,7 +173,7 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
 
         MethodComponentContext method = new MethodComponentContext(name, parameters);
 
-        return new KNNMethodContext(engine, spaceType, method, KNNMethodConfigContext.builder().build());
+        return new KNNMethodContext(engine, spaceType, method);
     }
 
     @Override
@@ -197,18 +194,13 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
         equalsBuilder.append(knnEngine, other.knnEngine);
         equalsBuilder.append(spaceType, other.spaceType);
         equalsBuilder.append(methodComponentContext, other.methodComponentContext);
-        // equalsBuilder.append(knnMethodConfigContext, other.knnMethodConfigContext);
 
         return equalsBuilder.isEquals();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder().append(knnEngine)
-            .append(spaceType)
-            .append(methodComponentContext)
-            // .append(knnMethodConfigContext)
-            .toHashCode();
+        return new HashCodeBuilder().append(knnEngine).append(spaceType).append(methodComponentContext).toHashCode();
     }
 
     @Override

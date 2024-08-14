@@ -32,15 +32,18 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
     }
 
     @Override
-    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodContext knnMethodContext) {
+    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(
+        KNNMethodContext knnMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext
+    ) {
         String method = knnMethodContext.getMethodComponentContext().getName();
         throwIllegalArgOnNonNull(validateMethodExists(method));
         KNNMethod knnMethod = methods.get(method);
-        return knnMethod.getKNNLibraryIndexingContext(knnMethodContext);
+        return knnMethod.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
     }
 
     @Override
-    public ValidationException validateMethod(KNNMethodContext knnMethodContext) {
+    public ValidationException validateMethod(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
         String methodName = knnMethodContext.getMethodComponentContext().getName();
         ValidationException validationException = null;
         String invalidErrorMessage = validateMethodExists(methodName);
@@ -49,14 +52,14 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
             validationException.addValidationError(invalidErrorMessage);
             return validationException;
         }
-        invalidErrorMessage = validateDimension(knnMethodContext);
+        invalidErrorMessage = validateDimension(knnMethodContext, knnMethodConfigContext);
         if (invalidErrorMessage != null) {
             validationException = new ValidationException();
             validationException.addValidationError(invalidErrorMessage);
         }
 
-        validateSpaceType(knnMethodContext);
-        ValidationException methodValidation = methods.get(methodName).validate(knnMethodContext);
+        validateSpaceType(knnMethodContext, knnMethodConfigContext);
+        ValidationException methodValidation = methods.get(methodName).validate(knnMethodContext, knnMethodConfigContext);
         if (methodValidation != null) {
             validationException = validationException == null ? new ValidationException() : validationException;
             validationException.addValidationErrors(methodValidation.validationErrors());
@@ -65,18 +68,18 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
         return validationException;
     }
 
-    private void validateSpaceType(final KNNMethodContext knnMethodContext) {
-        if (knnMethodContext == null || knnMethodContext.getKnnMethodConfigContext().getVectorDataType().isEmpty()) {
+    private void validateSpaceType(final KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
+        if (knnMethodContext == null || knnMethodConfigContext.getVectorDataType().isEmpty()) {
             return;
         }
-        knnMethodContext.getSpaceType().validateVectorDataType(knnMethodContext.getKnnMethodConfigContext().getVectorDataType().get());
+        knnMethodContext.getSpaceType().validateVectorDataType(knnMethodConfigContext.getVectorDataType().get());
     }
 
-    private String validateDimension(final KNNMethodContext knnMethodContext) {
-        if (knnMethodContext == null || knnMethodContext.getKnnMethodConfigContext().getDimension().isEmpty()) {
+    private String validateDimension(final KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
+        if (knnMethodContext == null || knnMethodConfigContext.getDimension().isEmpty()) {
             return null;
         }
-        int dimension = knnMethodContext.getKnnMethodConfigContext().getDimension().get();
+        int dimension = knnMethodConfigContext.getDimension().get();
         if (dimension > KNNEngine.getMaxDimensionByEngine(knnMethodContext.getKnnEngine())) {
             return String.format(
                 Locale.ROOT,
@@ -86,11 +89,11 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
             );
         }
 
-        if (knnMethodContext.getKnnMethodConfigContext().getVectorDataType().isEmpty()) {
+        if (knnMethodConfigContext.getVectorDataType().isEmpty()) {
             return null;
         }
 
-        if (VectorDataType.BINARY == knnMethodContext.getKnnMethodConfigContext().getVectorDataType().get() && dimension % 8 != 0) {
+        if (VectorDataType.BINARY == knnMethodConfigContext.getVectorDataType().get() && dimension % 8 != 0) {
             return "Dimension should be multiply of 8 for binary vector data type";
         }
 

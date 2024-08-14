@@ -9,7 +9,6 @@ import lombok.SneakyThrows;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
-import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
@@ -534,8 +533,7 @@ public final class PainlessScriptScoreIT extends KNNRestTestCase {
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.LUCENE,
             SpaceType.DEFAULT,
-            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap()),
-            KNNMethodConfigContext.builder().build()
+            new MethodComponentContext(METHOD_HNSW, Collections.emptyMap())
         );
         properties.add(
             MappingProperty.builder()

@@ -23,6 +23,7 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 
 import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.createStoredFieldForByteVector;
@@ -44,16 +45,14 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
     static LuceneFieldMapper createFieldMapper(
         String fullname,
         Map<String, String> metaValue,
-        Integer dimension,
         KNNMethodContext knnMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext,
         CreateLuceneFieldMapperInput createLuceneFieldMapperInput
     ) {
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
             metaValue,
-            knnMethodContext.getKnnMethodConfigContext()
-                .getVectorDataType()
-                .orElseThrow(() -> new IllegalArgumentException("Vector data type cannot be empty")),
+            knnMethodConfigContext.getVectorDataType().orElseThrow(() -> new IllegalArgumentException("Vector data type cannot be empty")),
             new KNNMappingConfig() {
                 @Override
                 public Optional<KNNMethodContext> getKnnMethodContext() {
@@ -62,15 +61,19 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
 
                 @Override
                 public int getDimension() {
-                    return dimension;
+                    return knnMethodConfigContext.getDimension().orElseThrow(() -> new IllegalStateException("Dimension cannot be empty"));
                 }
             }
         );
 
-        return new LuceneFieldMapper(mappedFieldType, createLuceneFieldMapperInput);
+        return new LuceneFieldMapper(mappedFieldType, createLuceneFieldMapperInput, knnMethodConfigContext);
     }
 
-    private LuceneFieldMapper(final KNNVectorFieldType mappedFieldType, final CreateLuceneFieldMapperInput input) {
+    private LuceneFieldMapper(
+        final KNNVectorFieldType mappedFieldType,
+        final CreateLuceneFieldMapperInput input,
+        KNNMethodConfigContext knnMethodConfigContext
+    ) {
         super(
             input.getName(),
             mappedFieldType,
@@ -79,11 +82,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
             input.getIgnoreMalformed(),
             input.isStored(),
             input.isHasDocValues(),
-            mappedFieldType.knnMappingConfig.getKnnMethodContext()
-                .orElseThrow(() -> new IllegalArgumentException("Method context cannot be empty"))
-                .getKnnMethodConfigContext()
-                .getVersionCreated()
-                .orElseThrow(() -> new IllegalArgumentException("Method context cannot be empty")),
+            knnMethodConfigContext.getVersionCreated().orElseThrow(() -> new IllegalArgumentException("Method context cannot be empty")),
             mappedFieldType.knnMappingConfig.getKnnMethodContext().orElse(null)
         );
         KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
@@ -104,7 +103,7 @@ public class LuceneFieldMapper extends KNNVectorFieldMapper {
         }
 
         KNNLibraryIndexingContext knnLibraryIndexingContext = knnMethodContext.getKnnEngine()
-            .getKNNLibraryIndexingContext(knnMethodContext);
+            .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
         this.perDimensionProcessor = knnLibraryIndexingContext.getPerDimensionProcessor();
         this.perDimensionValidator = knnLibraryIndexingContext.getPerDimensionValidator();
         this.vectorValidator = knnLibraryIndexingContext.getVectorValidator();

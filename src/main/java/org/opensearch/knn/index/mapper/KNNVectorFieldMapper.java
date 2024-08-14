@@ -36,6 +36,7 @@ import org.opensearch.index.mapper.ParametrizedFieldMapper;
 import org.opensearch.index.mapper.ParseContext;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
@@ -150,19 +151,10 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         }), m -> m.getMethodComponentContext().getName()).setValidator(v -> {
             if (v == null) return;
 
-            ValidationException validationException = null;
+            ValidationException validationException;
             if (v.isTrainingRequired()) {
                 validationException = new ValidationException();
                 validationException.addValidationError(String.format(Locale.ROOT, "\"%s\" requires training.", KNN_METHOD));
-            }
-
-            ValidationException methodValidation = v.validate();
-            if (methodValidation != null) {
-                validationException = validationException == null ? new ValidationException() : validationException;
-                validationException.addValidationErrors(methodValidation.validationErrors());
-            }
-
-            if (validationException != null) {
                 throw validationException;
             }
         });
@@ -187,6 +179,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         // So, what we do is pass in a "resolvedKNNMethodContext" that will either be null or be set via the merge builder
         // constructor. A similar approach was taken for https://github.com/opendistro-for-elasticsearch/k-NN/issues/288
         private KNNMethodContext resolvedKNNMethodContext;
+        private KNNMethodConfigContext knnMethodConfigContext;
 
         public Builder(String name, ModelDao modelDao, Version indexCreatedVersion, KNNMethodContext resolvedKNNMethodContext) {
             super(name);
@@ -257,17 +250,24 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     buildFullName(context),
                     name,
                     metaValue,
-                    vectorDataType.getValue(),
-                    dimension.getValue(),
+                    KNNMethodConfigContext.builder()
+                        .vectorDataType(vectorDataType.getValue())
+                        .versionCreated(indexCreatedVersion)
+                        .dimension(dimension.getValue())
+                        .build(),
                     multiFieldsBuilder,
                     copyToBuilder,
                     ignoreMalformed,
                     stored.get(),
-                    hasDocValues.get(),
-                    indexCreatedVersion
+                    hasDocValues.get()
                 );
             }
 
+            knnMethodConfigContext = KNNMethodConfigContext.builder()
+                .vectorDataType(vectorDataType.getValue())
+                .versionCreated(indexCreatedVersion)
+                .dimension(dimension.getValue())
+                .build();
             if (isResolvedNull) {
                 // If the knnMethodContext is null at this point, that means user built the index with the legacy k-NN
                 // settings to specify algo params. We need to convert this here to a KNNMethodContext so that we can
@@ -278,12 +278,7 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                     : createKNNMethodContextFromLegacy(context, indexCreatedVersion);
                 // TODO: We should remove this and set it based on the KNNMethodContext
                 setDefaultSpaceType(resolvedKNNMethodContext, vectorDataType.getValue());
-                resolvedKNNMethodContext.getKnnMethodConfigContext().setVersionCreated(indexCreatedVersion);
-                resolvedKNNMethodContext.getKnnMethodConfigContext().setDimension(dimension.getValue());
-                resolvedKNNMethodContext.getKnnMethodConfigContext().setVectorDataType(vectorDataType.getValue());
-
-                // Need to revalidate once the dynamic config properties are set
-                ValidationException validationException = resolvedKNNMethodContext.validate();
+                ValidationException validationException = resolvedKNNMethodContext.validate(knnMethodConfigContext);
                 if (validationException != null) {
                     throw validationException;
                 }
@@ -304,8 +299,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 return LuceneFieldMapper.createFieldMapper(
                     buildFullName(context),
                     metaValue,
-                    dimension.getValue(),
                     resolvedKNNMethodContext,
+                    knnMethodConfigContext,
                     createLuceneFieldMapperInput
                 );
             }
@@ -314,8 +309,8 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
                 buildFullName(context),
                 name,
                 metaValue,
-                dimension.getValue(),
                 resolvedKNNMethodContext,
+                knnMethodConfigContext,
                 knnMethodContext.get(),
                 multiFieldsBuilder,
                 copyToBuilder,
@@ -380,6 +375,13 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
         public Mapper.Builder<?> parse(String name, Map<String, Object> node, ParserContext parserContext) throws MapperParsingException {
             Builder builder = new KNNVectorFieldMapper.Builder(name, modelDaoSupplier.get(), parserContext.indexVersionCreated(), null);
             builder.parse(name, parserContext, node);
+
+            if (builder.resolvedKNNMethodContext != null) {
+                ValidationException validationException = builder.resolvedKNNMethodContext.validate(builder.knnMethodConfigContext);
+                if (validationException != null) {
+                    throw validationException;
+                }
+            }
 
             // All <a
             // href="https://github.com/opensearch-project/OpenSearch/blob/1.0.0/server/src/main/java/org/opensearch/index/mapper/DocumentMapperParser.java#L115-L161">parsing</a>

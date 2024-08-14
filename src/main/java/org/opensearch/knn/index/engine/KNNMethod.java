@@ -27,9 +27,10 @@ public interface KNNMethod {
      * Validate that the configured KNNMethodContext is valid for this method
      *
      * @param knnMethodContext to be validated
+     * @param knnMethodConfigContext to be validated
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    ValidationException validate(KNNMethodContext knnMethodContext);
+    ValidationException validate(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext);
 
     /**
      * returns whether training is required or not
@@ -43,18 +44,22 @@ public interface KNNMethod {
      * Returns the estimated overhead of the method in KB
      *
      * @param knnMethodContext context to estimate overhead
-     * @param dimension dimension to make estimate with
+     * @param knnMethodConfigContext config context to estimate overhead
      * @return estimate overhead in KB
      */
-    int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension);
+    int estimateOverheadInKB(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext);
 
     /**
      * Parse knnMethodContext into context that the library can use to build the index
      *
      * @param knnMethodContext to generate the context for
+     * @param knnMethodConfigContext to generate the context for
      * @return KNNLibraryIndexingContext
      */
-    KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodContext knnMethodContext);
+    KNNLibraryIndexingContext getKNNLibraryIndexingContext(
+        KNNMethodContext knnMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext
+    );
 
     /**
      * Get the search context for a particular method

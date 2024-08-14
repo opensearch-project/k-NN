@@ -67,10 +67,9 @@ public class TrainingJobTests extends KNNTestCase {
             mock(NativeMemoryCacheManager.class),
             mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
-            10,
+            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.DEFAULT).dimension(10).versionCreated(Version.CURRENT).build(),
             "",
-            "test-node",
-            VectorDataType.DEFAULT
+            "test-node"
         );
 
         assertEquals(modelId, trainingJob.getModelId());
@@ -89,9 +88,6 @@ public class TrainingJobTests extends KNNTestCase {
         when(knnMethodContext.getKnnEngine()).thenReturn(knnEngine);
         when(knnMethodContext.getSpaceType()).thenReturn(spaceType);
         when(knnMethodContext.getMethodComponentContext()).thenReturn(methodComponentContext);
-        when(knnMethodContext.getKnnMethodConfigContext()).thenReturn(
-            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).build()
-        );
 
         String modelID = "test-model-id";
         TrainingJob trainingJob = new TrainingJob(
@@ -100,10 +96,13 @@ public class TrainingJobTests extends KNNTestCase {
             mock(NativeMemoryCacheManager.class),
             mock(NativeMemoryEntryContext.TrainingDataEntryContext.class),
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
-            dimension,
+            KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.FLOAT)
+                .dimension(dimension)
+                .versionCreated(Version.CURRENT)
+                .build(),
             description,
-            nodeAssignment,
-            VectorDataType.DEFAULT
+            nodeAssignment
         );
 
         Model model = new Model(
@@ -134,11 +133,15 @@ public class TrainingJobTests extends KNNTestCase {
         int nlists = 5;
         int dimension = 16;
         KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(dimension)
+            .versionCreated(Version.CURRENT)
+            .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             SpaceType.INNER_PRODUCT,
-            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)),
-            KNNMethodConfigContext.builder().vectorDataType(VectorDataType.FLOAT).versionCreated(Version.CURRENT).build()
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
         );
 
         // Set up training data
@@ -190,10 +193,9 @@ public class TrainingJobTests extends KNNTestCase {
             nativeMemoryCacheManager,
             trainingDataEntryContext,
             modelContext,
-            dimension,
+            knnMethodConfigContext,
             "",
-            "test-node",
-            VectorDataType.DEFAULT
+            "test-node"
         );
 
         trainingJob.run();
@@ -230,11 +232,15 @@ public class TrainingJobTests extends KNNTestCase {
         int nlists = 5;
         int dimension = 16;
         KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(dimension)
+            .versionCreated(Version.CURRENT)
+            .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             SpaceType.INNER_PRODUCT,
-            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)),
-            KNNMethodConfigContext.builder().build()
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
         );
 
         // Setup model manager
@@ -270,10 +276,9 @@ public class TrainingJobTests extends KNNTestCase {
             nativeMemoryCacheManager,
             trainingDataEntryContext,
             modelContext,
-            dimension,
+            knnMethodConfigContext,
             "",
-            "test-node",
-            VectorDataType.DEFAULT
+            "test-node"
         );
 
         trainingJob.run();
@@ -293,11 +298,15 @@ public class TrainingJobTests extends KNNTestCase {
         int nlists = 5;
         int dimension = 16;
         KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(dimension)
+            .versionCreated(Version.CURRENT)
+            .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             SpaceType.INNER_PRODUCT,
-            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)),
-            KNNMethodConfigContext.builder().build()
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
         );
 
         // Setup model manager
@@ -339,10 +348,9 @@ public class TrainingJobTests extends KNNTestCase {
             nativeMemoryCacheManager,
             trainingDataEntryContext,
             modelContext,
-            dimension,
+            knnMethodConfigContext,
             "",
-            "test-node",
-            VectorDataType.DEFAULT
+            "test-node"
         );
 
         trainingJob.run();
@@ -362,11 +370,15 @@ public class TrainingJobTests extends KNNTestCase {
         int nlists = 5;
         int dimension = 16;
         KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(dimension)
+            .versionCreated(Version.CURRENT)
+            .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             SpaceType.INNER_PRODUCT,
-            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)),
-            KNNMethodConfigContext.builder().build()
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
         );
 
         String tdataKey = "t-data-key";
@@ -407,10 +419,9 @@ public class TrainingJobTests extends KNNTestCase {
             nativeMemoryCacheManager,
             trainingDataEntryContext,
             mock(NativeMemoryEntryContext.AnonymousEntryContext.class),
-            dimension,
+            knnMethodConfigContext,
             "",
-            "test-node",
-            VectorDataType.DEFAULT
+            "test-node"
         );
 
         trainingJob.run();
@@ -428,11 +439,15 @@ public class TrainingJobTests extends KNNTestCase {
         int nlists = 1024; // setting this to 1024 will cause training to fail when there is only 2 data points
         int dimension = 16;
         KNNEngine knnEngine = KNNEngine.FAISS;
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .vectorDataType(VectorDataType.FLOAT)
+            .dimension(dimension)
+            .versionCreated(Version.CURRENT)
+            .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             knnEngine,
             SpaceType.INNER_PRODUCT,
-            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists)),
-            KNNMethodConfigContext.builder().build()
+            new MethodComponentContext(METHOD_IVF, ImmutableMap.of(METHOD_PARAMETER_NLIST, nlists))
         );
 
         // Set up training data
@@ -482,10 +497,9 @@ public class TrainingJobTests extends KNNTestCase {
             nativeMemoryCacheManager,
             trainingDataEntryContext,
             modelContext,
-            dimension,
+            knnMethodConfigContext,
             "",
-            "test-node",
-            VectorDataType.DEFAULT
+            "test-node"
         );
 
         trainingJob.run();

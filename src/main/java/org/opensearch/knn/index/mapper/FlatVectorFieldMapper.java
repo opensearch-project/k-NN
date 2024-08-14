@@ -10,6 +10,7 @@ import org.apache.lucene.index.DocValuesType;
 import org.opensearch.Version;
 import org.opensearch.common.Explicit;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 
 import java.util.Map;
 
@@ -25,16 +26,19 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
         String fullname,
         String simpleName,
         Map<String, String> metaValue,
-        VectorDataType vectorDataType,
-        Integer dimension,
+        KNNMethodConfigContext knnMethodConfigContext,
         MultiFields multiFields,
         CopyTo copyTo,
         Explicit<Boolean> ignoreMalformed,
         boolean stored,
-        boolean hasDocValues,
-        Version indexCreatedVersion
+        boolean hasDocValues
     ) {
-        final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(fullname, metaValue, vectorDataType, () -> dimension);
+        final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
+            fullname,
+            metaValue,
+            knnMethodConfigContext.getVectorDataType().orElseThrow(() -> new IllegalStateException("Datatype not found")),
+            () -> knnMethodConfigContext.getDimension().orElseThrow(() -> new IllegalStateException("Dimension not found"))
+        );
         return new FlatVectorFieldMapper(
             simpleName,
             mappedFieldType,
@@ -43,7 +47,7 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
             ignoreMalformed,
             stored,
             hasDocValues,
-            indexCreatedVersion
+            knnMethodConfigContext.getVersionCreated().orElseThrow(() -> new IllegalStateException("Version not found"))
         );
     }
 

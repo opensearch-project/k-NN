@@ -11,7 +11,6 @@
 
 package org.opensearch.knn.plugin.transport;
 
-import org.opensearch.Version;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -66,8 +65,6 @@ public class TrainingModelTransportActionTests extends KNNSingleNodeTestCase {
             .endObject();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         KNNMethodContext knnMethodContext = KNNMethodContext.parse(in);
-        knnMethodContext.getKnnMethodConfigContext().setVectorDataType(VectorDataType.FLOAT);
-        knnMethodContext.getKnnMethodConfigContext().setVersionCreated(Version.CURRENT);
 
         TrainingModelRequest trainingModelRequest = new TrainingModelRequest(
             modelId,

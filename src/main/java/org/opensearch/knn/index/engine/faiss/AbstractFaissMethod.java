@@ -9,6 +9,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
 import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.mapper.PerDimensionProcessor;
@@ -33,9 +34,11 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
     }
 
     @Override
-    protected PerDimensionValidator doGetPerDimensionValidator(KNNMethodContext knnMethodContext) {
-        VectorDataType vectorDataType = knnMethodContext.getKnnMethodConfigContext()
-            .getVectorDataType()
+    protected PerDimensionValidator doGetPerDimensionValidator(
+        KNNMethodContext knnMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext
+    ) {
+        VectorDataType vectorDataType = knnMethodConfigContext.getVectorDataType()
             .orElseThrow(
                 () -> new IllegalStateException("Vector data type needs to be set on KNNMethodConfigContext in order to get the processor")
             );
@@ -58,9 +61,11 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
     }
 
     @Override
-    protected PerDimensionProcessor doGetPerDimensionProcessor(KNNMethodContext knnMethodContext) {
-        VectorDataType vectorDataType = knnMethodContext.getKnnMethodConfigContext()
-            .getVectorDataType()
+    protected PerDimensionProcessor doGetPerDimensionProcessor(
+        KNNMethodContext knnMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext
+    ) {
+        VectorDataType vectorDataType = knnMethodConfigContext.getVectorDataType()
             .orElseThrow(
                 () -> new IllegalStateException("Vector data type needs to be set on KNNMethodConfigContext in order to get the processor")
             );

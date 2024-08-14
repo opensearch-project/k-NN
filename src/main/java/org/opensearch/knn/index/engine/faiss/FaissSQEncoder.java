@@ -29,6 +29,7 @@ public class FaissSQEncoder implements Encoder {
     private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
 
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(ENCODER_SQ)
+        .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
         .addParameter(
             FAISS_SQ_TYPE,
             new Parameter.StringParameter(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16, (v, context) -> FAISS_SQ_ENCODER_TYPES.contains(v))
