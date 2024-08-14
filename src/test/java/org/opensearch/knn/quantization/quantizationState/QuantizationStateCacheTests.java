@@ -7,9 +7,12 @@ package org.opensearch.knn.quantization.quantizationState;
 
 import lombok.SneakyThrows;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
+
+import static org.opensearch.knn.quantization.enums.ScalarQuantizationType.ONE_BIT;
 
 public class QuantizationStateCacheTests extends KNNTestCase {
     @SneakyThrows
@@ -20,9 +23,9 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         float[] floatArray1 = { 1.2f, 2.3f, 3.4f };
         float[] floatArray2 = { 2.3f, 3.4f, 4.5f };
         float[] floatArray3 = { 3.4f, 4.5f, 5.6f };
-        QuantizationState qs1 = new OneBitScalarQuantizationState(new SQParams(ONE_BIT), floatArray1);
-        QuantizationState qs2 = new OneBitScalarQuantizationState(new SQParams(ONE_BIT), floatArray2);
-        QuantizationState qs3 = new OneBitScalarQuantizationState(new SQParams(ONE_BIT), floatArray3);
+        QuantizationState qs1 = new OneBitScalarQuantizationState(new ScalarQuantizationParams(ONE_BIT), floatArray1);
+        QuantizationState qs2 = new OneBitScalarQuantizationState(new ScalarQuantizationParams(ONE_BIT), floatArray2);
+        QuantizationState qs3 = new OneBitScalarQuantizationState(new ScalarQuantizationParams(ONE_BIT), floatArray3);
 
         // Add test quantization states
         QuantizationStateCache.getInstance().addQuantizationState(fieldName1, qs1);
