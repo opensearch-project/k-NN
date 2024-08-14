@@ -47,7 +47,7 @@ public class QuantizationStateCache {
      * @param fieldName field name
      * @param quantizationState quantization state
      */
-    public void addQuantizationState(String fieldName, QuantizationState quantizationState) {
+    public synchronized void addQuantizationState(String fieldName, QuantizationState quantizationState) {
         lock.lock();
         try {
             cache.put(fieldName, quantizationState);
