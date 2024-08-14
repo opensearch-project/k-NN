@@ -36,8 +36,8 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
         final KNNVectorFieldType mappedFieldType = new KNNVectorFieldType(
             fullname,
             metaValue,
-            knnMethodConfigContext.getVectorDataType().orElseThrow(() -> new IllegalStateException("Datatype not found")),
-            () -> knnMethodConfigContext.getDimension().orElseThrow(() -> new IllegalStateException("Dimension not found"))
+            knnMethodConfigContext.getVectorDataType(),
+            knnMethodConfigContext::getDimension
         );
         return new FlatVectorFieldMapper(
             simpleName,
@@ -47,7 +47,7 @@ public class FlatVectorFieldMapper extends KNNVectorFieldMapper {
             ignoreMalformed,
             stored,
             hasDocValues,
-            knnMethodConfigContext.getVersionCreated().orElseThrow(() -> new IllegalStateException("Version not found"))
+            knnMethodConfigContext.getVersionCreated()
         );
     }
 

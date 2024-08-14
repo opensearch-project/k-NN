@@ -86,8 +86,7 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
             .addParameter(METHOD_ENCODER_PARAMETER, initEncoderParameter())
             .setMapGenerator(((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
                 String prefix = "";
-                if (knnMethodConfigContext.getVectorDataType().isPresent()
-                    && knnMethodConfigContext.getVectorDataType().get() == VectorDataType.BINARY) {
+                if (knnMethodConfigContext.getVectorDataType() == VectorDataType.BINARY) {
                     prefix = FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
                 }
 

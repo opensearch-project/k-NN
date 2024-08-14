@@ -77,20 +77,14 @@ public abstract class AbstractKNNMethod implements KNNMethod {
 
     @Override
     public int estimateOverheadInKB(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        return methodComponent.estimateOverheadInKB(
-            knnMethodContext.getMethodComponentContext(),
-            knnMethodConfigContext.getDimension().orElseThrow(() -> new IllegalStateException("Dimension needs to be set"))
-        );
+        return methodComponent.estimateOverheadInKB(knnMethodContext.getMethodComponentContext(), knnMethodConfigContext.getDimension());
     }
 
     protected PerDimensionValidator doGetPerDimensionValidator(
         KNNMethodContext knnMethodContext,
         KNNMethodConfigContext knnMethodConfigContext
     ) {
-        VectorDataType vectorDataType = knnMethodConfigContext.getVectorDataType()
-            .orElseThrow(
-                () -> new IllegalStateException("Vector data type needs to be set on KNNMethodConfigContext in order to get the processor")
-            );
+        VectorDataType vectorDataType = knnMethodConfigContext.getVectorDataType();
 
         if (VectorDataType.BINARY == vectorDataType) {
             return PerDimensionValidator.DEFAULT_BIT_VALIDATOR;
@@ -122,12 +116,7 @@ public abstract class AbstractKNNMethod implements KNNMethod {
             methodComponent.getAsMap(knnMethodContext.getMethodComponentContext(), knnMethodConfigContext)
         );
         parameterMap.put(KNNConstants.SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
-        parameterMap.put(
-            KNNConstants.VECTOR_DATA_TYPE_FIELD,
-            knnMethodConfigContext.getVectorDataType()
-                .orElseThrow(() -> new IllegalStateException("Vector data type needs to be set"))
-                .getValue()
-        );
+        parameterMap.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, knnMethodConfigContext.getVectorDataType().getValue());
         return KNNLibraryIndexingContextImpl.builder()
             .parameters(parameterMap)
             .vectorValidator(doGetVectorValidator(knnMethodContext, knnMethodConfigContext))

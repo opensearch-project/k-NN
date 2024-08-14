@@ -69,17 +69,17 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
     }
 
     private void validateSpaceType(final KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        if (knnMethodContext == null || knnMethodConfigContext.getVectorDataType().isEmpty()) {
+        if (knnMethodContext == null) {
             return;
         }
-        knnMethodContext.getSpaceType().validateVectorDataType(knnMethodConfigContext.getVectorDataType().get());
+        knnMethodContext.getSpaceType().validateVectorDataType(knnMethodConfigContext.getVectorDataType());
     }
 
     private String validateDimension(final KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
-        if (knnMethodContext == null || knnMethodConfigContext.getDimension().isEmpty()) {
+        if (knnMethodContext == null) {
             return null;
         }
-        int dimension = knnMethodConfigContext.getDimension().get();
+        int dimension = knnMethodConfigContext.getDimension();
         if (dimension > KNNEngine.getMaxDimensionByEngine(knnMethodContext.getKnnEngine())) {
             return String.format(
                 Locale.ROOT,
@@ -89,11 +89,7 @@ public abstract class AbstractKNNLibrary implements KNNLibrary {
             );
         }
 
-        if (knnMethodConfigContext.getVectorDataType().isEmpty()) {
-            return null;
-        }
-
-        if (VectorDataType.BINARY == knnMethodConfigContext.getVectorDataType().get() && dimension % 8 != 0) {
+        if (VectorDataType.BINARY == knnMethodConfigContext.getVectorDataType() && dimension % 8 != 0) {
             return "Dimension should be multiply of 8 for binary vector data type";
         }
 

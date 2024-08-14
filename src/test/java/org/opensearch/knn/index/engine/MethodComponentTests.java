@@ -10,9 +10,11 @@ import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.knn.index.VectorDataType;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -53,11 +55,18 @@ public class MethodComponentTests extends KNNTestCase {
             .field("invalid", "invalid")
             .endObject()
             .endObject();
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .dimension(1)
+            .versionCreated(Version.CURRENT)
+            .vectorDataType(VectorDataType.FLOAT)
+            .build();
         Map<String, Object> in = xContentBuilderToMap(xContentBuilder);
         MethodComponentContext componentContext1 = MethodComponentContext.parse(in);
 
-        MethodComponent methodComponent1 = MethodComponent.Builder.builder(methodName).build();
-        assertNotNull(methodComponent1.validate(componentContext1, KNNMethodConfigContext.EMPTY));
+        MethodComponent methodComponent1 = MethodComponent.Builder.builder(methodName)
+            .addSupportedDataTypes(Set.of(VectorDataType.FLOAT))
+            .build();
+        assertNotNull(methodComponent1.validate(componentContext1, knnMethodConfigContext));
 
         // Invalid parameter type
         xContentBuilder = XContentFactory.jsonBuilder()
@@ -71,9 +80,10 @@ public class MethodComponentTests extends KNNTestCase {
         MethodComponentContext componentContext2 = MethodComponentContext.parse(in);
 
         MethodComponent methodComponent2 = MethodComponent.Builder.builder(methodName)
+            .addSupportedDataTypes(Set.of(VectorDataType.FLOAT))
             .addParameter("valid", new Parameter.IntegerParameter("valid", 1, (v, context) -> v > 0))
             .build();
-        assertNotNull(methodComponent2.validate(componentContext2, KNNMethodConfigContext.EMPTY));
+        assertNotNull(methodComponent2.validate(componentContext2, knnMethodConfigContext));
 
         // valid configuration
         xContentBuilder = XContentFactory.jsonBuilder()
@@ -88,10 +98,11 @@ public class MethodComponentTests extends KNNTestCase {
         MethodComponentContext componentContext3 = MethodComponentContext.parse(in);
 
         MethodComponent methodComponent3 = MethodComponent.Builder.builder(methodName)
+            .addSupportedDataTypes(Set.of(VectorDataType.FLOAT))
             .addParameter("valid1", new Parameter.IntegerParameter("valid1", 1, (v, context) -> v > 0))
             .addParameter("valid2", new Parameter.IntegerParameter("valid2", 1, (v, context) -> v > 0))
             .build();
-        assertNull(methodComponent3.validate(componentContext3, KNNMethodConfigContext.EMPTY));
+        assertNull(methodComponent3.validate(componentContext3, knnMethodConfigContext));
 
         // valid configuration - empty parameters
         xContentBuilder = XContentFactory.jsonBuilder().startObject().field(NAME, methodName).endObject();
@@ -99,10 +110,11 @@ public class MethodComponentTests extends KNNTestCase {
         MethodComponentContext componentContext4 = MethodComponentContext.parse(in);
 
         MethodComponent methodComponent4 = MethodComponent.Builder.builder(methodName)
+            .addSupportedDataTypes(Set.of(VectorDataType.FLOAT))
             .addParameter("valid1", new Parameter.IntegerParameter("valid1", 1, (v, context) -> v > 0))
             .addParameter("valid2", new Parameter.IntegerParameter("valid2", 1, (v, context) -> v > 0))
             .build();
-        assertNull(methodComponent4.validate(componentContext4, KNNMethodConfigContext.EMPTY));
+        assertNull(methodComponent4.validate(componentContext4, knnMethodConfigContext));
     }
 
     @SuppressWarnings("unchecked")

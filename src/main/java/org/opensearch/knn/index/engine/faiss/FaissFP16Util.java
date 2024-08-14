@@ -116,7 +116,7 @@ public class FaissFP16Util {
         if (encoderContext == null) {
             return false;
         }
-        return (boolean) methodComponentContext.getParameters().getOrDefault(FAISS_SQ_CLIP, false);
+        return (boolean) encoderContext.getParameters().getOrDefault(FAISS_SQ_CLIP, false);
     }
 
     static MethodComponentContext extractEncoderMethodComponentContext(MethodComponentContext methodComponentContext) {

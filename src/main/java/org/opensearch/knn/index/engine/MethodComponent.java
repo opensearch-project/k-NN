@@ -79,15 +79,14 @@ public class MethodComponent {
         Map<String, Object> providedParameters = methodComponentContext.getParameters();
 
         ValidationException validationException = null;
-        if (knnMethodConfigContext.getVectorDataType().isPresent()
-            && !supportedVectorDataTypes.contains(knnMethodConfigContext.getVectorDataType().get())) {
+        if (!supportedVectorDataTypes.contains(knnMethodConfigContext.getVectorDataType())) {
             validationException = new ValidationException();
             validationException.addValidationError(
                 String.format(
                     Locale.ROOT,
                     "Method \"%s\" is not supported for vector data type \"%s\".",
                     name,
-                    knnMethodConfigContext.getVectorDataType().get()
+                    knnMethodConfigContext.getVectorDataType()
                 )
             );
         }
@@ -314,8 +313,7 @@ public class MethodComponent {
     ) {
         Map<String, Object> parametersWithDefaultsMap = new HashMap<>();
         Map<String, Object> userProvidedParametersMap = methodComponentContext.getParameters();
-        Version indexCreationVersion = knnMethodConfigContext.getVersionCreated()
-            .orElseThrow(() -> new IllegalStateException("Version must be set"));
+        Version indexCreationVersion = knnMethodConfigContext.getVersionCreated();
         for (Parameter<?> parameter : methodComponent.getParameters().values()) {
             if (methodComponentContext.getParameters().containsKey(parameter.getName())) {
                 parametersWithDefaultsMap.put(parameter.getName(), userProvidedParametersMap.get(parameter.getName()));

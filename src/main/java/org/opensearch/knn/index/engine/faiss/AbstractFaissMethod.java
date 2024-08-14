@@ -38,10 +38,7 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
         KNNMethodContext knnMethodContext,
         KNNMethodConfigContext knnMethodConfigContext
     ) {
-        VectorDataType vectorDataType = knnMethodConfigContext.getVectorDataType()
-            .orElseThrow(
-                () -> new IllegalStateException("Vector data type needs to be set on KNNMethodConfigContext in order to get the processor")
-            );
+        VectorDataType vectorDataType = knnMethodConfigContext.getVectorDataType();
         if (VectorDataType.BINARY == vectorDataType) {
             return PerDimensionValidator.DEFAULT_BIT_VALIDATOR;
         }
@@ -65,10 +62,7 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
         KNNMethodContext knnMethodContext,
         KNNMethodConfigContext knnMethodConfigContext
     ) {
-        VectorDataType vectorDataType = knnMethodConfigContext.getVectorDataType()
-            .orElseThrow(
-                () -> new IllegalStateException("Vector data type needs to be set on KNNMethodConfigContext in order to get the processor")
-            );
+        VectorDataType vectorDataType = knnMethodConfigContext.getVectorDataType();
 
         if (VectorDataType.BINARY == vectorDataType) {
             return PerDimensionProcessor.NOOP_PROCESSOR;

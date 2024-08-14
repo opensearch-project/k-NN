@@ -83,14 +83,14 @@ public class TrainingJob implements Runnable {
             new ModelMetadata(
                 knnMethodContext.getKnnEngine(),
                 knnMethodContext.getSpaceType(),
-                knnMethodConfigContext.getDimension().orElseThrow(() -> new IllegalArgumentException("Dimension value missing")),
+                knnMethodConfigContext.getDimension(),
                 ModelState.TRAINING,
                 ZonedDateTime.now(ZoneOffset.UTC).toString(),
                 description,
                 "",
                 nodeAssignment,
                 knnMethodContext.getMethodComponentContext(),
-                knnMethodConfigContext.getVectorDataType().orElseThrow(() -> new IllegalArgumentException("VectorDatatype value missing"))
+                knnMethodConfigContext.getVectorDataType()
             ),
             null,
             this.modelId

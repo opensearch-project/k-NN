@@ -38,7 +38,7 @@ public class FaissIVFPQEncoder implements Encoder {
             new Parameter.IntegerParameter(ENCODER_PARAMETER_PQ_M, ENCODER_PARAMETER_PQ_CODE_COUNT_DEFAULT, (v, context) -> {
                 boolean isValueGreaterThan0 = v > 0;
                 boolean isValueLessThanCodeCountLimit = v < ENCODER_PARAMETER_PQ_CODE_COUNT_LIMIT;
-                boolean isDimensionDivisibleByValue = context.getDimension().orElse(0) % v == 0;
+                boolean isDimensionDivisibleByValue = context.getDimension() % v == 0;
                 return isValueGreaterThan0 && isValueLessThanCodeCountLimit && isDimensionDivisibleByValue;
             })
         )
