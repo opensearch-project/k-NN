@@ -42,18 +42,17 @@ final class QuantizerRegistry {
      *
      * @param params the quantization parameters used to determine the appropriate quantizer
      * @param <P>    the type of quantization parameters
-     * @param <Q>    the type of the quantized output
+     * @param <T>    the type of the input vector to be quantized
+     * @param <R>    the type of the output after quantization
      * @return an instance of {@link Quantizer} corresponding to the provided parameters
      * @throws IllegalArgumentException if no quantizer is registered for the given parameters
      */
-    static <P extends QuantizationParams, Q> Quantizer<P, Q> getQuantizer(final P params) {
+    static <P extends QuantizationParams, T, R> Quantizer<T, R> getQuantizer(final P params) {
         String identifier = params.getTypeIdentifier();
         Quantizer<?, ?> quantizer = registry.get(identifier);
         if (quantizer == null) {
             throw new IllegalArgumentException("No quantizer registered for type identifier: " + identifier);
         }
-        @SuppressWarnings("unchecked")
-        Quantizer<P, Q> typedQuantizer = (Quantizer<P, Q>) quantizer;
-        return typedQuantizer;
+        return (Quantizer<T, R>) quantizer;
     }
 }
