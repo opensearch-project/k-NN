@@ -5,10 +5,10 @@
 
 package org.opensearch.knn.index.query.filtered;
 
-import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
 
 import java.io.IOException;
 
@@ -22,11 +22,11 @@ public class NestedFilteredIdsKNNByteIterator extends FilteredIdsKNNByteIterator
     public NestedFilteredIdsKNNByteIterator(
         final BitSet filterIdsArray,
         final byte[] queryVector,
-        final BinaryDocValues values,
+        final KNNBinaryVectorValues binaryVectorValues,
         final SpaceType spaceType,
         final BitSet parentBitSet
     ) {
-        super(filterIdsArray, queryVector, values, spaceType);
+        super(filterIdsArray, queryVector, binaryVectorValues, spaceType);
         this.parentBitSet = parentBitSet;
     }
 
@@ -47,7 +47,7 @@ public class NestedFilteredIdsKNNByteIterator extends FilteredIdsKNNByteIterator
         int bestChild = -1;
 
         while (docId != DocIdSetIterator.NO_MORE_DOCS && docId < currentParent) {
-            binaryDocValues.advance(docId);
+            binaryVectorValues.advance(docId);
             float score = computeScore();
             if (score > currentScore) {
                 bestChild = docId;

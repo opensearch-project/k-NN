@@ -33,6 +33,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.unit.ByteSizeValue;
@@ -46,6 +47,9 @@ import org.opensearch.knn.index.codec.util.KNNVectorAsArraySerializer;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.vectorvalues.KNNBinaryVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
+import org.opensearch.knn.index.vectorvalues.KNNVectorValuesFactory;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelState;
@@ -702,7 +706,8 @@ public class KNNWeightTests extends KNNTestCase {
         );
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);
-        final BinaryDocValues binaryDocValues = mock(BinaryDocValues.class);
+        final KNNFloatVectorValues floatVectorValues = mock(KNNFloatVectorValues.class);
+        final KNNBinaryVectorValues binaryVectorValues = mock(KNNBinaryVectorValues.class);
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
         when(fieldInfo.attributes()).thenReturn(attributesMap);
@@ -712,14 +717,15 @@ public class KNNWeightTests extends KNNTestCase {
             when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
         }
         when(fieldInfo.getName()).thenReturn(FIELD_NAME);
-        when(reader.getBinaryDocValues(FIELD_NAME)).thenReturn(binaryDocValues);
-        when(binaryDocValues.advance(filterDocId)).thenReturn(filterDocId);
-        BytesRef vectorByteRef = new BytesRef(new KNNVectorAsArraySerializer().floatToByteArray(vector));
-
+        MockedStatic<KNNVectorValuesFactory> valuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class);
         if (isBinary) {
-            when(binaryDocValues.binaryValue()).thenReturn(new BytesRef(byteVector));
+            valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader)).thenReturn(binaryVectorValues);
+            when(binaryVectorValues.advance(filterDocId)).thenReturn(filterDocId);
+            Mockito.when(binaryVectorValues.getVector()).thenReturn(byteVector);
         } else {
-            when(binaryDocValues.binaryValue()).thenReturn(vectorByteRef);
+            valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader)).thenReturn(floatVectorValues);
+            when(floatVectorValues.advance(filterDocId)).thenReturn(filterDocId);
+            Mockito.when(floatVectorValues.getVector()).thenReturn(vector);
         }
 
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
@@ -739,6 +745,7 @@ public class KNNWeightTests extends KNNTestCase {
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
+        valuesFactoryMockedStatic.close();
     }
 
     @SneakyThrows
@@ -909,16 +916,18 @@ public class KNNWeightTests extends KNNTestCase {
         );
         final FieldInfos fieldInfos = mock(FieldInfos.class);
         final FieldInfo fieldInfo = mock(FieldInfo.class);
-        final BinaryDocValues binaryDocValues = mock(BinaryDocValues.class);
         when(reader.getFieldInfos()).thenReturn(fieldInfos);
         when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
         when(fieldInfo.attributes()).thenReturn(attributesMap);
         when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING.getValue());
         when(fieldInfo.getName()).thenReturn(FIELD_NAME);
-        when(reader.getBinaryDocValues(FIELD_NAME)).thenReturn(binaryDocValues);
-        when(binaryDocValues.advance(0)).thenReturn(0);
-        BytesRef vectorByteRef = new BytesRef(vector);
-        when(binaryDocValues.binaryValue()).thenReturn(vectorByteRef);
+
+        KNNBinaryVectorValues knnBinaryVectorValues = mock(KNNBinaryVectorValues.class);
+        MockedStatic<KNNVectorValuesFactory> vectorValuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class);
+        vectorValuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader))
+            .thenReturn(knnBinaryVectorValues);
+        when(knnBinaryVectorValues.advance(0)).thenReturn(0);
+        when(knnBinaryVectorValues.getVector()).thenReturn(vector);
 
         final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
         assertNotNull(knnScorer);
@@ -933,6 +942,7 @@ public class KNNWeightTests extends KNNTestCase {
         }
         assertEquals(docIdSetIterator.cost(), actualDocIds.size());
         assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
+        vectorValuesFactoryMockedStatic.close();
     }
 
     @SneakyThrows
