@@ -20,7 +20,6 @@ import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.Version;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.index.mapper.Mapper;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KnnCircuitBreakerException;
 import org.opensearch.knn.index.SpaceType;
@@ -194,17 +193,17 @@ public class KNNVectorFieldMapperUtil {
         return Integer.parseInt(efConstruction);
     }
 
-    static KNNMethodContext createKNNMethodContextFromLegacy(Mapper.BuilderContext context, Version indexCreatedVersion) {
+    static KNNMethodContext createKNNMethodContextFromLegacy(Settings indexSettings, Version indexCreatedVersion) {
         return new KNNMethodContext(
             KNNEngine.NMSLIB,
-            KNNVectorFieldMapperUtil.getSpaceType(context.indexSettings()),
+            KNNVectorFieldMapperUtil.getSpaceType(indexSettings),
             new MethodComponentContext(
                 METHOD_HNSW,
                 Map.of(
                     METHOD_PARAMETER_M,
-                    KNNVectorFieldMapperUtil.getM(context.indexSettings()),
+                    KNNVectorFieldMapperUtil.getM(indexSettings),
                     METHOD_PARAMETER_EF_CONSTRUCTION,
-                    KNNVectorFieldMapperUtil.getEfConstruction(context.indexSettings(), indexCreatedVersion)
+                    KNNVectorFieldMapperUtil.getEfConstruction(indexSettings, indexCreatedVersion)
                 )
             )
         );
