@@ -14,17 +14,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased 2.x](https://github.com/opensearch-project/k-NN/compare/2.16...2.x)
 ### Features
+* Integrate Lucene Vector field with native engines to use KNNVectorFormat during segment creation [#1945](https://github.com/opensearch-project/k-NN/pull/1945)
 ### Enhancements
 ### Bug Fixes
 * Corrected search logic for scenario with non-existent fields in filter [#1874](https://github.com/opensearch-project/k-NN/pull/1874)
 * Fix graph merge stats size calculation [#1844](https://github.com/opensearch-project/k-NN/pull/1844)
 * Integrate Lucene Vector field with native engines to use KNNVectorFormat during segment creation [#1945](https://github.com/opensearch-project/k-NN/pull/1945)
+* Add script_fields context to KNNAllowlist [#1917] (https://github.com/opensearch-project/k-NN/pull/1917)
+* Fix graph merge stats size calculation [#1844](https://github.com/opensearch-project/k-NN/pull/1844) 
+* Disallow a vector field to have an invalid character for a physical file name. [#1936](https://github.com/opensearch-project/k-NN/pull/1936)
 ### Infrastructure
 ### Documentation
 ### Maintenance
 * Fix a flaky unit test:testMultiFieldsKnnIndex, which was failing due to inconsistent merge behaviors [#1924](https://github.com/opensearch-project/k-NN/pull/1924)
 ### Refactoring
 * Introduce KNNVectorValues interface to iterate on different types of Vector values during indexing and search [#1897](https://github.com/opensearch-project/k-NN/pull/1897)
+* Integrate KNNVectorValues with vector ANN Search flow [#1952](https://github.com/opensearch-project/k-NN/pull/1952)
 * Clean up parsing for query [#1824](https://github.com/opensearch-project/k-NN/pull/1824)
 * Refactor engine package structure [#1913](https://github.com/opensearch-project/k-NN/pull/1913)
 * Refactor method structure and definitions [#1920](https://github.com/opensearch-project/k-NN/pull/1920)

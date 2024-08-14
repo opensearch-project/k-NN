@@ -5,10 +5,16 @@
 
 package org.opensearch.knn.index.vectorvalues;
 
+import org.apache.lucene.index.DocValues;
 import org.apache.lucene.index.DocsWithFieldSet;
+import org.apache.lucene.index.FieldInfo;
+import org.apache.lucene.index.LeafReader;
+import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.DocIdSetIterator;
+import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.index.VectorDataType;
 
+import java.io.IOException;
 import java.util.Map;
 
 /**
@@ -21,7 +27,7 @@ public final class KNNVectorValuesFactory {
      *
      * @param vectorDataType {@link VectorDataType}
      * @param docIdSetIterator {@link DocIdSetIterator}
-     * @return {@link KNNVectorValues} of type float[]
+     * @return {@link KNNVectorValues}
      */
     public static <T> KNNVectorValues<T> getVectorValues(final VectorDataType vectorDataType, final DocIdSetIterator docIdSetIterator) {
         return getVectorValues(vectorDataType, new KNNVectorValuesIterator.DocIdsIteratorValues(docIdSetIterator));
@@ -32,7 +38,7 @@ public final class KNNVectorValuesFactory {
      *
      * @param vectorDataType {@link VectorDataType}
      * @param docIdWithFieldSet {@link DocsWithFieldSet}
-     * @return {@link KNNVectorValues} of type float[]
+     * @return {@link KNNVectorValues}
      */
     public static <T> KNNVectorValues<T> getVectorValues(
         final VectorDataType vectorDataType,
@@ -40,6 +46,30 @@ public final class KNNVectorValuesFactory {
         final Map<Integer, T> vectors
     ) {
         return getVectorValues(vectorDataType, new KNNVectorValuesIterator.FieldWriterIteratorValues<T>(docIdWithFieldSet, vectors));
+    }
+
+    /**
+     * Returns a {@link KNNVectorValues} for the given {@link FieldInfo} and {@link LeafReader}
+     *
+     * @param fieldInfo {@link FieldInfo}
+     * @param leafReader {@link LeafReader}
+     * @return {@link KNNVectorValues}
+     */
+    public static <T> KNNVectorValues<T> getVectorValues(final FieldInfo fieldInfo, final LeafReader leafReader) throws IOException {
+        final DocIdSetIterator docIdSetIterator;
+        if (fieldInfo.hasVectorValues()) {
+            if (fieldInfo.getVectorEncoding() == VectorEncoding.BYTE) {
+                docIdSetIterator = leafReader.getByteVectorValues(fieldInfo.getName());
+            } else if (fieldInfo.getVectorEncoding() == VectorEncoding.FLOAT32) {
+                docIdSetIterator = leafReader.getFloatVectorValues(fieldInfo.getName());
+            } else {
+                throw new IllegalArgumentException("Invalid Vector encoding provided, hence cannot return VectorValues");
+            }
+        } else {
+            docIdSetIterator = DocValues.getBinary(leafReader, fieldInfo.getName());
+        }
+        final KNNVectorValuesIterator vectorValuesIterator = new KNNVectorValuesIterator.DocIdsIteratorValues(docIdSetIterator);
+        return getVectorValues(FieldInfoExtractor.extractVectorDataType(fieldInfo), vectorValuesIterator);
     }
 
     @SuppressWarnings("unchecked")
