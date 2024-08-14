@@ -29,6 +29,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
 /**
  * Faiss HNSW method implementation
@@ -83,14 +84,20 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
                 )
             )
             .addParameter(METHOD_ENCODER_PARAMETER, initEncoderParameter())
-            .setMapGenerator(
-                ((methodComponent, methodComponentContext, knnMethodConfigContext) -> MethodAsMapBuilder.builder(
-                    FAISS_HNSW_DESCRIPTION,
+            .setMapGenerator(((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
+                String prefix = "";
+                if (knnMethodConfigContext.getVectorDataType().isPresent()
+                    && knnMethodConfigContext.getVectorDataType().get() == VectorDataType.BINARY) {
+                    prefix = FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
+                }
+
+                return MethodAsMapBuilder.builder(
+                    prefix + FAISS_HNSW_DESCRIPTION,
                     methodComponent,
                     methodComponentContext,
                     knnMethodConfigContext
-                ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build())
-            )
+                ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build();
+            }))
             .build();
     }
 

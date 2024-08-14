@@ -88,6 +88,7 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
         // Check that map is expected
         Map<String, Object> expectedMap = new HashMap<>(VALID_EXPECTED_MAP);
         expectedMap.put(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
+        expectedMap.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue());
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.DEFAULT,
             SpaceType.DEFAULT,

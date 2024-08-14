@@ -151,6 +151,7 @@ public class AbstractKNNMethodTests extends KNNTestCase {
 
         Map<String, Object> expectedMap = new HashMap<>(generatedMap);
         expectedMap.put(KNNConstants.SPACE_TYPE, spaceType.getValue());
+        expectedMap.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.FLOAT.getValue());
 
         assertEquals(
             expectedMap,

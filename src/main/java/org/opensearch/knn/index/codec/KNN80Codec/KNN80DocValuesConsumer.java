@@ -60,7 +60,6 @@ import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.buildEngineFileName;
 import static org.opensearch.knn.index.codec.util.KNNCodecUtil.calculateArraySize;
-import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
 /**
  * This class writes the KNN docvalues to the segments
@@ -241,18 +240,6 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
                     MediaTypeRegistry.getDefaultMediaType()
                 ).map()
             );
-        }
-
-        // Update index description of Faiss for binary data type
-        if (KNNEngine.FAISS == knnEngine
-            && VectorDataType.BINARY.getValue()
-                .equals(fieldAttributes.getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue()))
-            && parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER) != null) {
-            parameters.put(
-                KNNConstants.INDEX_DESCRIPTION_PARAMETER,
-                FAISS_BINARY_INDEX_DESCRIPTION_PREFIX + parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString()
-            );
-            IndexUtil.updateVectorDataTypeToParameters(parameters, VectorDataType.BINARY);
         }
 
         // Used to determine how many threads to use when indexing

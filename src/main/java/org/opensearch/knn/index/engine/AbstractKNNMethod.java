@@ -111,6 +111,13 @@ public abstract class AbstractKNNMethod implements KNNMethod {
             methodComponent.getAsMap(knnMethodContext.getMethodComponentContext(), knnMethodContext.getKnnMethodConfigContext())
         );
         parameterMap.put(KNNConstants.SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
+        parameterMap.put(
+            KNNConstants.VECTOR_DATA_TYPE_FIELD,
+            knnMethodContext.getKnnMethodConfigContext()
+                .getVectorDataType()
+                .orElseThrow(() -> new IllegalStateException("Vector data type needs to be set"))
+                .getValue()
+        );
         return KNNLibraryIndexingContextImpl.builder()
             .parameters(parameterMap)
             .vectorValidator(doGetVectorValidator(knnMethodContext))
