@@ -5,14 +5,11 @@
 
 package org.opensearch.knn.index.query.filtered;
 
-import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.util.BitSet;
 import org.apache.lucene.util.BitSetIterator;
-import org.apache.lucene.util.BytesRef;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializer;
-import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
+import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 
 import java.io.IOException;
 
@@ -27,7 +24,7 @@ public class FilteredIdsKNNIterator implements KNNIterator {
     protected final BitSet filterIdsBitSet;
     protected final BitSetIterator bitSetIterator;
     protected final float[] queryVector;
-    protected final BinaryDocValues binaryDocValues;
+    protected final KNNFloatVectorValues knnFloatVectorValues;
     protected final SpaceType spaceType;
     protected float currentScore = Float.NEGATIVE_INFINITY;
     protected int docId;
@@ -35,13 +32,13 @@ public class FilteredIdsKNNIterator implements KNNIterator {
     public FilteredIdsKNNIterator(
         final BitSet filterIdsBitSet,
         final float[] queryVector,
-        final BinaryDocValues binaryDocValues,
+        final KNNFloatVectorValues knnFloatVectorValues,
         final SpaceType spaceType
     ) {
         this.filterIdsBitSet = filterIdsBitSet;
         this.bitSetIterator = new BitSetIterator(filterIdsBitSet, filterIdsBitSet.length());
         this.queryVector = queryVector;
-        this.binaryDocValues = binaryDocValues;
+        this.knnFloatVectorValues = knnFloatVectorValues;
         this.spaceType = spaceType;
         this.docId = bitSetIterator.nextDoc();
     }
@@ -58,7 +55,7 @@ public class FilteredIdsKNNIterator implements KNNIterator {
         if (docId == DocIdSetIterator.NO_MORE_DOCS) {
             return DocIdSetIterator.NO_MORE_DOCS;
         }
-        int doc = binaryDocValues.advance(docId);
+        int doc = knnFloatVectorValues.advance(docId);
         currentScore = computeScore();
         docId = bitSetIterator.nextDoc();
         return doc;
@@ -70,9 +67,7 @@ public class FilteredIdsKNNIterator implements KNNIterator {
     }
 
     protected float computeScore() throws IOException {
-        final BytesRef value = binaryDocValues.binaryValue();
-        final KNNVectorSerializer vectorSerializer = KNNVectorSerializerFactory.getSerializerByBytesRef(value);
-        final float[] vector = vectorSerializer.byteToFloatArray(value);
+        final float[] vector = knnFloatVectorValues.getVector();
         // Calculates a similarity score between the two vectors with a specified function. Higher similarity
         // scores correspond to closer vectors.
         return spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector);
