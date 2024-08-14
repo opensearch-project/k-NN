@@ -13,17 +13,13 @@ import java.util.List;
 
 /**
  * Transfer quantized binary vectors to off heap memory
- * The reason this is different from {@link OffHeapByteQuantizedVectorTransfer} is because of allocation and deallocation
+ * The reason this is different from {@link OffHeapByteVectorTransfer} is because of allocation and deallocation
  * of memory on JNI layer. Use this if unsigned int is needed on JNI layer
  */
-public final class OffHeapBinaryQuantizedVectorTransfer<T> extends OffHeapQuantizedVectorTransfer<T, byte[]> {
+public final class OffHeapBinaryVectorTransfer extends OffHeapVectorTransfer<byte[]> {
 
-    public OffHeapBinaryQuantizedVectorTransfer(KNNVectorValues<T> vectorValues, Long batchSize) {
-        super(vectorValues, batchSize, (vector, state) -> (byte[]) vector, StringUtils.EMPTY, DEFAULT_COMPRESSION_FACTOR);
-    }
-
-    public OffHeapBinaryQuantizedVectorTransfer(KNNVectorValues<T> vectorValues) {
-        this(vectorValues, null);
+    public OffHeapBinaryVectorTransfer() {
+        super(100);
     }
 
     @Override

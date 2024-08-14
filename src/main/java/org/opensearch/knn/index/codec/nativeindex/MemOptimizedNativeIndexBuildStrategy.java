@@ -7,18 +7,21 @@ package org.opensearch.knn.index.codec.nativeindex;
 
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
-import org.opensearch.knn.index.codec.transfer.OffHeapByteQuantizedVectorTransfer;
+import org.opensearch.knn.index.codec.transfer.OffHeapByteVectorTransfer;
 import org.opensearch.knn.index.codec.transfer.OffHeapFloatVectorTransfer;
-import org.opensearch.knn.index.codec.transfer.VectorTransfer;
+import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.jni.JNIService;
 
 import java.io.IOException;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+
+import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 
 /**
  * Iteratively builds the index.
@@ -49,18 +52,35 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
             )
         );
 
-        try (final VectorTransfer vectorTransfer = getVectorTransfer(indexInfo.getVectorDataType(), knnVectorValues)) {
+        //TODO: compute transferLimit here based on KNNSettings and Quantization parameters
+        try (final OffHeapVectorTransfer vectorTransfer = getVectorTransfer(indexInfo.getVectorDataType())) {
 
-            while (vectorTransfer.hasNext()) {
-                vectorTransfer.transferBatch();
+            List<Integer> tranferredDocIds = new ArrayList<>();
+            while (knnVectorValues.docId() != NO_MORE_DOCS) {
+                //TODO: Quantization fits here
+                boolean transferred = vectorTransfer.transfer(knnVectorValues.getVector());
+                tranferredDocIds.add(knnVectorValues.docId());
+                if (transferred) {
+                    // Insert vectors
+                    long vectorAddress = vectorTransfer.getVectorAddress();
+                    AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
+                        JNIService.insertToIndex(tranferredDocIds.stream().mapToInt(i -> i).toArray(), vectorAddress, knnVectorValues.dimension(), indexParameters, indexMemoryAddress, engine);
+                        return null;
+                    });
+                    tranferredDocIds.clear();
+                }
+                knnVectorValues.nextDoc();
+            }
+
+            boolean flush = vectorTransfer.flush();
+            //Need to make sure that the flushed vectors are indexed
+            if (flush) {
                 long vectorAddress = vectorTransfer.getVectorAddress();
-                int[] docs = vectorTransfer.getTransferredDocsIds();
-
-                // Insert vectors
                 AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-                    JNIService.insertToIndex(docs, vectorAddress, knnVectorValues.dimension(), indexParameters, indexMemoryAddress, engine);
+                    JNIService.insertToIndex(tranferredDocIds.stream().mapToInt(i -> i).toArray(), vectorAddress, knnVectorValues.dimension(), indexParameters, indexMemoryAddress, engine);
                     return null;
                 });
+                tranferredDocIds.clear();
             }
 
             // Write vector
@@ -75,13 +95,13 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
     }
 
     // TODO: Will probably need a factory once quantization is added
-    private VectorTransfer getVectorTransfer(VectorDataType vectorDataType, KNNVectorValues<?> knnVectorValues) throws IOException {
+    private <T> OffHeapVectorTransfer<T> getVectorTransfer(VectorDataType vectorDataType) throws IOException {
         switch (vectorDataType) {
             case FLOAT:
-                return new OffHeapFloatVectorTransfer((KNNFloatVectorValues) knnVectorValues);
+                return (OffHeapVectorTransfer<T>) new OffHeapFloatVectorTransfer();
             case BINARY:
             case BYTE:
-                return new OffHeapByteQuantizedVectorTransfer<>((KNNVectorValues<byte[]>) knnVectorValues);
+                return (OffHeapVectorTransfer<T>) new OffHeapByteVectorTransfer(100);
             default:
                 throw new IllegalArgumentException("Unsupported vector data type: " + vectorDataType);
         }

@@ -7,6 +7,7 @@ package org.opensearch.knn.index.codec.transfer;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.List;
 
 /**
  * An interface to transfer vectors from one memory location to another

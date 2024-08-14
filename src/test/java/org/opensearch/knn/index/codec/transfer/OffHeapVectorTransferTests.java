@@ -88,13 +88,13 @@ public class OffHeapVectorTransferTests extends KNNTestCase {
         //Transfer batch, limit == batch size
         knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.BYTE, docsWithFieldSet, docs);
         knnVectorValues.nextDoc(); knnVectorValues.getVector();
-        vectorTransfer = new OffHeapByteQuantizedVectorTransfer<>(knnVectorValues);
+        vectorTransfer = new OffHeapByteVectorTransfer<>(knnVectorValues);
         testTransferBatchVectors(vectorTransfer, new int[][] { { 0, 1 }, { 2 } }, 2);
 
         //Transfer batch, limit < batch size
         knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.BYTE, docsWithFieldSet, docs);
         knnVectorValues.nextDoc(); knnVectorValues.getVector();
-        vectorTransfer = new OffHeapByteQuantizedVectorTransfer<>(knnVectorValues, 5L);
+        vectorTransfer = new OffHeapByteVectorTransfer<>(knnVectorValues, 5L);
         vectorTransfer.transferBatch();
         assertNotEquals(0, vectorTransfer.getVectorAddress());
         assertArrayEquals(new int[] {0, 1, 2}, vectorTransfer.getTransferredDocsIds());
@@ -102,7 +102,7 @@ public class OffHeapVectorTransferTests extends KNNTestCase {
         //Transfer batch, limit > batch size
         knnVectorValues = KNNVectorValuesFactory.getVectorValues(VectorDataType.BYTE, docsWithFieldSet, docs);
         knnVectorValues.nextDoc(); knnVectorValues.getVector();
-        vectorTransfer = new OffHeapByteQuantizedVectorTransfer<>(knnVectorValues, 1L);
+        vectorTransfer = new OffHeapByteVectorTransfer<>(knnVectorValues, 1L);
         testTransferBatchVectors(vectorTransfer, new int[][] { { 0 }, { 1 }, { 2 } }, 3);
     }
 
