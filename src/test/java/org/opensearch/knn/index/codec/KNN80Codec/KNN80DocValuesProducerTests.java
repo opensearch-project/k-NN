@@ -96,8 +96,8 @@ public class KNN80DocValuesProducerTests extends KNNTestCase {
         );
 
         String parameterString = XContentFactory.jsonBuilder()
-                .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters())
-                .toString();
+            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters())
+            .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
             KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName1)
