@@ -73,6 +73,6 @@ public class QuantizationStateCache {
      * Clears the cache
      */
     public void clear() {
-        cache.clear();
+        cache.invalidateAll();
     }
 }
