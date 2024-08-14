@@ -18,6 +18,7 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.Explicit;
+import org.opensearch.common.ValidationException;
 import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -274,28 +275,28 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         assertEquals(METHOD_HNSW, builder.knnMethodContext.get().getMethodComponentContext().getName());
         assertTrue(builderEmptyParams.knnMethodContext.get().getMethodComponentContext().getParameters().isEmpty());
 
-        // XContentBuilder xContentBuilderUnsupportedParam = XContentFactory.jsonBuilder()
-        // .startObject()
-        // .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
-        // .field(DIMENSION_FIELD_NAME, dimension)
-        // .startObject(KNN_METHOD)
-        // .field(NAME, METHOD_HNSW)
-        // .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
-        // .field(KNN_ENGINE, LUCENE_NAME)
-        // .startObject(PARAMETERS)
-        // .field("RANDOM_PARAM", 0)
-        // .endObject()
-        // .endObject()
-        // .endObject();
-        //
-        // expectThrows(
-        // ValidationException.class,
-        // () -> typeParser.parse(
-        // fieldName,
-        // xContentBuilderToMap(xContentBuilderUnsupportedParam),
-        // buildParserContext(indexName, settings)
-        // )
-        // );
+        XContentBuilder xContentBuilderUnsupportedParam = XContentFactory.jsonBuilder()
+            .startObject()
+            .field(TYPE_FIELD_NAME, KNN_VECTOR_TYPE)
+            .field(DIMENSION_FIELD_NAME, dimension)
+            .startObject(KNN_METHOD)
+            .field(NAME, METHOD_HNSW)
+            .field(METHOD_PARAMETER_SPACE_TYPE, SpaceType.L2)
+            .field(KNN_ENGINE, LUCENE_NAME)
+            .startObject(PARAMETERS)
+            .field("RANDOM_PARAM", 0)
+            .endObject()
+            .endObject()
+            .endObject();
+
+        expectThrows(
+            ValidationException.class,
+            () -> typeParser.parse(
+                fieldName,
+                xContentBuilderToMap(xContentBuilderUnsupportedParam),
+                buildParserContext(indexName, settings)
+            )
+        );
     }
 
     public void testTypeParser_parse_fromKnnMethodContext_invalidDimension() throws IOException {
@@ -433,10 +434,10 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .endObject()
             .endObject();
 
-        // expectThrows(
-        // ValidationException.class,
-        // () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilderL1SpaceType), buildParserContext(indexName, settings))
-        // );
+        expectThrows(
+            ValidationException.class,
+            () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilderL1SpaceType), buildParserContext(indexName, settings))
+        );
     }
 
     public void testTypeParser_parse_fromKnnMethodContext() throws IOException {
@@ -488,11 +489,10 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             .endObject()
             .endObject();
 
-        // TODO: Temporarily commenting out
-        // expectThrows(
-        // ValidationException.class,
-        // () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder2), buildParserContext(indexName, settings))
-        // );
+        expectThrows(
+            ValidationException.class,
+            () -> typeParser.parse(fieldName, xContentBuilderToMap(xContentBuilder2), buildParserContext(indexName, settings))
+        );
 
         // Test invalid method
         XContentBuilder xContentBuilder3 = XContentFactory.jsonBuilder()

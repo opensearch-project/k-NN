@@ -653,16 +653,25 @@ public abstract class KNNVectorFieldMapper extends ParametrizedFieldMapper {
 
     @Override
     public ParametrizedFieldMapper.Builder getMergeBuilder() {
+        // We cannot get the dimension from the model based indices at this field because the
+        // cluster state may not be available. So, we need to set it to null.
+        KNNMethodConfigContext knnMethodConfigContext;
+        if (fieldType().getKnnMappingConfig().getModelId().isPresent()) {
+            knnMethodConfigContext = null;
+        } else {
+            knnMethodConfigContext = KNNMethodConfigContext.builder()
+                .vectorDataType(vectorDataType)
+                .versionCreated(indexCreatedVersion)
+                .dimension(fieldType().getKnnMappingConfig().getDimension())
+                .build();
+        }
+
         return new KNNVectorFieldMapper.Builder(
             simpleName(),
             modelDao,
             indexCreatedVersion,
             fieldType().getKnnMappingConfig().getKnnMethodContext().orElse(null),
-            KNNMethodConfigContext.builder()
-                .vectorDataType(vectorDataType)
-                .versionCreated(indexCreatedVersion)
-                .dimension(fieldType().getKnnMappingConfig().getDimension())
-                .build()
+            knnMethodConfigContext
         ).init(this);
     }
 
