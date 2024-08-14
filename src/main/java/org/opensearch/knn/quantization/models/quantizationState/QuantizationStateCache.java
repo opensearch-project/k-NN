@@ -5,7 +5,9 @@
 
 package org.opensearch.knn.quantization.models.quantizationState;
 
-import java.util.concurrent.ConcurrentHashMap;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -14,7 +16,7 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class QuantizationStateCache {
 
-    private final ConcurrentHashMap<String, QuantizationState> cache = new ConcurrentHashMap<>();
+    private final Cache<String, QuantizationState> cache = CacheBuilder.newBuilder().build();
     private final Lock lock = new ReentrantLock();
     private static QuantizationStateCache instance;
 
@@ -37,7 +39,7 @@ public class QuantizationStateCache {
      * @return quantization state
      */
     public QuantizationState getQuantizationState(String fieldName) {
-        return cache.get(fieldName);
+        return cache.getIfPresent(fieldName);
     }
 
     /**
@@ -61,7 +63,7 @@ public class QuantizationStateCache {
     public void evict(String fieldName) {
         lock.lock();
         try {
-            cache.remove(fieldName);
+            cache.invalidate(fieldName);
         } finally {
             lock.unlock();
         }
