@@ -19,10 +19,18 @@ public interface QuantizationOutput<T> {
     T getQuantizedVector();
 
     /**
-     * Prepares and returns the writable quantized vector for direct modification.
+     * Prepares the quantized vector based on the vector length.
+     * This includes initializing or resetting the quantized vector.
      *
-     * @param params the parameters needed for preparing the quantized vector.
-     * @return the prepared and writable quantized vector.
+     * @param vectorLength The length of the vector to be quantized.
      */
-    T prepareAndGetWritableQuantizedVector(Object... params);
+    void prepareQuantizedVector(int vectorLength);
+
+    /**
+     * Checks if the quantized vector has already been prepared for the given vector length.
+     *
+     * @param vectorLength The length of the vector to be quantized.
+     * @return true if the quantized vector is already prepared, false otherwise.
+     */
+    boolean isPrepared(int vectorLength);
 }
