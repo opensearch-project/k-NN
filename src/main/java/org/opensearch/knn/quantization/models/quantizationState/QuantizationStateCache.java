@@ -12,6 +12,7 @@ import com.google.common.cache.RemovalNotification;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.cluster.service.ClusterService;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
@@ -66,9 +67,13 @@ public class QuantizationStateCache {
     }
 
     private void buildCache() {
-        this.cache = CacheBuilder.newBuilder()
-            .concurrencyLevel(1)
-            .maximumWeight(maxCacheSizeInKB)
+        this.cache = CacheBuilder.newBuilder().concurrencyLevel(1).maximumWeight(maxCacheSizeInKB).weigher((k, v) -> {
+            try {
+                return ((QuantizationState) v).toByteArray().length;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        })
             .expireAfterAccess(
                 QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING.get(clusterService.getSettings()).getMinutes(),
                 TimeUnit.MINUTES
