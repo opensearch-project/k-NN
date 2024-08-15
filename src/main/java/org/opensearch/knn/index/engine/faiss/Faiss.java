@@ -21,7 +21,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
  * Implements NativeLibrary for the faiss native library
  */
 public class Faiss extends NativeLibrary {
-    static final String FAISS_BINARY_INDEX_DESCRIPTION_PREFIX = "B";
+    public static final String FAISS_BINARY_INDEX_DESCRIPTION_PREFIX = "B";
     Map<SpaceType, Function<Float, Float>> scoreTransform;
 
     // TODO: Current version is not really current version. Instead, it encodes information in the file name
