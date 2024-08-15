@@ -7,17 +7,39 @@ package org.opensearch.knn.quantization.models.quantizationState;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.RemovalCause;
+import com.google.common.cache.RemovalNotification;
+import lombok.extern.log4j.Log4j2;
+import org.opensearch.cluster.service.ClusterService;
+
+import java.time.Instant;
+import java.util.concurrent.TimeUnit;
+
+import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING;
+import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING;
 
 /**
  * A thread-safe singleton cache that contains quantization states.
  */
+@Log4j2
 public class QuantizationStateCache {
 
     private static volatile QuantizationStateCache instance;
-    private final Cache<String, QuantizationState> cache;
+    private static ClusterService clusterService;
+    private Cache<String, QuantizationState> cache;
+    private long maxCacheSizeInKB;
+    private Instant evictedDueToSizeAt;
 
     private QuantizationStateCache() {
-        this.cache = CacheBuilder.newBuilder().build();
+        maxCacheSizeInKB = QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING.get(clusterService.getSettings()).getKb();
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, it -> {
+            maxCacheSizeInKB = it.getKb();
+            rebuildCache();
+        });
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING, it -> {
+            rebuildCache();
+        });
+        buildCache();
     }
 
     /**
@@ -33,6 +55,31 @@ public class QuantizationStateCache {
             }
         }
         return instance;
+    }
+
+    /**
+     * Initialize the cache
+     * @param clusterService used to update settings
+     */
+    public static void initialize(ClusterService clusterService) {
+        QuantizationStateCache.clusterService = clusterService;
+    }
+
+    private void buildCache() {
+        this.cache = CacheBuilder.newBuilder()
+            .concurrencyLevel(1)
+            .maximumWeight(maxCacheSizeInKB)
+            .expireAfterAccess(
+                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING.get(clusterService.getSettings()).getMinutes(),
+                TimeUnit.MINUTES
+            )
+            .removalListener(this::onRemoval)
+            .build();
+    }
+
+    private void rebuildCache() {
+        clear();
+        buildCache();
     }
 
     /**
@@ -59,6 +106,16 @@ public class QuantizationStateCache {
      */
     public void evict(String fieldName) {
         cache.invalidate(fieldName);
+    }
+
+    private void onRemoval(RemovalNotification<String, QuantizationState> removalNotification) {
+        if (RemovalCause.SIZE == removalNotification.getCause()) {
+            updateEvictedDueToSizeAt();
+        }
+    }
+
+    private void updateEvictedDueToSizeAt() {
+        evictedDueToSizeAt = Instant.now();
     }
 
     /**
