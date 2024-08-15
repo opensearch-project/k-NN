@@ -75,7 +75,7 @@ public class NativeIndexWriter {
         if (iterative) {
             return new NativeIndexWriter(state, fieldInfo, MemOptimizedNativeIndexBuildStrategy.getInstance());
         }
-        return new NativeIndexWriter(state, fieldInfo, VectorTransferIndexBuildStrategy.getInstance());
+        return new NativeIndexWriter(state, fieldInfo, DefaultIndexBuildStrategy.getInstance());
     }
 
     /**

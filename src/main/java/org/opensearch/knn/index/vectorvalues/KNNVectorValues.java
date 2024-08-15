@@ -59,9 +59,7 @@ public abstract class KNNVectorValues<T> {
      * @return T an array of byte[], float[] Or a deep copy of it
      * @throws IOException
      */
-    public T conditionalCloneVector() throws IOException {
-        return getVector();
-    }
+    public abstract T conditionalCloneVector() throws IOException;
 
     /**
      * Dimension of vector is returned. Do call getVector function first before calling this function otherwise you will get 0 value.

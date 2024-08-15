@@ -8,7 +8,7 @@ package org.opensearch.knn.common;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
-import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
@@ -45,17 +45,19 @@ public class KNNVectorUtil {
         return true;
     }
 
-    /**
-     * Creates an int overflow safe arraylist. If there is an overflow it will create a list with default initial size
-     * @param batchSize size to allocate
-     * @return an arrayList
+    /*
+     * Converts an integer List to and array
+     * @param integerList
+     * @return null if list is null or empty, int[] otherwise
      */
-    public static <T> ArrayList<T> createArrayList(long batchSize) {
-        try {
-            return new ArrayList<>(Math.toIntExact(batchSize));
-        } catch (Exception exception) {
-            // No-op
+    public static int[] intListToArray(final List<Integer> integerList) {
+        if (integerList == null || integerList.isEmpty()) {
+            return null;
         }
-        return new ArrayList<>();
+        int[] intArray = new int[integerList.size()];
+        for (int i = 0; i < integerList.size(); i++) {
+            intArray[i] = integerList.get(i);
+        }
+        return intArray;
     }
 }

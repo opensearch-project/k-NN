@@ -16,6 +16,8 @@ import org.apache.commons.lang.StringUtils;
 
 import java.util.Locale;
 
+import lombok.experimental.UtilityClass;
+
 /**
  * A utility class for models.
  */
