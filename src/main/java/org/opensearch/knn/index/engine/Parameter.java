@@ -5,14 +5,13 @@
 
 package org.opensearch.knn.index.engine;
 
+import lombok.Getter;
 import org.opensearch.common.ValidationException;
-import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
-import java.util.function.Predicate;
 
 /**
  * Parameter that can be set for a method component
@@ -21,10 +20,11 @@ import java.util.function.Predicate;
  */
 public abstract class Parameter<T> {
 
-    private String name;
-    private T defaultValue;
-    protected Predicate<T> validator;
-    protected BiFunction<T, VectorSpaceInfo, Boolean> validatorWithData;
+    @Getter
+    private final String name;
+    @Getter
+    private final T defaultValue;
+    protected BiFunction<T, KNNMethodConfigContext, Boolean> validator;
 
     /**
      * Constructor
@@ -33,74 +33,31 @@ public abstract class Parameter<T> {
      * @param defaultValue of the parameter
      * @param validator used to validate a parameter value passed
      */
-    public Parameter(String name, T defaultValue, Predicate<T> validator) {
+    public Parameter(String name, T defaultValue, BiFunction<T, KNNMethodConfigContext, Boolean> validator) {
         this.name = name;
         this.defaultValue = defaultValue;
         this.validator = validator;
-        this.validatorWithData = null;
-    }
-
-    public Parameter(String name, T defaultValue, Predicate<T> validator, BiFunction<T, VectorSpaceInfo, Boolean> validatorWithData) {
-        this.name = name;
-        this.defaultValue = defaultValue;
-        this.validator = validator;
-        this.validatorWithData = validatorWithData;
-    }
-
-    /**
-     * Getter for parameter name
-     *
-     * @return parameter name
-     */
-    public String getName() {
-        return name;
-    }
-
-    /**
-     * Get default value for parameter
-     *
-     * @return default value of the parameter
-     */
-    public T getDefaultValue() {
-        return defaultValue;
     }
 
     /**
      * Check if the value passed in is valid
      *
      * @param value to be checked
+     * @param knnMethodConfigContext context for the validation
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    public abstract ValidationException validate(Object value);
-
-    /**
-     * Check if the value passed in is valid, using additional data not present in the value
-     *
-     * @param value to be checked
-     * @param vectorSpaceInfo additional data not present in the value
-     * @return ValidationException produced by validation errors; null if no validations errors.
-     */
-    public abstract ValidationException validateWithData(Object value, VectorSpaceInfo vectorSpaceInfo);
+    public abstract ValidationException validate(Object value, KNNMethodConfigContext knnMethodConfigContext);
 
     /**
      * Boolean method parameter
      */
     public static class BooleanParameter extends Parameter<Boolean> {
-        public BooleanParameter(String name, Boolean defaultValue, Predicate<Boolean> validator) {
+        public BooleanParameter(String name, Boolean defaultValue, BiFunction<Boolean, KNNMethodConfigContext, Boolean> validator) {
             super(name, defaultValue, validator);
         }
 
-        public BooleanParameter(
-            String name,
-            Boolean defaultValue,
-            Predicate<Boolean> validator,
-            BiFunction<Boolean, VectorSpaceInfo, Boolean> validatorWithData
-        ) {
-            super(name, defaultValue, validator, validatorWithData);
-        }
-
         @Override
-        public ValidationException validate(Object value) {
+        public ValidationException validate(Object value, KNNMethodConfigContext knnMethodConfigContext) {
             ValidationException validationException = null;
             if (!(value instanceof Boolean)) {
                 validationException = new ValidationException();
@@ -110,31 +67,10 @@ public abstract class Parameter<T> {
                 return validationException;
             }
 
-            if (!validator.test((Boolean) value)) {
+            if (!validator.apply((Boolean) value, knnMethodConfigContext)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(String.format("parameter validation failed for Boolean parameter [%s].", getName()));
             }
-            return validationException;
-        }
-
-        @Override
-        public ValidationException validateWithData(Object value, VectorSpaceInfo vectorSpaceInfo) {
-            ValidationException validationException = null;
-            if (!(value instanceof Boolean)) {
-                validationException = new ValidationException();
-                validationException.addValidationError(String.format("value not of type Boolean for Boolean parameter [%s].", getName()));
-                return validationException;
-            }
-
-            if (validatorWithData == null) {
-                return null;
-            }
-
-            if (!validatorWithData.apply((Boolean) value, vectorSpaceInfo)) {
-                validationException = new ValidationException();
-                validationException.addValidationError(String.format("parameter validation failed for Boolean parameter [%s].", getName()));
-            }
-
             return validationException;
         }
     }
@@ -143,41 +79,12 @@ public abstract class Parameter<T> {
      * Integer method parameter
      */
     public static class IntegerParameter extends Parameter<Integer> {
-        public IntegerParameter(String name, Integer defaultValue, Predicate<Integer> validator) {
+        public IntegerParameter(String name, Integer defaultValue, BiFunction<Integer, KNNMethodConfigContext, Boolean> validator) {
             super(name, defaultValue, validator);
         }
 
-        public IntegerParameter(
-            String name,
-            Integer defaultValue,
-            Predicate<Integer> validator,
-            BiFunction<Integer, VectorSpaceInfo, Boolean> validatorWithData
-        ) {
-            super(name, defaultValue, validator, validatorWithData);
-        }
-
         @Override
-        public ValidationException validate(Object value) {
-            ValidationException validationException = null;
-            if (!(value instanceof Integer)) {
-                validationException = new ValidationException();
-                validationException.addValidationError(
-                    String.format("Value not of type Integer for Integer " + "parameter \"%s\".", getName())
-                );
-                return validationException;
-            }
-
-            if (!validator.test((Integer) value)) {
-                validationException = new ValidationException();
-                validationException.addValidationError(
-                    String.format("Parameter validation failed for Integer " + "parameter \"%s\".", getName())
-                );
-            }
-            return validationException;
-        }
-
-        @Override
-        public ValidationException validateWithData(Object value, VectorSpaceInfo vectorSpaceInfo) {
+        public ValidationException validate(Object value, KNNMethodConfigContext knnMethodConfigContext) {
             ValidationException validationException = null;
             if (!(value instanceof Integer)) {
                 validationException = new ValidationException();
@@ -187,11 +94,7 @@ public abstract class Parameter<T> {
                 return validationException;
             }
 
-            if (validatorWithData == null) {
-                return null;
-            }
-
-            if (!validatorWithData.apply((Integer) value, vectorSpaceInfo)) {
+            if (!validator.apply((Integer) value, knnMethodConfigContext)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(String.format("parameter validation failed for Integer parameter [%s].", getName()));
             }
@@ -204,53 +107,18 @@ public abstract class Parameter<T> {
      * Double method parameter
      */
     public static class DoubleParameter extends Parameter<Double> {
-        public DoubleParameter(String name, Double defaultValue, Predicate<Double> validator) {
+        public DoubleParameter(String name, Double defaultValue, BiFunction<Double, KNNMethodConfigContext, Boolean> validator) {
             super(name, defaultValue, validator);
         }
 
-        public DoubleParameter(
-            String name,
-            Double defaultValue,
-            Predicate<Double> validator,
-            BiFunction<Double, VectorSpaceInfo, Boolean> validatorWithData
-        ) {
-            super(name, defaultValue, validator, validatorWithData);
-        }
-
         @Override
-        public ValidationException validate(Object value) {
+        public ValidationException validate(Object value, KNNMethodConfigContext knnMethodConfigContext) {
             if (Objects.isNull(value)) {
                 String validationErrorMsg = String.format(Locale.ROOT, "Null value provided for Double " + "parameter \"%s\".", getName());
                 return getValidationException(validationErrorMsg);
             }
+
             if (value.equals(0)) value = 0.0;
-
-            if (!(value instanceof Double)) {
-                String validationErrorMsg = String.format(
-                    Locale.ROOT,
-                    "Value not of type Double for Double " + "parameter \"%s\".",
-                    getName()
-                );
-                return getValidationException(validationErrorMsg);
-            }
-
-            if (!validator.test((Double) value)) {
-                String validationErrorMsg = String.format(
-                    Locale.ROOT,
-                    "Parameter validation failed for Double " + "parameter \"%s\".",
-                    getName()
-                );
-                return getValidationException(validationErrorMsg);
-            }
-            return null;
-        }
-
-        @Override
-        public ValidationException validateWithData(Object value, VectorSpaceInfo vectorSpaceInfo) {
-            if (Objects.isNull(value)) {
-                String validationErrorMsg = String.format(Locale.ROOT, "Null value provided for Double " + "parameter \"%s\".", getName());
-                return getValidationException(validationErrorMsg);
-            }
 
             if (!(value instanceof Double)) {
                 String validationErrorMsg = String.format(
@@ -261,11 +129,7 @@ public abstract class Parameter<T> {
                 return getValidationException(validationErrorMsg);
             }
 
-            if (validatorWithData == null) {
-                return null;
-            }
-
-            if (!validatorWithData.apply((Double) value, vectorSpaceInfo)) {
+            if (!validator.apply((Double) value, knnMethodConfigContext)) {
                 String validationErrorMsg = String.format(Locale.ROOT, "parameter validation failed for Double parameter [%s].", getName());
                 return getValidationException(validationErrorMsg);
             }
@@ -291,47 +155,12 @@ public abstract class Parameter<T> {
          * @param defaultValue value to assign if the parameter is not set
          * @param validator    used to validate the parameter value passed
          */
-        public StringParameter(String name, String defaultValue, Predicate<String> validator) {
+        public StringParameter(String name, String defaultValue, BiFunction<String, KNNMethodConfigContext, Boolean> validator) {
             super(name, defaultValue, validator);
         }
 
-        public StringParameter(
-            String name,
-            String defaultValue,
-            Predicate<String> validator,
-            BiFunction<String, VectorSpaceInfo, Boolean> validatorWithData
-        ) {
-            super(name, defaultValue, validator, validatorWithData);
-        }
-
-        /**
-         * Check if the value passed in is valid
-         *
-         * @param value to be checked
-         * @return ValidationException produced by validation errors; null if no validations errors.
-         */
         @Override
-        public ValidationException validate(Object value) {
-            ValidationException validationException = null;
-            if (!(value instanceof String)) {
-                validationException = new ValidationException();
-                validationException.addValidationError(
-                    String.format("Value not of type String for String " + "parameter \"%s\".", getName())
-                );
-                return validationException;
-            }
-
-            if (!validator.test((String) value)) {
-                validationException = new ValidationException();
-                validationException.addValidationError(
-                    String.format("Parameter validation failed for String " + "parameter \"%s\".", getName())
-                );
-            }
-            return validationException;
-        }
-
-        @Override
-        public ValidationException validateWithData(Object value, VectorSpaceInfo vectorSpaceInfo) {
+        public ValidationException validate(Object value, KNNMethodConfigContext knnMethodConfigContext) {
             ValidationException validationException = null;
             if (!(value instanceof String)) {
                 validationException = new ValidationException();
@@ -341,11 +170,7 @@ public abstract class Parameter<T> {
                 return validationException;
             }
 
-            if (validatorWithData == null) {
-                return null;
-            }
-
-            if (!validatorWithData.apply((String) value, vectorSpaceInfo)) {
+            if (!validator.apply((String) value, knnMethodConfigContext)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(String.format("parameter validation failed for String parameter [%s].", getName()));
             }
@@ -361,7 +186,7 @@ public abstract class Parameter<T> {
      */
     public static class MethodComponentContextParameter extends Parameter<MethodComponentContext> {
 
-        private Map<String, MethodComponent> methodComponents;
+        private final Map<String, MethodComponent> methodComponents;
 
         /**
          * Constructor
@@ -375,46 +200,18 @@ public abstract class Parameter<T> {
             MethodComponentContext defaultValue,
             Map<String, MethodComponent> methodComponents
         ) {
-            super(name, defaultValue, methodComponentContext -> {
-                if (!methodComponents.containsKey(methodComponentContext.getName())) {
-                    return false;
-                }
-
-                return methodComponents.get(methodComponentContext.getName()).validate(methodComponentContext) == null;
-            }, (methodComponentContext, vectorSpaceInfo) -> {
+            super(name, defaultValue, (methodComponentContext, knnMethodConfigContext) -> {
                 if (!methodComponents.containsKey(methodComponentContext.getName())) {
                     return false;
                 }
                 return methodComponents.get(methodComponentContext.getName())
-                    .validateWithData(methodComponentContext, vectorSpaceInfo) == null;
+                    .validate(methodComponentContext, knnMethodConfigContext) == null;
             });
             this.methodComponents = methodComponents;
         }
 
         @Override
-        public ValidationException validate(Object value) {
-            ValidationException validationException = null;
-            if (!(value instanceof MethodComponentContext)) {
-                validationException = new ValidationException();
-                validationException.addValidationError(
-                    String.format("Value not of type MethodComponentContext for" + " MethodComponentContext parameter \"%s\".", getName())
-                );
-                return validationException;
-            }
-
-            if (!validator.test((MethodComponentContext) value)) {
-                validationException = new ValidationException();
-                validationException.addValidationError("Parameter validation failed.");
-                validationException.addValidationError(
-                    String.format("Parameter validation failed for " + "MethodComponentContext parameter \"%s\".", getName())
-                );
-            }
-
-            return validationException;
-        }
-
-        @Override
-        public ValidationException validateWithData(Object value, VectorSpaceInfo vectorSpaceInfo) {
+        public ValidationException validate(Object value, KNNMethodConfigContext knnMethodConfigContext) {
             ValidationException validationException = null;
             if (!(value instanceof MethodComponentContext)) {
                 validationException = new ValidationException();
@@ -424,11 +221,7 @@ public abstract class Parameter<T> {
                 return validationException;
             }
 
-            if (validatorWithData == null) {
-                return null;
-            }
-
-            if (!validatorWithData.apply((MethodComponentContext) value, vectorSpaceInfo)) {
+            if (!validator.apply((MethodComponentContext) value, knnMethodConfigContext)) {
                 validationException = new ValidationException();
                 validationException.addValidationError(
                     String.format("parameter validation failed for MethodComponentContext parameter [%s].", getName())

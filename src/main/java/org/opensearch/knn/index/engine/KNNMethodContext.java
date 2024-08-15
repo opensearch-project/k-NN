@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.builder.EqualsBuilder;
 import org.apache.commons.lang.builder.HashCodeBuilder;
-import org.opensearch.knn.training.VectorSpaceInfo;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
@@ -60,22 +59,13 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     }
 
     /**
-     * This method uses the knnEngine to validate that the method is compatible with the engine
+     * This method uses the knnEngine to validate that the method is compatible with the engine.
      *
+     * @param knnMethodConfigContext context to validate against
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    public ValidationException validate() {
-        return knnEngine.validateMethod(this);
-    }
-
-    /**
-     * This method uses the knnEngine to validate that the method is compatible with the engine, using additional data not present in the method context
-     *
-     * @param vectorSpaceInfo additional data not present in the method context
-     * @return ValidationException produced by validation errors; null if no validations errors.
-     */
-    public ValidationException validateWithData(VectorSpaceInfo vectorSpaceInfo) {
-        return knnEngine.validateMethodWithData(this, vectorSpaceInfo);
+    public ValidationException validate(KNNMethodConfigContext knnMethodConfigContext) {
+        return knnEngine.validateMethod(this, knnMethodConfigContext);
     }
 
     /**
@@ -90,11 +80,11 @@ public class KNNMethodContext implements ToXContentFragment, Writeable {
     /**
      * This method estimates the overhead the knn method adds irrespective of the number of vectors
      *
-     * @param dimension dimension to make estimate with
+     * @param knnMethodConfigContext context to estimate overhead
      * @return size in Kilobytes
      */
-    public int estimateOverheadInKB(int dimension) {
-        return knnEngine.estimateOverheadInKB(this, dimension);
+    public int estimateOverheadInKB(KNNMethodConfigContext knnMethodConfigContext) {
+        return knnEngine.estimateOverheadInKB(this, knnMethodConfigContext);
     }
 
     /**

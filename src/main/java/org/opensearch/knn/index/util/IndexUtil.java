@@ -344,7 +344,7 @@ public class IndexUtil {
      */
     public static void updateVectorDataTypeToParameters(Map<String, Object> parameters, VectorDataType vectorDataType) {
         if (VectorDataType.BINARY == vectorDataType) {
-            parameters.put(VECTOR_DATA_TYPE_FIELD, VectorDataType.BINARY.getValue());
+            parameters.put(VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
         }
     }
 

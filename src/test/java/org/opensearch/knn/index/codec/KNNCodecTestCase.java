@@ -16,13 +16,13 @@ import org.apache.lucene.index.VectorSimilarityFunction;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.join.BitSetProducer;
-import org.opensearch.Version;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -93,16 +93,23 @@ import static org.opensearch.knn.index.KNNSettings.MODEL_CACHE_SIZE_LIMIT_SETTIN
 public class KNNCodecTestCase extends KNNTestCase {
     private static final FieldType sampleFieldType;
     static {
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+            .versionCreated(CURRENT)
+            .vectorDataType(VectorDataType.DEFAULT)
+            .build();
         KNNMethodContext knnMethodContext = new KNNMethodContext(
             KNNEngine.DEFAULT,
             SpaceType.DEFAULT,
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
-        knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
         String parameterString;
         try {
             parameterString = XContentFactory.jsonBuilder()
-                .map(knnMethodContext.getKnnEngine().getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters())
+                .map(
+                    knnMethodContext.getKnnEngine()
+                        .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext)
+                        .getLibraryParameters()
+                )
                 .toString();
         } catch (IOException e) {
             throw new RuntimeException(e);

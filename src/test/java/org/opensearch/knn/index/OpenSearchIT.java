@@ -326,8 +326,8 @@ public class OpenSearchIT extends KNNRestTestCase {
             containsString(
                 "Dimension value cannot be greater than "
                     + KNNEngine.getMaxDimensionByEngine(KNNEngine.DEFAULT)
-                    + " for vector: "
-                    + FIELD_NAME
+                    + " for vector with engine: "
+                    + KNNEngine.DEFAULT.getName()
             )
         );
     }

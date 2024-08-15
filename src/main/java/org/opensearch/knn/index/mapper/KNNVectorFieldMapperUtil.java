@@ -20,7 +20,6 @@ import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.Version;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.index.mapper.Mapper;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KnnCircuitBreakerException;
 import org.opensearch.knn.index.SpaceType;
@@ -32,29 +31,15 @@ import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
 
 import java.util.Arrays;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 
-import static org.opensearch.knn.common.KNNConstants.ENCODER_SQ;
-import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_CLIP;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_ENCODER_FP16;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SQ_TYPE;
-import static org.opensearch.knn.common.KNNConstants.FP16_MAX_VALUE;
-import static org.opensearch.knn.common.KNNConstants.FP16_MIN_VALUE;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_M;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
-import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
-import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
-import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
-import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVectorValue;
 
 /**
  * Utility class for KNNVectorFieldMapper
@@ -62,99 +47,6 @@ import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVectorVal
 @Log4j2
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class KNNVectorFieldMapperUtil {
-
-    /**
-     * Validate the float vector value and throw exception if it is not a number or not in the finite range
-     * or is not within the FP16 range of [-65504 to 65504].
-     *
-     * @param value float vector value
-     */
-    public static void validateFP16VectorValue(float value) {
-        validateFloatVectorValue(value);
-        if (value < FP16_MIN_VALUE || value > FP16_MAX_VALUE) {
-            throw new IllegalArgumentException(
-                String.format(
-                    Locale.ROOT,
-                    "encoder name is set as [%s] and type is set as [%s] in index mapping. But, KNN vector values are not within in the FP16 range [%f, %f]",
-                    ENCODER_SQ,
-                    FAISS_SQ_ENCODER_FP16,
-                    FP16_MIN_VALUE,
-                    FP16_MAX_VALUE
-                )
-            );
-        }
-    }
-
-    /**
-     * Validate the float vector value and if it is outside FP16 range,
-     * then it will be clipped to FP16 range of [-65504 to 65504].
-     *
-     * @param value  float vector value
-     * @return  vector value clipped to FP16 range
-     */
-    public static float clipVectorValueToFP16Range(float value) {
-        validateFloatVectorValue(value);
-        if (value < FP16_MIN_VALUE) return FP16_MIN_VALUE;
-        if (value > FP16_MAX_VALUE) return FP16_MAX_VALUE;
-        return value;
-    }
-
-    /**
-     * Validates if the vector data type is supported with given method context
-     *
-     * @param methodContext methodContext
-     * @param vectorDataType vector data type
-     */
-    public static void validateVectorDataType(KNNMethodContext methodContext, VectorDataType vectorDataType) {
-        if (VectorDataType.FLOAT == vectorDataType) {
-            return;
-        }
-
-        if (VectorDataType.BYTE == vectorDataType) {
-            if (KNNEngine.LUCENE == methodContext.getKnnEngine()) {
-                return;
-            } else {
-                throw new IllegalArgumentException(
-                    String.format(
-                        Locale.ROOT,
-                        "[%s] field with value [%s] is only supported for [%s] engine",
-                        VECTOR_DATA_TYPE_FIELD,
-                        vectorDataType.getValue(),
-                        LUCENE_NAME
-                    )
-                );
-            }
-        }
-
-        if (VectorDataType.BINARY == vectorDataType) {
-            if (KNNEngine.FAISS == methodContext.getKnnEngine()) {
-                if (METHOD_HNSW.equals(methodContext.getMethodComponentContext().getName())) {
-                    return;
-                } else {
-                    throw new IllegalArgumentException(
-                        String.format(
-                            Locale.ROOT,
-                            "[%s] field with value [%s] is only supported for [%s] method",
-                            VECTOR_DATA_TYPE_FIELD,
-                            vectorDataType.getValue(),
-                            METHOD_HNSW
-                        )
-                    );
-                }
-            } else {
-                throw new IllegalArgumentException(
-                    String.format(
-                        Locale.ROOT,
-                        "[%s] field with value [%s] is only supported for [%s] engine",
-                        VECTOR_DATA_TYPE_FIELD,
-                        vectorDataType.getValue(),
-                        FAISS_NAME
-                    )
-                );
-            }
-        }
-        throw new IllegalArgumentException("This line should not be reached");
-    }
 
     /**
      * @param knnEngine  KNNEngine
@@ -254,12 +146,10 @@ public class KNNVectorFieldMapperUtil {
         return indexCreatedVersion.onOrAfter(Version.V_2_17_0) && KNNSettings.getIsLuceneVectorFormatEnabled();
     }
 
-    private static SpaceType getSpaceType(final Settings indexSettings, final VectorDataType vectorDataType) {
+    private static SpaceType getSpaceType(final Settings indexSettings) {
         String spaceType = indexSettings.get(KNNSettings.INDEX_KNN_SPACE_TYPE.getKey());
         if (spaceType == null) {
-            spaceType = VectorDataType.BINARY == vectorDataType
-                ? KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE_FOR_BINARY
-                : KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE;
+            spaceType = KNNSettings.INDEX_KNN_DEFAULT_SPACE_TYPE;
             log.info(
                 String.format(
                     "[KNN] The setting \"%s\" was not set for the index. Likely caused by recent version upgrade. Setting the setting to the default value=%s",
@@ -303,97 +193,17 @@ public class KNNVectorFieldMapperUtil {
         return Integer.parseInt(efConstruction);
     }
 
-    /**
-     * Verify mapping and return true if it is a "faiss" Index using "sq" encoder of type "fp16"
-     *
-     * @param methodComponentContext MethodComponentContext
-     * @return true if it is a "faiss" Index using "sq" encoder of type "fp16"
-     */
-    static boolean isFaissSQfp16(MethodComponentContext methodComponentContext) {
-        if (Objects.isNull(methodComponentContext)) {
-            return false;
-        }
-
-        if (methodComponentContext.getParameters().size() == 0) {
-            return false;
-        }
-
-        Map<String, Object> methodComponentParams = methodComponentContext.getParameters();
-
-        // The method component parameters should have an encoder
-        if (!methodComponentParams.containsKey(METHOD_ENCODER_PARAMETER)) {
-            return false;
-        }
-
-        // Validate if the object is of type MethodComponentContext before casting it later
-        if (!(methodComponentParams.get(METHOD_ENCODER_PARAMETER) instanceof MethodComponentContext)) {
-            return false;
-        }
-
-        MethodComponentContext encoderMethodComponentContext = (MethodComponentContext) methodComponentParams.get(METHOD_ENCODER_PARAMETER);
-
-        // returns true if encoder name is "sq" and type is "fp16"
-        return ENCODER_SQ.equals(encoderMethodComponentContext.getName())
-            && FAISS_SQ_ENCODER_FP16.equals(
-                encoderMethodComponentContext.getParameters().getOrDefault(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16)
-            );
-
-    }
-
-    /**
-     * Verify mapping and return the value of "clip" parameter(default false) for a "faiss" Index
-     * using "sq" encoder of type "fp16".
-     *
-     * @param methodComponentContext MethodComponentContext
-     * @return boolean value of "clip" parameter
-     */
-    static boolean isFaissSQClipToFP16RangeEnabled(MethodComponentContext methodComponentContext) {
-        if (Objects.nonNull(methodComponentContext)) {
-            return (boolean) methodComponentContext.getParameters().getOrDefault(FAISS_SQ_CLIP, false);
-        }
-        return false;
-    }
-
-    /**
-     * Extract MethodComponentContext from KNNMethodContext
-     *
-     * @param knnMethodContext KNNMethodContext
-     * @return MethodComponentContext
-     */
-    static MethodComponentContext getMethodComponentContext(KNNMethodContext knnMethodContext) {
-        if (Objects.isNull(knnMethodContext)) {
-            return null;
-        }
-        return knnMethodContext.getMethodComponentContext();
-    }
-
-    static KNNMethodContext createKNNMethodContextFromLegacy(
-        Mapper.BuilderContext context,
-        VectorDataType vectorDataType,
-        Version indexCreatedVersion
-    ) {
-        if (VectorDataType.FLOAT != vectorDataType) {
-            throw new IllegalArgumentException(
-                String.format(
-                    Locale.ROOT,
-                    "[%s] field with value [%s] is not supported for [%s] engine",
-                    VECTOR_DATA_TYPE_FIELD,
-                    vectorDataType.getValue(),
-                    NMSLIB_NAME
-                )
-            );
-        }
-
+    static KNNMethodContext createKNNMethodContextFromLegacy(Settings indexSettings, Version indexCreatedVersion) {
         return new KNNMethodContext(
             KNNEngine.NMSLIB,
-            KNNVectorFieldMapperUtil.getSpaceType(context.indexSettings(), vectorDataType),
+            KNNVectorFieldMapperUtil.getSpaceType(indexSettings),
             new MethodComponentContext(
                 METHOD_HNSW,
                 Map.of(
                     METHOD_PARAMETER_M,
-                    KNNVectorFieldMapperUtil.getM(context.indexSettings()),
+                    KNNVectorFieldMapperUtil.getM(indexSettings),
                     METHOD_PARAMETER_EF_CONSTRUCTION,
-                    KNNVectorFieldMapperUtil.getEfConstruction(context.indexSettings(), indexCreatedVersion)
+                    KNNVectorFieldMapperUtil.getEfConstruction(indexSettings, indexCreatedVersion)
                 )
             )
         );

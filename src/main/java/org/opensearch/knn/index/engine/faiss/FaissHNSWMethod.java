@@ -5,9 +5,11 @@
 
 package org.opensearch.knn.index.engine.faiss;
 
+import com.google.common.collect.ImmutableSet;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
 import org.opensearch.knn.index.engine.DefaultHnswSearchContext;
 import org.opensearch.knn.index.engine.Encoder;
@@ -27,11 +29,15 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_CONSTRUCTION;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
+import static org.opensearch.knn.index.engine.faiss.Faiss.FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
 
 /**
  * Faiss HNSW method implementation
  */
-public class FaissHNSWMethod extends AbstractKNNMethod {
+public class FaissHNSWMethod extends AbstractFaissMethod {
+
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.BINARY);
+
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
         SpaceType.UNDEFINED,
         SpaceType.HAMMING,
@@ -56,30 +62,41 @@ public class FaissHNSWMethod extends AbstractKNNMethod {
 
     private static MethodComponent initMethodComponent() {
         return MethodComponent.Builder.builder(METHOD_HNSW)
+            .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
             .addParameter(
                 METHOD_PARAMETER_M,
-                new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0)
+                new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, (v, context) -> v > 0)
             )
             .addParameter(
                 METHOD_PARAMETER_EF_CONSTRUCTION,
                 new Parameter.IntegerParameter(
                     METHOD_PARAMETER_EF_CONSTRUCTION,
                     KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
-                    v -> v > 0
+                    (v, context) -> v > 0
                 )
             )
             .addParameter(
                 METHOD_PARAMETER_EF_SEARCH,
-                new Parameter.IntegerParameter(METHOD_PARAMETER_EF_SEARCH, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH, v -> v > 0)
+                new Parameter.IntegerParameter(
+                    METHOD_PARAMETER_EF_SEARCH,
+                    KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_SEARCH,
+                    (v, context) -> v > 0
+                )
             )
             .addParameter(METHOD_ENCODER_PARAMETER, initEncoderParameter())
-            .setMapGenerator(
-                ((methodComponent, methodComponentContext) -> MethodAsMapBuilder.builder(
-                    FAISS_HNSW_DESCRIPTION,
+            .setMapGenerator(((methodComponent, methodComponentContext, knnMethodConfigContext) -> {
+                String prefix = "";
+                if (knnMethodConfigContext.getVectorDataType() == VectorDataType.BINARY) {
+                    prefix = FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
+                }
+
+                return MethodAsMapBuilder.builder(
+                    prefix + FAISS_HNSW_DESCRIPTION,
                     methodComponent,
-                    methodComponentContext
-                ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build())
-            )
+                    methodComponentContext,
+                    knnMethodConfigContext
+                ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "").build();
+            }))
             .build();
     }
 

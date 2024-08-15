@@ -9,7 +9,6 @@ import org.opensearch.knn.index.VectorDataType;
 
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 import static org.opensearch.knn.common.KNNValidationUtil.validateFloatVectorValue;
-import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.validateFP16VectorValue;
 
 /**
  * Validates per dimension fields
@@ -38,19 +37,6 @@ public interface PerDimensionValidator {
         @Override
         public void validateByte(float value) {
             throw new IllegalStateException("DEFAULT_FLOAT_VALIDATOR should only be used for float vectors");
-        }
-    };
-
-    // Validates if it is a finite number and within the fp16 range of [-65504 to 65504].
-    PerDimensionValidator DEFAULT_FP16_VALIDATOR = new PerDimensionValidator() {
-        @Override
-        public void validate(float value) {
-            validateFP16VectorValue(value);
-        }
-
-        @Override
-        public void validateByte(float value) {
-            throw new IllegalStateException("DEFAULT_FP16_VALIDATOR should only be used for float vectors");
         }
     };
 
