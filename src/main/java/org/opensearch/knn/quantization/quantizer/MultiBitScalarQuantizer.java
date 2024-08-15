@@ -133,14 +133,14 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
             throw new IllegalArgumentException("Vector to quantize must not be null.");
         }
         validateState(state);
+        int vectorLength = vector.length;
         MultiBitScalarQuantizationState multiBitState = (MultiBitScalarQuantizationState) state;
         float[][] thresholds = multiBitState.getThresholds();
         if (thresholds == null || thresholds[0].length != vector.length) {
             throw new IllegalArgumentException("Thresholds must not be null and must match the dimension of the vector.");
         }
-        // Prepare and get the writable array
-        byte[] writableArray = output.prepareAndGetWritableQuantizedVector(bitsPerCoordinate, vector.length);
-        BitPacker.quantizeAndPackBits(vector, thresholds, bitsPerCoordinate, writableArray);
+        if (!output.isPrepared(vectorLength)) output.prepareQuantizedVector(vectorLength);
+        BitPacker.quantizeAndPackBits(vector, thresholds, bitsPerCoordinate, output.getQuantizedVector());
     }
 
     /**
