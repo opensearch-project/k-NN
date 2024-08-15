@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query;
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.AllArgsConstructor;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -86,6 +87,15 @@ public class KNNQueryBuilderInvalidParamsTests extends KNNTestCase {
                     "min score less than 0",
                     "[knn] requires minScore to be greater than 0",
                     KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).minScore(-1f)
+                ),
+                $(
+                    "Rescore context",
+                    " cannot be less than",
+                    KNNQueryBuilder.builder()
+                        .rescoreContext(RescoreContext.builder().oversampleFactor(RescoreContext.MIN_OVERSAMPLE_FACTOR - 1).build())
+                        .fieldName(FIELD_NAME)
+                        .vector(QUERY_VECTOR)
+                        .k(1)
                 )
             )
         );
@@ -93,6 +103,6 @@ public class KNNQueryBuilderInvalidParamsTests extends KNNTestCase {
 
     public void testInvalidBuilder() {
         Throwable exception = expectThrows(IllegalArgumentException.class, () -> knnQueryBuilderBuilder.build());
-        assertEquals(expectedMessage, expectedMessage, exception.getMessage());
+        assertTrue(exception.getMessage(), exception.getMessage().contains(expectedMessage));
     }
 }
