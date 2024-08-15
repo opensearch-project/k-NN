@@ -50,8 +50,7 @@ public class IndexUtil {
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_RADIAL_SEARCH = Version.V_2_14_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_METHOD_PARAMETERS = Version.V_2_16_0;
     private static final Version MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VECTOR_DATA_TYPE = Version.V_2_16_0;
-    // TODO: Will update once 2.17 backport change is merged
-    private static final Version MINIMAL_RESCORE_FEATURE = Version.V_3_0_0;
+    private static final Version MINIMAL_RESCORE_FEATURE = Version.V_2_17_0;
     // public so neural search can access it
     public static final Map<String, Version> minimalRequiredVersionMap = initializeMinimalRequiredVersionMap();
 
