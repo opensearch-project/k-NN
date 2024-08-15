@@ -47,10 +47,6 @@ public class ScalarQuantizationParams implements QuantizationParams {
         return generateIdentifier(sqType.getId());
     }
 
-    private static String generateIdentifier(int id) {
-        return "ScalarQuantizationParams_" + id;
-    }
-
     /**
      * Writes the object to the output stream.
      * This method is part of the Writeable interface and is used to serialize the object.
@@ -73,5 +69,22 @@ public class ScalarQuantizationParams implements QuantizationParams {
     public ScalarQuantizationParams(StreamInput in, int version) throws IOException {
         int typeId = in.readVInt();
         this.sqType = ScalarQuantizationType.fromId(typeId);
+    }
+
+    /**
+     * Generates a unique identifier for Scalar Quantization Parameters.
+     *
+     * <p>
+     * This method constructs an identifier string by prefixing the given integer ID
+     * with "ScalarQuantizationParams_". The resulting string can be used to uniquely
+     * identify specific quantization parameter instances, especially when registering
+     * or retrieving them in a registry or similar structure.
+     * </p>
+     *
+     * @param id the integer ID to be used in generating the unique identifier.
+     * @return a string representing the unique identifier for the quantization parameters.
+     */
+    private static String generateIdentifier(int id) {
+        return "ScalarQuantizationParams_" + id;
     }
 }
