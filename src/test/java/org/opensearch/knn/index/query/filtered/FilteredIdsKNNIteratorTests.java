@@ -6,13 +6,11 @@
 package org.opensearch.knn.index.query.filtered;
 
 import lombok.SneakyThrows;
-import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.search.DocIdSetIterator;
-import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.index.codec.util.KNNVectorAsArraySerializer;
+import org.opensearch.knn.index.vectorvalues.KNNFloatVectorValues;
 
 import java.util.Arrays;
 import java.util.List;
@@ -36,11 +34,8 @@ public class FilteredIdsKNNIteratorTests extends KNNTestCase {
             .map(vector -> spaceType.getKnnVectorSimilarityFunction().compare(queryVector, vector))
             .collect(Collectors.toList());
 
-        BinaryDocValues values = mock(BinaryDocValues.class);
-        final List<BytesRef> byteRefs = dataVectors.stream()
-            .map(vector -> new BytesRef(new KNNVectorAsArraySerializer().floatToByteArray(vector)))
-            .collect(Collectors.toList());
-        when(values.binaryValue()).thenReturn(byteRefs.get(0), byteRefs.get(1), byteRefs.get(2));
+        KNNFloatVectorValues values = mock(KNNFloatVectorValues.class);
+        when(values.getVector()).thenReturn(dataVectors.get(0), dataVectors.get(1), dataVectors.get(2));
 
         FixedBitSet filterBitSet = new FixedBitSet(4);
         for (int id : filterIds) {

@@ -36,7 +36,7 @@ final class VectorTransferIndexBuildStrategy implements NativeIndexBuildStrategy
     private VectorTransferIndexBuildStrategy() {}
 
     public void buildAndWriteIndex(final BuildIndexParams indexInfo, final KNNVectorValues<?> knnVectorValues) throws IOException {
-        //iterating it once to be safe
+        // iterating it once to be safe
         knnVectorValues.init();
         try (final VectorTransfer vectorTransfer = getVectorTransfer(indexInfo.getVectorDataType(), knnVectorValues)) {
             vectorTransfer.transferBatch();

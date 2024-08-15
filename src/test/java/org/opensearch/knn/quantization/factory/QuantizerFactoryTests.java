@@ -31,12 +31,12 @@ public class QuantizerFactoryTests extends KNNTestCase {
         ScalarQuantizationParams paramsTwoBit = new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT);
         ScalarQuantizationParams paramsFourBit = new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
         assertFalse(isRegisteredFieldAccessible());
-        Quantizer<?, ?> quantizer = QuantizerFactory.getQuantizer(params);
-        Quantizer<?, ?> quantizerTwoBit = QuantizerFactory.getQuantizer(paramsTwoBit);
-        Quantizer<?, ?> quantizerFourBit = QuantizerFactory.getQuantizer(paramsFourBit);
-        assertTrue(quantizerFourBit instanceof MultiBitScalarQuantizer);
-        assertTrue(quantizerTwoBit instanceof MultiBitScalarQuantizer);
-        assertTrue(quantizer instanceof OneBitScalarQuantizer);
+        Quantizer<Float[], Byte[]> oneBitQuantizer = QuantizerFactory.getQuantizer(params);
+        Quantizer<Float[], Byte[]> quantizerTwoBit = QuantizerFactory.getQuantizer(paramsTwoBit);
+        Quantizer<Float[], Byte[]> quantizerFourBit = QuantizerFactory.getQuantizer(paramsFourBit);
+        assertEquals(quantizerFourBit.getClass(), MultiBitScalarQuantizer.class);
+        assertEquals(quantizerTwoBit.getClass(), MultiBitScalarQuantizer.class);
+        assertEquals(oneBitQuantizer.getClass(), OneBitScalarQuantizer.class);
         assertTrue(isRegisteredFieldAccessible());
     }
 

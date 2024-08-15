@@ -12,6 +12,7 @@
 package org.opensearch.knn.indices;
 
 import lombok.experimental.UtilityClass;
+import org.apache.commons.lang.StringUtils;
 
 import java.util.Locale;
 
@@ -39,16 +40,16 @@ public class ModelUtil {
     }
 
     /**
-     * Fetches the model metadata for a modelId
-     * @param modelId model id
+     * Gets Model Metadata from a given model id.
+     * @param modelId {@link String}
      * @return {@link ModelMetadata}
      */
     public static ModelMetadata getModelMetadata(final String modelId) {
-        if (modelId == null || modelId.isEmpty()) {
+        if (StringUtils.isEmpty(modelId)) {
             return null;
         }
-        Model model = ModelCache.getInstance().get(modelId);
-        ModelMetadata modelMetadata = model.getModelMetadata();
+        final Model model = ModelCache.getInstance().get(modelId);
+        final ModelMetadata modelMetadata = model.getModelMetadata();
         if (!ModelUtil.isModelCreated(modelMetadata)) {
             throw new IllegalArgumentException(String.format(Locale.ROOT, "Model ID '%s' is not created.", modelId));
         }
