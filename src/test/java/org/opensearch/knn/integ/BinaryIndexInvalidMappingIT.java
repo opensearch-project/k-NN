@@ -49,17 +49,17 @@ public class BinaryIndexInvalidMappingIT extends KNNRestTestCase {
                 $(
                     "Creation of binary index with lucene engine should fail",
                     createKnnHnswBinaryIndexMapping(KNNEngine.LUCENE, FIELD_NAME, 16, null),
-                    "only supported for [faiss] engine"
+                    "Validation Failed"
                 ),
                 $(
                     "Creation of binary index with nmslib engine should fail",
                     createKnnHnswBinaryIndexMapping(KNNEngine.NMSLIB, FIELD_NAME, 16, null),
-                    "only supported for [faiss] engine"
+                    "Validation Failed"
                 ),
                 $(
                     "Creation of binary index with encoder should fail",
                     createKnnHnswBinaryIndexMapping(KNNEngine.FAISS, FIELD_NAME, 16, ENCODER_SQ),
-                    "does not support sq encoder"
+                    "Validation Failed"
                 )
             )
         );

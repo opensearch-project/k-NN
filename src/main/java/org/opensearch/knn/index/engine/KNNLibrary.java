@@ -7,7 +7,6 @@ package org.opensearch.knn.index.engine;
 
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.util.Collections;
 import java.util.List;
@@ -76,19 +75,10 @@ public interface KNNLibrary {
      * deemed invalid.
      *
      * @param knnMethodContext to be validated
+     * @param knnMethodConfigContext configuration context for the method
      * @return ValidationException produced by validation errors; null if no validations errors.
      */
-    ValidationException validateMethod(KNNMethodContext knnMethodContext);
-
-    /**
-     * Validate the knnMethodContext for the given library, using additional data not present in the method context. A ValidationException should be thrown if the method is
-     * deemed invalid.
-     *
-     * @param knnMethodContext to be validated
-     * @param vectorSpaceInfo additional data not present in the method context
-     * @return ValidationException produced by validation errors; null if no validations errors.
-     */
-    ValidationException validateMethodWithData(KNNMethodContext knnMethodContext, VectorSpaceInfo vectorSpaceInfo);
+    ValidationException validateMethod(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext);
 
     /**
      * Returns whether training is required or not from knnMethodContext for the given library.
@@ -102,18 +92,22 @@ public interface KNNLibrary {
      * Estimate overhead of KNNMethodContext in Kilobytes.
      *
      * @param knnMethodContext to estimate size for
-     * @param dimension        to estimate size for
+     * @param knnMethodConfigContext configuration context for the method
      * @return size overhead estimate in KB
      */
-    int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension);
+    int estimateOverheadInKB(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext);
 
     /**
      * Get the context from the library needed to build the index.
      *
      * @param knnMethodContext to get build context for
+     * @param knnMethodConfigContext configuration context for the method
      * @return parameter map
      */
-    KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodContext knnMethodContext);
+    KNNLibraryIndexingContext getKNNLibraryIndexingContext(
+        KNNMethodContext knnMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext
+    );
 
     /**
      * Gets metadata related to methods supported by the library

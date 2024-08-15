@@ -1222,6 +1222,14 @@ public class KNNRestTestCase extends ODFERestTestCase {
         }
     }
 
+    public void addKNNByteDocs(String testIndex, String testField, int dimension, int firstDocID, int numDocs) throws IOException {
+        for (int i = firstDocID; i < firstDocID + numDocs; i++) {
+            Byte[] indexVector = new Byte[dimension];
+            Arrays.fill(indexVector, (byte) i);
+            addKnnDoc(testIndex, Integer.toString(i), testField, indexVector);
+        }
+    }
+
     public void validateKNNSearch(String testIndex, String testField, int dimension, int numDocs, int k) throws Exception {
         validateKNNSearch(testIndex, testField, dimension, numDocs, k, null);
     }

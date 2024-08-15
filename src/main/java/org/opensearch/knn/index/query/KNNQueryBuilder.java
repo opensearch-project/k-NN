@@ -23,6 +23,7 @@ import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
@@ -423,7 +424,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             QueryContext queryContext = new QueryContext(vectorQueryType);
             ValidationException validationException = validateParameters(
                 engineSpecificMethodContext.supportedMethodParameters(queryContext),
-                (Map<String, Object>) methodParameters
+                (Map<String, Object>) methodParameters,
+                KNNMethodConfigContext.EMPTY
             );
             if (validationException != null) {
                 throw new IllegalArgumentException(
