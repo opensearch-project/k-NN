@@ -61,7 +61,7 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
 
         FSDirectory fsDirectory = null;
         try {
-             fsDirectory = ((FSDirectory) FilterDirectory.unwrap(directory));
+            fsDirectory = ((FSDirectory) FilterDirectory.unwrap(directory));
         } catch (ClassCastException ex) {
             log.warn("{} can not casting to FSDirectory", directory.toString());
             return;
