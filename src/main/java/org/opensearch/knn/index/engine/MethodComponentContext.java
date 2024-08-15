@@ -8,9 +8,7 @@ package org.opensearch.knn.index.engine;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import org.apache.commons.lang.math.NumberUtils;
-import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
 import org.opensearch.core.common.io.stream.Writeable;
@@ -50,10 +48,6 @@ public class MethodComponentContext implements ToXContentFragment, Writeable {
     @Getter
     private final String name;
     private final Map<String, Object> parameters;
-
-    @Getter
-    @Setter
-    private Version indexVersion;
 
     /**
      * Constructor from stream.

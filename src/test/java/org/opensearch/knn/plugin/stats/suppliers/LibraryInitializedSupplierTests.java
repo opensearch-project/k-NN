@@ -14,10 +14,10 @@ package org.opensearch.knn.plugin.stats.suppliers;
 import org.opensearch.common.ValidationException;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.KNNLibrary;
-import org.opensearch.knn.training.VectorSpaceInfo;
 import org.opensearch.test.OpenSearchTestCase;
 
 public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
@@ -74,12 +74,7 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
         }
 
         @Override
-        public ValidationException validateMethod(KNNMethodContext knnMethodContext) {
-            return null;
-        }
-
-        @Override
-        public ValidationException validateMethodWithData(KNNMethodContext knnMethodContext, VectorSpaceInfo vectorSpaceInfo) {
+        public ValidationException validateMethod(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
             return null;
         }
 
@@ -89,12 +84,15 @@ public class LibraryInitializedSupplierTests extends OpenSearchTestCase {
         }
 
         @Override
-        public int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension) {
+        public int estimateOverheadInKB(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
             return 0;
         }
 
         @Override
-        public KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodContext knnMethodContext) {
+        public KNNLibraryIndexingContext getKNNLibraryIndexingContext(
+            KNNMethodContext knnMethodContext,
+            KNNMethodConfigContext knnMethodConfigContext
+        ) {
             return null;
         }
 

@@ -243,17 +243,11 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             );
         }
 
-        // Update index description of Faiss for binary data type
-        if (KNNEngine.FAISS == knnEngine
-            && VectorDataType.BINARY.getValue()
-                .equals(fieldAttributes.getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue()))
-            && parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER) != null) {
-            parameters.put(
-                KNNConstants.INDEX_DESCRIPTION_PARAMETER,
-                FAISS_BINARY_INDEX_DESCRIPTION_PREFIX + parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString()
-            );
-            IndexUtil.updateVectorDataTypeToParameters(parameters, VectorDataType.BINARY);
-        }
+        // In OpenSearch 2.16, we added the prefix for binary indices in the index description in the codec logic.
+        // After 2.16, we added the binary prefix in the faiss library code. However, to ensure backwards compatibility,
+        // we need to ensure that if the description does not contain the prefix but the type is binary, we add the
+        // description.
+        maybeAddBinaryPrefixForFaissBWC(knnEngine, parameters, fieldAttributes);
 
         // Used to determine how many threads to use when indexing
         parameters.put(KNNConstants.INDEX_THREAD_QTY, KNNSettings.state().getSettingValue(KNNSettings.KNN_ALGO_PARAM_INDEX_THREAD_QTY));
@@ -263,6 +257,31 @@ class KNN80DocValuesConsumer extends DocValuesConsumer implements Closeable {
             JNIService.createIndex(pair.docs, pair.getVectorAddress(), pair.getDimension(), indexPath, parameters, knnEngine);
             return null;
         });
+    }
+
+    private void maybeAddBinaryPrefixForFaissBWC(KNNEngine knnEngine, Map<String, Object> parameters, Map<String, String> fieldAttributes) {
+        if (KNNEngine.FAISS != knnEngine) {
+            return;
+        }
+
+        if (!VectorDataType.BINARY.getValue()
+            .equals(fieldAttributes.getOrDefault(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.DEFAULT.getValue()))) {
+            return;
+        }
+
+        if (parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER) == null) {
+            return;
+        }
+
+        if (parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString().startsWith(FAISS_BINARY_INDEX_DESCRIPTION_PREFIX)) {
+            return;
+        }
+
+        parameters.put(
+            KNNConstants.INDEX_DESCRIPTION_PARAMETER,
+            FAISS_BINARY_INDEX_DESCRIPTION_PREFIX + parameters.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER).toString()
+        );
+        IndexUtil.updateVectorDataTypeToParameters(parameters, VectorDataType.BINARY);
     }
 
     /**
