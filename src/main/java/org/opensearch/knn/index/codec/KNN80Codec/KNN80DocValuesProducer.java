@@ -58,7 +58,16 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
         if (state.directory instanceof KNN80CompoundDirectory) {
             directory = ((KNN80CompoundDirectory) state.directory).getDir();
         }
-        String directoryPath = ((FSDirectory) FilterDirectory.unwrap(directory)).getDirectory().toString();
+
+        FSDirectory fsDirectory = null;
+        try {
+             fsDirectory = ((FSDirectory) FilterDirectory.unwrap(directory));
+        } catch (ClassCastException ex) {
+            log.warn("{} can not casting to FSDirectory", directory.toString());
+            return;
+        }
+        assert fsDirectory != null;
+        String directoryPath = fsDirectory.getDirectory().toString();
         for (FieldInfo field : state.fieldInfos) {
             if (!field.attributes().containsKey(KNN_FIELD)) {
                 continue;
