@@ -30,6 +30,7 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.index.util.KNNClusterUtil;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -776,19 +777,23 @@ public class KNNQueryBuilderTests extends KNNTestCase {
 
     public void testSerialization() throws Exception {
         // For k-NN search
-        assertSerialization(Version.CURRENT, Optional.empty(), K, null, null, null);
-        assertSerialization(Version.CURRENT, Optional.empty(), K, Map.of("ef_search", EF_SEARCH), null, null);
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), K, Map.of("ef_search", EF_SEARCH), null, null);
-        assertSerialization(Version.V_2_3_0, Optional.empty(), K, Map.of("ef_search", EF_SEARCH), null, null);
-        assertSerialization(Version.V_2_3_0, Optional.empty(), K, null, null, null);
+        assertSerialization(Version.CURRENT, Optional.empty(), K, null, null, null, null);
+        assertSerialization(Version.CURRENT, Optional.empty(), K, Map.of("ef_search", EF_SEARCH), null, null, null);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), K, Map.of("ef_search", EF_SEARCH), null, null, null);
+        assertSerialization(Version.V_2_3_0, Optional.empty(), K, Map.of("ef_search", EF_SEARCH), null, null, null);
+        assertSerialization(Version.V_2_3_0, Optional.empty(), K, null, null, null, null);
 
         // For distance threshold search
-        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, MAX_DISTANCE);
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, MAX_DISTANCE);
+        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, MAX_DISTANCE, null);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, MAX_DISTANCE, null);
 
         // For score threshold search
-        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, MIN_SCORE);
-        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, MIN_SCORE);
+        assertSerialization(Version.CURRENT, Optional.empty(), null, null, null, MIN_SCORE, null);
+        assertSerialization(Version.CURRENT, Optional.of(TERM_QUERY), null, null, null, MIN_SCORE, null);
+
+        // Test rescore
+        assertSerialization(Version.V_2_3_0, Optional.empty(), K, null, null, null, RescoreContext.getDefault());
+        assertSerialization(Version.CURRENT, Optional.empty(), K, null, null, null, RescoreContext.getDefault());
     }
 
     private void assertSerialization(
@@ -797,7 +802,8 @@ public class KNNQueryBuilderTests extends KNNTestCase {
         Integer k,
         Map<String, ?> methodParameters,
         Float distance,
-        Float score
+        Float score,
+        RescoreContext rescoreContext
     ) throws Exception {
         final KNNQueryBuilder knnQueryBuilder = KNNQueryBuilder.builder()
             .fieldName(FIELD_NAME)
@@ -807,6 +813,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             .k(k)
             .methodParameters(methodParameters)
             .filter(queryBuilderOptional.orElse(null))
+            .rescoreContext(rescoreContext)
             .build();
 
         final ClusterService clusterService = mockClusterService(version);
@@ -840,6 +847,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
                     assertNull(deserializedKnnQueryBuilder.getFilter());
                 }
                 assertMethodParameters(version, methodParameters, deserializedKnnQueryBuilder.getMethodParameters());
+                assertRescore(version, rescoreContext, deserializedKnnQueryBuilder.getRescoreContext());
             }
         }
     }
@@ -851,6 +859,17 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             if (version.onOrAfter(Version.V_2_16_0)) {
                 assertEquals(expectedMethodParameters.get("ef_search"), actualMethodParameters.get("ef_search"));
             }
+        }
+    }
+
+    private void assertRescore(Version version, RescoreContext expectedRescoreContext, RescoreContext actualRescoreContext) {
+        if (!version.onOrAfter(Version.V_2_17_0)) {
+            assertNull(actualRescoreContext);
+            return;
+        }
+
+        if (expectedRescoreContext != null) {
+            assertEquals(expectedRescoreContext, actualRescoreContext);
         }
     }
 

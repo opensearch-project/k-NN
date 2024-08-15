@@ -27,6 +27,8 @@ public class KNNConstants {
     public static final String TYPE_KNN_VECTOR = "knn_vector";
     public static final String PROPERTIES = "properties";
     public static final String METHOD_PARAMETER = "method_parameters";
+    public static final String RESCORE_PARAMETER = "rescore";
+    public static final String RESCORE_OVERSAMPLE_PARAMETER = "oversample_factor";
     public static final String METHOD_PARAMETER_EF_SEARCH = "ef_search";
     public static final String METHOD_PARAMETER_EF_CONSTRUCTION = "ef_construction";
     public static final String METHOD_PARAMETER_M = "m";
