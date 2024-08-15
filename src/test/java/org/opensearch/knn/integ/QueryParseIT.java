@@ -15,8 +15,8 @@ import org.opensearch.knn.KNNRestTestCase;
 import java.io.IOException;
 import java.util.Locale;
 
-import static org.opensearch.knn.common.KNNConstants.RESCORE_OVERSAMPLE_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.RESCORE_PARAMETER;
+import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_OVERSAMPLE_PARAMETER;
+import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
 
 public class QueryParseIT extends KNNRestTestCase {
 

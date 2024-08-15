@@ -26,6 +26,7 @@ import org.opensearch.index.query.QueryShardContext;
 import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.index.query.parser.RescoreParser;
 import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.engine.MethodComponentContext;
@@ -51,12 +52,12 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_NPROBES;
 import static org.opensearch.knn.common.KNNConstants.MIN_SCORE;
-import static org.opensearch.knn.common.KNNConstants.RESCORE_OVERSAMPLE_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.RESCORE_PARAMETER;
 import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValue;
 import static org.opensearch.knn.index.query.parser.MethodParametersParser.validateMethodParameters;
 import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 import static org.opensearch.knn.index.engine.validation.ParameterValidator.validateParameters;
+import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_OVERSAMPLE_PARAMETER;
+import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
 
 /**
  * Helper class to build the KNN query
@@ -264,7 +265,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             }
 
             if (rescoreContext != null) {
-                ValidationException validationException = rescoreContext.validate();
+                ValidationException validationException = RescoreParser.validate(rescoreContext);
                 if (validationException != null) {
                     throw new IllegalArgumentException(
                         String.format(Locale.ROOT, "[%s] errors in rescore parameter [%s]", NAME, validationException.getMessage())

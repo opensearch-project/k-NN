@@ -17,8 +17,8 @@ import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.io.IOException;
 
-import static org.opensearch.knn.common.KNNConstants.RESCORE_OVERSAMPLE_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.RESCORE_PARAMETER;
+import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_OVERSAMPLE_PARAMETER;
+import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
 
 public class RescoreParserTests extends KNNTestCase {
 
@@ -31,10 +31,10 @@ public class RescoreParserTests extends KNNTestCase {
 
     private void validateStreams(RescoreContext rescoreContext) throws IOException {
         try (BytesStreamOutput output = new BytesStreamOutput()) {
-            RescoreParser.streamOutput(output, rescoreContext, x -> true);
+            RescoreParser.streamOutput(output, rescoreContext);
 
             try (StreamInput in = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry())) {
-                RescoreContext parsedRescoreContext = RescoreParser.streamInput(in, x -> true);
+                RescoreContext parsedRescoreContext = RescoreParser.streamInput(in);
                 assertEquals(rescoreContext, parsedRescoreContext);
             }
         }

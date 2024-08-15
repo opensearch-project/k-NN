@@ -30,8 +30,8 @@ import static org.opensearch.index.query.AbstractQueryBuilder.BOOST_FIELD;
 import static org.opensearch.index.query.AbstractQueryBuilder.NAME_FIELD;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
-import static org.opensearch.knn.common.KNNConstants.RESCORE_PARAMETER;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.RESCORE_FIELD;
+import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
 import static org.opensearch.knn.index.util.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.FILTER_FIELD;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.IGNORE_UNMAPPED_FIELD;
@@ -125,7 +125,7 @@ public final class KNNQueryBuilderParser {
         }
 
         if (minClusterVersionCheck.apply(RESCORE_PARAMETER)) {
-            builder.rescoreContext(RescoreParser.streamInput(in, IndexUtil::isClusterOnOrAfterMinRequiredVersion));
+            builder.rescoreContext(RescoreParser.streamInput(in));
         }
 
         return builder;
@@ -158,7 +158,7 @@ public final class KNNQueryBuilderParser {
             MethodParametersParser.streamOutput(out, builder.getMethodParameters(), IndexUtil::isClusterOnOrAfterMinRequiredVersion);
         }
         if (minClusterVersionCheck.apply(RESCORE_PARAMETER)) {
-            RescoreParser.streamOutput(out, builder.getRescoreContext(), IndexUtil::isClusterOnOrAfterMinRequiredVersion);
+            RescoreParser.streamOutput(out, builder.getRescoreContext());
         }
     }
 

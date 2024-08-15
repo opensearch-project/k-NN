@@ -825,7 +825,7 @@ public class KNNQueryBuilderTests extends KNNTestCase {
             output.writeNamedWriteable(knnQueryBuilder);
 
             try (StreamInput in = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), writableRegistry())) {
-                in.setVersion(Version.CURRENT);
+                in.setVersion(version);
                 final QueryBuilder deserializedQuery = in.readNamedWriteable(QueryBuilder.class);
 
                 assertNotNull(deserializedQuery);

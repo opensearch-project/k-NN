@@ -36,6 +36,7 @@ import static org.opensearch.knn.common.KNNConstants.BYTES_PER_KILOBYTES;
 import static org.opensearch.knn.common.KNNConstants.HNSW_ALGO_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
 
 public class IndexUtil {
 
@@ -404,7 +405,7 @@ public class IndexUtil {
                 put(KNNConstants.RADIAL_SEARCH_KEY, MINIMAL_SUPPORTED_VERSION_FOR_RADIAL_SEARCH);
                 put(KNNConstants.METHOD_PARAMETER, MINIMAL_SUPPORTED_VERSION_FOR_METHOD_PARAMETERS);
                 put(KNNConstants.MODEL_VECTOR_DATA_TYPE_KEY, MINIMAL_SUPPORTED_VERSION_FOR_MODEL_VECTOR_DATA_TYPE);
-                put(KNNConstants.RESCORE_PARAMETER, MINIMAL_RESCORE_FEATURE);
+                put(RESCORE_PARAMETER, MINIMAL_RESCORE_FEATURE);
             }
         };
 

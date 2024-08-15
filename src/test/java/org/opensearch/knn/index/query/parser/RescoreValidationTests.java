@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.index.query.rescore;
+package org.opensearch.knn.index.query.parser;
 
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.AllArgsConstructor;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -16,7 +17,7 @@ import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
 import static com.carrotsearch.randomizedtesting.RandomizedTest.$$;
 
 @AllArgsConstructor
-public class RescoreContextTests extends KNNTestCase {
+public class RescoreValidationTests extends KNNTestCase {
 
     private boolean isValid;
     private RescoreContext rescoreContext;
@@ -36,9 +37,9 @@ public class RescoreContextTests extends KNNTestCase {
 
     public void testValidate() {
         if (isValid) {
-            assertNull(rescoreContext.validate());
+            assertNull(RescoreParser.validate(rescoreContext));
         } else {
-            assertNotNull(rescoreContext.validate());
+            assertNotNull(RescoreParser.validate(rescoreContext));
         }
     }
 }
