@@ -34,7 +34,6 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
     private MemOptimizedNativeIndexBuildStrategy() {}
 
     public void buildAndWriteIndex(BuildIndexParams indexInfo, final KNNVectorValues<?> knnVectorValues) throws IOException {
-        // Needed to make sure we dont get 0 dimensions while initializing index
         knnVectorValues.init();
         KNNEngine engine = indexInfo.getKnnEngine();
         Map<String, Object> indexParameters = indexInfo.getParameters();
