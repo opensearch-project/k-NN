@@ -60,6 +60,14 @@ public class KNNCodecUtil {
         return totalLiveDocs;
     }
 
+    /**
+     * Get Engine Files from segment with specific fieldName and engine extension
+     *
+     * @param extension Engine extension comes from {@link KNNEngine#getExtension()}}
+     * @param fieldName Filed for knn field
+     * @param segmentInfo {@link SegmentInfo} One Segment info to use for compute.
+     * @return List of engine files
+     */
     public static List<String> getEngineFiles(String extension, String fieldName, SegmentInfo segmentInfo) {
         /*
          * In case of compound file, extension would be <engine-extension> + c otherwise <engine-extension>

@@ -59,15 +59,12 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
             directory = ((KNN80CompoundDirectory) state.directory).getDir();
         }
 
-        FSDirectory fsDirectory = null;
-        try {
-            fsDirectory = ((FSDirectory) FilterDirectory.unwrap(directory));
-        } catch (ClassCastException ex) {
-            log.warn("{} can not casting to FSDirectory", directory.toString());
+        Directory dir = FilterDirectory.unwrap(directory);
+        if (!(dir instanceof FSDirectory)) {
+            log.warn("{} can not casting to FSDirectory", directory);
             return;
         }
-        assert fsDirectory != null;
-        String directoryPath = fsDirectory.getDirectory().toString();
+        String directoryPath = ((FSDirectory) dir).getDirectory().toString();
         for (FieldInfo field : state.fieldInfos) {
             if (!field.attributes().containsKey(KNN_FIELD)) {
                 continue;
@@ -114,15 +111,11 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
     }
 
     @Override
-    public void close() {
-        try {
-            delegate.close();
-            for (String path : indexPathMap.values()) {
-                nativeMemoryCacheManager.invalidate(path);
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+    public void close() throws IOException {
+        for (String path : indexPathMap.values()) {
+            nativeMemoryCacheManager.invalidate(path);
         }
+        delegate.close();
     }
 
     public final List<String> getOpenedIndexPath() {
