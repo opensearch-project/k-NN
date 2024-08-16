@@ -55,7 +55,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         when(clusterService.getSettings()).thenReturn(settings);
 
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
-        cache.rebuildCache();
+        clusterService.getClusterSettings().applySettings(settings);
 
         // Add state
         cache.addQuantizationState(fieldName, state);
@@ -91,7 +91,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         when(clusterService.getSettings()).thenReturn(settings);
 
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
-        cache.rebuildCache();
+        clusterService.getClusterSettings().applySettings(settings);
 
         // Add state from multiple threads
         for (int i = 0; i < threadCount; i++) {
@@ -140,6 +140,8 @@ public class QuantizationStateCacheTests extends KNNTestCase {
 
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
 
+        clusterService.getClusterSettings().applySettings(settings);
+
         cache.addQuantizationState(fieldName, state);
 
         // Evict state from multiple threads
@@ -187,7 +189,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         when(clusterService.getSettings()).thenReturn(settings);
 
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
-        cache.rebuildCache();
+        clusterService.getClusterSettings().applySettings(settings);
 
         // Concurrently add and evict state from multiple threads
         for (int i = 0; i < threadCount; i++) {
@@ -246,7 +248,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         when(clusterService.getSettings()).thenReturn(settings);
 
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
-        cache.rebuildCache();
+        clusterService.getClusterSettings().applySettings(settings);
         cache.addQuantizationState(fieldName, state);
 
         // Clear cache from multiple threads
