@@ -20,7 +20,6 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -265,7 +264,8 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         assertNull("State should be null", retrievedState);
     }
 
-    public void testRebuild() throws ExecutionException, InterruptedException {
+    @SneakyThrows
+    public void testRebuild() {
         int threadCount = 10;
         ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
         CountDownLatch latch = new CountDownLatch(threadCount);
@@ -312,7 +312,8 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         assertNull("State should be null", retrievedState);
     }
 
-    public void testRebuildOnCacheSizeSettingsChange() throws ExecutionException, InterruptedException {
+    @SneakyThrows
+    public void testRebuildOnCacheSizeSettingsChange() {
         int threadCount = 10;
         ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
         CountDownLatch latch = new CountDownLatch(threadCount);
@@ -363,7 +364,8 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         assertNotEquals(maxCacheSizeInKB, cache.getMaxCacheSizeInKB());
     }
 
-    public void testRebuildOnTimeExpirySettingsChange() throws ExecutionException, InterruptedException {
+    @SneakyThrows
+    public void testRebuildOnTimeExpirySettingsChange() {
         int threadCount = 10;
         ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
         CountDownLatch latch = new CountDownLatch(threadCount);
