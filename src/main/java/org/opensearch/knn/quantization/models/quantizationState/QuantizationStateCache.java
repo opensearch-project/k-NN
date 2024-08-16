@@ -9,6 +9,8 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalCause;
 import com.google.common.cache.RemovalNotification;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.unit.ByteSizeValue;
@@ -29,7 +31,10 @@ public class QuantizationStateCache {
 
     private static volatile QuantizationStateCache instance;
     private Cache<String, QuantizationState> cache;
+    @Getter
+    @Setter
     private long maxCacheSizeInKB;
+    @Getter
     private Instant evictedDueToSizeAt;
 
     private QuantizationStateCache() {
@@ -114,13 +119,5 @@ public class QuantizationStateCache {
      */
     public void clear() {
         cache.invalidateAll();
-    }
-
-    /**
-     * Sets the max cache size, only takes effect once the cache is rebuilt
-     * @param maxCacheSizeInKB max cache size
-     */
-    public void setMaxCacheSizeInKB(long maxCacheSizeInKB) {
-        this.maxCacheSizeInKB = maxCacheSizeInKB;
     }
 }

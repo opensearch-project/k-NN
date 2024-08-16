@@ -7,17 +7,20 @@ package org.opensearch.knn.quantization.quantizationState;
 
 import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
+import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
 import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -260,5 +263,183 @@ public class QuantizationStateCacheTests extends KNNTestCase {
 
         QuantizationState retrievedState = cache.getQuantizationState(fieldName);
         assertNull("State should be null", retrievedState);
+    }
+
+    public void testRebuild() throws ExecutionException, InterruptedException {
+        int threadCount = 10;
+        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch latch = new CountDownLatch(threadCount);
+        String fieldName = "rebuildField";
+        QuantizationState state = new OneBitScalarQuantizationState(
+            new ScalarQuantizationParams(ONE_BIT),
+            new float[] { 1.2f, 2.3f, 3.4f }
+        );
+        String cacheSize = "10%";
+        String cacheSize2 = "5%";
+        TimeValue expiry = TimeValue.timeValueMinutes(30);
+
+        Settings settings = Settings.builder()
+            .put(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING.getKey(), cacheSize)
+            .put(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING.getKey(), expiry)
+            .build();
+        ClusterSettings clusterSettings = new ClusterSettings(
+            settings,
+            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+        );
+        ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        when(clusterService.getSettings()).thenReturn(settings);
+
+        QuantizationStateCache cache = QuantizationStateCache.getInstance();
+        cache.addQuantizationState(fieldName, state);
+
+        // Rebuild cache from multiple threads
+        for (int i = 0; i < threadCount; i++) {
+            executorService.submit(() -> {
+                try {
+                    cache.rebuildCache();
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+
+        // Wait for all threads to finish
+        latch.await();
+        executorService.shutdown();
+
+        QuantizationState retrievedState = cache.getQuantizationState(fieldName);
+        assertNull("State should be null", retrievedState);
+    }
+
+    public void testRebuildOnCacheSizeSettingsChange() throws ExecutionException, InterruptedException {
+        int threadCount = 10;
+        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch latch = new CountDownLatch(threadCount);
+        String fieldName = "rebuildField";
+        QuantizationState state = new OneBitScalarQuantizationState(
+            new ScalarQuantizationParams(ONE_BIT),
+            new float[] { 1.2f, 2.3f, 3.4f }
+        );
+
+        Settings settings = Settings.builder().build();
+        ClusterSettings clusterSettings = new ClusterSettings(
+            settings,
+            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+        );
+        ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        when(clusterService.getSettings()).thenReturn(settings);
+
+        Client client = mock(Client.class);
+
+        KNNSettings.state().initialize(client, clusterService);
+
+        QuantizationStateCache cache = QuantizationStateCache.getInstance();
+        long maxCacheSizeInKB = cache.getMaxCacheSizeInKB();
+        cache.addQuantizationState(fieldName, state);
+
+        String newCacheSize = "10%";
+
+        Settings newSettings = Settings.builder().put(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING.getKey(), newCacheSize).build();
+
+        // Rebuild cache from multiple threads
+        for (int i = 0; i < threadCount; i++) {
+            executorService.submit(() -> {
+                try {
+                    clusterService.getClusterSettings().applySettings(newSettings);
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+
+        // Wait for all threads to finish
+        latch.await();
+        executorService.shutdown();
+
+        QuantizationState retrievedState = cache.getQuantizationState(fieldName);
+        assertNull("State should be null", retrievedState);
+        assertNotEquals(maxCacheSizeInKB, cache.getMaxCacheSizeInKB());
+    }
+
+    public void testRebuildOnTimeExpirySettingsChange() throws ExecutionException, InterruptedException {
+        int threadCount = 10;
+        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch latch = new CountDownLatch(threadCount);
+        String fieldName = "rebuildField";
+        QuantizationState state = new OneBitScalarQuantizationState(
+            new ScalarQuantizationParams(ONE_BIT),
+            new float[] { 1.2f, 2.3f, 3.4f }
+        );
+
+        Settings settings = Settings.builder().build();
+        ClusterSettings clusterSettings = new ClusterSettings(
+            settings,
+            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+        );
+        ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        when(clusterService.getSettings()).thenReturn(settings);
+
+        Client client = mock(Client.class);
+
+        KNNSettings.state().initialize(client, clusterService);
+
+        QuantizationStateCache cache = QuantizationStateCache.getInstance();
+        cache.addQuantizationState(fieldName, state);
+
+        TimeValue newExpiry = TimeValue.timeValueMinutes(30);
+
+        Settings newSettings = Settings.builder().put(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING.getKey(), newExpiry).build();
+
+        // Rebuild cache from multiple threads
+        for (int i = 0; i < threadCount; i++) {
+            executorService.submit(() -> {
+                try {
+                    clusterService.getClusterSettings().applySettings(newSettings);
+                } finally {
+                    latch.countDown();
+                }
+            });
+        }
+
+        // Wait for all threads to finish
+        latch.await();
+        executorService.shutdown();
+
+        QuantizationState retrievedState = cache.getQuantizationState(fieldName);
+        assertNull("State should be null", retrievedState);
+    }
+
+    @SneakyThrows
+    public void testCacheEvictionDueToSize() {
+        String fieldName = "evictionField";
+        // States have size of slightly over 500 bytes so that adding two will reach the max size of 1 kb for the cache
+        int arrayLength = 112;
+        float[] arr = new float[arrayLength];
+        float[] arr2 = new float[arrayLength];
+        for (int i = 0; i < arrayLength; i++) {
+            arr[i] = i;
+            arr[i] = i + 1;
+        }
+        QuantizationState state = new OneBitScalarQuantizationState(new ScalarQuantizationParams(ONE_BIT), arr);
+        QuantizationState state2 = new OneBitScalarQuantizationState(new ScalarQuantizationParams(ONE_BIT), arr2);
+        long cacheSize = 1;
+        Settings settings = Settings.builder().build();
+        ClusterSettings clusterSettings = new ClusterSettings(
+            settings,
+            ImmutableSet.of(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING)
+        );
+        ClusterService clusterService = mock(ClusterService.class);
+        when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
+        when(clusterService.getSettings()).thenReturn(settings);
+
+        QuantizationStateCache cache = QuantizationStateCache.getInstance();
+        cache.setMaxCacheSizeInKB(cacheSize);
+        cache.rebuildCache();
+        cache.addQuantizationState(fieldName, state);
+        cache.addQuantizationState(fieldName, state2);
+        assertNotNull(cache.getEvictedDueToSizeAt());
     }
 }
