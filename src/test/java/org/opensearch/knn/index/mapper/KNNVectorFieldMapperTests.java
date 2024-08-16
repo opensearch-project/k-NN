@@ -22,6 +22,7 @@ import org.opensearch.common.ValidationException;
 import org.opensearch.common.settings.IndexScopedSettings;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.XContentFactory;
+import org.opensearch.core.common.Strings;
 import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.IndexSettings;
 import org.opensearch.index.mapper.ContentPath;
@@ -1169,6 +1170,23 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
         Exception ex = expectThrows(Exception.class, () -> builder.build(builderContext));
         assertTrue(ex.getMessage(), ex.getMessage().contains("is not supported for"));
+    }
+
+    public void testBuild_whenInvalidCharsInFieldName_thenThrowException() {
+        for (char disallowChar : Strings.INVALID_FILENAME_CHARS) {
+            // When an invalid vector field name was given.
+            final String invalidVectorFieldName = "fieldname" + disallowChar;
+
+            // Prepare context.
+            Settings settings = Settings.builder().put(settings(CURRENT).build()).put(KNN_INDEX, true).build();
+            Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
+
+            // IllegalArgumentException should be thrown.
+            Exception e = assertThrows(IllegalArgumentException.class, () -> {
+                new KNNVectorFieldMapper.Builder(invalidVectorFieldName, null, CURRENT, null).build(builderContext);
+            });
+            assertTrue(e.getMessage(), e.getMessage().contains("Vector field name must not include"));
+        }
     }
 
     private LuceneFieldMapper.CreateLuceneFieldMapperInput.CreateLuceneFieldMapperInputBuilder createLuceneFieldMapperInputBuilder(
