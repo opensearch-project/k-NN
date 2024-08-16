@@ -124,6 +124,7 @@ public class KNN80DocValuesProducer extends DocValuesProducer {
 
     /**
      * Get KNNEngine From FieldInfo
+     *
      * @param field which field we need produce from engine
      * @return if and only if Native Engine we return specific engine, else return null
      */
