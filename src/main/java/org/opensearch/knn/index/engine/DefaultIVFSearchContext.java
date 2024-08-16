@@ -14,7 +14,10 @@ import java.util.Map;
 public final class DefaultIVFSearchContext implements KNNLibrarySearchContext {
 
     private final Map<String, Parameter<?>> supportedMethodParameters = ImmutableMap.<String, Parameter<?>>builder()
-        .put(MethodParameter.NPROBE.getName(), new Parameter.IntegerParameter(MethodParameter.NPROBE.getName(), null, value -> true))
+        .put(
+            MethodParameter.NPROBE.getName(),
+            new Parameter.IntegerParameter(MethodParameter.NPROBE.getName(), null, (value, context) -> true)
+        )
         .build();
 
     @Override

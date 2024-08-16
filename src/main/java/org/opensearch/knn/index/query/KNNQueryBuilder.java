@@ -23,9 +23,12 @@ import org.opensearch.index.query.AbstractQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryRewriteContext;
 import org.opensearch.index.query.QueryShardContext;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.model.QueryContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.index.query.parser.RescoreParser;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.SpaceType;
@@ -54,6 +57,8 @@ import static org.opensearch.knn.common.KNNValidationUtil.validateByteVectorValu
 import static org.opensearch.knn.index.query.parser.MethodParametersParser.validateMethodParameters;
 import static org.opensearch.knn.index.engine.KNNEngine.ENGINES_SUPPORTING_RADIAL_SEARCH;
 import static org.opensearch.knn.index.engine.validation.ParameterValidator.validateParameters;
+import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_OVERSAMPLE_PARAMETER;
+import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
 
 /**
  * Helper class to build the KNN query
@@ -73,6 +78,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     public static final ParseField EF_SEARCH_FIELD = new ParseField(METHOD_PARAMETER_EF_SEARCH);
     public static final ParseField NPROBE_FIELD = new ParseField(METHOD_PARAMETER_NPROBES);
     public static final ParseField METHOD_PARAMS_FIELD = new ParseField(METHOD_PARAMETER);
+    public static final ParseField RESCORE_FIELD = new ParseField(RESCORE_PARAMETER);
+    public static final ParseField RESCORE_OVERSAMPLE_FIELD = new ParseField(RESCORE_OVERSAMPLE_PARAMETER);
 
     public static final int K_MAX = 10000;
     /**
@@ -96,6 +103,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
     private QueryBuilder filter;
     @Getter
     private boolean ignoreUnmapped;
+    @Getter
+    private RescoreContext rescoreContext;
 
     /**
      * Constructs a new query with the given field name and vector
@@ -136,6 +145,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         private boolean ignoreUnmapped;
         private String queryName;
         private float boost = DEFAULT_BOOST;
+        private RescoreContext rescoreContext;
 
         public Builder() {}
 
@@ -189,11 +199,25 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             return this;
         }
 
+        public Builder rescoreContext(RescoreContext rescoreContext) {
+            this.rescoreContext = rescoreContext;
+            return this;
+        }
+
         public KNNQueryBuilder build() {
             validate();
             int k = this.k == null ? 0 : this.k;
-            return new KNNQueryBuilder(fieldName, vector, k, maxDistance, minScore, methodParameters, filter, ignoreUnmapped).boost(boost)
-                .queryName(queryName);
+            return new KNNQueryBuilder(
+                fieldName,
+                vector,
+                k,
+                maxDistance,
+                minScore,
+                methodParameters,
+                filter,
+                ignoreUnmapped,
+                rescoreContext
+            ).boost(boost).queryName(queryName);
         }
 
         private void validate() {
@@ -237,6 +261,15 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 if (validationException != null) {
                     throw new IllegalArgumentException(
                         String.format(Locale.ROOT, "[%s] errors in method parameter [%s]", NAME, validationException.getMessage())
+                    );
+                }
+            }
+
+            if (rescoreContext != null) {
+                ValidationException validationException = RescoreParser.validate(rescoreContext);
+                if (validationException != null) {
+                    throw new IllegalArgumentException(
+                        String.format(Locale.ROOT, "[%s] errors in rescore parameter [%s]", NAME, validationException.getMessage())
                     );
                 }
             }
@@ -284,6 +317,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         this.ignoreUnmapped = false;
         this.maxDistance = null;
         this.minScore = null;
+        this.rescoreContext = null;
     }
 
     public static void initialize(ModelDao modelDao) {
@@ -305,6 +339,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         maxDistance = builder.maxDistance;
         minScore = builder.minScore;
         methodParameters = builder.methodParameters;
+        rescoreContext = builder.rescoreContext;
     }
 
     @Override
@@ -389,7 +424,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
             QueryContext queryContext = new QueryContext(vectorQueryType);
             ValidationException validationException = validateParameters(
                 engineSpecificMethodContext.supportedMethodParameters(queryContext),
-                (Map<String, Object>) methodParameters
+                (Map<String, Object>) methodParameters,
+                KNNMethodConfigContext.EMPTY
             );
             if (validationException != null) {
                 throw new IllegalArgumentException(

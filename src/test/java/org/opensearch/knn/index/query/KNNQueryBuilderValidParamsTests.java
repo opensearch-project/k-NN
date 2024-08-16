@@ -8,6 +8,7 @@ package org.opensearch.knn.index.query;
 import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import lombok.AllArgsConstructor;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -28,8 +29,9 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
     private Map<String, ?> methodParameters;
     private Float maxDistance;
     private Float minScore;
+    private RescoreContext rescoreContext;
 
-    @ParametersFactory(argumentFormatting = "description:%1$s; k:%3$s, efSearch:%4$s, maxDist:%5$s, minScore:%6$s")
+    @ParametersFactory(argumentFormatting = "description:%1$s; k:%3$s, efSearch:%4$s, maxDist:%5$s, minScore:%6$s, rescoreContext:%6$s")
     public static Collection<Object[]> validParameters() {
         return Arrays.asList(
             $$(
@@ -37,6 +39,7 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
                     "valid knn with k",
                     KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).k(10).build(),
                     10,
+                    null,
                     null,
                     null,
                     null
@@ -52,6 +55,7 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
                     10,
                     Map.of("ef_search", 12),
                     null,
+                    null,
                     null
                 ),
                 $(
@@ -60,6 +64,7 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
                     null,
                     null,
                     10.0f,
+                    null,
                     null
                 ),
                 $(
@@ -68,7 +73,17 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
                     null,
                     null,
                     null,
-                    10.0f
+                    10.0f,
+                    null
+                ),
+                $(
+                    "valid knn with rescore",
+                    KNNQueryBuilder.builder().fieldName(FIELD_NAME).vector(QUERY_VECTOR).minScore(10.0f).build(),
+                    null,
+                    null,
+                    null,
+                    10.0f,
+                    RescoreContext.getDefault()
                 )
             )
         );
@@ -84,6 +99,7 @@ public class KNNQueryBuilderValidParamsTests extends KNNTestCase {
                 .methodParameters(methodParameters)
                 .maxDistance(maxDistance)
                 .minScore(minScore)
+                .rescoreContext(rescoreContext)
                 .build()
         );
     }

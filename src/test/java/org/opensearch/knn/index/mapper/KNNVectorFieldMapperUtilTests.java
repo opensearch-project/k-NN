@@ -18,17 +18,11 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
-import org.opensearch.knn.index.engine.KNNMethodContext;
-import org.opensearch.knn.index.engine.MethodComponentContext;
-import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
-import org.opensearch.knn.index.engine.KNNEngine;
 
 import java.util.Arrays;
-import java.util.Collections;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -81,35 +75,6 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
         assertEquals(4, KNNVectorFieldMapperUtil.getExpectedVectorLength(knnVectorFieldTypeModelBased));
     }
 
-    public void testValidateVectorDataType_whenBinaryFaissHNSW_thenValid() {
-        validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_HNSW, VectorDataType.BINARY, null);
-    }
-
-    public void testValidateVectorDataType_whenBinaryNonFaiss_thenException() {
-        validateValidateVectorDataType(KNNEngine.LUCENE, KNNConstants.METHOD_HNSW, VectorDataType.BINARY, "only supported");
-        validateValidateVectorDataType(KNNEngine.NMSLIB, KNNConstants.METHOD_HNSW, VectorDataType.BINARY, "only supported");
-    }
-
-    public void testValidateVectorDataType_whenBinaryFaissIVF_thenException() {
-        validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_IVF, VectorDataType.BINARY, "only supported");
-    }
-
-    public void testValidateVectorDataType_whenByteLucene_thenValid() {
-        validateValidateVectorDataType(KNNEngine.LUCENE, KNNConstants.METHOD_HNSW, VectorDataType.BYTE, null);
-        validateValidateVectorDataType(KNNEngine.LUCENE, KNNConstants.METHOD_IVF, VectorDataType.BYTE, null);
-    }
-
-    public void testValidateVectorDataType_whenByteNonLucene_thenException() {
-        validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_HNSW, VectorDataType.BYTE, "only supported");
-        validateValidateVectorDataType(KNNEngine.NMSLIB, KNNConstants.METHOD_IVF, VectorDataType.BYTE, "only supported");
-    }
-
-    public void testValidateVectorDataType_whenFloat_thenValid() {
-        validateValidateVectorDataType(KNNEngine.FAISS, KNNConstants.METHOD_HNSW, VectorDataType.FLOAT, null);
-        validateValidateVectorDataType(KNNEngine.LUCENE, KNNConstants.METHOD_HNSW, VectorDataType.FLOAT, null);
-        validateValidateVectorDataType(KNNEngine.NMSLIB, KNNConstants.METHOD_HNSW, VectorDataType.FLOAT, null);
-    }
-
     public void testUseLuceneKNNVectorsFormat_withDifferentInputs_thenSuccess() {
         final KNNSettings knnSettings = mock(KNNSettings.class);
         final MockedStatic<KNNSettings> mockedStatic = Mockito.mockStatic(KNNSettings.class);
@@ -125,24 +90,5 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
         // making sure to close the static mock to ensure that for tests running on this thread are not impacted by
         // this mocking
         mockedStatic.close();
-    }
-
-    private void validateValidateVectorDataType(
-        final KNNEngine knnEngine,
-        final String methodName,
-        final VectorDataType vectorDataType,
-        final String expectedErrMsg
-    ) {
-        MethodComponentContext methodComponentContext = new MethodComponentContext(methodName, Collections.emptyMap());
-        KNNMethodContext methodContext = new KNNMethodContext(knnEngine, SpaceType.UNDEFINED, methodComponentContext);
-        if (expectedErrMsg == null) {
-            KNNVectorFieldMapperUtil.validateVectorDataType(methodContext, vectorDataType);
-        } else {
-            Exception ex = expectThrows(
-                IllegalArgumentException.class,
-                () -> KNNVectorFieldMapperUtil.validateVectorDataType(methodContext, vectorDataType)
-            );
-            assertTrue(ex.getMessage().contains(expectedErrMsg));
-        }
     }
 }

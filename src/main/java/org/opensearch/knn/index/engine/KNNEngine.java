@@ -11,7 +11,6 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.engine.faiss.Faiss;
 import org.opensearch.knn.index.engine.lucene.Lucene;
 import org.opensearch.knn.index.engine.nmslib.Nmslib;
-import org.opensearch.knn.training.VectorSpaceInfo;
 
 import java.util.List;
 import java.util.Map;
@@ -161,13 +160,8 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public ValidationException validateMethod(KNNMethodContext knnMethodContext) {
-        return knnLibrary.validateMethod(knnMethodContext);
-    }
-
-    @Override
-    public ValidationException validateMethodWithData(KNNMethodContext knnMethodContext, VectorSpaceInfo vectorSpaceInfo) {
-        return knnLibrary.validateMethodWithData(knnMethodContext, vectorSpaceInfo);
+    public ValidationException validateMethod(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
+        return knnLibrary.validateMethod(knnMethodContext, knnMethodConfigContext);
     }
 
     @Override
@@ -176,8 +170,11 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(KNNMethodContext knnMethodContext) {
-        return knnLibrary.getKNNLibraryIndexingContext(knnMethodContext);
+    public KNNLibraryIndexingContext getKNNLibraryIndexingContext(
+        KNNMethodContext knnMethodContext,
+        KNNMethodConfigContext knnMethodConfigContext
+    ) {
+        return knnLibrary.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
     }
 
     @Override
@@ -186,8 +183,8 @@ public enum KNNEngine implements KNNLibrary {
     }
 
     @Override
-    public int estimateOverheadInKB(KNNMethodContext knnMethodContext, int dimension) {
-        return knnLibrary.estimateOverheadInKB(knnMethodContext, dimension);
+    public int estimateOverheadInKB(KNNMethodContext knnMethodContext, KNNMethodConfigContext knnMethodConfigContext) {
+        return knnLibrary.estimateOverheadInKB(knnMethodContext, knnMethodConfigContext);
     }
 
     @Override

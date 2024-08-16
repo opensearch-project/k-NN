@@ -58,5 +58,4 @@ public abstract class AbstractRestartUpgradeTestCase extends KNNRestTestCase {
     protected final Optional<String> getBWCVersion() {
         return Optional.ofNullable(System.getProperty(BWC_VERSION, null));
     }
-
 }

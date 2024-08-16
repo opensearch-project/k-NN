@@ -76,14 +76,14 @@ public class OneBitScalarQuantizer implements Quantizer<float[], byte[]> {
             throw new IllegalArgumentException("Vector to quantize must not be null.");
         }
         validateState(state);
+        int vectorLength = vector.length;
         OneBitScalarQuantizationState binaryState = (OneBitScalarQuantizationState) state;
         float[] thresholds = binaryState.getMeanThresholds();
-        if (thresholds == null || thresholds.length != vector.length) {
+        if (thresholds == null || thresholds.length != vectorLength) {
             throw new IllegalArgumentException("Thresholds must not be null and must match the dimension of the vector.");
         }
-        // Prepare and get the writable array
-        byte[] writableArray = output.prepareAndGetWritableQuantizedVector(1, vector.length);
-        BitPacker.quantizeAndPackBits(vector, thresholds, writableArray);
+        if (!output.isPrepared(vectorLength)) output.prepareQuantizedVector(vectorLength);
+        BitPacker.quantizeAndPackBits(vector, thresholds, output.getQuantizedVector());
     }
 
     /**

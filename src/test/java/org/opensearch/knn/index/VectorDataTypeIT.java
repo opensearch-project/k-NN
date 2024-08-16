@@ -32,9 +32,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
-import static org.opensearch.knn.common.KNNConstants.LUCENE_NAME;
 import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
-import static org.opensearch.knn.common.KNNConstants.NMSLIB_NAME;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
 import static org.opensearch.knn.index.VectorDataType.SUPPORTED_VECTOR_DATA_TYPES;
 
@@ -245,18 +243,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
             ResponseException.class,
             () -> createKnnIndexMappingWithNmslibEngine(2, SpaceType.L2, VectorDataType.BYTE.getValue())
         );
-        assertTrue(
-            ex.getMessage()
-                .contains(
-                    String.format(
-                        Locale.ROOT,
-                        "[%s] field with value [%s] is only supported for [%s] engine",
-                        VECTOR_DATA_TYPE_FIELD,
-                        VectorDataType.BYTE.getValue(),
-                        LUCENE_NAME
-                    )
-                )
-        );
+        assertTrue(ex.getMessage().contains("is not supported for vector data type"));
     }
 
     @SneakyThrows
@@ -278,18 +265,7 @@ public class VectorDataTypeIT extends KNNRestTestCase {
         String mapping = builder.toString();
 
         ResponseException ex = expectThrows(ResponseException.class, () -> createKnnIndex(INDEX_NAME, mapping));
-        assertTrue(
-            ex.getMessage()
-                .contains(
-                    String.format(
-                        Locale.ROOT,
-                        "[%s] field with value [%s] is not supported for [%s] engine",
-                        VECTOR_DATA_TYPE_FIELD,
-                        VectorDataType.BYTE.getValue(),
-                        NMSLIB_NAME
-                    )
-                )
-        );
+        assertTrue(ex.getMessage(), ex.getMessage().contains("is not supported for vector data type"));
 
     }
 
