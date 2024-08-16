@@ -10,14 +10,16 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalCause;
 import com.google.common.cache.RemovalNotification;
 import lombok.extern.log4j.Log4j2;
-import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.knn.index.KNNSettings;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
-import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING;
-import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING;
+import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES;
+import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_SIZE_LIMIT;
 
 /**
  * A thread-safe singleton cache that contains quantization states.
@@ -26,20 +28,12 @@ import static org.opensearch.knn.index.KNNSettings.QUANTIZATION_STATE_CACHE_SIZE
 public class QuantizationStateCache {
 
     private static volatile QuantizationStateCache instance;
-    private static ClusterService clusterService;
     private Cache<String, QuantizationState> cache;
     private long maxCacheSizeInKB;
     private Instant evictedDueToSizeAt;
 
     private QuantizationStateCache() {
-        maxCacheSizeInKB = QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING.get(clusterService.getSettings()).getKb();
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, it -> {
-            maxCacheSizeInKB = it.getKb();
-            rebuildCache();
-        });
-        clusterService.getClusterSettings().addSettingsUpdateConsumer(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING, it -> {
-            rebuildCache();
-        });
+        maxCacheSizeInKB = ((ByteSizeValue) KNNSettings.state().getSettingValue(QUANTIZATION_STATE_CACHE_SIZE_LIMIT)).getKb();
         buildCache();
     }
 
@@ -58,14 +52,6 @@ public class QuantizationStateCache {
         return instance;
     }
 
-    /**
-     * Initialize the cache
-     * @param clusterService used to update settings
-     */
-    public static void initialize(ClusterService clusterService) {
-        QuantizationStateCache.clusterService = clusterService;
-    }
-
     private void buildCache() {
         this.cache = CacheBuilder.newBuilder().concurrencyLevel(1).maximumWeight(maxCacheSizeInKB).weigher((k, v) -> {
             try {
@@ -75,14 +61,14 @@ public class QuantizationStateCache {
             }
         })
             .expireAfterAccess(
-                QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING.get(clusterService.getSettings()).getMinutes(),
+                ((TimeValue) KNNSettings.state().getSettingValue(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES)).getMinutes(),
                 TimeUnit.MINUTES
             )
             .removalListener(this::onRemoval)
             .build();
     }
 
-    private void rebuildCache() {
+    public synchronized void rebuildCache() {
         clear();
         buildCache();
     }
@@ -128,5 +114,13 @@ public class QuantizationStateCache {
      */
     public void clear() {
         cache.invalidateAll();
+    }
+
+    /**
+     * Sets the max cache size, only takes effect once the cache is rebuilt
+     * @param maxCacheSizeInKB max cache size
+     */
+    public void setMaxCacheSizeInKB(long maxCacheSizeInKB) {
+        this.maxCacheSizeInKB = maxCacheSizeInKB;
     }
 }

@@ -52,7 +52,6 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
 
-        QuantizationStateCache.initialize(clusterService);
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
 
         // Add state
@@ -88,7 +87,6 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
 
-        QuantizationStateCache.initialize(clusterService);
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
 
         // Add state from multiple threads
@@ -136,7 +134,6 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
 
-        QuantizationStateCache.initialize(clusterService);
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
 
         cache.addQuantizationState(fieldName, state);
@@ -185,7 +182,6 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
 
-        QuantizationStateCache.initialize(clusterService);
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
 
         // Concurrently add and evict state from multiple threads
@@ -244,7 +240,6 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
 
-        QuantizationStateCache.initialize(clusterService);
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
         cache.addQuantizationState(fieldName, state);
 
