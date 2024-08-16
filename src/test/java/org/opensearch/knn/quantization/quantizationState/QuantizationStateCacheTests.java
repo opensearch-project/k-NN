@@ -55,6 +55,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         when(clusterService.getSettings()).thenReturn(settings);
 
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
+        cache.rebuildCache();
 
         // Add state
         cache.addQuantizationState(fieldName, state);
@@ -90,6 +91,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         when(clusterService.getSettings()).thenReturn(settings);
 
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
+        cache.rebuildCache();
 
         // Add state from multiple threads
         for (int i = 0; i < threadCount; i++) {
@@ -185,6 +187,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         when(clusterService.getSettings()).thenReturn(settings);
 
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
+        cache.rebuildCache();
 
         // Concurrently add and evict state from multiple threads
         for (int i = 0; i < threadCount; i++) {
@@ -243,6 +246,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         when(clusterService.getSettings()).thenReturn(settings);
 
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
+        cache.rebuildCache();
         cache.addQuantizationState(fieldName, state);
 
         // Clear cache from multiple threads
@@ -275,7 +279,6 @@ public class QuantizationStateCacheTests extends KNNTestCase {
             new float[] { 1.2f, 2.3f, 3.4f }
         );
         String cacheSize = "10%";
-        String cacheSize2 = "5%";
         TimeValue expiry = TimeValue.timeValueMinutes(30);
 
         Settings settings = Settings.builder()
@@ -337,6 +340,7 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         KNNSettings.state().initialize(client, clusterService);
 
         QuantizationStateCache cache = QuantizationStateCache.getInstance();
+        cache.rebuildCache();
         long maxCacheSizeInKB = cache.getMaxCacheSizeInKB();
         cache.addQuantizationState(fieldName, state);
 
