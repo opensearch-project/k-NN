@@ -17,13 +17,16 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
 import org.junit.Before;
+import org.opensearch.Version;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.KNN87Codec.KNN87Codec;
 import org.opensearch.knn.index.codec.KNNCodecTestUtil;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
@@ -94,9 +97,12 @@ public class KNN80DocValuesProducerTests extends KNNTestCase {
             spaceType,
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
-
+        KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
+                .vectorDataType(VectorDataType.FLOAT)
+                .versionCreated(Version.CURRENT)
+                .build();
         String parameterString = XContentFactory.jsonBuilder()
-            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters())
+            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext,knnMethodConfigContext).getLibraryParameters())
             .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
