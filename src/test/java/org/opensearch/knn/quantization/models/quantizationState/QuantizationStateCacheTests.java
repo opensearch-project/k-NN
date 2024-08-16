@@ -7,10 +7,6 @@ package org.opensearch.knn.quantization.models.quantizationState;
 
 import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
-import lombok.Synchronized;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Test;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -19,9 +15,6 @@ import org.opensearch.common.unit.TimeValue;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
-import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
-import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
-import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
