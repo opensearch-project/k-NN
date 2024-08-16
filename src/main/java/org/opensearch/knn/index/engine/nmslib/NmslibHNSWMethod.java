@@ -5,8 +5,10 @@
 
 package org.opensearch.knn.index.engine.nmslib;
 
+import com.google.common.collect.ImmutableSet;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.AbstractKNNMethod;
 import org.opensearch.knn.index.engine.DefaultHnswSearchContext;
 import org.opensearch.knn.index.engine.MethodComponent;
@@ -24,6 +26,8 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
  * Nmslib's HNSW implementation
  */
 public class NmslibHNSWMethod extends AbstractKNNMethod {
+
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT);
 
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
         SpaceType.UNDEFINED,
@@ -44,16 +48,17 @@ public class NmslibHNSWMethod extends AbstractKNNMethod {
 
     private static MethodComponent initMethodComponent() {
         return MethodComponent.Builder.builder(METHOD_HNSW)
+            .addSupportedDataTypes(SUPPORTED_DATA_TYPES)
             .addParameter(
                 METHOD_PARAMETER_M,
-                new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, v -> v > 0)
+                new Parameter.IntegerParameter(METHOD_PARAMETER_M, KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_M, (v, context) -> v > 0)
             )
             .addParameter(
                 METHOD_PARAMETER_EF_CONSTRUCTION,
                 new Parameter.IntegerParameter(
                     METHOD_PARAMETER_EF_CONSTRUCTION,
                     KNNSettings.INDEX_KNN_DEFAULT_ALGO_PARAM_EF_CONSTRUCTION,
-                    v -> v > 0
+                    (v, context) -> v > 0
                 )
             )
             .build();

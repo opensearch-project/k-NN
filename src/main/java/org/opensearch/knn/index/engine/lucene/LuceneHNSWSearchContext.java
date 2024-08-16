@@ -17,7 +17,10 @@ import java.util.Map;
 public class LuceneHNSWSearchContext implements KNNLibrarySearchContext {
 
     private final Map<String, Parameter<?>> supportedMethodParameters = ImmutableMap.<String, Parameter<?>>builder()
-        .put(MethodParameter.EF_SEARCH.getName(), new Parameter.IntegerParameter(MethodParameter.EF_SEARCH.getName(), null, value -> true))
+        .put(
+            MethodParameter.EF_SEARCH.getName(),
+            new Parameter.IntegerParameter(MethodParameter.EF_SEARCH.getName(), null, (v, context) -> true)
+        )
         .build();
 
     @Override

@@ -7,7 +7,6 @@ package org.opensearch.knn;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.opensearch.Version;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
 import org.opensearch.common.settings.Setting;
@@ -103,16 +102,17 @@ public class KNNTestCase extends OpenSearchTestCase {
 
     public static KNNMethodContext getDefaultKNNMethodContext() {
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        KNNMethodContext defaultInstance = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponentContext);
-        methodComponentContext.setIndexVersion(Version.CURRENT);
-        return defaultInstance;
+        return new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponentContext);
+    }
+
+    public static KNNMethodContext getDefaultByteKNNMethodContext() {
+        MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
+        return new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponentContext);
     }
 
     public static KNNMethodContext getDefaultBinaryKNNMethodContext() {
         MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-        KNNMethodContext defaultInstance = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT_BINARY, methodComponentContext);
-        methodComponentContext.setIndexVersion(Version.CURRENT);
-        return defaultInstance;
+        return new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT_BINARY, methodComponentContext);
     }
 
     public static KNNMappingConfig getMappingConfigForMethodMapping(KNNMethodContext knnMethodContext, int dimension) {
