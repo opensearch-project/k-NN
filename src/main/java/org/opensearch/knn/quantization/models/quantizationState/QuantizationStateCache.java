@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.quantization.models.quantizationState;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalCause;
@@ -37,7 +38,8 @@ public class QuantizationStateCache {
     @Getter
     private Instant evictedDueToSizeAt;
 
-    private QuantizationStateCache() {
+    @VisibleForTesting
+    QuantizationStateCache() {
         maxCacheSizeInKB = ((ByteSizeValue) KNNSettings.state().getSettingValue(QUANTIZATION_STATE_CACHE_SIZE_LIMIT)).getKb();
         buildCache();
     }

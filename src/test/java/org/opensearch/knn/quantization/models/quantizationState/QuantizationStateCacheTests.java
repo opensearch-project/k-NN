@@ -3,10 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-package org.opensearch.knn.quantization.quantizationState;
+package org.opensearch.knn.quantization.models.quantizationState;
 
 import com.google.common.collect.ImmutableSet;
 import lombok.SneakyThrows;
+import lombok.Synchronized;
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Test;
 import org.opensearch.client.Client;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.settings.ClusterSettings;
@@ -420,7 +424,6 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         assertNull("State should be null", retrievedState);
     }
 
-    @SneakyThrows
     public void testCacheEvictionDueToSize() {
         String fieldName = "evictionField";
         // States have size of slightly over 500 bytes so that adding two will reach the max size of 1 kb for the cache
@@ -443,11 +446,12 @@ public class QuantizationStateCacheTests extends KNNTestCase {
         when(clusterService.getClusterSettings()).thenReturn(clusterSettings);
         when(clusterService.getSettings()).thenReturn(settings);
 
-        QuantizationStateCache cache = QuantizationStateCache.getInstance();
+        QuantizationStateCache cache = new QuantizationStateCache();
         cache.setMaxCacheSizeInKB(cacheSize);
         cache.rebuildCache();
         cache.addQuantizationState(fieldName, state);
         cache.addQuantizationState(fieldName, state2);
+        cache.clear();
         assertNotNull(cache.getEvictedDueToSizeAt());
     }
 }
