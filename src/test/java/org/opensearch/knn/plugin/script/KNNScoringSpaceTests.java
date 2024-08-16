@@ -15,9 +15,9 @@ import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.index.mapper.BinaryFieldMapper;
 import org.opensearch.index.mapper.NumberFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -43,7 +43,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
 
     private void expectThrowsExceptionWithKNNFieldWithBinaryDataType(Class clazz) throws NoSuchMethodException {
         Constructor<?> constructor = clazz.getConstructor(Object.class, MappedFieldType.class);
-        KNNVectorFieldMapper.KNNVectorFieldType invalidFieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        KNNVectorFieldType invalidFieldType = mock(KNNVectorFieldType.class);
         when(invalidFieldType.getVectorDataType()).thenReturn(VectorDataType.BINARY);
         Exception e = expectThrows(InvocationTargetException.class, () -> constructor.newInstance(null, invalidFieldType));
         assertTrue(e.getCause() instanceof IllegalArgumentException);
@@ -57,12 +57,12 @@ public class KNNScoringSpaceTests extends KNNTestCase {
     public void testL2_whenValid_thenSucceed() {
         float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
         List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
-        KNNMethodContext knnMethodContext = KNNMethodContext.getDefault();
-        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
-            3,
-            knnMethodContext
+            VectorDataType.FLOAT,
+            getMappingConfigForMethodMapping(knnMethodContext, 3)
         );
         KNNScoringSpace.L2 l2 = new KNNScoringSpace.L2(arrayListQueryObject, fieldType);
         assertEquals(1F, l2.getScoringMethod().apply(arrayFloat, arrayFloat), 0.1F);
@@ -78,13 +78,12 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
         List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(2.0, 4.0, 6.0));
         float[] arrayFloat2 = new float[] { 2.0f, 4.0f, 6.0f };
-        KNNMethodContext knnMethodContext = KNNMethodContext.getDefault();
-
-        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
-            3,
-            knnMethodContext
+            VectorDataType.FLOAT,
+            getMappingConfigForMethodMapping(knnMethodContext, 3)
         );
         KNNScoringSpace.CosineSimilarity cosineSimilarity = new KNNScoringSpace.CosineSimilarity(arrayListQueryObject, fieldType);
         assertEquals(2F, cosineSimilarity.getScoringMethod().apply(arrayFloat2, arrayFloat), 0.1F);
@@ -102,12 +101,12 @@ public class KNNScoringSpaceTests extends KNNTestCase {
     }
 
     public void testCosineSimilarity_whenZeroVector_thenException() {
-        KNNMethodContext knnMethodContext = KNNMethodContext.getDefault();
-        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
-            3,
-            knnMethodContext
+            VectorDataType.FLOAT,
+            getMappingConfigForMethodMapping(knnMethodContext, 3)
         );
 
         final List<Float> queryZeroVector = List.of(0.0f, 0.0f, 0.0f);
@@ -131,13 +130,13 @@ public class KNNScoringSpaceTests extends KNNTestCase {
         float[] arrayFloat_case1 = new float[] { 1.0f, 2.0f, 3.0f };
         List<Double> arrayListQueryObject_case1 = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
         float[] arrayFloat2_case1 = new float[] { 1.0f, 1.0f, 1.0f };
-        KNNMethodContext knnMethodContext = KNNMethodContext.getDefault();
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
 
-        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
-            3,
-            knnMethodContext
+            VectorDataType.FLOAT,
+            getMappingConfigForMethodMapping(knnMethodContext, 3)
         );
         KNNScoringSpace.InnerProd innerProd = new KNNScoringSpace.InnerProd(arrayListQueryObject_case1, fieldType);
 
@@ -203,14 +202,14 @@ public class KNNScoringSpaceTests extends KNNTestCase {
 
     public void testHamming_whenKNNFieldType_thenSucceed() {
         List<Double> arrayListQueryObject = new ArrayList<>(Arrays.asList(1.0, 2.0, 3.0));
-        KNNMethodContext knnMethodContext = KNNMethodContext.getDefault();
-        KNNVectorFieldMapper.KNNVectorFieldType fieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
+        KNNMethodContext knnMethodContext = getDefaultKNNMethodContext();
+        KNNVectorFieldType fieldType = new KNNVectorFieldType(
             "test",
             Collections.emptyMap(),
-            8 * arrayListQueryObject.size(),
-            knnMethodContext,
-            VectorDataType.BINARY
+            VectorDataType.BINARY,
+            getMappingConfigForMethodMapping(knnMethodContext, 8 * arrayListQueryObject.size())
         );
+
         KNNScoringSpace.Hamming hamming = new KNNScoringSpace.Hamming(arrayListQueryObject, fieldType);
 
         float[] arrayFloat = new float[] { 1.0f, 2.0f, 3.0f };
@@ -218,7 +217,7 @@ public class KNNScoringSpaceTests extends KNNTestCase {
     }
 
     public void testHamming_whenNonBinaryVectorDataType_thenException() {
-        KNNVectorFieldMapper.KNNVectorFieldType invalidFieldType = mock(KNNVectorFieldMapper.KNNVectorFieldType.class);
+        KNNVectorFieldType invalidFieldType = mock(KNNVectorFieldType.class);
         when(invalidFieldType.getVectorDataType()).thenReturn(randomInt() % 2 == 0 ? VectorDataType.FLOAT : VectorDataType.BYTE);
         Exception e = expectThrows(IllegalArgumentException.class, () -> new KNNScoringSpace.Hamming(null, invalidFieldType));
         assertTrue(e.getMessage(), e.getMessage().contains("The data type should be [BINARY]"));

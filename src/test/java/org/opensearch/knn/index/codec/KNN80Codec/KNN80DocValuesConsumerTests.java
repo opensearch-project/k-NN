@@ -208,7 +208,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
 
-        String parameterString = XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)).toString();
+        String parameterString = XContentFactory.jsonBuilder()
+            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters())
+            .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
             KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
@@ -216,62 +218,6 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
                 .addAttribute(KNNConstants.KNN_ENGINE, knnEngine.getName())
                 .addAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue())
                 .addAttribute(KNNConstants.PARAMETERS, parameterString)
-                .build() };
-
-        FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
-        SegmentWriteState state = new SegmentWriteState(null, directory, segmentInfo, fieldInfos, null, IOContext.DEFAULT);
-
-        long initialRefreshOperations = KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue();
-        long initialMergeOperations = KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue();
-
-        // Add documents to the field
-        KNN80DocValuesConsumer knn80DocValuesConsumer = new KNN80DocValuesConsumer(null, state);
-        TestVectorValues.RandomVectorDocValuesProducer randomVectorDocValuesProducer = new TestVectorValues.RandomVectorDocValuesProducer(
-            docsInSegment,
-            dimension
-        );
-        knn80DocValuesConsumer.addKNNBinaryField(fieldInfoArray[0], randomVectorDocValuesProducer, true, true);
-
-        // The document should be created in the correct location
-        String expectedFile = KNNCodecUtil.buildEngineFileName(segmentName, knnEngine.getVersion(), fieldName, knnEngine.getExtension());
-        assertFileInCorrectLocation(state, expectedFile);
-
-        // The footer should be valid
-        assertValidFooter(state.directory, expectedFile);
-
-        // The document should be readable by nmslib
-        assertLoadableByEngine(null, state, expectedFile, knnEngine, spaceType, dimension);
-
-        // The graph creation statistics should be updated
-        assertEquals(1 + initialRefreshOperations, (long) KNNGraphValue.REFRESH_TOTAL_OPERATIONS.getValue());
-        assertEquals(1 + initialMergeOperations, (long) KNNGraphValue.MERGE_TOTAL_OPERATIONS.getValue());
-        assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_DOCS.getValue());
-        assertNotEquals(0, (long) KNNGraphValue.MERGE_TOTAL_SIZE_IN_BYTES.getValue());
-    }
-
-    public void testAddKNNBinaryField_fromScratch_nmslibLegacy() throws IOException {
-        // Set information about the segment and the fields
-        String segmentName = String.format("test_segment%s", randomAlphaOfLength(4));
-        int docsInSegment = 100;
-        String fieldName = String.format("test_field%s", randomAlphaOfLength(4));
-
-        KNNEngine knnEngine = KNNEngine.NMSLIB;
-        SpaceType spaceType = SpaceType.COSINESIMIL;
-        int dimension = 16;
-
-        SegmentInfo segmentInfo = KNNCodecTestUtil.segmentInfoBuilder()
-            .directory(directory)
-            .segmentName(segmentName)
-            .docsInSegment(docsInSegment)
-            .codec(codec)
-            .build();
-
-        FieldInfo[] fieldInfoArray = new FieldInfo[] {
-            KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
-                .addAttribute(KNNVectorFieldMapper.KNN_FIELD, "true")
-                .addAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, "512")
-                .addAttribute(KNNConstants.HNSW_ALGO_M, "16")
-                .addAttribute(KNNConstants.SPACE_TYPE, spaceType.getValue())
                 .build() };
 
         FieldInfos fieldInfos = new FieldInfos(fieldInfoArray);
@@ -328,7 +274,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         );
         knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 
-        String parameterString = XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)).toString();
+        String parameterString = XContentFactory.jsonBuilder()
+            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters())
+            .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
             KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)
@@ -393,7 +341,9 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
         );
         knnMethodContext.getMethodComponentContext().setIndexVersion(Version.CURRENT);
 
-        String parameterString = XContentFactory.jsonBuilder().map(knnEngine.getMethodAsMap(knnMethodContext)).toString();
+        String parameterString = XContentFactory.jsonBuilder()
+            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext).getLibraryParameters())
+            .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
             KNNCodecTestUtil.FieldInfoBuilder.builder(fieldName)

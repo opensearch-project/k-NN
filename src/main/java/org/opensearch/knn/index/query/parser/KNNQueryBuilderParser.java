@@ -16,6 +16,7 @@ import org.opensearch.core.xcontent.XContentLocation;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 import org.opensearch.knn.index.util.IndexUtil;
 import org.opensearch.knn.index.query.KNNQueryBuilder;
 
@@ -29,6 +30,8 @@ import static org.opensearch.index.query.AbstractQueryBuilder.BOOST_FIELD;
 import static org.opensearch.index.query.AbstractQueryBuilder.NAME_FIELD;
 import static org.opensearch.index.query.AbstractQueryBuilder.parseInnerQueryBuilder;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER;
+import static org.opensearch.knn.index.query.KNNQueryBuilder.RESCORE_FIELD;
+import static org.opensearch.knn.index.query.parser.RescoreParser.RESCORE_PARAMETER;
 import static org.opensearch.knn.index.util.IndexUtil.isClusterOnOrAfterMinRequiredVersion;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.FILTER_FIELD;
 import static org.opensearch.knn.index.query.KNNQueryBuilder.IGNORE_UNMAPPED_FIELD;
@@ -79,6 +82,17 @@ public final class KNNQueryBuilderParser {
         );
         internalParser.declareObject(KNNQueryBuilder.Builder::filter, (p, v) -> parseInnerQueryBuilder(p), FILTER_FIELD);
 
+        internalParser.declareObjectOrDefault(
+            KNNQueryBuilder.Builder::rescoreContext,
+            (p, v) -> RescoreParser.fromXContent(p),
+            RescoreContext::getDefault,
+            RESCORE_FIELD
+        );
+
+        // Declare fields that cannot be set at the same time. Right now, rescore and radial is not supported
+        internalParser.declareExclusiveFieldSet(RESCORE_FIELD.getPreferredName(), MAX_DISTANCE_FIELD.getPreferredName());
+        internalParser.declareExclusiveFieldSet(RESCORE_FIELD.getPreferredName(), MIN_SCORE_FIELD.getPreferredName());
+
         return internalParser;
     }
 
@@ -113,6 +127,10 @@ public final class KNNQueryBuilderParser {
             builder.methodParameters(MethodParametersParser.streamInput(in, IndexUtil::isClusterOnOrAfterMinRequiredVersion));
         }
 
+        if (minClusterVersionCheck.apply(RESCORE_PARAMETER)) {
+            builder.rescoreContext(RescoreParser.streamInput(in));
+        }
+
         return builder;
     }
 
@@ -145,6 +163,9 @@ public final class KNNQueryBuilderParser {
         }
         if (minClusterVersionCheck.apply(METHOD_PARAMETER)) {
             MethodParametersParser.streamOutput(out, builder.getMethodParameters(), IndexUtil::isClusterOnOrAfterMinRequiredVersion);
+        }
+        if (minClusterVersionCheck.apply(RESCORE_PARAMETER)) {
+            RescoreParser.streamOutput(out, builder.getRescoreContext());
         }
     }
 
@@ -210,6 +231,9 @@ public final class KNNQueryBuilderParser {
         }
         if (knnQueryBuilder.getMethodParameters() != null) {
             MethodParametersParser.doXContent(builder, knnQueryBuilder.getMethodParameters());
+        }
+        if (knnQueryBuilder.getRescoreContext() != null) {
+            RescoreParser.doXContent(builder, knnQueryBuilder.getRescoreContext());
         }
 
         builder.field(BOOST_FIELD.getPreferredName(), knnQueryBuilder.boost());

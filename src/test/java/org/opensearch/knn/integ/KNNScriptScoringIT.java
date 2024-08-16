@@ -30,8 +30,8 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.functionscore.ScriptScoreQueryBuilder;
 import org.opensearch.core.rest.RestStatus;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.plugin.script.KNNScoringScriptEngine;
 import org.opensearch.knn.plugin.script.KNNScoringSpace;
 import org.opensearch.knn.plugin.script.KNNScoringSpaceFactory;
@@ -47,6 +47,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.opensearch.knn.KNNTestCase.getMappingConfigForFlatMapping;
 import static org.opensearch.knn.common.KNNConstants.FAISS_NAME;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.METHOD_IVF;
@@ -735,18 +736,20 @@ public class KNNScriptScoringIT extends KNNRestTestCase {
     }
 
     private BiFunction<float[], float[], Float> getScoreFunction(SpaceType spaceType, float[] queryVector) {
-        KNNVectorFieldMapper.KNNVectorFieldType knnVectorFieldType = new KNNVectorFieldMapper.KNNVectorFieldType(
-            FIELD_NAME,
-            Collections.emptyMap(),
-            SpaceType.HAMMING == spaceType ? queryVector.length * 8 : queryVector.length,
-            SpaceType.HAMMING == spaceType ? VectorDataType.BINARY : VectorDataType.FLOAT,
-            null
-        );
         List<Float> target = new ArrayList<>(queryVector.length);
         for (float f : queryVector) {
             target.add(f);
         }
-        KNNScoringSpace knnScoringSpace = KNNScoringSpaceFactory.create(spaceType.getValue(), target, knnVectorFieldType);
+        KNNScoringSpace knnScoringSpace = KNNScoringSpaceFactory.create(
+            spaceType.getValue(),
+            target,
+            new KNNVectorFieldType(
+                FIELD_NAME,
+                Collections.emptyMap(),
+                SpaceType.HAMMING == spaceType ? VectorDataType.BINARY : VectorDataType.FLOAT,
+                getMappingConfigForFlatMapping(SpaceType.HAMMING == spaceType ? queryVector.length * 8 : queryVector.length)
+            )
+        );
         switch (spaceType) {
             case L1:
             case L2:

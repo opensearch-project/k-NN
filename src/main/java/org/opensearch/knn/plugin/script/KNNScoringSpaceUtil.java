@@ -7,7 +7,7 @@ package org.opensearch.knn.plugin.script;
 
 import java.util.List;
 import org.opensearch.knn.index.VectorDataType;
-import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.index.mapper.BinaryFieldMapper;
 import org.opensearch.index.mapper.MappedFieldType;
@@ -52,7 +52,7 @@ public class KNNScoringSpaceUtil {
      * @return true if fieldType is of type KNNVectorFieldType; false otherwise
      */
     public static boolean isKNNVectorFieldType(MappedFieldType fieldType) {
-        return fieldType instanceof KNNVectorFieldMapper.KNNVectorFieldType;
+        return fieldType instanceof KNNVectorFieldType;
     }
 
     /**
@@ -61,7 +61,7 @@ public class KNNScoringSpaceUtil {
      * @param fieldType KNN vector field type
      * @return true if the KNN field type is a binary vector data type
      */
-    public static boolean isBinaryVectorDataType(final KNNVectorFieldMapper.KNNVectorFieldType fieldType) {
+    public static boolean isBinaryVectorDataType(final KNNVectorFieldType fieldType) {
         return VectorDataType.BINARY == fieldType.getVectorDataType();
     }
 

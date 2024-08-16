@@ -12,8 +12,10 @@ import org.apache.lucene.codecs.perfield.PerFieldKnnVectorsFormat;
 import org.opensearch.index.mapper.MapperService;
 import org.opensearch.knn.index.codec.params.KNNScalarQuantizedVectorsFormatParams;
 import org.opensearch.knn.index.codec.params.KNNVectorsFormatParams;
-import org.opensearch.knn.index.mapper.KNNVectorFieldMapper;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.engine.KNNMethodContext;
+import org.opensearch.knn.index.mapper.KNNMappingConfig;
+import org.opensearch.knn.index.mapper.KNNVectorFieldType;
 
 import java.util.Optional;
 import java.util.function.Function;
@@ -66,16 +68,19 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             );
             return defaultFormatSupplier.get();
         }
-        var type = (KNNVectorFieldMapper.KNNVectorFieldType) mapperService.orElseThrow(
+        KNNVectorFieldType mappedFieldType = (KNNVectorFieldType) mapperService.orElseThrow(
             () -> new IllegalStateException(
                 String.format("Cannot read field type for field [%s] because mapper service is not available", field)
             )
         ).fieldType(field);
-        var params = type.getKnnMethodContext().getMethodComponentContext().getParameters();
 
-        if (type.getKnnMethodContext().getKnnEngine() == KNNEngine.LUCENE
-            && params != null
-            && params.containsKey(METHOD_ENCODER_PARAMETER)) {
+        KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
+        KNNMethodContext knnMethodContext = knnMappingConfig.getKnnMethodContext()
+            .orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
+
+        var params = knnMethodContext.getMethodComponentContext().getParameters();
+
+        if (knnMethodContext.getKnnEngine() == KNNEngine.LUCENE && params != null && params.containsKey(METHOD_ENCODER_PARAMETER)) {
             KNNScalarQuantizedVectorsFormatParams knnScalarQuantizedVectorsFormatParams = new KNNScalarQuantizedVectorsFormatParams(
                 params,
                 defaultMaxConnections,
@@ -117,6 +122,6 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
     }
 
     private boolean isKnnVectorFieldType(final String field) {
-        return mapperService.isPresent() && mapperService.get().fieldType(field) instanceof KNNVectorFieldMapper.KNNVectorFieldType;
+        return mapperService.isPresent() && mapperService.get().fieldType(field) instanceof KNNVectorFieldType;
     }
 }

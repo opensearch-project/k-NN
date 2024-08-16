@@ -9,7 +9,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.Setter;
-import org.opensearch.Version;
 import org.opensearch.common.ValidationException;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -20,7 +19,6 @@ import org.opensearch.core.xcontent.XContentBuilder;
 import org.opensearch.index.mapper.MapperParsingException;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -29,7 +27,6 @@ import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.opensearch.knn.training.VectorSpaceInfo;
 
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
-import static org.opensearch.knn.common.KNNConstants.METHOD_HNSW;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
@@ -41,21 +38,6 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 @AllArgsConstructor
 @Getter
 public class KNNMethodContext implements ToXContentFragment, Writeable {
-
-    private static KNNMethodContext defaultInstance = null;
-
-    /**
-     * This is used only for testing
-     * @return default KNNMethodContext for testing
-     */
-    public static synchronized KNNMethodContext getDefault() {
-        if (defaultInstance == null) {
-            MethodComponentContext methodComponentContext = new MethodComponentContext(METHOD_HNSW, Collections.emptyMap());
-            methodComponentContext.setIndexVersion(Version.CURRENT);
-            defaultInstance = new KNNMethodContext(KNNEngine.DEFAULT, SpaceType.DEFAULT, methodComponentContext);
-        }
-        return defaultInstance;
-    }
 
     @NonNull
     private final KNNEngine knnEngine;

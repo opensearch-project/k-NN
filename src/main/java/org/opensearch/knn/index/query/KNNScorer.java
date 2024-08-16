@@ -87,6 +87,13 @@ public class KNNScorer extends Scorer {
             public int docID() {
                 return docIdsIter.docID();
             }
+
+            @Override
+            public boolean equals(Object obj) {
+                if (!(obj instanceof Scorer)) return false;
+                return getWeight().equals(((Scorer) obj).getWeight());
+            }
         };
+
     }
 }
