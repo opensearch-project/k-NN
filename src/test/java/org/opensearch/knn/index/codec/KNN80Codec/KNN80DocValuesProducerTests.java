@@ -98,11 +98,11 @@ public class KNN80DocValuesProducerTests extends KNNTestCase {
             new MethodComponentContext(METHOD_HNSW, ImmutableMap.of(METHOD_PARAMETER_M, 16, METHOD_PARAMETER_EF_CONSTRUCTION, 512))
         );
         KNNMethodConfigContext knnMethodConfigContext = KNNMethodConfigContext.builder()
-                .vectorDataType(VectorDataType.FLOAT)
-                .versionCreated(Version.CURRENT)
-                .build();
+            .vectorDataType(VectorDataType.FLOAT)
+            .versionCreated(Version.CURRENT)
+            .build();
         String parameterString = XContentFactory.jsonBuilder()
-            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext,knnMethodConfigContext).getLibraryParameters())
+            .map(knnEngine.getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext).getLibraryParameters())
             .toString();
 
         FieldInfo[] fieldInfoArray = new FieldInfo[] {
