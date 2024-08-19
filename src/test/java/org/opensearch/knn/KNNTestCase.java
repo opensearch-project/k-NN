@@ -13,6 +13,7 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
+import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibrarySearchContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
@@ -145,5 +146,26 @@ public class KNNTestCase extends OpenSearchTestCase {
                 return dimension;
             }
         };
+    }
+
+    /**
+     * Adjust the provided dimension based on {@link VectorDataType} during ingestion.
+     * @param dimension int
+     * @param vectorDataType {@link VectorDataType}
+     * @return int
+     */
+    protected int adjustDimensionForIndexing(final int dimension, final VectorDataType vectorDataType) {
+        return VectorDataType.BINARY == vectorDataType ? dimension * Byte.SIZE : dimension;
+    }
+
+    /**
+     * Adjust the provided dimension based on {@link VectorDataType} for search.
+     *
+     * @param dimension int
+     * @param vectorDataType {@link VectorDataType}
+     * @return int
+     */
+    protected int adjustDimensionForSearch(final int dimension, final VectorDataType vectorDataType) {
+        return VectorDataType.BINARY == vectorDataType ? dimension / Byte.SIZE : dimension;
     }
 }
