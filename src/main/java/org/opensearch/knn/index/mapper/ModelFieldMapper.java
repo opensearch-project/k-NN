@@ -196,8 +196,8 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         ModelMetadata modelMetadata = getModelMetadata(modelDao, modelId);
         if (useLuceneBasedVectorField) {
             int adjustedDimension = modelMetadata.getVectorDataType() == VectorDataType.BINARY
-                ? modelMetadata.getDimension()
-                : modelMetadata.getDimension() / 8;
+                ? modelMetadata.getDimension() / Byte.SIZE
+                : modelMetadata.getDimension();
             final VectorEncoding encoding = modelMetadata.getVectorDataType() == VectorDataType.FLOAT
                 ? VectorEncoding.FLOAT32
                 : VectorEncoding.BYTE;
