@@ -676,76 +676,79 @@ public class KNNWeightTests extends KNNTestCase {
     }
 
     public void validateANNWithFilterQuery_whenExactSearch_thenSuccess(final boolean isBinary) throws IOException {
-        float[] vector = new float[] { 0.1f, 0.3f };
-        byte[] byteVector = new byte[] { 1, 3 };
-        int filterDocId = 0;
-        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
-        final SegmentReader reader = mock(SegmentReader.class);
-        when(leafReaderContext.reader()).thenReturn(reader);
+        try (MockedStatic<KNNVectorValuesFactory> valuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
+            float[] vector = new float[] { 0.1f, 0.3f };
+            byte[] byteVector = new byte[] { 1, 3 };
+            int filterDocId = 0;
+            final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            final SegmentReader reader = mock(SegmentReader.class);
+            when(leafReaderContext.reader()).thenReturn(reader);
 
-        final KNNQuery query = isBinary
-            ? new KNNQuery(FIELD_NAME, BYTE_QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null, VectorDataType.BINARY)
-            : new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null);
-        final Weight filterQueryWeight = mock(Weight.class);
-        final Scorer filterScorer = mock(Scorer.class);
-        when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
-        // scorer will return 2 documents
-        when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(1));
-        when(reader.maxDoc()).thenReturn(1);
-        final Bits liveDocsBits = mock(Bits.class);
-        when(reader.getLiveDocs()).thenReturn(liveDocsBits);
-        when(liveDocsBits.get(filterDocId)).thenReturn(true);
+            final KNNQuery query = isBinary
+                ? new KNNQuery(FIELD_NAME, BYTE_QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null, VectorDataType.BINARY)
+                : new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null);
+            final Weight filterQueryWeight = mock(Weight.class);
+            final Scorer filterScorer = mock(Scorer.class);
+            when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
+            // scorer will return 2 documents
+            when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(1));
+            when(reader.maxDoc()).thenReturn(1);
+            final Bits liveDocsBits = mock(Bits.class);
+            when(reader.getLiveDocs()).thenReturn(liveDocsBits);
+            when(liveDocsBits.get(filterDocId)).thenReturn(true);
 
-        final float boost = (float) randomDoubleBetween(0, 10, true);
-        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
-        final Map<String, String> attributesMap = ImmutableMap.of(
-            KNN_ENGINE,
-            KNNEngine.FAISS.getName(),
-            SPACE_TYPE,
-            isBinary ? SpaceType.HAMMING.getValue() : SpaceType.L2.getValue()
-        );
-        final FieldInfos fieldInfos = mock(FieldInfos.class);
-        final FieldInfo fieldInfo = mock(FieldInfo.class);
-        final KNNFloatVectorValues floatVectorValues = mock(KNNFloatVectorValues.class);
-        final KNNBinaryVectorValues binaryVectorValues = mock(KNNBinaryVectorValues.class);
-        when(reader.getFieldInfos()).thenReturn(fieldInfos);
-        when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
-        when(fieldInfo.attributes()).thenReturn(attributesMap);
-        if (isBinary) {
-            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING.getValue());
-        } else {
-            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
-        }
-        when(fieldInfo.getName()).thenReturn(FIELD_NAME);
-        MockedStatic<KNNVectorValuesFactory> valuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class);
-        if (isBinary) {
-            valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader)).thenReturn(binaryVectorValues);
-            when(binaryVectorValues.advance(filterDocId)).thenReturn(filterDocId);
-            Mockito.when(binaryVectorValues.getVector()).thenReturn(byteVector);
-        } else {
-            valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader)).thenReturn(floatVectorValues);
-            when(floatVectorValues.advance(filterDocId)).thenReturn(filterDocId);
-            Mockito.when(floatVectorValues.getVector()).thenReturn(vector);
-        }
-
-        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
-        assertNotNull(knnScorer);
-        final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
-        assertNotNull(docIdSetIterator);
-        assertEquals(1, docIdSetIterator.cost());
-
-        final List<Integer> actualDocIds = new ArrayList<>();
-        for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
-            actualDocIds.add(docId);
+            final float boost = (float) randomDoubleBetween(0, 10, true);
+            final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
+            final Map<String, String> attributesMap = ImmutableMap.of(
+                KNN_ENGINE,
+                KNNEngine.FAISS.getName(),
+                SPACE_TYPE,
+                isBinary ? SpaceType.HAMMING.getValue() : SpaceType.L2.getValue()
+            );
+            final FieldInfos fieldInfos = mock(FieldInfos.class);
+            final FieldInfo fieldInfo = mock(FieldInfo.class);
+            final KNNFloatVectorValues floatVectorValues = mock(KNNFloatVectorValues.class);
+            final KNNBinaryVectorValues binaryVectorValues = mock(KNNBinaryVectorValues.class);
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
+            when(fieldInfo.attributes()).thenReturn(attributesMap);
             if (isBinary) {
-                assertEquals(BINARY_EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId) * boost, knnScorer.score(), 0.01f);
+                when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING.getValue());
             } else {
-                assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId) * boost, knnScorer.score(), 0.01f);
+                when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.L2.getValue());
             }
+            when(fieldInfo.getName()).thenReturn(FIELD_NAME);
+
+            if (isBinary) {
+                valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader))
+                    .thenReturn(binaryVectorValues);
+                when(binaryVectorValues.advance(filterDocId)).thenReturn(filterDocId);
+                Mockito.when(binaryVectorValues.getVector()).thenReturn(byteVector);
+            } else {
+                valuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader))
+                    .thenReturn(floatVectorValues);
+                when(floatVectorValues.advance(filterDocId)).thenReturn(filterDocId);
+                Mockito.when(floatVectorValues.getVector()).thenReturn(vector);
+            }
+
+            final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+            assertNotNull(knnScorer);
+            final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
+            assertNotNull(docIdSetIterator);
+            assertEquals(1, docIdSetIterator.cost());
+
+            final List<Integer> actualDocIds = new ArrayList<>();
+            for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
+                actualDocIds.add(docId);
+                if (isBinary) {
+                    assertEquals(BINARY_EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId) * boost, knnScorer.score(), 0.01f);
+                } else {
+                    assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId) * boost, knnScorer.score(), 0.01f);
+                }
+            }
+            assertEquals(docIdSetIterator.cost(), actualDocIds.size());
+            assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
         }
-        assertEquals(docIdSetIterator.cost(), actualDocIds.size());
-        assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
-        valuesFactoryMockedStatic.close();
     }
 
     @SneakyThrows
@@ -886,63 +889,64 @@ public class KNNWeightTests extends KNNTestCase {
      */
     @SneakyThrows
     public void testANNWithFilterQuery_whenExactSearchViaThresholdSettingOnBinaryIndex_thenSuccess() {
-        knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(10);
-        byte[] vector = new byte[] { 1, 3 };
-        int k = 1;
-        final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
+        try (MockedStatic<KNNVectorValuesFactory> vectorValuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
+            knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(10);
+            byte[] vector = new byte[] { 1, 3 };
+            int k = 1;
+            final int[] filterDocIds = new int[] { 0, 1, 2, 3, 4, 5 };
 
-        final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
-        final SegmentReader reader = mock(SegmentReader.class);
-        when(leafReaderContext.reader()).thenReturn(reader);
-        when(reader.maxDoc()).thenReturn(100);
-        when(reader.getLiveDocs()).thenReturn(null);
-        final Weight filterQueryWeight = mock(Weight.class);
-        final Scorer filterScorer = mock(Scorer.class);
-        when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
+            final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
+            final SegmentReader reader = mock(SegmentReader.class);
+            when(leafReaderContext.reader()).thenReturn(reader);
+            when(reader.maxDoc()).thenReturn(100);
+            when(reader.getLiveDocs()).thenReturn(null);
+            final Weight filterQueryWeight = mock(Weight.class);
+            final Scorer filterScorer = mock(Scorer.class);
+            when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
 
-        when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(filterDocIds.length));
+            when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(filterDocIds.length));
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, BYTE_QUERY_VECTOR, k, INDEX_NAME, FILTER_QUERY, null, VectorDataType.BINARY);
+            final KNNQuery query = new KNNQuery(FIELD_NAME, BYTE_QUERY_VECTOR, k, INDEX_NAME, FILTER_QUERY, null, VectorDataType.BINARY);
 
-        final float boost = (float) randomDoubleBetween(0, 10, true);
-        final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
-        final Map<String, String> attributesMap = ImmutableMap.of(
-            KNN_ENGINE,
-            KNNEngine.FAISS.getName(),
-            SPACE_TYPE,
-            SpaceType.HAMMING.name(),
-            PARAMETERS,
-            String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "BHNSW32")
-        );
-        final FieldInfos fieldInfos = mock(FieldInfos.class);
-        final FieldInfo fieldInfo = mock(FieldInfo.class);
-        when(reader.getFieldInfos()).thenReturn(fieldInfos);
-        when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
-        when(fieldInfo.attributes()).thenReturn(attributesMap);
-        when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING.getValue());
-        when(fieldInfo.getName()).thenReturn(FIELD_NAME);
+            final float boost = (float) randomDoubleBetween(0, 10, true);
+            final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
+            final Map<String, String> attributesMap = ImmutableMap.of(
+                KNN_ENGINE,
+                KNNEngine.FAISS.getName(),
+                SPACE_TYPE,
+                SpaceType.HAMMING.name(),
+                PARAMETERS,
+                String.format(Locale.ROOT, "{\"%s\":\"%s\"}", INDEX_DESCRIPTION_PARAMETER, "BHNSW32")
+            );
+            final FieldInfos fieldInfos = mock(FieldInfos.class);
+            final FieldInfo fieldInfo = mock(FieldInfo.class);
+            when(reader.getFieldInfos()).thenReturn(fieldInfos);
+            when(fieldInfos.fieldInfo(any())).thenReturn(fieldInfo);
+            when(fieldInfo.attributes()).thenReturn(attributesMap);
+            when(fieldInfo.getAttribute(SPACE_TYPE)).thenReturn(SpaceType.HAMMING.getValue());
+            when(fieldInfo.getName()).thenReturn(FIELD_NAME);
 
-        KNNBinaryVectorValues knnBinaryVectorValues = mock(KNNBinaryVectorValues.class);
-        MockedStatic<KNNVectorValuesFactory> vectorValuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class);
-        vectorValuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader))
-            .thenReturn(knnBinaryVectorValues);
-        when(knnBinaryVectorValues.advance(0)).thenReturn(0);
-        when(knnBinaryVectorValues.getVector()).thenReturn(vector);
+            KNNBinaryVectorValues knnBinaryVectorValues = mock(KNNBinaryVectorValues.class);
 
-        final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
-        assertNotNull(knnScorer);
-        final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
-        assertNotNull(docIdSetIterator);
-        assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.size(), docIdSetIterator.cost());
+            vectorValuesFactoryMockedStatic.when(() -> KNNVectorValuesFactory.getVectorValues(fieldInfo, reader))
+                .thenReturn(knnBinaryVectorValues);
+            when(knnBinaryVectorValues.advance(0)).thenReturn(0);
+            when(knnBinaryVectorValues.getVector()).thenReturn(vector);
 
-        final List<Integer> actualDocIds = new ArrayList<>();
-        for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
-            actualDocIds.add(docId);
-            assertEquals(BINARY_EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId) * boost, knnScorer.score(), 0.01f);
+            final KNNScorer knnScorer = (KNNScorer) knnWeight.scorer(leafReaderContext);
+            assertNotNull(knnScorer);
+            final DocIdSetIterator docIdSetIterator = knnScorer.iterator();
+            assertNotNull(docIdSetIterator);
+            assertEquals(EXACT_SEARCH_DOC_ID_TO_SCORES.size(), docIdSetIterator.cost());
+
+            final List<Integer> actualDocIds = new ArrayList<>();
+            for (int docId = docIdSetIterator.nextDoc(); docId != NO_MORE_DOCS; docId = docIdSetIterator.nextDoc()) {
+                actualDocIds.add(docId);
+                assertEquals(BINARY_EXACT_SEARCH_DOC_ID_TO_SCORES.get(docId) * boost, knnScorer.score(), 0.01f);
+            }
+            assertEquals(docIdSetIterator.cost(), actualDocIds.size());
+            assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
         }
-        assertEquals(docIdSetIterator.cost(), actualDocIds.size());
-        assertTrue(Comparators.isInOrder(actualDocIds, Comparator.naturalOrder()));
-        vectorValuesFactoryMockedStatic.close();
     }
 
     @SneakyThrows
