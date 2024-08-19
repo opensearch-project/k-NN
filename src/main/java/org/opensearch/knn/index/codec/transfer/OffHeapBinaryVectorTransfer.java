@@ -28,14 +28,11 @@ public final class OffHeapBinaryVectorTransfer extends OffHeapVectorTransfer<byt
 
     @Override
     protected long transfer(List<byte[]> batch, boolean append) throws IOException {
-        if (!batch.isEmpty()) {
-            return JNICommons.storeBinaryVectorData(
-                getVectorAddress(),
-                batch.toArray(new byte[][] {}),
-                (long) batch.get(0).length * transferLimit,
-                append
-            );
-        }
-        return 0;
+        return JNICommons.storeBinaryVectorData(
+            getVectorAddress(),
+            batch.toArray(new byte[][] {}),
+            (long) batch.get(0).length * transferLimit,
+            append
+        );
     }
 }
