@@ -26,7 +26,7 @@ public class FaissFlatEncoder implements Encoder {
     );
 
     private final static MethodComponent METHOD_COMPONENT = MethodComponent.Builder.builder(KNNConstants.ENCODER_FLAT)
-        .setMapGenerator(
+        .setKnnLibraryIndexingContextGenerator(
             ((methodComponent, methodComponentContext, knnMethodConfigContext) -> MethodAsMapBuilder.builder(
                 KNNConstants.FAISS_FLAT_DESCRIPTION,
                 methodComponent,
