@@ -24,6 +24,7 @@ import org.opensearch.index.IndexModule;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManagerDto;
 import org.opensearch.knn.index.util.IndexHyperParametersUtil;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 import org.opensearch.monitor.jvm.JvmInfo;
 import org.opensearch.monitor.os.OsProbe;
 
@@ -88,6 +89,8 @@ public class KNNSettings {
      * for native engines.
      */
     public static final String KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED = "knn.use.format.enabled";
+    public static final String QUANTIZATION_STATE_CACHE_SIZE_LIMIT = "knn.quantization.cache.size.limit";
+    public static final String QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES = "knn.quantization.cache.expiry.minutes";
     public static final String KNN_FAISS_AVX512_DISABLED = "knn.faiss.avx512.disabled";
 
     /**
@@ -108,6 +111,11 @@ public class KNNSettings {
     public static final String KNN_DEFAULT_VECTOR_STREAMING_MEMORY_LIMIT_PCT = "1%";
 
     public static final Integer ADVANCED_FILTERED_EXACT_SEARCH_THRESHOLD_DEFAULT_VALUE = -1;
+    public static final Integer KNN_DEFAULT_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE = 5; // By default, set aside 5% of the JVM for
+                                                                                                // the limit
+    public static final Integer KNN_MAX_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE = 10; // Quantization state cache limit cannot exceed
+                                                                                             // 10% of the JVM heap
+    public static final Integer KNN_DEFAULT_QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES = 60;
 
     /**
      * Settings Definition
@@ -274,6 +282,44 @@ public class KNNSettings {
         NodeScope
     );
 
+    /*
+     * Quantization state cache settings
+     */
+    public static final Setting<ByteSizeValue> QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING = new Setting<ByteSizeValue>(
+        QUANTIZATION_STATE_CACHE_SIZE_LIMIT,
+        percentageAsString(KNN_DEFAULT_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE),
+        (s) -> {
+            ByteSizeValue userDefinedLimit = parseBytesSizeValueOrHeapRatio(s, QUANTIZATION_STATE_CACHE_SIZE_LIMIT);
+
+            // parseBytesSizeValueOrHeapRatio will make sure that the value entered falls between 0 and 100% of the
+            // JVM heap. However, we want the maximum percentage of the heap to be much smaller. So, we add
+            // some additional validation here before returning
+            ByteSizeValue jvmHeapSize = JvmInfo.jvmInfo().getMem().getHeapMax();
+            if ((userDefinedLimit.getKbFrac() / jvmHeapSize.getKbFrac()) > percentageAsFraction(
+                KNN_MAX_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE
+            )) {
+                throw new OpenSearchParseException(
+                    "{} ({} KB) cannot exceed {}% of the heap ({} KB).",
+                    QUANTIZATION_STATE_CACHE_SIZE_LIMIT,
+                    userDefinedLimit.getKb(),
+                    KNN_MAX_QUANTIZATION_STATE_CACHE_SIZE_LIMIT_PERCENTAGE,
+                    jvmHeapSize.getKb()
+                );
+            }
+
+            return userDefinedLimit;
+        },
+        NodeScope,
+        Dynamic
+    );
+
+    public static final Setting<TimeValue> QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING = Setting.positiveTimeSetting(
+        QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES,
+        TimeValue.timeValueMinutes(KNN_DEFAULT_QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES),
+        NodeScope,
+        Dynamic
+    );
+
     public static final Setting<Boolean> KNN_FAISS_AVX512_DISABLED_SETTING = Setting.boolSetting(
         KNN_FAISS_AVX512_DISABLED,
         KNN_DEFAULT_FAISS_AVX512_DISABLED_VALUE,
@@ -357,6 +403,13 @@ public class KNNSettings {
 
             NativeMemoryCacheManager.getInstance().rebuildCache(builder.build());
         }, Stream.concat(dynamicCacheSettings.values().stream(), FEATURE_FLAGS.values().stream()).collect(Collectors.toUnmodifiableList()));
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING, it -> {
+            QuantizationStateCache.getInstance().setMaxCacheSizeInKB(it.getKb());
+            QuantizationStateCache.getInstance().rebuildCache();
+        });
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING, it -> {
+            QuantizationStateCache.getInstance().rebuildCache();
+        });
     }
 
     /**
@@ -412,6 +465,14 @@ public class KNNSettings {
             return KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED_SETTING;
         }
 
+        if (QUANTIZATION_STATE_CACHE_SIZE_LIMIT.equals(key)) {
+            return QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING;
+        }
+
+        if (QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES.equals(key)) {
+            return QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING;
+        }
+
         throw new IllegalArgumentException("Cannot find setting by key [" + key + "]");
     }
 
@@ -432,7 +493,9 @@ public class KNNSettings {
             KNN_FAISS_AVX2_DISABLED_SETTING,
             KNN_VECTOR_STREAMING_MEMORY_LIMIT_PCT_SETTING,
             KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED_SETTING,
-            KNN_FAISS_AVX512_DISABLED_SETTING
+            KNN_FAISS_AVX512_DISABLED_SETTING,
+            QUANTIZATION_STATE_CACHE_SIZE_LIMIT_SETTING,
+            QUANTIZATION_STATE_CACHE_EXPIRY_TIME_MINUTES_SETTING
         );
         return Stream.concat(settings.stream(), Stream.concat(getFeatureFlags().stream(), dynamicCacheSettings.values().stream()))
             .collect(Collectors.toList());
