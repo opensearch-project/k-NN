@@ -21,10 +21,10 @@ extern "C" {
 /*
  * Class:     org_opensearch_knn_jni_JNICommons
  * Method:    storeVectorData
- * Signature: (J[[FJJ)
+ * Signature: (J[[FJJJ)
  */
 JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_JNICommons_storeVectorData
-  (JNIEnv *, jclass, jlong, jobjectArray, jlong);
+  (JNIEnv *, jclass, jlong, jobjectArray, jlong, jboolean);
 
 /*
  * Class:     org_opensearch_knn_jni_JNICommons
@@ -32,7 +32,7 @@ JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_JNICommons_storeVectorData
  * Signature: (J[[FJJ)
  */
 JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_JNICommons_storeByteVectorData
-  (JNIEnv *, jclass, jlong, jobjectArray, jlong);
+  (JNIEnv *, jclass, jlong, jobjectArray, jlong, jboolean);
 
 /*
  * Class:     org_opensearch_knn_jni_JNICommons

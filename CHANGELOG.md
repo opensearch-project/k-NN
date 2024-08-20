@@ -1,3 +1,4 @@
+
 # CHANGELOG
 All notable changes to this project are documented in this file.
 
@@ -6,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased 3.0](https://github.com/opensearch-project/k-NN/compare/2.x...HEAD)
 ### Features
 ### Enhancements
-### Bug Fixes 
+### Bug Fixes
 ### Infrastructure
 * Removed JDK 11 and 17 version from CI runs [#1921](https://github.com/opensearch-project/k-NN/pull/1921)
 ### Documentation
@@ -17,10 +18,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Features
 * Integrate Lucene Vector field with native engines to use KNNVectorFormat during segment creation [#1945](https://github.com/opensearch-project/k-NN/pull/1945)
 ### Enhancements
+* Adds iterative graph build capability into a faiss index to improve the memory footprint during indexing and Integrates KNNVectorsFormat for native engines[#1950](https://github.com/opensearch-project/k-NN/pull/1950)
 ### Bug Fixes
 * Corrected search logic for scenario with non-existent fields in filter [#1874](https://github.com/opensearch-project/k-NN/pull/1874)
 * Add script_fields context to KNNAllowlist [#1917] (https://github.com/opensearch-project/k-NN/pull/1917)
-* Fix graph merge stats size calculation [#1844](https://github.com/opensearch-project/k-NN/pull/1844) 
+* Fix graph merge stats size calculation [#1844](https://github.com/opensearch-project/k-NN/pull/1844)
 * Disallow a vector field to have an invalid character for a physical file name. [#1936](https://github.com/opensearch-project/k-NN/pull/1936)
 ### Infrastructure
 ### Documentation

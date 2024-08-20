@@ -38,11 +38,11 @@ void JNI_OnUnload(JavaVM *vm, void *reserved) {
 
 
 JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_JNICommons_storeVectorData(JNIEnv * env, jclass cls,
-jlong memoryAddressJ, jobjectArray dataJ, jlong initialCapacityJ)
+jlong memoryAddressJ, jobjectArray dataJ, jlong initialCapacityJ, jboolean appendJ)
 
 {
     try {
-        return knn_jni::commons::storeVectorData(&jniUtil, env, memoryAddressJ, dataJ, initialCapacityJ);
+        return knn_jni::commons::storeVectorData(&jniUtil, env, memoryAddressJ, dataJ, initialCapacityJ, appendJ);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
@@ -50,11 +50,11 @@ jlong memoryAddressJ, jobjectArray dataJ, jlong initialCapacityJ)
 }
 
 JNIEXPORT jlong JNICALL Java_org_opensearch_knn_jni_JNICommons_storeByteVectorData(JNIEnv * env, jclass cls,
-jlong memoryAddressJ, jobjectArray dataJ, jlong initialCapacityJ)
+jlong memoryAddressJ, jobjectArray dataJ, jlong initialCapacityJ, jboolean appendJ)
 
 {
     try {
-        return knn_jni::commons::storeByteVectorData(&jniUtil, env, memoryAddressJ, dataJ, initialCapacityJ);
+        return knn_jni::commons::storeByteVectorData(&jniUtil, env, memoryAddressJ, dataJ, initialCapacityJ, appendJ);
     } catch (...) {
         jniUtil.CatchCppExceptionAndThrowJava(env);
     }
