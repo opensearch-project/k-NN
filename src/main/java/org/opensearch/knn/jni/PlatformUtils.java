@@ -58,12 +58,29 @@ public class PlatformUtils {
             }
 
         } else if (Platform.isLinux()) {
-            return isAVX2Supported();
+            // The "/proc/cpuinfo" is a virtual file which identifies and provides the processor details used
+            // by system. This info contains "flags" for each processor which determines the qualities of that processor
+            // and it's ability to process different instruction sets like mmx, avx, avx2 and so on.
+            // https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/deployment_guide/s2-proc-cpuinfo
+            // Here, we are trying to read the details of all processors used by system and find if any of the processor
+            // supports AVX2 instructions. Pentium and Celeron are a couple of examples which doesn't support AVX2
+            // https://ark.intel.com/content/www/us/en/ark/products/199285/intel-pentium-gold-g6600-processor-4m-cache-4-20-ghz.html
+            String fileName = "/proc/cpuinfo";
+            try {
+                return AccessController.doPrivileged(
+                    (PrivilegedExceptionAction<Boolean>) () -> (Boolean) Files.lines(Paths.get(fileName))
+                        .filter(s -> s.startsWith("flags"))
+                        .anyMatch(s -> StringUtils.containsIgnoreCase(s, "avx2"))
+                );
+
+            } catch (Exception e) {
+                logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage(), e);
+            }
         }
         return false;
     }
 
-    public static boolean isAVX512Supported() {       
+    public static boolean isAVX512SupportedBySystem() {       
 
             // The "/proc/cpuinfo" is a virtual file which identifies and provides the processor details used
             // by system. This info contains "flags" for each processor which determines the qualities of that processor
@@ -72,14 +89,16 @@ public class PlatformUtils {
             // Here, we are trying to read the details of all processors used by system and find if any of the processor
             // supports AVX512 instructions supported by faiss.             
             String fileName = "/proc/cpuinfo";
-            String[] avx512 = new String { "avx512f", "avx512cd", "avx512vl", "avx512dq","avx512bw" };
-            try {
-                string flags = AccessController.doPrivileged(
-                    (PrivilegedExceptionAction<Boolean>) () -> (Boolean) Files.lines(Paths.get(fileName))
+            String[] avx512 = { "avx512f", "avx512cd", "avx512vl", "avx512dq","avx512bw" };
+            try {                
+                String flags = AccessController.doPrivileged((PrivilegedExceptionAction<String>) () -> {
+                     String allFlags = Files.lines(Paths.get(fileName))
                         .filter(s -> s.startsWith("flags"))
-                        .limit(1));
+                        .limit(1).toString();
+                    return allFlags.toLowerCase();
+                });
                 
-                foreach (string flag: avx512)
+                for (String flag: avx512)
                 {
                     if (!flags.contains(flag))
                         return false;
