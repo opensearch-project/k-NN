@@ -14,6 +14,8 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 
+import static org.mockito.Mockito.when;
+
 public class FieldInfoExtractorTests extends KNNTestCase {
 
     private static final String MODEL_ID = "model_id";
@@ -38,5 +40,27 @@ public class FieldInfoExtractorTests extends KNNTestCase {
             Mockito.when(modelMetadata.getVectorDataType()).thenReturn(VectorDataType.BYTE);
             Assert.assertEquals(VectorDataType.BYTE, FieldInfoExtractor.extractVectorDataType(fieldInfo));
         }
+    }
+
+    public void testExtractVectorDataType() {
+        FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
+        when(fieldInfo.getAttribute("data_type")).thenReturn(VectorDataType.BINARY.getValue());
+
+        assertEquals(VectorDataType.BINARY, FieldInfoExtractor.extractVectorDataType(fieldInfo));
+        when(fieldInfo.getAttribute("data_type")).thenReturn(null);
+
+        when(fieldInfo.getAttribute("model_id")).thenReturn(MODEL_ID);
+        try (MockedStatic<ModelUtil> modelUtilMockedStatic = Mockito.mockStatic(ModelUtil.class)) {
+            ModelMetadata modelMetadata = Mockito.mock(ModelMetadata.class);
+            modelUtilMockedStatic.when(() -> ModelUtil.getModelMetadata(MODEL_ID)).thenReturn(modelMetadata);
+            when(modelMetadata.getVectorDataType()).thenReturn(VectorDataType.BYTE);
+
+            assertEquals(VectorDataType.BYTE, FieldInfoExtractor.extractVectorDataType(fieldInfo));
+            when(modelMetadata.getVectorDataType()).thenReturn(null);
+            when(modelMetadata.getVectorDataType()).thenReturn(VectorDataType.DEFAULT);
+        }
+
+        when(fieldInfo.getAttribute("model_id")).thenReturn(null);
+        assertEquals(VectorDataType.DEFAULT, FieldInfoExtractor.extractVectorDataType(fieldInfo));
     }
 }
