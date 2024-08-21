@@ -81,7 +81,7 @@ public class KNNQuantizationStateWriter {
     }
 
     @AllArgsConstructor
-    static class FieldQuantizationState {
+    private static class FieldQuantizationState {
         final String fieldName;
         final byte[] stateBytes;
         final Long position;
