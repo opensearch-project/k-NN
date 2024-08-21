@@ -12,6 +12,7 @@ import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
@@ -27,21 +28,35 @@ public class KNNQuantizationStateReader {
 
     /**
      * Read quantization states and return list of fieldNames and bytes
+     *
+     * File format:
+     * Header
+     * QS1 state bytes
+     * QS2 state bytes
+     * Number of quantization states
+     * QS1 field name
+     * QS1 state bytes length
+     * QS1 position of state bytes
+     * QS2 field name
+     * QS2 state bytes length
+     * QS2 position of state bytes
+     * Position of index section (where QS1 field name is located)
+     * -1 (marker)
+     * Footer
+     *
      * @param state the read state to read from
      */
     public Map<String, byte[]> read(SegmentReadState state) {
-        String quantizationStateFileName = IndexFileNames.segmentFileName(state.segmentInfo.name, state.segmentSuffix, "qs");
+        String quantizationStateFileName = IndexFileNames.segmentFileName(
+            state.segmentInfo.name,
+            state.segmentSuffix,
+            KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX
+        );
         Map<String, byte[]> readQuantizationStateInfos = new HashMap<>();
 
         try (IndexInput input = state.directory.openInput(quantizationStateFileName, IOContext.READ)) {
 
-            long footerStart = input.length() - CodecUtil.footerLength();
-            long markerAndIndexPosition = footerStart - Integer.BYTES - Long.BYTES;
-            input.seek(markerAndIndexPosition);
-            long indexStartPosition = input.readLong();
-            input.readInt();
-            input.seek(indexStartPosition);
-            int numFields = input.readInt();
+            int numFields = getNumFields(input);
 
             List<String> fieldNames = new ArrayList<>();
             List<Long> positions = new ArrayList<>();
@@ -77,18 +92,16 @@ public class KNNQuantizationStateReader {
      * @return quantization state
      */
     public QuantizationState read(Directory directory, String segmentName, String segmentSuffix, FieldInfo fieldInfo) {
-        String quantizationStateFileName = IndexFileNames.segmentFileName(segmentName, segmentSuffix, "qs");
+        String quantizationStateFileName = IndexFileNames.segmentFileName(
+            segmentName,
+            segmentSuffix,
+            KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX
+        );
         String fieldName = fieldInfo.getName();
 
         try (IndexInput input = directory.openInput(quantizationStateFileName, IOContext.READ)) {
 
-            long footerStart = input.length() - CodecUtil.footerLength();
-            long markerAndIndexPosition = footerStart - Integer.BYTES - Long.BYTES;
-            input.seek(markerAndIndexPosition);
-            long indexStartPosition = input.readLong();
-            input.readInt();
-            input.seek(indexStartPosition);
-            int numFields = input.readInt();
+            int numFields = getNumFields(input);
 
             long position = -1;
             int length = 0;
@@ -118,5 +131,15 @@ public class KNNQuantizationStateReader {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private int getNumFields(IndexInput input) throws IOException {
+        long footerStart = input.length() - CodecUtil.footerLength();
+        long markerAndIndexPosition = footerStart - Integer.BYTES - Long.BYTES;
+        input.seek(markerAndIndexPosition);
+        long indexStartPosition = input.readLong();
+        input.readInt();
+        input.seek(indexStartPosition);
+        return input.readInt();
     }
 }

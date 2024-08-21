@@ -10,6 +10,7 @@ import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.store.IndexOutput;
+import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
@@ -33,7 +34,7 @@ public class KNNQuantizationStateWriter {
         String quantizationStateFileName = IndexFileNames.segmentFileName(
             segmentWriteState.segmentInfo.name,
             segmentWriteState.segmentSuffix,
-            "qs"
+            KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX
         );
 
         output = segmentWriteState.directory.createOutput(quantizationStateFileName, segmentWriteState.context);
