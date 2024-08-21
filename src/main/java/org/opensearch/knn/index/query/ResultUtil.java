@@ -37,7 +37,9 @@ public final class ResultUtil {
             topKMinQueue.add(-Float.MAX_VALUE);
         }
 
+        int count = 0;
         for (Map<Integer, Float> perLeafResult : perLeafResults) {
+            count += perLeafResult.size();
             for (Float score : perLeafResult.values()) {
                 if (topKMinQueue.peek() != null && score > topKMinQueue.peek()) {
                     topKMinQueue.poll();
@@ -46,18 +48,14 @@ public final class ResultUtil {
             }
         }
 
-        // Reduce the results based on min competitive scor
-        float minScore = -Float.MAX_VALUE;
-        while (topKMinQueue.isEmpty() == false) {
-            float score = topKMinQueue.poll();
-            if (score > minScore) {
-                minScore = score;
-                break;
-            }
+        // If there are at most k results across everything, then no need to filter anything out
+        if (count <= k) {
+            return;
         }
 
-        float finalMinScore = minScore;
-        perLeafResults.forEach(results -> results.entrySet().removeIf(entry -> entry.getValue() < finalMinScore));
+        // Reduce the results based on min competitive score
+        float minScore = topKMinQueue.peek() == null ? -Float.MAX_VALUE : topKMinQueue.peek();
+        perLeafResults.forEach(results -> results.entrySet().removeIf(entry -> entry.getValue() < minScore));
     }
 
     /**
