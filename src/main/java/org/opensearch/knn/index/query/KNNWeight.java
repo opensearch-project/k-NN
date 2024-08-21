@@ -27,10 +27,12 @@ import org.apache.lucene.util.DocIdSetBuilder;
 import org.apache.lucene.util.FixedBitSet;
 import org.opensearch.common.io.PathUtils;
 import org.opensearch.common.lucene.Lucene;
+import org.opensearch.knn.common.FieldInfoExtractor;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.memory.NativeMemoryAllocation;
 import org.opensearch.knn.index.memory.NativeMemoryCacheManager;
 import org.opensearch.knn.index.memory.NativeMemoryEntryContext;
@@ -230,6 +232,9 @@ public class KNNWeight extends Weight {
             log.debug("[KNN] Field info not found for {}:{}", knnQuery.getField(), reader.getSegmentName());
             return null;
         }
+
+        // TODO: Use this to get quantization config
+        QuantizationConfig quantizationConfig = FieldInfoExtractor.extractQuantizationConfig(fieldInfo);
 
         KNNEngine knnEngine;
         SpaceType spaceType;

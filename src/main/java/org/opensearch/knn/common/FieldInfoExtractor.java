@@ -12,6 +12,11 @@ import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
 
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
+
+import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
+
 /**
  * A utility class to extract information from FieldInfo.
  */
@@ -33,5 +38,19 @@ public class FieldInfoExtractor {
             }
         }
         return StringUtils.isNotEmpty(vectorDataTypeString) ? VectorDataType.get(vectorDataTypeString) : VectorDataType.DEFAULT;
+    }
+
+    /**
+     * Extract quantization config from fieldInfo
+     *
+     * @param fieldInfo {@link FieldInfo}
+     * @return {@link QuantizationConfig}
+     */
+    public static QuantizationConfig extractQuantizationConfig(final FieldInfo fieldInfo) {
+        String quantizationConfigString = fieldInfo.getAttribute(QFRAMEWORK_CONFIG);
+        if (StringUtils.isEmpty(quantizationConfigString)) {
+            return QuantizationConfig.EMPTY;
+        }
+        return QuantizationConfigParser.fromCsv(quantizationConfigString);
     }
 }
