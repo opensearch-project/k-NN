@@ -11,7 +11,6 @@
 
 package org.opensearch.knn.index.codec.KNN990Codec;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.lucene.codecs.KnnFieldVectorsWriter;
 import org.apache.lucene.codecs.KnnVectorsWriter;
@@ -39,13 +38,20 @@ import static org.opensearch.knn.common.FieldInfoExtractor.extractVectorDataType
  * A KNNVectorsWriter class for writing the vector data strcutures and flat vectors for Native Engines.
  */
 @Log4j2
-@RequiredArgsConstructor
 public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     private static final long SHALLOW_SIZE = RamUsageEstimator.shallowSizeOfInstance(NativeEngines990KnnVectorsWriter.class);
     private final SegmentWriteState segmentWriteState;
     private final FlatVectorsWriter flatVectorsWriter;
+    private final KNNQuantizationStateWriter quantizationStateWriter;
     private final List<NativeEngineFieldVectorsWriter<?>> fields = new ArrayList<>();
     private boolean finished;
+
+    public NativeEngines990KnnVectorsWriter(SegmentWriteState segmentWriteState, FlatVectorsWriter flatVectorsWriter) throws IOException {
+        this.segmentWriteState = segmentWriteState;
+        this.flatVectorsWriter = flatVectorsWriter;
+        this.quantizationStateWriter = new KNNQuantizationStateWriter(segmentWriteState);
+
+    }
 
     /**
      * Add new field for indexing.
@@ -70,6 +76,9 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
     public void flush(int maxDoc, final Sorter.DocMap sortMap) throws IOException {
         // simply write data in the flat file
         flatVectorsWriter.flush(maxDoc, sortMap);
+
+        quantizationStateWriter.writeHeader(segmentWriteState);
+
         for (final NativeEngineFieldVectorsWriter<?> field : fields) {
             final VectorDataType vectorDataType = extractVectorDataType(field.getFieldInfo());
             final KNNVectorValues<?> knnVectorValues = KNNVectorValuesFactory.getVectorValues(
@@ -78,8 +87,12 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
                 field.getVectors()
             );
 
+            // TODO: Extract quantization state here, uncomment below line once implemented
+            // quantizationStateWriter.writeState(field.getFieldInfo().getName(), quantizationState);
+
             NativeIndexWriter.getWriter(field.getFieldInfo(), segmentWriteState).flushIndex(knnVectorValues);
         }
+        quantizationStateWriter.writeFooter();
     }
 
     @Override
