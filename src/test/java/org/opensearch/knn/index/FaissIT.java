@@ -11,12 +11,15 @@
 
 package org.opensearch.knn.index;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Floats;
+import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.ParseException;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
 import org.opensearch.common.settings.Settings;
@@ -38,6 +41,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -45,6 +49,8 @@ import java.util.Random;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
+import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
+import static com.carrotsearch.randomizedtesting.RandomizedTest.$$;
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_CODE_SIZE;
 import static org.opensearch.knn.common.KNNConstants.ENCODER_PARAMETER_PQ_M;
@@ -76,7 +82,9 @@ import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_FIELD_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.TRAIN_INDEX_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.VECTOR_DATA_TYPE_FIELD;
+import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED;
 
+@AllArgsConstructor
 public class FaissIT extends KNNRestTestCase {
     private static final String DOC_ID_1 = "doc1";
     private static final String DOC_ID_2 = "doc2";
@@ -94,6 +102,19 @@ public class FaissIT extends KNNRestTestCase {
     private static final String NON_EXISTENT_INTEGER_FIELD_NAME = "nonexistent_int_field";
 
     static TestUtils.TestData testData;
+
+    private Boolean knnUseLuceneVectorFormat;
+
+    @ParametersFactory
+    public static Collection<Object[]> parameters() {
+        return Arrays.asList($$($(false), $(true)));
+    }
+
+    @Before
+    public void init() throws Exception {
+        super.setUp();
+        updateClusterSettings(KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED, knnUseLuceneVectorFormat);
+    }
 
     @BeforeClass
     public static void setUpClass() throws IOException {
@@ -1090,7 +1111,7 @@ public class FaissIT extends KNNRestTestCase {
     /**
      * This test confirms that sharing index state for IVFPQ-l2 indices functions properly. The main functionality that
      * needs to be confirmed is that once an index gets deleted, it will not cause a failure for the non-deleted index.
-     *
+     * <p>
      * The workflow will be:
      * 1. Create a model
      * 2. Create two indices index from the model

@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.mapper;
 
 import lombok.Getter;
+import lombok.ToString;
 import org.apache.lucene.search.DocValuesFieldExistsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
@@ -29,6 +30,7 @@ import static org.opensearch.knn.index.mapper.KNNVectorFieldMapperUtil.deseriali
 /**
  * A KNNVector field type to represent the vector field in Opensearch
  */
+@ToString
 @Getter
 public class KNNVectorFieldType extends MappedFieldType {
     KNNMappingConfig knnMappingConfig;

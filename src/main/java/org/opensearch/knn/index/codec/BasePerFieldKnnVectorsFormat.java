@@ -19,6 +19,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.mapper.KNNMappingConfig;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.indices.ModelMetadata;
 
 import java.util.Map;
 import java.util.Optional;
@@ -28,6 +29,8 @@ import java.util.function.Supplier;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_BITS;
 import static org.opensearch.knn.common.KNNConstants.LUCENE_SQ_CONFIDENCE_INTERVAL;
 import static org.opensearch.knn.common.KNNConstants.METHOD_ENCODER_PARAMETER;
+import static org.opensearch.knn.index.mapper.ModelFieldMapper.getKNNMethodContextFromModelMetadata;
+import static org.opensearch.knn.indices.ModelUtil.getModelMetadata;
 
 /**
  * Base class for PerFieldKnnVectorsFormat, builds KnnVectorsFormat based on specific Lucene version
@@ -78,14 +81,10 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
             )
         ).fieldType(field);
 
-        KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
-        KNNMethodContext knnMethodContext = knnMappingConfig.getKnnMethodContext()
-            .orElseThrow(() -> new IllegalArgumentException("KNN method context cannot be empty"));
-
-        final KNNEngine engine = knnMethodContext.getKnnEngine();
+        final KNNMethodContext knnMethodContext = extractKNNMethodContext(mappedFieldType);
         final Map<String, Object> params = knnMethodContext.getMethodComponentContext().getParameters();
 
-        if (engine == KNNEngine.LUCENE) {
+        if (knnMethodContext.getKnnEngine() == KNNEngine.LUCENE) {
             if (params != null && params.containsKey(METHOD_ENCODER_PARAMETER)) {
                 KNNScalarQuantizedVectorsFormatParams knnScalarQuantizedVectorsFormatParams = new KNNScalarQuantizedVectorsFormatParams(
                     params,
@@ -132,5 +131,21 @@ public abstract class BasePerFieldKnnVectorsFormat extends PerFieldKnnVectorsFor
 
     private boolean isKnnVectorFieldType(final String field) {
         return mapperService.isPresent() && mapperService.get().fieldType(field) instanceof KNNVectorFieldType;
+    }
+
+    private KNNMethodContext extractKNNMethodContext(final KNNVectorFieldType mappedFieldType) {
+        final KNNMappingConfig knnMappingConfig = mappedFieldType.getKnnMappingConfig();
+        final KNNMethodContext knnMethodContext;
+        if (knnMappingConfig.getModelId().isPresent()) {
+            ModelMetadata modelMetadata = getModelMetadata(knnMappingConfig.getModelId().get());
+            assert modelMetadata != null : String.format("Model ID '%s' is not " + "created.", knnMappingConfig.getModelId().get());
+            knnMethodContext = getKNNMethodContextFromModelMetadata(modelMetadata);
+        } else if (knnMappingConfig.getKnnMethodContext().isPresent()) {
+            knnMethodContext = knnMappingConfig.getKnnMethodContext().get();
+        } else {
+            throw new IllegalArgumentException("Could not extract KNN method context from mapped field [" + mappedFieldType + "]");
+        }
+
+        return knnMethodContext;
     }
 }

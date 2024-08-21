@@ -18,7 +18,7 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.Version;
 import org.opensearch.knn.KNNTestCase;
-import org.opensearch.knn.index.KNNSettings;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.codec.util.KNNVectorSerializerFactory;
 
@@ -76,15 +76,13 @@ public class KNNVectorFieldMapperUtilTests extends KNNTestCase {
     }
 
     public void testUseLuceneKNNVectorsFormat_withDifferentInputs_thenSuccess() {
-        final KNNSettings knnSettings = mock(KNNSettings.class);
-        final MockedStatic<KNNSettings> mockedStatic = Mockito.mockStatic(KNNSettings.class);
-        mockedStatic.when(KNNSettings::state).thenReturn(knnSettings);
+        final MockedStatic<KNNFeatureFlags> mockedStatic = Mockito.mockStatic(KNNFeatureFlags.class);
 
-        mockedStatic.when(KNNSettings::getIsLuceneVectorFormatEnabled).thenReturn(false);
+        mockedStatic.when(KNNFeatureFlags::getIsLuceneVectorFormatEnabled).thenReturn(false);
         Assert.assertFalse(KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Version.V_2_16_0));
         Assert.assertFalse(KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Version.V_3_0_0));
 
-        mockedStatic.when(KNNSettings::getIsLuceneVectorFormatEnabled).thenReturn(true);
+        mockedStatic.when(KNNFeatureFlags::getIsLuceneVectorFormatEnabled).thenReturn(true);
         Assert.assertTrue(KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Version.V_2_17_0));
         Assert.assertTrue(KNNVectorFieldMapperUtil.useLuceneKNNVectorsFormat(Version.V_3_0_0));
         // making sure to close the static mock to ensure that for tests running on this thread are not impacted by

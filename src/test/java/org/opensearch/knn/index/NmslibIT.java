@@ -11,10 +11,13 @@
 
 package org.opensearch.knn.index;
 
+import com.carrotsearch.randomizedtesting.annotations.ParametersFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Floats;
+import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
 import org.opensearch.core.xcontent.XContentBuilder;
@@ -31,15 +34,34 @@ import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
+import static com.carrotsearch.randomizedtesting.RandomizedTest.$;
+import static com.carrotsearch.randomizedtesting.RandomizedTest.$$;
 import static org.hamcrest.Matchers.containsString;
+import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED;
 
+@AllArgsConstructor
 public class NmslibIT extends KNNRestTestCase {
 
     static TestUtils.TestData testData;
+
+    private Boolean knnUseLuceneVectorFormat;
+
+    @ParametersFactory
+    public static Collection<Object[]> parameters() {
+        return Arrays.asList($$($(false), $(true)));
+    }
+
+    @Before
+    public void init() throws Exception {
+        super.setUp();
+        updateClusterSettings(KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED, knnUseLuceneVectorFormat);
+    }
 
     @BeforeClass
     public static void setUpClass() throws IOException {

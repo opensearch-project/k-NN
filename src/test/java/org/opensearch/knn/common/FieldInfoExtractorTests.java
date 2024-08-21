@@ -11,8 +11,11 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
+
+import java.util.Map;
 
 import static org.mockito.Mockito.when;
 
@@ -42,25 +45,23 @@ public class FieldInfoExtractorTests extends KNNTestCase {
         }
     }
 
-    public void testExtractVectorDataType() {
+    public void testExtractKNNEngine() {
         FieldInfo fieldInfo = Mockito.mock(FieldInfo.class);
-        when(fieldInfo.getAttribute("data_type")).thenReturn(VectorDataType.BINARY.getValue());
+        when(fieldInfo.attributes()).thenReturn(Map.of("engine", KNNEngine.FAISS.getName()));
 
-        assertEquals(VectorDataType.BINARY, FieldInfoExtractor.extractVectorDataType(fieldInfo));
-        when(fieldInfo.getAttribute("data_type")).thenReturn(null);
+        assertEquals(KNNEngine.FAISS, FieldInfoExtractor.extractKNNEngine(fieldInfo));
+        when(fieldInfo.getAttribute("engine")).thenReturn(null);
 
-        when(fieldInfo.getAttribute("model_id")).thenReturn(MODEL_ID);
+        when(fieldInfo.attributes()).thenReturn(Map.of("model_id", MODEL_ID));
         try (MockedStatic<ModelUtil> modelUtilMockedStatic = Mockito.mockStatic(ModelUtil.class)) {
             ModelMetadata modelMetadata = Mockito.mock(ModelMetadata.class);
             modelUtilMockedStatic.when(() -> ModelUtil.getModelMetadata(MODEL_ID)).thenReturn(modelMetadata);
-            when(modelMetadata.getVectorDataType()).thenReturn(VectorDataType.BYTE);
+            when(modelMetadata.getKnnEngine()).thenReturn(KNNEngine.FAISS);
 
-            assertEquals(VectorDataType.BYTE, FieldInfoExtractor.extractVectorDataType(fieldInfo));
-            when(modelMetadata.getVectorDataType()).thenReturn(null);
-            when(modelMetadata.getVectorDataType()).thenReturn(VectorDataType.DEFAULT);
+            assertEquals(KNNEngine.FAISS, FieldInfoExtractor.extractKNNEngine(fieldInfo));
         }
 
-        when(fieldInfo.getAttribute("model_id")).thenReturn(null);
-        assertEquals(VectorDataType.DEFAULT, FieldInfoExtractor.extractVectorDataType(fieldInfo));
+        when(fieldInfo.attributes()).thenReturn(Map.of("blah", "blah"));
+        assertEquals(KNNEngine.NMSLIB, FieldInfoExtractor.extractKNNEngine(fieldInfo));
     }
 }

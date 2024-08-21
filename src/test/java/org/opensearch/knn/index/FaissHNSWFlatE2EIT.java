@@ -17,6 +17,7 @@ import com.google.common.primitives.Floats;
 import lombok.AllArgsConstructor;
 import lombok.SneakyThrows;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.opensearch.client.Response;
 import org.opensearch.common.xcontent.XContentFactory;
@@ -25,8 +26,8 @@ import org.opensearch.knn.KNNRestTestCase;
 import org.opensearch.knn.KNNResult;
 import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
-import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.index.engine.KNNEngine;
+import org.opensearch.knn.index.query.KNNQueryBuilder;
 import org.opensearch.knn.plugin.script.KNNScoringUtil;
 
 import java.io.IOException;
@@ -47,6 +48,7 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_EF_SEARCH;
 import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_SPACE_TYPE;
 import static org.opensearch.knn.common.KNNConstants.NAME;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
+import static org.opensearch.knn.common.featureflags.KNNFeatureFlags.KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED;
 
 @AllArgsConstructor
 public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
@@ -55,6 +57,7 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
     private int k;
     private Map<String, ?> methodParameters;
     private boolean deleteRandomDocs;
+    private Boolean knnUseLuceneVectorFormat;
 
     static TestUtils.TestData testData;
 
@@ -70,14 +73,26 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
         testData = new TestUtils.TestData(testIndexVectors.getPath(), testQueries.getPath());
     }
 
-    @ParametersFactory(argumentFormatting = "description:%1$s; k:%2$s; efSearch:%3$s, deleteDocs:%4$s")
+    @Before
+    public void init() throws Exception {
+        super.setUp();
+        updateClusterSettings(KNN_USE_LUCENE_VECTOR_FORMAT_ENABLED, knnUseLuceneVectorFormat);
+    }
+
+    @ParametersFactory(argumentFormatting = "description:%1$s; k:%2$s; efSearch:%3$s, deleteDocs:%4$s, knnUseLuceneVectorFormat:%5$s")
     public static Collection<Object[]> parameters() {
         return Arrays.asList(
             $$(
-                $("Valid k, valid efSearch efSearch value", 10, Map.of(METHOD_PARAMETER_EF_SEARCH, 300), false),
-                $("Valid k, efsearch absent", 10, null, false),
-                $("Has delete docs, ef_search", 10, Map.of(METHOD_PARAMETER_EF_SEARCH, 300), true),
-                $("Has delete docs", 10, null, true)
+                $("Valid k, valid efSearch efSearch value", 10, Map.of(METHOD_PARAMETER_EF_SEARCH, 300), false, false),
+                $("Has delete docs, ef_search", 10, Map.of(METHOD_PARAMETER_EF_SEARCH, 300), true, false),
+                $(
+                    "Valid k, valid efSearch efSearch value, knnVectors format code path",
+                    10,
+                    Map.of(METHOD_PARAMETER_EF_SEARCH, 300),
+                    false,
+                    true
+                ),
+                $("Has delete docs, ef_search, knnVectors format code path", 10, Map.of(METHOD_PARAMETER_EF_SEARCH, 300), true, true)
             )
         );
     }
@@ -152,6 +167,29 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
         }
 
         // Test search queries
+        // Without method parameters
+        search(fieldName, indexName, spaceType, null);
+        // With method parameters
+        search(fieldName, indexName, spaceType, methodParameters);
+
+        // Delete index
+        deleteKNNIndex(indexName);
+
+        // Search every 5 seconds 14 times to confirm graph gets evicted
+        int intervals = 14;
+        for (int i = 0; i < intervals; i++) {
+            if (getTotalGraphsInCache() == 0) {
+                return;
+            }
+            Thread.sleep(5 * 1000);
+        }
+
+        fail("Graphs are not getting evicted");
+    }
+
+    @SneakyThrows
+    private void search(final String fieldName, final String indexName, final SpaceType spaceType, final Map<String, ?> methodParameters) {
+
         for (int i = 0; i < testData.queries.length; i++) {
             final KNNQueryBuilder queryBuilder = KNNQueryBuilder.builder()
                 .fieldName(fieldName)
@@ -159,6 +197,7 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
                 .k(k)
                 .methodParameters(methodParameters)
                 .build();
+
             Response response = searchKNNIndex(indexName, queryBuilder, k);
             String responseBody = EntityUtils.toString(response.getEntity());
             List<KNNResult> knnResults = parseSearchResponse(responseBody, fieldName);
@@ -174,19 +213,5 @@ public class FaissHNSWFlatE2EIT extends KNNRestTestCase {
                 );
             }
         }
-
-        // Delete index
-        deleteKNNIndex(indexName);
-
-        // Search every 5 seconds 14 times to confirm graph gets evicted
-        int intervals = 14;
-        for (int i = 0; i < intervals; i++) {
-            if (getTotalGraphsInCache() == 0) {
-                return;
-            }
-            Thread.sleep(5 * 1000);
-        }
-
-        fail("Graphs are not getting evicted");
     }
 }

@@ -20,6 +20,7 @@ import org.apache.lucene.index.DocValuesType;
 import org.apache.lucene.util.BytesRef;
 import org.opensearch.Version;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.knn.common.featureflags.KNNFeatureFlags;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.KnnCircuitBreakerException;
 import org.opensearch.knn.index.SpaceType;
@@ -143,7 +144,7 @@ public class KNNVectorFieldMapperUtil {
      * @return true if vector field should use KNNVectorsFormat
      */
     static boolean useLuceneKNNVectorsFormat(final Version indexCreatedVersion) {
-        return indexCreatedVersion.onOrAfter(Version.V_2_17_0) && KNNSettings.getIsLuceneVectorFormatEnabled();
+        return indexCreatedVersion.onOrAfter(Version.V_2_17_0) && KNNFeatureFlags.getIsLuceneVectorFormatEnabled();
     }
 
     private static SpaceType getSpaceType(final Settings indexSettings) {

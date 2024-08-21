@@ -228,7 +228,12 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         parseCreateField(context, modelMetadata.getDimension(), modelMetadata.getVectorDataType());
     }
 
-    private static KNNMethodContext getKNNMethodContextFromModelMetadata(ModelMetadata modelMetadata) {
+    /**
+     * Extracts knnMethodContext from model metadata
+     * @param modelMetadata
+     * @return null if MethodComponentContext is empty else returns a new object of KNNMethodContext
+     */
+    public static KNNMethodContext getKNNMethodContextFromModelMetadata(ModelMetadata modelMetadata) {
         MethodComponentContext methodComponentContext = modelMetadata.getMethodComponentContext();
         if (methodComponentContext == MethodComponentContext.EMPTY) {
             return null;
