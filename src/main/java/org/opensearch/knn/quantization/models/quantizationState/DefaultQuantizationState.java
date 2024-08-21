@@ -64,4 +64,19 @@ public class DefaultQuantizationState implements QuantizationState {
     public static DefaultQuantizationState fromByteArray(final byte[] bytes) throws IOException, ClassNotFoundException {
         return (DefaultQuantizationState) QuantizationStateSerializer.deserialize(bytes, DefaultQuantizationState::new);
     }
+
+    @Override
+    public int getBytesPerVector() {
+        return 0;
+    }
+
+    @Override
+    public int getDimensions() {
+        return 0;
+    }
+
+    @Override
+    public long ramBytesUsed() {
+        return 0;
+    }
 }

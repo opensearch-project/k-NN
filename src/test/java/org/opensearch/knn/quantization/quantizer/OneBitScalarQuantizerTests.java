@@ -78,6 +78,21 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
             }
 
             @Override
+            public int getBytesPerVector() {
+                return 0;
+            }
+
+            @Override
+            public int getDimensions() {
+                return 0;
+            }
+
+            @Override
+            public long ramBytesUsed() {
+                return 0;
+            }
+
+            @Override
             public byte[] toByteArray() {
                 return new byte[0];
             }

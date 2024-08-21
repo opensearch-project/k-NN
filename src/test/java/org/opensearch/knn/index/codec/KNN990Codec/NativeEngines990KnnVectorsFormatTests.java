@@ -61,6 +61,7 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
     private static final String FLAT_VECTOR_FILE_EXT = ".vec";
     private static final String HNSW_FILE_EXT = ".hnsw";
     private static final String FLOAT_VECTOR_FIELD = "float_field";
+    private static final String FLOAT_VECTOR_FIELD_BINARY = "float_field_binary";
     private static final String BYTE_VECTOR_FIELD = "byte_field";
     private Directory dir;
     private RandomIndexWriter indexWriter;
@@ -99,14 +100,31 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         float[] floatVector = { 1.0f, 3.0f, 4.0f };
         byte[] byteVector = { 6, 14 };
 
+        FieldType fieldTypeForFloat = createVectorField(3, VectorEncoding.FLOAT32, VectorDataType.FLOAT);
+        fieldTypeForFloat.putAttribute(KNNConstants.PARAMETERS, "{ \"index_description\":\"HNSW16,Flat\", \"spaceType\": \"l2\"}");
+        fieldTypeForFloat.freeze();
+        addFieldToIndex(new KnnFloatVectorField(FLOAT_VECTOR_FIELD, floatVector, fieldTypeForFloat), indexWriter);
+        FieldType fieldTypeForByte = createVectorField(2, VectorEncoding.BYTE, VectorDataType.BINARY);
+        fieldTypeForByte.putAttribute(KNNConstants.PARAMETERS, "{ \"index_description\":\"HNSW16,Flat\", \"spaceType\": \"l2\"}");
+        fieldTypeForByte.freeze();
+        addFieldToIndex(new KnnByteVectorField(BYTE_VECTOR_FIELD, byteVector, fieldTypeForByte), indexWriter);
+
+        float[] floatVectorForBinaryQuantization_1 = { 1.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };
+        float[] floatVectorForBinaryQuantization_2 = { 1.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };
+        FieldType fieldTypeForBinaryQuantization = createVectorField(8, VectorEncoding.FLOAT32, VectorDataType.FLOAT);
+        fieldTypeForBinaryQuantization.putAttribute(KNNConstants.PARAMETERS, "{ \"index_description\":\"BHNSW32\", \"spaceType\": \"l2\"}");
+        fieldTypeForBinaryQuantization.putAttribute("QuantizationConfig", "{ \"type\": \"Binary\" }");
+        fieldTypeForBinaryQuantization.freeze();
+
         addFieldToIndex(
-            new KnnFloatVectorField(FLOAT_VECTOR_FIELD, floatVector, createVectorField(3, VectorEncoding.FLOAT32, VectorDataType.FLOAT)),
+            new KnnFloatVectorField(FLOAT_VECTOR_FIELD_BINARY, floatVectorForBinaryQuantization_1, fieldTypeForBinaryQuantization),
             indexWriter
         );
         addFieldToIndex(
-            new KnnByteVectorField(BYTE_VECTOR_FIELD, byteVector, createVectorField(2, VectorEncoding.BYTE, VectorDataType.BINARY)),
+            new KnnFloatVectorField(FLOAT_VECTOR_FIELD_BINARY, floatVectorForBinaryQuantization_2, fieldTypeForBinaryQuantization),
             indexWriter
         );
+
         final IndexReader indexReader = indexWriter.getReader();
         // ensuring segments are created
         indexWriter.flush();
@@ -129,7 +147,7 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         if (segmentReader.getSegmentInfo().info.getUseCompoundFile() == false) {
             final List<String> vecfiles = getFilesFromSegment(dir, FLAT_VECTOR_FILE_EXT);
             // 2 .vec files will be created as we are using per field vectors format.
-            assertEquals(2, vecfiles.size());
+            assertEquals(3, vecfiles.size());
         }
 
         final FloatVectorValues floatVectorValues = leafReader.getFloatVectorValues(FLOAT_VECTOR_FIELD);
@@ -144,6 +162,12 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         assertEquals(1, byteVectorValues.size());
         assertEquals(2, byteVectorValues.dimension());
 
+        final FloatVectorValues floatVectorValuesForBinaryQuantization = leafReader.getFloatVectorValues(FLOAT_VECTOR_FIELD_BINARY);
+        floatVectorValuesForBinaryQuantization.nextDoc();
+        assertArrayEquals(floatVectorForBinaryQuantization_1, floatVectorValuesForBinaryQuantization.vectorValue(), 0.0f);
+        assertEquals(2, floatVectorValuesForBinaryQuantization.size());
+        assertEquals(8, floatVectorValuesForBinaryQuantization.dimension());
+
         Assert.assertThrows(
             UnsupportedOperationException.class,
             () -> leafReader.searchNearestVectors(FLOAT_VECTOR_FIELD, floatVector, 10, new Bits.MatchAllBits(1), 10)
@@ -154,6 +178,41 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
             () -> leafReader.searchNearestVectors(BYTE_VECTOR_FIELD, byteVector, 10, new Bits.MatchAllBits(1), 10)
         );
         // do it at the end so that all search is completed
+        indexReader.close();
+    }
+
+    @SneakyThrows
+    public void testNativeEngineVectorFormat_whenBinaryQuantizationApplied_thenSuccess() {
+        setup();
+        float[] floatVectorForBinaryQuantization = { 1.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };
+        FieldType fieldTypeForBinaryQuantization = createVectorField(8, VectorEncoding.FLOAT32, VectorDataType.FLOAT);
+        fieldTypeForBinaryQuantization.putAttribute(KNNConstants.PARAMETERS, "{ \"index_description\":\"BHNSW32\", \"spaceType\": \"l2\"}");
+        fieldTypeForBinaryQuantization.putAttribute("QuantizationConfig", "{ \"type\": \"Binary\" }");
+
+        addFieldToIndex(
+            new KnnFloatVectorField(FLOAT_VECTOR_FIELD_BINARY, floatVectorForBinaryQuantization, fieldTypeForBinaryQuantization),
+            indexWriter
+        );
+
+        final IndexReader indexReader = indexWriter.getReader();
+        // ensuring segments are created
+        indexWriter.flush();
+        indexWriter.commit();
+        indexWriter.close();
+        IndexSearcher searcher = new IndexSearcher(indexReader);
+        final LeafReader leafReader = searcher.getLeafContexts().get(0).reader();
+        SegmentReader segmentReader = Lucene.segmentReader(leafReader);
+        if (segmentReader.getSegmentInfo().info.getUseCompoundFile() == false) {
+            final List<String> vecfiles = getFilesFromSegment(dir, FLAT_VECTOR_FILE_EXT);
+            // 2 .vec files will be created as we are using per field vectors format.
+            assertEquals(1, vecfiles.size());
+        }
+
+        final FloatVectorValues floatVectorValues = leafReader.getFloatVectorValues(FLOAT_VECTOR_FIELD_BINARY);
+        floatVectorValues.nextDoc();
+        assertArrayEquals(floatVectorForBinaryQuantization, floatVectorValues.vectorValue(), 0.0f);
+        assertEquals(1, floatVectorValues.size());
+        assertEquals(8, floatVectorValues.dimension());
         indexReader.close();
     }
 
@@ -203,13 +262,11 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
         nativeVectorField.putAttribute(KNNConstants.HNSW_ALGO_M, "32");
         nativeVectorField.putAttribute(KNNConstants.HNSW_ALGO_EF_CONSTRUCTION, "512");
         nativeVectorField.putAttribute(KNNConstants.VECTOR_DATA_TYPE_FIELD, vectorDataType.getValue());
-        nativeVectorField.putAttribute(KNNConstants.PARAMETERS, "{ \"index_description\":\"HNSW16,Flat\", \"spaceType\": \"l2\"}");
         nativeVectorField.setVectorAttributes(
             dimension,
             vectorEncoding,
             SpaceType.L2.getKnnVectorSimilarityFunction().getVectorSimilarityFunction()
         );
-        nativeVectorField.freeze();
         return nativeVectorField;
     }
 }
