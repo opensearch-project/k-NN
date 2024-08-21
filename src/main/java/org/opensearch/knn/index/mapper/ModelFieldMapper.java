@@ -17,6 +17,8 @@ import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.KNNMethodContext;
 import org.opensearch.knn.index.engine.MethodComponentContext;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfigParser;
 import org.opensearch.knn.indices.ModelDao;
 import org.opensearch.knn.indices.ModelMetadata;
 import org.opensearch.knn.indices.ModelUtil;
@@ -26,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.opensearch.knn.common.KNNConstants.MODEL_ID;
+import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
 
 /**
  * Field mapper for model in mapping
@@ -209,6 +212,19 @@ public class ModelFieldMapper extends KNNVectorFieldMapper {
         } else {
             fieldType.setDocValuesType(DocValuesType.BINARY);
         }
+
+        // Conditionally add quantization config
+        KNNMethodContext knnMethodContext = getKNNMethodContextFromModelMetadata(modelMetadata);
+        KNNMethodConfigContext knnMethodConfigContext = getKNNMethodConfigContextFromModelMetadata(modelMetadata);
+        if (knnMethodContext != null && knnMethodConfigContext != null) {
+            KNNLibraryIndexingContext knnLibraryIndexingContext = modelMetadata.getKnnEngine()
+                .getKNNLibraryIndexingContext(knnMethodContext, knnMethodConfigContext);
+            QuantizationConfig quantizationConfig = knnLibraryIndexingContext.getQuantizationConfig();
+            if (quantizationConfig != null && quantizationConfig != QuantizationConfig.EMPTY) {
+                this.fieldType.putAttribute(QFRAMEWORK_CONFIG, QuantizationConfigParser.toCsv(quantizationConfig));
+            }
+        }
+
         parseCreateField(context, modelMetadata.getDimension(), modelMetadata.getVectorDataType());
     }
 

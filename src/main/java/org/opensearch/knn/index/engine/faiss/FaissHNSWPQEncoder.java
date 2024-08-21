@@ -51,7 +51,7 @@ public class FaissHNSWPQEncoder implements Encoder {
             )
         )
         .setRequiresTraining(true)
-        .setMapGenerator(
+        .setKnnLibraryIndexingContextGenerator(
             ((methodComponent, methodComponentContext, knnMethodConfigContext) -> MethodAsMapBuilder.builder(
                 FAISS_PQ_DESCRIPTION,
                 methodComponent,
