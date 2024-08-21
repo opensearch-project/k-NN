@@ -7,10 +7,13 @@ package org.opensearch.knn.index.engine.faiss;
 
 import lombok.AllArgsConstructor;
 import org.opensearch.knn.common.KNNConstants;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
+import org.opensearch.knn.index.engine.KNNLibraryIndexingContextImpl;
 import org.opensearch.knn.index.engine.KNNMethodConfigContext;
 import org.opensearch.knn.index.engine.MethodComponent;
 import org.opensearch.knn.index.engine.MethodComponentContext;
 import org.opensearch.knn.index.engine.Parameter;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,6 +34,7 @@ class MethodAsMapBuilder {
     MethodComponent methodComponent;
     Map<String, Object> methodAsMap;
     KNNMethodConfigContext knnMethodConfigContext;
+    QuantizationConfig quantizationConfig;
 
     /**
      * Add a parameter that will be used in the index description for the given method component
@@ -57,9 +61,21 @@ class MethodAsMapBuilder {
                 subMethodComponentContext.getName()
             );
 
-            Map<String, Object> subMethodAsMap = subMethodComponent.getAsMap(subMethodComponentContext, knnMethodConfigContext);
-            indexDescription += subMethodAsMap.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER);
-            subMethodAsMap.remove(KNNConstants.INDEX_DESCRIPTION_PARAMETER);
+            KNNLibraryIndexingContext knnLibraryIndexingContext = subMethodComponent.getKNNLibraryIndexingContext(
+                subMethodComponentContext,
+                knnMethodConfigContext
+            );
+            Map<String, Object> subMethodAsMap = knnLibraryIndexingContext.getLibraryParameters();
+            if (subMethodAsMap != null
+                && !subMethodAsMap.isEmpty()
+                && subMethodAsMap.containsKey(KNNConstants.INDEX_DESCRIPTION_PARAMETER)) {
+                indexDescription += subMethodAsMap.get(KNNConstants.INDEX_DESCRIPTION_PARAMETER);
+                subMethodAsMap.remove(KNNConstants.INDEX_DESCRIPTION_PARAMETER);
+            }
+
+            if (quantizationConfig == null || quantizationConfig == QuantizationConfig.EMPTY) {
+                quantizationConfig = knnLibraryIndexingContext.getQuantizationConfig();
+            }
 
             // We replace parameterName with the map that contains only parameters that are not included in
             // the method description
@@ -79,9 +95,9 @@ class MethodAsMapBuilder {
      *
      * @return Method as a map
      */
-    Map<String, Object> build() {
+    KNNLibraryIndexingContext build() {
         methodAsMap.put(KNNConstants.INDEX_DESCRIPTION_PARAMETER, indexDescription);
-        return methodAsMap;
+        return KNNLibraryIndexingContextImpl.builder().parameters(methodAsMap).quantizationConfig(quantizationConfig).build();
     }
 
     static MethodAsMapBuilder builder(
@@ -96,6 +112,6 @@ class MethodAsMapBuilder {
             PARAMETERS,
             MethodComponent.getParameterMapWithDefaultsAdded(methodComponentContext, methodComponent, knnMethodConfigContext)
         );
-        return new MethodAsMapBuilder(baseDescription, methodComponent, initialMap, knnMethodConfigContext);
+        return new MethodAsMapBuilder(baseDescription, methodComponent, initialMap, knnMethodConfigContext, QuantizationConfig.EMPTY);
     }
 }

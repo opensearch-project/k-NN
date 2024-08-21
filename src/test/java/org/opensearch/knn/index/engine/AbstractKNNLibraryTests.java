@@ -44,7 +44,11 @@ public class AbstractKNNLibraryTests extends KNNTestCase {
     private final static Map<String, Object> VALID_EXPECTED_MAP = ImmutableMap.of("test-key", "test-param");
     private final static KNNMethod VALID_METHOD = new AbstractKNNMethod(
         MethodComponent.Builder.builder(VALID_METHOD_NAME)
-            .setMapGenerator((methodComponent, methodComponentContext, knnMethodConfigContext) -> VALID_EXPECTED_MAP)
+            .setKnnLibraryIndexingContextGenerator(
+                (methodComponent, methodComponentContext, knnMethodConfigContext) -> KNNLibraryIndexingContextImpl.builder()
+                    .parameters(new HashMap<>(VALID_EXPECTED_MAP))
+                    .build()
+            )
             .addSupportedDataTypes(Set.of(VectorDataType.FLOAT))
             .build(),
         Set.of(SpaceType.DEFAULT),

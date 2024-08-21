@@ -16,7 +16,6 @@ import org.opensearch.knn.index.mapper.SpaceVectorValidator;
 import org.opensearch.knn.index.mapper.VectorValidator;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -112,12 +111,15 @@ public abstract class AbstractKNNMethod implements KNNMethod {
         KNNMethodContext knnMethodContext,
         KNNMethodConfigContext knnMethodConfigContext
     ) {
-        Map<String, Object> parameterMap = new HashMap<>(
-            methodComponent.getAsMap(knnMethodContext.getMethodComponentContext(), knnMethodConfigContext)
+        KNNLibraryIndexingContext knnLibraryIndexingContext = methodComponent.getKNNLibraryIndexingContext(
+            knnMethodContext.getMethodComponentContext(),
+            knnMethodConfigContext
         );
+        Map<String, Object> parameterMap = knnLibraryIndexingContext.getLibraryParameters();
         parameterMap.put(KNNConstants.SPACE_TYPE, knnMethodContext.getSpaceType().getValue());
         parameterMap.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, knnMethodConfigContext.getVectorDataType().getValue());
         return KNNLibraryIndexingContextImpl.builder()
+            .quantizationConfig(knnLibraryIndexingContext.getQuantizationConfig())
             .parameters(parameterMap)
             .vectorValidator(doGetVectorValidator(knnMethodContext, knnMethodConfigContext))
             .perDimensionValidator(doGetPerDimensionValidator(knnMethodContext, knnMethodConfigContext))

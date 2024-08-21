@@ -143,19 +143,22 @@ public class MethodComponentTests extends KNNTestCase {
 
         assertEquals(
             in,
-            methodComponent.getAsMap(methodComponentContext, KNNMethodConfigContext.builder().versionCreated(Version.CURRENT).build())
+            methodComponent.getKNNLibraryIndexingContext(
+                methodComponentContext,
+                KNNMethodConfigContext.builder().versionCreated(Version.CURRENT).build()
+            ).getLibraryParameters()
         );
 
         xContentBuilder = XContentFactory.jsonBuilder().startObject().field(NAME, methodName).endObject();
         in = xContentBuilderToMap(xContentBuilder);
         methodComponentContext = MethodComponentContext.parse(in);
 
-        Map<String, Object> methodAsMap = methodComponent.getAsMap(
+        KNNLibraryIndexingContext methodAsMap = methodComponent.getKNNLibraryIndexingContext(
             methodComponentContext,
             KNNMethodConfigContext.builder().versionCreated(Version.CURRENT).build()
         );
-        assertEquals(default1, ((Map<String, Object>) methodAsMap.get(PARAMETERS)).get(parameterName1));
-        assertEquals(default2, ((Map<String, Object>) methodAsMap.get(PARAMETERS)).get(parameterName2));
+        assertEquals(default1, ((Map<String, Object>) methodAsMap.getLibraryParameters().get(PARAMETERS)).get(parameterName1));
+        assertEquals(default2, ((Map<String, Object>) methodAsMap.getLibraryParameters().get(PARAMETERS)).get(parameterName2));
     }
 
     public void testGetAsMap_withGenerator() throws IOException {
@@ -164,7 +167,11 @@ public class MethodComponentTests extends KNNTestCase {
         MethodComponent methodComponent = MethodComponent.Builder.builder(methodName)
             .addParameter("valid1", new Parameter.IntegerParameter("valid1", 1, (v, context) -> v > 0))
             .addParameter("valid2", new Parameter.IntegerParameter("valid2", 1, (v, context) -> v > 0))
-            .setMapGenerator((methodComponent1, methodComponentContext, knnMethodConfigContext) -> generatedMap)
+            .setKnnLibraryIndexingContextGenerator(
+                (methodComponent1, methodComponentContext, knnMethodConfigContext) -> KNNLibraryIndexingContextImpl.builder()
+                    .parameters(generatedMap)
+                    .build()
+            )
             .build();
 
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder().startObject().field(NAME, methodName).endObject();
@@ -173,7 +180,10 @@ public class MethodComponentTests extends KNNTestCase {
 
         assertEquals(
             generatedMap,
-            methodComponent.getAsMap(methodComponentContext, KNNMethodConfigContext.builder().versionCreated(Version.CURRENT).build())
+            methodComponent.getKNNLibraryIndexingContext(
+                methodComponentContext,
+                KNNMethodConfigContext.builder().versionCreated(Version.CURRENT).build()
+            ).getLibraryParameters()
         );
     }
 
@@ -191,12 +201,17 @@ public class MethodComponentTests extends KNNTestCase {
         assertEquals(1, methodComponent.getParameters().size());
 
         Map<String, Object> generatedMap = ImmutableMap.of("test-key", "test-value");
-        builder.setMapGenerator((methodComponent1, methodComponentContext, knnMethodConfigContext) -> generatedMap);
+        builder.setKnnLibraryIndexingContextGenerator(
+            (methodComponent1, methodComponentContext, knnMethodConfigContext) -> KNNLibraryIndexingContextImpl.builder()
+                .parameters(generatedMap)
+                .build()
+        );
         methodComponent = builder.build();
 
         assertEquals(
             generatedMap,
-            methodComponent.getAsMap(null, KNNMethodConfigContext.builder().versionCreated(Version.CURRENT).build())
+            methodComponent.getKNNLibraryIndexingContext(null, KNNMethodConfigContext.builder().versionCreated(Version.CURRENT).build())
+                .getLibraryParameters()
         );
     }
 }
