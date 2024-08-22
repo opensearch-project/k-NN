@@ -20,13 +20,27 @@ import java.util.List;
 /**
  * Writes quantization states to off heap memory
  */
-public class KNNQuantizationStateWriter {
+public final class KNNQuantizationStateWriter {
 
     private final IndexOutput output;
     private List<FieldQuantizationState> fieldQuantizationStates = new ArrayList<>();
 
     /**
      * Constructor
+     * Overall file format for writer:
+     * Header
+     * QS1 state bytes
+     * QS2 state bytes
+     * Number of quantization states
+     * QS1 field name
+     * QS1 state bytes length
+     * QS1 position of state bytes
+     * QS2 field name
+     * QS2 state bytes length
+     * QS2 position of state bytes
+     * Position of index section (where QS1 field name is located)
+     * -1 (marker)
+     * Footer
      * @param segmentWriteState segment write state containing segment information
      * @throws IOException exception could be thrown while creating the output
      */
@@ -51,6 +65,7 @@ public class KNNQuantizationStateWriter {
 
     /**
      * Writes a quantization state as bytes
+     *
      * @param fieldName field name
      * @param quantizationState quantization state
      * @throws IOException could be thrown while writing
@@ -77,7 +92,6 @@ public class KNNQuantizationStateWriter {
         output.writeLong(indexStartPosition);
         output.writeInt(-1);
         CodecUtil.writeFooter(output);
-        output.close();
         fieldQuantizationStates = new ArrayList<>();
     }
 
@@ -86,5 +100,9 @@ public class KNNQuantizationStateWriter {
         final String fieldName;
         final byte[] stateBytes;
         final Long position;
+    }
+
+    public void closeOutput() throws IOException {
+        output.close();
     }
 }

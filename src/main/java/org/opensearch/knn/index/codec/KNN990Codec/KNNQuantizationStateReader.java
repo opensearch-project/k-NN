@@ -7,14 +7,13 @@ package org.opensearch.knn.index.codec.KNN990Codec;
 
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.codecs.CodecUtil;
-import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentReadState;
-import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -25,7 +24,7 @@ import java.util.Map;
 /**
  * Reads quantization states
  */
-public class KNNQuantizationStateReader {
+public final class KNNQuantizationStateReader {
 
     /**
      * Read quantization states and return list of fieldNames and bytes
@@ -90,15 +89,15 @@ public class KNNQuantizationStateReader {
      * @param fieldInfo field information
      * @return quantization state
      */
-    public QuantizationState read(Directory directory, String segmentName, String segmentSuffix, FieldInfo fieldInfo) throws IOException {
+    public QuantizationState read(QuantizationStateReadConfig readConfig) throws IOException {
         String quantizationStateFileName = IndexFileNames.segmentFileName(
-            segmentName,
-            segmentSuffix,
+            readConfig.getSegmentName(),
+            readConfig.getSegmentSuffix(),
             KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX
         );
-        String fieldName = fieldInfo.getName();
+        String fieldName = readConfig.getFieldInfo().getName();
 
-        IndexInput input = directory.openInput(quantizationStateFileName, IOContext.READ);
+        IndexInput input = readConfig.getDirectory().openInput(quantizationStateFileName, IOContext.READ);
         CodecUtil.retrieveChecksum(input);
         int numFields = getNumFields(input);
 

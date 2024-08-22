@@ -145,6 +145,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
      */
     @Override
     public void close() throws IOException {
+        quantizationStateWriter.closeOutput();
         IOUtils.close(flatVectorsWriter);
     }
 
