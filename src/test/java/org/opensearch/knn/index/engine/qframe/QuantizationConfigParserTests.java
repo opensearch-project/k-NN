@@ -8,8 +8,6 @@ package org.opensearch.knn.index.engine.qframe;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 
-import java.util.Locale;
-
 public class QuantizationConfigParserTests extends KNNTestCase {
 
     public void testFromCsv() {
@@ -18,64 +16,49 @@ public class QuantizationConfigParserTests extends KNNTestCase {
 
         expectThrows(
             IllegalArgumentException.class,
+            () -> QuantizationConfigParser.fromCsv(QuantizationConfigParser.TYPE_NAME + "=" + QuantizationConfigParser.BINARY_TYPE)
+        );
+
+        expectThrows(
+            IllegalArgumentException.class,
             () -> QuantizationConfigParser.fromCsv(
-                String.format(Locale.ROOT, "%s=%s", QuantizationConfigParser.TYPE_NAME, QuantizationConfigParser.BINARY_TYPE)
+                QuantizationConfigParser.TYPE_NAME + "=invalid," + QuantizationConfigParser.BIT_COUNT_NAME + "=4"
             )
         );
 
         expectThrows(
             IllegalArgumentException.class,
             () -> QuantizationConfigParser.fromCsv(
-                String.format(
-                    Locale.ROOT,
-                    "%s=%s,%s=%d",
-                    QuantizationConfigParser.TYPE_NAME,
-                    "invalid",
-                    QuantizationConfigParser.BIT_COUNT_NAME,
-                    4
-                )
+                QuantizationConfigParser.TYPE_NAME
+                    + "="
+                    + QuantizationConfigParser.BINARY_TYPE
+                    + ",invalid=4"
+                    + QuantizationConfigParser.BIT_COUNT_NAME
+                    + "=4"
             )
         );
 
         expectThrows(
             IllegalArgumentException.class,
             () -> QuantizationConfigParser.fromCsv(
-                String.format(
-                    Locale.ROOT,
-                    "%s=%s,%s=%d",
-                    QuantizationConfigParser.TYPE_NAME,
-                    QuantizationConfigParser.BINARY_TYPE,
-                    "invalid",
-                    4
-                )
-            )
-        );
-
-        expectThrows(
-            IllegalArgumentException.class,
-            () -> QuantizationConfigParser.fromCsv(
-                String.format(
-                    Locale.ROOT,
-                    "%s=%s,%s=%s",
-                    QuantizationConfigParser.TYPE_NAME,
-                    QuantizationConfigParser.BINARY_TYPE,
-                    QuantizationConfigParser.BIT_COUNT_NAME,
-                    "invalid"
-                )
+                QuantizationConfigParser.TYPE_NAME
+                    + "="
+                    + QuantizationConfigParser.BINARY_TYPE
+                    + ","
+                    + QuantizationConfigParser.BIT_COUNT_NAME
+                    + "=invalid"
             )
         );
 
         assertEquals(
             QuantizationConfig.builder().quantizationType(ScalarQuantizationType.FOUR_BIT).build(),
             QuantizationConfigParser.fromCsv(
-                String.format(
-                    Locale.ROOT,
-                    "%s=%s,%s=%d",
-                    QuantizationConfigParser.TYPE_NAME,
-                    QuantizationConfigParser.BINARY_TYPE,
-                    QuantizationConfigParser.BIT_COUNT_NAME,
-                    4
-                )
+                QuantizationConfigParser.TYPE_NAME
+                    + "="
+                    + QuantizationConfigParser.BINARY_TYPE
+                    + ","
+                    + QuantizationConfigParser.BIT_COUNT_NAME
+                    + "=4"
             )
         );
     }
