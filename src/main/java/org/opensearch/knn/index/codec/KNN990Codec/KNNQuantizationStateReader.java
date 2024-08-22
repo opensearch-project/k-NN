@@ -91,7 +91,7 @@ public class KNNQuantizationStateReader {
      * @param fieldInfo field information
      * @return quantization state
      */
-    public QuantizationState read(Directory directory, String segmentName, String segmentSuffix, FieldInfo fieldInfo) {
+    public QuantizationState read(Directory directory, String segmentName, String segmentSuffix, FieldInfo fieldInfo) throws IOException {
         String quantizationStateFileName = IndexFileNames.segmentFileName(
             segmentName,
             segmentSuffix,
@@ -99,38 +99,36 @@ public class KNNQuantizationStateReader {
         );
         String fieldName = fieldInfo.getName();
 
-        try (IndexInput input = directory.openInput(quantizationStateFileName, IOContext.READ)) {
+        IndexInput input = directory.openInput(quantizationStateFileName, IOContext.READ);
+        CodecUtil.retrieveChecksum(input);
+        int numFields = getNumFields(input);
 
-            int numFields = getNumFields(input);
+        long position = -1;
+        int length = 0;
 
-            long position = -1;
-            int length = 0;
-
-            // Read each field's metadata from the index section
-            for (int i = 0; i < numFields; i++) {
-                String tempFieldName = input.readString();
-                int tempLength = input.readInt();
-                long tempPosition = input.readVLong();
-                if (tempFieldName.equals(fieldName)) {
-                    position = tempPosition;
-                    length = tempLength;
-                    break;
-                }
+        // Read each field's metadata from the index section
+        for (int i = 0; i < numFields; i++) {
+            String tempFieldName = input.readString();
+            int tempLength = input.readInt();
+            long tempPosition = input.readVLong();
+            if (tempFieldName.equals(fieldName)) {
+                position = tempPosition;
+                length = tempLength;
+                break;
             }
-
-            if (position == -1 || length == 0) {
-                throw new IllegalArgumentException(String.format("Field %s not found", fieldName));
-            }
-
-            input.seek(position);
-            byte[] stateBytes = new byte[length];
-            input.readBytes(stateBytes, 0, length);
-            // Deserialize the byte array to a quantization state object
-            // TODO: Get params from field info and deserialize
-            return null;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
+
+        if (position == -1 || length == 0) {
+            throw new IllegalArgumentException(String.format("Field %s not found", fieldName));
+        }
+
+        input.seek(position);
+        byte[] stateBytes = new byte[length];
+        input.readBytes(stateBytes, 0, length);
+        input.close();
+        // Deserialize the byte array to a quantization state object
+        // TODO: Get params from field info and deserialize
+        return null;
     }
 
     private int getNumFields(IndexInput input) throws IOException {
