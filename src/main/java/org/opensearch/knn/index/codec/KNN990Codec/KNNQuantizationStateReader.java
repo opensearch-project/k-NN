@@ -83,10 +83,7 @@ public final class KNNQuantizationStateReader {
 
     /**
      * Reads an individual quantization state for a given field
-     * @param directory directory to open input
-     * @param segmentName segment name
-     * @param segmentSuffix segment suffix
-     * @param fieldInfo field information
+     * @param readConfig a config class that contains necessary information for reading the state
      * @return quantization state
      */
     public QuantizationState read(QuantizationStateReadConfig readConfig) throws IOException {
