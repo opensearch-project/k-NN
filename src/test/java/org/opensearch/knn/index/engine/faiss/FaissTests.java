@@ -246,7 +246,7 @@ public class FaissTests extends KNNTestCase {
             .vectorDataType(VectorDataType.FLOAT)
             .build();
         int m = 88;
-        String expectedIndexDescription = String.format(Locale.ROOT, "HNSW%d,Flat", m);
+        String expectedIndexDescription = "HNSW" + m + ",Flat";
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .field(NAME, METHOD_HNSW)
@@ -285,7 +285,7 @@ public class FaissTests extends KNNTestCase {
             .vectorDataType(VectorDataType.FLOAT)
             .build();
         int nlist = 88;
-        String expectedIndexDescription = String.format(Locale.ROOT, "IVF%d,Flat", nlist);
+        String expectedIndexDescription = "IVF" + nlist + ",Flat";
         XContentBuilder xContentBuilder = XContentFactory.jsonBuilder()
             .startObject()
             .field(NAME, METHOD_IVF)
