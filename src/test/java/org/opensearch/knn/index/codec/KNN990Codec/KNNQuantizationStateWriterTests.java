@@ -10,7 +10,6 @@ import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.SegmentInfo;
-import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.store.Directory;
@@ -18,14 +17,12 @@ import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.util.InfoStream;
 import org.apache.lucene.util.Version;
-import org.junit.Before;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 import org.opensearch.knn.KNNTestCase;
 import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.models.quantizationParams.ScalarQuantizationParams;
-import org.opensearch.knn.quantization.models.quantizationState.MultiBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.OneBitScalarQuantizationState;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
@@ -137,18 +134,18 @@ public class KNNQuantizationStateWriterTests extends KNNTestCase {
         final String segmentName = "test-segment-name";
 
         final SegmentInfo segmentInfo = new SegmentInfo(
-                Mockito.mock(Directory.class),
-                Mockito.mock(Version.class),
-                Mockito.mock(Version.class),
-                segmentName,
-                0,
-                false,
-                false,
-                Mockito.mock(Codec.class),
-                Mockito.mock(Map.class),
-                new byte[16],
-                Mockito.mock(Map.class),
-                Mockito.mock(Sort.class)
+            Mockito.mock(Directory.class),
+            Mockito.mock(Version.class),
+            Mockito.mock(Version.class),
+            segmentName,
+            0,
+            false,
+            false,
+            Mockito.mock(Codec.class),
+            Mockito.mock(Map.class),
+            new byte[16],
+            Mockito.mock(Map.class),
+            Mockito.mock(Sort.class)
         );
 
         Directory directory = Mockito.mock(Directory.class);
@@ -156,24 +153,24 @@ public class KNNQuantizationStateWriterTests extends KNNTestCase {
         Mockito.when(directory.createOutput(any(), any())).thenReturn(output);
 
         final SegmentWriteState segmentWriteState = new SegmentWriteState(
-                Mockito.mock(InfoStream.class),
-                directory,
-                segmentInfo,
-                Mockito.mock(FieldInfos.class),
-                null,
-                Mockito.mock(IOContext.class)
+            Mockito.mock(InfoStream.class),
+            directory,
+            segmentInfo,
+            Mockito.mock(FieldInfos.class),
+            null,
+            Mockito.mock(IOContext.class)
         );
         KNNQuantizationStateWriter quantizationStateWriter = new KNNQuantizationStateWriter(segmentWriteState);
 
         String fieldName1 = "test-field-1";
         String fieldName2 = "test-field-2";
         QuantizationState quantizationState1 = new OneBitScalarQuantizationState(
-                new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
-                new float[] { 1.2f, 2.3f, 3.4f, 4.5f }
+            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+            new float[] { 1.2f, 2.3f, 3.4f, 4.5f }
         );
         QuantizationState quantizationState2 = new OneBitScalarQuantizationState(
-                new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
-                new float[] { 2.3f, 3.4f, 4.5f, 5.6f }
+            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+            new float[] { 2.3f, 3.4f, 4.5f, 5.6f }
         );
         quantizationStateWriter.writeState(fieldName1, quantizationState1);
         quantizationStateWriter.writeState(fieldName2, quantizationState2);

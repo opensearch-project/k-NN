@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.codec.KNN990Codec;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.IndexFileNames;
@@ -28,7 +29,6 @@ public class KNNQuantizationStateReader {
 
     /**
      * Read quantization states and return list of fieldNames and bytes
-     *
      * File format:
      * Header
      * QS1 state bytes
@@ -46,7 +46,7 @@ public class KNNQuantizationStateReader {
      *
      * @param state the read state to read from
      */
-    public Map<String, byte[]> read(SegmentReadState state) {
+    public Map<String, byte[]> read(SegmentReadState state) throws IOException {
         String quantizationStateFileName = IndexFileNames.segmentFileName(
             state.segmentInfo.name,
             state.segmentSuffix,
@@ -54,32 +54,31 @@ public class KNNQuantizationStateReader {
         );
         Map<String, byte[]> readQuantizationStateInfos = new HashMap<>();
 
-        try (IndexInput input = state.directory.openInput(quantizationStateFileName, IOContext.READ)) {
+        IndexInput input = state.directory.openInput(quantizationStateFileName, IOContext.READ);
+        CodecUtil.retrieveChecksum(input);
 
-            int numFields = getNumFields(input);
+        int numFields = getNumFields(input);
 
-            List<String> fieldNames = new ArrayList<>();
-            List<Long> positions = new ArrayList<>();
-            List<Integer> lengths = new ArrayList<>();
+        List<String> fieldNames = new ArrayList<>();
+        List<Long> positions = new ArrayList<>();
+        List<Integer> lengths = new ArrayList<>();
 
-            // Read each field's metadata from the index section
-            for (int i = 0; i < numFields; i++) {
-                fieldNames.add(input.readString());
-                int length = input.readInt();
-                lengths.add(length);
-                long position = input.readVLong();
-                positions.add(position);
-            }
-            // Read each field's bytes
-            for (int i = 0; i < numFields; i++) {
-                input.seek(positions.get(i));
-                byte[] stateBytes = new byte[lengths.get(i)];
-                input.readBytes(stateBytes, 0, lengths.get(i));
-                readQuantizationStateInfos.put(fieldNames.get(i), stateBytes);
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        // Read each field's metadata from the index section
+        for (int i = 0; i < numFields; i++) {
+            fieldNames.add(input.readString());
+            int length = input.readInt();
+            lengths.add(length);
+            long position = input.readVLong();
+            positions.add(position);
         }
+        // Read each field's bytes
+        for (int i = 0; i < numFields; i++) {
+            input.seek(positions.get(i));
+            byte[] stateBytes = new byte[lengths.get(i)];
+            input.readBytes(stateBytes, 0, lengths.get(i));
+            readQuantizationStateInfos.put(fieldNames.get(i), stateBytes);
+        }
+        input.close();
         return readQuantizationStateInfos;
     }
 
@@ -131,7 +130,8 @@ public class KNNQuantizationStateReader {
         return null;
     }
 
-    private int getNumFields(IndexInput input) throws IOException {
+    @VisibleForTesting
+    int getNumFields(IndexInput input) throws IOException {
         long footerStart = input.length() - CodecUtil.footerLength();
         long markerAndIndexPosition = footerStart - Integer.BYTES - Long.BYTES;
         input.seek(markerAndIndexPosition);
