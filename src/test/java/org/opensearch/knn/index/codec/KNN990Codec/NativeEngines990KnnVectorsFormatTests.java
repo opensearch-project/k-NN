@@ -23,22 +23,28 @@ import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.KnnByteVectorField;
 import org.apache.lucene.document.KnnFloatVectorField;
 import org.apache.lucene.index.ByteVectorValues;
+import org.apache.lucene.index.FieldInfos;
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.NoMergePolicy;
+import org.apache.lucene.index.SegmentInfo;
 import org.apache.lucene.index.SegmentReadState;
 import org.apache.lucene.index.SegmentReader;
 import org.apache.lucene.index.SegmentWriteState;
 import org.apache.lucene.index.SerialMergeScheduler;
 import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Sort;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.IOContext;
 import org.apache.lucene.tests.index.RandomIndexWriter;
 import org.apache.lucene.tests.store.BaseDirectoryWrapper;
 import org.apache.lucene.util.Bits;
+import org.apache.lucene.util.InfoStream;
+import org.apache.lucene.util.Version;
 import org.junit.After;
 import org.junit.Assert;
 import org.mockito.Mockito;
@@ -53,6 +59,7 @@ import org.opensearch.knn.index.engine.KNNEngine;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Log4j2
@@ -76,7 +83,32 @@ public class NativeEngines990KnnVectorsFormatTests extends KNNTestCase {
     @SneakyThrows
     public void testReaderAndWriter_whenValidInput_thenSuccess() {
         final Lucene99FlatVectorsFormat mockedFlatVectorsFormat = Mockito.mock(Lucene99FlatVectorsFormat.class);
-        final SegmentWriteState mockedSegmentWriteState = Mockito.mock(SegmentWriteState.class);
+
+        final String segmentName = "test-segment-name";
+
+        final SegmentInfo mockedSegmentInfo = new SegmentInfo(
+            Mockito.mock(Directory.class),
+            Mockito.mock(Version.class),
+            Mockito.mock(Version.class),
+            segmentName,
+            0,
+            false,
+            false,
+            Mockito.mock(Codec.class),
+            Mockito.mock(Map.class),
+            new byte[16],
+            Mockito.mock(Map.class),
+            Mockito.mock(Sort.class)
+        );
+
+        final SegmentWriteState mockedSegmentWriteState = new SegmentWriteState(
+            Mockito.mock(InfoStream.class),
+            Mockito.mock(Directory.class),
+            mockedSegmentInfo,
+            Mockito.mock(FieldInfos.class),
+            null,
+            Mockito.mock(IOContext.class)
+        );
         final SegmentReadState mockedSegmentReadState = Mockito.mock(SegmentReadState.class);
 
         Mockito.when(mockedFlatVectorsFormat.fieldsReader(mockedSegmentReadState)).thenReturn(Mockito.mock(FlatVectorsReader.class));
