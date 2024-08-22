@@ -21,12 +21,15 @@ public final class OffHeapFloatVectorTransfer extends OffHeapVectorTransfer<floa
 
     @Override
     protected long transfer(final List<float[]> vectorsToTransfer, boolean append) throws IOException {
-        return JNICommons.storeVectorData(
-            getVectorAddress(),
-            vectorsToTransfer.toArray(new float[][] {}),
-            (long) vectorsToTransfer.get(0).length * this.transferLimit,
-            append
-        );
+        if (!vectorsToTransfer.isEmpty()) {
+            return JNICommons.storeVectorData(
+                getVectorAddress(),
+                vectorsToTransfer.toArray(new float[][] {}),
+                (long) vectorsToTransfer.get(0).length * this.transferLimit,
+                append
+            );
+        }
+        return 0;
     }
 
     @Override

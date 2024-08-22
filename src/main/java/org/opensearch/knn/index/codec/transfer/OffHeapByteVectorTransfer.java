@@ -23,12 +23,15 @@ public final class OffHeapByteVectorTransfer extends OffHeapVectorTransfer<byte[
 
     @Override
     protected long transfer(List<byte[]> batch, boolean append) throws IOException {
-        return JNICommons.storeByteVectorData(
-            getVectorAddress(),
-            batch.toArray(new byte[][] {}),
-            (long) batch.get(0).length * transferLimit,
-            append
-        );
+        if (!batch.isEmpty()) {
+            return JNICommons.storeByteVectorData(
+                getVectorAddress(),
+                batch.toArray(new byte[][] {}),
+                (long) batch.get(0).length * transferLimit,
+                append
+            );
+        }
+        return 0;
     }
 
     @Override
