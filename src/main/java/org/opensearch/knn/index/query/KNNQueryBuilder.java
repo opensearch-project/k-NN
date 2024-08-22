@@ -519,6 +519,7 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .methodParameters(this.methodParameters)
                 .filter(this.filter)
                 .context(context)
+                .rescoreContext(rescoreContext)
                 .build();
             return KNNQueryFactory.create(createQueryRequest);
         }

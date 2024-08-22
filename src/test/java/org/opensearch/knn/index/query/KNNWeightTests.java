@@ -677,6 +677,7 @@ public class KNNWeightTests extends KNNTestCase {
 
     public void validateANNWithFilterQuery_whenExactSearch_thenSuccess(final boolean isBinary) throws IOException {
         try (MockedStatic<KNNVectorValuesFactory> valuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
+            KNNWeight.initialize(null);
             float[] vector = new float[] { 0.1f, 0.3f };
             byte[] byteVector = new byte[] { 1, 3 };
             int filterDocId = 0;
@@ -685,8 +686,8 @@ public class KNNWeightTests extends KNNTestCase {
             when(leafReaderContext.reader()).thenReturn(reader);
 
             final KNNQuery query = isBinary
-                ? new KNNQuery(FIELD_NAME, BYTE_QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null, VectorDataType.BINARY)
-                : new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null);
+                ? new KNNQuery(FIELD_NAME, BYTE_QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null, VectorDataType.BINARY, null)
+                : new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null, null);
             final Weight filterQueryWeight = mock(Weight.class);
             final Scorer filterScorer = mock(Scorer.class);
             when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
@@ -753,6 +754,8 @@ public class KNNWeightTests extends KNNTestCase {
 
     @SneakyThrows
     public void testANNWithFilterQuery_whenExactSearchAndThresholdComputations_thenSuccess() {
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNWeight.initialize(modelDao);
         knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(-1);
         float[] vector = new float[] { 0.1f, 0.3f };
         int filterDocId = 0;
@@ -760,7 +763,7 @@ public class KNNWeightTests extends KNNTestCase {
         final SegmentReader reader = mock(SegmentReader.class);
         when(leafReaderContext.reader()).thenReturn(reader);
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null);
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null, null);
         final Weight filterQueryWeight = mock(Weight.class);
         final Scorer filterScorer = mock(Scorer.class);
         when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
@@ -821,6 +824,8 @@ public class KNNWeightTests extends KNNTestCase {
      */
     @SneakyThrows
     public void testANNWithFilterQuery_whenExactSearchViaThresholdSetting_thenSuccess() {
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNWeight.initialize(modelDao);
         knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(10);
         float[] vector = new float[] { 0.1f, 0.3f };
         int k = 1;
@@ -837,7 +842,7 @@ public class KNNWeightTests extends KNNTestCase {
 
         when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(filterDocIds.length));
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, k, INDEX_NAME, FILTER_QUERY, null);
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, k, INDEX_NAME, FILTER_QUERY, null, null);
 
         final float boost = (float) randomDoubleBetween(0, 10, true);
         final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
@@ -890,6 +895,7 @@ public class KNNWeightTests extends KNNTestCase {
     @SneakyThrows
     public void testANNWithFilterQuery_whenExactSearchViaThresholdSettingOnBinaryIndex_thenSuccess() {
         try (MockedStatic<KNNVectorValuesFactory> vectorValuesFactoryMockedStatic = Mockito.mockStatic(KNNVectorValuesFactory.class)) {
+            KNNWeight.initialize(null);
             knnSettingsMockedStatic.when(() -> KNNSettings.getFilteredExactSearchThreshold(INDEX_NAME)).thenReturn(10);
             byte[] vector = new byte[] { 1, 3 };
             int k = 1;
@@ -906,7 +912,16 @@ public class KNNWeightTests extends KNNTestCase {
 
             when(filterScorer.iterator()).thenReturn(DocIdSetIterator.all(filterDocIds.length));
 
-            final KNNQuery query = new KNNQuery(FIELD_NAME, BYTE_QUERY_VECTOR, k, INDEX_NAME, FILTER_QUERY, null, VectorDataType.BINARY);
+            final KNNQuery query = new KNNQuery(
+                FIELD_NAME,
+                BYTE_QUERY_VECTOR,
+                k,
+                INDEX_NAME,
+                FILTER_QUERY,
+                null,
+                VectorDataType.BINARY,
+                null
+            );
 
             final float boost = (float) randomDoubleBetween(0, 10, true);
             final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
@@ -960,7 +975,7 @@ public class KNNWeightTests extends KNNTestCase {
         when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
         when(filterScorer.iterator()).thenReturn(DocIdSetIterator.empty());
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null);
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, null, null);
         final KNNWeight knnWeight = new KNNWeight(query, 0.0f, filterQueryWeight);
 
         final FieldInfos fieldInfos = mock(FieldInfos.class);
@@ -978,6 +993,8 @@ public class KNNWeightTests extends KNNTestCase {
 
     @SneakyThrows
     public void testANNWithParentsFilter_whenExactSearch_thenSuccess() {
+        ModelDao modelDao = mock(ModelDao.class);
+        KNNWeight.initialize(modelDao);
         SegmentReader reader = getMockedSegmentReader();
 
         final LeafReaderContext leafReaderContext = mock(LeafReaderContext.class);
@@ -1006,7 +1023,7 @@ public class KNNWeightTests extends KNNTestCase {
         final Weight filterQueryWeight = mock(Weight.class);
         when(filterQueryWeight.scorer(leafReaderContext)).thenReturn(filterScorer);
 
-        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, parentFilter);
+        final KNNQuery query = new KNNQuery(FIELD_NAME, QUERY_VECTOR, K, INDEX_NAME, FILTER_QUERY, parentFilter, null);
         final float boost = (float) randomDoubleBetween(0, 10, true);
         final KNNWeight knnWeight = new KNNWeight(query, boost, filterQueryWeight);
 
