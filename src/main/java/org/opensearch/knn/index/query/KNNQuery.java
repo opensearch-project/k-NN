@@ -21,6 +21,7 @@ import org.apache.lucene.search.Weight;
 import org.apache.lucene.search.join.BitSetProducer;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -38,13 +39,12 @@ public class KNNQuery extends Query {
 
     private final String field;
     private final float[] queryVector;
-    @Getter
     private final byte[] byteQueryVector;
     private int k;
     private Map<String, ?> methodParameters;
     private final String indexName;
-    @Getter
     private final VectorDataType vectorDataType;
+    private final RescoreContext rescoreContext;
 
     @Setter
     private Query filterQuery;
@@ -59,7 +59,7 @@ public class KNNQuery extends Query {
         final String indexName,
         final BitSetProducer parentsFilter
     ) {
-        this(field, queryVector, null, k, indexName, null, parentsFilter, VectorDataType.FLOAT);
+        this(field, queryVector, null, k, indexName, null, parentsFilter, VectorDataType.FLOAT, null);
     }
 
     public KNNQuery(
@@ -68,9 +68,10 @@ public class KNNQuery extends Query {
         final int k,
         final String indexName,
         final Query filterQuery,
-        final BitSetProducer parentsFilter
+        final BitSetProducer parentsFilter,
+        final RescoreContext rescoreContext
     ) {
-        this(field, queryVector, null, k, indexName, filterQuery, parentsFilter, VectorDataType.FLOAT);
+        this(field, queryVector, null, k, indexName, filterQuery, parentsFilter, VectorDataType.FLOAT, rescoreContext);
     }
 
     public KNNQuery(
@@ -80,9 +81,10 @@ public class KNNQuery extends Query {
         final String indexName,
         final Query filterQuery,
         final BitSetProducer parentsFilter,
-        final VectorDataType vectorDataType
+        final VectorDataType vectorDataType,
+        final RescoreContext rescoreContext
     ) {
-        this(field, null, byteQueryVector, k, indexName, filterQuery, parentsFilter, vectorDataType);
+        this(field, null, byteQueryVector, k, indexName, filterQuery, parentsFilter, vectorDataType, rescoreContext);
     }
 
     private KNNQuery(
@@ -93,7 +95,8 @@ public class KNNQuery extends Query {
         final String indexName,
         final Query filterQuery,
         final BitSetProducer parentsFilter,
-        final VectorDataType vectorDataType
+        final VectorDataType vectorDataType,
+        final RescoreContext rescoreContext
     ) {
         this.field = field;
         this.queryVector = queryVector;
@@ -103,6 +106,7 @@ public class KNNQuery extends Query {
         this.filterQuery = filterQuery;
         this.parentsFilter = parentsFilter;
         this.vectorDataType = vectorDataType;
+        this.rescoreContext = rescoreContext;
     }
 
     /**
@@ -114,7 +118,7 @@ public class KNNQuery extends Query {
      * @param parentsFilter parent filter
      */
     public KNNQuery(String field, float[] queryVector, String indexName, BitSetProducer parentsFilter) {
-        this(field, queryVector, null, 0, indexName, null, parentsFilter, VectorDataType.FLOAT);
+        this(field, queryVector, null, 0, indexName, null, parentsFilter, VectorDataType.FLOAT, null);
     }
 
     /**

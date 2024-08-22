@@ -30,6 +30,7 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.query.nativelib.NativeEngineKnnVectorQuery;
+import org.opensearch.knn.index.query.rescore.RescoreContext;
 
 import java.util.Arrays;
 import java.util.List;
@@ -72,12 +73,14 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         for (KNNEngine knnEngine : KNNEngine.getEnginesThatCreateCustomSegmentFiles()) {
             when(clusterSettings.get(KNN_LAUNCH_QUERY_REWRITE_ENABLED_SETTING)).thenReturn(false);
             Query query = KNNQueryFactory.create(
-                knnEngine,
-                testIndexName,
-                testFieldName,
-                testQueryVector,
-                testK,
-                DEFAULT_VECTOR_DATA_TYPE_FIELD
+                BaseQueryFactory.CreateQueryRequest.builder()
+                    .knnEngine(knnEngine)
+                    .indexName(testIndexName)
+                    .fieldName(testFieldName)
+                    .vector(testQueryVector)
+                    .k(testK)
+                    .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                    .build()
             );
             assertTrue(query instanceof KNNQuery);
             assertEquals(testIndexName, ((KNNQuery) query).getIndexName());
@@ -86,7 +89,16 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             assertEquals(testK, ((KNNQuery) query).getK());
 
             when(clusterSettings.get(KNN_LAUNCH_QUERY_REWRITE_ENABLED_SETTING)).thenReturn(true);
-            query = KNNQueryFactory.create(knnEngine, testIndexName, testFieldName, testQueryVector, testK, DEFAULT_VECTOR_DATA_TYPE_FIELD);
+            query = KNNQueryFactory.create(
+                BaseQueryFactory.CreateQueryRequest.builder()
+                    .knnEngine(knnEngine)
+                    .indexName(testIndexName)
+                    .fieldName(testFieldName)
+                    .vector(testQueryVector)
+                    .k(testK)
+                    .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                    .build()
+            );
             assertTrue(query instanceof NativeEngineKnnVectorQuery);
             query = ((NativeEngineKnnVectorQuery) query).getKnnQuery();
 
@@ -103,12 +115,14 @@ public class KNNQueryFactoryTests extends KNNTestCase {
             .collect(Collectors.toList());
         for (KNNEngine knnEngine : luceneDefaultQueryEngineList) {
             Query query = KNNQueryFactory.create(
-                knnEngine,
-                testIndexName,
-                testFieldName,
-                testQueryVector,
-                testK,
-                DEFAULT_VECTOR_DATA_TYPE_FIELD
+                BaseQueryFactory.CreateQueryRequest.builder()
+                    .knnEngine(knnEngine)
+                    .indexName(testIndexName)
+                    .fieldName(testFieldName)
+                    .vector(testQueryVector)
+                    .k(testK)
+                    .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                    .build()
             );
             assertEquals(KnnFloatVectorQuery.class, query.getClass());
         }
@@ -440,6 +454,30 @@ public class KNNQueryFactoryTests extends KNNTestCase {
         when(clusterSettings.get(KNN_LAUNCH_QUERY_REWRITE_ENABLED_SETTING)).thenReturn(true);
         query = KNNQueryFactory.create(createQueryRequest);
         assertTrue(query instanceof NativeEngineKnnVectorQuery);
+    }
+
+    public void testCreate_whenRescoreContextPassed_thenSuccess() {
+        QueryShardContext mockQueryShardContext = mock(QueryShardContext.class);
+        MappedFieldType testMapper = mock(MappedFieldType.class);
+        when(mockQueryShardContext.fieldMapper(any())).thenReturn(testMapper);
+        BitSetProducer parentFilter = mock(BitSetProducer.class);
+        when(mockQueryShardContext.getParentFilter()).thenReturn(parentFilter);
+
+        final KNNQueryFactory.CreateQueryRequest createQueryRequest = KNNQueryFactory.CreateQueryRequest.builder()
+            .knnEngine(KNNEngine.FAISS)
+            .indexName(testIndexName)
+            .fieldName(testFieldName)
+            .vector(testQueryVector)
+            .byteVector(testByteQueryVector)
+            .vectorDataType(VectorDataType.BINARY)
+            .k(testK)
+            .context(mockQueryShardContext)
+            .filter(FILTER_QUERY_BUILDER)
+            .rescoreContext(RescoreContext.getDefault())
+            .build();
+        Query query = KNNQueryFactory.create(createQueryRequest);
+        assertTrue(query instanceof KNNQuery);
+        assertEquals(RescoreContext.getDefault(), ((KNNQuery) query).getRescoreContext());
     }
 
 }
