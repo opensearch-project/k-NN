@@ -33,14 +33,8 @@ public class QuantizationConfigParser {
             || quantizationConfig.getQuantizationType() == null) {
             return "";
         }
-        return String.format(
-            Locale.ROOT,
-            "%s=%s,%s=%d",
-            TYPE_NAME,
-            BINARY_TYPE,
-            BIT_COUNT_NAME,
-            quantizationConfig.getQuantizationType().getId()
-        );
+
+        return TYPE_NAME + SEPARATOR + BINARY_TYPE + "," + BIT_COUNT_NAME + SEPARATOR + quantizationConfig.getQuantizationType().getId();
     }
 
     /**
