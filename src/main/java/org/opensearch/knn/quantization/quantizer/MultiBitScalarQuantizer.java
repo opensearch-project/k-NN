@@ -17,6 +17,8 @@ import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
 import oshi.util.tuples.Pair;
 
+import java.io.IOException;
+
 /**
  * MultiBitScalarQuantizer is responsible for quantizing vectors into multi-bit representations per dimension.
  * Unlike the OneBitScalarQuantizer, which uses a single bit per dimension to represent whether a value is above
@@ -106,7 +108,7 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
      * @return a MultiBitScalarQuantizationState containing the computed thresholds.
      */
     @Override
-    public QuantizationState train(final TrainingRequest<float[]> trainingRequest) {
+    public QuantizationState train(final TrainingRequest<float[]> trainingRequest) throws IOException {
         int[] sampledIndices = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
         // Calculate sum, mean, and standard deviation in one pass
         Pair<float[], float[]> meanAndStdDev = QuantizerHelper.calculateMeanAndStdDev(trainingRequest, sampledIndices);

@@ -9,8 +9,8 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.apache.lucene.index.FieldInfo;
 import org.opensearch.knn.index.VectorDataType;
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
-import org.opensearch.knn.quantization.enums.ScalarQuantizationType;
 import org.opensearch.knn.quantization.factory.QuantizerFactory;
 import org.opensearch.knn.quantization.models.quantizationOutput.BinaryQuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
@@ -20,6 +20,8 @@ import org.opensearch.knn.quantization.models.quantizationState.QuantizationStat
 import org.opensearch.knn.quantization.quantizer.Quantizer;
 import java.io.IOException;
 
+import static org.opensearch.knn.common.FieldInfoExtractor.extractQuantizationConfig;
+
 /**
  * A singleton class responsible for handling the quantization process, including training a quantizer
  * and applying quantization to vectors. This class is designed to be thread-safe.
@@ -28,7 +30,7 @@ import java.io.IOException;
  * @param <R> The type of the quantized output vectors.
  */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-public class QuantizationService<T, R> {
+public final class QuantizationService<T, R> {
 
     /**
      * The singleton instance of the {@link QuantizationService} class.
@@ -85,9 +87,9 @@ public class QuantizationService<T, R> {
      * Retrieves quantization parameters from the FieldInfo.
      */
     public QuantizationParams getQuantizationParams(final FieldInfo fieldInfo) {
-        // TODO: Replace this with actual logic to extract quantization parameters from FieldInfo
-        if (fieldInfo.getAttribute("QuantizationConfig") != null) {
-            return new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
+        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo);
+        if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
+            return new ScalarQuantizationParams(quantizationConfig.getQuantizationType());
         }
         return null;
     }
@@ -101,8 +103,11 @@ public class QuantizationService<T, R> {
      * @return The {@link VectorDataType} to be used during the vector transfer process
      */
     public VectorDataType getVectorDataTypeForTransfer(final FieldInfo fieldInfo) {
-        // TODO: Replace this with actual logic to extract quantization parameters from FieldInfo
-        return VectorDataType.BINARY;
+        QuantizationConfig quantizationConfig = extractQuantizationConfig(fieldInfo);
+        if (quantizationConfig != QuantizationConfig.EMPTY && quantizationConfig.getQuantizationType() != null) {
+            return VectorDataType.BINARY;
+        }
+        return null;
     }
 
     /**

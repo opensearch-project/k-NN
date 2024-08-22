@@ -97,9 +97,7 @@ public abstract class AbstractFaissMethod extends AbstractKNNMethod {
         // We need to update the prefix used to create the faiss index if we are using the quantization
         // framework
         if (encoderContext != null && Objects.equals(encoderContext.getName(), QFrameBitEncoder.NAME)) {
-            // TODO: Uncomment to use Quantization framework
-            // leaving commented now just so it wont fail creating faiss indices.
-            // prefix = FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
+            prefix = FAISS_BINARY_INDEX_DESCRIPTION_PREFIX;
         }
 
         if (knnMethodConfigContext.getVectorDataType() == VectorDataType.BINARY) {

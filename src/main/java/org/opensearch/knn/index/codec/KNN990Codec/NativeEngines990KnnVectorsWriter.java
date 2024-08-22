@@ -204,7 +204,8 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
      *                                field information, and additional context (e.g., merge state or field writer).
      * @param indexOperation         A functional interface that performs the indexing operation using the retrieved
      *                                {@link KNNVectorValues}.
-     * @param context                The additional context required for retrieving the vector values (e.g., {@link MergeState} or {@link NativeEngineFieldVectorsWriter}).
+     * @param VectorProcessingContext                The additional context required for retrieving the vector values (e.g., {@link MergeState} or {@link NativeEngineFieldVectorsWriter}).
+     *                                               From Flush we need NativeFieldWriter which contains total number of vectors while from Merge we need merge state which contains vector information
      * @param <T>                    The type of vectors being processed.
      * @param <C>                    The type of the context needed for retrieving the vector values.
      * @throws IOException If an I/O error occurs during the processing.
@@ -213,22 +214,20 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         final FieldInfo fieldInfo,
         final VectorValuesRetriever<VectorDataType, FieldInfo, C, KNNVectorValues<T>> vectorValuesRetriever,
         final IndexOperation<T> indexOperation,
-        final C context
+        final C VectorProcessingContext
     ) throws IOException {
         final VectorDataType vectorDataType = extractVectorDataType(fieldInfo);
-        KNNVectorValues<T> knnVectorValuesForTraining = vectorValuesRetriever.apply(vectorDataType, fieldInfo, context);
-        KNNVectorValues<T> knnVectorValuesForIndexing = vectorValuesRetriever.apply(vectorDataType, fieldInfo, context);
-
+        KNNVectorValues<T> knnVectorValues = vectorValuesRetriever.apply(vectorDataType, fieldInfo, VectorProcessingContext);
         QuantizationParams quantizationParams = quantizationService.getQuantizationParams(fieldInfo);
         QuantizationState quantizationState = null;
-
         if (quantizationParams != null) {
-            quantizationState = quantizationService.train(quantizationParams, knnVectorValuesForTraining);
+            quantizationState = quantizationService.train(quantizationParams, knnVectorValues);
         }
         NativeIndexWriter writer = (quantizationParams != null)
             ? NativeIndexWriter.getWriter(fieldInfo, segmentWriteState, quantizationState)
             : NativeIndexWriter.getWriter(fieldInfo, segmentWriteState);
 
-        indexOperation.buildAndWrite(writer, knnVectorValuesForIndexing);
+        knnVectorValues = vectorValuesRetriever.apply(vectorDataType, fieldInfo, VectorProcessingContext);
+        indexOperation.buildAndWrite(writer, knnVectorValues);
     }
 }

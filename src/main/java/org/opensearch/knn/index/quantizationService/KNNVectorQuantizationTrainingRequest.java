@@ -5,8 +5,11 @@
 
 package org.opensearch.knn.index.quantizationService;
 
+import lombok.extern.log4j.Log4j2;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.quantization.models.requests.TrainingRequest;
+
+import java.io.IOException;
 
 import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
 
@@ -14,7 +17,8 @@ import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
  * KNNVectorQuantizationTrainingRequest is a concrete implementation of the abstract TrainingRequest class.
  * It provides a mechanism to retrieve float vectors from the KNNVectorValues by document ID.
  */
-class KNNVectorQuantizationTrainingRequest<T> extends TrainingRequest<T> {
+@Log4j2
+final class KNNVectorQuantizationTrainingRequest<T> extends TrainingRequest<T> {
 
     private final KNNVectorValues<T> knnVectorValues;
     private int lastIndex;
@@ -31,27 +35,21 @@ class KNNVectorQuantizationTrainingRequest<T> extends TrainingRequest<T> {
     }
 
     /**
-     * Retrieves the float vector associated with the specified document ID.
+     * Retrieves the vector associated with the specified document ID.
      *
-     * @param docId the document ID.
+     * @param position the document ID.
      * @return the float vector corresponding to the specified document ID, or null if the docId is invalid.
      */
     @Override
-    public T getVectorByDocId(int docId) {
-        try {
-            int index = lastIndex;
-            while (index <= docId) {
-                knnVectorValues.nextDoc();
-                index++;
-            }
+    public T getVectorAtThePosition(int position) throws IOException {
+        while (lastIndex <= position) {
+            lastIndex++;
             if (knnVectorValues.docId() == NO_MORE_DOCS) {
                 return null;
             }
-            lastIndex = index;
-            // Return the vector and the updated index
-            return knnVectorValues.getVector();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to retrieve vector for docId: " + docId, e);
+            knnVectorValues.nextDoc();
         }
+        // Return the vector and the updated index
+        return knnVectorValues.getVector();
     }
 }

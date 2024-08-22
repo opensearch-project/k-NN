@@ -11,11 +11,8 @@ import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
 import org.opensearch.knn.index.engine.KNNEngine;
-import org.opensearch.knn.index.quantizationService.QuantizationService;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
-import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
 import java.security.AccessController;
@@ -60,48 +57,27 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
         iterateVectorValuesOnce(knnVectorValues);
         KNNEngine engine = indexInfo.getKnnEngine();
         Map<String, Object> indexParameters = indexInfo.getParameters();
-        QuantizationService quantizationHandler = QuantizationService.getInstance();
-        QuantizationState quantizationState = indexInfo.getQuantizationState();
-        QuantizationOutput quantizationOutput = null;
-
-        int bytesPerVector;
-        int dimensions;
-
-        // Handle quantization state if present
-        if (quantizationState != null) {
-            bytesPerVector = quantizationState.getBytesPerVector();
-            dimensions = quantizationState.getDimensions();
-            quantizationOutput = quantizationHandler.createQuantizationOutput(quantizationState.getQuantizationParams());
-        } else {
-            bytesPerVector = knnVectorValues.bytesPerVector();
-            dimensions = knnVectorValues.dimension();
-        }
+        IndexBuildSetup indexBuildSetup = QuantizationIndexUtils.prepareIndexBuild(knnVectorValues, indexInfo);
 
         // Initialize the index
         long indexMemoryAddress = AccessController.doPrivileged(
             (PrivilegedAction<Long>) () -> JNIService.initIndex(
                 knnVectorValues.totalLiveDocs(),
-                knnVectorValues.dimension(),
+                indexBuildSetup.getDimensions(),
                 indexParameters,
                 engine
             )
         );
 
-        int transferLimit = (int) Math.max(1, KNNSettings.getVectorStreamingMemoryLimit().getBytes() / bytesPerVector);
+        int transferLimit = (int) Math.max(1, KNNSettings.getVectorStreamingMemoryLimit().getBytes() / indexBuildSetup.getBytesPerVector());
         try (final OffHeapVectorTransfer vectorTransfer = getVectorTransfer(indexInfo.getVectorDataType(), transferLimit)) {
 
             final List<Integer> transferredDocIds = new ArrayList<>(transferLimit);
 
             while (knnVectorValues.docId() != NO_MORE_DOCS) {
+                Object vector = QuantizationIndexUtils.processAndReturnVector(knnVectorValues, indexBuildSetup);
                 // append is false to be able to reuse the memory location
-                boolean transferred;
-                if (quantizationState != null && quantizationOutput != null) {
-                    quantizationHandler.quantize(quantizationState, knnVectorValues.getVector(), quantizationOutput);
-                    transferred = vectorTransfer.transfer(quantizationOutput.getQuantizedVector(), false);
-                } else {
-                    transferred = vectorTransfer.transfer(knnVectorValues.conditionalCloneVector(), false);
-                }
-                // append is false to be able to reuse the memory location
+                boolean transferred = vectorTransfer.transfer(vector, false);
                 transferredDocIds.add(knnVectorValues.docId());
                 if (transferred) {
                     // Insert vectors
@@ -110,7 +86,7 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
                         JNIService.insertToIndex(
                             intListToArray(transferredDocIds),
                             vectorAddress,
-                            dimensions,
+                            indexBuildSetup.getDimensions(),
                             indexParameters,
                             indexMemoryAddress,
                             engine
@@ -130,7 +106,7 @@ final class MemOptimizedNativeIndexBuildStrategy implements NativeIndexBuildStra
                     JNIService.insertToIndex(
                         intListToArray(transferredDocIds),
                         vectorAddress,
-                        dimensions,
+                        indexBuildSetup.getDimensions(),
                         indexParameters,
                         indexMemoryAddress,
                         engine

@@ -11,11 +11,8 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
 import org.opensearch.knn.index.codec.nativeindex.model.BuildIndexParams;
 import org.opensearch.knn.index.codec.transfer.OffHeapVectorTransfer;
-import org.opensearch.knn.index.quantizationService.QuantizationService;
 import org.opensearch.knn.index.vectorvalues.KNNVectorValues;
 import org.opensearch.knn.jni.JNIService;
-import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
-import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 
 import java.io.IOException;
 import java.security.AccessController;
@@ -57,35 +54,16 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
     public void buildAndWriteIndex(final BuildIndexParams indexInfo, final KNNVectorValues<?> knnVectorValues) throws IOException {
         // Needed to make sure we don't get 0 dimensions while initializing index
         iterateVectorValuesOnce(knnVectorValues);
-        QuantizationService quantizationHandler = QuantizationService.getInstance();
-        QuantizationState quantizationState = indexInfo.getQuantizationState();
-        QuantizationOutput quantizationOutput = null;
+        IndexBuildSetup indexBuildSetup = QuantizationIndexUtils.prepareIndexBuild(knnVectorValues, indexInfo);
 
-        int bytesPerVector;
-        int dimensions;
-
-        // Handle quantization state if present
-        if (quantizationState != null) {
-            bytesPerVector = quantizationState.getBytesPerVector();
-            dimensions = quantizationState.getDimensions();
-            quantizationOutput = quantizationHandler.createQuantizationOutput(quantizationState.getQuantizationParams());
-        } else {
-            bytesPerVector = knnVectorValues.bytesPerVector();
-            dimensions = knnVectorValues.dimension();
-        }
-
-        int transferLimit = (int) Math.max(1, KNNSettings.getVectorStreamingMemoryLimit().getBytes() / bytesPerVector);
+        int transferLimit = (int) Math.max(1, KNNSettings.getVectorStreamingMemoryLimit().getBytes() / indexBuildSetup.getBytesPerVector());
         try (final OffHeapVectorTransfer vectorTransfer = getVectorTransfer(indexInfo.getVectorDataType(), transferLimit)) {
             final List<Integer> transferredDocIds = new ArrayList<>((int) knnVectorValues.totalLiveDocs());
 
             while (knnVectorValues.docId() != NO_MORE_DOCS) {
-                if (quantizationState != null && quantizationOutput != null) {
-                    quantizationHandler.quantize(quantizationState, knnVectorValues.getVector(), quantizationOutput);
-                    vectorTransfer.transfer(quantizationOutput.getQuantizedVector(), true);
-                } else {
-                    vectorTransfer.transfer(knnVectorValues.conditionalCloneVector(), true);
-                }
+                Object vector = QuantizationIndexUtils.processAndReturnVector(knnVectorValues, indexBuildSetup);
                 // append is true here so off heap memory buffer isn't overwritten
+                vectorTransfer.transfer(vector, true);
                 transferredDocIds.add(knnVectorValues.docId());
                 knnVectorValues.nextDoc();
             }
@@ -100,7 +78,7 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
                     JNIService.createIndexFromTemplate(
                         intListToArray(transferredDocIds),
                         vectorAddress,
-                        dimensions,
+                        indexBuildSetup.getDimensions(),
                         indexInfo.getIndexPath(),
                         (byte[]) params.get(KNNConstants.MODEL_BLOB_PARAMETER),
                         params,
@@ -113,7 +91,7 @@ final class DefaultIndexBuildStrategy implements NativeIndexBuildStrategy {
                     JNIService.createIndex(
                         intListToArray(transferredDocIds),
                         vectorAddress,
-                        dimensions,
+                        indexBuildSetup.getDimensions(),
                         indexInfo.getIndexPath(),
                         params,
                         indexInfo.getKnnEngine()

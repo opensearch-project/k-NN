@@ -22,14 +22,14 @@ import java.io.IOException;
 
 public class OneBitScalarQuantizerTests extends KNNTestCase {
 
-    public void testTrain_withTrainingRequired() {
+    public void testTrain_withTrainingRequired() throws IOException {
         float[][] vectors = { { 1.0f, 2.0f, 3.0f }, { 4.0f, 5.0f, 6.0f }, { 7.0f, 8.0f, 9.0f } };
 
         ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
         TrainingRequest<float[]> originalRequest = new TrainingRequest<float[]>(vectors.length) {
             @Override
-            public float[] getVectorByDocId(int docId) {
-                return vectors[docId];
+            public float[] getVectorAtThePosition(int position) {
+                return vectors[position];
             }
         };
         OneBitScalarQuantizer quantizer = new OneBitScalarQuantizer();
@@ -118,14 +118,14 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
         expectThrows(IllegalArgumentException.class, () -> quantizer.quantize(vector, state, output));
     }
 
-    public void testCalculateMean() {
+    public void testCalculateMean() throws IOException {
         float[][] vectors = { { 1.0f, 2.0f, 3.0f }, { 4.0f, 5.0f, 6.0f }, { 7.0f, 8.0f, 9.0f } };
 
         ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
         TrainingRequest<float[]> samplingRequest = new TrainingRequest<float[]>(vectors.length) {
             @Override
-            public float[] getVectorByDocId(int docId) {
-                return vectors[docId];
+            public float[] getVectorAtThePosition(int position) {
+                return vectors[position];
             }
         };
 
@@ -141,8 +141,8 @@ public class OneBitScalarQuantizerTests extends KNNTestCase {
         ScalarQuantizationParams params = new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT);
         TrainingRequest<float[]> samplingRequest = new TrainingRequest<float[]>(vectors.length) {
             @Override
-            public float[] getVectorByDocId(int docId) {
-                return vectors[docId];
+            public float[] getVectorAtThePosition(int position) {
+                return vectors[position];
             }
         };
 

@@ -146,6 +146,10 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
     public int getDimensions() {
         // For multi-bit quantization, the dimension for indexing is the number of rows * columns in the thresholds array.
         // Where number of column reprensents Dimesion of Original vector and number of rows equals to number of bits
+        // Check if thresholds are null or have invalid structure
+        if (thresholds == null || thresholds.length == 0 || thresholds[0] == null) {
+            throw new IllegalStateException("Error in getting Dimension: The thresholds array is not initialized.");
+        }
         return thresholds.length * thresholds[0].length;
     }
 

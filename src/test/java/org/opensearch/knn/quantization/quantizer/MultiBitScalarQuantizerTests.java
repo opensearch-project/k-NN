@@ -17,7 +17,7 @@ import java.io.IOException;
 
 public class MultiBitScalarQuantizerTests extends KNNTestCase {
 
-    public void testTrain_twoBit() {
+    public void testTrain_twoBit() throws IOException {
         float[][] vectors = {
             { 0.5f, 1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f, 7.5f },
             { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f },
@@ -33,7 +33,7 @@ public class MultiBitScalarQuantizerTests extends KNNTestCase {
         assertEquals(2, mbState.getThresholds().length); // 2-bit quantization should have 2 thresholds
     }
 
-    public void testTrain_fourBit() {
+    public void testTrain_fourBit() throws IOException {
         MultiBitScalarQuantizer fourBitQuantizer = new MultiBitScalarQuantizer(4);
         float[][] vectors = {
             { 0.5f, 1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f, 7.5f },
@@ -220,8 +220,8 @@ public class MultiBitScalarQuantizerTests extends KNNTestCase {
         }
 
         @Override
-        public float[] getVectorByDocId(int docId) {
-            return vectors[docId];
+        public float[] getVectorAtThePosition(int position) {
+            return vectors[position];
         }
     }
 }

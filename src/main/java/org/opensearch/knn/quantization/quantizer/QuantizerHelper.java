@@ -9,6 +9,8 @@ import org.opensearch.knn.quantization.models.requests.TrainingRequest;
 import lombok.experimental.UtilityClass;
 import oshi.util.tuples.Pair;
 
+import java.io.IOException;
+
 /**
  * Utility class providing common methods for quantizer operations, such as parameter validation and
  * extraction. This class is designed to be used with various quantizer implementations that require
@@ -25,12 +27,12 @@ class QuantizerHelper {
      * @throws IllegalArgumentException If any of the vectors at the sampled indices are null.
      * @throws IllegalStateException    If the mean array is unexpectedly null after processing the vectors.
      */
-    static float[] calculateMeanThresholds(TrainingRequest<float[]> samplingRequest, int[] sampledIndices) {
+    static float[] calculateMeanThresholds(TrainingRequest<float[]> samplingRequest, int[] sampledIndices) throws IOException {
         int totalSamples = sampledIndices.length;
         float[] mean = null;
         int lastIndex = 0;
         for (int docId : sampledIndices) {
-            float[] vector = samplingRequest.getVectorByDocId(docId);
+            float[] vector = samplingRequest.getVectorAtThePosition(docId);
             if (vector == null) {
                 throw new IllegalArgumentException("Vector at sampled index " + docId + " is null.");
             }
@@ -64,13 +66,14 @@ class QuantizerHelper {
      * @throws IllegalArgumentException if any of the vectors at the sampled indices are null.
      * @throws IllegalStateException    if the mean or standard deviation arrays are not initialized after processing.
      */
-    static Pair<float[], float[]> calculateMeanAndStdDev(TrainingRequest<float[]> trainingRequest, int[] sampledIndices) {
+    static Pair<float[], float[]> calculateMeanAndStdDev(TrainingRequest<float[]> trainingRequest, int[] sampledIndices)
+        throws IOException {
         float[] meanArray = null;
         float[] stdDevArray = null;
         int totalSamples = sampledIndices.length;
         int lastIndex = 0;
         for (int docId : sampledIndices) {
-            float[] vector = trainingRequest.getVectorByDocId(docId);
+            float[] vector = trainingRequest.getVectorAtThePosition(docId);
             if (vector == null) {
                 throw new IllegalArgumentException("Vector at sampled index " + docId + " is null.");
             }
