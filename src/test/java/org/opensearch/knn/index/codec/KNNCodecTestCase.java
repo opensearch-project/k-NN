@@ -30,6 +30,7 @@ import org.opensearch.knn.index.SpaceType;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.VectorField;
 import org.opensearch.knn.index.mapper.KNNVectorFieldType;
+import org.opensearch.knn.index.query.BaseQueryFactory;
 import org.opensearch.knn.index.query.KNNQueryFactory;
 import org.opensearch.knn.jni.JNIService;
 import org.opensearch.knn.index.query.KNNQuery;
@@ -380,13 +381,16 @@ public class KNNCodecTestCase extends KNNTestCase {
         verify(perFieldKnnVectorsFormatSpy, atLeastOnce()).getMaxDimensions(eq(FIELD_NAME_ONE));
 
         IndexSearcher searcher = new IndexSearcher(reader);
+
         Query query = KNNQueryFactory.create(
-            KNNEngine.LUCENE,
-            "dummy",
-            FIELD_NAME_ONE,
-            new float[] { 1.0f, 0.0f, 0.0f },
-            1,
-            DEFAULT_VECTOR_DATA_TYPE_FIELD
+            BaseQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(KNNEngine.LUCENE)
+                .indexName("dummy")
+                .fieldName(FIELD_NAME_ONE)
+                .vector(new float[] { 1.0f, 0.0f, 0.0f })
+                .k(1)
+                .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                .build()
         );
 
         assertEquals(1, searcher.count(query));
@@ -416,12 +420,14 @@ public class KNNCodecTestCase extends KNNTestCase {
 
         IndexSearcher searcher1 = new IndexSearcher(reader1);
         Query query1 = KNNQueryFactory.create(
-            KNNEngine.LUCENE,
-            "dummy",
-            FIELD_NAME_TWO,
-            new float[] { 1.0f, 0.0f },
-            1,
-            DEFAULT_VECTOR_DATA_TYPE_FIELD
+            BaseQueryFactory.CreateQueryRequest.builder()
+                .knnEngine(KNNEngine.LUCENE)
+                .indexName("dummy")
+                .fieldName(FIELD_NAME_TWO)
+                .vector(new float[] { 1.0f, 0.0f })
+                .k(1)
+                .vectorDataType(DEFAULT_VECTOR_DATA_TYPE_FIELD)
+                .build()
         );
 
         assertEquals(1, searcher1.count(query1));
