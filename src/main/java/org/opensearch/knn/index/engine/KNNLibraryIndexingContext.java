@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.index.engine;
 
+import org.opensearch.knn.index.engine.qframe.QuantizationConfig;
 import org.opensearch.knn.index.mapper.PerDimensionProcessor;
 import org.opensearch.knn.index.mapper.PerDimensionValidator;
 import org.opensearch.knn.index.mapper.VectorValidator;
@@ -21,6 +22,13 @@ public interface KNNLibraryIndexingContext {
      * @return Map of parameters
      */
     Map<String, Object> getLibraryParameters();
+
+    /**
+     * Get map of parameters that get passed to the quantization framework
+     *
+     * @return Map of parameters
+     */
+    QuantizationConfig getQuantizationConfig();
 
     /**
      *

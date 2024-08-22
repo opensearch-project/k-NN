@@ -35,7 +35,7 @@ public class FaissSQEncoder implements Encoder {
             new Parameter.StringParameter(FAISS_SQ_TYPE, FAISS_SQ_ENCODER_FP16, (v, context) -> FAISS_SQ_ENCODER_TYPES.contains(v))
         )
         .addParameter(FAISS_SQ_CLIP, new Parameter.BooleanParameter(FAISS_SQ_CLIP, false, (v, context) -> Objects.nonNull(v)))
-        .setMapGenerator(
+        .setKnnLibraryIndexingContextGenerator(
             ((methodComponent, methodComponentContext, knnMethodConfigContext) -> MethodAsMapBuilder.builder(
                 FAISS_SQ_DESCRIPTION,
                 methodComponent,

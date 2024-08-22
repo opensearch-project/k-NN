@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableMap;
 import org.opensearch.painless.spi.PainlessExtension;
 import org.opensearch.painless.spi.Whitelist;
 import org.opensearch.painless.spi.WhitelistLoader;
+import org.opensearch.script.FieldScript;
 import org.opensearch.script.ScoreScript;
 import org.opensearch.script.ScriptContext;
 import org.opensearch.script.ScriptedMetricAggContexts;
@@ -33,6 +34,8 @@ public class KNNAllowlistExtension implements PainlessExtension {
             ScriptedMetricAggContexts.CombineScript.CONTEXT,
             allowLists,
             ScriptedMetricAggContexts.ReduceScript.CONTEXT,
+            allowLists,
+            FieldScript.CONTEXT,
             allowLists
         );
     }
