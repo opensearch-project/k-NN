@@ -6,6 +6,7 @@
 package org.opensearch.knn.index.codec.KNN990Codec;
 
 import lombok.AllArgsConstructor;
+import lombok.Setter;
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.index.SegmentWriteState;
@@ -92,14 +93,25 @@ public final class KNNQuantizationStateWriter {
         output.writeLong(indexStartPosition);
         output.writeInt(-1);
         CodecUtil.writeFooter(output);
-        fieldQuantizationStates = new ArrayList<>();
+    }
+
+    /**
+     * Writes the bytes of existing quantization states.  Used during merge to rewrite file.
+     * @throws IOException exception could be thrown during write
+     */
+    public void writeExistingStates() throws IOException {
+        for (FieldQuantizationState fieldQuantizationState : fieldQuantizationStates) {
+            fieldQuantizationState.setPosition(output.getFilePointer());
+            output.writeBytes(fieldQuantizationState.stateBytes, fieldQuantizationState.stateBytes.length);
+        }
     }
 
     @AllArgsConstructor
     private static class FieldQuantizationState {
         final String fieldName;
         final byte[] stateBytes;
-        final Long position;
+        @Setter
+        Long position;
     }
 
     public void closeOutput() throws IOException {

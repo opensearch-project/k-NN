@@ -115,6 +115,11 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
                 throw new IllegalStateException("Unsupported vector encoding [" + fieldInfo.getVectorEncoding() + "]");
         }
 
+        quantizationStateWriter.writeHeader(segmentWriteState);
+        quantizationStateWriter.writeExistingStates();
+        // quantizationStateWriter.writeState(fieldInfo.getName(), quantizationState);
+        quantizationStateWriter.writeFooter();
+
         NativeIndexWriter.getWriter(fieldInfo, segmentWriteState).mergeIndex(knnVectorValues);
     }
 

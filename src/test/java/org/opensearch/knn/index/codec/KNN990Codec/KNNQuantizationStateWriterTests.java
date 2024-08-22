@@ -185,4 +185,60 @@ public class KNNQuantizationStateWriterTests extends KNNTestCase {
             mockedStaticCodecUtil.verify(() -> CodecUtil.writeFooter(output));
         }
     }
+
+    @SneakyThrows
+    public void testWriteExistingStates() {
+        final String segmentName = "test-segment-name";
+
+        final SegmentInfo segmentInfo = new SegmentInfo(
+            Mockito.mock(Directory.class),
+            Mockito.mock(Version.class),
+            Mockito.mock(Version.class),
+            segmentName,
+            0,
+            false,
+            false,
+            Mockito.mock(Codec.class),
+            Mockito.mock(Map.class),
+            new byte[16],
+            Mockito.mock(Map.class),
+            Mockito.mock(Sort.class)
+        );
+
+        Directory directory = Mockito.mock(Directory.class);
+        IndexOutput output = Mockito.mock(IndexOutput.class);
+        Mockito.when(directory.createOutput(any(), any())).thenReturn(output);
+
+        final SegmentWriteState segmentWriteState = new SegmentWriteState(
+            Mockito.mock(InfoStream.class),
+            directory,
+            segmentInfo,
+            Mockito.mock(FieldInfos.class),
+            null,
+            Mockito.mock(IOContext.class)
+        );
+        KNNQuantizationStateWriter quantizationStateWriter = new KNNQuantizationStateWriter(segmentWriteState);
+
+        quantizationStateWriter.writeExistingStates();
+
+        Mockito.verify(output, times(0)).writeBytes(any(byte[].class), anyInt());
+
+        String fieldName1 = "test-field-1";
+        String fieldName2 = "test-field-2";
+        QuantizationState quantizationState1 = new OneBitScalarQuantizationState(
+            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+            new float[] { 1.2f, 2.3f, 3.4f, 4.5f }
+        );
+        QuantizationState quantizationState2 = new OneBitScalarQuantizationState(
+            new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
+            new float[] { 2.3f, 3.4f, 4.5f, 5.6f }
+        );
+        quantizationStateWriter.writeState(fieldName1, quantizationState1);
+        quantizationStateWriter.writeState(fieldName2, quantizationState2);
+
+        quantizationStateWriter.writeExistingStates();
+
+        // Should be called once in each write state method and once in the second call of writeExistingStates
+        Mockito.verify(output, times(4)).writeBytes(any(byte[].class), anyInt());
+    }
 }
