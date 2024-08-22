@@ -49,6 +49,7 @@ namespace knn_jni {
          * @param memoryAddress The address of the memory location where data will be stored.
          * @param data 2D byte array containing binary data to be stored in native memory.
          * @param initialCapacity The initial capacity of the memory location.
+         * @param append whether to append or start from index 0 when called subsequently with the same address
          * @return memory address of std::vector<uint8_t> where the data is stored.
          */
         jlong storeBinaryVectorData(knn_jni::JNIUtilInterface *, JNIEnv *, jlong , jobjectArray, jlong, jboolean);
@@ -63,6 +64,7 @@ namespace knn_jni {
         * @param memoryAddress The address of the memory location where data will be stored.
         * @param data 2D byte array containing int8 data to be stored in native memory.
         * @param initialCapacity The initial capacity of the memory location.
+        * @param append whether to append or start from index 0 when called subsequently with the same address
         * @return memory address of std::vector<int8_t> where the data is stored.
         */
         jlong storeByteVectorData(knn_jni::JNIUtilInterface *, JNIEnv *, jlong , jobjectArray, jlong, jboolean);

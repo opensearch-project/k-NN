@@ -11,7 +11,6 @@ import org.apache.lucene.index.VectorEncoding;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.knn.index.SpaceType;
-import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.index.engine.KNNEngine;
 import org.opensearch.knn.index.engine.KNNLibraryIndexingContext;
@@ -25,8 +24,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.opensearch.knn.common.KNNConstants.DIMENSION;
-import static org.opensearch.knn.common.KNNConstants.FAISS_SIGNED_BYTE_SQ;
-import static org.opensearch.knn.common.KNNConstants.INDEX_DESCRIPTION_PARAMETER;
 import static org.opensearch.knn.common.KNNConstants.KNN_ENGINE;
 import static org.opensearch.knn.common.KNNConstants.PARAMETERS;
 import static org.opensearch.knn.common.KNNConstants.QFRAMEWORK_CONFIG;
@@ -130,23 +127,10 @@ public class MethodFieldMapper extends KNNVectorFieldMapper {
         this.fieldType.putAttribute(KNN_ENGINE, knnEngine.getName());
 
         try {
-            Map<String, Object> libParams = knnLibraryIndexingContext.getLibraryParameters();
-
-            // If VectorDataType is Byte using Faiss engine then manipulate Index Description to use "SQ8_direct_signed" scalar quantizer
-            // For example, Index Description "HNSW16,Flat" will be updated as "HNSW16,SQ8_direct_signed"
-            if (VectorDataType.BYTE == vectorDataType && libParams.containsKey(INDEX_DESCRIPTION_PARAMETER)) {
-                String indexDescriptionValue = (String) libParams.get(INDEX_DESCRIPTION_PARAMETER);
-                if (indexDescriptionValue != null && indexDescriptionValue.isEmpty() == false) {
-                    StringBuilder indexDescriptionBuilder = new StringBuilder();
-                    indexDescriptionBuilder.append(indexDescriptionValue.split(",")[0]);
-                    indexDescriptionBuilder.append(",");
-                    indexDescriptionBuilder.append(FAISS_SIGNED_BYTE_SQ);
-
-                    libParams.replace(INDEX_DESCRIPTION_PARAMETER, indexDescriptionBuilder.toString());
-                    libParams.put(KNNConstants.VECTOR_DATA_TYPE_FIELD, VectorDataType.BYTE.getValue());
-                }
-            }
-            this.fieldType.putAttribute(PARAMETERS, XContentFactory.jsonBuilder().map(libParams).toString());
+            this.fieldType.putAttribute(
+                PARAMETERS,
+                XContentFactory.jsonBuilder().map(knnLibraryIndexingContext.getLibraryParameters()).toString()
+            );
         } catch (IOException ioe) {
             throw new RuntimeException(String.format("Unable to create KNNVectorFieldMapper: %s", ioe));
         }

@@ -99,7 +99,7 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
                     methodComponentContext,
                     knnMethodConfigContext
                 ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "");
-                return adjustPrefix(methodAsMapBuilder, methodComponentContext, knnMethodConfigContext);
+                return adjustIndexDescription(methodAsMapBuilder, methodComponentContext, knnMethodConfigContext);
             }))
             .build();
     }

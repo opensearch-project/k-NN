@@ -327,7 +327,8 @@ void ByteIndexService::insertToIndex(
 
     faiss::IndexIDMap * idMap = reinterpret_cast<faiss::IndexIDMap *> (idMapAddress);
 
-    // Add vectors in batches by casting int8 vectors into float with a batch size of 1000
+    // Add vectors in batches by casting int8 vectors into float with a batch size of 1000 to avoid additional memory spike.
+    // Refer to this github issue for more details https://github.com/opensearch-project/k-NN/issues/1659#issuecomment-2307390255
     int batchSize = 1000;
     std::vector <float> inputFloatVectors(batchSize * dim);
     std::vector <int64_t> floatVectorsIds(batchSize);
@@ -337,8 +338,6 @@ void ByteIndexService::insertToIndex(
     for (int id = 0; id < numVectors; id += batchSize) {
         if (numVectors - id < batchSize) {
             batchSize = numVectors - id;
-            inputFloatVectors.resize(batchSize * dim);
-            floatVectorsIds.resize(batchSize);
         }
 
         for (int i = 0; i < batchSize; ++i) {
@@ -364,6 +363,5 @@ void ByteIndexService::writeIndex(
         throw std::runtime_error("Failed to write index to disk");
     }
 }
-
 } // namespace faiss_wrapper
 } // namesapce knn_jni
