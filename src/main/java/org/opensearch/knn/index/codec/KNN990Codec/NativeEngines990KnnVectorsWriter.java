@@ -50,7 +50,6 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
         this.segmentWriteState = segmentWriteState;
         this.flatVectorsWriter = flatVectorsWriter;
         this.quantizationStateWriter = new KNNQuantizationStateWriter(segmentWriteState);
-
     }
 
     /**
