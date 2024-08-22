@@ -62,27 +62,26 @@ public class KNNQuantizationStateReaderTests extends KNNTestCase {
             segmentSuffix
         );
 
-        KNNQuantizationStateReader quantizationStateReader = Mockito.mock(KNNQuantizationStateReader.class);
-        Mockito.when(quantizationStateReader.getNumFields(input)).thenReturn(2);
-        Mockito.when(quantizationStateReader.read(segmentReadState)).thenCallRealMethod();
+        try (MockedStatic<KNNQuantizationStateReader> mockedStaticReader = Mockito.mockStatic(KNNQuantizationStateReader.class)) {
+            mockedStaticReader.when(() -> KNNQuantizationStateReader.getNumFields(input)).thenReturn(2);
+            mockedStaticReader.when(() -> KNNQuantizationStateReader.read(segmentReadState)).thenCallRealMethod();
+            try (MockedStatic<CodecUtil> mockedStaticCodecUtil = mockStatic(CodecUtil.class)) {
+                KNNQuantizationStateReader.read(segmentReadState);
 
-        try (MockedStatic<CodecUtil> mockedStaticCodecUtil = mockStatic(CodecUtil.class)) {
-            quantizationStateReader.read(segmentReadState);
-
-            mockedStaticCodecUtil.verify(() -> CodecUtil.retrieveChecksum(input));
-            Mockito.verify(input, times(2)).readInt();
-            Mockito.verify(input, times(2)).readString();
-            Mockito.verify(input, times(2)).readVLong();
-            Mockito.verify(input, times(2)).readBytes(any(byte[].class), anyInt(), anyInt());
-            Mockito.verify(input, times(2)).seek(anyLong());
+                mockedStaticCodecUtil.verify(() -> CodecUtil.retrieveChecksum(input));
+                Mockito.verify(input, times(2)).readInt();
+                Mockito.verify(input, times(2)).readString();
+                Mockito.verify(input, times(2)).readVLong();
+                Mockito.verify(input, times(2)).readBytes(any(byte[].class), anyInt(), anyInt());
+                Mockito.verify(input, times(2)).seek(anyLong());
+            }
         }
     }
 
     @SneakyThrows
     public void testGetNumFields() {
         IndexInput input = Mockito.mock(IndexInput.class);
-        KNNQuantizationStateReader quantizationStateReader = new KNNQuantizationStateReader();
-        quantizationStateReader.getNumFields(input);
+        KNNQuantizationStateReader.getNumFields(input);
 
         Mockito.verify(input, times(2)).readInt();
         Mockito.verify(input, times(1)).readLong();
