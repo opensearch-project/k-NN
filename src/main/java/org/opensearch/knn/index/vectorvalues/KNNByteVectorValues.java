@@ -11,6 +11,7 @@ import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.ByteVectorValues;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * Concrete implementation of {@link KNNVectorValues} that returns float[] as vector and provides an abstraction over
@@ -26,6 +27,17 @@ public class KNNByteVectorValues extends KNNVectorValues<byte[]> {
     public byte[] getVector() throws IOException {
         final byte[] vector = VectorValueExtractorStrategy.extractByteVector(vectorValuesIterator);
         this.dimension = vector.length;
+        this.bytesPerVector = vector.length;
+        return vector;
+    }
+
+    @Override
+    public byte[] conditionalCloneVector() throws IOException {
+        byte[] vector = getVector();
+        if (vectorValuesIterator.getDocIdSetIterator() instanceof ByteVectorValues) {
+            return Arrays.copyOf(vector, vector.length);
+
+        }
         return vector;
     }
 }

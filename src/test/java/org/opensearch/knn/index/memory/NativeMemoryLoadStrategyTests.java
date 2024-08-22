@@ -15,6 +15,7 @@ import com.google.common.collect.ImmutableMap;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.knn.KNNTestCase;
+import org.opensearch.knn.TestUtils;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.VectorDataType;
 import org.opensearch.knn.jni.JNICommons;
@@ -32,6 +33,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -56,7 +59,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
         }
         Map<String, Object> parameters = ImmutableMap.of(KNNConstants.SPACE_TYPE, SpaceType.DEFAULT.getValue());
         long memoryAddress = JNICommons.storeVectorData(0, vectors, numVectors * dimension);
-        JNIService.createIndex(ids, memoryAddress, dimension, path, parameters, knnEngine);
+        TestUtils.createIndex(ids, memoryAddress, dimension, path, parameters, knnEngine);
 
         // Setup mock resource manager
         ResourceWatcherService resourceWatcherService = mock(ResourceWatcherService.class);
@@ -104,7 +107,7 @@ public class NativeMemoryLoadStrategyTests extends KNNTestCase {
             VectorDataType.BINARY.getValue()
         );
         long memoryAddress = JNICommons.storeByteVectorData(0, vectors, numVectors);
-        JNIService.createIndex(ids, memoryAddress, dimension, path, parameters, knnEngine);
+        TestUtils.createIndex(ids, memoryAddress, dimension, path, parameters, knnEngine);
 
         // Setup mock resource manager
         ResourceWatcherService resourceWatcherService = mock(ResourceWatcherService.class);
