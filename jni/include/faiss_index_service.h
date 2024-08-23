@@ -125,6 +125,63 @@ protected:
     virtual void allocIndex(faiss::Index * index, size_t dim, size_t numVectors) override;
 };
 
+/**
+ * A class to provide operations on index
+ * This class should evolve to have only cpp object but not jni object
+ */
+class ByteIndexService : public IndexService {
+public:
+    //TODO Remove dependency on JNIUtilInterface and JNIEnv
+    //TODO Reduce the number of parameters
+    ByteIndexService(std::unique_ptr<FaissMethods> faissMethods);
+
+/**
+     * Initialize index
+     *
+     * @param jniUtil jni util
+     * @param env jni environment
+     * @param metric space type for distance calculation
+     * @param indexDescription index description to be used by faiss index factory
+     * @param dim dimension of vectors
+     * @param numVectors number of vectors
+     * @param threadCount number of thread count to be used while adding data
+     * @param parameters parameters to be applied to faiss index
+     * @return memory address of the native index object
+     */
+    virtual jlong initIndex(knn_jni::JNIUtilInterface *jniUtil, JNIEnv *env, faiss::MetricType metric, std::string indexDescription, int dim, int numVectors, int threadCount, std::unordered_map<std::string, jobject> parameters) override;
+    /**
+     * Add vectors to index
+     *
+     * @param jniUtil jni util
+     * @param env jni environment
+     * @param metric space type for distance calculation
+     * @param indexDescription index description to be used by faiss index factory
+     * @param dim dimension of vectors
+     * @param numIds number of vectors
+     * @param threadCount number of thread count to be used while adding data
+     * @param vectorsAddress memory address which is holding vector data
+     * @param idMap a map of document id and vector id
+     * @param parameters parameters to be applied to faiss index
+     */
+    virtual void insertToIndex(int dim, int numIds, int threadCount, int64_t vectorsAddress, std::vector<int64_t> &ids, jlong idMapAddress) override;
+    /**
+     * Write index to disk
+     *
+     * @param jniUtil jni util
+     * @param env jni environment
+     * @param metric space type for distance calculation
+     * @param indexDescription index description to be used by faiss index factory
+     * @param threadCount number of thread count to be used while adding data
+     * @param indexPath path to write index
+     * @param idMap a map of document id and vector id
+     * @param parameters parameters to be applied to faiss index
+     */
+    virtual void writeIndex(std::string indexPath, jlong idMapAddress) override;
+    virtual ~ByteIndexService() = default;
+protected:
+    virtual void allocIndex(faiss::Index * index, size_t dim, size_t numVectors) override;
+};
+
 }
 }
 

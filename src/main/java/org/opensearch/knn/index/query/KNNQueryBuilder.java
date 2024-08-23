@@ -481,22 +481,32 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         }
 
         byte[] byteVector = new byte[0];
-        if (VectorDataType.BINARY == vectorDataType) {
-            byteVector = new byte[vector.length];
-            for (int i = 0; i < vector.length; i++) {
-                validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
-                byteVector[i] = (byte) vector[i];
-            }
-            spaceType.validateVector(byteVector);
-        } else if (VectorDataType.BYTE == vectorDataType) {
-            byteVector = new byte[vector.length];
-            for (int i = 0; i < vector.length; i++) {
-                validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
-                byteVector[i] = (byte) vector[i];
-            }
-            spaceType.validateVector(byteVector);
-        } else {
-            spaceType.validateVector(vector);
+        switch (vectorDataType) {
+            case BINARY:
+                byteVector = new byte[vector.length];
+                for (int i = 0; i < vector.length; i++) {
+                    validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
+                    byteVector[i] = (byte) vector[i];
+                }
+                spaceType.validateVector(byteVector);
+                break;
+            case BYTE:
+                if (KNNEngine.LUCENE == knnEngine) {
+                    byteVector = new byte[vector.length];
+                    for (int i = 0; i < vector.length; i++) {
+                        validateByteVectorValue(vector[i], knnVectorFieldType.getVectorDataType());
+                        byteVector[i] = (byte) vector[i];
+                    }
+                    spaceType.validateVector(byteVector);
+                } else {
+                    for (float v : vector) {
+                        validateByteVectorValue(v, knnVectorFieldType.getVectorDataType());
+                    }
+                    spaceType.validateVector(vector);
+                }
+                break;
+            default:
+                spaceType.validateVector(vector);
         }
 
         if (KNNEngine.getEnginesThatCreateCustomSegmentFiles().contains(knnEngine)
@@ -512,8 +522,8 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
                 .knnEngine(knnEngine)
                 .indexName(indexName)
                 .fieldName(this.fieldName)
-                .vector(VectorDataType.FLOAT == vectorDataType ? this.vector : null)
-                .byteVector(VectorDataType.BYTE == vectorDataType || VectorDataType.BINARY == vectorDataType ? byteVector : null)
+                .vector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine))
+                .byteVector(getVectorForCreatingQueryRequest(vectorDataType, knnEngine, byteVector))
                 .vectorDataType(vectorDataType)
                 .k(this.k)
                 .methodParameters(this.methodParameters)
@@ -579,6 +589,20 @@ public class KNNQueryBuilder extends AbstractQueryBuilder<KNNQueryBuilder> {
         if (filter != null) {
             vectorQueryType.getQueryWithFilterStatCounter().increment();
         }
+    }
+
+    private float[] getVectorForCreatingQueryRequest(VectorDataType vectorDataType, KNNEngine knnEngine) {
+        if ((VectorDataType.FLOAT == vectorDataType) || (VectorDataType.BYTE == vectorDataType && KNNEngine.FAISS == knnEngine)) {
+            return this.vector;
+        }
+        return null;
+    }
+
+    private byte[] getVectorForCreatingQueryRequest(VectorDataType vectorDataType, KNNEngine knnEngine, byte[] byteVector) {
+        if (VectorDataType.BINARY == vectorDataType || (VectorDataType.BYTE == vectorDataType && KNNEngine.LUCENE == knnEngine)) {
+            return byteVector;
+        }
+        return null;
     }
 
     @Override
