@@ -27,7 +27,7 @@ public final class OffHeapVectorTransferFactory {
             case FLOAT:
                 return (OffHeapVectorTransfer<T>) new OffHeapFloatVectorTransfer(transferLimit);
             case BINARY:
-                // TODO: Add binary here
+                return (OffHeapVectorTransfer<T>) new OffHeapBinaryVectorTransfer(transferLimit);
             case BYTE:
                 return (OffHeapVectorTransfer<T>) new OffHeapByteVectorTransfer(transferLimit);
             default:
