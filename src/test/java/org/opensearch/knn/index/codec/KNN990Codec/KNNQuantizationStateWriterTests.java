@@ -119,12 +119,12 @@ public class KNNQuantizationStateWriterTests extends KNNTestCase {
         );
         KNNQuantizationStateWriter quantizationStateWriter = new KNNQuantizationStateWriter(segmentWriteState);
 
-        String fieldName = "test-field";
+        int fieldNumber = 0;
         QuantizationState quantizationState = new OneBitScalarQuantizationState(
             new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
             new float[] { 1.2f, 2.3f, 3.4f, 4.5f }
         );
-        quantizationStateWriter.writeState(fieldName, quantizationState);
+        quantizationStateWriter.writeState(fieldNumber, quantizationState);
         byte[] stateBytes = quantizationState.toByteArray();
         Mockito.verify(output, times(1)).writeBytes(stateBytes, stateBytes.length);
     }
@@ -162,8 +162,8 @@ public class KNNQuantizationStateWriterTests extends KNNTestCase {
         );
         KNNQuantizationStateWriter quantizationStateWriter = new KNNQuantizationStateWriter(segmentWriteState);
 
-        String fieldName1 = "test-field-1";
-        String fieldName2 = "test-field-2";
+        int fieldNumber1 = 1;
+        int fieldNumber2 = 2;
         QuantizationState quantizationState1 = new OneBitScalarQuantizationState(
             new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
             new float[] { 1.2f, 2.3f, 3.4f, 4.5f }
@@ -172,8 +172,8 @@ public class KNNQuantizationStateWriterTests extends KNNTestCase {
             new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
             new float[] { 2.3f, 3.4f, 4.5f, 5.6f }
         );
-        quantizationStateWriter.writeState(fieldName1, quantizationState1);
-        quantizationStateWriter.writeState(fieldName2, quantizationState2);
+        quantizationStateWriter.writeState(fieldNumber1, quantizationState1);
+        quantizationStateWriter.writeState(fieldNumber2, quantizationState2);
 
         try (MockedStatic<CodecUtil> mockedStaticCodecUtil = mockStatic(CodecUtil.class)) {
             quantizationStateWriter.writeFooter();
@@ -223,8 +223,8 @@ public class KNNQuantizationStateWriterTests extends KNNTestCase {
 
         Mockito.verify(output, times(0)).writeBytes(any(byte[].class), anyInt());
 
-        String fieldName1 = "test-field-1";
-        String fieldName2 = "test-field-2";
+        int fieldNumber1 = 1;
+        int fieldNumber2 = 2;
         QuantizationState quantizationState1 = new OneBitScalarQuantizationState(
             new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
             new float[] { 1.2f, 2.3f, 3.4f, 4.5f }
@@ -233,8 +233,8 @@ public class KNNQuantizationStateWriterTests extends KNNTestCase {
             new ScalarQuantizationParams(ScalarQuantizationType.ONE_BIT),
             new float[] { 2.3f, 3.4f, 4.5f, 5.6f }
         );
-        quantizationStateWriter.writeState(fieldName1, quantizationState1);
-        quantizationStateWriter.writeState(fieldName2, quantizationState2);
+        quantizationStateWriter.writeState(fieldNumber1, quantizationState1);
+        quantizationStateWriter.writeState(fieldNumber2, quantizationState2);
 
         quantizationStateWriter.writeExistingStates();
 

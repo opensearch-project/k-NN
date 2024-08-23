@@ -71,7 +71,7 @@ public class KNNConstants {
     public static final VectorDataType DEFAULT_VECTOR_DATA_TYPE_FIELD = VectorDataType.FLOAT;
 
     public static final String RADIAL_SEARCH_KEY = "radial_search";
-    public static final String QUANTIZATION_STATE_FILE_SUFFIX = "qs";
+    public static final String QUANTIZATION_STATE_FILE_SUFFIX = "qstate";
 
     // Lucene specific constants
     public static final String LUCENE_NAME = "lucene";

@@ -69,8 +69,7 @@ public class KNNQuantizationStateReaderTests extends KNNTestCase {
                 KNNQuantizationStateReader.read(segmentReadState);
 
                 mockedStaticCodecUtil.verify(() -> CodecUtil.retrieveChecksum(input));
-                Mockito.verify(input, times(2)).readInt();
-                Mockito.verify(input, times(2)).readString();
+                Mockito.verify(input, times(4)).readInt();
                 Mockito.verify(input, times(2)).readVLong();
                 Mockito.verify(input, times(2)).readBytes(any(byte[].class), anyInt(), anyInt());
                 Mockito.verify(input, times(2)).seek(anyLong());

@@ -33,10 +33,10 @@ public final class KNNQuantizationStateWriter {
      * QS1 state bytes
      * QS2 state bytes
      * Number of quantization states
-     * QS1 field name
+     * QS1 field number
      * QS1 state bytes length
      * QS1 position of state bytes
-     * QS2 field name
+     * QS2 field number
      * QS2 state bytes length
      * QS2 position of state bytes
      * Position of index section (where QS1 field name is located)
@@ -67,15 +67,15 @@ public final class KNNQuantizationStateWriter {
     /**
      * Writes a quantization state as bytes
      *
-     * @param fieldName field name
+     * @param fieldNumber field number
      * @param quantizationState quantization state
      * @throws IOException could be thrown while writing
      */
-    public void writeState(String fieldName, QuantizationState quantizationState) throws IOException {
+    public void writeState(int fieldNumber, QuantizationState quantizationState) throws IOException {
         byte[] stateBytes = quantizationState.toByteArray();
         long position = output.getFilePointer();
         output.writeBytes(stateBytes, stateBytes.length);
-        fieldQuantizationStates.add(new FieldQuantizationState(fieldName, stateBytes, position));
+        fieldQuantizationStates.add(new FieldQuantizationState(fieldNumber, stateBytes, position));
     }
 
     /**
@@ -86,7 +86,7 @@ public final class KNNQuantizationStateWriter {
         long indexStartPosition = output.getFilePointer();
         output.writeInt(fieldQuantizationStates.size());
         for (FieldQuantizationState fieldQuantizationState : fieldQuantizationStates) {
-            output.writeString(fieldQuantizationState.fieldName);
+            output.writeInt(fieldQuantizationState.fieldNumber);
             output.writeInt(fieldQuantizationState.stateBytes.length);
             output.writeVLong(fieldQuantizationState.position);
         }
@@ -108,7 +108,7 @@ public final class KNNQuantizationStateWriter {
 
     @AllArgsConstructor
     private static class FieldQuantizationState {
-        final String fieldName;
+        final int fieldNumber;
         final byte[] stateBytes;
         @Setter
         Long position;

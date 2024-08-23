@@ -33,10 +33,10 @@ public final class KNNQuantizationStateReader {
      * QS1 state bytes
      * QS2 state bytes
      * Number of quantization states
-     * QS1 field name
+     * QS1 field number
      * QS1 state bytes length
      * QS1 position of state bytes
-     * QS2 field name
+     * QS2 field number
      * QS2 state bytes length
      * QS2 position of state bytes
      * Position of index section (where QS1 field name is located)
@@ -92,7 +92,7 @@ public final class KNNQuantizationStateReader {
             readConfig.getSegmentSuffix(),
             KNNConstants.QUANTIZATION_STATE_FILE_SUFFIX
         );
-        String fieldName = readConfig.getFieldInfo().getName();
+        int fieldNumber = readConfig.getFieldInfo().getFieldNumber();
 
         try (IndexInput input = readConfig.getDirectory().openInput(quantizationStateFileName, IOContext.READ)) {
             CodecUtil.retrieveChecksum(input);
@@ -103,10 +103,10 @@ public final class KNNQuantizationStateReader {
 
             // Read each field's metadata from the index section, break when correct field is found
             for (int i = 0; i < numFields; i++) {
-                String tempFieldName = input.readString();
+                int tempFieldNumber = input.readInt();
                 int tempLength = input.readInt();
                 long tempPosition = input.readVLong();
-                if (tempFieldName.equals(fieldName)) {
+                if (tempFieldNumber == fieldNumber) {
                     position = tempPosition;
                     length = tempLength;
                     break;
@@ -114,7 +114,7 @@ public final class KNNQuantizationStateReader {
             }
 
             if (position == -1 || length == 0) {
-                throw new IllegalArgumentException(String.format("Field %s not found", fieldName));
+                throw new IllegalArgumentException(String.format("Field %s not found", readConfig.getFieldInfo().getName()));
             }
 
             input.seek(position);

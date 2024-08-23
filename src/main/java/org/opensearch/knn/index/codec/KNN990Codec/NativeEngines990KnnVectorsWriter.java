@@ -87,7 +87,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
             );
 
             // TODO: Extract quantization state here, uncomment below line once implemented
-            // quantizationStateWriter.writeState(field.getFieldInfo().getName(), quantizationState);
+            // quantizationStateWriter.writeState(field.getFieldInfo().getFieldNumber(), quantizationState);
 
             NativeIndexWriter.getWriter(field.getFieldInfo(), segmentWriteState).flushIndex(knnVectorValues);
         }
@@ -117,7 +117,7 @@ public class NativeEngines990KnnVectorsWriter extends KnnVectorsWriter {
 
         quantizationStateWriter.writeHeader(segmentWriteState);
         quantizationStateWriter.writeExistingStates();
-        // quantizationStateWriter.writeState(fieldInfo.getName(), quantizationState);
+        // quantizationStateWriter.writeState(fieldInfo.getFieldNumber(), quantizationState);
         quantizationStateWriter.writeFooter();
 
         NativeIndexWriter.getWriter(fieldInfo, segmentWriteState).mergeIndex(knnVectorValues);
