@@ -114,3 +114,47 @@ TEST(CreateBinaryIndexTest, BasicAssertions) {
     indexService.insertToIndex(dim, numIds, threadCount, (int64_t) &vectors, ids, indexAddress);
     indexService.writeIndex(indexPath, indexAddress);
 }
+
+TEST(CreateByteIndexTest, BasicAssertions) {
+    // Define the data
+    faiss::idx_t numIds = 200;
+    std::vector<faiss::idx_t> ids;
+    std::vector<int8_t> vectors;
+    int dim = 8;
+    vectors.reserve(numIds * dim);
+    for (int64_t i = 0; i < numIds; ++i) {
+        ids.push_back(i);
+        for (int j = 0; j < dim; ++j) {
+            vectors.push_back(test_util::RandomInt(-128, 127));
+        }
+    }
+
+    std::string indexPath = test_util::RandomString(10, "tmp/", ".faiss");
+    faiss::MetricType metricType = faiss::METRIC_L2;
+    std::string indexDescription = "HNSW16,SQ8_direct_signed";
+    int threadCount = 1;
+    std::unordered_map<std::string, jobject> parametersMap;
+
+    // Set up jni
+    JNIEnv *jniEnv = nullptr;
+    NiceMock<test_util::MockJNIUtil> mockJNIUtil;
+
+    // Setup faiss method mock
+    // This object is handled by unique_ptr inside indexService.createIndex()
+    MockIndex* index = new MockIndex();
+    // This object is handled by unique_ptr inside indexService.createIndex()
+    faiss::IndexIDMap* indexIdMap = new faiss::IndexIDMap(index);
+    std::unique_ptr<MockFaissMethods> mockFaissMethods(new MockFaissMethods());
+    EXPECT_CALL(*mockFaissMethods, indexFactory(dim, ::testing::StrEq(indexDescription.c_str()), metricType))
+        .WillOnce(Return(index));
+    EXPECT_CALL(*mockFaissMethods, indexIdMap(index))
+        .WillOnce(Return(indexIdMap));
+    EXPECT_CALL(*mockFaissMethods, writeIndex(indexIdMap, ::testing::StrEq(indexPath.c_str())))
+        .Times(1);
+
+    // Create the index
+    knn_jni::faiss_wrapper::ByteIndexService indexService(std::move(mockFaissMethods));
+    long indexAddress = indexService.initIndex(&mockJNIUtil, jniEnv, metricType, indexDescription, dim, numIds, threadCount, parametersMap);
+    indexService.insertToIndex(dim, numIds, threadCount, (int64_t) &vectors, ids, indexAddress);
+    indexService.writeIndex(indexPath, indexAddress);
+}

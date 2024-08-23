@@ -35,7 +35,11 @@ import static org.opensearch.knn.common.KNNConstants.METHOD_PARAMETER_M;
  */
 public class FaissHNSWMethod extends AbstractFaissMethod {
 
-    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(VectorDataType.FLOAT, VectorDataType.BINARY);
+    private static final Set<VectorDataType> SUPPORTED_DATA_TYPES = ImmutableSet.of(
+        VectorDataType.FLOAT,
+        VectorDataType.BINARY,
+        VectorDataType.BYTE
+    );
 
     public final static List<SpaceType> SUPPORTED_SPACES = Arrays.asList(
         SpaceType.UNDEFINED,
@@ -95,7 +99,7 @@ public class FaissHNSWMethod extends AbstractFaissMethod {
                     methodComponentContext,
                     knnMethodConfigContext
                 ).addParameter(METHOD_PARAMETER_M, "", "").addParameter(METHOD_ENCODER_PARAMETER, ",", "");
-                return adjustPrefix(methodAsMapBuilder, methodComponentContext, knnMethodConfigContext);
+                return adjustIndexDescription(methodAsMapBuilder, methodComponentContext, knnMethodConfigContext);
             }))
             .build();
     }

@@ -300,7 +300,7 @@ public interface NativeMemoryAllocation {
 
             if (this.memoryAddress != 0) {
                 if (IndexUtil.isBinaryIndex(vectorDataType)) {
-                    JNICommons.freeByteVectorData(this.memoryAddress);
+                    JNICommons.freeBinaryVectorData(this.memoryAddress);
                 } else {
                     JNICommons.freeVectorData(this.memoryAddress);
                 }
