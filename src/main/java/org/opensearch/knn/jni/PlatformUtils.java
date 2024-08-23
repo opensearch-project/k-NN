@@ -82,33 +82,39 @@ public class PlatformUtils {
 
     public static boolean isAVX512SupportedBySystem() {       
 
-            // The "/proc/cpuinfo" is a virtual file which identifies and provides the processor details used
-            // by system. This info contains "flags" for each processor which determines the qualities of that processor
-            // and it's ability to process different instruction sets like mmx, avx, avx2, avx512 and so on.
-            // https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/deployment_guide/s2-proc-cpuinfo
-            // Here, we are trying to read the details of all processors used by system and find if any of the processor
-            // supports AVX512 instructions supported by faiss.             
-            String fileName = "/proc/cpuinfo";
-            String[] avx512 = { "avx512f", "avx512cd", "avx512vl", "avx512dq","avx512bw" };
-            try {                
-                String flags = AccessController.doPrivileged((PrivilegedExceptionAction<String>) () -> {
-                     String allFlags = Files.lines(Paths.get(fileName))
-                        .filter(s -> s.startsWith("flags"))
-                        .limit(1).toString();
-                    return allFlags.toLowerCase();
-                });
-                
-                for (String flag: avx512)
-                {
-                    if (!flags.contains(flag))
-                        return false;
-                }
-
-                return true;
-            } catch (Exception e) {
-                logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage(), e);
-            }
+        if (!Platform.isIntel() || Platform.isMac()) {
+            return false;
+        }
         
-        return false;
+        if (Platform.isLinux()) {
+        // The "/proc/cpuinfo" is a virtual file which identifies and provides the processor details used
+        // by system. This info contains "flags" for each processor which determines the qualities of that processor
+        // and it's ability to process different instruction sets like mmx, avx, avx2, avx512 and so on.
+        // https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/deployment_guide/s2-proc-cpuinfo
+        // Here, we are trying to read the details of all processors used by system and find if any of the processor
+        // supports AVX512 instructions supported by faiss.             
+        String fileName = "/proc/cpuinfo";
+        String[] avx512 = { "avx512f", "avx512cd", "avx512vl", "avx512dq","avx512bw" };
+        try {                
+            String flags = AccessController.doPrivileged((PrivilegedExceptionAction<String>) () -> {
+                    String allFlags = Files.lines(Paths.get(fileName))
+                    .filter(s -> s.startsWith("flags"))
+                    .limit(1).toString();
+                return allFlags.toLowerCase();
+            });
+            
+            for (String flag: avx512)
+            {
+                if (!flags.contains(flag))
+                    return false;
+            }
+
+            return true;
+            } catch (Exception e) {
+            logger.error("[KNN] Error reading file [{}]. [{}]", fileName, e.getMessage(), e);
+            }
+        }
+        
+    return false;
     }
 }
