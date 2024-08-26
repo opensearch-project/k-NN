@@ -15,6 +15,9 @@ import org.opensearch.knn.quantization.models.requests.TrainingRequest;
 import org.opensearch.knn.quantization.sampler.Sampler;
 import org.opensearch.knn.quantization.sampler.SamplerType;
 import org.opensearch.knn.quantization.sampler.SamplingFactory;
+import oshi.util.tuples.Pair;
+
+import java.io.IOException;
 
 /**
  * MultiBitScalarQuantizer is responsible for quantizing vectors into multi-bit representations per dimension.
@@ -105,14 +108,11 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
      * @return a MultiBitScalarQuantizationState containing the computed thresholds.
      */
     @Override
-    public QuantizationState train(final TrainingRequest<float[]> trainingRequest) {
+    public QuantizationState train(final TrainingRequest<float[]> trainingRequest) throws IOException {
         int[] sampledIndices = sampler.sample(trainingRequest.getTotalNumberOfVectors(), samplingSize);
-        int dimension = trainingRequest.getVectorByDocId(sampledIndices[0]).length;
-        float[] meanArray = new float[dimension];
-        float[] stdDevArray = new float[dimension];
         // Calculate sum, mean, and standard deviation in one pass
-        QuantizerHelper.calculateMeanAndStdDev(trainingRequest, sampledIndices, meanArray, stdDevArray);
-        float[][] thresholds = calculateThresholds(meanArray, stdDevArray, dimension);
+        Pair<float[], float[]> meanAndStdDev = QuantizerHelper.calculateMeanAndStdDev(trainingRequest, sampledIndices);
+        float[][] thresholds = calculateThresholds(meanAndStdDev.getA(), meanAndStdDev.getB());
         ScalarQuantizationParams params = (bitsPerCoordinate == 2)
             ? new ScalarQuantizationParams(ScalarQuantizationType.TWO_BIT)
             : new ScalarQuantizationParams(ScalarQuantizationType.FOUR_BIT);
@@ -148,10 +148,10 @@ public class MultiBitScalarQuantizer implements Quantizer<float[], byte[]> {
      *
      * @param meanArray      the mean for each dimension.
      * @param stdDevArray    the standard deviation for each dimension.
-     * @param dimension the number of dimensions in the vectors.
      * @return the thresholds for quantization.
      */
-    private float[][] calculateThresholds(final float[] meanArray, final float[] stdDevArray, final int dimension) {
+    private float[][] calculateThresholds(final float[] meanArray, final float[] stdDevArray) {
+        int dimension = meanArray.length;
         float[][] thresholds = new float[bitsPerCoordinate][dimension];
         float coef = bitsPerCoordinate + 1;
         for (int i = 0; i < bitsPerCoordinate; i++) {

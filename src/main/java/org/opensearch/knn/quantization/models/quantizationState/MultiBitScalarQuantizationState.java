@@ -8,6 +8,7 @@ package org.opensearch.knn.quantization.models.quantizationState;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.apache.lucene.util.RamUsageEstimator;
 import org.opensearch.Version;
 import org.opensearch.core.common.io.stream.StreamInput;
 import org.opensearch.core.common.io.stream.StreamOutput;
@@ -123,5 +124,50 @@ public final class MultiBitScalarQuantizationState implements QuantizationState 
      */
     public static MultiBitScalarQuantizationState fromByteArray(final byte[] bytes) throws IOException {
         return (MultiBitScalarQuantizationState) QuantizationStateSerializer.deserialize(bytes, MultiBitScalarQuantizationState::new);
+    }
+
+    /**
+     * Calculates and returns the number of bytes stored per vector after quantization.
+     *
+     * @return the number of bytes stored per vector.
+     */
+    @Override
+    public int getBytesPerVector() {
+        // Check if thresholds are null or have invalid structure
+        if (thresholds == null || thresholds.length == 0 || thresholds[0] == null) {
+            throw new IllegalStateException("Error in getBytesStoredPerVector: The thresholds array is not initialized.");
+        }
+
+        // Calculate the number of bytes required for multi-bit quantization
+        return thresholds.length * thresholds[0].length;
+    }
+
+    @Override
+    public int getDimensions() {
+        // For multi-bit quantization, the dimension for indexing is the number of rows * columns in the thresholds array.
+        // Where number of column reprensents Dimesion of Original vector and number of rows equals to number of bits
+        // Check if thresholds are null or have invalid structure
+        if (thresholds == null || thresholds.length == 0 || thresholds[0] == null) {
+            throw new IllegalStateException("Error in getting Dimension: The thresholds array is not initialized.");
+        }
+        return thresholds.length * thresholds[0].length;
+    }
+
+    /**
+     * Calculates the memory usage of the MultiBitScalarQuantizationState object in bytes.
+     * This method computes the shallow size of the instance itself, the shallow size of the
+     * quantization parameters, and the memory usage of the 2D thresholds array.
+     *
+     * @return The estimated memory usage of the MultiBitScalarQuantizationState object in bytes.
+     */
+    @Override
+    public long ramBytesUsed() {
+        long size = RamUsageEstimator.shallowSizeOfInstance(MultiBitScalarQuantizationState.class);
+        size += RamUsageEstimator.shallowSizeOf(quantizationParams);
+        size += RamUsageEstimator.shallowSizeOf(thresholds); // shallow size of the 2D array (array of references to rows)
+        for (float[] row : thresholds) {
+            size += RamUsageEstimator.sizeOf(row); // size of each row in the 2D array
+        }
+        return size;
     }
 }
