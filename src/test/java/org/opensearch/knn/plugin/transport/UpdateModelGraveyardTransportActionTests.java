@@ -5,6 +5,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import org.opensearch.Version;
 import org.opensearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.action.ActionListener;
@@ -212,7 +213,8 @@ public class UpdateModelGraveyardTransportActionTests extends KNNSingleNodeTestC
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Version.CURRENT
             ),
             modelBlob,
             modelId

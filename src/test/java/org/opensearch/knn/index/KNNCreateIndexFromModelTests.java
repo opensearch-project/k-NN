@@ -12,6 +12,7 @@
 package org.opensearch.knn.index;
 
 import com.google.common.collect.ImmutableMap;
+import org.opensearch.Version;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.admin.indices.create.CreateIndexRequestBuilder;
 import org.opensearch.common.settings.Settings;
@@ -65,7 +66,8 @@ public class KNNCreateIndexFromModelTests extends KNNSingleNodeTestCase {
             "",
             "test-node",
             MethodComponentContext.EMPTY,
-            VectorDataType.FLOAT
+            VectorDataType.FLOAT,
+            Version.V_EMPTY
         );
 
         Model model = new Model(modelMetadata, modelBlob, modelId);

@@ -116,7 +116,8 @@ public class TrainingJobTests extends KNNTestCase {
                 error,
                 nodeAssignment,
                 MethodComponentContext.EMPTY,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Version.CURRENT
             ),
             null,
             modelID

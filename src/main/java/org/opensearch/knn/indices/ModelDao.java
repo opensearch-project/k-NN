@@ -423,6 +423,7 @@ public interface ModelDao {
                         return;
                     }
                     final Map<String, Object> responseMap = response.getSourceAsMap();
+                    System.out.println(responseMap);
                     Model model = Model.getModelFromSourceMap(responseMap);
                     actionListener.onResponse(new GetModelResponse(model));
 

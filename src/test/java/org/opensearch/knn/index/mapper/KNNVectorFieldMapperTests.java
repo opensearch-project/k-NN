@@ -14,6 +14,7 @@ import org.apache.lucene.index.VectorEncoding;
 import org.apache.lucene.util.BytesRef;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.opensearch.Version;
 import org.opensearch.cluster.metadata.IndexMetadata;
 import org.opensearch.common.Explicit;
 import org.opensearch.common.ValidationException;
@@ -200,7 +201,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.FLOAT
+            VectorDataType.FLOAT,
+            Version.V_EMPTY
         );
         builder.modelId.setValue(modelId);
         Mapper.BuilderContext builderContext = new Mapper.BuilderContext(settings, new ContentPath());
@@ -717,7 +719,8 @@ public class KNNVectorFieldMapperTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.FLOAT
+            VectorDataType.FLOAT,
+            Version.V_EMPTY
         );
         when(mockModelDao.getMetadata(modelId)).thenReturn(mockModelMetadata);
 

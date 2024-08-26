@@ -45,7 +45,8 @@ public class GetModelResponseTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
     }
 

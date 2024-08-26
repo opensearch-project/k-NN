@@ -469,7 +469,8 @@ public class KNN80DocValuesConsumerTests extends KNNTestCase {
                 "",
                 "",
                 MethodComponentContext.EMPTY,
-                VectorDataType.FLOAT
+                VectorDataType.FLOAT,
+                Version.V_EMPTY
             ),
             modelBytes,
             modelId

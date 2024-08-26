@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.plugin.transport;
 
+import org.opensearch.Version;
 import org.opensearch.core.action.ActionListener;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.cluster.ClusterState;
@@ -70,7 +71,8 @@ public class UpdateModelMetadataTransportActionTests extends KNNSingleNodeTestCa
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         // Get update transport action

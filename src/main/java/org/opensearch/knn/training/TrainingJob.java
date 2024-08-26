@@ -15,6 +15,7 @@ import lombok.Getter;
 import org.apache.commons.lang.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.opensearch.Version;
 import org.opensearch.common.UUIDs;
 import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.index.KNNSettings;
@@ -72,6 +73,7 @@ public class TrainingJob implements Runnable {
         String description,
         String nodeAssignment
     ) {
+        System.out.println("Checkpoint");
         // Generate random base64 string if one is not provided
         this.modelId = StringUtils.isNotBlank(modelId) ? modelId : UUIDs.randomBase64UUID();
         this.knnMethodContext = Objects.requireNonNull(knnMethodContext, "MethodContext cannot be null.");
@@ -90,7 +92,8 @@ public class TrainingJob implements Runnable {
                 "",
                 nodeAssignment,
                 knnMethodContext.getMethodComponentContext(),
-                knnMethodConfigContext.getVectorDataType()
+                knnMethodConfigContext.getVectorDataType(),
+                Version.CURRENT
             ),
             null,
             this.modelId

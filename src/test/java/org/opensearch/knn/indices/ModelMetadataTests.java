@@ -11,6 +11,7 @@
 
 package org.opensearch.knn.indices;
 
+import org.opensearch.Version;
 import org.opensearch.common.io.stream.BytesStreamOutput;
 import org.opensearch.common.xcontent.XContentFactory;
 import org.opensearch.core.xcontent.ToXContent;
@@ -47,7 +48,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         BytesStreamOutput streamOutput = new BytesStreamOutput();
@@ -70,7 +72,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         assertEquals(knnEngine, modelMetadata.getKnnEngine());
@@ -88,7 +91,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         assertEquals(spaceType, modelMetadata.getSpaceType());
@@ -106,7 +110,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         assertEquals(dimension, modelMetadata.getDimension());
@@ -124,7 +129,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         assertEquals(modelState, modelMetadata.getState());
@@ -142,7 +148,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         assertEquals(timeValue, modelMetadata.getTimestamp());
@@ -160,7 +167,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         assertEquals(description, modelMetadata.getDescription());
@@ -178,7 +186,8 @@ public class ModelMetadataTests extends KNNTestCase {
             error,
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         assertEquals(error, modelMetadata.getError());
@@ -196,10 +205,30 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            vectorDataType
+            vectorDataType,
+            Version.CURRENT
         );
 
         assertEquals(vectorDataType, modelMetadata.getVectorDataType());
+    }
+
+    public void testGetModelVersion() {
+        Version version = Version.CURRENT;
+        ModelMetadata modelMetadata = new ModelMetadata(
+            KNNEngine.DEFAULT,
+            SpaceType.L2,
+            12,
+            ModelState.CREATED,
+            ZonedDateTime.now(ZoneOffset.UTC).toString(),
+            "",
+            "",
+            "",
+            MethodComponentContext.EMPTY,
+            VectorDataType.DEFAULT,
+            version
+        );
+
+        assertEquals(version, modelMetadata.getModelVersion());
     }
 
     public void testSetState() {
@@ -214,7 +243,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         assertEquals(modelState, modelMetadata.getState());
@@ -236,7 +266,8 @@ public class ModelMetadataTests extends KNNTestCase {
             error,
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         assertEquals(error, modelMetadata.getError());
@@ -256,6 +287,7 @@ public class ModelMetadataTests extends KNNTestCase {
         String error = "test-error";
         String nodeAssignment = "";
         MethodComponentContext methodComponentContext = MethodComponentContext.EMPTY;
+        Version version = Version.CURRENT;
 
         String expected = knnEngine.getName()
             + ","
@@ -275,7 +307,9 @@ public class ModelMetadataTests extends KNNTestCase {
             + ","
             + methodComponentContext.toClusterStateString()
             + ","
-            + VectorDataType.DEFAULT.getValue();
+            + VectorDataType.DEFAULT.getValue()
+            + ","
+            + version.toString();
 
         ModelMetadata modelMetadata = new ModelMetadata(
             knnEngine,
@@ -287,7 +321,8 @@ public class ModelMetadataTests extends KNNTestCase {
             error,
             nodeAssignment,
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         assertEquals(expected, modelMetadata.toString());
@@ -308,7 +343,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
         ModelMetadata modelMetadata2 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -320,7 +356,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         ModelMetadata modelMetadata3 = new ModelMetadata(
@@ -333,7 +370,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
         ModelMetadata modelMetadata4 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -345,7 +383,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
         ModelMetadata modelMetadata5 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -357,7 +396,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
         ModelMetadata modelMetadata6 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -369,7 +409,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
         ModelMetadata modelMetadata7 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -381,7 +422,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
         ModelMetadata modelMetadata8 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -393,7 +435,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
         ModelMetadata modelMetadata9 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -405,7 +448,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "diff error",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         ModelMetadata modelMetadata10 = new ModelMetadata(
@@ -418,7 +462,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             new MethodComponentContext("test", Collections.emptyMap()),
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         assertEquals(modelMetadata1, modelMetadata1);
@@ -449,7 +494,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
         ModelMetadata modelMetadata2 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -461,7 +507,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         ModelMetadata modelMetadata3 = new ModelMetadata(
@@ -474,7 +521,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
         ModelMetadata modelMetadata4 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -486,7 +534,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
         ModelMetadata modelMetadata5 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -498,7 +547,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
         ModelMetadata modelMetadata6 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -510,7 +560,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
         ModelMetadata modelMetadata7 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -522,7 +573,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
         ModelMetadata modelMetadata8 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -534,7 +586,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
         ModelMetadata modelMetadata9 = new ModelMetadata(
             KNNEngine.FAISS,
@@ -546,7 +599,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "diff error",
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         ModelMetadata modelMetadata10 = new ModelMetadata(
@@ -559,7 +613,8 @@ public class ModelMetadataTests extends KNNTestCase {
             "",
             "",
             new MethodComponentContext("test", Collections.emptyMap()),
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         assertEquals(modelMetadata1.hashCode(), modelMetadata1.hashCode());
@@ -585,6 +640,7 @@ public class ModelMetadataTests extends KNNTestCase {
         String error = "test-error";
         String nodeAssignment = "test-node";
         MethodComponentContext methodComponentContext = MethodComponentContext.EMPTY;
+        Version version = Version.CURRENT;
 
         String stringRep1 = knnEngine.getName()
             + ","
@@ -604,7 +660,9 @@ public class ModelMetadataTests extends KNNTestCase {
             + ","
             + methodComponentContext.toClusterStateString()
             + ","
-            + VectorDataType.DEFAULT.getValue();
+            + VectorDataType.DEFAULT.getValue()
+            + ","
+            + version.toString();
 
         String stringRep2 = knnEngine.getName()
             + ","
@@ -632,7 +690,8 @@ public class ModelMetadataTests extends KNNTestCase {
             error,
             nodeAssignment,
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.CURRENT
         );
 
         ModelMetadata expected2 = new ModelMetadata(
@@ -645,7 +704,8 @@ public class ModelMetadataTests extends KNNTestCase {
             error,
             "",
             MethodComponentContext.EMPTY,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            Version.V_EMPTY
         );
 
         ModelMetadata fromString1 = ModelMetadata.fromString(stringRep1);
@@ -668,6 +728,8 @@ public class ModelMetadataTests extends KNNTestCase {
         String nodeAssignment = "test-node";
         MethodComponentContext methodComponentContext = getMethodComponentContext();
         MethodComponentContext emptyMethodComponentContext = MethodComponentContext.EMPTY;
+        Version version = Version.CURRENT;
+        Version emptyVersion = Version.V_EMPTY;
 
         ModelMetadata expected = new ModelMetadata(
             knnEngine,
@@ -679,7 +741,8 @@ public class ModelMetadataTests extends KNNTestCase {
             error,
             nodeAssignment,
             methodComponentContext,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            version
         );
         ModelMetadata expected2 = new ModelMetadata(
             knnEngine,
@@ -691,7 +754,8 @@ public class ModelMetadataTests extends KNNTestCase {
             error,
             "",
             emptyMethodComponentContext,
-            VectorDataType.DEFAULT
+            VectorDataType.DEFAULT,
+            emptyVersion
         );
         Map<String, Object> metadataAsMap = new HashMap<>();
         metadataAsMap.put(KNNConstants.KNN_ENGINE, knnEngine.getName());
@@ -707,12 +771,14 @@ public class ModelMetadataTests extends KNNTestCase {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
         builder = methodComponentContext.toXContent(builder, ToXContent.EMPTY_PARAMS).endObject();
         metadataAsMap.put(KNNConstants.MODEL_METHOD_COMPONENT_CONTEXT, builder.toString());
+        metadataAsMap.put(KNNConstants.MODEL_VERSION, version.toString());
 
         ModelMetadata fromMap = ModelMetadata.getMetadataFromSourceMap(metadataAsMap);
         assertEquals(expected, fromMap);
 
         metadataAsMap.put(KNNConstants.MODEL_NODE_ASSIGNMENT, null);
         metadataAsMap.put(KNNConstants.MODEL_METHOD_COMPONENT_CONTEXT, null);
+        metadataAsMap.put(KNNConstants.MODEL_VERSION, emptyVersion);
         assertEquals(expected2, fromMap);
     }
 
@@ -739,7 +805,8 @@ public class ModelMetadataTests extends KNNTestCase {
                 error,
                 nodeAssignment,
                 methodComponentContext,
-                VectorDataType.DEFAULT
+                VectorDataType.DEFAULT,
+                Version.CURRENT
             )
         );
         assertEquals("Model description cannot contain any commas: ','", e.getMessage());
