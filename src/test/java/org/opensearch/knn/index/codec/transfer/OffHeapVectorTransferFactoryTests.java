@@ -20,7 +20,7 @@ public class OffHeapVectorTransferFactoryTests extends OpenSearchTestCase {
         assertNotSame(byteVectorTransfer, OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.BYTE, 10));
 
         var binaryVectorTransfer = OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.BINARY, 10);
-        assertEquals(OffHeapByteVectorTransfer.class, binaryVectorTransfer.getClass());
+        assertEquals(OffHeapBinaryVectorTransfer.class, binaryVectorTransfer.getClass());
         assertNotSame(binaryVectorTransfer, OffHeapVectorTransferFactory.getVectorTransfer(VectorDataType.BINARY, 10));
     }
 }

@@ -39,9 +39,13 @@ public class JNIService {
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
                 return FaissService.initBinaryIndex(numDocs, dim, parameters);
-            } else {
-                return FaissService.initIndex(numDocs, dim, parameters);
             }
+            if (IndexUtil.isByteIndex(parameters)) {
+                return FaissService.initByteIndex(numDocs, dim, parameters);
+            }
+
+            return FaissService.initIndex(numDocs, dim, parameters);
+
         }
 
         throw new IllegalArgumentException(
@@ -71,6 +75,8 @@ public class JNIService {
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
                 FaissService.insertToBinaryIndex(docs, vectorsAddress, dimension, indexAddress, threadCount);
+            } else if (IndexUtil.isByteIndex(parameters)) {
+                FaissService.insertToByteIndex(docs, vectorsAddress, dimension, indexAddress, threadCount);
             } else {
                 FaissService.insertToIndex(docs, vectorsAddress, dimension, indexAddress, threadCount);
             }
@@ -94,6 +100,8 @@ public class JNIService {
         if (KNNEngine.FAISS == knnEngine) {
             if (IndexUtil.isBinaryIndex(knnEngine, parameters)) {
                 FaissService.writeBinaryIndex(indexAddress, indexPath);
+            } else if (IndexUtil.isByteIndex(parameters)) {
+                FaissService.writeByteIndex(indexAddress, indexPath);
             } else {
                 FaissService.writeIndex(indexAddress, indexPath);
             }
