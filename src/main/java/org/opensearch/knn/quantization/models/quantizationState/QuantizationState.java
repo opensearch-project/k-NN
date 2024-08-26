@@ -29,4 +29,28 @@ public interface QuantizationState extends Writeable {
      * @throws IOException if an I/O error occurs during serialization.
      */
     byte[] toByteArray() throws IOException;
+
+    /**
+     * Calculates the number of bytes stored per vector after quantization.
+     * This method can be overridden by implementing classes to provide the specific calculation.
+     *
+     * @return the number of bytes stored per vector.
+     */
+    int getBytesPerVector();
+
+    /**
+     * Returns the effective dimension used for indexing after quantization.
+     * For one-bit quantization, this might correspond to the length of thresholds.
+     * For multi-bit quantization, this might correspond to rows * columns of the thresholds matrix.
+     *
+     * @return the effective dimension for indexing.
+     */
+    int getDimensions();
+
+    /**
+     * Estimates the memory usage of the quantization state in bytes.
+     *
+     * @return the memory usage in bytes.
+     */
+    long ramBytesUsed();
 }

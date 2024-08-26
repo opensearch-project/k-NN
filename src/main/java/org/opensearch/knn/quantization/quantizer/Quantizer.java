@@ -9,6 +9,8 @@ import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOut
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
 import org.opensearch.knn.quantization.models.requests.TrainingRequest;
 
+import java.io.IOException;
+
 /**
  * The Quantizer interface defines the methods required for training and quantizing vectors
  * in the context of K-Nearest Neighbors (KNN) and similar machine learning tasks.
@@ -27,7 +29,7 @@ public interface Quantizer<T, R> {
      * @param trainingRequest the request containing data and parameters for training.
      * @return a QuantizationState containing the learned parameters.
      */
-    QuantizationState train(TrainingRequest<T> trainingRequest);
+    QuantizationState train(TrainingRequest<T> trainingRequest) throws IOException;
 
     /**
      * Quantizes the provided vector using the specified quantization state.
