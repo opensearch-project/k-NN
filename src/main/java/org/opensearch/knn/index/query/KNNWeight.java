@@ -45,6 +45,7 @@ import org.opensearch.knn.plugin.stats.KNNCounter;
 import org.opensearch.knn.quantization.factory.QuantizerFactory;
 import org.opensearch.knn.quantization.models.quantizationOutput.QuantizationOutput;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationState;
+import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateCache;
 import org.opensearch.knn.quantization.models.quantizationState.QuantizationStateReadConfig;
 import org.opensearch.knn.quantization.quantizer.Quantizer;
 
@@ -238,15 +239,20 @@ public class KNNWeight extends Weight {
         // TODO: Use this to get quantization config
         QuantizationConfig quantizationConfig = FieldInfoExtractor.extractQuantizationConfig(fieldInfo);
 
-        QuantizationState quantizationState = KNNQuantizationStateReader.read(
-            new QuantizationStateReadConfig(
-                reader.directory(),
-                knnQuery.getField(),
-                Long.toString(reader.getSegmentInfo().getFieldInfosGen(), Character.MAX_RADIX),
-                fieldInfo,
-                quantizationConfig.getQuantizationType()
-            )
-        );
+        QuantizationState quantizationState = QuantizationStateCache.getInstance().getQuantizationState(knnQuery.getField());
+
+        if (quantizationState == null) {
+            quantizationState = KNNQuantizationStateReader.read(
+                new QuantizationStateReadConfig(
+                    reader.directory(),
+                    knnQuery.getField(),
+                    Long.toString(reader.getSegmentInfo().getFieldInfosGen(), Character.MAX_RADIX),
+                    fieldInfo,
+                    quantizationConfig.getQuantizationType()
+                )
+            );
+            QuantizationStateCache.getInstance().addQuantizationState(knnQuery.getField(), quantizationState);
+        }
 
         KNNEngine knnEngine;
         SpaceType spaceType;
@@ -384,10 +390,6 @@ public class KNNWeight extends Weight {
 
         return Arrays.stream(results)
             .collect(Collectors.toMap(KNNQueryResult::getId, result -> knnEngine.score(result.getScore(), spaceType)));
-    }
-
-    private void quantize(DocIdSetIterator vectorValues) {
-
     }
 
     @VisibleForTesting
